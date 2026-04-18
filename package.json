@@ -1,0 +1,33 @@
+{
+  "name": "function-factory",
+  "version": "0.0.1",
+  "private": true,
+  "description": "An upstream-to-downstream compiler for trustworthy executable Functions.",
+  "author": "Wislet J. Celestin <wes@koales.ai>",
+  "license": "UNLICENSED",
+  "type": "module",
+  "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "compile": "pnpm --filter @factory/compiler run compile",
+    "dream": "tsx .agent/tools/dream.ts",
+    "bootstrap": "tsx scripts/bootstrap.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.4.0"
+  },
+  "pnpm": {
+    "peerDependencyRules": {
+      "ignoreMissing": []
+    }
+  }
+}

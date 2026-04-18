@@ -1,0 +1,11 @@
+node_modules
+dist
+*.tsbuildinfo
+.factory/intermediates
+.env
+.env.local
+.DS_Store
+coverage
+*.log
+.turbo
+.pnpm-store

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "compiler",
+  "description": "Invoke the Factory's Stage 5 PRD-to-WorkGraph compiler",
+  "operations": {
+    "compile": {
+      "required_args": {
+        "prd_path": {
+          "type": "string",
+          "description": "Path to the PRD markdown file under specs/prds/"
+        },
+        "output_dir": {
+          "type": "string",
+          "default": "specs/workgraphs"
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["full", "dry-run", "gate1-only"],
+          "default": "full",
+          "description": "full = all 8 passes + Gate 1 + WorkGraph emission; dry-run = all 8 passes but no file writes; gate1-only = stops after Gate 1, emits only the Coverage Report"
+        }
+      },
+      "preconditions": [
+        "prd_path exists",
+        "PRD front-matter is well-formed YAML",
+        "source_refs in PRD are resolvable"
+      ],
+      "side_effects": [
+        "emits intermediate artifacts per pass to .factory/intermediates/ (gitignored)",
+        "emits CoverageReport to specs/coverage-reports/ on every run",
+        "emits WorkGraph to specs/workgraphs/ on successful Gate 1"
+      ],
+      "output_contract": {
+        "on_success": "WorkGraph YAML written + CoverageReport (overall: pass)",
+        "on_gate1_fail": "CoverageReport (overall: fail) written; NO WorkGraph emitted; exit code 10",
+        "on_uncertainty": "UncertaintyLedger written; compiler halts; exit code 20",
+        "on_internal_error": "error with pass number and artifact; exit code 1"
+      },
+      "requires_approval": false
+    },
+    "pass": {
+      "required_args": {
+        "pass_number": { "type": "integer", "minimum": 0, "maximum": 8 },
+        "input_path": { "type": "string" }
+      },
+      "description": "Run a single compiler pass. For debugging; not the normal pipeline.",
+      "requires_approval": false
+    }
+  }
+}

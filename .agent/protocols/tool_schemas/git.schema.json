@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "git",
+  "description": "Git operations governed by Factory conventions",
+  "operations": {
+    "commit": {
+      "required_args": {
+        "message": {
+          "type": "string",
+          "pattern": "^(FN|GATE|META|INFRA)-[A-Z0-9-]+: .+$",
+          "description": "Must begin with artifact ID prefix. Examples: 'FN-GATE-1: implement atom coverage check', 'META: add factory-meta skill'"
+        },
+        "paths": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Explicit file paths to stage. No `git add -A`."
+        }
+      },
+      "preconditions": [
+        "working tree is clean of unrelated changes",
+        "tests pass for the files being committed",
+        "lineage audit passes for any spec/ changes"
+      ],
+      "side_effects": ["creates commit", "writes to episodic memory"],
+      "requires_approval": false
+    },
+    "push": {
+      "required_args": {
+        "branch": { "type": "string" },
+        "remote": { "type": "string", "default": "origin" }
+      },
+      "blocked_targets": ["main", "production", "release"],
+      "preconditions": ["branch has commits ahead of base"],
+      "requires_approval": true,
+      "warning": "Push to main/production/release is permanently blocked. Open a PR instead."
+    },
+    "create_pr": {
+      "required_args": {
+        "title": { "type": "string", "maxLength": 72 },
+        "body": { "type": "string" },
+        "base": { "type": "string", "default": "main" },
+        "head": { "type": "string" },
+        "draft": { "type": "boolean", "default": true }
+      },
+      "preconditions": [
+        "all tests pass",
+        "all coverage gates applicable to the PR's changes pass",
+        "PR body cites the Function ID / Gate / META task it implements"
+      ],
+      "side_effects": ["notifies reviewers", "triggers CI"],
+      "requires_approval": false
+    },
+    "merge_pr": {
+      "required_args": {
+        "pr_number": { "type": "integer" },
+        "merge_method": { "type": "string", "enum": ["squash", "rebase"] }
+      },
+      "preconditions": [
+        "CI is passing",
+        "architect approval recorded",
+        "PR body cites a Function / Gate / META task"
+      ],
+      "requires_approval": true
+    },
+    "force_push": {
+      "blocked_targets": ["main", "production", "release", "staging", "*"],
+      "requires_approval": true,
+      "warning": "force_push is permanently blocked. Use merge-commit strategies."
+    }
+  }
+}
