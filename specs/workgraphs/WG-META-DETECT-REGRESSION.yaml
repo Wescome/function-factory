@@ -1,0 +1,118 @@
+id: WG-META-DETECT-REGRESSION
+source_refs:
+  - ATOM-META-DETECT-REGRESSION-AC-01
+  - ATOM-META-DETECT-REGRESSION-AC-02
+  - ATOM-META-DETECT-REGRESSION-AC-03
+  - ATOM-META-DETECT-REGRESSION-AC-04
+  - ATOM-META-DETECT-REGRESSION-AC-05
+  - ATOM-META-DETECT-REGRESSION-AC-06
+  - ATOM-META-DETECT-REGRESSION-AC-07
+  - ATOM-META-DETECT-REGRESSION-AC-08
+  - ATOM-META-DETECT-REGRESSION-AC-09
+  - ATOM-META-DETECT-REGRESSION-AC-10
+  - ATOM-META-DETECT-REGRESSION-AC-11
+  - ATOM-META-DETECT-REGRESSION-AC-12
+  - ATOM-META-DETECT-REGRESSION-AC-13
+  - ATOM-META-DETECT-REGRESSION-AC-14
+  - ATOM-META-DETECT-REGRESSION-AC-15
+  - ATOM-META-DETECT-REGRESSION-CONSTRAINT-01
+  - ATOM-META-DETECT-REGRESSION-CONSTRAINT-02
+  - ATOM-META-DETECT-REGRESSION-CONSTRAINT-03
+  - ATOM-META-DETECT-REGRESSION-CONSTRAINT-04
+  - ATOM-META-DETECT-REGRESSION-CONSTRAINT-05
+  - ATOM-META-DETECT-REGRESSION-CONSTRAINT-06
+  - ATOM-META-DETECT-REGRESSION-CONSTRAINT-07
+  - ATOM-META-DETECT-REGRESSION-CONSTRAINT-08
+  - ATOM-META-DETECT-REGRESSION-CONSTRAINT-09
+  - ATOM-META-DETECT-REGRESSION-METRIC-01
+  - ATOM-META-DETECT-REGRESSION-METRIC-02
+  - ATOM-META-DETECT-REGRESSION-METRIC-03
+  - ATOM-META-DETECT-REGRESSION-METRIC-04
+  - ATOM-META-DETECT-REGRESSION-METRIC-05
+  - CONTRACT-META-DETECT-REGRESSION-ACCEPTANCE
+  - CONTRACT-META-DETECT-REGRESSION-CONSTRAINT
+  - CONTRACT-META-DETECT-REGRESSION-NFR
+  - CR-PRD-META-DETECT-REGRESSION-GATE1-2026-04-19T17-09-24-247Z
+  - INV-META-DETECT-REGRESSION-DETERMINISM
+  - INV-META-DETECT-REGRESSION-EMISSION
+  - INV-META-DETECT-REGRESSION-FAIL-CLOSED
+  - INV-META-DETECT-REGRESSION-LINEAGE
+  - PRD-META-DETECT-REGRESSION
+  - VAL-META-DETECT-REGRESSION-VAL-01
+  - VAL-META-DETECT-REGRESSION-VAL-02
+  - VAL-META-DETECT-REGRESSION-VAL-03
+  - VAL-META-DETECT-REGRESSION-VAL-04
+explicitness: explicit
+rationale: WorkGraph assembled from validated intermediates of
+  PRD-META-DETECT-REGRESSION; Gate 1 verdict pass cited in source_refs
+functionId: FP-META-DETECT-REGRESSION
+nodes:
+  - id: CONTRACT-META-DETECT-REGRESSION-ACCEPTANCE
+    type: execution
+    title: Aggregate contract for acceptance-category requirements of
+      PRD-META-DETECT-REGRESSION
+    implements: CONTRACT-META-DETECT-REGRESSION-ACCEPTANCE
+  - id: CONTRACT-META-DETECT-REGRESSION-CONSTRAINT
+    type: control
+    title: Aggregate contract for constraint-category requirements of
+      PRD-META-DETECT-REGRESSION
+    implements: CONTRACT-META-DETECT-REGRESSION-CONSTRAINT
+  - id: CONTRACT-META-DETECT-REGRESSION-NFR
+    type: execution
+    title: Aggregate contract for nfr-category requirements of
+      PRD-META-DETECT-REGRESSION
+    implements: CONTRACT-META-DETECT-REGRESSION-NFR
+  - id: INV-META-DETECT-REGRESSION-DETERMINISM
+    type: control
+    title: Gate 1 produces byte-identical Gate1Report contents for identical
+      validated inputs modulo id and timestamp
+    implements: INV-META-DETECT-REGRESSION-DETERMINISM
+  - id: INV-META-DETECT-REGRESSION-EMISSION
+    type: control
+    title: Gate 1 writes a Coverage Report to specs/coverage-reports/ on every
+      invocation, pass or fail, before returning control
+    implements: INV-META-DETECT-REGRESSION-EMISSION
+  - id: INV-META-DETECT-REGRESSION-FAIL-CLOSED
+    type: control
+    title: Gate 1 emits overall=fail whenever any active coverage check fails; there
+      is no soft-warning mode
+    implements: INV-META-DETECT-REGRESSION-FAIL-CLOSED
+  - id: INV-META-DETECT-REGRESSION-LINEAGE
+    type: control
+    title: Every Gate1Report's source_refs cites the PRD ID and every artifact ID
+      referenced in failing check detail arrays
+    implements: INV-META-DETECT-REGRESSION-LINEAGE
+  - id: VAL-META-DETECT-REGRESSION-VAL-01
+    type: evidence
+    title: Assert invariant- Gate 1 produces byte-identical Gate1Report contents for
+      identical validated inputs modulo id and timestamp
+    implements: VAL-META-DETECT-REGRESSION-VAL-01
+  - id: VAL-META-DETECT-REGRESSION-VAL-02
+    type: evidence
+    title: Assert invariant- Gate 1 writes a Coverage Report to
+      specs/coverage-reports/ on every invocation, pass or fail, before
+      returning control
+    implements: VAL-META-DETECT-REGRESSION-VAL-02
+  - id: VAL-META-DETECT-REGRESSION-VAL-03
+    type: evidence
+    title: Assert invariant- Gate 1 emits overall=fail whenever any active coverage
+      check fails; there is no soft-warning mode
+    implements: VAL-META-DETECT-REGRESSION-VAL-03
+  - id: VAL-META-DETECT-REGRESSION-VAL-04
+    type: evidence
+    title: Assert invariant- Every Gate1Report's source_refs cites the PRD ID and
+      every artifact ID referenced in failing check detail arrays
+    implements: VAL-META-DETECT-REGRESSION-VAL-04
+edges:
+  - from: VAL-META-DETECT-REGRESSION-VAL-01
+    to: INV-META-DETECT-REGRESSION-DETERMINISM
+    dependencyType: validates
+  - from: VAL-META-DETECT-REGRESSION-VAL-02
+    to: INV-META-DETECT-REGRESSION-EMISSION
+    dependencyType: validates
+  - from: VAL-META-DETECT-REGRESSION-VAL-03
+    to: INV-META-DETECT-REGRESSION-FAIL-CLOSED
+    dependencyType: validates
+  - from: VAL-META-DETECT-REGRESSION-VAL-04
+    to: INV-META-DETECT-REGRESSION-LINEAGE
+    dependencyType: validates

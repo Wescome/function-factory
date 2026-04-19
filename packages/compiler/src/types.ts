@@ -19,6 +19,7 @@ import type {
   PRDDraft,
   RequirementAtom,
   ValidationSpec,
+  WorkGraph,
 } from "@factory/schemas"
 
 /**
@@ -68,6 +69,12 @@ export interface CompileResult {
   readonly reportPath: string
   readonly intermediates: CompilerIntermediates
   readonly mode: FactoryMode
+  /**
+   * Pass 8 output. Populated when Gate 1 verdict is `pass`; null when
+   * Gate 1 failed (Pass 8 is skipped per ConOps §7.2 step 2).
+   */
+  readonly workgraph: WorkGraph | null
+  readonly workgraphPath: string | null
 }
 
 /**

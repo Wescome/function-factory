@@ -83,6 +83,9 @@ async function main(): Promise<void> {
         `PRD- ${result.intermediates.prd.id}\n` +
         `Mode- ${result.mode}\n` +
         `Coverage Report- ${result.reportPath}\n` +
+        (result.workgraphPath !== null
+          ? `WorkGraph- ${result.workgraphPath}\n`
+          : "") +
         `Atoms- ${result.intermediates.atoms.length}, ` +
         `Contracts- ${result.intermediates.contracts.length}, ` +
         `Invariants- ${result.intermediates.invariants.length}, ` +

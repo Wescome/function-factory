@@ -17,14 +17,17 @@
 
 import { readFile } from "node:fs/promises"
 import { dirname, resolve } from "node:path"
+import type { WorkGraph } from "@factory/schemas"
 import type { CompileResult, FactoryMode } from "./types.js"
 import {
+  assembleWorkgraph,
   consistencyCheck,
   deriveContracts,
   deriveDependencies,
   deriveInvariants,
   deriveValidations,
   determineMode,
+  emitWorkgraph,
   extractAtoms,
   normalize,
   runGate1Pass,
@@ -35,6 +38,8 @@ export interface CompileOptions {
   readonly mode?: FactoryMode
   /** Destination directory for Coverage Reports. Default- <repo>/specs/coverage-reports. */
   readonly coverageReportsDir?: string
+  /** Destination directory for WorkGraphs. Default- <repo>/specs/workgraphs. */
+  readonly workgraphsDir?: string
   /** ISO-8601 timestamp for the Coverage Report. Default- current wall clock. */
   readonly timestamp?: string
 }
@@ -85,7 +90,35 @@ export async function compile(
     coverageReportsDir
   )
 
-  return { report, reportPath, intermediates, mode }
+  // Pass 8- assemble WorkGraph from validated intermediates if Gate 1
+  // passed. On Gate 1 fail, workgraph and workgraphPath remain null;
+  // the orchestrator still returns with the Coverage Report preserved
+  // on disk per ConOps §7.2 step 2.
+  let workgraph: WorkGraph | null = null
+  let workgraphPath: string | null = null
+  if (report.overall === "pass") {
+    workgraph = assembleWorkgraph(
+      normalized.draft,
+      atoms,
+      contracts,
+      invariants,
+      dependencies,
+      validations,
+      report
+    )
+    const workgraphsDir =
+      options.workgraphsDir ?? defaultWorkgraphsDir(absolutePrdPath)
+    workgraphPath = await emitWorkgraph(workgraph, workgraphsDir)
+  }
+
+  return {
+    report,
+    reportPath,
+    intermediates,
+    mode,
+    workgraph,
+    workgraphPath,
+  }
 }
 
 /**
@@ -98,4 +131,15 @@ function defaultCoverageReportsDir(prdAbsolutePath: string): string {
   const prdsDir = dirname(prdAbsolutePath)
   const specsDir = dirname(prdsDir)
   return resolve(specsDir, "coverage-reports")
+}
+
+/**
+ * Default WorkGraph destination- resolves <repo-root>/specs/workgraphs
+ * by walking up from the PRD file. Same walk logic as
+ * defaultCoverageReportsDir.
+ */
+function defaultWorkgraphsDir(prdAbsolutePath: string): string {
+  const prdsDir = dirname(prdAbsolutePath)
+  const specsDir = dirname(prdsDir)
+  return resolve(specsDir, "workgraphs")
 }

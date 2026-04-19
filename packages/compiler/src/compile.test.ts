@@ -12,7 +12,7 @@ import { mkdtemp, readFile, rm, writeFile, mkdir } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { parse as parseYaml } from "yaml"
-import { Gate1Report } from "@factory/schemas"
+import { Gate1Report, WorkGraph } from "@factory/schemas"
 import { compile } from "./compile.js"
 
 // Path to the real meta-PRD; resolved from the monorepo root.
@@ -160,8 +160,45 @@ describe("compile- end-to-end against PRD-META-GATE-1-COMPILE-COVERAGE", () => {
       expect(resultB.report.overall).toBe(resultA.report.overall)
       expect(resultB.report.checks).toEqual(resultA.report.checks)
       expect(resultB.report.source_refs).toEqual(resultA.report.source_refs)
+      // Pass 8 determinism- WorkGraph deep-equal across compiles.
+      expect(resultB.workgraph).toEqual(resultA.workgraph)
     } finally {
       await rm(workDir2, { recursive: true, force: true })
     }
+  })
+
+  it("Pass 8- emits a WorkGraph with WG-<PRD subject> id on passing Gate 1", async () => {
+    const result = await compile(prdPath, {
+      timestamp: "2026-04-19T00:00:00Z",
+      coverageReportsDir,
+    })
+    expect(result.report.overall).toBe("pass")
+    expect(result.workgraph).not.toBeNull()
+    expect(result.workgraphPath).not.toBeNull()
+    expect(result.workgraph!.id).toBe("WG-META-GATE-1-COMPILE-COVERAGE")
+    expect(result.workgraph!.functionId).toBe("FP-META-GATE-1-COMPILE-COVERAGE")
+    expect(WorkGraph.safeParse(result.workgraph).success).toBe(true)
+  })
+
+  it("Pass 8- WorkGraph file on disk roundtrips through YAML", async () => {
+    const result = await compile(prdPath, {
+      timestamp: "2026-04-19T00:00:00Z",
+      coverageReportsDir,
+    })
+    expect(result.workgraphPath).not.toBeNull()
+    const onDisk = await readFile(result.workgraphPath!, "utf8")
+    expect(onDisk.length).toBeGreaterThan(0)
+    const roundtrip = parseYaml(onDisk)
+    expect(roundtrip.id).toBe(result.workgraph!.id)
+    expect(roundtrip.functionId).toBe("FP-META-GATE-1-COMPILE-COVERAGE")
+    expect(roundtrip.nodes.length).toBeGreaterThan(0)
+  })
+
+  it("Pass 8- WorkGraph has non-empty nodes array (schema refinement)", async () => {
+    const result = await compile(prdPath, {
+      timestamp: "2026-04-19T00:00:00Z",
+      coverageReportsDir,
+    })
+    expect(result.workgraph!.nodes.length).toBeGreaterThanOrEqual(1)
   })
 })

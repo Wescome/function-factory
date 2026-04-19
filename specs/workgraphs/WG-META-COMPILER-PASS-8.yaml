@@ -1,0 +1,120 @@
+id: WG-META-COMPILER-PASS-8
+source_refs:
+  - ATOM-META-COMPILER-PASS-8-AC-01
+  - ATOM-META-COMPILER-PASS-8-AC-02
+  - ATOM-META-COMPILER-PASS-8-AC-03
+  - ATOM-META-COMPILER-PASS-8-AC-04
+  - ATOM-META-COMPILER-PASS-8-AC-05
+  - ATOM-META-COMPILER-PASS-8-AC-06
+  - ATOM-META-COMPILER-PASS-8-AC-07
+  - ATOM-META-COMPILER-PASS-8-AC-08
+  - ATOM-META-COMPILER-PASS-8-AC-09
+  - ATOM-META-COMPILER-PASS-8-AC-10
+  - ATOM-META-COMPILER-PASS-8-AC-11
+  - ATOM-META-COMPILER-PASS-8-AC-12
+  - ATOM-META-COMPILER-PASS-8-AC-13
+  - ATOM-META-COMPILER-PASS-8-AC-14
+  - ATOM-META-COMPILER-PASS-8-AC-15
+  - ATOM-META-COMPILER-PASS-8-CONSTRAINT-01
+  - ATOM-META-COMPILER-PASS-8-CONSTRAINT-02
+  - ATOM-META-COMPILER-PASS-8-CONSTRAINT-03
+  - ATOM-META-COMPILER-PASS-8-CONSTRAINT-04
+  - ATOM-META-COMPILER-PASS-8-CONSTRAINT-05
+  - ATOM-META-COMPILER-PASS-8-CONSTRAINT-06
+  - ATOM-META-COMPILER-PASS-8-CONSTRAINT-07
+  - ATOM-META-COMPILER-PASS-8-CONSTRAINT-08
+  - ATOM-META-COMPILER-PASS-8-CONSTRAINT-09
+  - ATOM-META-COMPILER-PASS-8-CONSTRAINT-10
+  - ATOM-META-COMPILER-PASS-8-CONSTRAINT-11
+  - ATOM-META-COMPILER-PASS-8-METRIC-01
+  - ATOM-META-COMPILER-PASS-8-METRIC-02
+  - ATOM-META-COMPILER-PASS-8-METRIC-03
+  - ATOM-META-COMPILER-PASS-8-METRIC-04
+  - ATOM-META-COMPILER-PASS-8-METRIC-05
+  - CONTRACT-META-COMPILER-PASS-8-ACCEPTANCE
+  - CONTRACT-META-COMPILER-PASS-8-CONSTRAINT
+  - CONTRACT-META-COMPILER-PASS-8-NFR
+  - CR-PRD-META-COMPILER-PASS-8-GATE1-2026-04-19T17-09-25-508Z
+  - INV-META-COMPILER-PASS-8-DETERMINISM
+  - INV-META-COMPILER-PASS-8-EMISSION
+  - INV-META-COMPILER-PASS-8-FAIL-CLOSED
+  - INV-META-COMPILER-PASS-8-LINEAGE
+  - PRD-META-COMPILER-PASS-8
+  - VAL-META-COMPILER-PASS-8-VAL-01
+  - VAL-META-COMPILER-PASS-8-VAL-02
+  - VAL-META-COMPILER-PASS-8-VAL-03
+  - VAL-META-COMPILER-PASS-8-VAL-04
+explicitness: explicit
+rationale: WorkGraph assembled from validated intermediates of
+  PRD-META-COMPILER-PASS-8; Gate 1 verdict pass cited in source_refs
+functionId: FP-META-COMPILER-PASS-8
+nodes:
+  - id: CONTRACT-META-COMPILER-PASS-8-ACCEPTANCE
+    type: execution
+    title: Aggregate contract for acceptance-category requirements of
+      PRD-META-COMPILER-PASS-8
+    implements: CONTRACT-META-COMPILER-PASS-8-ACCEPTANCE
+  - id: CONTRACT-META-COMPILER-PASS-8-CONSTRAINT
+    type: control
+    title: Aggregate contract for constraint-category requirements of
+      PRD-META-COMPILER-PASS-8
+    implements: CONTRACT-META-COMPILER-PASS-8-CONSTRAINT
+  - id: CONTRACT-META-COMPILER-PASS-8-NFR
+    type: execution
+    title: Aggregate contract for nfr-category requirements of
+      PRD-META-COMPILER-PASS-8
+    implements: CONTRACT-META-COMPILER-PASS-8-NFR
+  - id: INV-META-COMPILER-PASS-8-DETERMINISM
+    type: control
+    title: Gate 1 produces byte-identical Gate1Report contents for identical
+      validated inputs modulo id and timestamp
+    implements: INV-META-COMPILER-PASS-8-DETERMINISM
+  - id: INV-META-COMPILER-PASS-8-EMISSION
+    type: control
+    title: Gate 1 writes a Coverage Report to specs/coverage-reports/ on every
+      invocation, pass or fail, before returning control
+    implements: INV-META-COMPILER-PASS-8-EMISSION
+  - id: INV-META-COMPILER-PASS-8-FAIL-CLOSED
+    type: control
+    title: Gate 1 emits overall=fail whenever any active coverage check fails; there
+      is no soft-warning mode
+    implements: INV-META-COMPILER-PASS-8-FAIL-CLOSED
+  - id: INV-META-COMPILER-PASS-8-LINEAGE
+    type: control
+    title: Every Gate1Report's source_refs cites the PRD ID and every artifact ID
+      referenced in failing check detail arrays
+    implements: INV-META-COMPILER-PASS-8-LINEAGE
+  - id: VAL-META-COMPILER-PASS-8-VAL-01
+    type: evidence
+    title: Assert invariant- Gate 1 produces byte-identical Gate1Report contents for
+      identical validated inputs modulo id and timestamp
+    implements: VAL-META-COMPILER-PASS-8-VAL-01
+  - id: VAL-META-COMPILER-PASS-8-VAL-02
+    type: evidence
+    title: Assert invariant- Gate 1 writes a Coverage Report to
+      specs/coverage-reports/ on every invocation, pass or fail, before
+      returning control
+    implements: VAL-META-COMPILER-PASS-8-VAL-02
+  - id: VAL-META-COMPILER-PASS-8-VAL-03
+    type: evidence
+    title: Assert invariant- Gate 1 emits overall=fail whenever any active coverage
+      check fails; there is no soft-warning mode
+    implements: VAL-META-COMPILER-PASS-8-VAL-03
+  - id: VAL-META-COMPILER-PASS-8-VAL-04
+    type: evidence
+    title: Assert invariant- Every Gate1Report's source_refs cites the PRD ID and
+      every artifact ID referenced in failing check detail arrays
+    implements: VAL-META-COMPILER-PASS-8-VAL-04
+edges:
+  - from: VAL-META-COMPILER-PASS-8-VAL-01
+    to: INV-META-COMPILER-PASS-8-DETERMINISM
+    dependencyType: validates
+  - from: VAL-META-COMPILER-PASS-8-VAL-02
+    to: INV-META-COMPILER-PASS-8-EMISSION
+    dependencyType: validates
+  - from: VAL-META-COMPILER-PASS-8-VAL-03
+    to: INV-META-COMPILER-PASS-8-FAIL-CLOSED
+    dependencyType: validates
+  - from: VAL-META-COMPILER-PASS-8-VAL-04
+    to: INV-META-COMPILER-PASS-8-LINEAGE
+    dependencyType: validates
