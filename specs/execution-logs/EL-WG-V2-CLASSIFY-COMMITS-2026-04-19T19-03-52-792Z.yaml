@@ -1,0 +1,67 @@
+id: EL-WG-V2-CLASSIFY-COMMITS-2026-04-19T19-03-52-792Z
+source_refs:
+  - WG-V2-CLASSIFY-COMMITS
+explicitness: explicit
+rationale: harness_execute dispatched 11 nodes via dry-run adapter
+workGraphId: WG-V2-CLASSIFY-COMMITS
+adapterId: dry-run
+timestamp: 2026-04-19T19:03:52.792Z
+status: completed
+nodes:
+  - nodeId: CONTRACT-V2-CLASSIFY-COMMITS-ACCEPTANCE
+    status: simulated
+    startedAt: 2026-04-19T19:03:52.804Z
+    completedAt: 2026-04-19T19:03:52.804Z
+    rationale: dry-run adapter simulated execution node
+      CONTRACT-V2-CLASSIFY-COMMITS-ACCEPTANCE
+  - nodeId: CONTRACT-V2-CLASSIFY-COMMITS-CONSTRAINT
+    status: simulated
+    startedAt: 2026-04-19T19:03:52.804Z
+    completedAt: 2026-04-19T19:03:52.804Z
+    rationale: dry-run adapter simulated control node
+      CONTRACT-V2-CLASSIFY-COMMITS-CONSTRAINT
+  - nodeId: CONTRACT-V2-CLASSIFY-COMMITS-NFR
+    status: simulated
+    startedAt: 2026-04-19T19:03:52.804Z
+    completedAt: 2026-04-19T19:03:52.804Z
+    rationale: dry-run adapter simulated execution node CONTRACT-V2-CLASSIFY-COMMITS-NFR
+  - nodeId: INV-V2-CLASSIFY-COMMITS-DETERMINISM
+    status: simulated
+    startedAt: 2026-04-19T19:03:52.804Z
+    completedAt: 2026-04-19T19:03:52.805Z
+    rationale: dry-run adapter simulated control node INV-V2-CLASSIFY-COMMITS-DETERMINISM
+  - nodeId: INV-V2-CLASSIFY-COMMITS-EMISSION
+    status: simulated
+    startedAt: 2026-04-19T19:03:52.805Z
+    completedAt: 2026-04-19T19:03:52.805Z
+    rationale: dry-run adapter simulated control node INV-V2-CLASSIFY-COMMITS-EMISSION
+  - nodeId: INV-V2-CLASSIFY-COMMITS-FAIL-CLOSED
+    status: simulated
+    startedAt: 2026-04-19T19:03:52.805Z
+    completedAt: 2026-04-19T19:03:52.805Z
+    rationale: dry-run adapter simulated control node INV-V2-CLASSIFY-COMMITS-FAIL-CLOSED
+  - nodeId: INV-V2-CLASSIFY-COMMITS-LINEAGE
+    status: simulated
+    startedAt: 2026-04-19T19:03:52.805Z
+    completedAt: 2026-04-19T19:03:52.805Z
+    rationale: dry-run adapter simulated control node INV-V2-CLASSIFY-COMMITS-LINEAGE
+  - nodeId: VAL-V2-CLASSIFY-COMMITS-VAL-01
+    status: simulated
+    startedAt: 2026-04-19T19:03:52.805Z
+    completedAt: 2026-04-19T19:03:52.805Z
+    rationale: dry-run adapter simulated evidence node VAL-V2-CLASSIFY-COMMITS-VAL-01
+  - nodeId: VAL-V2-CLASSIFY-COMMITS-VAL-02
+    status: simulated
+    startedAt: 2026-04-19T19:03:52.805Z
+    completedAt: 2026-04-19T19:03:52.805Z
+    rationale: dry-run adapter simulated evidence node VAL-V2-CLASSIFY-COMMITS-VAL-02
+  - nodeId: VAL-V2-CLASSIFY-COMMITS-VAL-03
+    status: simulated
+    startedAt: 2026-04-19T19:03:52.805Z
+    completedAt: 2026-04-19T19:03:52.805Z
+    rationale: dry-run adapter simulated evidence node VAL-V2-CLASSIFY-COMMITS-VAL-03
+  - nodeId: VAL-V2-CLASSIFY-COMMITS-VAL-04
+    status: simulated
+    startedAt: 2026-04-19T19:03:52.805Z
+    completedAt: 2026-04-19T19:03:52.805Z
+    rationale: dry-run adapter simulated evidence node VAL-V2-CLASSIFY-COMMITS-VAL-04
