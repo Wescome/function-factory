@@ -120,7 +120,7 @@ export function deriveInvariants(
   // The constraint-category Contract collects all constraint atoms;
   // link invariants to it for derivedFromContractIds.
   const constraintContract = contracts.find(
-    (c) => c.id === `FN-${subject}-CONTRACT-CONSTRAINT`
+    (c) => c.id === `CONTRACT-${subject}-CONSTRAINT`
   )
   const constraintContractIds: ArtifactId[] =
     constraintContract !== undefined ? [constraintContract.id] : []

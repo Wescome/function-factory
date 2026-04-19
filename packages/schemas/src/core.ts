@@ -13,6 +13,21 @@
 import { z } from "zod"
 import { ArtifactId, Lineage } from "./lineage.js"
 
+// ─── Factory-wide enums ──────────────────────────────────────────────
+
+/**
+ * Factory operating mode. `bootstrap` is the Factory-built-by-Factory phase
+ * where Gate 1's bootstrap_prefix_check runs and every artifact ID in
+ * compiler intermediates must carry the META- qualifier (ConOps §4.1
+ * Rule 2). `steady_state` is post-bootstrap operation where the prefix
+ * check is skipped and Gate 1 runs only the four core coverage checks.
+ *
+ * Canonical definition. Every downstream package that distinguishes
+ * Bootstrap from Steady-State imports from here. Do not redeclare.
+ */
+export const FactoryMode = z.enum(["bootstrap", "steady_state"])
+export type FactoryMode = z.infer<typeof FactoryMode>
+
 // ─── Stage 1 — Signals ───────────────────────────────────────────────
 
 export const SignalType = z.enum([

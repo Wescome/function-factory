@@ -13,11 +13,10 @@
  * category-level clustering because it is mechanical, coverage-
  * complete, and adequate for bootstrap proof.
  *
- * Contract ID prefix- FN-. The ArtifactId regex allows any of
- * (PRS|BC|FN|FP|PRD|WG|INV|VAL|DEP|ATOM|CR|TRJ|PF|INC|DET|DEL|SIG).
- * Contracts describe function behavior, so FN- is the closest semantic
- * match; the "CONTRACT" segment inside the ID distinguishes Contracts
- * from Function artifacts proper.
+ * Contract ID prefix- CONTRACT-. Added to the ArtifactId regex in the
+ * paired schemas PR (2026-04-19) so Contracts are first-class artifacts
+ * with their own prefix namespace rather than sharing the FN- namespace
+ * via an internal -CONTRACT- segment.
  */
 
 import type { ArtifactId, Contract, RequirementAtom } from "@factory/schemas"
@@ -54,7 +53,7 @@ function buildContract(
 ): Contract {
   const subject = prdId.replace(/^PRD-/, "")
   const tag = category.toUpperCase()
-  const id = `FN-${subject}-CONTRACT-${tag}` as ArtifactId
+  const id = `CONTRACT-${subject}-${tag}` as ArtifactId
   const atomIds = categoryAtoms.map((a) => a.id)
 
   return {

@@ -13,22 +13,20 @@ import type {
   ArtifactId,
   Contract,
   Dependency,
+  FactoryMode,
   Gate1Report,
   Invariant,
   PRDDraft,
   RequirementAtom,
   ValidationSpec,
 } from "@factory/schemas"
-import type { Gate1Input } from "@factory/coverage-gates"
 
 /**
- * Factory mode- derived from Gate1Input's mode field so the compiler
- * and Gate 1 share one source of truth for the enum. Bootstrap vs
- * Steady-State is an architectural distinction with real consequences-
- * during Bootstrap, Gate 1's fifth coverage check (META- prefix
- * enforcement) runs; outside Bootstrap, it is skipped.
+ * Factory mode. Canonical definition in @factory/schemas; re-exported
+ * here so compiler-local callers can continue to import it from this
+ * module without reaching into schemas directly.
  */
-export type FactoryMode = Gate1Input["mode"]
+export type { FactoryMode }
 
 /**
  * Output of Pass 0 (normalize). Contains the parsed PRDDraft plus a

@@ -13,6 +13,7 @@
 
 import type {
   ArtifactId,
+  FactoryMode,
   Gate1Report,
   RequirementAtom,
   Contract,
@@ -28,7 +29,7 @@ import { DetectorSpec } from "@factory/schemas"
  */
 export interface Gate1Input {
   readonly prdId: ArtifactId
-  readonly mode: "bootstrap" | "steady_state"
+  readonly mode: FactoryMode
   readonly atoms: readonly RequirementAtom[]
   readonly contracts: readonly Contract[]
   readonly invariants: readonly Invariant[]
@@ -45,8 +46,11 @@ type BootstrapPrefixCheckResult = NonNullable<Checks["bootstrap_prefix_check"]>
 
 // Regex matching valid ArtifactId with META- qualifier- e.g., ATOM-META-FOO,
 // INV-META-BAR. The prefix list mirrors the ArtifactId regex in lineage.ts.
+// LINEAGE: the prefix alternation in this regex must stay in sync with
+// the ArtifactId prefix alternation in packages/schemas/src/lineage.ts.
+// Any change to one requires a matching change to the other in the same PR.
 const META_PREFIX_REGEX =
-  /^(PRS|BC|FN|FP|PRD|WG|INV|VAL|DEP|ATOM|CR|TRJ|PF|INC|DET|DEL|SIG)-META-/
+  /^(PRS|BC|FN|CONTRACT|FP|PRD|WG|INV|VAL|DEP|ATOM|CR|TRJ|PF|INC|DET|DEL|SIG)-META-/
 
 /**
  * Check 1- every RequirementAtom is referenced by ≥1 downstream artifact.
