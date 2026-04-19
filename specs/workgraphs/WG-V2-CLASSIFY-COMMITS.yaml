@@ -1,0 +1,118 @@
+id: WG-V2-CLASSIFY-COMMITS
+source_refs:
+  - ATOM-V2-CLASSIFY-COMMITS-AC-01
+  - ATOM-V2-CLASSIFY-COMMITS-AC-02
+  - ATOM-V2-CLASSIFY-COMMITS-AC-03
+  - ATOM-V2-CLASSIFY-COMMITS-AC-04
+  - ATOM-V2-CLASSIFY-COMMITS-AC-05
+  - ATOM-V2-CLASSIFY-COMMITS-AC-06
+  - ATOM-V2-CLASSIFY-COMMITS-AC-07
+  - ATOM-V2-CLASSIFY-COMMITS-AC-08
+  - ATOM-V2-CLASSIFY-COMMITS-AC-09
+  - ATOM-V2-CLASSIFY-COMMITS-AC-10
+  - ATOM-V2-CLASSIFY-COMMITS-AC-11
+  - ATOM-V2-CLASSIFY-COMMITS-AC-12
+  - ATOM-V2-CLASSIFY-COMMITS-AC-13
+  - ATOM-V2-CLASSIFY-COMMITS-AC-14
+  - ATOM-V2-CLASSIFY-COMMITS-AC-15
+  - ATOM-V2-CLASSIFY-COMMITS-CONSTRAINT-01
+  - ATOM-V2-CLASSIFY-COMMITS-CONSTRAINT-02
+  - ATOM-V2-CLASSIFY-COMMITS-CONSTRAINT-03
+  - ATOM-V2-CLASSIFY-COMMITS-CONSTRAINT-04
+  - ATOM-V2-CLASSIFY-COMMITS-CONSTRAINT-05
+  - ATOM-V2-CLASSIFY-COMMITS-CONSTRAINT-06
+  - ATOM-V2-CLASSIFY-COMMITS-CONSTRAINT-07
+  - ATOM-V2-CLASSIFY-COMMITS-CONSTRAINT-08
+  - ATOM-V2-CLASSIFY-COMMITS-CONSTRAINT-09
+  - ATOM-V2-CLASSIFY-COMMITS-CONSTRAINT-10
+  - ATOM-V2-CLASSIFY-COMMITS-CONSTRAINT-11
+  - ATOM-V2-CLASSIFY-COMMITS-METRIC-01
+  - ATOM-V2-CLASSIFY-COMMITS-METRIC-02
+  - ATOM-V2-CLASSIFY-COMMITS-METRIC-03
+  - ATOM-V2-CLASSIFY-COMMITS-METRIC-04
+  - CONTRACT-V2-CLASSIFY-COMMITS-ACCEPTANCE
+  - CONTRACT-V2-CLASSIFY-COMMITS-CONSTRAINT
+  - CONTRACT-V2-CLASSIFY-COMMITS-NFR
+  - CR-PRD-V2-CLASSIFY-COMMITS-GATE1-2026-04-19T18-19-09-123Z
+  - INV-V2-CLASSIFY-COMMITS-DETERMINISM
+  - INV-V2-CLASSIFY-COMMITS-EMISSION
+  - INV-V2-CLASSIFY-COMMITS-FAIL-CLOSED
+  - INV-V2-CLASSIFY-COMMITS-LINEAGE
+  - PRD-V2-CLASSIFY-COMMITS
+  - VAL-V2-CLASSIFY-COMMITS-VAL-01
+  - VAL-V2-CLASSIFY-COMMITS-VAL-02
+  - VAL-V2-CLASSIFY-COMMITS-VAL-03
+  - VAL-V2-CLASSIFY-COMMITS-VAL-04
+explicitness: explicit
+rationale: WorkGraph assembled from validated intermediates of
+  PRD-V2-CLASSIFY-COMMITS; Gate 1 verdict pass cited in source_refs
+functionId: FP-V2-CLASSIFY-COMMITS
+nodes:
+  - id: CONTRACT-V2-CLASSIFY-COMMITS-ACCEPTANCE
+    type: execution
+    title: Aggregate contract for acceptance-category requirements of
+      PRD-V2-CLASSIFY-COMMITS
+    implements: CONTRACT-V2-CLASSIFY-COMMITS-ACCEPTANCE
+  - id: CONTRACT-V2-CLASSIFY-COMMITS-CONSTRAINT
+    type: control
+    title: Aggregate contract for constraint-category requirements of
+      PRD-V2-CLASSIFY-COMMITS
+    implements: CONTRACT-V2-CLASSIFY-COMMITS-CONSTRAINT
+  - id: CONTRACT-V2-CLASSIFY-COMMITS-NFR
+    type: execution
+    title: Aggregate contract for nfr-category requirements of PRD-V2-CLASSIFY-COMMITS
+    implements: CONTRACT-V2-CLASSIFY-COMMITS-NFR
+  - id: INV-V2-CLASSIFY-COMMITS-DETERMINISM
+    type: control
+    title: Gate 1 produces byte-identical Gate1Report contents for identical
+      validated inputs modulo id and timestamp
+    implements: INV-V2-CLASSIFY-COMMITS-DETERMINISM
+  - id: INV-V2-CLASSIFY-COMMITS-EMISSION
+    type: control
+    title: Gate 1 writes a Coverage Report to specs/coverage-reports/ on every
+      invocation, pass or fail, before returning control
+    implements: INV-V2-CLASSIFY-COMMITS-EMISSION
+  - id: INV-V2-CLASSIFY-COMMITS-FAIL-CLOSED
+    type: control
+    title: Gate 1 emits overall=fail whenever any active coverage check fails; there
+      is no soft-warning mode
+    implements: INV-V2-CLASSIFY-COMMITS-FAIL-CLOSED
+  - id: INV-V2-CLASSIFY-COMMITS-LINEAGE
+    type: control
+    title: Every Gate1Report's source_refs cites the PRD ID and every artifact ID
+      referenced in failing check detail arrays
+    implements: INV-V2-CLASSIFY-COMMITS-LINEAGE
+  - id: VAL-V2-CLASSIFY-COMMITS-VAL-01
+    type: evidence
+    title: Assert invariant- Gate 1 produces byte-identical Gate1Report contents for
+      identical validated inputs modulo id and timestamp
+    implements: VAL-V2-CLASSIFY-COMMITS-VAL-01
+  - id: VAL-V2-CLASSIFY-COMMITS-VAL-02
+    type: evidence
+    title: Assert invariant- Gate 1 writes a Coverage Report to
+      specs/coverage-reports/ on every invocation, pass or fail, before
+      returning control
+    implements: VAL-V2-CLASSIFY-COMMITS-VAL-02
+  - id: VAL-V2-CLASSIFY-COMMITS-VAL-03
+    type: evidence
+    title: Assert invariant- Gate 1 emits overall=fail whenever any active coverage
+      check fails; there is no soft-warning mode
+    implements: VAL-V2-CLASSIFY-COMMITS-VAL-03
+  - id: VAL-V2-CLASSIFY-COMMITS-VAL-04
+    type: evidence
+    title: Assert invariant- Every Gate1Report's source_refs cites the PRD ID and
+      every artifact ID referenced in failing check detail arrays
+    implements: VAL-V2-CLASSIFY-COMMITS-VAL-04
+edges:
+  - from: VAL-V2-CLASSIFY-COMMITS-VAL-01
+    to: INV-V2-CLASSIFY-COMMITS-DETERMINISM
+    dependencyType: validates
+  - from: VAL-V2-CLASSIFY-COMMITS-VAL-02
+    to: INV-V2-CLASSIFY-COMMITS-EMISSION
+    dependencyType: validates
+  - from: VAL-V2-CLASSIFY-COMMITS-VAL-03
+    to: INV-V2-CLASSIFY-COMMITS-FAIL-CLOSED
+    dependencyType: validates
+  - from: VAL-V2-CLASSIFY-COMMITS-VAL-04
+    to: INV-V2-CLASSIFY-COMMITS-LINEAGE
+    dependencyType: validates

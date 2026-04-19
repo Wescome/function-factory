@@ -1,0 +1,40 @@
+id: PRS-V2-GIT-COMMIT-TRIAGE
+source_refs: []
+explicitness: explicit
+rationale: >
+  First non-meta Pressure authored by the Factory. Stage 1 Signals
+  carry empty source_refs by design (the lineage-preservation SKILL
+  anti-pattern #1 exception for SIG-* — extended here to PRS-V2-* as
+  the originating Pressure for a v-number vertical, since the
+  vertical's motivation is external to the Factory's own specs/ by
+  definition). The Pressure's rationale itself cites the originating
+  context; no prior artifact in specs/ derives this work.
+
+  v2 authoring follows from the 2026-04-19 v2 vertical selection
+  DECISIONS entry, which selected git-commit-triage as the vertical
+  that simultaneously exercises non-self-referential content,
+  adapter-boundary crossing, and domain-specific invariants.
+
+category: operational_tooling
+severity: medium
+affectedStage: external
+confidence: 0.85
+
+description: >
+  Git repositories accumulate commits whose messages vary in
+  discipline. Conventional Commits is a widely-adopted classification
+  convention (feat/fix/docs/chore/refactor/test/style/perf/ci/build/revert)
+  that enables automated changelog generation, semantic versioning,
+  and release tooling. Without classification, repositories cannot
+  cleanly answer operational questions- which commits in this range
+  introduce new features, which are bugfixes, which are behind a
+  breaking-change marker. Classification by hand is tedious and
+  inconsistent; tooling that assigns classifications mechanically is
+  desirable but must handle the long tail of inconsistent conventions
+  in legacy commit history.
+
+  The Factory can produce this classifier as its first non-meta
+  Function. Success produces a deterministic classifier with
+  auditable output. Failure produces diagnostics about which
+  Factory-pipeline assumptions don't generalize beyond self-reference
+  — either outcome is valuable.

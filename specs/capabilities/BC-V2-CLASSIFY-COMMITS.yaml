@@ -1,0 +1,21 @@
+id: BC-V2-CLASSIFY-COMMITS
+source_refs:
+  - PRS-V2-GIT-COMMIT-TRIAGE
+explicitness: explicit
+rationale: >
+  Capability closing PRS-V2-GIT-COMMIT-TRIAGE. Scoped as commit
+  classification against a taxonomy, producing a first-class
+  CommitTriageReport. Distinct from downstream capabilities the same
+  vertical might eventually spawn (commit-message linting,
+  release-note generation, semantic-version bump inference) — those
+  would be derived from separate Capabilities.
+
+statement: >
+  The Factory shall classify the commits in a specified git range
+  against the Conventional Commits taxonomy, detect
+  commit-message-convention violations, and emit a CommitTriageReport
+  conforming to the CommitTriageReport Zod schema, with deterministic
+  output over pinned SHA ranges.
+
+owner: factory_vertical_v2
+confidence: 0.85

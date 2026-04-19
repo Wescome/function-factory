@@ -1,0 +1,50 @@
+id: FP-V2-CLASSIFY-COMMITS
+source_refs:
+  - BC-V2-CLASSIFY-COMMITS
+  - PRS-V2-GIT-COMMIT-TRIAGE
+explicitness: explicit
+rationale: >
+  First Function derived from BC-V2-CLASSIFY-COMMITS. Scoped as a
+  single execution Function that reads a git range, classifies each
+  commit, and emits a CommitTriageReport. Not a control Function
+  (emits no lifecycle transitions) and not an evidence Function
+  (produces classification output, not audit attestation). Execution
+  Function per whitepaper §3.2.
+
+capabilityId: BC-V2-CLASSIFY-COMMITS
+name: classify_commits
+purpose: >
+  Classify commits in a git range against Conventional Commits
+  taxonomy and emit a CommitTriageReport.
+functionType: execution
+
+expectedInputs:
+  - Git range argument (e.g., HEAD~30..HEAD, v1.2.3..HEAD, <sha>..<sha>)
+  - Repository path (filesystem location with a .git directory)
+  - Classification policy (currently- vanilla Conventional Commits, no per-repo overrides)
+
+expectedOutputs:
+  - CommitTriageReport artifact written to specs/commit-triage-reports/CTR-<repo-slug>-<timestamp>.yaml
+
+governingConstraints:
+  - Determinism — pinned SHA range plus policy produces byte-identical output modulo id and timestamp
+  - Fail-closed — git binary unavailable, range unresolvable, parse failure all produce uncomputable status, not silent failure
+  - Lineage — source_refs cites the resolved SHA range and the policy version
+  - Range-size cap — refuse ranges exceeding 1000 commits
+  - Shell-exec discipline — non-zero git exit codes are surfaced as uncomputable, not swallowed
+  - Timeout — git commands exceeding 30 seconds are terminated and surface as uncomputable
+
+candidateInvariants:
+  - Every commit in the resolved range appears in commits array exactly once
+  - summary.total_commits equals commits.length
+  - summary.counts_by_classification sums to summary.total_commits
+  - summary.commits_with_violations equals the count of commits whose violations array is non-empty
+  - A commit classified as anything other than "unknown" has its scope and breaking_change fields populated (either extracted or explicitly null/false)
+  - status field reflects commits- "pass" iff commits_with_violations is zero, "violations_detected" iff non-zero and all commits classified, "uncomputable" iff any commit could not be classified due to data availability
+
+successSignals:
+  - Classification accuracy measurable against hand-labeled corpus (target- 95%+ on Conventional-Commits-compliant repos)
+  - Deterministic replay parity (quarterly regression test)
+  - Mean execution time below 5 seconds per 100 commits
+
+confidence: 0.80
