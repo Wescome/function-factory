@@ -1,0 +1,50 @@
+id: FP-META-DETECT-REGRESSION
+source_refs:
+  - BC-META-DETECT-REGRESSION
+  - PRS-META-DETECT-REGRESSION
+  - SIG-META-WHITEPAPER-V4
+explicitness: explicit
+rationale: >
+  First Function derived from BC-META-DETECT-REGRESSION. Scoped
+  deliberately as a single control function that detects the regression
+  condition and issues the transition event; downstream alerting,
+  runbooks, and per-dimension detectors are separate Functions derivable
+  from the same Capability in subsequent iterations. This is a control
+  Function per whitepaper §3.2 — it observes the system and modifies
+  Function state; it does not execute user-facing behavior and does not
+  produce evidence artifacts.
+
+capabilityId: BC-META-DETECT-REGRESSION
+name: detect_regression
+purpose: >
+  Detect trust-dimension degradation on monitored Functions and emit the
+  monitored → regressed FunctionLifecycle transition.
+functionType: control
+
+expectedInputs:
+  - TrustSignal stream for a specific Function (per-dimension scores plus composite)
+  - Historical TrustSignal baseline for the same Function
+  - Detection policy (per-dimension thresholds, sustained-degradation window)
+
+expectedOutputs:
+  - FunctionLifecycle transition event (monitored → regressed) when triggered
+  - DetectionReport artifact naming the triggering dimension, the observed trajectory, and the policy rule that fired
+
+governingConstraints:
+  - Determinism — same signal history plus same policy produces same transitions
+  - Fail-closed — inability to read signals produces no transition, not a silent pass
+  - Lineage — every emitted transition cites the signals that justified it
+  - Idempotency — rerunning against the same history does not produce duplicate transitions
+
+candidateInvariants:
+  - A regressed transition is emitted only when the sustained-degradation window has fully elapsed
+  - The composite score's transition is derivable from the per-dimension scores via the policy rule
+  - A Function cannot transition from monitored to regressed without a DetectionReport naming the triggering dimension
+  - DetectionReport detector evidence_sources include the TrustSignal store and the policy configuration
+
+successSignals:
+  - False-positive rate below 1% quarterly
+  - Mean time between signal anomaly and transition emission below one detection window duration
+  - Deterministic replay parity (quarterly regression test)
+
+confidence: 0.85

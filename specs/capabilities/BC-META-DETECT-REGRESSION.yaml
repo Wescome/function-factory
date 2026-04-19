@@ -1,0 +1,24 @@
+id: BC-META-DETECT-REGRESSION
+source_refs:
+  - PRS-META-DETECT-REGRESSION
+  - SIG-META-WHITEPAPER-V4
+explicitness: explicit
+rationale: >
+  The Capability that closes PRS-META-DETECT-REGRESSION. Stated at the
+  business-capability layer so the Factory can derive one or more Function
+  Proposals from it — the regression-detection capability could plausibly
+  decompose into multiple Functions (per-dimension detectors, composite
+  detectors, alerting Functions, transition-executor Functions). Naming
+  the capability explicitly lets the Factory reason about that
+  decomposition in Stage 4 rather than conflating it with the first
+  Function's shape.
+
+statement: >
+  The Factory shall continuously observe every monitored Function's
+  TrustSignal stream and emit a FunctionLifecycle transition to
+  `regressed` when sustained degradation is detected along any trust
+  dimension or the composite, with a deterministic detection rule that
+  can be replayed against historical signals for audit.
+
+owner: factory_runtime
+confidence: 0.90

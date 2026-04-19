@@ -1,0 +1,36 @@
+id: PRS-META-DETECT-REGRESSION
+source_refs:
+  - SIG-META-WHITEPAPER-V4
+explicitness: explicit
+rationale: >
+  Second meta-Pressure authored under Factory discipline. The whitepaper §5
+  names regression as the lifecycle transition from `monitored` to
+  `regressed` based on TrustSignal degradation, but does not prescribe how
+  the Factory observes regression-worthy degradation in practice. §6.4
+  describes Gate 3 (assurance coverage) as the continuous detector of
+  detector-freshness failures, but regression of the Function itself —
+  correctness decay, compliance drift, observability gaps that accumulate
+  without a single incident — is a distinct concern requiring its own
+  machinery. This Pressure surfaces the gap: the Factory currently has a
+  schema (`TrustSignal`) for regression-relevant data but no control
+  function that ingests the signal stream and issues the
+  `monitored → regressed` transition. Without that control function, the
+  whitepaper's lifecycle is unimplementable; the transition happens only
+  if a human watches the trust scoreboard and calls it manually.
+
+category: architectural_gap
+severity: high
+affectedStage: stage_7
+confidence: 0.95
+
+description: >
+  Trust regression — the systematic decay of a monitored Function's trust
+  composite or a named dimension (correctness, compliance, observability,
+  stability, userResponse) — has no detecting control function in the
+  Factory. The `TrustSignal` schema defines the data shape; the
+  `FunctionLifecycle` enum defines the terminal state (`regressed`); the
+  transition between them is unspecified. A monitored Function whose
+  correctness dimension drifts from 0.95 to 0.78 over six weeks will
+  remain in `monitored` state until a human notices. This is a systemic
+  observability failure, not a per-Function failure — every Function in
+  the Factory inherits it.
