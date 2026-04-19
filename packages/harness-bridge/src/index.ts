@@ -1,5 +1,6 @@
-export * from "./types.js"
-export * from "./plan.js"
-export * from "./dry-run-adapter.js"
-export * from "./execute.js"
-export * from "./emit.js"
+// Placeholder for @factory/harness-bridge. Real exports land in the PR that
+// implements this package. Kept as an explicit empty-export module so
+// pnpm workspace resolution and tsc --noEmit both succeed while the
+// package is empty.
+
+export {}
