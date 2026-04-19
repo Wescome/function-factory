@@ -1,0 +1,59 @@
+id: FP-META-COMPILER-PASS-8
+source_refs:
+  - BC-META-COMPILER-PASS-8
+  - PRS-META-COMPILER-PASS-8
+  - SIG-META-WHITEPAPER-V4
+explicitness: explicit
+rationale: >
+  First Function derived from BC-META-COMPILER-PASS-8. Scoped as the
+  terminal compiler pass — takes validated intermediates and a passing
+  Gate 1 Coverage Report, produces a WorkGraph on disk. Node-type
+  inference, edge derivation, and lineage preservation are all inside
+  scope because they are the mechanics of assembly. What is deliberately
+  outside scope- WorkGraph execution (Stage 6), WorkGraph optimization
+  (future compiler pass), cross-WorkGraph linking (future Stage 5
+  enrichment). This is an execution Function per whitepaper §3.2 — the
+  first execution Function the Factory has emitted; it runs during
+  compile time and its output is the input to the next stage.
+
+capabilityId: BC-META-COMPILER-PASS-8
+name: assemble_workgraph
+purpose: >
+  Assemble compiler intermediates (atoms, contracts, invariants,
+  dependencies, validations) plus a passing Gate 1 Coverage Report into
+  a WorkGraph conforming to the WorkGraph Zod schema, emitted to disk at
+  specs/workgraphs/.
+functionType: execution
+
+expectedInputs:
+  - RequirementAtom[] from Pass 1
+  - Contract[] from Pass 2
+  - Invariant[] from Pass 3
+  - Dependency[] from Pass 4
+  - ValidationSpec[] from Pass 5
+  - Gate1Report with overall=pass from Pass 7
+  - PRDDraft for lineage and the functionId association
+
+expectedOutputs:
+  - WorkGraph artifact written to specs/workgraphs/WG-<PRD-ID>.yaml
+  - WorkGraph return value for in-process callers (compiler orchestration, tests)
+
+governingConstraints:
+  - Fail-closed — Pass 8 refuses to run if the Gate 1 Coverage Report's overall verdict is not pass
+  - Determinism — identical validated intermediates produce byte-identical WorkGraphs modulo the id and emission timestamp
+  - Lineage preservation — every node cites the intermediate(s) it derived from; every edge cites the dependency or covers-relationship that justified it
+  - Schema conformance — the emitted WorkGraph validates against the WorkGraph Zod schema
+  - Idempotency — rerunning Pass 8 against the same intermediates overwrites the WorkGraph on disk with byte-identical content (no duplicate emission, no append-only behavior)
+
+candidateInvariants:
+  - A WorkGraph is emitted only when the Gate 1 Coverage Report cited as source has overall=pass
+  - Every node in the emitted WorkGraph has source_refs citing at least one Pass 1–5 intermediate
+  - Every edge endpoint resolves to a node present in the same WorkGraph
+  - The WorkGraph id follows WG-<PRD-ID> format exactly; no timestamp suffix, because unlike Coverage Reports the WorkGraph is not append-only per PRD
+
+successSignals:
+  - Gate 1 Coverage Report determinism assertions continue to hold when the full compile (including Pass 8) is replayed quarterly
+  - Stage 6 harness execution accepts Pass 8 WorkGraphs without out-of-band transformation
+  - Bootstrap recompile (compile PRD-META-GATE-1-COMPILE-COVERAGE through Passes 0–8) produces both a Coverage Report and a WorkGraph
+
+confidence: 0.85

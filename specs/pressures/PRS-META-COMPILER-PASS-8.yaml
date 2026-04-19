@@ -1,0 +1,33 @@
+id: PRS-META-COMPILER-PASS-8
+source_refs:
+  - SIG-META-WHITEPAPER-V4
+explicitness: explicit
+rationale: >
+  Third meta-Pressure authored under Factory discipline. Whitepaper §4 names
+  the Stage 5 compiler as an eight-pass pipeline producing a WorkGraph; the
+  MVP compiler (2026-04-19, commit fb5b3e8 post-paired-PR) implements
+  Passes 0–7 and produces a Gate 1 Coverage Report but does not implement
+  Pass 8 (assemble_workgraph). The Coverage Report is the bootstrap proof
+  for the gate; the WorkGraph is the buildable artifact every subsequent
+  Factory stage (Stage 6 harness execution, Stage 7 trust evaluation)
+  consumes. Without Pass 8 the compiler produces evidence that a
+  specification is internally complete but never produces the
+  specification's executable form. The whitepaper's pipeline is
+  semantically incomplete at the output end and architecturally
+  unimplementable downstream.
+
+category: architectural_gap
+severity: high
+affectedStage: stage_5
+confidence: 0.95
+
+description: >
+  The Factory compiler's terminal pass is unspecified and unimplemented.
+  Gate 1 gates compilation; Pass 8 is supposed to emit what passes
+  through the gate. Its absence means every compile to date has produced
+  only a Coverage Report, never a WorkGraph. No Factory-compiled
+  artifact has ever been handed to Stage 6 for execution because no
+  compile has ever produced a handable artifact. This is the single
+  largest gap between the whitepaper's end-to-end pipeline and the MVP
+  implementation, and it is the last gap before the Factory produces
+  its first executable Function.
