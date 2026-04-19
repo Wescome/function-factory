@@ -1,4 +1,4 @@
-id: CR-PRD-V2-CLASSIFY-COMMITS-GATE1-2026-04-19T18-19-09-123Z
+id: CR-PRD-V2-CLASSIFY-COMMITS-GATE1-2026-04-19T22-19-34-287Z
 source_refs:
   - PRD-V2-CLASSIFY-COMMITS
 explicitness: explicit
@@ -6,7 +6,7 @@ rationale: Gate 1 compile coverage evaluation for PRD-V2-CLASSIFY-COMMITS in
   steady_state mode
 gate: 1
 prd_id: PRD-V2-CLASSIFY-COMMITS
-timestamp: 2026-04-19T18:19:09.123Z
+timestamp: 2026-04-19T22:19:34.287Z
 overall: pass
 checks:
   atom_coverage:

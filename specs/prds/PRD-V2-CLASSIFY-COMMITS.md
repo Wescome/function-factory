@@ -43,7 +43,7 @@ Git repositories accumulate commits whose messages vary in discipline. Conventio
 
 Manual classification is tedious and inconsistent. Even in repositories adopting Conventional Commits, legacy history predates the convention and cannot be retroactively classified without tooling. Third-party classifiers exist but are opinionated, often coupled to a specific taxonomy, and rarely produce first-class audit-grade output.
 
-The Factory can produce this classifier as its first non-meta Function and in doing so prove that the Bootstrap-phase compiler architecture extends beyond self-reference. A working classifier is useful in its own right — the Factory can apply it to its own commit history, to Anthropic repositories it has permission to read, to any v-number future vertical's repository. But the primary architectural value at v2 is the proof that Gate 1's coverage discipline, Pass 8's WorkGraph assembly, and the (yet-to-be-populated) harness-bridge all operate correctly on a specification whose subject matter is not the Factory itself.
+The Factory can produce this classifier as its first non-meta Function and in doing so prove that the Bootstrap-phase compiler architecture extends beyond self-reference. A working classifier is useful in its own right — the Factory can apply it to its own commit history, to Anthropic repositories it has permission to read, to any v-number future vertical's repository. But the primary architectural value at v2 is the proof that Gate 1's coverage discipline, Pass 8's WorkGraph assembly, and the Stage 6 coding-agent topology all operate correctly on a specification whose subject matter is not the Factory itself.
 
 ## Goal
 
@@ -135,17 +135,9 @@ Automatic commit-message rewriting. The Function observes and reports; it does n
 
 Work Order governance, CCI, POE, PII, or any We-layer concept.
 
-## Integration with harness-bridge
-
-classify_commits is the first execution Function compiled from the Factory into an executable form. Its execution happens through the harness-bridge package, which at v2-time is unpopulated and will need its first adapter — shell-exec. The shell-exec adapter is the mechanism by which the compiled classify_commits WorkGraph is handed actual git commands to run and receives their output.
-
-The harness-bridge's shell-exec adapter is specified in a separate PRD (not authored here) and is a prerequisite for classify_commits to execute post-compile. Compile of this PRD through the Factory produces a WorkGraph that describes the topology of classify_commits execution; the harness-bridge-shell-exec adapter consumes that WorkGraph and runs it.
-
-The WorkGraph for classify_commits is expected to contain nodes of type execution (the git subprocess invocations, the classification logic, the report emission) and nodes of type evidence (the validations that assert invariants 14 and 15). Edge topology will reflect the dependencies between nodes (classification depends on git output; report depends on classification).
-
 ## Downstream artifacts classify_commits will enable
 
-A passing Gate 1 verdict on this PRD enables compilation to a WorkGraph. A passing harness-bridge adapter execution against that WorkGraph produces an ExecutionLog (future schema, deferred per the 2026-04-19 CTR- paired PR DECISIONS entry) and a CommitTriageReport on disk. The CommitTriageReport is the first non-meta Factory-compiled output artifact the Factory will have produced.
+A passing Gate 1 verdict on this PRD enables compilation to a WorkGraph. The WorkGraph specifies classify_commits; a Stage 6 coding-agent topology reads the WorkGraph and produces the classify_commits implementation code. The implementation, when invoked, emits a CommitTriageReport on disk. The CommitTriageReport is the first non-meta Factory-compiled output artifact the Factory will have produced.
 
 The first repository classify_commits will be executed against is the Factory's own repository, for empirical symmetry with the Bootstrap-phase meta-compiles — the first invocation produces a CommitTriageReport for the Factory's commit history, which is a genuinely useful output (audit of the Factory's commit discipline against Conventional Commits) and a recursive but non-circular exercise (the classifier reads commits, not Factory specs/; the classifier's specs were produced by a different Factory pipeline than the one being classified).
 
