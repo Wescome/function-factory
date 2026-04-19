@@ -324,3 +324,23 @@ EL- prefix and ExecutionLog schema are explicitly deferred to a subsequent paire
 **What comes next.** A fresh meta-PRD authoring the Stage 6 coordinator (five-role coding-agent topology) from whitepaper §3 directly. The artifact-ID stem for that chain is pending Architect decision; no files from the retracted chain will be reused.
 
 **Status:** Active (retraction; cannot be reversed without re-authorizing the wrong turn).
+
+## 2026-04-19: Observed — Gate 1 PASS does not imply conceptual correctness
+
+**Observation.** PRD-META-HARNESS-EXECUTE (now deleted; recoverable via `git show 81593a4^:specs/prds/PRD-META-HARNESS-EXECUTE.md`) compiled at Gate 1 PASS on 2026-04-19T17:32Z — 30 atoms, 3 contracts, 4 invariants, 0 dependencies, 4 validations, all coverage checks green. Every structural discipline held. The PRD's entire conceptual frame was nonetheless miscast- it specified Stage 6 as a "pure-plan / adapter-dispatch Function" with "HarnessAdapter identifier," "per-node execution outcomes," and "ExecutionLog artifact," when whitepaper §3 specifies Stage 6 as a five-role coding-agent topology (Planner/Coder/Critic/Tester/Verifier) that reads WorkGraphs as specifications and emits Function implementation code.
+
+**Specific miscasts that Gate 1 did not catch, identified by re-reading the deleted PRD against §3-**
+- Title- "Harness Execute (Stage 6 execution Function)." §3 Stage 6 is not an execution Function; it is code synthesis.
+- Problem §1 line 2- "Stage 6 consumes those WorkGraphs and invokes their nodes in a runtime adapter so the specified behavior actually runs." §3 says Stage 6 *reads* WorkGraphs and produces code; nodes are not runtime dispatch sites.
+- Goal- "Implement `harness_execute` as a pure-plan / adapter-dispatch Function... derives a deterministic execution plan (node dispatch order) from the WorkGraph... invokes the adapter with that plan." The word "plan" here means dispatch order, not the Planner role's execution plan.
+- Operational constraints- "Adapter identifiers are canonical strings. The initial set is `dry-run`, `claude-code`, `cursor`." §3's five-role topology is not parameterized by adapter identifier; `claude-code` and `cursor` are *harnesses that can implement the whole topology*, not adapters dispatched per node.
+- ExecutionLog per-node records- §3 does not specify per-node records as Stage 6 output. Stage 6 output is code (tests, configuration, documentation per ConOps §9.4). Per-node telemetry belongs in Stage 7 observation of deployed Functions, not Stage 6 emission.
+- FunctionLifecycle transitions- "harness_execute may emit a transition hint as a separate artifact." The transition from `designed` → `in_progress` → `implemented` is driven by Stage 6 producing code, not by node dispatch completing.
+
+**Claim.** Gate 1's four coverage checks (atom coverage, invariant coverage with detector, validation coverage, dependency closure) are structural. They do not verify that the PRD's prose aligns with the whitepaper's semantics. A PRD can be internally coherent by Gate 1's metrics while describing a conceptually wrong Function. The entire harness_execute PRD was proof of this by construction.
+
+**Consequence.** Gate 1 is necessary but not sufficient for PRD acceptance. A semantic-alignment check — verification that the PRD's conceptual model matches whitepaper and ConOps ground truth — is a distinct concern. Whether this should be a Gate 1.5 (compile-time, automated), a human-authored Architect review gate, or an agent-assisted check (Critic role at authoring time, not just at Stage 6) is a future architectural decision and not resolved here.
+
+**Not an immediate remediation for Gate 1.** Widening Gate 1 to semantic verification without a clear derivation rule would turn it into ad-hoc compliance checking. The right response is to acknowledge the known limit and let future PRDs fail on conceptual grounds through explicit Architect review rather than through Gate 1 arithmetic.
+
+**Status:** Observed.
