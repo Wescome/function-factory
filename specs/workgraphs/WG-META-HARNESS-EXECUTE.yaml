@@ -1,0 +1,121 @@
+id: WG-META-HARNESS-EXECUTE
+source_refs:
+  - ATOM-META-HARNESS-EXECUTE-AC-01
+  - ATOM-META-HARNESS-EXECUTE-AC-02
+  - ATOM-META-HARNESS-EXECUTE-AC-03
+  - ATOM-META-HARNESS-EXECUTE-AC-04
+  - ATOM-META-HARNESS-EXECUTE-AC-05
+  - ATOM-META-HARNESS-EXECUTE-AC-06
+  - ATOM-META-HARNESS-EXECUTE-AC-07
+  - ATOM-META-HARNESS-EXECUTE-AC-08
+  - ATOM-META-HARNESS-EXECUTE-AC-09
+  - ATOM-META-HARNESS-EXECUTE-AC-10
+  - ATOM-META-HARNESS-EXECUTE-AC-11
+  - ATOM-META-HARNESS-EXECUTE-AC-12
+  - ATOM-META-HARNESS-EXECUTE-AC-13
+  - ATOM-META-HARNESS-EXECUTE-AC-14
+  - ATOM-META-HARNESS-EXECUTE-AC-15
+  - ATOM-META-HARNESS-EXECUTE-CONSTRAINT-01
+  - ATOM-META-HARNESS-EXECUTE-CONSTRAINT-02
+  - ATOM-META-HARNESS-EXECUTE-CONSTRAINT-03
+  - ATOM-META-HARNESS-EXECUTE-CONSTRAINT-04
+  - ATOM-META-HARNESS-EXECUTE-CONSTRAINT-05
+  - ATOM-META-HARNESS-EXECUTE-CONSTRAINT-06
+  - ATOM-META-HARNESS-EXECUTE-CONSTRAINT-07
+  - ATOM-META-HARNESS-EXECUTE-CONSTRAINT-08
+  - ATOM-META-HARNESS-EXECUTE-CONSTRAINT-09
+  - ATOM-META-HARNESS-EXECUTE-CONSTRAINT-10
+  - ATOM-META-HARNESS-EXECUTE-CONSTRAINT-11
+  - ATOM-META-HARNESS-EXECUTE-CONSTRAINT-12
+  - ATOM-META-HARNESS-EXECUTE-METRIC-01
+  - ATOM-META-HARNESS-EXECUTE-METRIC-02
+  - ATOM-META-HARNESS-EXECUTE-METRIC-03
+  - ATOM-META-HARNESS-EXECUTE-METRIC-04
+  - ATOM-META-HARNESS-EXECUTE-METRIC-05
+  - CONTRACT-META-HARNESS-EXECUTE-ACCEPTANCE
+  - CONTRACT-META-HARNESS-EXECUTE-CONSTRAINT
+  - CONTRACT-META-HARNESS-EXECUTE-NFR
+  - CR-PRD-META-HARNESS-EXECUTE-GATE1-2026-04-19T17-32-27-099Z
+  - INV-META-HARNESS-EXECUTE-DETERMINISM
+  - INV-META-HARNESS-EXECUTE-EMISSION
+  - INV-META-HARNESS-EXECUTE-FAIL-CLOSED
+  - INV-META-HARNESS-EXECUTE-LINEAGE
+  - PRD-META-HARNESS-EXECUTE
+  - VAL-META-HARNESS-EXECUTE-VAL-01
+  - VAL-META-HARNESS-EXECUTE-VAL-02
+  - VAL-META-HARNESS-EXECUTE-VAL-03
+  - VAL-META-HARNESS-EXECUTE-VAL-04
+explicitness: explicit
+rationale: WorkGraph assembled from validated intermediates of
+  PRD-META-HARNESS-EXECUTE; Gate 1 verdict pass cited in source_refs
+functionId: FP-META-HARNESS-EXECUTE
+nodes:
+  - id: CONTRACT-META-HARNESS-EXECUTE-ACCEPTANCE
+    type: execution
+    title: Aggregate contract for acceptance-category requirements of
+      PRD-META-HARNESS-EXECUTE
+    implements: CONTRACT-META-HARNESS-EXECUTE-ACCEPTANCE
+  - id: CONTRACT-META-HARNESS-EXECUTE-CONSTRAINT
+    type: control
+    title: Aggregate contract for constraint-category requirements of
+      PRD-META-HARNESS-EXECUTE
+    implements: CONTRACT-META-HARNESS-EXECUTE-CONSTRAINT
+  - id: CONTRACT-META-HARNESS-EXECUTE-NFR
+    type: execution
+    title: Aggregate contract for nfr-category requirements of
+      PRD-META-HARNESS-EXECUTE
+    implements: CONTRACT-META-HARNESS-EXECUTE-NFR
+  - id: INV-META-HARNESS-EXECUTE-DETERMINISM
+    type: control
+    title: Gate 1 produces byte-identical Gate1Report contents for identical
+      validated inputs modulo id and timestamp
+    implements: INV-META-HARNESS-EXECUTE-DETERMINISM
+  - id: INV-META-HARNESS-EXECUTE-EMISSION
+    type: control
+    title: Gate 1 writes a Coverage Report to specs/coverage-reports/ on every
+      invocation, pass or fail, before returning control
+    implements: INV-META-HARNESS-EXECUTE-EMISSION
+  - id: INV-META-HARNESS-EXECUTE-FAIL-CLOSED
+    type: control
+    title: Gate 1 emits overall=fail whenever any active coverage check fails; there
+      is no soft-warning mode
+    implements: INV-META-HARNESS-EXECUTE-FAIL-CLOSED
+  - id: INV-META-HARNESS-EXECUTE-LINEAGE
+    type: control
+    title: Every Gate1Report's source_refs cites the PRD ID and every artifact ID
+      referenced in failing check detail arrays
+    implements: INV-META-HARNESS-EXECUTE-LINEAGE
+  - id: VAL-META-HARNESS-EXECUTE-VAL-01
+    type: evidence
+    title: Assert invariant- Gate 1 produces byte-identical Gate1Report contents for
+      identical validated inputs modulo id and timestamp
+    implements: VAL-META-HARNESS-EXECUTE-VAL-01
+  - id: VAL-META-HARNESS-EXECUTE-VAL-02
+    type: evidence
+    title: Assert invariant- Gate 1 writes a Coverage Report to
+      specs/coverage-reports/ on every invocation, pass or fail, before
+      returning control
+    implements: VAL-META-HARNESS-EXECUTE-VAL-02
+  - id: VAL-META-HARNESS-EXECUTE-VAL-03
+    type: evidence
+    title: Assert invariant- Gate 1 emits overall=fail whenever any active coverage
+      check fails; there is no soft-warning mode
+    implements: VAL-META-HARNESS-EXECUTE-VAL-03
+  - id: VAL-META-HARNESS-EXECUTE-VAL-04
+    type: evidence
+    title: Assert invariant- Every Gate1Report's source_refs cites the PRD ID and
+      every artifact ID referenced in failing check detail arrays
+    implements: VAL-META-HARNESS-EXECUTE-VAL-04
+edges:
+  - from: VAL-META-HARNESS-EXECUTE-VAL-01
+    to: INV-META-HARNESS-EXECUTE-DETERMINISM
+    dependencyType: validates
+  - from: VAL-META-HARNESS-EXECUTE-VAL-02
+    to: INV-META-HARNESS-EXECUTE-EMISSION
+    dependencyType: validates
+  - from: VAL-META-HARNESS-EXECUTE-VAL-03
+    to: INV-META-HARNESS-EXECUTE-FAIL-CLOSED
+    dependencyType: validates
+  - from: VAL-META-HARNESS-EXECUTE-VAL-04
+    to: INV-META-HARNESS-EXECUTE-LINEAGE
+    dependencyType: validates

@@ -1,0 +1,33 @@
+id: CR-PRD-META-HARNESS-EXECUTE-GATE1-2026-04-19T17-32-27-099Z
+source_refs:
+  - PRD-META-HARNESS-EXECUTE
+explicitness: explicit
+rationale: Gate 1 compile coverage evaluation for PRD-META-HARNESS-EXECUTE in
+  bootstrap mode
+gate: 1
+prd_id: PRD-META-HARNESS-EXECUTE
+timestamp: 2026-04-19T17:32:27.099Z
+overall: pass
+checks:
+  atom_coverage:
+    status: pass
+    details: []
+    orphan_atoms: []
+  invariant_coverage:
+    status: pass
+    details: []
+    invariants_missing_validation: []
+    invariants_missing_detector: []
+  validation_coverage:
+    status: pass
+    details: []
+    validations_covering_nothing: []
+  dependency_closure:
+    status: pass
+    details: []
+    dangling_dependencies: []
+  bootstrap_prefix_check:
+    status: pass
+    details: []
+    non_meta_artifact_ids: []
+remediation: no remediation required

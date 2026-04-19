@@ -1,0 +1,31 @@
+id: PRS-META-HARNESS-EXECUTE
+source_refs:
+  - SIG-META-WHITEPAPER-V4
+explicitness: explicit
+rationale: >
+  Fourth meta-Pressure authored under Factory discipline. First Pressure
+  outside Stage 5; names the architectural gap at Stage 6 (harness
+  execution). The whitepaper §6 frames Stage 6 as the stage that
+  consumes Pass 8 WorkGraphs and invokes their nodes in a runtime
+  adapter so the specified behavior actually runs. The tag
+  bootstrap-stage-5-complete marks the point at which Stage 5 produces
+  WorkGraphs end-to-end; Stage 6 is the next architectural slot whose
+  input source now exists. Without Stage 6, the Factory compiles
+  specifications into WorkGraphs but never executes them; Functions
+  remain in `designed` lifecycle state and cannot transition to
+  `in_progress` or `verified` through Factory machinery.
+
+category: architectural_gap
+severity: high
+affectedStage: stage_6
+confidence: 0.95
+
+description: >
+  `@factory/harness-bridge` exists as an empty scaffold package. No
+  adapter, no WorkGraph consumer, no runtime dispatch. The three
+  WorkGraphs committed under bootstrap-stage-5-complete have no
+  consumer; they are structurally complete but operationally inert.
+  This is the single gap between the Factory's current end-to-end
+  architectural claim (Stage 5 complete) and its first execution
+  claim (a Function transitioning from designed to in_progress via
+  Factory machinery). Stage 6 is the unblock.
