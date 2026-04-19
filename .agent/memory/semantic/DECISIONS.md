@@ -216,3 +216,39 @@ Pass 3 (invariant derivation) uses four hand-crafted templates (DETERMINISM, FAI
 **Status:** Observed.
 
 **Status convention note:** This is the first DECISIONS entry with `Status: Observed`. Observed entries record empirical proof points that do not require Architect approval and do not impose any effect; they are captured for audit reference. Proposed/Active remain the status values for architectural decisions (entries that require approval and take effect on activation). Observed entries may use a different field structure from Proposed/Active entries (Observation / What this establishes / What this does NOT establish / optional Side finding / Status) reflecting the empirical-proof-point nature rather than the decision-lifecycle nature.
+
+## 2026-04-19: Gate 1 architectural generality — three-compile empirical evidence
+
+**Context:** Gate 1 was bootstrapped by compiling its own meta-PRD (PRD-META-GATE-1-COMPILE-COVERAGE) through the compiler it itself governs, which produced Gate 1: PASS. That result alone was self-referential and did not establish that Gate 1's coverage discipline would generalize to PRDs with different semantic shape. An earlier 2-compile Observed entry (commit `8bc3a11`) recorded the first generalization proof point against PRD-META-DETECT-REGRESSION. This entry extends that record with the third compile and tightens the claim against the atom-count-identity reading that the 2-compile evidence alone could not rule out.
+
+**Observation:** Three non-failing compiles against semantically divergent PRDs, same compiler, no code changes between runs:
+
+| Compile | PRD | Atoms | Contracts | Invariants | Dependencies | Validations | Verdict |
+|---|---|---|---|---|---|---|---|
+| 2026-04-19T13:56Z | PRD-META-GATE-1-COMPILE-COVERAGE | 29 | 3 | 3 | 0 | 3 | PASS |
+| 2026-04-19T15:18Z | PRD-META-DETECT-REGRESSION | 29 | 3 | 4 | 0 | 4 | PASS |
+| 2026-04-19T15:50Z | PRD-META-COMPILER-PASS-8 | 31 | 3 | 4 | 0 | 4 | PASS |
+
+The three PRDs cover different semantic domains (compile-time structural, runtime stateful, execution assembly) and different Factory Function types (two control functions, one execution function). All five coverage checks passed on all three compiles with empty detail arrays. The invariant count varied with PRD content (3 vs 4 vs 4) rather than remaining constant, demonstrating that Pass 3's template matching is content-responsive rather than PRD-shape-patterning. The atom count broke the 29/29 identity from the first two compiles on the third (came in at 31), confirming that the prior identity was arithmetic-consequence-of-content-density rather than a compiler invariant.
+
+**Claim established:** Gate 1's coverage discipline generalizes beyond the Gate 1 PRD. The compile pipeline is not fitted to its own specification. This is the whitepaper's central architectural commitment ("the Factory checks itself and checks things that aren't itself by the same discipline") and now has three independent compiles of evidence behind it. Generality claim scoped to semantic-content axis; authoring-convention generality remains unproven, per the 2026-04-19 compiler-consumed vs informational DECISIONS entry — all three PRDs conform to the prd-compiler SKILL's imposed section-title shape.
+
+**Consequences:** No action required. This entry supersedes the 2-compile Observed entry at `8bc3a11` in scope (3 compiles > 2 compiles) but does not replace it; the earlier entry is preserved as the audit-trail record of the first generalization proof point, and this entry is the cumulative record. Subsequent failures on future compiles will be evaluated against this baseline — a rising rate of Gate 1 failures across divergent PRDs would be the signal that a specific template or derivation rule has narrowed in scope, not that Gate 1 itself is generally broken.
+
+**Status:** Observed.
+
+## 2026-04-19: EMISSION template firing is category-scoped by design
+
+**Context:** Pass 3's invariant-derivation logic matches hand-crafted templates (DETERMINISM, FAIL-CLOSED, LINEAGE, EMISSION) against constraint-category atoms only. Acceptance-category and NFR-category atoms are not scanned for invariant-producing phrasing.
+
+The first bootstrap compile (Gate 1's own PRD, 2026-04-19T13:56Z) produced three invariants — EMISSION did not fire because the PRD's emission wording lived in Acceptance Criterion 8 rather than in the Constraints section. This was initially flagged as a category-scoping concern warranting potential Pass 3 widening.
+
+**Observation:** The two subsequent compiles resolved the concern empirically. Both PRD-META-DETECT-REGRESSION (2026-04-19T15:18Z) and PRD-META-COMPILER-PASS-8 (2026-04-19T15:50Z) produced four invariants including EMISSION, because both PRDs authored their emission disciplines in the Constraints section. The authorship convention is the discriminator — emission-class properties belong in Constraints as persistent system obligations, not in Acceptance Criteria as point-in-time behavioral observations.
+
+The category-scoping of Pass 3's template matching therefore reflects a valid authorship convention rather than a compiler narrowness. A PRD author who places emission phrasing in AC produces a PRD without an emission invariant; this is a content-placement authorship decision, not a compiler gap.
+
+**Claim:** The invariant-authoring skill's guidance ("emission-class phrasing belongs in Constraints, not AC") is retroactively validated by two independent compiles that followed the convention and produced the expected EMISSION invariant.
+
+**Consequences:** No Pass 3 widening required. The category-scoping behavior is correct. The skill-doc nudge added at the MVP compiler PR stands as authoritative guidance. Future PRDs that omit the EMISSION invariant by placing emission wording in AC will produce a compile-time result with three invariants instead of four, which is intended behavior given the authorship convention.
+
+**Status:** Observed.
