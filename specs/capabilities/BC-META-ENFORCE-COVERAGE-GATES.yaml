@@ -1,0 +1,61 @@
+id: BC-META-ENFORCE-COVERAGE-GATES
+name: Enforce the three Coverage Gates fail-closed across the Factory pipeline
+purpose: >
+  Convert the forcing condition of PRS-META-THREE-COVERAGE-GATES into a
+  continuously-operating capability to halt the Factory pipeline whenever
+  specification, simulation, or assurance coverage is incomplete, and to emit
+  a lineage-preserving Coverage Report regardless of verdict. This Capability
+  is the transfer function by which the Factory converts "trust must be
+  proven, not claimed" (whitepaper §6) into operational behavior at three
+  specific pipeline points- end of Stage 5 (Gate 1), before verified →
+  monitored transition in Stage 7 (Gate 2), and continuously throughout
+  Stage 7 (Gate 3).
+addressesPressureIds:
+  - PRS-META-THREE-COVERAGE-GATES
+desiredOutcomes:
+  - No WorkGraph is emitted when its compiled specification fails any of the four Gate 1 coverage checks (atom, invariant, validation, dependency closure).
+  - No Function transitions from verified to monitored while any of the three Gate 2 coverage checks fail (scenario coverage, invariant exercise, required-validation pass rate).
+  - Any Function in monitored state transitions to assurance_regressed whenever any of the three Gate 3 coverage checks fail (detector freshness, evidence source liveness, audit pipeline integrity).
+  - Every gate evaluation emits a Coverage Report to specs/coverage-reports/ with populated remediation text, regardless of verdict.
+  - Every Coverage Report validates against the corresponding Zod schema in packages/schemas/src/coverage.ts.
+  - Override of any gate verdict requires an explicit Architect-authored DECISIONS.md entry per ConOps §5.4; overrides are per-artifact, per-incident, and auditable.
+constraints:
+  - Fail-closed discipline is absolute; soft warnings that ship anyway are architecturally forbidden (whitepaper §6, anti-pattern "Soft-warning on coverage miss").
+  - Gate evaluators are deterministic pure functions over Zod-validated inputs; identical inputs must produce identical verdicts modulo timestamp.
+  - Gate evaluators have no discretion beyond applying the Zod-validated coverage formulas to the Zod-validated inputs (ConOps §3.4- "The Gate Evaluator's determinism is architecturally load-bearing").
+  - Coverage Reports are first-class lineage-preserving artifacts and are committed to git alongside the artifacts they concern (whitepaper §6.5, README convention).
+  - Bootstrap rule per ConOps §4.1 Rule 2- during Bootstrap mode, Gate 1 additionally enforces the META- prefix on the PRD ID and on every artifact ID referenced in the compiler intermediates; absence of META- prefix in Bootstrap is a Gate 1 failure.
+  - A gate that cannot compute its verdict (input missing, schema drifted, dependency offline) is treated as fail per ConOps §4.3 Degraded mode rule; there is no silent-pass fallback.
+successMetrics:
+  - Gate 1 pass rate by defect class (ConOps §10.1 — concentrated failures indicate upstream skill or authorship defect rather than Gate 1 miscalibration).
+  - Rate of verified → monitored transitions blocked by Gate 2 (ConOps §10.1).
+  - Detector freshness distribution across all monitored Functions (ConOps §10.2).
+  - Architect override rate on gate verdicts per month (ConOps §10.3 — rising rate indicates either gate miscalibration or architect friction; investigation rather than threshold relaxation is the correct response).
+  - Zero false passes across all three gates over the Factory's operational lifetime (a single false pass is an implementation defect triggering the corresponding skill's self-rewrite hook).
+affectedPersonas:
+  - Gate Evaluator
+  - Coding Agent
+  - Critic Agent
+  - Operator
+  - Auditor
+  - Architect
+strategicPriority: 1.0
+confidence: 1.0
+source_refs:
+  - PRS-META-THREE-COVERAGE-GATES
+  - SIG-META-WHITEPAPER-V4
+explicitness: explicit
+rationale: >
+  This Capability is the transfer function — in the control-theoretic framing
+  of whitepaper §2 — that converts the sixth non-negotiable forcing condition
+  (PRS-META-THREE-COVERAGE-GATES) into operational machinery. The Capability
+  name and purpose are explicit in the factory-meta skill rule #4 and in the
+  whitepaper §6 specification of each gate's role. The Capability yields
+  three control-type FunctionProposals immediately (one per gate); additional
+  evidence-type proposals (e.g., a Coverage-Report-indexing Function) may
+  surface in downstream Stage 4 analysis but are not required in v1 because
+  the evidence aspect is bundled into each gate's own control Function
+  (Coverage Report emission). Gate 1 is the first of the three to instantiate
+  during Bootstrap per ConOps §2.3 Bootstrap context- it is a precondition for
+  every subsequent Factory stage against any PRD, including the PRDs that
+  specify Gates 2 and 3.

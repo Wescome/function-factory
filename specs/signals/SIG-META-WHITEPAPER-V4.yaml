@@ -1,0 +1,53 @@
+id: SIG-META-WHITEPAPER-V4
+type: internal
+source: WeOps/Architecture/inbox/The_Function_Factory_2026-04-18_v4.md
+title: Function Factory whitepaper v4 declares six non-negotiable design choices
+description: >
+  Whitepaper §11 enumerates six non-negotiable design choices for any first
+  build of the Factory. The sixth — "The three Coverage Gates, fail-closed" —
+  is elaborated in §6 (Spec Coverage and the Three Gates). §6.2 specifies
+  Gate 1 (the Compile Coverage Gate) in full- it runs between Pass 7
+  (consistency_check) and Pass 8 (assemble_workgraph) of the Stage 5 compiler,
+  computes four coverage checks (atom, invariant, validation, dependency
+  closure), fails closed on any miss, and emits a lineage-preserving Coverage
+  Report regardless of verdict. A Factory missing Gate 1 generates WorkGraphs
+  from incomplete specifications; the whitepaper treats this as categorically
+  different from the Factory it describes.
+timestamp: "2026-04-18T20:51:49Z"
+confidence: 1.0
+severity: 1.0
+frequency: 1.0
+tags:
+  - whitepaper
+  - non-negotiable
+  - coverage-gates
+  - gate-1
+  - compile-coverage
+  - bootstrap
+entities:
+  - Factory
+  - Stage 5 compiler
+  - Gate 1
+  - WorkGraph
+  - Coverage Report
+evidenceRefs:
+  - "The Function Factory v4 §6.1 (four coverage relationships)"
+  - "The Function Factory v4 §6.2 (Gate 1 specification)"
+  - "The Function Factory v4 §6.5 (Coverage Reports as first-class artifacts)"
+  - "The Function Factory v4 §11 non-negotiable #6"
+source_refs: []
+explicitness: explicit
+rationale: >
+  Stage 1 Signal with no upstream Factory artifact by category. The signal's
+  origin is the external file cited in `source` (the whitepaper markdown in
+  Dropbox). An empty `source_refs` array is semantically correct for Stage 1
+  Signals — they are the upstream origin point of the pipeline by definition,
+  and the whitepaper's role as upstream is cited in `source` rather than in
+  `source_refs` because it is not itself a Factory artifact. Note- the
+  lineage-preservation skill's anti-pattern #1 ("Empty source_refs. Never.")
+  does not currently carve out an exception for Stage 1 Signals. A skill
+  amendment proposing that exception should be authored in a subsequent
+  DECISIONS.md entry- the skill was written with downstream artifacts in mind
+  and Signals are the correct asymmetric case. This Signal is the first
+  authored under the Factory's own discipline during Bootstrap and produces
+  the PRS-META-THREE-COVERAGE-GATES Pressure immediately downstream.

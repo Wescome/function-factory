@@ -1,0 +1,49 @@
+id: PRS-META-THREE-COVERAGE-GATES
+category: trust
+name: Three fail-closed Coverage Gates must exist before trust claims are meaningful
+description: >
+  The Factory's trust computation (whitepaper §5) depends on evidence that
+  specifications are complete, implementations actually exercise those
+  specifications, and runtime detectors remain live. Without fail-closed
+  Coverage Gates at each of those three points, the trust computation is a
+  claim rather than a proof- the scoreboard will report healthy because it has
+  no mechanism to observe incompleteness. This Pressure is the control-
+  theoretic forcing term F(t) driving the Factory to instantiate Gate 1
+  (compile, end of Stage 5), Gate 2 (simulation, before verified → monitored),
+  and Gate 3 (assurance, continuous in Stage 7) as fail-closed, lineage-
+  preserving, Coverage-Report-emitting components of the pipeline. Gate 1 is
+  the entry point and the cheapest failure to catch- compile-time failures
+  are detected before any code is generated, before any agent is invoked,
+  before any harness is loaded. It is the first of the three gates to
+  instantiate during Bootstrap.
+derivedFromSignalIds:
+  - SIG-META-WHITEPAPER-V4
+affectedDomains:
+  - Factory pipeline (Stages 5, 6, 7)
+  - Trust computation (whitepaper §5)
+  - Assurance dependency graph
+affectedPersonas:
+  - Architect
+  - Coding Agent
+  - Critic Agent
+  - Gate Evaluator
+  - Operator
+  - Auditor
+strength: 1.0
+urgency: 1.0
+frequency: 1.0
+confidence: 1.0
+source_refs:
+  - SIG-META-WHITEPAPER-V4
+explicitness: explicit
+rationale: >
+  Translated directly from whitepaper §11 non-negotiable #6 ("The three
+  Coverage Gates, fail-closed") and elaborated in §6. All four scalar
+  properties (strength, urgency, frequency, confidence) are 1.0 because the
+  whitepaper classifies this as non-negotiable — the absence of the forcing
+  response collapses the Factory into a categorically different product than
+  the one specified. Category `trust` is chosen because the whitepaper frames
+  coverage as what "keeps the scoreboard honest" (§6 opening) and explicitly
+  ties coverage failure to loss of trust-computation validity (§6.4, §5). The
+  alternative `reliability` framing is defensible but narrower- coverage is
+  about the evidentiary basis of trust, not about behavior under stress.

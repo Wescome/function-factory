@@ -1,0 +1,75 @@
+id: FP-META-GATE-1-COMPILE-COVERAGE
+capabilityId: BC-META-ENFORCE-COVERAGE-GATES
+name: compile_coverage_gate
+purpose: >
+  Between Pass 7 (consistency_check) and Pass 8 (assemble_workgraph) of the
+  Stage 5 compiler, verify that the compiled specification (RequirementAtom[],
+  Contract[], Invariant[], Dependency[], ValidationSpec[]) is internally
+  complete — every atom has downstream coverage, every invariant has at least
+  one validation and a well-formed detector, every validation backmaps to at
+  least one atom/contract/invariant, every dependency's endpoints resolve to
+  artifact IDs present in the compiler intermediates — and produce a lineage-
+  preserving Gate1Report. Halt the compiler if any check fails; no WorkGraph
+  emits without a passing verdict. During Bootstrap mode, additionally enforce
+  the META- prefix on the PRD and all artifact IDs referenced.
+functionType: control
+expectedInputs:
+  - RequirementAtom[] from compiler Pass 1 (with populated source_refs back to PRD sections)
+  - Contract[] from compiler Pass 2 (with populated derivedFromAtomIds)
+  - Invariant[] from compiler Pass 3 (with required DetectorSpec per packages/schemas/src/core.ts)
+  - Dependency[] from compiler Pass 4 (typed- blocks | constrains | implements | validates | informs)
+  - ValidationSpec[] from compiler Pass 5 (with populated coversAtomIds | coversContractIds | coversInvariantIds arrays)
+  - PRD ID of the compilation target
+  - Factory mode enum (bootstrap | steady_state) for Bootstrap-specific checks
+expectedOutputs:
+  - Gate1Report conforming to packages/schemas/src/coverage.ts#Gate1Report
+  - Halt signal to compiler orchestration when overall=fail (Pass 8 does not execute)
+  - Coverage Report file written to specs/coverage-reports/CR-<PRD-ID>-GATE1-<ISO-timestamp>.yaml (per coverage-gate-1 SKILL.md naming convention)
+governingConstraints:
+  - Fail-closed on any of four coverage misses plus the Bootstrap prefix check; partial pass is fail.
+  - Pure function over Zod-validated inputs; no side effects except Coverage Report file emission.
+  - Emit a Coverage Report on pass and on fail (not only on fail); silent passes are architecturally forbidden.
+  - Populate remediation text on every invocation- on fail, name the failing check and the upstream remediation per ConOps §7.2 Scenario B; on pass, the literal string "no remediation required".
+  - Bootstrap mode additionally verifies the META- prefix on the PRD ID (must match PRD-META-*) and on every artifact ID referenced in the compiler intermediates; non-META references during Bootstrap are a failure of the new bootstrap_prefix_check.
+  - Do not generate placeholder artifacts to paper over coverage misses (ConOps §7.2 anti-pattern- "Auto-generating placeholder validations to pass the gate. Never").
+  - Do not relax checks based on PRD size, urgency, or Coding Agent request; relaxation is an Architect override per ConOps §5.4, logged in DECISIONS.md.
+  - Gate 1 operates strictly within the I-layer- no observation of Work Orders, CCI, POE, PII, or any We-layer concept (whitepaper §2.1, §8).
+candidateInvariants:
+  - Gate 1 is deterministic- identical validated inputs yield byte-identical Gate1Report contents modulo the id and timestamp fields.
+  - Every emitted Gate1Report validates against the Gate1Report Zod schema; a schema-invalid report is a Gate 1 implementation defect.
+  - Every Gate1Report's source_refs cite the PRD ID and every artifact ID flagged in any failing check.
+  - Compiler Pass 8 never runs when the most recent Gate1Report for the active compilation has overall=fail.
+  - The Coverage Report file is written to specs/coverage-reports/ before Gate 1 returns control to compiler orchestration.
+  - Gate 1's remediation text is non-empty on every invocation.
+successSignals:
+  - First Bootstrap PRD compilation (PRD-META-GATE-1-COMPILE-COVERAGE itself) produces a Gate1Report with populated checks and valid lineage, pass or fail.
+  - Gate 1 correctly identifies a seeded orphan atom in an integration test fixture and names it in orphan_atoms.
+  - Gate 1 correctly identifies a seeded invariant-without-detector in an integration test fixture and names it in invariants_missing_detector.
+  - Gate 1 correctly identifies a seeded dangling dependency in an integration test fixture and names it in dangling_dependencies.
+  - Gate 1 correctly identifies a seeded validation-covering-nothing and names it in validations_covering_nothing.
+  - Gate 1 correctly halts compilation on each of the failure cases above (Pass 8 never executes and no WorkGraph emits).
+  - Gate 1 correctly rejects a non-META PRD during Bootstrap mode and passes the same PRD in Steady-State mode.
+  - Gate 1 produces byte-identical Gate1Report contents (modulo timestamp and id) across two runs over the same inputs.
+confidence: 1.0
+source_refs:
+  - BC-META-ENFORCE-COVERAGE-GATES
+  - PRS-META-THREE-COVERAGE-GATES
+  - SIG-META-WHITEPAPER-V4
+explicitness: explicit
+rationale: >
+  Gate 1 is a control Function per whitepaper §3 Stage 4 typing- it
+  constrains what the pipeline emits rather than executing primary work or
+  producing standalone evidence. Its Coverage Report emission is a secondary
+  evidence aspect of the same control Function, not a separate evidence
+  Function — the execution/control/evidence triple from §3 Stage 3 applies
+  across the BC-META-ENFORCE-COVERAGE-GATES Capability, not within a single
+  Function. The FP.name `compile_coverage_gate` uses the semantic label from
+  the skill directory (.agent/skills/coverage-gate-1/SKILL.md is titled
+  "Compile Coverage Gate (Gate 1)"). The positional label "Gate 1" is
+  retained in the FP ID for continuity with the whitepaper, the ConOps, and
+  subsequent gate PRDs, but the snake_case FP.name is semantic per the
+  convention that names describe behavior rather than slot position. The
+  Bootstrap META- prefix check (ConOps §4.1) is introduced here as a fifth
+  coverage dimension that was not present in the existing
+  coverage-gate-1/SKILL.md; the PRD authored from this FP flags this as a
+  schema amendment required before implementation.
