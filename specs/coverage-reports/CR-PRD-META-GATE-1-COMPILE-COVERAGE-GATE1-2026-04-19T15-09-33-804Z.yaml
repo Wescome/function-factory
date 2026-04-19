@@ -1,0 +1,33 @@
+id: CR-PRD-META-GATE-1-COMPILE-COVERAGE-GATE1-2026-04-19T15-09-33-804Z
+source_refs:
+  - PRD-META-GATE-1-COMPILE-COVERAGE
+explicitness: explicit
+rationale: Gate 1 compile coverage evaluation for
+  PRD-META-GATE-1-COMPILE-COVERAGE in bootstrap mode
+gate: 1
+prd_id: PRD-META-GATE-1-COMPILE-COVERAGE
+timestamp: 2026-04-19T15:09:33.804Z
+overall: pass
+checks:
+  atom_coverage:
+    status: pass
+    details: []
+    orphan_atoms: []
+  invariant_coverage:
+    status: pass
+    details: []
+    invariants_missing_validation: []
+    invariants_missing_detector: []
+  validation_coverage:
+    status: pass
+    details: []
+    validations_covering_nothing: []
+  dependency_closure:
+    status: pass
+    details: []
+    dangling_dependencies: []
+  bootstrap_prefix_check:
+    status: pass
+    details: []
+    non_meta_artifact_ids: []
+remediation: no remediation required

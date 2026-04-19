@@ -21,6 +21,7 @@
 
 import type { ArtifactId, Contract, RequirementAtom } from "@factory/schemas"
 import type { NormalizedPRD } from "../types.js"
+import { contractId } from "./_shared.js"
 
 export function deriveContracts(
   normalized: NormalizedPRD,
@@ -51,9 +52,8 @@ function buildContract(
   category: string,
   categoryAtoms: readonly RequirementAtom[]
 ): Contract {
-  const subject = prdId.replace(/^PRD-/, "")
   const tag = category.toUpperCase()
-  const id = `CONTRACT-${subject}-${tag}` as ArtifactId
+  const id = contractId(prdId, tag)
   const atomIds = categoryAtoms.map((a) => a.id)
 
   return {

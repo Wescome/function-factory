@@ -24,6 +24,7 @@ import type {
   RequirementAtom,
 } from "@factory/schemas"
 import type { NormalizedPRD } from "../types.js"
+import { contractId } from "./_shared.js"
 
 interface InvariantTemplate {
   readonly tag: string
@@ -120,7 +121,7 @@ export function deriveInvariants(
   // The constraint-category Contract collects all constraint atoms;
   // link invariants to it for derivedFromContractIds.
   const constraintContract = contracts.find(
-    (c) => c.id === `CONTRACT-${subject}-CONSTRAINT`
+    (c) => c.id === contractId(draft.id, "CONSTRAINT")
   )
   const constraintContractIds: ArtifactId[] =
     constraintContract !== undefined ? [constraintContract.id] : []
