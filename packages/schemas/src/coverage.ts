@@ -39,6 +39,14 @@ export const Gate1Report = Lineage.extend({
     dependency_closure: CoverageCheck.extend({
       dangling_dependencies: z.array(ArtifactId).default([]),
     }),
+    // Added per DECISIONS.md 2026-04-19 entry #2. Populated only when Gate 1
+    // runs with Factory mode `bootstrap`; absent from Gate1Reports emitted
+    // in `steady_state`. `overall: fail` is set when this check's status is
+    // `fail`, consistent with the other four checks. Enforces the META-
+    // prefix rule from ConOps §4.1 Rule 2 during Bootstrap.
+    bootstrap_prefix_check: CoverageCheck.extend({
+      non_meta_artifact_ids: z.array(ArtifactId).default([]),
+    }).optional(),
   }),
   remediation: z.string().min(1),
 })
