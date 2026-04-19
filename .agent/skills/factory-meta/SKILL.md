@@ -11,7 +11,7 @@ preconditions: []
 constraints:
   - "do not produce Work Orders (those are WeOps, not Factory)"
   - "do not propose external-vertical Functions before the Factory itself is complete"
-  - "every meta-artifact must be tagged PRS-META-* / BC-META-* / FN-META-* / etc."
+  - "every meta-artifact must be tagged SIG-META-* / PRS-META-* / BC-META-* / FP-META-* / FN-META-* / PRD-META-* / etc."
 category: meta
 ---
 
@@ -22,11 +22,11 @@ how to produce Factory artifacts that describe the Factory itself.
 
 ## When to invoke
 
-- Writing the first Signals (`specs/signals/SIG-META-*.yaml`) — Stage 1 origin
-  points whose external source is the whitepaper, architect corrections, build
-  events, or agent traces. The `source` field is required; `source_refs` is
-  empty by category per the `lineage-preservation` Stage 1 Signal exception.
-- Writing the first Pressures (`specs/pressures/PRS-META-*.yaml`).
+- Writing the first Signals (`specs/signals/SIG-META-*.yaml`) — Stage 1
+  origin artifacts whose `source` field names the internal origin
+  (whitepaper, ConOps, architect correction, build event, agent trace).
+- Writing the first Pressures (`specs/pressures/PRS-META-*.yaml`) — Stage 2
+  forcing functions derived from the Signals above.
 - Writing Capabilities that describe what the Factory must be able to do
   (`specs/capabilities/BC-META-*.yaml`).
 - Writing FunctionProposals for Factory components (`specs/functions/FP-META-*.yaml`).
@@ -36,16 +36,25 @@ how to produce Factory artifacts that describe the Factory itself.
 
 ## Core rules
 
-1. **Tag everything `META`.** Pressure IDs, Capability IDs, Function IDs,
-   PRD IDs, WorkGraph IDs. The `META` prefix signals bootstrap-phase
-   artifacts and lets the Factory later distinguish its own construction
-   lineage from first-customer lineage.
+1. **Tag everything `META`.** Signal IDs, Pressure IDs, Capability IDs,
+   Function IDs, FunctionProposal IDs, PRD IDs, WorkGraph IDs. The `META`
+   prefix signals bootstrap-phase artifacts and lets the Factory later
+   distinguish its own construction lineage from first-customer lineage.
+   Gate 1 enforces the META- prefix on every artifact ID during Bootstrap
+   mode per ConOps §4.1.
 
-2. **Source signals are internal.** During bootstrap, Stage 1 signals come
-   from build events, agent traces, test results, architect corrections,
-   and the whitepaper itself — not from market/customer/competitor
-   telemetry. The `source` field in an ExternalSignal should name the
-   internal origin (e.g., `arch-review`, `build-event`, `whitepaper-v4`).
+2. **Source signals are internal and materialized.** During bootstrap,
+   Stage 1 signals come from build events, agent traces, test results,
+   architect corrections, and the whitepaper itself — not from
+   market/customer/competitor telemetry. The `source` field in an
+   ExternalSignal names the internal origin (e.g., `arch-review`,
+   `build-event`, or a file path like
+   `WeOps/Architecture/inbox/The_Function_Factory_2026-04-18_v4.md`).
+   The Signal artifact itself lives in `specs/signals/SIG-META-*.yaml`.
+   Signal `source_refs` may be empty because Signals have no upstream
+   Factory artifact by category — the external origin is cited in
+   `source` instead. See the `lineage-preservation` skill for the audit
+   carve-out.
 
 3. **The first Pressures already exist in the whitepaper.** The six
    non-negotiables in §11 are effectively six Pressures in narrative form.
@@ -77,14 +86,22 @@ how to produce Factory artifacts that describe the Factory itself.
 
 ## Anti-patterns
 
-- **Do not skip the Pressure → Capability → FunctionProposal chain.** If
-  you have a Function in mind, back it out to the Capability it implements
-  and the Pressure that justified it. No Functions without lineage.
+- **Do not skip the Signal → Pressure → Capability → FunctionProposal chain.**
+  If you have a Function in mind, back it out to the FunctionProposal it
+  instantiates, the Capability it implements, the Pressure that justified
+  the Capability, and the Signal(s) that produced the Pressure. No
+  Functions without full lineage, and no Pressures without at least one
+  cited Signal per the ExternalSignal/Pressure schema contract.
 - **Do not treat illustrative examples from the whitepaper or the source
   thread as meta-Functions.** `password_reset` is not a Factory meta-
   artifact; it was an expositional device.
 - **Do not write invariants without detectors during meta-work.** The
   invariant-authoring skill applies.
+- **Do not author a Signal with both empty `source` and empty `source_refs`.**
+  A Signal must name its external origin somewhere; a Signal that cites
+  neither a Factory artifact (via `source_refs`) nor an external origin
+  (via `source`) is ungrounded and cannot be audited. See
+  `lineage-preservation` anti-pattern #2.
 
 ## Self-rewrite hook
 

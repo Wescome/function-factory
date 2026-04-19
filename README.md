@@ -30,7 +30,7 @@ packages/                       # TypeScript monorepo (pnpm workspaces)
   harness-bridge/               # Stage 6: adapters to Claude Code / Cursor / etc.
 
 specs/                          # Factory artifacts (Factory-built-by-Factory)
-  signals/                      # Stage 1 output (ExternalSignals, SIG-*)
+  signals/                      # Stage 1 input (ExternalSignal, SIG-*)
   pressures/                    # Stage 2 output
   capabilities/                 # Stage 3 output
   functions/                    # Stage 4 output (FunctionProposals)
@@ -38,30 +38,34 @@ specs/                          # Factory artifacts (Factory-built-by-Factory)
   workgraphs/                   # Stage 5 output
   invariants/                   # Invariant + detector specs
   coverage-reports/             # Gate 1/2/3 outputs, timestamped
-
-examples/                       # Fixture PRDs for compiler tests
-scripts/                        # Build, test, and bootstrap scripts
 ```
 
 ## Bootstrap loop
 
-1. Write Pressures that describe the Factory's own construction needs.
-2. Compile them into Capabilities (what the Factory must be able to do).
-3. Generate FunctionProposals for each Capability's execution/control/evidence
+1. Normalize the first Signals — internal origins (whitepaper, ConOps,
+   architect corrections, build events, agent traces) into `specs/signals/`.
+2. Write Pressures that cluster those Signals into forcing functions on the
+   Factory's own construction.
+3. Compile Pressures into Capabilities (what the Factory must be able to do).
+4. Generate FunctionProposals for each Capability's execution/control/evidence
    triple.
-4. Draft PRDs per FunctionProposal.
-5. Run the compiler (Stage 5) against each PRD — even when incomplete, it
+5. Draft PRDs per FunctionProposal.
+6. Run the compiler (Stage 5) against each PRD — even when incomplete, it
    emits Coverage Reports that tell you what's missing.
-6. Execute the resulting WorkGraphs via Claude Code or another harness, with
+7. Execute the resulting WorkGraphs via Claude Code or another harness, with
    strict lineage logging into `.agent/memory/episodic/`.
-7. Validate against invariants, compute trust, detect regression.
-8. Feed runtime drift back as new Pressures. Loop.
+8. Validate against invariants, compute trust, detect regression.
+9. Feed runtime drift back as new Signals. Loop.
 
 The Factory's own operational history *is* the proof that the Factory works.
 
 ## Conventions
 
-- **Every artifact carries a source-references field.** No exceptions.
+- **Every artifact carries a source-references field.** No exceptions for
+  downstream artifacts. Stage 1 Signals are the asymmetric case — their
+  upstream is an external artifact (cited in the `source` field), not a
+  Factory artifact, so `source_refs` may be empty. See the
+  `lineage-preservation` skill for the audit carve-out.
 - **Every invariant has a named detector.** Invariants without detectors are
   wishes and are rejected at Gate 1.
 - **Every commit is attributable to a Function ID.** Commit messages use the
