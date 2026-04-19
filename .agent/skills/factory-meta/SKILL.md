@@ -1,16 +1,18 @@
 ---
 name: factory-meta
-version: 2026-04-19
+version: 2026-04-19b
 triggers:
   - "bootstrap"
   - "factory about the factory"
   - "meta function"
   - "self-application"
+  - "external-vertical function"
+  - "vertical selection"
 tools: [bash, view, create_file, str_replace]
 preconditions: []
 constraints:
   - "do not produce Work Orders (those are WeOps, not Factory)"
-  - "do not propose external-vertical Functions before the Factory itself is complete"
+  - "external-vertical Functions may be proposed only after Bootstrap-stage-5-complete is reached; see External-vertical Functions section"
   - "every meta-artifact must be tagged SIG-META-* / PRS-META-* / BC-META-* / FP-META-* / FN-META-* / PRD-META-* / etc."
 category: meta
 ---
@@ -102,6 +104,22 @@ how to produce Factory artifacts that describe the Factory itself.
   neither a Factory artifact (via `source_refs`) nor an external origin
   (via `source`) is ungrounded and cannot be audited. See
   `lineage-preservation` anti-pattern #2.
+
+## External-vertical Functions
+
+External-vertical Functions may be proposed once Bootstrap-stage-5-complete is reached. Bootstrap-stage-5-complete is defined as- every meta-PRD in `specs/prds/` has an emitted WorkGraph in `specs/workgraphs/` produced by a full Passes 0–8 compile. At that state, the Factory's Stage 5 pipeline is architecturally complete and external-vertical Function proposals are permitted.
+
+Proposals should reference the chosen v-number vertical (recorded in DECISIONS.md) for consistency with the Architect's selection. Divergent verticals may be proposed only with an explicit DECISIONS entry documenting the rationale.
+
+**Vertical selection rubric.** A proposed vertical must simultaneously exercise three architecture-proving dimensions-
+
+1. **Non-self-referential content.** The Function's inputs are not Factory `specs/`. A Function that reads the Factory's own artifacts re-exercises self-referential compile loops already proven in Bootstrap; it does not extend the generality claim.
+
+2. **Adapter boundary.** The Function targets a runtime surface outside the Factory (external CLI, web API, filesystem beyond `specs/`, database, etc.). This forces harness-bridge to face real integration constraints rather than abstract ones.
+
+3. **Domain-specific invariants.** The Function's invariants derive from its subject matter, not from whitepaper discipline. A Function whose only invariants are "determinism holds," "fail-closed applies," "lineage preserved" fails this criterion — those are Factory-wide invariants, not domain-specific ones. The Function must carry invariants that would be nonsensical on a different subject.
+
+Verticals that satisfy all three extend the Factory's proof surface; verticals that satisfy only one or two do not and should be deferred or reframed.
 
 ## Self-rewrite hook
 

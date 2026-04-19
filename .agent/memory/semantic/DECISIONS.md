@@ -270,3 +270,23 @@ The category-scoping of Pass 3's template matching therefore reflects a valid au
 **Claim:** Distinct from the Pass-8-implementation Observed entry above, which records the implementation landing, this entry records the physical artifact that manifests the architectural claim. The whitepaper's central commitment ("the Factory builds itself by the discipline it will apply to everything else") has moved from stated-intent to grep-able-on-disk evidence.
 
 **Status:** Observed.
+
+## 2026-04-19: v2 vertical selection — git-commit-triage
+
+**Decision:** Git-commit triage is selected as v2. The Function classifies commits in a git repository against Conventional Commits taxonomy, detects domain-specific violations (missing scopes on feat commits, misattributed fix commits, etc.), and emits a CommitTriageReport.
+
+**Rationale:** The 2026-04-18 "Factory built by Factory is v1" entry implicitly left v2 undetermined. Bootstrap-stage-5-complete has been reached (three meta-PRDs compiled through full Passes 0–8, three WorkGraphs on disk, second-order bootstrap proof realized at WG-META-COMPILER-PASS-8). v2 selection is now timely and architecturally load-bearing — the choice determines what the first non-meta compile exercises and therefore what the Factory's architecture-proving claim extends to. Git-commit triage was chosen against a three-criterion rubric (non-self-referential content, adapter boundary, domain-specific invariants). Rubric mapping: (1) classifier reads arbitrary repo history via git CLI, not Factory's `specs/`; (2) git CLI via `child_process.exec` is the first real shell-exec adapter the harness-bridge will implement, with the pattern transferring to every subsequent external-tool Function; (3) commit-message convention rules (Conventional Commits), repository-state invariants (resolvable SHAs, no shallow gaps), and classification-consistency rules derive from the vertical's domain, not from whitepaper §6.2 coverage discipline. The selection rubric recorded here is reusable for v3 selection and has been encoded into the factory-meta SKILL as durable decision support.
+
+**Alternatives considered:** (a) Healthcare triage or RevOps analytics as v2 — rejected on timing grounds, not substantive grounds. Both were deferred in the 2026-04-18 DECISIONS entry because bootstrap had to come first; the rejection language in that entry ("too much domain onboarding," "not architecture-proving") should not be read as substantive foreclosure. Both remain valid future verticals (potentially v3 or later). (b) A business-facing vertical as v2 — rejected because v2 is architecturally load-bearing as the "first non-meta" proof, and conflating "first non-meta" with "first business-facing" weakens both proofs. v2 proves the Factory compiles non-meta work. v3 (future) should prove the Factory compiles business-facing work. Separating the two claims strengthens each.
+
+**Status:** Proposed. Pending Architect approval.
+
+## 2026-04-19: factory-meta SKILL amended — external-vertical Functions now permitted
+
+**Decision:** Amend `.agent/skills/factory-meta/SKILL.md` to permit external-vertical Function proposals post-Bootstrap-stage-5-complete. Replace the frontmatter constraint from "do not propose external-vertical Functions before the Factory itself is complete" to a pointer into a new body section. Add the External-vertical Functions section to the body, including the vertical selection rubric (non-self-referential content, adapter boundary, domain-specific invariants) for reusable decision support on v3 and subsequent selections. Version bumped 2026-04-19 → 2026-04-19b.
+
+**Rationale:** The original constraint was authored during Bootstrap phase 1, before any Factory meta-compile had succeeded. It prevented premature scope creep into business verticals while the Factory's own pipeline was unproven. Bootstrap-stage-5-complete has been reached; the constraint's original purpose is now satisfied. The amendment preserves the spirit (prevent unprincipled vertical sprawl) while honoring the new phase (external verticals are architecturally live). Encoding the three-criterion rubric in the SKILL itself turns one-off reasoning into reusable decision support; future v-number selections cite the rubric rather than re-deriving it.
+
+**Alternatives considered:** (a) Remove the constraint entirely. Rejected — removal loses the intent ("prevent unprincipled sprawl") and leaves future readers without a framework for vertical selection. (b) Move the rubric into a separate skill. Rejected — vertical selection is factory-meta's operational concern (the Factory reasoning about its own expansion); no new skill warranted.
+
+**Status:** Proposed. Pending Architect approval.
