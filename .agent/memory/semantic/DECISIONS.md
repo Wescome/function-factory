@@ -139,4 +139,4 @@ Also amend the audit algorithm (§4) to skip the "For every ID in source_refs...
 
 **Alternatives considered:** (a) Amend the ExternalSignal schema to require `source_refs.min(1)` and invent a new artifact family (e.g., `EXT-*`) for external origins. Rejected — adds a new artifact type family for a single purpose, duplicates the `source` string field, and is a Class A change for a Class B problem. (b) Leave the skill unchanged and rely on each Signal's `rationale` field to document the exception. Rejected — skill rules are binding per AGENTS.md §"What to read, in order" and per the Critic Agent's audit pattern; exceptions documented in artifact rationale rather than the skill itself will be applied inconsistently across future Signal authors. (c) Delete anti-pattern #1 entirely. Rejected — the anti-pattern is correct and binding for every non-Signal artifact; only Stage 1 Signals need the carve-out.
 
-**Status:** Proposed. Pending Architect approval. Can land independently of decisions 2 and 3 if the Architect prefers to sequence the skill amendments before the schema PR.
+**Status:** Active.
