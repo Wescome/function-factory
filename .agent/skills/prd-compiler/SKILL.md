@@ -1,6 +1,6 @@
 ---
 name: prd-compiler
-version: 2026-04-18
+version: 2026-04-19
 triggers:
   - "compile PRD"
   - "compile spec"
@@ -98,6 +98,50 @@ Output: WorkGraph.
 - Typed nodes and edges.
 - Every node references the Function ID it implements.
 - Every edge typed by dependency kind.
+
+## PRD structure- compiler-consumed vs informational
+
+Pass 0 recognizes six section titles (case-insensitive exact-match)-
+`## Problem`, `## Goal`, `## Constraints`, `## Acceptance criteria`,
+`## Success metrics`, `## Out of scope`. Content in any other section
+is flagged as `unrecognizedSections` in the NormalizedPRD and not
+consumed by any downstream pass.
+
+Several section titles are conventionally used in Factory PRDs for
+human-audience content that the compiler is not expected to consume-
+
+- **`## Shared <X> shape`** — describes the structural contract shared
+  across a family of Functions (e.g., "Shared GateEvaluator shape" in
+  the Gate 1 PRD, "Shared ControlFunction shape" in the detect-regression
+  PRD). Read by authors of sibling PRDs in the same Function family,
+  not by the compiler.
+
+- **`## Schema <X> required`** / **`## Schema additions required`** —
+  flags upcoming schema changes that must land before the Function can
+  be implemented. Read by the Architect during pre-merge review, not by
+  the compiler.
+
+- **`## Downstream artifacts <X> will enable`** — enumerates downstream
+  PRs or WorkGraphs that depend on this Function's implementation. Read
+  by the Architect and by authors of those downstream PRDs, not by the
+  compiler.
+
+These sections are valid and welcome. They carry forward the design
+thinking and implementation gating that written PRDs use to communicate
+with human audiences. **Place them at `##` after the six compiler-
+consumed sections, so the compiler-consumed block reads as a contiguous
+unit at the top of the PRD body.** The compiler flags them as
+unrecognized; that's intended — their purpose is human communication,
+not pipeline input.
+
+This convention is documentation, not enforcement. The compiler does
+not currently validate that informational sections appear below the
+consumed ones, and does not warn authors who invert the order. If a
+future compile produces content in an unrecognized section whose
+material SHOULD have been atom-extractable, that's the signal to either
+(a) add the section name to Pass 0's map or (b) update this convention
+to name it. Either choice is a skill/compiler amendment; neither is
+silent.
 
 ## Rules
 
