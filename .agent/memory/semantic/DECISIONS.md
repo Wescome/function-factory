@@ -262,3 +262,11 @@ The category-scoping of Pass 3's template matching therefore reflects a valid au
 **Alternatives considered:** (a) Implement all 8 passes including WorkGraph linking/optimization in one PR. Rejected per the PRD's scope discipline — Pass 8 is canonical assembly; optimization is a future pass. (b) Emit WorkGraphs alongside Coverage Reports even on Gate 1 fail. Rejected — Pass 8's fail-closed discipline is absolute (PRD AC-2); emitting a WorkGraph for a failed PRD would produce an executable artifact for an unsound specification. (c) Put workGraphId into a new `_ids.ts` module separate from `_shared.ts`. Rejected — `contractId` and `workGraphId` follow identical derivation patterns; co-locating them in `_shared.ts` is the minimal-file-split that still expresses the helper-family concept.
 
 **Status:** Proposed. Pending Architect approval.
+
+## 2026-04-19: Second-order bootstrap proof realized as physical artifact
+
+**Observation:** `specs/workgraphs/WG-META-COMPILER-PASS-8.yaml` exists on disk. The Factory has compiled its own compiler's terminal pass through that compiler's own discipline. The WorkGraph describing Pass 8's execution topology was produced by Pass 8's first successful run against PRD-META-COMPILER-PASS-8.
+
+**Claim:** Distinct from the Pass-8-implementation Observed entry above, which records the implementation landing, this entry records the physical artifact that manifests the architectural claim. The whitepaper's central commitment ("the Factory builds itself by the discipline it will apply to everything else") has moved from stated-intent to grep-able-on-disk evidence.
+
+**Status:** Observed.
