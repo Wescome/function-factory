@@ -191,7 +191,7 @@ Pass 3 (invariant derivation) uses four hand-crafted templates (DETERMINISM, FAI
 
 **Alternatives considered:** (a) Leave the two sites independent; rely on discipline + a code comment to keep them in sync. Rejected — the whole point of the paired-PR DECISIONS entry flagging this follow-up was that implicit contracts between passes are exactly the drift-risk surface the Factory's lineage-preservation discipline is meant to eliminate. (b) Inline the lookup into Pass 2 and have Pass 3 receive the constraint-contract reference directly. Rejected — Pass 2 returns a `Contract[]` with deterministic ordering; changing the return shape would ripple across the compiler orchestrator. The helper approach is the smaller surface-area change.
 
-**Status:** Proposed. Pending Architect approval.
+**Status:** Active.
 
 ## 2026-04-19: Document compiler-consumed vs informational PRD section convention
 
@@ -201,7 +201,7 @@ Pass 3 (invariant derivation) uses four hand-crafted templates (DETERMINISM, FAI
 
 **Alternatives considered:** (a) Relocate informational content into `## Notes` or the PRD frontmatter's `rationale` field. Rejected — imposes structural burden on every future PRD for no root-cause gain; authors will drift back to H2 out of habit and the compiler would still silently ignore the H2 title anyway. (b) Extend Pass 0 to emit UncertaintyEntry artifacts for every unrecognized section so the compiler's inaction is audit-trailed. Architecturally correct per the whitepaper's UncertaintyEntry design — this is exactly the "compiler cannot confidently produce" case UncertaintyEntry was designed for. Deferred as a future compiler amendment; the convention documented here matches current reality and unblocks skill-doc alignment immediately. The option-(b) work becomes a separate DECISIONS entry when Pass 0 gets its next real amendment.
 
-**Status:** Proposed. Pending Architect approval.
+**Status:** Active.
 
 ## 2026-04-19: Gate 1 general-case validation via PRD-META-DETECT-REGRESSION
 
