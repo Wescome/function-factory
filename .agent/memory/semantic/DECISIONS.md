@@ -91,7 +91,7 @@ repository infrastructure. Untyped commits break the lineage graph.
 
 **Alternatives considered:** (a) Treat Bootstrap Signals as implicit — cited in source_refs but not materialized as files. Rejected — breaks the lineage-preservation skill's audit algorithm (§4- "For every ID in source_refs, confirm the referenced artifact exists in specs/") and creates an opaque Bootstrap exemption. (b) Extend the ExternalSignal schema with a `bootstrap_origin` flag marking signals as narrative-only. Rejected — Class A change (canonical schema) for a problem solvable with a bucket addition.
 
-**Status:** Proposed. Pending Architect approval.
+**Status:** Active.
 
 ## 2026-04-19: Add `bootstrap_prefix_check` field to Gate1Report schema
 
