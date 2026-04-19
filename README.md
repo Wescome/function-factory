@@ -27,7 +27,7 @@ packages/                       # TypeScript monorepo (pnpm workspaces)
   coverage-gates/               # §6: Gate 1, Gate 2, Gate 3 (fail-closed)
   assurance-graph/              # §5: incident propagation via typed dependencies
   runtime/                      # Stage 7: trust, invariant health, regression
-  harness-bridge/               # Stage 6: adapters to Claude Code / Cursor / etc.
+  # Stage 6 coordinator — pending fresh meta-PRD authored per whitepaper §3
 
 specs/                          # Factory artifacts (Factory-built-by-Factory)
   signals/                      # Stage 1 input (ExternalSignal, SIG-*)

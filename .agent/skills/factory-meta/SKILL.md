@@ -115,7 +115,7 @@ Proposals should reference the chosen v-number vertical (recorded in DECISIONS.m
 
 1. **Non-self-referential content.** The Function's inputs are not Factory `specs/`. A Function that reads the Factory's own artifacts re-exercises self-referential compile loops already proven in Bootstrap; it does not extend the generality claim.
 
-2. **Adapter boundary.** The Function targets a runtime surface outside the Factory (external CLI, web API, filesystem beyond `specs/`, database, etc.). This forces harness-bridge to face real integration constraints rather than abstract ones.
+2. **External integration boundary.** The Function targets a runtime surface outside the Factory (external CLI, web API, filesystem beyond `specs/`, database, etc.). This forces the Stage 6 coding swarm to emit code that faces real integration constraints rather than abstract ones.
 
 3. **Domain-specific invariants.** The Function's invariants derive from its subject matter, not from whitepaper discipline. A Function whose only invariants are "determinism holds," "fail-closed applies," "lineage preserved" fails this criterion — those are Factory-wide invariants, not domain-specific ones. The Function must carry invariants that would be nonsensical on a different subject.
 

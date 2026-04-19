@@ -302,3 +302,25 @@ EL- prefix and ExecutionLog schema are explicitly deferred to a subsequent paire
 **Alternatives considered:** (a) Embed commit-triage output in the ExecutionLog's per-node outcome field without a dedicated schema. Rejected — collapses business output into execution plumbing, loses grep/query surface, breaks the "every artifact has its own schema" discipline. (b) Land CTR- and EL- together as one paired PR. Rejected — EL- has no consumer at this moment (harness-bridge is empty); schemas-with-no-consumers is the speculative-design anti-pattern DECISIONS entries elsewhere already reject.
 
 **Status:** Proposed. Pending Architect approval.
+
+## 2026-04-19: Retraction — generic-dispatch model for Stage 6 was miscast; chain removed
+
+**Retraction.** The earlier framing of Stage 6 as a generic-adapter-dispatches-WorkGraph-nodes runtime was wrong. Whitepaper §3 Stage 6 specifies a five-role coding-agent topology (Planner/Coder/Critic/Tester/Verifier) that reads a WorkGraph as a specification and produces Function implementation code. WorkGraph nodes are not shell-command dispatch sites; Stage 6's output is code, not per-node execution records.
+
+**Scope of retraction.** The following artifacts were authored under the miscast framing and have been removed in this commit-
+- `specs/prds/PRD-META-HARNESS-EXECUTE.md` (generic-dispatch PRD)
+- `specs/capabilities/BC-META-HARNESS-EXECUTE.yaml`
+- `specs/functions/FP-META-HARNESS-EXECUTE.yaml`
+- `specs/pressures/PRS-META-HARNESS-EXECUTE.yaml`
+- `specs/workgraphs/WG-META-HARNESS-EXECUTE.yaml`
+- `specs/coverage-reports/CR-PRD-META-HARNESS-EXECUTE-*.yaml`
+- `packages/harness-bridge/` (empty scaffold named for the wrong concept)
+
+**Prior DECISIONS entries partially invalidated.** The following entries cite the generic-dispatch framing and should be read with this retraction-
+- 2026-04-19 "Pass 8 (assemble_workgraph) implemented" — mentions harness-bridge as a downstream stage slot; the slot survives but its contents are forthcoming under the correct Stage 6 topology.
+- 2026-04-19 "v2 vertical selection — git-commit-triage" — cites "shell-exec adapter the harness-bridge will implement" as the adapter-boundary criterion. The three-criterion rubric stands; the specific phrasing of criterion #2 should be read as "external integration boundary," not "shell-exec adapter dispatched by harness-bridge." The factory-meta SKILL has been updated accordingly.
+- 2026-04-19 "Add CTR- ArtifactId prefix + CommitTriageReport schema" — the deferred-EL- paragraph presupposed a generic-dispatch ExecutionLog that will not be implemented under the correct Stage 6 framing. CTR- schema stands on its own merits as v2's output artifact.
+
+**What comes next.** A fresh meta-PRD authoring the Stage 6 coordinator (five-role coding-agent topology) from whitepaper §3 directly. The artifact-ID stem for that chain is pending Architect decision; no files from the retracted chain will be reused.
+
+**Status:** Active (retraction; cannot be reversed without re-authorizing the wrong turn).
