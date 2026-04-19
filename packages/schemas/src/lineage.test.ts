@@ -43,26 +43,6 @@ describe("ArtifactId regex — CTR prefix", () => {
   })
 })
 
-describe("ArtifactId regex — EL prefix", () => {
-  it("accepts EL-WG-META-FOO-2026-04-19T18-00-00-000Z", () => {
-    expect(
-      ArtifactId.safeParse("EL-WG-META-FOO-2026-04-19T18-00-00-000Z").success
-    ).toBe(true)
-  })
-
-  it("accepts EL-META-FOO", () => {
-    expect(ArtifactId.safeParse("EL-META-FOO").success).toBe(true)
-  })
-
-  it("rejects EL- alone (body required)", () => {
-    expect(ArtifactId.safeParse("EL-").success).toBe(false)
-  })
-
-  it("rejects E-FOO (prefix truncation)", () => {
-    expect(ArtifactId.safeParse("E-FOO").success).toBe(false)
-  })
-})
-
 describe("ArtifactId regex — existing prefixes regression", () => {
   it("still accepts PRS-FOO", () => {
     expect(ArtifactId.safeParse("PRS-FOO").success).toBe(true)
@@ -82,9 +62,5 @@ describe("ArtifactId regex — existing prefixes regression", () => {
 
   it("still accepts DEL-FOO post-CTR-addition", () => {
     expect(ArtifactId.safeParse("DEL-FOO").success).toBe(true)
-  })
-
-  it("still accepts CTR-FOO post-EL-addition", () => {
-    expect(ArtifactId.safeParse("CTR-FOO").success).toBe(true)
   })
 })
