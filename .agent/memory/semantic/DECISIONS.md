@@ -109,7 +109,7 @@ The field is populated only when Gate 1 runs with Factory mode `bootstrap`; it i
 
 **Alternatives considered:** (a) A separate `BootstrapPrefixReport` artifact emitted alongside the Gate1Report. Rejected — splits the verdict across two files and breaks the "one compile, one Coverage Report" discipline. (b) A mandatory always-present field populated with `status: skipped` in Steady-State. Rejected — produces noisy reports with empty checks in every Steady-State compile. (c) Making the check a property of `atom_coverage` rather than a new top-level check. Rejected — the prefix rule is orthogonal to atom-to-downstream coverage; conflating them obscures the diagnostic signal when both fail.
 
-**Status:** Proposed. Pending Architect approval. Implementation PR will land alongside the skill amendments below.
+**Status:** Active.
 
 ## 2026-04-19: Amend `coverage-gate-1` skill to include the Bootstrap prefix check
 
