@@ -249,11 +249,41 @@ export type ValidationSpec = z.infer<typeof ValidationSpec>
 
 export const WorkGraphNodeType = z.enum(["interface", "execution", "control", "evidence"])
 
+/**
+ * Execution intent for a WorkGraph node. Optional — WorkGraphs emitted
+ * from PRDs without an Execution mapping section omit this field
+ * entirely. When present, a harness dispatches the node to the correct
+ * execution backend based on `kind`.
+ *
+ * `shell` — node runs as an external process via shell-exec.
+ * `in_process` — node runs inside the harness via a registered handler,
+ * looked up by `handler_ref` in the handler registry at execution time.
+ *
+ * Forward-reference- DECISIONS entry "WorkGraph executable metadata —
+ * schema extension (path B-lite)" records the architectural rationale.
+ */
+export const NodeExecutable = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("shell"),
+    command: z.string().min(1),
+    args: z.array(z.string()).default([]),
+  }),
+  z.object({
+    kind: z.literal("in_process"),
+    handler_ref: z.string().min(1),
+  }),
+])
+export type NodeExecutable = z.infer<typeof NodeExecutable>
+
+// WorkGraphNode.executable is optional — WorkGraphs without it are
+// valid specifications but are not self-executable. Harnesses executing
+// such WorkGraphs require caller-provided dispatch.
 export const WorkGraphNode = z.object({
   id: z.string().min(1),
   type: WorkGraphNodeType,
   title: z.string().min(1),
   implements: ArtifactId.optional(),
+  executable: NodeExecutable.optional(),
 })
 
 export const WorkGraphEdge = z.object({
