@@ -25,6 +25,24 @@ describe("ArtifactId regex — CONTRACT prefix", () => {
   })
 })
 
+describe("ArtifactId regex — CTR prefix", () => {
+  it("accepts CTR-META-FOO", () => {
+    expect(ArtifactId.safeParse("CTR-META-FOO").success).toBe(true)
+  })
+
+  it("accepts CTR-FOO-BAR-01", () => {
+    expect(ArtifactId.safeParse("CTR-FOO-BAR-01").success).toBe(true)
+  })
+
+  it("rejects CT-FOO (prefix truncation)", () => {
+    expect(ArtifactId.safeParse("CT-FOO").success).toBe(false)
+  })
+
+  it("rejects CTR- alone (body required)", () => {
+    expect(ArtifactId.safeParse("CTR-").success).toBe(false)
+  })
+})
+
 describe("ArtifactId regex — existing prefixes regression", () => {
   it("still accepts PRS-FOO", () => {
     expect(ArtifactId.safeParse("PRS-FOO").success).toBe(true)
@@ -36,5 +54,13 @@ describe("ArtifactId regex — existing prefixes regression", () => {
 
   it("still accepts TRJ-FOO", () => {
     expect(ArtifactId.safeParse("TRJ-FOO").success).toBe(true)
+  })
+
+  it("still accepts CONTRACT-FOO post-CTR-addition", () => {
+    expect(ArtifactId.safeParse("CONTRACT-FOO").success).toBe(true)
+  })
+
+  it("still accepts DEL-FOO post-CTR-addition", () => {
+    expect(ArtifactId.safeParse("DEL-FOO").success).toBe(true)
   })
 })

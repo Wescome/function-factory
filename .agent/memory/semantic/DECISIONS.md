@@ -290,3 +290,15 @@ The category-scoping of Pass 3's template matching therefore reflects a valid au
 **Alternatives considered:** (a) Remove the constraint entirely. Rejected — removal loses the intent ("prevent unprincipled sprawl") and leaves future readers without a framework for vertical selection. (b) Move the rubric into a separate skill. Rejected — vertical selection is factory-meta's operational concern (the Factory reasoning about its own expansion); no new skill warranted.
 
 **Status:** Proposed. Pending Architect approval.
+
+## 2026-04-19: Add CTR- ArtifactId prefix + CommitTriageReport schema (v2 precondition)
+
+**Decision:** Add `CTR` to the `ArtifactId` prefix alternation in `packages/schemas/src/lineage.ts` and to `META_PREFIX_REGEX` in `packages/coverage-gates/src/checks.ts` (paired-PR lockstep, same discipline as CONTRACT). Add a new `CommitTriageReport` Zod schema to `packages/schemas/src/commit-triage.ts` extending Lineage with range fields, per-commit classifications, summary counts, and status enum. Colocated tests verify prefix acceptance, regression of existing prefixes, and schema structural validity.
+
+**Rationale:** Precondition for the v2 vertical (git-commit-triage per DECISIONS 2026-04-19 v2 selection entry). Every Factory artifact has its own schema per "first-class output" discipline; the v2 Function's output artifact needs its own schema rather than embedding triage data in a generic ExecutionLog outcome payload. CTR- namespace is distinct from CR- (Coverage Reports) even though both are report-kind artifacts — CommitTriageReports and Coverage Reports are not interchangeable; keeping prefixes distinct preserves grep/audit clarity.
+
+EL- prefix and ExecutionLog schema are explicitly deferred to a subsequent paired PR landing alongside harness-bridge implementation, when ExecutionLog has a consumer. That sequencing matches the "each artifact lands when consumer is ready" discipline that gated Pass 8 on prior generality proofs.
+
+**Alternatives considered:** (a) Embed commit-triage output in the ExecutionLog's per-node outcome field without a dedicated schema. Rejected — collapses business output into execution plumbing, loses grep/query surface, breaks the "every artifact has its own schema" discipline. (b) Land CTR- and EL- together as one paired PR. Rejected — EL- has no consumer at this moment (harness-bridge is empty); schemas-with-no-consumers is the speculative-design anti-pattern DECISIONS entries elsewhere already reject.
+
+**Status:** Proposed. Pending Architect approval.
