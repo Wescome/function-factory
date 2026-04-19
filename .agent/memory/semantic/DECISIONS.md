@@ -125,7 +125,7 @@ The field is populated only when Gate 1 runs with Factory mode `bootstrap`; it i
 
 **Alternatives considered:** (a) Leave the SKILL unchanged and rely on agents reading the PRD. Rejected — the `.agent/skills/` layer exists specifically to carry quick-reference operational guidance that need not be reconstructed from PRDs each session; PRD-only specification defeats the purpose of the skill layer. (b) Remove the Bootstrap check from the PRD. Rejected — ConOps §4.1 is unambiguous that the META- prefix rule applies during Bootstrap and Gate 1 is the enforcement point.
 
-**Status:** Proposed. Pending Architect approval. Implementation PR will bundle with the schema amendment.
+**Status:** Active.
 
 ## 2026-04-19: Exempt Stage 1 Signals from `lineage-preservation` anti-pattern #1
 
