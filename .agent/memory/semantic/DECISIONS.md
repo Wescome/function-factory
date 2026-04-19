@@ -171,7 +171,7 @@ Also amend the audit algorithm (§4) to skip the "For every ID in source_refs...
 
 Pass 3 (invariant derivation) uses four hand-crafted templates (DETERMINISM, FAIL-CLOSED, LINEAGE, EMISSION) matched against constraint-category atoms only. On the first bootstrap compile, three invariants emitted (DETERMINISM, FAIL-CLOSED, LINEAGE) but EMISSION did not fire. Investigation- the PRD's emission wording ("Gate 1 writes the Gate1Report to specs/coverage-reports/...") lives in Acceptance Criterion 8, not in the Constraints section, and Pass 3 only inspects constraint-category atoms. A follow-up should decide between (a) extending template matching across all atom categories, or (b) treating the category-scoping as intentional and ensuring emission-class properties are authored as constraints not AC. This is the first piece of operational information the Factory has recorded about its own behavior- exactly the kind of diagnostic the whitepaper frames the bootstrap proof around, and exactly the self-rewrite-hook trigger condition named in `coverage-gate-1/SKILL.md`.
 
-**Status:** Proposed. Pending Architect approval.
+**Status:** Active.
 
 ## 2026-04-19: Promote FactoryMode to canonical Zod enum; add CONTRACT artifact prefix
 
@@ -181,4 +181,4 @@ Pass 3 (invariant derivation) uses four hand-crafted templates (DETERMINISM, FAI
 
 **Alternatives considered:** (a) Leave both as-is (ship the compiler MVP with `FN-*-CONTRACT-*` IDs and inline mode union). Originally accepted; reconsidered because contracts would enter the lineage graph under the wrong namespace and the lying-namespace-during-interim pattern is exactly what lineage-preservation discipline exists to prevent. (b) Add `CONTRACT` prefix only, leave FactoryMode derived. Rejected — same architectural-cleanliness argument applies to FactoryMode; bundling both into one paired schemas PR is cheaper than two sequential PRs. (c) Extract the shared contract-ID helper in this PR. Rejected for scope discipline — prefix rename and enum promotion are the scope; the helper refactor is a separate Class B change captured as a follow-up.
 
-**Status:** Proposed. Pending Architect approval.
+**Status:** Active.
