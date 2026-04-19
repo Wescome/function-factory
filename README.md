@@ -30,6 +30,7 @@ packages/                       # TypeScript monorepo (pnpm workspaces)
   harness-bridge/               # Stage 6: adapters to Claude Code / Cursor / etc.
 
 specs/                          # Factory artifacts (Factory-built-by-Factory)
+  signals/                      # Stage 1 output (ExternalSignals, SIG-*)
   pressures/                    # Stage 2 output
   capabilities/                 # Stage 3 output
   functions/                    # Stage 4 output (FunctionProposals)

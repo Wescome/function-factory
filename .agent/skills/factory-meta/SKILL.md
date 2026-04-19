@@ -1,6 +1,6 @@
 ---
 name: factory-meta
-version: 2026-04-18
+version: 2026-04-19
 triggers:
   - "bootstrap"
   - "factory about the factory"
@@ -22,6 +22,10 @@ how to produce Factory artifacts that describe the Factory itself.
 
 ## When to invoke
 
+- Writing the first Signals (`specs/signals/SIG-META-*.yaml`) — Stage 1 origin
+  points whose external source is the whitepaper, architect corrections, build
+  events, or agent traces. The `source` field is required; `source_refs` is
+  empty by category per the `lineage-preservation` Stage 1 Signal exception.
 - Writing the first Pressures (`specs/pressures/PRS-META-*.yaml`).
 - Writing Capabilities that describe what the Factory must be able to do
   (`specs/capabilities/BC-META-*.yaml`).
