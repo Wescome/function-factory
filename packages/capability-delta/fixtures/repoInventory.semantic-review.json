@@ -1,0 +1,60 @@
+{
+  "packages": {
+    "@factory/schemas": "implemented",
+    "@factory/compiler": "implemented",
+    "@factory/coverage-gates": "implemented",
+    "@factory/runtime": "stub",
+    "@factory/assurance-graph": "stub",
+    "@factory/harness-bridge": "missing"
+  },
+  "schemas": [
+    "ExternalSignal",
+    "Pressure",
+    "BusinessCapability",
+    "FunctionProposal",
+    "PRDDraft",
+    "RequirementAtom",
+    "Contract",
+    "Invariant",
+    "Dependency",
+    "ValidationSpec",
+    "WorkGraph",
+    "TrustSignal",
+    "Trajectory",
+    "ProblemFrame",
+    "Incident",
+    "Gate1Report",
+    "Gate2Report",
+    "Gate3Report",
+    "CommitTriageReport",
+    "CapabilityDelta"
+  ],
+  "artifactCounts": {
+    "signals": 2,
+    "pressures": 5,
+    "capabilities": 5,
+    "functions": 7,
+    "prds": 4,
+    "workgraphs": 4,
+    "coverageReports": 9,
+    "deltas": 1
+  },
+  "runners": [
+    "compiler",
+    "gate-1",
+    "capability-delta-runner"
+  ],
+  "tests": {
+    "schemas": 39,
+    "compiler": 29,
+    "coverageGates": 50,
+    "runtime": 0,
+    "assuranceGraph": 0,
+    "capabilityDelta": 11
+  },
+  "notes": [
+    "Gate 1 exists but no semantic review runner exists between Gate 1 and WorkGraph emission.",
+    "No SemanticReviewReport schema or SRR-* artifact family exists yet.",
+    "ArchitectureCandidate schema and AC-* artifact family are still absent."
+  ]
+}

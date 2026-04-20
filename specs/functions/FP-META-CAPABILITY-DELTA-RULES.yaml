@@ -1,0 +1,21 @@
+id: FP-META-CAPABILITY-DELTA-RULES
+source_refs:
+  - PRS-META-UPSTREAM-PIPELINE-GAP
+explicitness: inferred
+rationale: Control gap identified in capability delta
+capabilityId: BC-META-COMPUTE-CAPABILITY-DELTA
+name: capability_delta_rules
+purpose: Classify capabilities into missing/degraded/underutilized/sufficient
+functionType: control
+expectedInputs:
+  - BusinessCapability
+  - RepoInventory
+expectedOutputs:
+  - CapabilityDeltaFinding[]
+governingConstraints:
+  - Rule-based only
+candidateInvariants:
+  - deterministic classification
+successSignals:
+  - Stable findings across repeated runs
+confidence: 0.95

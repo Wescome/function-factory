@@ -1,0 +1,42 @@
+id: DEL-META-EMIT-ARCHITECTURE-CANDIDATES
+capabilityId: BC-META-EMIT-ARCHITECTURE-CANDIDATES
+overallStatus: missing
+findings:
+  - dimension: execution
+    status: missing
+    statement: No ArchitectureCandidate emission engine exists
+    severity: 1
+    confidence: 0.95
+    evidenceRefs:
+      - SIG-META-REPO-ARCH-AUDIT
+  - dimension: control
+    status: missing
+    statement: No candidate selection and emission rule set exists
+    severity: 1
+    confidence: 0.95
+    evidenceRefs:
+      - SIG-META-REPO-ARCH-AUDIT
+  - dimension: evidence
+    status: missing
+    statement: No ArchitectureCandidate artifacts or candidate evidence records are
+      emitted
+    severity: 1
+    confidence: 0.95
+    evidenceRefs:
+      - SIG-META-REPO-ARCH-AUDIT
+  - dimension: integration
+    status: underutilized
+    statement: WorkGraph emission exists but candidate emission is not integrated
+      into Stage 5
+    severity: 0.75
+    confidence: 0.9
+    evidenceRefs:
+      - SIG-META-REPO-ARCH-AUDIT
+recommendedFunctionTypes:
+  - execution
+  - control
+  - evidence
+source_refs:
+  - PRS-META-CANDIDATE-EMISSION-GAP
+explicitness: inferred
+rationale: Derived from repo architecture audit and architecture-candidate inventory

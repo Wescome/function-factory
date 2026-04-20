@@ -1,0 +1,20 @@
+id: FP-META-CAPABILITY-DELTA-EVIDENCE
+source_refs:
+  - PRS-META-UPSTREAM-PIPELINE-GAP
+explicitness: inferred
+rationale: Evidence gap identified in capability delta
+capabilityId: BC-META-COMPUTE-CAPABILITY-DELTA
+name: capability_delta_evidence
+purpose: Emit DEL artifacts with explicit evidence references
+functionType: evidence
+expectedInputs:
+  - CapabilityDelta
+expectedOutputs:
+  - DEL artifact
+governingConstraints:
+  - evidenceRefs must be populated
+candidateInvariants:
+  - DEL artifacts always cite evidence
+successSignals:
+  - DEL artifact persisted under specs/deltas
+confidence: 0.9

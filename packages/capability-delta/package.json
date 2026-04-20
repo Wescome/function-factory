@@ -12,10 +12,12 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "lint": "echo 'lint: TODO'"
+    "lint": "echo 'lint: TODO'",
+    "run-delta": "tsx src/run-delta.ts"
   },
   "dependencies": {
     "@factory/schemas": "workspace:*",
+    "yaml": "^2.4.0",
     "zod": "^3.22.4"
   },
   "devDependencies": {

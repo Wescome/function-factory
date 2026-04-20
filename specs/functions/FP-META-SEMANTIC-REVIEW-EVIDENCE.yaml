@@ -1,0 +1,20 @@
+id: FP-META-SEMANTIC-REVIEW-EVIDENCE
+rationale: Evidence gap identified in semantic review capability delta
+name: semantic_review_evidence
+purpose: Emit review artifacts proving semantic review occurred and what it concluded
+functionType: evidence
+expectedInputs:
+  - semantic review findings
+expectedOutputs:
+  - semantic review artifact
+governingConstraints:
+  - source references must be preserved
+candidateInvariants:
+  - semantic review artifacts always cite doctrine and PRD inputs
+successSignals:
+  - persisted evidence artifact for each semantic review run
+confidence: 0.9
+source_refs:
+  - PRS-META-SEMANTIC-REVIEW-GAP
+explicitness: inferred
+capabilityId: BC-META-SEMANTICALLY-REVIEW-PRDS

@@ -1,0 +1,23 @@
+id: FP-META-ARCHITECTURE-CANDIDATE-RULES
+rationale: Control gap identified in architecture-candidate capability delta
+name: architecture_candidate_rules
+purpose: Define candidate emission rules, selection criteria, and required fields
+functionType: control
+expectedInputs:
+  - PRDDraft
+  - WorkGraph
+  - doctrine sources
+expectedOutputs:
+  - candidate emission rules
+  - candidate validity checks
+governingConstraints:
+  - Must not weaken compiler determinism
+candidateInvariants:
+  - Candidate artifacts always specify execution arrangement explicitly
+successSignals:
+  - Stable candidate classification across repeated runs
+confidence: 0.94
+source_refs:
+  - PRS-META-CANDIDATE-EMISSION-GAP
+explicitness: inferred
+capabilityId: BC-META-EMIT-ARCHITECTURE-CANDIDATES

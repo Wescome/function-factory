@@ -1,0 +1,23 @@
+id: FP-META-SEMANTIC-REVIEW-RULES
+rationale: Control gap identified in semantic review capability delta
+name: semantic_review_rules
+purpose: Define fail-closed semantic review rules and statuses
+functionType: control
+expectedInputs:
+  - PRDDraft
+  - Gate1Report
+  - doctrine sources
+expectedOutputs:
+  - semantic review findings
+  - semantic review status
+governingConstraints:
+  - must not weaken Gate 1
+candidateInvariants:
+  - structurally valid but conceptually wrong PRDs are blocked
+successSignals:
+  - consistent semantic review classification across repeated runs
+confidence: 0.94
+source_refs:
+  - PRS-META-SEMANTIC-REVIEW-GAP
+explicitness: inferred
+capabilityId: BC-META-SEMANTICALLY-REVIEW-PRDS

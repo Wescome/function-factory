@@ -1,0 +1,26 @@
+id: BC-META-EMIT-ARCHITECTURE-CANDIDATES
+source_refs:
+  - PRS-META-CANDIDATE-EMISSION-GAP
+explicitness: inferred
+rationale: >
+  Derived from the whitepaper v2 requirement that Stage 5 emit WorkGraph plus
+  ArchitectureCandidate artifacts, while the current repo emits only WorkGraph.
+name: emit_architecture_candidates
+purpose: >
+  Emit candidate-bound execution artifacts alongside WorkGraphs at the end of Stage 5.
+addressesPressureIds:
+  - PRS-META-CANDIDATE-EMISSION-GAP
+desiredOutcomes:
+  - Execution arrangement becomes explicit before runtime exists.
+  - Stage 5 output aligns with paired-emission doctrine.
+constraints:
+  - Must not pollute WorkGraph with runtime-only execution details.
+  - Candidate artifacts must remain lineage-preserving and separately addressable.
+successMetrics:
+  - At least one ArchitectureCandidate artifact emitted alongside each eligible WorkGraph.
+  - Candidate artifacts capture topology, binding, and convergence posture explicitly.
+affectedPersonas:
+  - architect
+  - compiler-agent
+strategicPriority: 0.94
+confidence: 0.91

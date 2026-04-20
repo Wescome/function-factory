@@ -1,0 +1,40 @@
+id: DEL-META-COMPUTE-CAPABILITY-DELTA
+capabilityId: BC-META-COMPUTE-CAPABILITY-DELTA
+overallStatus: missing
+findings:
+  - dimension: execution
+    status: missing
+    statement: No capability-delta execution engine exists
+    evidenceRefs:
+      - SIG-META-REPO-ARCH-AUDIT
+    severity: 1
+    confidence: 0.95
+  - dimension: control
+    status: missing
+    statement: No deterministic delta classification rules exist
+    evidenceRefs:
+      - SIG-META-REPO-ARCH-AUDIT
+    severity: 1
+    confidence: 0.95
+  - dimension: evidence
+    status: missing
+    statement: No DEL-* artifacts are emitted
+    evidenceRefs:
+      - SIG-META-REPO-ARCH-AUDIT
+    severity: 1
+    confidence: 0.95
+  - dimension: integration
+    status: underutilized
+    statement: Schemas exist but are not integrated into a Stage 4 pipeline
+    evidenceRefs:
+      - SIG-META-REPO-ARCH-AUDIT
+    severity: 0.7
+    confidence: 0.9
+recommendedFunctionTypes:
+  - execution
+  - control
+  - evidence
+source_refs:
+  - PRS-META-UPSTREAM-PIPELINE-GAP
+explicitness: inferred
+rationale: Derived from repo architecture audit and current inventory

@@ -1,0 +1,24 @@
+id: PRS-META-CANDIDATE-EMISSION-GAP
+source_refs:
+  - SIG-META-REPO-ARCH-AUDIT
+explicitness: inferred
+rationale: >
+  Derived from the whitepaper v2 requirement that Stage 5 emit WorkGraph plus
+  ArchitectureCandidate, while the current repo emits only WorkGraph.
+category: trust
+name: architecture_candidate_emission_gap
+description: >
+  The compile path does not yet emit ArchitectureCandidate artifacts alongside
+  WorkGraphs, leaving the execution arrangement unspecified before runtime.
+derivedFromSignalIds:
+  - SIG-META-REPO-ARCH-AUDIT
+affectedDomains:
+  - stage-5
+  - execution-boundary
+affectedPersonas:
+  - architect
+  - compiler-agent
+strength: 0.90
+urgency: 0.80
+frequency: 0.80
+confidence: 0.94

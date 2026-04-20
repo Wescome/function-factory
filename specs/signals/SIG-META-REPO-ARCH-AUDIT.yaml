@@ -1,0 +1,30 @@
+id: SIG-META-REPO-ARCH-AUDIT
+source_refs: []
+explicitness: explicit
+rationale: Directly authored from the current repo architecture audit.
+type: meta
+source: Function Factory — Repo Architecture Audit vs v2 Insights
+title: Repo architecture audit for Function Factory at compiler-first stage
+description: >
+  The repo is strongest at schemas, compiler, and Gate 1 coverage. Stages 1–4
+  are only partially operationalized, runtime and assurance are stubs, Gate 2
+  and Gate 3 have schemas but no runners, and Stage 4 lacks a generalized
+  capability-delta engine.
+timestamp: "2026-04-20T12:00:00Z"
+confidence: 0.98
+frequency: 0.9
+severity: 0.85
+tags:
+  - architecture
+  - compiler-first
+  - bootstrap
+  - stage-4-gap
+  - runtime-gap
+entities:
+  - "@factory/schemas"
+  - "@factory/compiler"
+  - "@factory/coverage-gates"
+  - "@factory/runtime"
+  - "@factory/assurance-graph"
+evidenceRefs:
+  - AUDIT-FFF2865

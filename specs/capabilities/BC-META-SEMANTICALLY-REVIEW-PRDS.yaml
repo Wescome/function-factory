@@ -1,0 +1,25 @@
+id: BC-META-SEMANTICALLY-REVIEW-PRDS
+source_refs:
+  - PRS-META-SEMANTIC-REVIEW-GAP
+explicitness: inferred
+rationale: >
+  Derived from the documented gap between structural Gate 1 success and conceptual
+  correctness before WorkGraph emission.
+name: semantically_review_prds
+purpose: >
+  Perform fail-closed semantic review between Gate 1 success and WorkGraph emission.
+addressesPressureIds:
+  - PRS-META-SEMANTIC-REVIEW-GAP
+desiredOutcomes:
+  - Structurally valid but conceptually wrong PRDs are blocked.
+  - Semantic review becomes a first-class pre-emission control.
+constraints:
+  - Must not weaken Gate 1 structural coverage discipline.
+  - Bootstrap path remains human-governed.
+successMetrics:
+  - Semantic review status is required before WorkGraph emission.
+affectedPersonas:
+  - architect
+  - critic-agent
+strategicPriority: 0.92
+confidence: 0.90

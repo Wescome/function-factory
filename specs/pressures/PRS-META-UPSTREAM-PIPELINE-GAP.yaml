@@ -1,0 +1,26 @@
+id: PRS-META-UPSTREAM-PIPELINE-GAP
+source_refs:
+  - SIG-META-REPO-ARCH-AUDIT
+explicitness: inferred
+rationale: >
+  Derived from the audit's finding that the repo is strongest at Stage 5 while
+  Stages 1–4 are represented mostly as schemas and artifacts, not operational
+  derivation engines.
+category: reliability
+name: upstream_pipeline_gap
+description: >
+  The pre-compile path is incomplete: signals, pressures, capabilities, and
+  capability-delta are not yet fully operationalized as a repeatable pipeline.
+derivedFromSignalIds:
+  - SIG-META-REPO-ARCH-AUDIT
+affectedDomains:
+  - upstream
+  - pre-compile
+  - bootstrap
+affectedPersonas:
+  - architect
+  - coding-agent
+strength: 0.95
+urgency: 0.95
+frequency: 0.9
+confidence: 0.95

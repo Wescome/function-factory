@@ -1,0 +1,23 @@
+id: FP-META-ARCHITECTURE-CANDIDATE-EXECUTION
+rationale: Execution gap identified in architecture-candidate capability delta
+name: architecture_candidate_execution
+purpose: Emit ArchitectureCandidate artifacts alongside WorkGraphs
+functionType: execution
+expectedInputs:
+  - PRDDraft
+  - WorkGraph
+  - candidate selection inputs
+expectedOutputs:
+  - ArchitectureCandidate artifact
+governingConstraints:
+  - Candidate artifact must remain separate from WorkGraph
+  - Candidate artifact must preserve lineage
+candidateInvariants:
+  - Every emitted candidate has explicit topology and binding intent
+successSignals:
+  - Candidate artifact persisted alongside WorkGraph
+confidence: 0.94
+source_refs:
+  - PRS-META-CANDIDATE-EMISSION-GAP
+explicitness: inferred
+capabilityId: BC-META-EMIT-ARCHITECTURE-CANDIDATES

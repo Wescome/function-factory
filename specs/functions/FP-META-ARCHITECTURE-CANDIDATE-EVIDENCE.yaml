@@ -1,0 +1,21 @@
+id: FP-META-ARCHITECTURE-CANDIDATE-EVIDENCE
+rationale: Evidence gap identified in architecture-candidate capability delta
+name: architecture_candidate_evidence
+purpose: Emit reviewable artifacts proving candidate emission occurred and what
+  was selected
+functionType: evidence
+expectedInputs:
+  - candidate emission results
+expectedOutputs:
+  - candidate evidence artifact
+governingConstraints:
+  - source references must be preserved
+candidateInvariants:
+  - candidate evidence always cites doctrine and PRD inputs
+successSignals:
+  - persisted evidence artifact for each candidate emission run
+confidence: 0.9
+source_refs:
+  - PRS-META-CANDIDATE-EMISSION-GAP
+explicitness: inferred
+capabilityId: BC-META-EMIT-ARCHITECTURE-CANDIDATES

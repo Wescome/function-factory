@@ -45,17 +45,90 @@ describe("evaluateDelta", () => {
   })
 
   it("throws for unsupported capabilities", () => {
-    const cap = bootstrapCapabilities.find(
-      (c) => c.id === "BC-META-SEMANTICALLY-REVIEW-PRDS"
-    )!
-    expect(() => evaluateDelta(cap, repoInventoryCurrent)).toThrowError(
-      "Narrow Phase 1: only BC-META-COMPUTE-CAPABILITY-DELTA is supported"
+    const fakeCap = {
+      ...bootstrapCapabilities[0]!,
+      id: "BC-META-UNSUPPORTED-FAKE",
+    }
+    expect(() => evaluateDelta(fakeCap, repoInventoryCurrent)).toThrowError(
+      /only \[.*\] are supported/
     )
   })
 
   it("produces deterministic output across calls", () => {
     const cap = bootstrapCapabilities.find(
       (c) => c.id === "BC-META-COMPUTE-CAPABILITY-DELTA"
+    )!
+    const a = evaluateDelta(cap, repoInventoryCurrent)
+    const b = evaluateDelta(cap, repoInventoryCurrent)
+    expect(a).toEqual(b)
+  })
+
+  it("returns a CapabilityDelta for BC-META-SEMANTICALLY-REVIEW-PRDS", () => {
+    const cap = bootstrapCapabilities.find(
+      (c) => c.id === "BC-META-SEMANTICALLY-REVIEW-PRDS"
+    )!
+    const delta = evaluateDelta(cap, repoInventoryCurrent)
+
+    expect(delta.id).toBe("DEL-META-SEMANTICALLY-REVIEW-PRDS")
+    expect(delta.capabilityId).toBe("BC-META-SEMANTICALLY-REVIEW-PRDS")
+    expect(delta.overallStatus).toBe("missing")
+    expect(delta.findings).toHaveLength(4)
+    expect(delta.recommendedFunctionTypes).toEqual(["execution", "control", "evidence"])
+    expect(delta.source_refs).toEqual(cap.source_refs)
+    expect(delta.explicitness).toBe("inferred")
+  })
+
+  it("classifies semantic-review execution/control/evidence as missing, integration as underutilized", () => {
+    const cap = bootstrapCapabilities.find(
+      (c) => c.id === "BC-META-SEMANTICALLY-REVIEW-PRDS"
+    )!
+    const delta = evaluateDelta(cap, repoInventoryCurrent)
+
+    expect(delta.findings.find((f) => f.dimension === "execution")?.status).toBe("missing")
+    expect(delta.findings.find((f) => f.dimension === "control")?.status).toBe("missing")
+    expect(delta.findings.find((f) => f.dimension === "evidence")?.status).toBe("missing")
+    expect(delta.findings.find((f) => f.dimension === "integration")?.status).toBe("underutilized")
+  })
+
+  it("produces deterministic semantic-review output across calls", () => {
+    const cap = bootstrapCapabilities.find(
+      (c) => c.id === "BC-META-SEMANTICALLY-REVIEW-PRDS"
+    )!
+    const a = evaluateDelta(cap, repoInventoryCurrent)
+    const b = evaluateDelta(cap, repoInventoryCurrent)
+    expect(a).toEqual(b)
+  })
+
+  it("returns a CapabilityDelta for BC-META-EMIT-ARCHITECTURE-CANDIDATES", () => {
+    const cap = bootstrapCapabilities.find(
+      (c) => c.id === "BC-META-EMIT-ARCHITECTURE-CANDIDATES"
+    )!
+    const delta = evaluateDelta(cap, repoInventoryCurrent)
+
+    expect(delta.id).toBe("DEL-META-EMIT-ARCHITECTURE-CANDIDATES")
+    expect(delta.capabilityId).toBe("BC-META-EMIT-ARCHITECTURE-CANDIDATES")
+    expect(delta.overallStatus).toBe("missing")
+    expect(delta.findings).toHaveLength(4)
+    expect(delta.recommendedFunctionTypes).toEqual(["execution", "control", "evidence"])
+    expect(delta.source_refs).toEqual(cap.source_refs)
+    expect(delta.explicitness).toBe("inferred")
+  })
+
+  it("classifies arch-candidate execution/control/evidence as missing, integration as underutilized", () => {
+    const cap = bootstrapCapabilities.find(
+      (c) => c.id === "BC-META-EMIT-ARCHITECTURE-CANDIDATES"
+    )!
+    const delta = evaluateDelta(cap, repoInventoryCurrent)
+
+    expect(delta.findings.find((f) => f.dimension === "execution")?.status).toBe("missing")
+    expect(delta.findings.find((f) => f.dimension === "control")?.status).toBe("missing")
+    expect(delta.findings.find((f) => f.dimension === "evidence")?.status).toBe("missing")
+    expect(delta.findings.find((f) => f.dimension === "integration")?.status).toBe("underutilized")
+  })
+
+  it("produces deterministic arch-candidate output across calls", () => {
+    const cap = bootstrapCapabilities.find(
+      (c) => c.id === "BC-META-EMIT-ARCHITECTURE-CANDIDATES"
     )!
     const a = evaluateDelta(cap, repoInventoryCurrent)
     const b = evaluateDelta(cap, repoInventoryCurrent)

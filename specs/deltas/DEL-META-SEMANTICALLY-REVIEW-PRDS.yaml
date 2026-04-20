@@ -1,0 +1,40 @@
+id: DEL-META-SEMANTICALLY-REVIEW-PRDS
+capabilityId: BC-META-SEMANTICALLY-REVIEW-PRDS
+overallStatus: missing
+findings:
+  - dimension: execution
+    status: missing
+    statement: No semantic review execution engine exists
+    severity: 1
+    confidence: 0.95
+    evidenceRefs:
+      - SIG-META-REPO-ARCH-AUDIT
+  - dimension: control
+    status: missing
+    statement: No fail-closed semantic review rule set exists
+    severity: 1
+    confidence: 0.95
+    evidenceRefs:
+      - SIG-META-REPO-ARCH-AUDIT
+  - dimension: evidence
+    status: missing
+    statement: No SemanticReviewReport or equivalent artifacts are emitted
+    severity: 1
+    confidence: 0.95
+    evidenceRefs:
+      - SIG-META-REPO-ARCH-AUDIT
+  - dimension: integration
+    status: underutilized
+    statement: Gate 1 exists but semantic review is not integrated into the compile path
+    severity: 0.75
+    confidence: 0.9
+    evidenceRefs:
+      - SIG-META-REPO-ARCH-AUDIT
+recommendedFunctionTypes:
+  - execution
+  - control
+  - evidence
+source_refs:
+  - PRS-META-SEMANTIC-REVIEW-GAP
+explicitness: inferred
+rationale: Derived from repo architecture audit and semantic-review inventory

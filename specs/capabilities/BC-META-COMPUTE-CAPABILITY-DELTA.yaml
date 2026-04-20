@@ -1,0 +1,28 @@
+id: BC-META-COMPUTE-CAPABILITY-DELTA
+source_refs:
+  - PRS-META-UPSTREAM-PIPELINE-GAP
+explicitness: inferred
+rationale: >
+  Derived from the audited Stage 4 gap: FunctionProposal artifacts exist in the
+  repo, but no actual capability-delta engine exists to evaluate capabilities
+  and emit proposal demand deterministically.
+name: compute_capability_delta
+purpose: >
+  Determine which meta-capabilities are missing, degraded, underutilized, or
+  sufficient and emit downstream FunctionProposal demand.
+addressesPressureIds:
+  - PRS-META-UPSTREAM-PIPELINE-GAP
+desiredOutcomes:
+  - CapabilityDelta becomes a first-class bootstrap artifact.
+  - Function proposals can be emitted deterministically from Stage 4 logic.
+constraints:
+  - Must remain separate from Stage 5 compiler logic.
+  - Must preserve lineage and explicit rationale for all findings.
+successMetrics:
+  - Deterministic delta classification for audited bootstrap capabilities.
+  - Typed FunctionProposal emission from delta findings.
+affectedPersonas:
+  - architect
+  - coding-agent
+strategicPriority: 0.95
+confidence: 0.95

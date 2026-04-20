@@ -1,0 +1,24 @@
+id: PRS-META-SEMANTIC-REVIEW-GAP
+source_refs:
+  - SIG-META-REPO-ARCH-AUDIT
+explicitness: inferred
+rationale: >
+  Derived from the audit and whitepaper requirement that structural Gate 1 is
+  insufficient without a fail-closed semantic review layer before WorkGraph emission.
+category: trust
+name: semantic_review_gap
+description: >
+  The current repo has Gate 1 structural coverage but no implemented semantic
+  review layer between compile coverage success and WorkGraph emission.
+derivedFromSignalIds:
+  - SIG-META-REPO-ARCH-AUDIT
+affectedDomains:
+  - stage-5
+  - governance
+affectedPersonas:
+  - architect
+  - critic-agent
+strength: 0.88
+urgency: 0.82
+frequency: 0.75
+confidence: 0.93
