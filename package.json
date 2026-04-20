@@ -16,6 +16,8 @@
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
     "compile": "pnpm --filter @factory/compiler run compile",
+    "delta:test": "pnpm --filter @factory/capability-delta run test",
+    "delta:typecheck": "pnpm --filter @factory/capability-delta run typecheck",
     "dream": "tsx .agent/tools/dream.ts",
     "bootstrap": "tsx scripts/bootstrap.ts"
   },
