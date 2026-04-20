@@ -10,8 +10,14 @@ bypass.
 - Read `specs/` at any depth.
 - Run `pnpm test`, `pnpm build`, `pnpm lint`, `pnpm typecheck`.
 - Create files in `specs/prds/`, `specs/pressures/`, `specs/capabilities/`,
-  `specs/functions/`, `specs/invariants/`, `specs/coverage-reports/`.
+  `specs/functions/`, `specs/invariants/`, `specs/coverage-reports/`,
+  `specs/signals/`, `specs/deltas/`.
 - Write to `.agent/memory/working/` and `.agent/memory/episodic/`.
+- Write to `.agent/memory/semantic/LESSONS.md` and `DECISIONS.md` — the
+  Factory's learning loop requires autonomous memory accumulation. Agents
+  record lessons and decisions as they work; the Architect reviews via
+  git log, not per-write approval. Gating institutional memory on human
+  approval breaks the closed-loop learning the Factory depends on.
 - Create branches.
 - Create draft pull requests.
 - Update `WORKSPACE.md` and `AGENT_LEARNINGS.jsonl` as part of normal
@@ -22,16 +28,19 @@ bypass.
 - Modify files in `packages/*/src/` (every package boundary is a contract).
 - Modify any file in `.agent/skills/` (skills are architecturally
   load-bearing — changes require review).
-- Modify `.agent/memory/semantic/LESSONS.md` or `DECISIONS.md` (both
-  accumulate institutional memory; architect-reviewed only).
+- (Moved to Always-allowed: LESSONS.md and DECISIONS.md are now
+  autonomously writable — see above.)
 - Modify this file (`permissions.md`). Only humans edit this file.
 - Merge pull requests.
-- Create files in `specs/workgraphs/` (WorkGraphs are compiler output; do
-  not hand-author).
+- Create files in `specs/workgraphs/` by hand (WorkGraphs are compiler
+  output; hand-authoring requires approval. Compiler-emitted WorkGraphs
+  via `pnpm compile` are always-allowed — see above).
 - Install new npm dependencies.
 - Modify CI/CD configuration (`.github/workflows/`).
 - Promote a Function's lifecycle state (`designed` → ... → `monitored`).
 - Transition a Function to `retired`.
+- Delete files in `specs/` (lineage-carrying artifacts; deletion is
+  destructive and requires architect sign-off).
 
 ## Never allowed
 - Force push to `main` or any protected branch.
