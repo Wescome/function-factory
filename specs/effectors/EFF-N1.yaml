@@ -1,0 +1,17 @@
+id: EFF-N1
+source_refs:
+  - EXS-META-ARCHITECTURE-CANDIDATE-EXECUTION
+explicitness: inferred
+rationale: Controlled effector emitted deterministically under bootstrap tool policy.
+sourceWorkGraphId: WG-META-ARCHITECTURE-CANDIDATE-EXECUTION
+sourceArchitectureCandidateId: AC-META-ARCHITECTURE-CANDIDATE-EXECUTION
+sourceSelectionId: ACS-META-ARCHITECTURE-CANDIDATE-EXECUTION
+sourceAdmissionId: RAD-META-ARCHITECTURE-CANDIDATE-EXECUTION-ALLOW
+sourceExecutionStartId: EXS-META-ARCHITECTURE-CANDIDATE-EXECUTION
+effectorType: file_write
+effectorMode: simulate
+toolPolicyMode: allowlist
+allowed: true
+targetNodeId: N1
+inputSummary: Deterministic bootstrap input summary.
+outputSummary: Deterministic simulated output summary.

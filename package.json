@@ -30,6 +30,8 @@
     "runtime-admission:typecheck": "pnpm --filter @factory/runtime-admission run typecheck",
     "execution-lifecycle:test": "pnpm --filter @factory/execution-lifecycle run test",
     "execution-lifecycle:typecheck": "pnpm --filter @factory/execution-lifecycle run typecheck",
+    "controlled-effectors:test": "pnpm --filter @factory/controlled-effectors run test",
+    "controlled-effectors:typecheck": "pnpm --filter @factory/controlled-effectors run typecheck",
     "dream": "tsx .agent/tools/dream.ts",
     "bootstrap": "tsx scripts/bootstrap.ts"
   },

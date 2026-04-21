@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { ArtifactId, Lineage } from "./lineage.js"
+import { ExecutionNodeRecord } from "./controlled-effectors.js"
 
 export const ExecutionTrace = Lineage.extend({
   id: ArtifactId.refine((s) => s.startsWith("EXT-"), "ExecutionTrace IDs must start with EXT-"),
@@ -11,6 +12,7 @@ export const ExecutionTrace = Lineage.extend({
   runId: z.string().min(1),
   nodeCount: z.number().int().nonnegative(),
   traversedNodeIds: z.array(z.string().min(1)).min(1),
+  nodeExecutionRecords: z.array(ExecutionNodeRecord).optional(),
   completionMode: z.enum(["deterministic_single_path"]),
   summary: z.string().min(1),
 })
