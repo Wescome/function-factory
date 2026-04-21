@@ -1,0 +1,33 @@
+id: ACS-META-ARCHITECTURE-CANDIDATE-EXECUTION
+source_refs:
+  - PRD-META-ARCHITECTURE-CANDIDATE-EXECUTION
+  - AC-META-ARCHITECTURE-CANDIDATE-EXECUTION
+explicitness: inferred
+rationale: Derived deterministically from ArchitectureCandidate scorecard and bootstrap threshold policy.
+sourceArchitectureCandidateId: AC-META-ARCHITECTURE-CANDIDATE-EXECUTION
+sourceWorkGraphId: WG-META-ARCHITECTURE-CANDIDATE-EXECUTION
+decision: selected
+threshold: 0.8
+scorecard:
+  totalScore: 0.8299999999999998
+  dimensions:
+    -
+      name: topologyComplexity
+      score: 0.9
+      rationale: Single-node bootstrap topology is low complexity and highly legible.
+    -
+      name: policyRisk
+      score: 0.85
+      rationale: Restricted tool policy and manual review posture reduce policy risk.
+    -
+      name: toolExposure
+      score: 0.8
+      rationale: Tool policy is restricted and not runtime-expanded in this stage.
+    -
+      name: convergenceStrictness
+      score: 0.9
+      rationale: Manual review convergence policy is strict and bootstrap-safe.
+    -
+      name: runtimeReadiness
+      score: 0.7
+      rationale: The candidate is structurally ready for selection but not yet for runtime execution.

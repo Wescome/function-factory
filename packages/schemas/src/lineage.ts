@@ -28,7 +28,7 @@ export type Explicitness = z.infer<typeof Explicitness>
 export const ArtifactId = z
   .string()
   .regex(
-    /^(PRS|BC|FN|CONTRACT|FP|PRD|WG|INV|VAL|DEP|ATOM|CR|CTR|TRJ|PF|INC|DET|DEL|SIG|RGD|AC)-[A-Z0-9][A-Z0-9-]*$/,
+    /^(PRS|BC|FN|CONTRACT|FP|PRD|WG|INV|VAL|DEP|ATOM|CR|CTR|TRJ|PF|INC|DET|DEL|SIG|RGD|AC|ACS)-[A-Z0-9][A-Z0-9-]*$/,
     "ArtifactId must be <TYPE-PREFIX>-<ALPHANUM-WITH-HYPHENS>"
   )
 export type ArtifactId = z.infer<typeof ArtifactId>
