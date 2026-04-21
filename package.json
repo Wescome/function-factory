@@ -26,6 +26,8 @@
     "architecture-candidates:typecheck": "pnpm --filter @factory/architecture-candidates run typecheck",
     "candidate-selection:test": "pnpm --filter @factory/candidate-selection run test",
     "candidate-selection:typecheck": "pnpm --filter @factory/candidate-selection run typecheck",
+    "runtime-admission:test": "pnpm --filter @factory/runtime-admission run test",
+    "runtime-admission:typecheck": "pnpm --filter @factory/runtime-admission run typecheck",
     "dream": "tsx .agent/tools/dream.ts",
     "bootstrap": "tsx scripts/bootstrap.ts"
   },

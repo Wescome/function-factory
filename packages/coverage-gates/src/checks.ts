@@ -50,7 +50,7 @@ type BootstrapPrefixCheckResult = NonNullable<Checks["bootstrap_prefix_check"]>
 // the ArtifactId prefix alternation in packages/schemas/src/lineage.ts.
 // Any change to one requires a matching change to the other in the same PR.
 const META_PREFIX_REGEX =
-  /^(PRS|BC|FN|CONTRACT|FP|PRD|WG|INV|VAL|DEP|ATOM|CR|CTR|TRJ|PF|INC|DET|DEL|SIG|RGD|AC|ACS)-META-/
+  /^(PRS|BC|FN|CONTRACT|FP|PRD|WG|INV|VAL|DEP|ATOM|CR|CTR|TRJ|PF|INC|DET|DEL|SIG|RGD|AC|ACS|RAD|EXS|EXR)-META-/
 
 /**
  * Check 1- every RequirementAtom is referenced by ≥1 downstream artifact.

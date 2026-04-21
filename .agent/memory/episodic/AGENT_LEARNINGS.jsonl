@@ -252,3 +252,44 @@
 {"timestamp":"2026-04-21T04:15:44.597Z","tool":"Bash","summary":"pnpm build 2>&1 | tail -5 && pnpm test 2>&1 | tail -20 && pnpm typecheck 2>&1 | tail -10","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
 {"timestamp":"2026-04-21T04:16:00.724Z","tool":"Agent","summary":"Reviewer verifies Stage 5.75","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
 {"timestamp":"2026-04-21T04:19:21.140Z","tool":"Bash","summary":"git status","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T04:19:27.352Z","tool":"Bash","summary":"git add package.json pnpm-lock.yaml packages/coverage-gates/src/checks.ts packages/schemas/src/index.ts packages/schemas","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T04:19:34.932Z","tool":"Bash","summary":"git commit -m \"$(cat <<'EOF'\nfeat(candidate-selection): add Stage 5.75 deterministic AC scoring and selection\n\n- added A","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T04:19:39.376Z","tool":"Bash","summary":"git tag v0.5.75-candidate-selection-live && git push origin main --follow-tags","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T04:19:45.532Z","tool":"Bash","summary":"git push origin v0.5.75-candidate-selection-live","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T04:31:48.916Z","tool":"Bash","summary":"mkdir -p /tmp/stage6-pack && unzip -o /Users/wes/Downloads/function_factory_stage6_runtime_admission_pack.zip -d /tmp/st","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T04:33:11.045Z","tool":"Agent","summary":"Architect blesses Stage 6","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T04:34:08.490Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/schemas/src/lineage.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T04:34:12.871Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/coverage-gates/src/checks.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T04:34:16.747Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/schemas/src/index.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T04:34:21.038Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/package.json","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T04:34:31.738Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/schemas/src/runtime-admission.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T04:34:39.683Z","tool":"Bash","summary":"mkdir -p /Users/wes/Developer/function-factory/packages/runtime-admission/{src,test} /Users/wes/Developer/function-facto","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T04:34:45.039Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/runtime-admission/package.json","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T04:34:49.143Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/runtime-admission/tsconfig.json","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T04:34:52.928Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/runtime-admission/src/ids.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T04:35:03.109Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/runtime-admission/src/evaluate-runtime-admission.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T04:35:07.895Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/runtime-admission/src/render-runtime-admission-yaml.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T04:35:14.124Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/runtime-admission/src/index.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T04:35:22.476Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/runtime-admission/test/evaluate-runtime-admission.test.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T04:35:29.833Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/runtime-admission/test/render-runtime-admission-yaml.test.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T04:35:35.198Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/specs/governance/GOV-META-BOOTSTRAP-RUNTIME-ADMISSION.yaml","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T04:35:42.575Z","tool":"Bash","summary":"pnpm install 2>&1 | tail -20","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T04:35:53.195Z","tool":"Bash","summary":"pnpm --filter @factory/runtime-admission test 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T04:36:24.294Z","tool":"Bash","summary":"pnpm build 2>&1 | tail -20","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T04:52:49.887Z","tool":"Bash","summary":"pnpm test 2>&1 | tail -30","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T04:53:08.220Z","tool":"Bash","summary":"cat /private/tmp/claude-501/-Users-wes-Developer-function-factory/79891f02-a17f-4a11-9d42-dba4e8f00d96/tasks/bbzw2bcxr.o","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T04:54:07.370Z","tool":"Bash","summary":"pnpm test 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T04:54:55.319Z","tool":"Bash","summary":"pnpm typecheck 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T04:55:04.420Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/scripts/_emit-rad.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T04:55:25.715Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/scripts/_emit-rad.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T04:55:33.185Z","tool":"Bash","summary":"npx tsx scripts/_emit-rad.ts 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T04:55:36.985Z","tool":"Bash","summary":"rm /Users/wes/Developer/function-factory/scripts/_emit-rad.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T04:55:51.859Z","tool":"Agent","summary":"Engineer implements Stage 6","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T05:14:55.342Z","tool":"Bash","summary":"pnpm build 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T05:31:38.407Z","tool":"Bash","summary":"pnpm build 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T05:32:24.413Z","tool":"Bash","summary":"pnpm test 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T05:33:14.109Z","tool":"Bash","summary":"pnpm typecheck 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T05:33:38.945Z","tool":"Agent","summary":"Stage 6 Reviewer verification","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T21:34:47.507Z","tool":"Bash","summary":"git status","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T21:34:48.203Z","tool":"Bash","summary":"git diff --stat","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T21:34:48.402Z","tool":"Bash","summary":"git log --oneline -5","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}

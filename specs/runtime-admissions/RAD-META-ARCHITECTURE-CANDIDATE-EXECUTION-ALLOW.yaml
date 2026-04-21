@@ -1,0 +1,12 @@
+id: RAD-META-ARCHITECTURE-CANDIDATE-EXECUTION-ALLOW
+source_refs:
+  - PRD-META-ARCHITECTURE-CANDIDATE-EXECUTION
+  - AC-META-ARCHITECTURE-CANDIDATE-EXECUTION
+  - ACS-META-ARCHITECTURE-CANDIDATE-EXECUTION
+explicitness: inferred
+rationale: Runtime admission allowed because bootstrap mode is active and linked ArchitectureCandidate is selected.
+sourceWorkGraphId: WG-META-ARCHITECTURE-CANDIDATE-EXECUTION
+sourceArchitectureCandidateId: AC-META-ARCHITECTURE-CANDIDATE-EXECUTION
+sourceSelectionId: ACS-META-ARCHITECTURE-CANDIDATE-EXECUTION
+decision: allow
+reason: selected candidate admitted in bootstrap mode

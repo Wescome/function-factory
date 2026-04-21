@@ -1,0 +1,10 @@
+id: GOV-META-BOOTSTRAP-RUNTIME-ADMISSION
+source_refs:
+  - GOV-META-BOOTSTRAP-MODE
+explicitness: explicit
+rationale: Bootstrap runtime admission must remain fail-closed and require selected candidates.
+bootstrapMode: true
+requireSelectedArchitectureCandidate: true
+description: >
+  A WorkGraph may be runtime-admitted only when bootstrap runtime mode is active
+  and its linked ArchitectureCandidate has a selected selection artifact.
