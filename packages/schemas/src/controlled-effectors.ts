@@ -29,6 +29,9 @@ export const ExecutionNodeRecord = z.object({
   effectorArtifactId: ArtifactId,
   effectorType: EffectorType,
   effectorMode: EffectorMode,
+  realized: z.boolean().optional(),
+  realizationArtifactId: ArtifactId.optional(),
+  outputEvidenceRef: z.string().optional(),
   inputSummary: z.string().min(1),
   outputSummary: z.string().min(1),
 })

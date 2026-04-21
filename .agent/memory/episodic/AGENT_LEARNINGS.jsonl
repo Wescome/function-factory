@@ -366,3 +366,39 @@
 {"timestamp":"2026-04-21T22:55:55.527Z","tool":"Agent","summary":"Reviewer verifies Stage 6.5","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
 {"timestamp":"2026-04-21T23:01:09.760Z","tool":"Bash","summary":"git status","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
 {"timestamp":"2026-04-21T23:01:10.115Z","tool":"Bash","summary":"git diff --stat","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:01:16.141Z","tool":"Bash","summary":"git add package.json packages/coverage-gates/src/checks.ts packages/schemas/src/execution-trace.ts packages/schemas/src/","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:01:21.806Z","tool":"Bash","summary":"git commit -m \"$(cat <<'EOF'\nfeat(controlled-effectors): add Stage 6.5 governed effector layer with EXT enrichment\n\n- ad","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:01:26.168Z","tool":"Bash","summary":"git tag v0.6.5-controlled-effectors-live && git push origin main --follow-tags","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:06:50.255Z","tool":"Bash","summary":"cd /tmp && rm -rf stage675-pack && mkdir stage675-pack && cd stage675-pack && unzip /Users/wes/Downloads/stage675_effect","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:08:01.537Z","tool":"Bash","summary":"npx vitest --reporter=verbose --run 2>&1 | tail -5","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:08:10.791Z","tool":"Bash","summary":"npx vitest --reporter=verbose --run 2>&1 | grep \"FAIL\\|✗\\|×\\|❌\" | head -10","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:08:39.372Z","tool":"Agent","summary":"Architect blesses Stage 6.75","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:09:40.023Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/schemas/src/lineage.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:09:41.343Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/schemas/src/lineage.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:09:42.762Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/coverage-gates/src/checks.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:09:45.127Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/schemas/src/controlled-effectors.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:09:46.815Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/schemas/src/index.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:09:54.855Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/schemas/src/effector-realization.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:09:58.172Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/effector-realization/package.json","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:09:59.627Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/effector-realization/tsconfig.json","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:10:01.080Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/effector-realization/src/ids.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:10:04.976Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/effector-realization/src/assert-realization-guards.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:10:11.641Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/effector-realization/src/emit-effector-realization.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:10:14.425Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/effector-realization/src/enrich-node-record.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:10:15.847Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/effector-realization/src/index.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:10:22.602Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/effector-realization/test/effector-realization.test.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:10:24.634Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/package.json","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:10:29.133Z","tool":"Bash","summary":"ls /Users/wes/Developer/function-factory/specs/ 2>/dev/null | head -5","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:10:32.415Z","tool":"Bash","summary":"mkdir -p /Users/wes/Developer/function-factory/specs/effector-realizations","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:10:34.332Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/specs/effector-realizations/EFFR-N1.yaml","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:10:40.059Z","tool":"Bash","summary":"pnpm install 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:10:59.712Z","tool":"Bash","summary":"pnpm build 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:11:18.129Z","tool":"Bash","summary":"pnpm test 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:11:38.870Z","tool":"Bash","summary":"pnpm typecheck 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:11:50.598Z","tool":"Agent","summary":"Engineer executes Stage 6.75","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:12:44.061Z","tool":"Bash","summary":"pnpm build 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:13:01.654Z","tool":"Bash","summary":"pnpm test 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:13:16.917Z","tool":"Bash","summary":"pnpm typecheck 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:13:40.992Z","tool":"Agent","summary":"Reviewer verifies Stage 6.75","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:19:17.966Z","tool":"Bash","summary":"git status","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:19:18.479Z","tool":"Bash","summary":"git diff --stat","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}

@@ -1,0 +1,15 @@
+id: EFFR-N1
+source_refs:
+  - EFF-N1
+explicitness: inferred
+rationale: Effector realization emitted deterministically under bootstrap safe_execute policy.
+sourceEffectorId: EFF-N1
+sourceWorkGraphId: WG-META-ARCHITECTURE-CANDIDATE-EXECUTION
+sourceArchitectureCandidateId: AC-META-ARCHITECTURE-CANDIDATE-EXECUTION
+sourceSelectionId: ACS-META-ARCHITECTURE-CANDIDATE-EXECUTION
+sourceAdmissionId: RAD-META-ARCHITECTURE-CANDIDATE-EXECUTION-ALLOW
+sourceExecutionStartId: EXS-META-ARCHITECTURE-CANDIDATE-EXECUTION
+realizationMode: safe_execute
+environmentTrust: trusted
+outputEvidenceRef: sandbox:/tmp/bootstrap-output.txt
+summary: Sandboxed file_write realization completed under trusted bootstrap policy.

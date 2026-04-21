@@ -24,12 +24,12 @@ export type Explicitness = z.infer<typeof Explicitness>
  * Source reference. A bare artifact ID. Every Factory ID starts with a
  * type prefix (PRS-, BC-, FN-, CONTRACT-, FP-, PRD-, WG-, INV-, VAL-,
  * DEP-, ATOM-, CR-, CTR-, TRJ-, PF-, INC-, DET-, DEL-, SIG-,
- * RGD-, AC-, ACS-, RAD-, EXS-, EXT-, EXR-, EFF-).
+ * RGD-, AC-, ACS-, RAD-, EXS-, EXT-, EXR-, EFF-, EFFR-).
  */
 export const ArtifactId = z
   .string()
   .regex(
-    /^(PRS|BC|FN|CONTRACT|FP|PRD|WG|INV|VAL|DEP|ATOM|CR|CTR|TRJ|PF|INC|DET|DEL|SIG|RGD|AC|ACS|RAD|EXS|EXT|EXR|EFF)-[A-Z0-9][A-Z0-9-]*$/,
+    /^(PRS|BC|FN|CONTRACT|FP|PRD|WG|INV|VAL|DEP|ATOM|CR|CTR|TRJ|PF|INC|DET|DEL|SIG|RGD|AC|ACS|RAD|EXS|EXT|EXR|EFF|EFFR)-[A-Z0-9][A-Z0-9-]*$/,
     "ArtifactId must be <TYPE-PREFIX>-<ALPHANUM-WITH-HYPHENS>"
   )
 export type ArtifactId = z.infer<typeof ArtifactId>

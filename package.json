@@ -32,6 +32,8 @@
     "execution-lifecycle:typecheck": "pnpm --filter @factory/execution-lifecycle run typecheck",
     "controlled-effectors:test": "pnpm --filter @factory/controlled-effectors run test",
     "controlled-effectors:typecheck": "pnpm --filter @factory/controlled-effectors run typecheck",
+    "effector-realization:test": "pnpm --filter @factory/effector-realization run test",
+    "effector-realization:typecheck": "pnpm --filter @factory/effector-realization run typecheck",
     "dream": "tsx .agent/tools/dream.ts",
     "bootstrap": "tsx scripts/bootstrap.ts"
   },
