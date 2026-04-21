@@ -132,6 +132,19 @@ importers:
         specifier: ^1.4.0
         version: 1.6.1(@types/node@20.19.39)
 
+  packages/execution-lifecycle:
+    dependencies:
+      '@factory/schemas':
+        specifier: workspace:*
+        version: link:../schemas
+    devDependencies:
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.4.0
+        version: 1.6.1(@types/node@20.19.39)
+
   packages/prd-authoring:
     dependencies:
       '@factory/schemas':

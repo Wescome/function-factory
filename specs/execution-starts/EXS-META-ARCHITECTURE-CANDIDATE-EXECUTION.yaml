@@ -1,0 +1,11 @@
+id: EXS-META-ARCHITECTURE-CANDIDATE-EXECUTION
+source_refs:
+  - RAD-META-ARCHITECTURE-CANDIDATE-EXECUTION-ALLOW
+explicitness: inferred
+rationale: Execution start emitted deterministically from allowed runtime admission.
+sourceWorkGraphId: WG-META-ARCHITECTURE-CANDIDATE-EXECUTION
+sourceArchitectureCandidateId: AC-META-ARCHITECTURE-CANDIDATE-EXECUTION
+sourceSelectionId: ACS-META-ARCHITECTURE-CANDIDATE-EXECUTION
+sourceAdmissionId: RAD-META-ARCHITECTURE-CANDIDATE-EXECUTION-ALLOW
+runId: RUN-META-STAGE625-EXEC-001
+status: started

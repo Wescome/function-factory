@@ -293,3 +293,43 @@
 {"timestamp":"2026-04-21T21:34:47.507Z","tool":"Bash","summary":"git status","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
 {"timestamp":"2026-04-21T21:34:48.203Z","tool":"Bash","summary":"git diff --stat","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
 {"timestamp":"2026-04-21T21:34:48.402Z","tool":"Bash","summary":"git log --oneline -5","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T21:34:54.090Z","tool":"Bash","summary":"git add package.json packages/coverage-gates/src/checks.ts packages/schemas/src/index.ts packages/schemas/src/lineage.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T21:34:59.848Z","tool":"Bash","summary":"git commit -m \"$(cat <<'EOF'\nfeat(runtime-admission): add Stage 6 bootstrap runtime admission layer\n\n- added RAD, EXS, E","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T21:35:03.462Z","tool":"Bash","summary":"git tag v0.6.0-runtime-admission-live","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T21:35:10.243Z","tool":"Bash","summary":"git push origin main --follow-tags","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T21:58:01.237Z","tool":"Bash","summary":"cd /tmp && rm -rf stage625-pack && mkdir stage625-pack && cd stage625-pack && unzip /Users/wes/Downloads/stage625_execut","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T21:59:39.087Z","tool":"Agent","summary":"Architect blesses Stage 6.25 plan","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T22:00:59.606Z","tool":"Bash","summary":"ls /Users/wes/Developer/function-factory/packages/schemas/src/","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T22:01:00.553Z","tool":"Bash","summary":"ls /Users/wes/Developer/function-factory/specs/ 2>/dev/null","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T22:01:01.046Z","tool":"Bash","summary":"ls /Users/wes/Developer/function-factory/pnpm-workspace.yaml 2>/dev/null && cat /Users/wes/Developer/function-factory/pn","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T22:01:13.217Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/schemas/src/lineage.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T22:01:14.774Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/schemas/src/lineage.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T22:01:15.946Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/coverage-gates/src/checks.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T22:01:23.060Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/schemas/src/execution-trace.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T22:01:24.067Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/schemas/src/index.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T22:01:28.779Z","tool":"Bash","summary":"mkdir -p /Users/wes/Developer/function-factory/packages/execution-lifecycle/src /Users/wes/Developer/function-factory/pa","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T22:01:42.193Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/execution-lifecycle/package.json","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T22:01:42.489Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/execution-lifecycle/tsconfig.json","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T22:01:45.444Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/execution-lifecycle/src/ids.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T22:01:52.156Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/execution-lifecycle/src/assert-lifecycle-invariants.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T22:01:55.418Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/execution-lifecycle/src/emit-execution-start.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T22:01:56.806Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/execution-lifecycle/src/emit-execution-trace.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T22:01:58.330Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/execution-lifecycle/src/emit-execution-result.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T22:01:58.569Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/execution-lifecycle/src/index.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T22:02:12.589Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/execution-lifecycle/test/execution-lifecycle.test.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T22:02:18.672Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/package.json","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T22:02:22.649Z","tool":"Bash","summary":"mkdir -p /Users/wes/Developer/function-factory/specs/execution-starts /Users/wes/Developer/function-factory/specs/execut","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T22:02:28.010Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/specs/execution-starts/EXS-META-ARCHITECTURE-CANDIDATE-EXECUTION.yaml","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T22:02:29.727Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/specs/execution-traces/EXT-META-ARCHITECTURE-CANDIDATE-EXECUTION.yaml","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T22:02:31.440Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/specs/execution-results/EXR-META-ARCHITECTURE-CANDIDATE-EXECUTION.yaml","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T22:02:36.693Z","tool":"Bash","summary":"pnpm install 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T22:02:57.027Z","tool":"Bash","summary":"pnpm build 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T22:03:14.515Z","tool":"Bash","summary":"pnpm test 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T22:03:28.230Z","tool":"Bash","summary":"pnpm typecheck 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T22:03:41.807Z","tool":"Agent","summary":"Engineer executes Stage 6.25","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T22:04:39.702Z","tool":"Bash","summary":"pnpm build 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T22:04:55.466Z","tool":"Bash","summary":"pnpm test 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T22:05:08.781Z","tool":"Bash","summary":"pnpm typecheck 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T22:05:33.004Z","tool":"Agent","summary":"Reviewer verifies Stage 6.25","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T22:26:15.385Z","tool":"Bash","summary":"git status","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T22:26:15.863Z","tool":"Bash","summary":"git diff --stat","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}

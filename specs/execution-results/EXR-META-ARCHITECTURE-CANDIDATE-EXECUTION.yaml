@@ -1,0 +1,12 @@
+id: EXR-META-ARCHITECTURE-CANDIDATE-EXECUTION
+source_refs:
+  - EXT-META-ARCHITECTURE-CANDIDATE-EXECUTION
+explicitness: inferred
+rationale: Execution result emitted deterministically for the bootstrap single-path run.
+sourceWorkGraphId: WG-META-ARCHITECTURE-CANDIDATE-EXECUTION
+sourceArchitectureCandidateId: AC-META-ARCHITECTURE-CANDIDATE-EXECUTION
+sourceSelectionId: ACS-META-ARCHITECTURE-CANDIDATE-EXECUTION
+sourceAdmissionId: RAD-META-ARCHITECTURE-CANDIDATE-EXECUTION-ALLOW
+runId: RUN-META-STAGE625-EXEC-001
+status: succeeded
+summary: Deterministic bootstrap execution completed successfully for the admitted path.
