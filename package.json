@@ -18,6 +18,8 @@
     "compile": "pnpm --filter @factory/compiler run compile",
     "delta:test": "pnpm --filter @factory/capability-delta run test",
     "delta:typecheck": "pnpm --filter @factory/capability-delta run typecheck",
+    "prd-authoring:test": "pnpm --filter @factory/prd-authoring run test",
+    "prd-authoring:typecheck": "pnpm --filter @factory/prd-authoring run typecheck",
     "dream": "tsx .agent/tools/dream.ts",
     "bootstrap": "tsx scripts/bootstrap.ts"
   },

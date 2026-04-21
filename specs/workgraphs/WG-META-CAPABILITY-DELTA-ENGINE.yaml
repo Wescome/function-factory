@@ -1,0 +1,86 @@
+id: WG-META-CAPABILITY-DELTA-ENGINE
+source_refs:
+  - ATOM-META-CAPABILITY-DELTA-ENGINE-AC-01
+  - ATOM-META-CAPABILITY-DELTA-ENGINE-AC-02
+  - ATOM-META-CAPABILITY-DELTA-ENGINE-AC-03
+  - ATOM-META-CAPABILITY-DELTA-ENGINE-AC-04
+  - ATOM-META-CAPABILITY-DELTA-ENGINE-AC-05
+  - ATOM-META-CAPABILITY-DELTA-ENGINE-CONSTRAINT-01
+  - ATOM-META-CAPABILITY-DELTA-ENGINE-CONSTRAINT-02
+  - ATOM-META-CAPABILITY-DELTA-ENGINE-CONSTRAINT-03
+  - ATOM-META-CAPABILITY-DELTA-ENGINE-CONSTRAINT-04
+  - ATOM-META-CAPABILITY-DELTA-ENGINE-METRIC-01
+  - ATOM-META-CAPABILITY-DELTA-ENGINE-METRIC-02
+  - ATOM-META-CAPABILITY-DELTA-ENGINE-METRIC-03
+  - CONTRACT-META-CAPABILITY-DELTA-ENGINE-ACCEPTANCE
+  - CONTRACT-META-CAPABILITY-DELTA-ENGINE-CONSTRAINT
+  - CONTRACT-META-CAPABILITY-DELTA-ENGINE-NFR
+  - CR-PRD-META-CAPABILITY-DELTA-ENGINE-GATE1-2026-04-20T23-43-10-478Z
+  - INV-META-CAPABILITY-DELTA-ENGINE-DETERMINISM
+  - INV-META-CAPABILITY-DELTA-ENGINE-EMISSION
+  - INV-META-CAPABILITY-DELTA-ENGINE-LINEAGE
+  - PRD-META-CAPABILITY-DELTA-ENGINE
+  - VAL-META-CAPABILITY-DELTA-ENGINE-VAL-01
+  - VAL-META-CAPABILITY-DELTA-ENGINE-VAL-02
+  - VAL-META-CAPABILITY-DELTA-ENGINE-VAL-03
+explicitness: explicit
+rationale: WorkGraph assembled from validated intermediates of
+  PRD-META-CAPABILITY-DELTA-ENGINE; Gate 1 verdict pass cited in source_refs
+functionId: FN-META-CAPABILITY-DELTA-ENGINE
+nodes:
+  - id: CONTRACT-META-CAPABILITY-DELTA-ENGINE-ACCEPTANCE
+    type: execution
+    title: Aggregate contract for acceptance-category requirements of
+      PRD-META-CAPABILITY-DELTA-ENGINE
+    implements: CONTRACT-META-CAPABILITY-DELTA-ENGINE-ACCEPTANCE
+  - id: CONTRACT-META-CAPABILITY-DELTA-ENGINE-CONSTRAINT
+    type: control
+    title: Aggregate contract for constraint-category requirements of
+      PRD-META-CAPABILITY-DELTA-ENGINE
+    implements: CONTRACT-META-CAPABILITY-DELTA-ENGINE-CONSTRAINT
+  - id: CONTRACT-META-CAPABILITY-DELTA-ENGINE-NFR
+    type: execution
+    title: Aggregate contract for nfr-category requirements of
+      PRD-META-CAPABILITY-DELTA-ENGINE
+    implements: CONTRACT-META-CAPABILITY-DELTA-ENGINE-NFR
+  - id: INV-META-CAPABILITY-DELTA-ENGINE-DETERMINISM
+    type: control
+    title: Gate 1 produces byte-identical Gate1Report contents for identical
+      validated inputs modulo id and timestamp
+    implements: INV-META-CAPABILITY-DELTA-ENGINE-DETERMINISM
+  - id: INV-META-CAPABILITY-DELTA-ENGINE-EMISSION
+    type: control
+    title: Gate 1 writes a Coverage Report to specs/coverage-reports/ on every
+      invocation, pass or fail, before returning control
+    implements: INV-META-CAPABILITY-DELTA-ENGINE-EMISSION
+  - id: INV-META-CAPABILITY-DELTA-ENGINE-LINEAGE
+    type: control
+    title: Every Gate1Report's source_refs cites the PRD ID and every artifact ID
+      referenced in failing check detail arrays
+    implements: INV-META-CAPABILITY-DELTA-ENGINE-LINEAGE
+  - id: VAL-META-CAPABILITY-DELTA-ENGINE-VAL-01
+    type: evidence
+    title: Assert invariant- Gate 1 produces byte-identical Gate1Report contents for
+      identical validated inputs modulo id and timestamp
+    implements: VAL-META-CAPABILITY-DELTA-ENGINE-VAL-01
+  - id: VAL-META-CAPABILITY-DELTA-ENGINE-VAL-02
+    type: evidence
+    title: Assert invariant- Gate 1 writes a Coverage Report to
+      specs/coverage-reports/ on every invocation, pass or fail, before
+      returning control
+    implements: VAL-META-CAPABILITY-DELTA-ENGINE-VAL-02
+  - id: VAL-META-CAPABILITY-DELTA-ENGINE-VAL-03
+    type: evidence
+    title: Assert invariant- Every Gate1Report's source_refs cites the PRD ID and
+      every artifact ID referenced in failing check detail arrays
+    implements: VAL-META-CAPABILITY-DELTA-ENGINE-VAL-03
+edges:
+  - from: VAL-META-CAPABILITY-DELTA-ENGINE-VAL-01
+    to: INV-META-CAPABILITY-DELTA-ENGINE-DETERMINISM
+    dependencyType: validates
+  - from: VAL-META-CAPABILITY-DELTA-ENGINE-VAL-02
+    to: INV-META-CAPABILITY-DELTA-ENGINE-EMISSION
+    dependencyType: validates
+  - from: VAL-META-CAPABILITY-DELTA-ENGINE-VAL-03
+    to: INV-META-CAPABILITY-DELTA-ENGINE-LINEAGE
+    dependencyType: validates

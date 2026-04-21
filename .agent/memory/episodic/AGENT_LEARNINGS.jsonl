@@ -51,3 +51,11 @@
 {"timestamp":"2026-04-20T21:41:57.468Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/capability-delta/test/emit-proposals.test.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
 {"timestamp":"2026-04-20T21:42:10.027Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/capability-delta/test/emit-proposals.test.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
 {"timestamp":"2026-04-20T21:42:16.144Z","tool":"Bash","summary":"pnpm --filter @factory/capability-delta test 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-20T23:41:22.956Z","tool":"Bash","summary":"cd /tmp && rm -rf ff-self-bootstrap && mkdir ff-self-bootstrap && cd ff-self-bootstrap && unzip /Users/wes/Downloads/fun","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-20T23:41:54.496Z","tool":"Bash","summary":"cp -r /tmp/ff-self-bootstrap/NEW_FILES/packages/prd-authoring /Users/wes/Developer/function-factory/packages/prd-authori","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-20T23:42:04.010Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/package.json","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-20T23:42:23.466Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/prd-authoring/src/run-authoring.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-20T23:42:35.186Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/prd-authoring/package.json","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-20T23:42:39.041Z","tool":"Bash","summary":"cat /Users/wes/Developer/function-factory/pnpm-workspace.yaml","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-20T23:42:44.393Z","tool":"Bash","summary":"pnpm install 2>&1 | tail -5","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-20T23:42:50.166Z","tool":"Bash","summary":"pnpm --filter @factory/prd-authoring test 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}

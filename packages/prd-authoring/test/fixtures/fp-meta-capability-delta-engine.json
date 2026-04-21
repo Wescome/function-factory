@@ -1,0 +1,31 @@
+{
+  "id": "FP-META-CAPABILITY-DELTA-ENGINE",
+  "source_refs": [
+    "DEL-META-COMPUTE-CAPABILITY-DELTA"
+  ],
+  "explicitness": "inferred",
+  "rationale": "Execution gap identified in capability delta",
+  "capabilityId": "BC-META-COMPUTE-CAPABILITY-DELTA",
+  "name": "capability_delta_engine",
+  "purpose": "Compute capability delta deterministically",
+  "functionType": "execution",
+  "expectedInputs": [
+    "BusinessCapability",
+    "RepoInventory"
+  ],
+  "expectedOutputs": [
+    "CapabilityDelta"
+  ],
+  "governingConstraints": [
+    "Deterministic only",
+    "No LLM inference"
+  ],
+  "candidateInvariants": [
+    "lineage preserved",
+    "explicit rationale preserved"
+  ],
+  "successSignals": [
+    "DEL artifact emitted"
+  ],
+  "confidence": 0.95
+}
