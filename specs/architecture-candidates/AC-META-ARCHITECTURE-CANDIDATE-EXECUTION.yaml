@@ -1,0 +1,22 @@
+id: AC-META-ARCHITECTURE-CANDIDATE-EXECUTION
+source_refs:
+  - DEL-META-EMIT-ARCHITECTURE-CANDIDATES
+  - FP-META-ARCHITECTURE-CANDIDATE-EXECUTION
+  - PRD-META-ARCHITECTURE-CANDIDATE-EXECUTION
+explicitness: inferred
+rationale: Derived deterministically from compiled PRD and emitted WorkGraph in the paired-emission bootstrap path.
+sourcePrdId: PRD-META-ARCHITECTURE-CANDIDATE-EXECUTION
+sourceWorkGraphId: WG-META-ARCHITECTURE-CANDIDATE-EXECUTION
+candidateStatus: proposed
+topology:
+  shape: single_node
+  summary: Bootstrap single-candidate execution arrangement for one compiled execution path.
+modelBinding:
+  bindingMode: unbound
+  summary: Runtime model binding is not selected in Stage 5.5 bootstrap emission.
+toolPolicy:
+  mode: restricted
+  summary: Tool usage remains governed by bootstrap policy and not runtime-selected here.
+convergencePolicy:
+  mode: manual_review
+  summary: Candidate remains reviewable and not runtime-executed in the current stage.

@@ -22,6 +22,8 @@
     "prd-authoring:typecheck": "pnpm --filter @factory/prd-authoring run typecheck",
     "recursion-governance:test": "pnpm --filter @factory/recursion-governance run test",
     "recursion-governance:typecheck": "pnpm --filter @factory/recursion-governance run typecheck",
+    "architecture-candidates:test": "pnpm --filter @factory/architecture-candidates run test",
+    "architecture-candidates:typecheck": "pnpm --filter @factory/architecture-candidates run typecheck",
     "dream": "tsx .agent/tools/dream.ts",
     "bootstrap": "tsx scripts/bootstrap.ts"
   },
