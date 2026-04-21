@@ -36,6 +36,8 @@
     "effector-realization:typecheck": "pnpm --filter @factory/effector-realization run typecheck",
     "observability-feedback:test": "pnpm --filter @factory/observability-feedback run test",
     "observability-feedback:typecheck": "pnpm --filter @factory/observability-feedback run typecheck",
+    "signal-hygiene:test": "pnpm --filter @factory/signal-hygiene run test",
+    "signal-hygiene:typecheck": "pnpm --filter @factory/signal-hygiene run typecheck",
     "dream": "tsx .agent/tools/dream.ts",
     "bootstrap": "tsx scripts/bootstrap.ts"
   },

@@ -1,0 +1,38 @@
+id: SNB-RUN-META-STAGE725-001
+source_refs:
+  - SIG-EXT-1
+  - SIG-FB-1
+  - SIG-INF-1
+explicitness: inferred
+rationale: Signal normalization batch emitted deterministically from Stage 7.25 hygiene pass.
+normalizedSignals:
+  - id: SIG-EXT-1
+    kind: external
+    title: Architecture Candidate Execution Completed
+    source: external-feed
+    confidence: 0.9
+    severity: 0.6
+    trustScore: 0.95
+    effectiveWeight: 0.513
+    dedupeKey: external::architecture candidate execution completed::external-feed
+  - id: SIG-FB-1
+    kind: feedback
+    title: Architecture Candidate Execution Completed
+    source: feedback-loop
+    confidence: 0.95
+    severity: 0.5
+    trustScore: 0.75
+    effectiveWeight: 0.3562
+    dedupeKey: feedback::architecture candidate execution completed::feedback-loop
+  - id: SIG-INF-1
+    kind: inferred
+    title: Bootstrap execution inference
+    source: meta-inference
+    confidence: 0.7
+    severity: 0.4
+    trustScore: 0.6
+    effectiveWeight: 0.168
+    dedupeKey: inferred::bootstrap execution inference::meta-inference
+duplicateSignalIds: []
+weightingPolicyId: GOV-META-SIGNAL-HYGIENE-WEIGHTING
+summary: Normalized, deduplicated, and weighted signal batch for bootstrap upstream interpretation.

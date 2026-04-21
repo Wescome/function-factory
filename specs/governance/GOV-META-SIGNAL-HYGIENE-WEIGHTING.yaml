@@ -1,0 +1,16 @@
+id: GOV-META-SIGNAL-HYGIENE-WEIGHTING
+source_refs:
+  - GOV-META-BOOTSTRAP-MODE
+explicitness: explicit
+rationale: Bootstrap signal hygiene must prevent feedback amplification and preserve upstream stability.
+trustByKind:
+  external: 0.95
+  feedback: 0.75
+  inferred: 0.6
+weightCapsByKind:
+  external: 1.0
+  feedback: 0.6
+  inferred: 0.5
+dedupeRule: explicit_key_match_only
+description: >
+  Normalize signals, deduplicate only on explicit key matches, and cap feedback/inferred weighting during bootstrap.

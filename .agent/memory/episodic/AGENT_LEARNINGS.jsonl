@@ -438,3 +438,41 @@
 {"timestamp":"2026-04-21T23:32:06.208Z","tool":"Agent","summary":"Reviewer verifies Stage 7","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
 {"timestamp":"2026-04-21T23:35:18.073Z","tool":"Bash","summary":"git status","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
 {"timestamp":"2026-04-21T23:35:18.598Z","tool":"Bash","summary":"git diff --stat","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:35:23.596Z","tool":"Bash","summary":"git add package.json packages/coverage-gates/src/checks.ts packages/schemas/src/index.ts packages/schemas/src/lineage.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:35:30.004Z","tool":"Bash","summary":"git commit -m \"$(cat <<'EOF'\nfeat(observability-feedback): add Stage 7 closed-loop observability (OBS → SIG reinjection)","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:35:34.390Z","tool":"Bash","summary":"git tag v0.7.0-closed-loop-live && git push origin main --follow-tags","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:45:41.821Z","tool":"Bash","summary":"cd /tmp && rm -rf stage725-pack && mkdir stage725-pack && cd stage725-pack && unzip /Users/wes/Downloads/stage725_signal","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:47:40.691Z","tool":"Agent","summary":"Architect blesses Stage 7.25","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:48:52.832Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/schemas/src/lineage.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:48:57.718Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/schemas/src/lineage.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:49:02.295Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/coverage-gates/src/checks.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:49:06.603Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/schemas/src/index.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:49:21.902Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/package.json","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:49:27.189Z","tool":"Bash","summary":"mkdir -p /Users/wes/Developer/function-factory/packages/signal-hygiene/src /Users/wes/Developer/function-factory/package","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:49:40.324Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/schemas/src/signal-hygiene.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:49:43.135Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/signal-hygiene/package.json","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:49:44.588Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/signal-hygiene/tsconfig.json","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:49:45.667Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/signal-hygiene/src/ids.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:49:48.362Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/signal-hygiene/src/policies.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:49:51.873Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/signal-hygiene/src/normalize-signals.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:49:54.083Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/signal-hygiene/src/deduplicate-signals.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:49:56.480Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/signal-hygiene/src/weight-signals.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:50:01.192Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/signal-hygiene/src/emit-signal-batch.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:50:02.183Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/signal-hygiene/src/index.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:50:09.246Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/signal-hygiene/test/signal-hygiene.test.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:50:13.222Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/specs/signal-batches/SNB-RUN-META-STAGE725-001.yaml","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:50:16.708Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/specs/governance/GOV-META-SIGNAL-HYGIENE-WEIGHTING.yaml","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:50:23.568Z","tool":"Bash","summary":"pnpm install 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:50:48.938Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/signal-hygiene/test/signal-hygiene.test.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:51:12.232Z","tool":"Bash","summary":"pnpm build 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:51:40.545Z","tool":"Bash","summary":"pnpm test 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:51:58.454Z","tool":"Bash","summary":"pnpm typecheck 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:52:18.822Z","tool":"Bash","summary":"pnpm test 2>&1 | grep \"Tests \" | awk '{sum += $2} END {print \"Total tests:\", sum}'","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:52:38.370Z","tool":"Bash","summary":"pnpm test 2>&1 | grep \"Tests\"","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:52:51.486Z","tool":"Agent","summary":"Engineer executes Stage 7.25","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:53:46.234Z","tool":"Bash","summary":"pnpm build 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:54:07.522Z","tool":"Bash","summary":"pnpm test 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:54:26.852Z","tool":"Bash","summary":"pnpm typecheck 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:54:57.817Z","tool":"Agent","summary":"Reviewer verifies Stage 7.25","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:56:55.012Z","tool":"Bash","summary":"git status","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:56:55.522Z","tool":"Bash","summary":"git diff --stat","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
