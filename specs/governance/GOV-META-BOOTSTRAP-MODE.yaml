@@ -1,0 +1,8 @@
+id: GOV-META-BOOTSTRAP-MODE
+source_refs:
+  - SIG-META-REPO-ARCH-AUDIT
+explicitness: explicit
+rationale: Bootstrap mode remains active until recursion governance and paired emission are complete.
+mode: bootstrap
+description: >
+  In bootstrap mode, only explicitly allowlisted FunctionProposals may self-author PRDs.

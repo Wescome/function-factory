@@ -1,0 +1,18 @@
+id: GOV-META-PRD-QUALITY-GATE
+source_refs:
+  - GOV-META-BOOTSTRAP-MODE
+explicitness: explicit
+rationale: Self-authored PRDs must meet deterministic minimum quality before compile handoff.
+requiredSections:
+  - Problem
+  - Goal
+  - Constraints
+  - Acceptance Criteria
+  - Success Metrics
+  - Out of Scope
+forbiddenTokens:
+  - TODO
+  - TBD
+  - "[placeholder]"
+  - "<placeholder>"
+minimumLength: 600

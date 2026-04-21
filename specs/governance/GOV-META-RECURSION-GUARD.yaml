@@ -1,0 +1,9 @@
+id: GOV-META-RECURSION-GUARD
+source_refs:
+  - GOV-META-BOOTSTRAP-MODE
+explicitness: explicit
+rationale: Prevent same-run recursive re-authoring loops.
+denySameRunReauthoring: true
+description: >
+  A PRD cannot be self-authored from a FunctionProposal if the target PRD ID
+  already exists in the current run context.

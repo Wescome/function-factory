@@ -1,0 +1,10 @@
+id: GOV-META-SELF-AUTHOR-ALLOWLIST
+source_refs:
+  - GOV-META-BOOTSTRAP-MODE
+explicitness: explicit
+rationale: Only the three proven bootstrap execution proposal types may self-author during bootstrap.
+mode: bootstrap
+allowedFunctionProposalIds:
+  - FP-META-CAPABILITY-DELTA-ENGINE
+  - FP-META-SEMANTIC-REVIEW-EXECUTION
+  - FP-META-ARCHITECTURE-CANDIDATE-EXECUTION

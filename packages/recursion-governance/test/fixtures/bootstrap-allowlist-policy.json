@@ -1,0 +1,8 @@
+{
+  "mode": "bootstrap",
+  "allowedFunctionProposalIds": [
+    "FP-META-CAPABILITY-DELTA-ENGINE",
+    "FP-META-SEMANTIC-REVIEW-EXECUTION",
+    "FP-META-ARCHITECTURE-CANDIDATE-EXECUTION"
+  ]
+}
