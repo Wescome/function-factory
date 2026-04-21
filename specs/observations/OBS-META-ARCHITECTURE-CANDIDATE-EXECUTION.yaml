@@ -1,0 +1,14 @@
+id: OBS-META-ARCHITECTURE-CANDIDATE-EXECUTION
+source_refs:
+  - EXR-META-ARCHITECTURE-CANDIDATE-EXECUTION
+  - EFFR-N1
+  - EXT-META-ARCHITECTURE-CANDIDATE-EXECUTION
+explicitness: inferred
+rationale: Observation emitted deterministically from execution result and realization evidence.
+sourceExecutionResultId: EXR-META-ARCHITECTURE-CANDIDATE-EXECUTION
+sourceEffectorRealizationId: EFFR-N1
+sourceExecutionTraceId: EXT-META-ARCHITECTURE-CANDIDATE-EXECUTION
+expectedSummary: Deterministic bootstrap execution completed successfully for the admitted path.
+realizedSummary: Deterministic bootstrap execution completed successfully for the admitted path.
+outcome: matched_expectation
+deltaSummary: Realized outcome matched expectation in the bootstrap path.

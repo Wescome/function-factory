@@ -1,0 +1,17 @@
+id: SIG-META-BOOTSTRAP-FEEDBACK-META-ARCHITECTURE-CANDIDATE-EXECUTION
+source_refs:
+  - OBS-META-ARCHITECTURE-CANDIDATE-EXECUTION
+explicitness: inferred
+rationale: Derived deterministically from an observation artifact for bootstrap feedback reinjection.
+type: meta_feedback
+source: Stage 7 Observability & Feedback
+title: Feedback signal derived from OBS-META-ARCHITECTURE-CANDIDATE-EXECUTION
+description: >
+  Realized outcome matched expectation in the bootstrap path.
+timestamp: 2026-04-21T00:00:00Z
+confidence: 0.95
+frequency: 0.5
+severity: 0.4
+tags:
+  - bootstrap-feedback
+  - matched_expectation
