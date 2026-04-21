@@ -1,7 +1,11 @@
 id: FP-META-ARCHITECTURE-CANDIDATE-EXECUTION
-rationale: Execution gap identified in architecture-candidate capability delta
+source_refs:
+  - DEL-META-EMIT-ARCHITECTURE-CANDIDATES
+explicitness: inferred
+rationale: Execution gap identified in architecture-candidate capability delta.
+capabilityId: BC-META-EMIT-ARCHITECTURE-CANDIDATES
 name: architecture_candidate_execution
-purpose: Emit ArchitectureCandidate artifacts alongside WorkGraphs
+purpose: Emit ArchitectureCandidate artifacts alongside WorkGraphs.
 functionType: execution
 expectedInputs:
   - PRDDraft
@@ -17,7 +21,3 @@ candidateInvariants:
 successSignals:
   - Candidate artifact persisted alongside WorkGraph
 confidence: 0.94
-source_refs:
-  - PRS-META-CANDIDATE-EMISSION-GAP
-explicitness: inferred
-capabilityId: BC-META-EMIT-ARCHITECTURE-CANDIDATES

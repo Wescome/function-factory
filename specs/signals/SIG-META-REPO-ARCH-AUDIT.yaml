@@ -8,8 +8,8 @@ title: Repo architecture audit for Function Factory at compiler-first stage
 description: >
   The repo is strongest at schemas, compiler, and Gate 1 coverage. Stages 1–4
   are only partially operationalized, runtime and assurance are stubs, Gate 2
-  and Gate 3 have schemas but no runners, and Stage 4 lacks a generalized
-  capability-delta engine.
+  and Gate 3 have schemas but no runners, and Stage 5 does not yet emit
+  ArchitectureCandidate artifacts alongside WorkGraphs.
 timestamp: "2026-04-20T12:00:00Z"
 confidence: 0.98
 frequency: 0.9
@@ -18,13 +18,11 @@ tags:
   - architecture
   - compiler-first
   - bootstrap
-  - stage-4-gap
-  - runtime-gap
+  - stage-5-gap
+  - architecture-candidate-gap
 entities:
-  - "@factory/schemas"
   - "@factory/compiler"
+  - "@factory/schemas"
   - "@factory/coverage-gates"
-  - "@factory/runtime"
-  - "@factory/assurance-graph"
 evidenceRefs:
   - AUDIT-FFF2865
