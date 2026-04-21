@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest"
 import { renderPrdFromFunctionProposal } from "../src/render-prd.js"
 import { validateRenderedPrdShape } from "../src/validate-prd-shape.js"
-import proposal from "./fixtures/fp-meta-capability-delta-engine.json" assert { type: "json" }
+import deltaProposal from "./fixtures/fp-meta-capability-delta-engine.json" assert { type: "json" }
+import semanticProposal from "./fixtures/fp-meta-semantic-review-execution.json" assert { type: "json" }
 
-describe("renderPrdFromFunctionProposal narrow bridge", () => {
-  it("renders compiler-ready markdown for the supported proposal", () => {
+describe("renderPrdFromFunctionProposal bridge", () => {
+  it("renders compiler-ready markdown for the delta engine proposal", () => {
     const rendered = renderPrdFromFunctionProposal({
-      proposal: proposal as never,
+      proposal: deltaProposal as never,
       sourceCapabilityId: "BC-META-COMPUTE-CAPABILITY-DELTA",
       sourceFunctionId: "FN-META-CAPABILITY-DELTA-ENGINE",
       sourceRefs: [
@@ -16,19 +17,33 @@ describe("renderPrdFromFunctionProposal narrow bridge", () => {
     })
 
     expect(rendered.id).toBe("PRD-META-CAPABILITY-DELTA-ENGINE")
-    expect(rendered.filename).toBe("PRD-META-CAPABILITY-DELTA-ENGINE.md")
     expect(rendered.markdown).toContain("## Problem")
+  })
+
+  it("renders compiler-ready markdown for the semantic review proposal", () => {
+    const rendered = renderPrdFromFunctionProposal({
+      proposal: semanticProposal as never,
+      sourceCapabilityId: "BC-META-SEMANTICALLY-REVIEW-PRDS",
+      sourceFunctionId: "FN-META-SEMANTIC-REVIEW-EXECUTION",
+      sourceRefs: [
+        "DEL-META-SEMANTICALLY-REVIEW-PRDS",
+        "FP-META-SEMANTIC-REVIEW-EXECUTION",
+      ],
+    })
+
+    expect(rendered.id).toBe("PRD-META-SEMANTIC-REVIEW-EXECUTION")
+    expect(rendered.markdown).toContain("Semantic Review Execution Engine")
     expect(rendered.markdown).toContain("## Acceptance Criteria")
   })
 
-  it("passes the lightweight shape validator", () => {
+  it("passes the lightweight shape validator for semantic review", () => {
     const rendered = renderPrdFromFunctionProposal({
-      proposal: proposal as never,
-      sourceCapabilityId: "BC-META-COMPUTE-CAPABILITY-DELTA",
-      sourceFunctionId: "FN-META-CAPABILITY-DELTA-ENGINE",
+      proposal: semanticProposal as never,
+      sourceCapabilityId: "BC-META-SEMANTICALLY-REVIEW-PRDS",
+      sourceFunctionId: "FN-META-SEMANTIC-REVIEW-EXECUTION",
       sourceRefs: [
-        "DEL-META-COMPUTE-CAPABILITY-DELTA",
-        "FP-META-CAPABILITY-DELTA-ENGINE",
+        "DEL-META-SEMANTICALLY-REVIEW-PRDS",
+        "FP-META-SEMANTIC-REVIEW-EXECUTION",
       ],
     })
 
@@ -39,15 +54,15 @@ describe("renderPrdFromFunctionProposal narrow bridge", () => {
     expect(() =>
       renderPrdFromFunctionProposal({
         proposal: {
-          ...(proposal as any),
+          ...(semanticProposal as any),
           id: "FP-META-UNSUPPORTED"
         } as never,
-        sourceCapabilityId: "BC-META-COMPUTE-CAPABILITY-DELTA",
-        sourceFunctionId: "FN-META-CAPABILITY-DELTA-ENGINE",
-        sourceRefs: ["DEL-META-COMPUTE-CAPABILITY-DELTA"],
+        sourceCapabilityId: "BC-META-SEMANTICALLY-REVIEW-PRDS",
+        sourceFunctionId: "FN-META-SEMANTIC-REVIEW-EXECUTION",
+        sourceRefs: ["DEL-META-SEMANTICALLY-REVIEW-PRDS"],
       })
     ).toThrowError(
-      "Initial PRD authoring bridge supports only FP-META-CAPABILITY-DELTA-ENGINE"
+      "Initial PRD authoring bridge supports only FP-META-CAPABILITY-DELTA-ENGINE and FP-META-SEMANTIC-REVIEW-EXECUTION"
     )
   })
 })

@@ -1,0 +1,31 @@
+{
+  "id": "FP-META-SEMANTIC-REVIEW-EXECUTION",
+  "source_refs": [
+    "DEL-META-SEMANTICALLY-REVIEW-PRDS"
+  ],
+  "explicitness": "inferred",
+  "rationale": "Execution gap identified in semantic review capability delta",
+  "capabilityId": "BC-META-SEMANTICALLY-REVIEW-PRDS",
+  "name": "semantic_review_execution",
+  "purpose": "Execute a semantic review pass between Gate 1 and WorkGraph emission",
+  "functionType": "execution",
+  "expectedInputs": [
+    "PRDDraft",
+    "Gate1Report",
+    "doctrine sources"
+  ],
+  "expectedOutputs": [
+    "semantic review verdict"
+  ],
+  "governingConstraints": [
+    "fail-closed",
+    "bootstrap human-governed"
+  ],
+  "candidateInvariants": [
+    "semantic review is required before WorkGraph emission"
+  ],
+  "successSignals": [
+    "semantic review verdict persisted"
+  ],
+  "confidence": 0.94
+}

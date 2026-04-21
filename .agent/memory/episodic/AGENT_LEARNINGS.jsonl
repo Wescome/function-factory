@@ -59,3 +59,29 @@
 {"timestamp":"2026-04-20T23:42:39.041Z","tool":"Bash","summary":"cat /Users/wes/Developer/function-factory/pnpm-workspace.yaml","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
 {"timestamp":"2026-04-20T23:42:44.393Z","tool":"Bash","summary":"pnpm install 2>&1 | tail -5","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
 {"timestamp":"2026-04-20T23:42:50.166Z","tool":"Bash","summary":"pnpm --filter @factory/prd-authoring test 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T01:29:04.757Z","tool":"Bash","summary":"cd /tmp && rm -rf fp-semantic-review && mkdir fp-semantic-review && cd fp-semantic-review && unzip /Users/wes/Downloads/","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T01:29:23.111Z","tool":"Bash","summary":"cp /tmp/fp-semantic-review/NEW_FILES/packages/prd-authoring/test/fixtures/fp-meta-semantic-review-execution.json /Users/","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T01:29:43.495Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/prd-authoring/src/render-prd.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T01:29:58.260Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/prd-authoring/test/render-prd.test.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T01:30:07.683Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/prd-authoring/src/run-authoring.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T01:30:13.796Z","tool":"Bash","summary":"pnpm --filter @factory/prd-authoring test 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T01:32:06.846Z","tool":"Bash","summary":"cd /Users/wes/Developer/function-factory && git diff HEAD~1 -- packages/prd-authoring/src/render-prd.ts | head -80","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T01:32:16.990Z","tool":"Bash","summary":"diff /Users/wes/Developer/function-factory/specs/prds/PRD-META-CAPABILITY-DELTA-ENGINE.md <(cd packages/prd-authoring &&","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T01:32:26.766Z","tool":"Bash","summary":"cd /Users/wes/Developer/function-factory/packages/prd-authoring && npx tsx -e \"\nimport { renderPrdFromFunctionProposal }","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T01:32:59.018Z","tool":"Bash","summary":"pnpm --filter @factory/prd-authoring test 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T01:32:59.412Z","tool":"Bash","summary":"diff /Users/wes/Developer/function-factory/specs/prds/PRD-META-CAPABILITY-DELTA-ENGINE.md /tmp/prd-delta-rerender.md 2>&","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T01:33:09.475Z","tool":"Bash","summary":"cd /Users/wes/Developer/function-factory/packages/prd-authoring && cat > /tmp/verify-delta-render.ts << 'SCRIPT'\nimport ","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T01:33:25.517Z","tool":"Write","summary":"/Users/wes/.claude/projects/-Users-wes-Developer-function-factory/memory/feedback_extension_packs_not_replacements.md","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T01:33:34.474Z","tool":"Write","summary":"/Users/wes/.claude/projects/-Users-wes-Developer-function-factory/memory/MEMORY.md","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T01:34:31.298Z","tool":"Write","summary":"/Users/wes/.claude/projects/-Users-wes-Developer-function-factory/memory/feedback_extension_packs_not_replacements.md","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T01:34:38.600Z","tool":"Write","summary":"/Users/wes/.claude/projects/-Users-wes-Developer-function-factory/memory/MEMORY.md","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T01:35:13.235Z","tool":"Write","summary":"/Users/wes/.claude/projects/-Users-wes-Developer-function-factory/memory/feedback_extension_packs_not_replacements.md","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T01:36:19.164Z","tool":"Bash","summary":"pnpm -r test 2>&1 | grep -E \"Tests.*passed|FAIL\"","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T01:36:27.391Z","tool":"Bash","summary":"pnpm -r typecheck 2>&1 | grep -E \"Done|error\"","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T01:36:28.970Z","tool":"Bash","summary":"cd /Users/wes/Developer/function-factory/packages/prd-authoring && npx tsx -c /tmp/verify-delta-render.ts > /tmp/prd-del","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T01:36:40.295Z","tool":"Bash","summary":"cat /tmp/prd-delta-v2.md | head -5","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T01:45:41.978Z","tool":"Bash","summary":"cd /Users/wes/Developer/function-factory && git status","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T01:45:49.262Z","tool":"Bash","summary":"git diff packages/prd-authoring/src/render-prd.ts | head -80","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T01:45:50.207Z","tool":"Bash","summary":"git diff packages/prd-authoring/test/render-prd.test.ts | head -80","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T01:45:50.510Z","tool":"Bash","summary":"git diff packages/prd-authoring/src/run-authoring.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T01:46:00.885Z","tool":"Bash","summary":"git log --oneline -5","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}

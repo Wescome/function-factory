@@ -4,19 +4,19 @@ import { mkdir, writeFile } from "node:fs/promises"
 import { resolve, join } from "node:path"
 import { renderPrdFromFunctionProposal } from "./render-prd.js"
 import { validateRenderedPrdShape } from "./validate-prd-shape.js"
-import proposal from "../test/fixtures/fp-meta-capability-delta-engine.json" assert { type: "json" }
+import semanticProposal from "../test/fixtures/fp-meta-semantic-review-execution.json" assert { type: "json" }
 
 const REPO_ROOT = resolve(import.meta.dirname, "..", "..", "..")
 const PRDS_DIR = join(REPO_ROOT, "specs", "prds")
 
 async function main(): Promise<void> {
   const rendered = renderPrdFromFunctionProposal({
-    proposal: proposal as never,
-    sourceCapabilityId: "BC-META-COMPUTE-CAPABILITY-DELTA",
-    sourceFunctionId: "FN-META-CAPABILITY-DELTA-ENGINE",
+    proposal: semanticProposal as never,
+    sourceCapabilityId: "BC-META-SEMANTICALLY-REVIEW-PRDS",
+    sourceFunctionId: "FN-META-SEMANTIC-REVIEW-EXECUTION",
     sourceRefs: [
-      "DEL-META-COMPUTE-CAPABILITY-DELTA",
-      "FP-META-CAPABILITY-DELTA-ENGINE",
+      "DEL-META-SEMANTICALLY-REVIEW-PRDS",
+      "FP-META-SEMANTIC-REVIEW-EXECUTION",
     ],
   })
 

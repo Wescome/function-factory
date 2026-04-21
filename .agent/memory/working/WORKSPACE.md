@@ -1,33 +1,35 @@
 # Current Workspace
 
 ## Status
-Session ended at 2026-04-20T20:49:25.592Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
+Session ended at 2026-04-21T01:35:16.659Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
 
 ## Last update
-2026-04-20T20:49:25.592Z
+2026-04-21T01:35:16.659Z
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
-- [20:45:17] Edit: /Users/wes/Developer/function-factory/.agent/protocols/permissions.md
-- [20:45:21] Edit: /Users/wes/Developer/function-factory/.agent/protocols/permissions.md
-- [20:45:28] Edit: /Users/wes/Developer/function-factory/.agent/protocols/permissions.md
-- [20:47:02] Bash: ls /Users/wes/Downloads/function-factory-stage4-next-step-inputs.zip && unzip -l /Users/wes/Downloads/function-factory-s
-- [20:47:06] Bash: cd /tmp && rm -rf function-factory-stage4-next-step-inputs && mkdir function-factory-stage4-next-step-inputs && cd funct
-- [20:47:40] Bash: grep -r "yaml" /Users/wes/Developer/function-factory/packages/compiler/package.json /Users/wes/Developer/function-factor
-- [20:47:40] Bash: head -5 /Users/wes/Developer/function-factory/specs/deltas/README.md
-- [20:47:47] Bash: cp /tmp/function-factory-stage4-next-step-inputs/authored/signals/SIG-META-REPO-ARCH-AUDIT.yaml /Users/wes/Developer/fun
-- [20:47:48] Bash: cp /tmp/function-factory-stage4-next-step-inputs/authored/pressures/*.yaml /Users/wes/Developer/function-factory/specs/p
-- [20:47:49] Bash: cp /tmp/function-factory-stage4-next-step-inputs/authored/capabilities/BC-META-COMPUTE-CAPABILITY-DELTA.yaml /Users/wes/
-- [20:47:50] Bash: mkdir -p /Users/wes/Developer/function-factory/packages/capability-delta/fixtures && cp /tmp/function-factory-stage4-nex
-- [20:48:02] Edit: /Users/wes/Developer/function-factory/packages/capability-delta/package.json
-- [20:48:05] Edit: /Users/wes/Developer/function-factory/packages/capability-delta/package.json
-- [20:48:09] Bash: grep "tsx" /Users/wes/Developer/function-factory/package.json /Users/wes/Developer/function-factory/packages/compiler/pa
-- [20:48:30] Write: /Users/wes/Developer/function-factory/packages/capability-delta/src/run-delta.ts
-- [20:48:34] Bash: pnpm install 2>&1 | tail -5
-- [20:48:43] Bash: pnpm --filter @factory/capability-delta run-delta 2>&1
-- [20:48:56] Bash: pnpm -r test 2>&1 | tail -25
-- [20:49:05] Bash: pnpm -r typecheck 2>&1 | tail -15
-- [20:49:12] Bash: cp /Users/wes/Developer/function-factory/specs/deltas/DEL-META-COMPUTE-CAPABILITY-DELTA.yaml /tmp/del-run1.yaml && pnpm 
+- [23:42:39] Bash: cat /Users/wes/Developer/function-factory/pnpm-workspace.yaml
+- [23:42:44] Bash: pnpm install 2>&1 | tail -5
+- [23:42:50] Bash: pnpm --filter @factory/prd-authoring test 2>&1
+- [01:29:04] Bash: cd /tmp && rm -rf fp-semantic-review && mkdir fp-semantic-review && cd fp-semantic-review && unzip /Users/wes/Downloads/
+- [01:29:23] Bash: cp /tmp/fp-semantic-review/NEW_FILES/packages/prd-authoring/test/fixtures/fp-meta-semantic-review-execution.json /Users/
+- [01:29:43] Write: /Users/wes/Developer/function-factory/packages/prd-authoring/src/render-prd.ts
+- [01:29:58] Write: /Users/wes/Developer/function-factory/packages/prd-authoring/test/render-prd.test.ts
+- [01:30:07] Write: /Users/wes/Developer/function-factory/packages/prd-authoring/src/run-authoring.ts
+- [01:30:13] Bash: pnpm --filter @factory/prd-authoring test 2>&1
+- [01:32:06] Bash: cd /Users/wes/Developer/function-factory && git diff HEAD~1 -- packages/prd-authoring/src/render-prd.ts | head -80
+- [01:32:16] Bash: diff /Users/wes/Developer/function-factory/specs/prds/PRD-META-CAPABILITY-DELTA-ENGINE.md <(cd packages/prd-authoring &&
+- [01:32:26] Bash: cd /Users/wes/Developer/function-factory/packages/prd-authoring && npx tsx -e "
+import { renderPrdFromFunctionProposal }
+- [01:32:59] Bash: pnpm --filter @factory/prd-authoring test 2>&1
+- [01:32:59] Bash: diff /Users/wes/Developer/function-factory/specs/prds/PRD-META-CAPABILITY-DELTA-ENGINE.md /tmp/prd-delta-rerender.md 2>&
+- [01:33:09] Bash: cd /Users/wes/Developer/function-factory/packages/prd-authoring && cat > /tmp/verify-delta-render.ts << 'SCRIPT'
+import 
+- [01:33:25] Write: /Users/wes/.claude/projects/-Users-wes-Developer-function-factory/memory/feedback_extension_packs_not_replacements.md
+- [01:33:34] Write: /Users/wes/.claude/projects/-Users-wes-Developer-function-factory/memory/MEMORY.md
+- [01:34:31] Write: /Users/wes/.claude/projects/-Users-wes-Developer-function-factory/memory/feedback_extension_packs_not_replacements.md
+- [01:34:38] Write: /Users/wes/.claude/projects/-Users-wes-Developer-function-factory/memory/MEMORY.md
+- [01:35:13] Write: /Users/wes/.claude/projects/-Users-wes-Developer-function-factory/memory/feedback_extension_packs_not_replacements.md
 
 ## Notes
 This file is auto-updated on session end. Manual edits will be overwritten.
