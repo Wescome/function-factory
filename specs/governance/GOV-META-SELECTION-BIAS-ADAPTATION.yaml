@@ -1,0 +1,14 @@
+id: GOV-META-SELECTION-BIAS-ADAPTATION
+source_refs:
+  - GOV-META-ADAPTIVE-PRESSURE-RECALIBRATION
+explicitness: explicit
+rationale: Selection bias adaptation must remain bounded, transparent, and reversible.
+reliabilityBaseline: 0.5
+matchRewardStep: 0.08
+deviationPenaltyStep: 0.12
+maxPositiveBias: 0.15
+maxNegativeBias: -0.2
+driftPenaltyMultiplier: 0.2
+description: >
+  Candidate reliability rises gradually from matched observations, falls gradually from deviations,
+  and is combined with bounded drift penalty to produce a reversible future selection bias.

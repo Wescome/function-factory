@@ -1,0 +1,11 @@
+id: CRL-META-ARCHITECTURE-CANDIDATE-EXECUTION
+source_refs:
+  - OBS-META-ARCHITECTURE-CANDIDATE-EXECUTION
+  - OBS-META-ARCHITECTURE-CANDIDATE-EXECUTION-2
+explicitness: inferred
+rationale: Candidate reliability emitted deterministically from repeated observation outcomes.
+sourceArchitectureCandidateId: AC-META-ARCHITECTURE-CANDIDATE-EXECUTION
+matchedCount: 4
+deviatedCount: 1
+reliabilityScore: 0.7
+summary: Reliability score derived from bounded historical observation outcomes.

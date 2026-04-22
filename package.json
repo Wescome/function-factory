@@ -40,6 +40,8 @@
     "signal-hygiene:typecheck": "pnpm --filter @factory/signal-hygiene run typecheck",
     "adaptive-recalibration:test": "pnpm --filter @factory/adaptive-recalibration run test",
     "adaptive-recalibration:typecheck": "pnpm --filter @factory/adaptive-recalibration run typecheck",
+    "selection-bias:test": "pnpm --filter @factory/selection-bias run test",
+    "selection-bias:typecheck": "pnpm --filter @factory/selection-bias run typecheck",
     "dream": "tsx .agent/tools/dream.ts",
     "bootstrap": "tsx scripts/bootstrap.ts"
   },

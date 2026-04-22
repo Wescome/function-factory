@@ -1,0 +1,13 @@
+id: SBI-META-ARCHITECTURE-CANDIDATE-EXECUTION
+source_refs:
+  - CRL-META-ARCHITECTURE-CANDIDATE-EXECUTION
+  - DDI-META-CANDIDATE-EMISSION-GAP
+explicitness: inferred
+rationale: Selection bias input emitted deterministically from reliability and bounded drift penalty.
+sourceArchitectureCandidateId: AC-META-ARCHITECTURE-CANDIDATE-EXECUTION
+sourceReliabilityId: CRL-META-ARCHITECTURE-CANDIDATE-EXECUTION
+sourceDriftInputId: DDI-META-CANDIDATE-EMISSION-GAP
+reliabilityScore: 0.7
+driftIndicator: 0.31
+boundedBiasAdjustment: -0.002
+summary: Bounded selection-bias adjustment prepared for future ACS scoring.

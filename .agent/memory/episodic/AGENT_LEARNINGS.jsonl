@@ -516,3 +516,45 @@
 {"timestamp":"2026-04-22T00:11:03.115Z","tool":"Agent","summary":"Reviewer verifies Stage 8","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
 {"timestamp":"2026-04-22T00:12:31.665Z","tool":"Bash","summary":"git status","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
 {"timestamp":"2026-04-22T00:12:32.159Z","tool":"Bash","summary":"git diff --stat","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:12:37.466Z","tool":"Bash","summary":"git add package.json packages/coverage-gates/src/checks.ts packages/schemas/src/index.ts packages/schemas/src/lineage.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:12:47.833Z","tool":"Bash","summary":"git commit -m \"$(cat <<'EOF'\nfeat(adaptive-recalibration): add Stage 8 bounded pressure adaptation (RPRS + DDI)\n\n- added","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:12:55.098Z","tool":"Bash","summary":"git tag v0.8.0-bounded-adaptation-live && git push origin main --follow-tags","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:22:45.668Z","tool":"Bash","summary":"cd /tmp && rm -rf stage85-pack && mkdir stage85-pack && cd stage85-pack && unzip /Users/wes/Downloads/stage85_selection_","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:24:12.293Z","tool":"Agent","summary":"Architect blesses Stage 8.5","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:25:19.544Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/schemas/src/lineage.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:25:23.183Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/schemas/src/lineage.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:25:27.669Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/coverage-gates/src/checks.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:25:31.684Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/schemas/src/index.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:25:36.481Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/package.json","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:25:46.763Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/schemas/src/selection-bias.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:25:51.362Z","tool":"Bash","summary":"mkdir -p /Users/wes/Developer/function-factory/packages/selection-bias/src /Users/wes/Developer/function-factory/package","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:25:56.882Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/selection-bias/package.json","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:26:00.620Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/selection-bias/tsconfig.json","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:26:04.760Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/selection-bias/src/ids.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:26:10.966Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/selection-bias/src/policies.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:26:18.177Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/selection-bias/src/compute-candidate-reliability.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:26:22.801Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/selection-bias/src/compute-selection-bias-adjustment.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:26:29.325Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/selection-bias/src/emit-candidate-reliability.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:26:35.510Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/selection-bias/src/emit-selection-bias-input.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:26:38.852Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/selection-bias/src/index.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:26:53.370Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/selection-bias/test/selection-bias.test.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:26:58.008Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/specs/candidate-reliabilities/CRL-META-ARCHITECTURE-CANDIDATE-EXECUTION.yaml","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:27:02.289Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/specs/selection-bias-inputs/SBI-META-ARCHITECTURE-CANDIDATE-EXECUTION.yaml","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:27:07.826Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/specs/governance/GOV-META-SELECTION-BIAS-ADAPTATION.yaml","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:27:14.797Z","tool":"Bash","summary":"pnpm install 2>&1 | tail -20","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:27:39.730Z","tool":"Bash","summary":"pnpm build 2>&1 | tail -30","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:28:02.853Z","tool":"Bash","summary":"pnpm test 2>&1 | tail -40","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:28:24.536Z","tool":"Bash","summary":"pnpm test 2>&1 | grep -E \"Tests\\s+[0-9]+ passed\" | awk '{sum += $2} END {print \"Total tests:\", sum}'","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:28:45.794Z","tool":"Bash","summary":"pnpm test 2>&1 | grep \"Tests\"","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:29:10.693Z","tool":"Bash","summary":"pnpm typecheck 2>&1 | tail -10","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:29:25.555Z","tool":"Agent","summary":"Engineer executes Stage 8.5","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:32:29.727Z","tool":"Bash","summary":"pnpm run selection-bias:test 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:32:33.139Z","tool":"Bash","summary":"pnpm run selection-bias:typecheck 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:32:51.332Z","tool":"Bash","summary":"pnpm test 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:33:14.243Z","tool":"Bash","summary":"pnpm test 2>&1 | grep \"Tests \" | awk '{sum += $2} END {print \"Total tests:\", sum}'","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:33:35.478Z","tool":"Bash","summary":"pnpm test 2>&1 | grep -E \"^\\s+Tests\\s+\" | grep \"passed\"","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:33:48.469Z","tool":"Bash","summary":"find /Users/wes/Developer/function-factory/specs -name \"CRL-*\" -o -name \"SBI-*\" 2>/dev/null","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:34:23.997Z","tool":"Agent","summary":"Stage 8.5 Reviewer verification","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:46:51.411Z","tool":"Bash","summary":"git status","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:46:52.700Z","tool":"Bash","summary":"git diff --stat HEAD","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:46:52.927Z","tool":"Bash","summary":"git log --oneline -5","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}

@@ -1,33 +1,33 @@
 # Current Workspace
 
 ## Status
-Session ended at 2026-04-22T00:11:14.695Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
+Session ended at 2026-04-22T00:34:29.520Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
 
 ## Last update
-2026-04-22T00:11:14.695Z
+2026-04-22T00:34:29.520Z
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
-- [00:06:04] Write: /Users/wes/Developer/function-factory/packages/adaptive-recalibration/src/compute-drift-indicator.ts
-- [00:06:08] Write: /Users/wes/Developer/function-factory/packages/adaptive-recalibration/src/recalibrate-pressure.ts
-- [00:06:13] Write: /Users/wes/Developer/function-factory/packages/adaptive-recalibration/src/emit-recalibrated-pressure.ts
-- [00:06:17] Write: /Users/wes/Developer/function-factory/packages/adaptive-recalibration/src/emit-delta-drift-input.ts
-- [00:06:18] Write: /Users/wes/Developer/function-factory/packages/adaptive-recalibration/src/index.ts
-- [00:06:25] Write: /Users/wes/Developer/function-factory/packages/adaptive-recalibration/test/adaptive-recalibration.test.ts
-- [00:06:28] Write: /Users/wes/Developer/function-factory/specs/recalibrated-pressures/RPRS-META-CANDIDATE-EMISSION-GAP.yaml
-- [00:06:29] Write: /Users/wes/Developer/function-factory/specs/delta-drift-inputs/DDI-META-CANDIDATE-EMISSION-GAP.yaml
-- [00:06:32] Write: /Users/wes/Developer/function-factory/specs/governance/GOV-META-ADAPTIVE-PRESSURE-RECALIBRATION.yaml
-- [00:06:39] Bash: pnpm install 2>&1
-- [00:07:01] Bash: pnpm build 2>&1
-- [00:07:24] Bash: pnpm test 2>&1
-- [00:07:43] Bash: pnpm typecheck 2>&1
-- [00:08:10] Bash: pnpm test 2>&1 | grep "Tests " | awk '{sum += $2} END {print "Total tests:", sum}'
-- [00:08:29] Bash: pnpm test 2>&1 | grep "Tests"
-- [00:08:44] Agent: Engineer executes Stage 8
-- [00:09:47] Bash: pnpm build 2>&1
-- [00:10:08] Bash: pnpm test 2>&1
-- [00:10:27] Bash: pnpm typecheck 2>&1
-- [00:11:03] Agent: Reviewer verifies Stage 8
+- [00:26:35] Write: /Users/wes/Developer/function-factory/packages/selection-bias/src/emit-selection-bias-input.ts
+- [00:26:38] Write: /Users/wes/Developer/function-factory/packages/selection-bias/src/index.ts
+- [00:26:53] Write: /Users/wes/Developer/function-factory/packages/selection-bias/test/selection-bias.test.ts
+- [00:26:58] Write: /Users/wes/Developer/function-factory/specs/candidate-reliabilities/CRL-META-ARCHITECTURE-CANDIDATE-EXECUTION.yaml
+- [00:27:02] Write: /Users/wes/Developer/function-factory/specs/selection-bias-inputs/SBI-META-ARCHITECTURE-CANDIDATE-EXECUTION.yaml
+- [00:27:07] Write: /Users/wes/Developer/function-factory/specs/governance/GOV-META-SELECTION-BIAS-ADAPTATION.yaml
+- [00:27:14] Bash: pnpm install 2>&1 | tail -20
+- [00:27:39] Bash: pnpm build 2>&1 | tail -30
+- [00:28:02] Bash: pnpm test 2>&1 | tail -40
+- [00:28:24] Bash: pnpm test 2>&1 | grep -E "Tests\s+[0-9]+ passed" | awk '{sum += $2} END {print "Total tests:", sum}'
+- [00:28:45] Bash: pnpm test 2>&1 | grep "Tests"
+- [00:29:10] Bash: pnpm typecheck 2>&1 | tail -10
+- [00:29:25] Agent: Engineer executes Stage 8.5
+- [00:32:29] Bash: pnpm run selection-bias:test 2>&1
+- [00:32:33] Bash: pnpm run selection-bias:typecheck 2>&1
+- [00:32:51] Bash: pnpm test 2>&1
+- [00:33:14] Bash: pnpm test 2>&1 | grep "Tests " | awk '{sum += $2} END {print "Total tests:", sum}'
+- [00:33:35] Bash: pnpm test 2>&1 | grep -E "^\s+Tests\s+" | grep "passed"
+- [00:33:48] Bash: find /Users/wes/Developer/function-factory/specs -name "CRL-*" -o -name "SBI-*" 2>/dev/null
+- [00:34:23] Agent: Stage 8.5 Reviewer verification
 
 ## Notes
 This file is auto-updated on session end. Manual edits will be overwritten.
