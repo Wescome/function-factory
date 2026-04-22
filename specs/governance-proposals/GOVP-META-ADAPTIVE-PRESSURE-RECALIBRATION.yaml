@@ -1,0 +1,10 @@
+id: GOVP-META-ADAPTIVE-PRESSURE-RECALIBRATION
+source_refs:
+  - PSR-META-ADAPTIVE-PRESSURE-RECALIBRATION
+explicitness: inferred
+rationale: Governance proposal emitted deterministically from policy stress evidence.
+targetPolicyId: GOV-META-ADAPTIVE-PRESSURE-RECALIBRATION
+proposedPolicyId: GOV-META-ADAPTIVE-PRESSURE-RECALIBRATION-V2
+proposalType: threshold_adjustment
+proposedChangeSummary: Reduce drift cap from 0.8 to 0.7
+justification: Repeated high drift suggests policy thresholds need tightening.

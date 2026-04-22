@@ -1,0 +1,9 @@
+id: GOVD-META-ADAPTIVE-PRESSURE-RECALIBRATION
+source_refs:
+  - GOVP-META-ADAPTIVE-PRESSURE-RECALIBRATION
+explicitness: explicit
+rationale: Governance decision recorded explicitly under human authority.
+sourceProposalId: GOVP-META-ADAPTIVE-PRESSURE-RECALIBRATION
+decision: approved
+decidedBy: human-reviewer
+decisionSummary: Approved for staged rollout preparation, not auto-activation.

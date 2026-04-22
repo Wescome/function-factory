@@ -1,0 +1,12 @@
+id: PSR-META-ADAPTIVE-PRESSURE-RECALIBRATION
+source_refs:
+  - DDI-META-CANDIDATE-EMISSION-GAP
+  - OBS-META-ARCHITECTURE-CANDIDATE-EXECUTION
+explicitness: inferred
+rationale: Policy stress report emitted deterministically from drift and repeated deviation evidence.
+targetPolicyId: GOV-META-ADAPTIVE-PRESSURE-RECALIBRATION
+driftIndicator: 0.5
+deviationCount: 3
+repeatedProposalCount: 2
+stressLevel: high
+summary: Policy stress detected for bounded governance review.

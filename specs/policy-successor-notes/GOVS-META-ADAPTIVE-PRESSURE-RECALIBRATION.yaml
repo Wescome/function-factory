@@ -1,0 +1,12 @@
+id: GOVS-META-ADAPTIVE-PRESSURE-RECALIBRATION
+source_refs:
+  - GOVP-META-ADAPTIVE-PRESSURE-RECALIBRATION
+  - GOVD-META-ADAPTIVE-PRESSURE-RECALIBRATION
+explicitness: inferred
+rationale: Policy successor lineage note emitted deterministically from proposal and human decision.
+predecessorPolicyId: GOV-META-ADAPTIVE-PRESSURE-RECALIBRATION
+sourceProposalId: GOVP-META-ADAPTIVE-PRESSURE-RECALIBRATION
+sourceDecisionId: GOVD-META-ADAPTIVE-PRESSURE-RECALIBRATION
+successorPolicyId: GOV-META-ADAPTIVE-PRESSURE-RECALIBRATION-V2
+activationState: approved_not_activated
+summary: Governance lineage note connecting predecessor, proposal, decision, and successor policy.

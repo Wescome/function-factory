@@ -1,0 +1,13 @@
+id: GOV-META-POLICY-EVOLUTION
+source_refs:
+  - GOV-META-SELECTION-BIAS-ADAPTATION
+explicitness: explicit
+rationale: Policy evolution must remain human-controlled and proposal-only during bootstrap.
+highStressDriftThreshold: 0.45
+highStressDeviationThreshold: 3
+highStressRepeatThreshold: 2
+humanApprovalRequired: true
+autoActivationAllowed: false
+description: >
+  The system may propose governance changes under sustained stress, but no policy successor
+  may become active without explicit human approval and separate activation handling.
