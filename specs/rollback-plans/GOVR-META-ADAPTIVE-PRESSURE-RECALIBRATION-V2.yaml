@@ -1,0 +1,11 @@
+id: GOVR-META-ADAPTIVE-PRESSURE-RECALIBRATION-V2
+source_refs:
+  - GOVA-META-ADAPTIVE-PRESSURE-RECALIBRATION-V2
+explicitness: inferred
+rationale: Rollback plan emitted deterministically alongside controlled activation.
+sourceActivationId: GOVA-META-ADAPTIVE-PRESSURE-RECALIBRATION-V2
+predecessorPolicyId: GOV-META-ADAPTIVE-PRESSURE-RECALIBRATION
+successorPolicyId: GOV-META-ADAPTIVE-PRESSURE-RECALIBRATION-V2
+rollbackTargetPolicyId: GOV-META-ADAPTIVE-PRESSURE-RECALIBRATION
+rolloutStateAtCreation: shadow
+rollbackSummary: Rollback returns policy control to the predecessor policy without silent replacement.

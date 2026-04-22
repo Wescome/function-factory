@@ -1,0 +1,15 @@
+id: GOVA-META-ADAPTIVE-PRESSURE-RECALIBRATION-V2
+source_refs:
+  - GOVP-META-ADAPTIVE-PRESSURE-RECALIBRATION
+  - GOVD-META-ADAPTIVE-PRESSURE-RECALIBRATION
+  - GOVS-META-ADAPTIVE-PRESSURE-RECALIBRATION
+explicitness: explicit
+rationale: Policy activation recorded explicitly after human approval and staged rollout choice.
+predecessorPolicyId: GOV-META-ADAPTIVE-PRESSURE-RECALIBRATION
+successorPolicyId: GOV-META-ADAPTIVE-PRESSURE-RECALIBRATION-V2
+sourceProposalId: GOVP-META-ADAPTIVE-PRESSURE-RECALIBRATION
+sourceDecisionId: GOVD-META-ADAPTIVE-PRESSURE-RECALIBRATION
+sourceSuccessorNoteId: GOVS-META-ADAPTIVE-PRESSURE-RECALIBRATION
+rolloutState: shadow
+rollbackTargetPolicyId: GOV-META-ADAPTIVE-PRESSURE-RECALIBRATION
+activationSummary: Approved successor policy activated under controlled rollout with rollback preserved.

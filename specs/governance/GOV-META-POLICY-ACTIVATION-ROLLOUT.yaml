@@ -1,0 +1,15 @@
+id: GOV-META-POLICY-ACTIVATION-ROLLOUT
+source_refs:
+  - GOV-META-POLICY-EVOLUTION
+explicitness: explicit
+rationale: Approved policies require staged activation and explicit rollback preservation.
+allowedRolloutStates:
+  - shadow
+  - partial
+  - full
+humanApprovalRequired: true
+autoActivationAllowed: false
+rollbackRequired: true
+description: >
+  Policy activation occurs only after approval, proceeds through explicit rollout states,
+  and always preserves a rollback target to the predecessor policy.

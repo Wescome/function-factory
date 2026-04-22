@@ -625,3 +625,58 @@
 {"timestamp":"2026-04-22T01:14:31.122Z","tool":"Bash","summary":"git status","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
 {"timestamp":"2026-04-22T01:14:31.586Z","tool":"Bash","summary":"git diff --stat HEAD","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
 {"timestamp":"2026-04-22T01:14:32.028Z","tool":"Bash","summary":"git log --oneline -3","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:14:43.341Z","tool":"Bash","summary":"git add package.json packages/coverage-gates/src/checks.ts packages/schemas/src/index.ts packages/schemas/src/lineage.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:14:51.059Z","tool":"Bash","summary":"git commit -m \"$(cat <<'EOF'\nfeat(meta-governance): add Stage 9 policy stress detection and proposal-only governance evo","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:14:54.517Z","tool":"Bash","summary":"git tag v0.9.0-meta-governance-live","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:14:58.130Z","tool":"Bash","summary":"git push origin main --follow-tags","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:27:36.727Z","tool":"Bash","summary":"mkdir -p /tmp/stage10-pack && unzip -o /Users/wes/Downloads/stage10_policy_activation_pack.zip -d /tmp/stage10-pack","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:27:40.700Z","tool":"Bash","summary":"cat /tmp/stage10-pack/README.md","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:27:41.189Z","tool":"Bash","summary":"cat /tmp/stage10-pack/AGENT_INSTRUCTIONS.md","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:27:41.658Z","tool":"Bash","summary":"cat /tmp/stage10-pack/ARCHITECTURE_NOTES.md","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:27:42.163Z","tool":"Bash","summary":"cat /tmp/stage10-pack/IMPLEMENTATION_PLAN.md","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:27:46.870Z","tool":"Bash","summary":"cat /tmp/stage10-pack/NEW_FILES/packages/schemas/src/policy-activation.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:27:47.859Z","tool":"Bash","summary":"for f in /tmp/stage10-pack/NEW_FILES/packages/policy-activation/src/*.ts; do echo \"=== $(basename $f) ===\"; cat \"$f\"; ec","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:27:48.430Z","tool":"Bash","summary":"cat /tmp/stage10-pack/NEW_FILES/packages/policy-activation/test/policy-activation.test.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:27:49.264Z","tool":"Bash","summary":"cat /tmp/stage10-pack/NEW_FILES/packages/policy-activation/package.json && echo \"---\" && cat /tmp/stage10-pack/NEW_FILES","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:27:53.864Z","tool":"Bash","summary":"cat /tmp/stage10-pack/PATCHES/packages/schemas/src/lineage.ts.patch && echo \"===\" && cat /tmp/stage10-pack/PATCHES/packa","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:27:54.737Z","tool":"Bash","summary":"cat /tmp/stage10-pack/authored/governance/policy-activation-rollout-policy.yaml","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:27:55.822Z","tool":"Bash","summary":"for f in /tmp/stage10-pack/templates/*.yaml; do echo \"=== $(basename $f) ===\"; cat \"$f\"; echo; done","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:27:56.917Z","tool":"Bash","summary":"cat /tmp/stage10-pack/manifests/expected-outputs.md && echo \"===\" && cat /tmp/stage10-pack/manifests/stage10-policy-acti","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:29:58.057Z","tool":"Agent","summary":"Architect blesses Stage 10 plan","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:31:52.033Z","tool":"Bash","summary":"ls /tmp/stage10-pack/authored/ 2>/dev/null; ls /tmp/stage10-pack/NEW_FILES/specs/ 2>/dev/null || echo \"no specs dir\"","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:31:52.513Z","tool":"Bash","summary":"find /tmp/stage10-pack -name \"*.yaml\" -o -name \"GOVA*\" -o -name \"GOVR*\" 2>/dev/null","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:32:00.695Z","tool":"Bash","summary":"ls /Users/wes/Developer/function-factory/specs/governance/ 2>/dev/null; echo \"---\"; ls /Users/wes/Developer/function-fac","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:32:01.279Z","tool":"Bash","summary":"ls /Users/wes/Developer/function-factory/packages/policy-activation/ 2>/dev/null || echo \"package does not exist yet\"","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:32:10.666Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/schemas/src/policy-activation.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:32:12.008Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/schemas/src/index.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:32:14.186Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/schemas/src/lineage.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:32:15.505Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/schemas/src/lineage.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:32:16.942Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/coverage-gates/src/checks.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:32:18.724Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/package.json","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:32:27.789Z","tool":"Bash","summary":"mkdir -p /Users/wes/Developer/function-factory/packages/policy-activation/src /Users/wes/Developer/function-factory/pack","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:32:33.462Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/policy-activation/package.json","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:32:35.638Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/policy-activation/tsconfig.json","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:32:35.909Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/policy-activation/src/index.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:32:37.292Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/policy-activation/src/ids.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:32:40.200Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/policy-activation/src/assert-activation-allowed.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:32:45.520Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/policy-activation/src/emit-policy-activation.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:32:48.267Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/policy-activation/src/emit-rollback-plan.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:32:59.225Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/policy-activation/test/policy-activation.test.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:33:01.013Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/specs/governance/GOV-META-POLICY-ACTIVATION-ROLLOUT.yaml","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:33:04.253Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/specs/policy-activations/GOVA-META-ADAPTIVE-PRESSURE-RECALIBRATION-V2.yaml","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:33:06.288Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/specs/rollback-plans/GOVR-META-ADAPTIVE-PRESSURE-RECALIBRATION-V2.yaml","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:33:13.177Z","tool":"Bash","summary":"pnpm install 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:33:20.806Z","tool":"Bash","summary":"pnpm run policy-activation:typecheck 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:33:36.509Z","tool":"Bash","summary":"pnpm run policy-activation:test 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:34:03.987Z","tool":"Bash","summary":"pnpm test 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:34:28.482Z","tool":"Bash","summary":"pnpm test 2>&1 | grep \"Tests \" | grep -oP '\\d+ passed' | awk -F' ' '{s+=$1} END {print \"Total:\", s}'","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:34:58.464Z","tool":"Bash","summary":"pnpm test 2>&1 | grep \"Tests \" | sed 's/.*Tests  //' | sed 's/ passed.*//' | awk '{s+=$1} END {print \"Total:\", s}'","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:35:17.207Z","tool":"Agent","summary":"Engineer implements Stage 10","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:35:51.269Z","tool":"Bash","summary":"pnpm run policy-activation:test 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:35:54.737Z","tool":"Bash","summary":"pnpm run policy-activation:typecheck 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:36:14.157Z","tool":"Bash","summary":"pnpm test 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:36:37.091Z","tool":"Bash","summary":"pnpm test 2>&1 | grep \"Tests\" | grep \"passed\"","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:37:10.853Z","tool":"Agent","summary":"Stage 10 Reviewer verification","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:41:50.010Z","tool":"Bash","summary":"git status","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:41:50.468Z","tool":"Bash","summary":"git diff --stat HEAD","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T01:41:50.870Z","tool":"Bash","summary":"git log --oneline -3","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}

@@ -44,6 +44,8 @@
     "selection-bias:typecheck": "pnpm --filter @factory/selection-bias run typecheck",
     "meta-governance:test": "pnpm --filter @factory/meta-governance run test",
     "meta-governance:typecheck": "pnpm --filter @factory/meta-governance run typecheck",
+    "policy-activation:test": "pnpm --filter @factory/policy-activation run test",
+    "policy-activation:typecheck": "pnpm --filter @factory/policy-activation run typecheck",
     "dream": "tsx .agent/tools/dream.ts",
     "bootstrap": "tsx scripts/bootstrap.ts"
   },
