@@ -1,0 +1,13 @@
+id: RPRS-META-CANDIDATE-EMISSION-GAP
+source_refs:
+  - PRS-META-CANDIDATE-EMISSION-GAP
+  - SNB-RUN-META-STAGE725-001
+explicitness: inferred
+rationale: Pressure recalibrated deterministically from weighted signals and bounded drift input.
+sourcePressureId: PRS-META-CANDIDATE-EMISSION-GAP
+baselineStrength: 0.88
+baselineUrgency: 0.8
+feedbackInfluence: 0.35
+recalibratedStrength: 0.7796
+recalibratedUrgency: 0.7219
+summary: Recalibrated pressure emitted under bounded feedback influence policy.

@@ -1,0 +1,11 @@
+id: DDI-META-CANDIDATE-EMISSION-GAP
+source_refs:
+  - RPRS-META-CANDIDATE-EMISSION-GAP
+explicitness: inferred
+rationale: Drift-aware DEL input emitted deterministically from repeated observation outcomes.
+sourcePressureId: PRS-META-CANDIDATE-EMISSION-GAP
+sourceRecalibratedPressureId: RPRS-META-CANDIDATE-EMISSION-GAP
+driftIndicator: 0.31
+deviationCount: 3
+matchedCount: 1
+summary: Drift-aware input prepared for downstream capability-delta prioritization.

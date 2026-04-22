@@ -38,6 +38,8 @@
     "observability-feedback:typecheck": "pnpm --filter @factory/observability-feedback run typecheck",
     "signal-hygiene:test": "pnpm --filter @factory/signal-hygiene run test",
     "signal-hygiene:typecheck": "pnpm --filter @factory/signal-hygiene run typecheck",
+    "adaptive-recalibration:test": "pnpm --filter @factory/adaptive-recalibration run test",
+    "adaptive-recalibration:typecheck": "pnpm --filter @factory/adaptive-recalibration run typecheck",
     "dream": "tsx .agent/tools/dream.ts",
     "bootstrap": "tsx scripts/bootstrap.ts"
   },

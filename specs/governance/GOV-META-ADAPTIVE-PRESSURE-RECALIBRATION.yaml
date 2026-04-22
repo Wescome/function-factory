@@ -1,0 +1,11 @@
+id: GOV-META-ADAPTIVE-PRESSURE-RECALIBRATION
+source_refs:
+  - GOV-META-SIGNAL-HYGIENE-WEIGHTING
+explicitness: explicit
+rationale: Adaptive pressure recalibration must remain bounded and auditable during bootstrap.
+maxFeedbackInfluence: 0.35
+deviationDriftStep: 0.12
+matchReliefStep: 0.05
+driftCap: 0.8
+description: >
+  Recalibrate pressures using weighted signals plus bounded drift indicators from repeated observations.

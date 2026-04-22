@@ -476,3 +476,43 @@
 {"timestamp":"2026-04-21T23:54:57.817Z","tool":"Agent","summary":"Reviewer verifies Stage 7.25","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
 {"timestamp":"2026-04-21T23:56:55.012Z","tool":"Bash","summary":"git status","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
 {"timestamp":"2026-04-21T23:56:55.522Z","tool":"Bash","summary":"git diff --stat","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:57:02.356Z","tool":"Bash","summary":"git add package.json packages/coverage-gates/src/checks.ts packages/schemas/src/index.ts packages/schemas/src/lineage.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:57:11.733Z","tool":"Bash","summary":"git commit -m \"$(cat <<'EOF'\nfeat(signal-hygiene): add Stage 7.25 signal normalization, deduplication, and weighting (SN","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-21T23:57:18.710Z","tool":"Bash","summary":"git tag v0.7.25-signal-hygiene-live && git push origin main --follow-tags","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:02:45.139Z","tool":"Bash","summary":"cd /tmp && rm -rf stage8-pack && mkdir stage8-pack && cd stage8-pack && unzip /Users/wes/Downloads/stage8_adaptive_press","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:04:11.568Z","tool":"Agent","summary":"Architect blesses Stage 8","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:05:17.378Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/schemas/src/lineage.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:05:21.531Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/schemas/src/lineage.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:05:25.320Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/coverage-gates/src/checks.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:05:29.156Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/schemas/src/index.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:05:34.210Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/package.json","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:05:39.114Z","tool":"Bash","summary":"ls /Users/wes/Developer/function-factory/packages/adaptive-recalibration 2>&1 || echo \"DIR_NOT_FOUND\"","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:05:40.325Z","tool":"Bash","summary":"ls /Users/wes/Developer/function-factory/specs/recalibrated-pressures 2>&1 || echo \"DIR_NOT_FOUND\"; ls /Users/wes/Develo","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:05:44.786Z","tool":"Bash","summary":"mkdir -p /Users/wes/Developer/function-factory/packages/adaptive-recalibration/src /Users/wes/Developer/function-factory","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:05:53.585Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/schemas/src/adaptive-recalibration.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:05:56.883Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/adaptive-recalibration/package.json","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:05:58.263Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/adaptive-recalibration/tsconfig.json","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:06:00.192Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/adaptive-recalibration/src/ids.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:06:02.087Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/adaptive-recalibration/src/policies.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:06:04.727Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/adaptive-recalibration/src/compute-drift-indicator.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:06:08.991Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/adaptive-recalibration/src/recalibrate-pressure.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:06:13.391Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/adaptive-recalibration/src/emit-recalibrated-pressure.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:06:17.193Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/adaptive-recalibration/src/emit-delta-drift-input.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:06:18.545Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/adaptive-recalibration/src/index.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:06:25.655Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/adaptive-recalibration/test/adaptive-recalibration.test.ts","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:06:28.183Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/specs/recalibrated-pressures/RPRS-META-CANDIDATE-EMISSION-GAP.yaml","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:06:29.903Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/specs/delta-drift-inputs/DDI-META-CANDIDATE-EMISSION-GAP.yaml","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:06:32.444Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/specs/governance/GOV-META-ADAPTIVE-PRESSURE-RECALIBRATION.yaml","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:06:39.120Z","tool":"Bash","summary":"pnpm install 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:07:01.714Z","tool":"Bash","summary":"pnpm build 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:07:24.313Z","tool":"Bash","summary":"pnpm test 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:07:43.559Z","tool":"Bash","summary":"pnpm typecheck 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:08:10.252Z","tool":"Bash","summary":"pnpm test 2>&1 | grep \"Tests \" | awk '{sum += $2} END {print \"Total tests:\", sum}'","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:08:29.730Z","tool":"Bash","summary":"pnpm test 2>&1 | grep \"Tests\"","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:08:44.820Z","tool":"Agent","summary":"Engineer executes Stage 8","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:09:47.270Z","tool":"Bash","summary":"pnpm build 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:10:08.461Z","tool":"Bash","summary":"pnpm test 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:10:27.598Z","tool":"Bash","summary":"pnpm typecheck 2>&1","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:11:03.115Z","tool":"Agent","summary":"Reviewer verifies Stage 8","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:12:31.665Z","tool":"Bash","summary":"git status","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
+{"timestamp":"2026-04-22T00:12:32.159Z","tool":"Bash","summary":"git diff --stat","session_id":"79891f02-a17f-4a11-9d42-dba4e8f00d96"}
