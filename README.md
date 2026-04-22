@@ -11,6 +11,12 @@ it implements, the PRD that specified it, the WorkGraph that realized it, and
 the Coverage Reports it passed. The repository's own construction is the
 bootstrap proof.
 
+## Architecture
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the full pipeline diagram, artifact
+prefix glossary, package dependency map, stage-by-stage breakdown, and
+governance policy chain. Every package also has its own README.
+
 ## Repository layout
 
 ```

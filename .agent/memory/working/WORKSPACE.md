@@ -1,33 +1,33 @@
 # Current Workspace
 
 ## Status
-Session ended at 2026-04-22T01:37:19.534Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
+Session ended at 2026-04-22T03:07:13.436Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
 
 ## Last update
-2026-04-22T01:37:19.534Z
+2026-04-22T03:07:13.436Z
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
-- [01:32:37] Write: /Users/wes/Developer/function-factory/packages/policy-activation/src/ids.ts
-- [01:32:40] Write: /Users/wes/Developer/function-factory/packages/policy-activation/src/assert-activation-allowed.ts
-- [01:32:45] Write: /Users/wes/Developer/function-factory/packages/policy-activation/src/emit-policy-activation.ts
-- [01:32:48] Write: /Users/wes/Developer/function-factory/packages/policy-activation/src/emit-rollback-plan.ts
-- [01:32:59] Write: /Users/wes/Developer/function-factory/packages/policy-activation/test/policy-activation.test.ts
-- [01:33:01] Write: /Users/wes/Developer/function-factory/specs/governance/GOV-META-POLICY-ACTIVATION-ROLLOUT.yaml
-- [01:33:04] Write: /Users/wes/Developer/function-factory/specs/policy-activations/GOVA-META-ADAPTIVE-PRESSURE-RECALIBRATION-V2.yaml
-- [01:33:06] Write: /Users/wes/Developer/function-factory/specs/rollback-plans/GOVR-META-ADAPTIVE-PRESSURE-RECALIBRATION-V2.yaml
-- [01:33:13] Bash: pnpm install 2>&1
-- [01:33:20] Bash: pnpm run policy-activation:typecheck 2>&1
-- [01:33:36] Bash: pnpm run policy-activation:test 2>&1
-- [01:34:03] Bash: pnpm test 2>&1
-- [01:34:28] Bash: pnpm test 2>&1 | grep "Tests " | grep -oP '\d+ passed' | awk -F' ' '{s+=$1} END {print "Total:", s}'
-- [01:34:58] Bash: pnpm test 2>&1 | grep "Tests " | sed 's/.*Tests  //' | sed 's/ passed.*//' | awk '{s+=$1} END {print "Total:", s}'
-- [01:35:17] Agent: Engineer implements Stage 10
-- [01:35:51] Bash: pnpm run policy-activation:test 2>&1
-- [01:35:54] Bash: pnpm run policy-activation:typecheck 2>&1
-- [01:36:14] Bash: pnpm test 2>&1
-- [01:36:37] Bash: pnpm test 2>&1 | grep "Tests" | grep "passed"
-- [01:37:10] Agent: Stage 10 Reviewer verification
+- [03:02:18] Write: /Users/wes/Developer/function-factory/packages/assurance-graph/README.md
+- [03:02:24] Write: /Users/wes/Developer/function-factory/packages/runtime/README.md
+- [03:02:33] Write: /Users/wes/Developer/function-factory/packages/harness-bridge/README.md
+- [03:02:43] Write: /Users/wes/Developer/function-factory/packages/recursion-governance/README.md
+- [03:02:49] Write: /Users/wes/Developer/function-factory/packages/architecture-candidates/README.md
+- [03:02:56] Write: /Users/wes/Developer/function-factory/packages/candidate-selection/README.md
+- [03:03:01] Write: /Users/wes/Developer/function-factory/packages/runtime-admission/README.md
+- [03:03:19] Write: /Users/wes/Developer/function-factory/packages/execution-lifecycle/README.md
+- [03:03:27] Write: /Users/wes/Developer/function-factory/packages/controlled-effectors/README.md
+- [03:03:34] Write: /Users/wes/Developer/function-factory/packages/effector-realization/README.md
+- [03:03:41] Write: /Users/wes/Developer/function-factory/packages/observability-feedback/README.md
+- [03:03:50] Write: /Users/wes/Developer/function-factory/packages/adaptive-recalibration/README.md
+- [03:03:58] Write: /Users/wes/Developer/function-factory/packages/selection-bias/README.md
+- [03:04:07] Write: /Users/wes/Developer/function-factory/packages/meta-governance/README.md
+- [03:04:14] Write: /Users/wes/Developer/function-factory/packages/policy-activation/README.md
+- [03:04:22] Bash: ls /Users/wes/Developer/function-factory/packages/*/README.md | wc -l && echo "---" && ls /Users/wes/Developer/function-
+- [03:04:23] Bash: for f in /Users/wes/Developer/function-factory/packages/*/README.md; do lines=$(wc -l < "$f"); pkg=$(basename $(dirname 
+- [03:04:42] Bash: wc -l /Users/wes/Developer/function-factory/ARCHITECTURE.md
+- [03:04:42] Bash: ls /Users/wes/Developer/function-factory/packages/*/README.md | wc -l
+- [03:04:58] Edit: /Users/wes/Developer/function-factory/README.md
 
 ## Notes
 This file is auto-updated on session end. Manual edits will be overwritten.
