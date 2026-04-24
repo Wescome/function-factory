@@ -751,3 +751,52 @@ formalizes what replaces it: automated Critic review, universal, before
 every compile, at two cents per review.
 
 **Status:** Active.
+
+## 2026-04-24: Observed — specification pipeline is self-sustaining
+
+**Observation.** As of commit `bd2f9a0`, the Factory's specification
+pipeline operates end-to-end without the Architect in the governance
+loop. The governance chain for PRD-META-SIMULATION-COVERAGE:
+
+  SIG-META-GATE2-REACHABLE (architect-observation)
+  → PRS-META-SIMULATION-COVERAGE
+  → BC-META-ENFORCE-SIMULATION-COVERAGE
+  → FP triple (execution/control/evidence)
+  → PRD-META-SIMULATION-COVERAGE (201 lines, 21 ACs)
+  → Critic review: ALIGNED (0.98, 11 citations, $0.017) — automated
+  → Gate 1: PASS (49 atoms, 3 contracts, 4 invariants) — automated
+  → WG-META-SIMULATION-COVERAGE — 9th WorkGraph
+
+The Architect's role was: (1) notice the operational gap (SIG source:
+architect-observation — the Factory cannot yet self-sense), (2) author
+the spec-chain content. The Architect did NOT: review the PRD for
+semantic alignment (the Critic did that), run Gate 1 (the compiler
+did that), check coverage (the gate evaluator did that). Both governance
+checks ran themselves, produced lineage artifacts, and gated the
+pipeline without human intervention.
+
+**What this establishes.** The specification side of the Factory is
+self-sustaining: Signal through WorkGraph, fully automated governance,
+fully lineaged. The Architect writes; the Factory governs. This is the
+shift from "Factory builds itself with the Architect reviewing every
+step" to "Factory builds itself with the Architect authoring and the
+Factory governing."
+
+**What this does NOT establish.** The execution side (Stage 6 function
+synthesis) and the observation side (Stage 7 observability) still
+require the Architect to fill operational roles. Stage 6 ran once
+(WG-V2-CLASSIFY-COMMITS) but is not yet routine. Stage 7 is a stub —
+the Architect IS the observability layer. Gates 2 and 3 are compiled
+but not implemented. The closed loop is not yet automated — the
+Architect is the sensor (architect-observation, not self-sensing).
+
+**Boundary ahead.** Gate 2 is the first gate that operates on running
+code, not static artifacts. Gates 1 and the Critic check structure and
+meaning — they read text. Gate 2 checks behavior — it runs code,
+executes tests, evaluates pass/fail on actual execution. That requires
+an execution environment, test fixtures, and behavioral assertion. The
+`controlled-effectors` package (governed tool invocation) is the
+architectural boundary where this new class of work lands. Every prior
+package transforms data. Gate 2 runs things and judges the results.
+
+**Status:** Observed.
