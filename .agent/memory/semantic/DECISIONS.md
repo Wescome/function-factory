@@ -800,3 +800,57 @@ architectural boundary where this new class of work lands. Every prior
 package transforms data. Gate 2 runs things and judges the results.
 
 **Status:** Observed.
+
+## 2026-04-24: ADR — Dual-mode Cloudflare deployment with ArangoDB as sole storage substrate
+
+**Decision:** Adopt the FINAL-DEPLOYMENT-ARCHITECTURE as the canonical deployment target for the Function Factory. The architecture specifies:
+
+1. **One compute platform: Cloudflare.** Workers (edge routing, Gate 1), Workflows (pipeline orchestration, Stages 1–7), Durable Objects (Stage 6 coordination, Gate 3 monitoring, memory consolidation), Containers (Coder/Tester execution via ADR-002), Queues (signal ingestion, job dispatch). No Railway. No Kubernetes.
+
+2. **Two execution modes.** Execution Mode A: pi-ai internal loop for structured reasoning (Stages 1–5, Gates, Stage 6 Planner/Critic/Verifier). Execution Mode B: Container delegation for real code execution (Stage 6 Coder/Tester), governed by ADR-002's lease/heartbeat/policy model with FunctionJob contracts.
+
+3. **One storage substrate: ArangoDB Oasis.** Factory-domain data (specs, memory tiers, lineage graph, gate status, trust scores) and execution-domain data (function_runs job ledger, execution_artifacts) in the same database. Replaces the prior D1 + R2 proposal. Atomic lease claim via AQL `exclusive: true`. Artifacts stored as documents (text: unified diffs, JSON reports, logs), not binary blobs.
+
+4. **LangGraph.js scoped to Stage 6 only.** CF Workflows handle the outer pipeline skeleton (Stages 1–7). LangGraph.js runs inside the Coordinator DO for the five-role synthesis topology (Planner → Coder → Critic → Tester → Verifier) with conditional repair loops (Verifier → budget-check → Planner → Coder). DO SQLite as LangGraph checkpointer — no custom ArangoDB adapter.
+
+5. **Three Durable Objects.** Coordinator DO (Stage 6 LangGraph + Container lease/heartbeat), Assurance DO (one per monitored Function, alarm-driven Gate 3 checks + incident propagation through assurance_edges graph), Dream DO (singleton, alarm-driven memory consolidation from episodic → semantic, and crystallization check on first Gate 3 PASS).
+
+6. **Semantic Review as explicit Workflow step.** Runs between architect approval and Stage 5 compilation as a pi-ai Critic call. Exits pipeline with `semantic-miscast` if alignment fails. Closes the prior "Stage 5.75" gap.
+
+7. **Model substrate unchanged.** pi-ai (`@mariozechner/pi-ai`) owns the model layer. `@factory/task-routing` (formerly harness-bridge, retracted 2026-04-19 under a different scope) owns routing config: `resolve(taskKind)` → `{ provider, model }`. Container executors (OpenHands, Aider, Claude Code) own their own model access inside containers.
+
+8. **Migration path: 7 phases (0–6), each independently deployable.** Phase 0: current state. Phase 1: ArangoDB local Docker. Phase 2: Edge Workers + Gate 1. Phase 3: Workflows (Stages 1–5). Phase 4: Coordinator DO + LangGraph (all 5 roles via pi-ai). Phase 5: Container delegation for Coder/Tester. Phase 6: Assurance DO + Dream DO + Gate 3. Phase 4 works without Phase 5.
+
+9. **Cost model.** Bootstrap (1–5 Functions/month): ~$18/mo. Steady-state (50 Functions/month): ~$169/mo. LLM inference (~$95/mo) dominates; container compute (~$15/mo) is the dual-mode delta; CF infra (~$9/mo) is noise; ArangoDB Oasis (~$50/mo) is the second-largest line item.
+
+**Rationale:** Three proposals were evaluated — CF-only (all Stage 6 roles in DO via pi-ai), Dual-Mode (reasoning roles in DO, execution roles in Containers with D1 + R2 storage), and FINAL (Dual-Mode with ArangoDB consolidation). The CF-only proposal's implicit assumption that Coder and Tester can produce real code within pi-ai's internal loop is wrong — those roles need filesystem, git, and shell access. The Dual-Mode proposal correctly identified the split but introduced three storage substrates (ArangoDB + D1 + R2), adding operational complexity inappropriate for a solo-developer project in bootstrap. The FINAL consolidates execution-domain storage into ArangoDB, yielding one credential set, one query language, one backup surface, and one failure domain.
+
+The architecture was validated against the existing codebase: `packages/function-synthesis/src/orchestrate.ts` already implements the synthesis loop, `pi-agent-binding.ts` is the pi-ai internal loop, `binding-mode.ts` provides the extension point for Container delegation, `role-contracts.ts` defines five role contracts matching the topology, and the live synthesis of WG-V2-CLASSIFY-COMMITS proved the five-role pipeline end-to-end. The Wrangler bundle test (`/tmp/phase05-bundle-test`) confirmed that LangGraph.js + pi-ai bundle to a 6MB Worker output, reducing (but not eliminating) the 128MB DO memory concern.
+
+**Alternatives considered:**
+
+(a) **CF-only — all 5 roles in DO via pi-ai.** Simpler (one execution model), cheaper (~$155/mo steady-state), fewer failure modes. Rejected as sole production model because Coder and Tester cannot produce real code, run real tests, or commit to real repositories within the pi-ai internal loop. The current `PiAgentBindingMode` produces stub artifacts — upgrading to real code production within pi-ai would require giving the DO filesystem/shell access, violating pi-ai's security model. Retained as Phase 4 baseline: all five roles run via pi-ai before Container delegation is added in Phase 5.
+
+(b) **Railway + LangGraph.js (DEFINITIVE-ARCHITECTURE).** Full LangGraph pipeline, Railway's Docker-based execution handles filesystem access natively. Rejected: no native durable execution (requires custom ArangoDB checkpointer), no native long-running wait states (architect approval), five separate deployable components, higher operational overhead. The dual-mode CF architecture provides Railway-equivalent execution capabilities within a single platform.
+
+(c) **Dual-Mode with D1 + R2.** Architecturally correct execution split. Rejected for storage complexity: three storage substrates (ArangoDB + D1 + R2), three credential sets, three query surfaces, three failure domains. The $2/mo cost savings from D1/R2's free tiers does not justify the operational surface for a solo developer.
+
+(d) **All roles in Containers.** One execution model (Containers for everything). Rejected on cost and latency: launching a Container to run a Planner that produces 200 bytes of JSON from a 2-second pi-ai call wastes ~60 seconds of Container startup per role invocation, accumulating linearly with repair loop iterations.
+
+**Non-blocking conditions accepted at approval:**
+
+1. **Blob-storage boundary.** ArangoDB replaces R2 for document-sized artifacts only. If Functions produce artifacts >1MB (compiled binaries, ML model weights), R2 or equivalent blob storage should be added with ArangoDB pointer documents. Deferred to steady-state.
+
+2. **LangGraph.js-in-DO spike.** Phase 2 must include a proof-of-concept testing LangGraph.js execution inside a DO's V8 isolate. The 6MB bundle test is encouraging but does not verify runtime memory or module compatibility.
+
+3. **Container cold-start grace period.** The 20s heartbeat interval needs a 60s initial grace period after Container launch to accommodate cold starts. Implementation detail for Phase 5.
+
+4. **FunctionJob schema.** The `FunctionJob` type needs a Zod schema in `packages/schemas/` before Phase 5 implementation.
+
+5. **ArangoDB Oasis region.** Deploy in same region as primary CF Workers traffic. Set P95 latency target <50ms/query as a monitoring criterion for Phase 1.
+
+6. **ArangoDB as SPOF.** With D1+R2 eliminated, ArangoDB Oasis is a single failure domain for all Factory data. Acceptable for bootstrap (solo developer, minutes of downtime tolerable). Document as a steady-state concern requiring mitigation (read replicas or regional failover) when the Factory serves multiple users.
+
+**Canonical document:** `~/Downloads/FINAL-DEPLOYMENT-ARCHITECTURE.md` (954 lines, 2026-04-24). To be moved to `specs/reference/` upon vault ingestion.
+
+**Status:** Active.
