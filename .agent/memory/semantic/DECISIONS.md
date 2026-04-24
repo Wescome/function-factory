@@ -660,3 +660,46 @@ Critic role manually. The Architect's role shifts from semantic reviewer
 to the person who decides what to do when the Critic says miscast.
 
 **Status:** Active.
+
+## 2026-04-24: Observed — Critic finds pass-numbering discrepancy in PRD-META-COMPILER-PASS-8
+
+**Observation.** The Critic's first operational PRD review (Step 7,
+commit `060db28`) reviewed PRD-META-COMPILER-PASS-8 against whitepaper §3
+and rendered verdict: miscast (confidence 0.92). Two findings:
+
+1. **Pass-numbering discrepancy.** Whitepaper §3.5 describes an eight-pass
+   compiler pipeline (normalize, extract atoms, derive contracts, derive
+   invariants, derive dependencies, derive validations, consistency check,
+   assemble WorkGraph). The PRD and implementation number these as Passes
+   0–8 (nine passes), inserting Gate 1 as a discrete Pass 7 between
+   consistency check and WorkGraph assembly. §3 does not name the gating
+   step as a numbered compiler pass. The PRD's "Pass 8" is §3's eighth
+   pass, not a ninth.
+
+2. **Citation error.** The PRD's rationale cites "§3.2 for the execution
+   Function type" but §3.2 (Business Capabilities) defines organizational
+   transfer functions, not Function types. Function types (execution,
+   control, evidence, integration) are defined in §3.4 (Capability Delta
+   and Function Proposals).
+
+**Assessment:** Amendment trigger, not retraction trigger. The conceptual
+frame of PRD-META-COMPILER-PASS-8 — "assemble a WorkGraph from validated
+compiler intermediates" — is correct. The implementation is correct. The
+pass numbering is a documentation-level mismatch between the whitepaper's
+narrative (which counts eight named activities) and the implementation
+(which 0-indexes and inserts a gate as a discrete pass). Unlike the
+HARNESS-EXECUTE retraction (where the entire conceptual frame was wrong),
+here the frame is right and the numbering convention diverges. A future
+amendment should reconcile the numbering convention — either by updating
+the whitepaper to acknowledge the 0-indexed 9-pass implementation, or
+by renaming the implementation's passes to match §3's eight named
+activities with Gate 1 as an interposed gate rather than a numbered pass.
+
+**Historical significance.** This is the first time the Factory's own
+automated Critic has identified a finding in a previously-shipped
+artifact. The 2026-04-19 Observed entry "Gate 1 PASS does not imply
+conceptual correctness" predicted this capability would be needed. The
+Critic just demonstrated it retroactively on a production artifact.
+
+**Status:** Observed. Amendment deferred to a future PRD or whitepaper
+revision. No retraction required.
