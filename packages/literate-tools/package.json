@@ -1,0 +1,20 @@
+{
+  "name": "@factory/literate-tools",
+  "version": "0.1.0",
+  "description": "Tangle, walkthrough, and sync tools for the literate canonical reference",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "tangle": "tsx src/tangle.ts",
+    "walkthrough": "tsx src/walkthrough.ts",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@factory/schemas": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^1.6.1"
+  }
+}
