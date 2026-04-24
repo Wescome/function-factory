@@ -121,6 +121,7 @@ import {
   getGlobalTokenUsage,
   resetGlobalTokenUsage,
   isOverBudget,
+  getAvailableProviders,
 } from "./real-anthropic-agent.js"
 import type { ToolSchema, BeforeToolCallResult } from "./pi-agent-mock.js"
 
@@ -174,8 +175,8 @@ interface RoleSummary {
   role: RoleName
   summary: string
   filesProduced: string[]
-  tokenUsageBefore: { inputTokens: number; outputTokens: number }
-  tokenUsageAfter: { inputTokens: number; outputTokens: number }
+  tokenUsageBefore: { inputTokens: number; outputTokens: number; totalCost: number }
+  tokenUsageAfter: { inputTokens: number; outputTokens: number; totalCost: number }
   durationMs: number
   error?: string
 }
@@ -459,9 +460,9 @@ async function main() {
   console.log("=== FIRST LIVE SYNTHESIS ===")
   console.log(`WorkGraph: WG-V2-CLASSIFY-COMMITS`)
   console.log(`Candidate: Haiku-everywhere`)
-  console.log(`Binding mode: PiAgentBindingMode (real Anthropic API)`)
+  console.log(`Binding mode: PiAgentBindingMode (pi-ai — 22-provider unified API)`)
   console.log(`Output dir: ${OUTPUT_DIR}`)
-  console.log(`Token budget: 50,000`)
+  console.log(`Token budget: 150,000`)
   console.log("")
 
   // ─── Check API key ─────────────────────────────────────────────
@@ -471,6 +472,8 @@ async function main() {
     process.exit(1)
   }
   console.log(`API key: ${apiKey.slice(0, 8)}...${apiKey.slice(-4)} (${apiKey.length} chars)`)
+  const providers = getAvailableProviders()
+  console.log(`Available providers (${providers.length}): ${providers.join(", ")}`)
   console.log("")
 
   // ─── Ensure output directory ───────────────────────────────────
@@ -560,11 +563,8 @@ async function main() {
   const finalTokens = getGlobalTokenUsage()
   const totalTokens = finalTokens.inputTokens + finalTokens.outputTokens
 
-  // ─── Cost calculation ──────────────────────────────────────────
-  // Haiku pricing: $0.80/M input, $4.00/M output
-  const inputCost = (finalTokens.inputTokens / 1_000_000) * 0.80
-  const outputCost = (finalTokens.outputTokens / 1_000_000) * 4.00
-  const totalCost = inputCost + outputCost
+  // ─── Cost from pi-ai native tracking ────────────────────────────
+  const totalCost = finalTokens.totalCost
 
   // ─── Report ────────────────────────────────────────────────────
   console.log("")
@@ -574,11 +574,13 @@ async function main() {
   for (const summary of bindingMode.roleSummaries) {
     const roleTokensIn = summary.tokenUsageAfter.inputTokens - summary.tokenUsageBefore.inputTokens
     const roleTokensOut = summary.tokenUsageAfter.outputTokens - summary.tokenUsageBefore.outputTokens
+    const roleCost = summary.tokenUsageAfter.totalCost - summary.tokenUsageBefore.totalCost
     console.log(`[${summary.role}] ${summary.summary}`)
     if (summary.filesProduced.length > 0) {
       console.log(`  Files: ${summary.filesProduced.join(", ")}`)
     }
     console.log(`  Tokens: ${roleTokensIn}in + ${roleTokensOut}out = ${roleTokensIn + roleTokensOut}`)
+    console.log(`  Cost: $${roleCost.toFixed(4)} (pi-ai native)`)
     console.log(`  Duration: ${summary.durationMs}ms`)
     if (summary.error) {
       console.log(`  ERROR: ${summary.error}`)
@@ -590,7 +592,7 @@ async function main() {
   console.log(`Terminal verdict: ${output.verifierDecision}`)
   console.log(`Produced artifacts: [${output.patchProposals.map((p) => p.targetPath).join(", ")}]`)
   console.log(`Total tokens: ${totalTokens} (${finalTokens.inputTokens} input + ${finalTokens.outputTokens} output)`)
-  console.log(`Estimated cost: $${totalCost.toFixed(4)} ($${inputCost.toFixed(4)} input + $${outputCost.toFixed(4)} output)`)
+  console.log(`Cost: $${totalCost.toFixed(4)} (pi-ai native, includes cache read/write)`)
   console.log(`Role adherence violations: ${output.hardConstraintViolation ? "YES" : "0"}`)
   console.log(`Total duration: ${totalDuration}ms (${(totalDuration / 1000).toFixed(1)}s)`)
   console.log(`Output directory: ${OUTPUT_DIR}`)
@@ -610,7 +612,7 @@ async function main() {
       model: MODEL_ID,
       verdict: output.verifierDecision,
       totalTokens,
-      estimatedCost: totalCost,
+      cost: totalCost,
       roleSummaries: bindingMode.roleSummaries.map((s) => ({
         role: s.role,
         summary: s.summary,
