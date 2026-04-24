@@ -1,21 +1,23 @@
 id: SIG-META-GATE2-REACHABLE
-source: internal/operational-state
+source: architect-observation
 source_refs: []
 explicitness: explicit
 rationale: >
   Stage 1 Signal (source_refs empty per lineage-preservation §"Stage 1
   Signal exception" — Signals cite external origin in source field).
-  The Factory's own operational state is the signal source: Stage 6
-  function synthesis now produces code (commit 80baaeb, five-role topology
-  via pi-ai, Verifier PASS), but Gate 2 (simulation/acceptance coverage)
-  has no evaluator. The packages/coverage-gates/ package implements Gate 1
-  only. The packages/assurance-graph/ package is an empty stub.
+  The Architect (Wes) observed that Stage 6 function synthesis now
+  produces code (commit 80baaeb, five-role topology via pi-ai, Verifier
+  PASS), but Gate 2 (simulation/acceptance coverage) has no evaluator.
+  The packages/coverage-gates/ package implements Gate 1 only. The
+  packages/assurance-graph/ package is an empty stub.
 
-  This is the first Signal the Factory generates about itself from its own
-  operational state — not from the whitepaper, not from an architect
-  correction, but from the observation that Stage 6 output has nowhere
-  to go. The closed loop (Stage 7 → Stage 1) is functioning: the Factory
-  detected a gap in its own pipeline and is producing a Signal about it.
+  This Signal was authored by the Architect, not generated automatically.
+  Stage 7 (observability) has no implementation — it is a stub at
+  packages/observability-feedback/. The Factory CANNOT yet self-sense
+  its own operational gaps. The Architect fills the observability role
+  during Bootstrap, the same way the Architect filled the Critic role
+  before the carve-out expired. When Stage 7 is operational, this class
+  of Signal will be auto-generated. Until then, the Architect notices.
 
 type: internal
 category: operational_gap
