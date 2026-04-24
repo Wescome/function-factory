@@ -1,0 +1,40 @@
+id: SIG-META-GATE2-REACHABLE
+source: internal/operational-state
+source_refs: []
+explicitness: explicit
+rationale: >
+  Stage 1 Signal (source_refs empty per lineage-preservation §"Stage 1
+  Signal exception" — Signals cite external origin in source field).
+  The Factory's own operational state is the signal source: Stage 6
+  function synthesis now produces code (commit 80baaeb, five-role topology
+  via pi-ai, Verifier PASS), but Gate 2 (simulation/acceptance coverage)
+  has no evaluator. The packages/coverage-gates/ package implements Gate 1
+  only. The packages/assurance-graph/ package is an empty stub.
+
+  This is the first Signal the Factory generates about itself from its own
+  operational state — not from the whitepaper, not from an architect
+  correction, but from the observation that Stage 6 output has nowhere
+  to go. The closed loop (Stage 7 → Stage 1) is functioning: the Factory
+  detected a gap in its own pipeline and is producing a Signal about it.
+
+type: internal
+category: operational_gap
+severity: high
+confidence: 1.0
+timestamp: "2026-04-24T19:00:00Z"
+
+observation: >
+  Stage 6 (function synthesis) produces code, tests, and evidence artifacts
+  (Stage6TraceLog, CandidateSelectionReport, Gate2Input). Gate 2 is
+  specified in whitepaper §6.3 as the Simulation Coverage Gate that runs
+  before a Function transitions from 'implemented' to 'verified'. The
+  Gate2Input schema exists (ratified-decisions.md lines 488-528). The
+  evidence Function emits Gate2Input bundles. But no Gate 2 evaluator
+  exists to consume them. Every Function produced by Stage 6 is stuck at
+  lifecycle state 'implemented' indefinitely — the same pattern that
+  motivated the FUNCTION-SYNTHESIS Pressure, one stage downstream.
+
+  Whitepaper §11 non-negotiable #6: "A Factory without Gate 2 promotes
+  Functions to monitored before their scenarios cover their invariants."
+  Gate 2 must exist in v1. It is now reachable (Stage 6 produces its
+  input) and therefore its absence is an active gap, not a deferred one.

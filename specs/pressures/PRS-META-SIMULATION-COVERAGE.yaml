@@ -1,0 +1,40 @@
+id: PRS-META-SIMULATION-COVERAGE
+source_refs:
+  - SIG-META-GATE2-REACHABLE
+  - SIG-META-WHITEPAPER-V4
+explicitness: explicit
+rationale: >
+  Derived from two Signals: (1) SIG-META-GATE2-REACHABLE — the Factory's
+  self-observation that Stage 6 produces Gate2Input but no evaluator
+  consumes it; (2) SIG-META-WHITEPAPER-V4 — whitepaper §11 non-negotiable
+  #6 requiring three fail-closed Coverage Gates. PRS-META-THREE-COVERAGE-
+  GATES (the canonical Pressure from factory-meta SKILL rule 3) covers
+  all three gates; this Pressure is specific to Gate 2 now that Gate 2
+  is reachable.
+
+category: reliability
+strength: 1.0
+urgency: 0.9
+frequency: continuous
+confidence: 1.0
+
+source: specs/reference/The_Function_Factory_2026-04-18_v4.md
+description: >
+  The Factory produces code through Stage 6 function synthesis but cannot
+  verify that the produced code satisfies its specification's invariants
+  and scenarios. Gate 2 (Simulation Coverage) evaluates whether:
+  (a) the produced code passes its own test suite, (b) scenario execution
+  covers the WorkGraph's invariants, (c) the required validation pass rate
+  is met. Without Gate 2, every Function transitions directly from
+  'implemented' to deployment without proof that it works. That is the
+  definition of untested code promotion — the exact failure mode
+  whitepaper §6.3 and §11 non-negotiable #6 exist to prevent.
+
+  Gate 1 proves the specification is complete. The Critic proves the
+  specification aligns with the whitepaper. Stage 6 proves the topology
+  can produce code. Gate 2 proves the code works. The chain is missing
+  its fourth link.
+
+derived_from_signals:
+  - SIG-META-GATE2-REACHABLE
+  - SIG-META-WHITEPAPER-V4
