@@ -1,0 +1,35 @@
+id: FP-META-SIMULATION-COVERAGE-CONTROL
+source_refs:
+  - BC-META-ENFORCE-SIMULATION-COVERAGE
+  - PRS-META-SIMULATION-COVERAGE
+explicitness: explicit
+rationale: >
+  Control Function for Gate 2. Enforces fail-closed discipline and
+  disagreement resolution between Stage 6 Verifier verdict and Gate 2
+  acceptance verdict.
+
+type: control
+capability_ref: BC-META-ENFORCE-SIMULATION-COVERAGE
+
+inputs:
+  - Gate2Verdict from execution Function
+  - TerminalDecision from Stage 6 Verifier (via Gate2Input)
+
+outputs:
+  - DisagreementReport (when Verifier pass meets Gate 2 reject)
+  - Lifecycle transition authorization or denial
+
+governing_constraints:
+  - No partial-credit: all required validations must pass (not majority rule)
+  - Disagreement resolution per DECISIONS 2026-04-24: repairable_local / architectural / governance
+  - Blind replay of failed ArchitectureCandidates forbidden on architectural disagreements
+  - Governance-class disagreements route to Architect (no autonomous retry)
+
+candidate_invariants:
+  - Every Gate 2 invocation produces a verdict — no silent pass-through
+  - Disagreement classification is deterministic given the evidence
+  - No Function reaches 'verified' without Gate 2 acceptance
+
+success_signals:
+  - Disagreements classified correctly per the three-class procedure
+  - Zero governance-class disagreements resolved without Architect involvement

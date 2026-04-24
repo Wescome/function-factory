@@ -1,0 +1,35 @@
+id: FP-META-SIMULATION-COVERAGE-EVIDENCE
+source_refs:
+  - BC-META-ENFORCE-SIMULATION-COVERAGE
+  - PRS-META-SIMULATION-COVERAGE
+explicitness: explicit
+rationale: >
+  Evidence Function for Gate 2. Captures the proof that Gate 2 ran and
+  what it found. Produces a Coverage Report (Gate 2 variant) that enters
+  the lineage graph and is consumed by downstream trust computation.
+
+type: evidence
+capability_ref: BC-META-ENFORCE-SIMULATION-COVERAGE
+
+inputs:
+  - Gate2Verdict from execution Function
+  - Per-invariant scenario results from execution Function
+
+outputs:
+  - Gate2CoverageReport (at specs/coverage-reports/CR-<PRD-ID>-GATE2-<timestamp>.yaml)
+
+governing_constraints:
+  - Coverage Report emitted on every Gate 2 invocation (pass or fail)
+  - Report carries per-invariant detail: which scenarios ran, which passed, which failed
+  - Failed scenarios name the specific invariant and the specific test that failed
+  - Report carries lineage (source_refs cites Gate2Input + PRD)
+
+candidate_invariants:
+  - No Gate 2 invocation completes without a persisted Coverage Report
+  - Coverage Reports are immutable once written
+  - Reports are queryable for downstream trust computation
+
+success_signals:
+  - Every Gate 2 invocation produces a Coverage Report at the expected path
+  - Reports parse against the Coverage Report Zod schema
+  - Downstream trust computation can read Gate 2 reports without additional transformation

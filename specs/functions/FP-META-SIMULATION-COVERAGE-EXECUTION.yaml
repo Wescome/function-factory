@@ -1,0 +1,37 @@
+id: FP-META-SIMULATION-COVERAGE-EXECUTION
+source_refs:
+  - BC-META-ENFORCE-SIMULATION-COVERAGE
+  - PRS-META-SIMULATION-COVERAGE
+explicitness: explicit
+rationale: >
+  Execution Function for Gate 2. Runs the produced code's test suite
+  and scenarios against the WorkGraph's invariants. Consumes Gate2Input.
+  Produces a verdict: accepted or rejected.
+
+type: execution
+capability_ref: BC-META-ENFORCE-SIMULATION-COVERAGE
+
+inputs:
+  - Gate2Input (normalized evidence bundle from Stage 6 evidence Function)
+  - WorkGraph (the specification that defines invariants and validations)
+
+outputs:
+  - Gate2Verdict (accepted / rejected / needs_remediation)
+  - Per-invariant scenario coverage results
+
+governing_constraints:
+  - Fail-closed: insufficient scenario coverage = rejected (whitepaper §6.3)
+  - Consumes Gate2Input ONLY — never reads raw Stage6TraceLog directly
+  - The Gate Evaluator has no discretion (ConOps §3.4) — applies coverage formulas deterministically
+  - Scenario coverage: every invariant must have ≥1 passing scenario
+  - Required validation pass rate: configurable threshold, default 100% for required validations
+
+candidate_invariants:
+  - Gate 2 writes a Coverage Report on every invocation (pass or fail)
+  - Gate 2 never promotes a Function without scenario coverage proof
+  - The verdict is deterministic given the same Gate2Input
+
+success_signals:
+  - A Function produced by Stage 6 enters Gate 2 and receives a verdict
+  - Rejected Functions have specific remediation guidance (which invariants lack coverage)
+  - Accepted Functions transition to 'verified' lifecycle state

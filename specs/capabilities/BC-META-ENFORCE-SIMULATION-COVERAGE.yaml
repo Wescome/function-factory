@@ -1,0 +1,33 @@
+id: BC-META-ENFORCE-SIMULATION-COVERAGE
+source_refs:
+  - PRS-META-SIMULATION-COVERAGE
+  - PRS-META-THREE-COVERAGE-GATES
+  - SIG-META-GATE2-REACHABLE
+explicitness: explicit
+rationale: >
+  Gate 2 Function under the canonical Capability BC-META-ENFORCE-COVERAGE-
+  GATES from factory-meta/SKILL.md rule 4. Scoped specifically to
+  simulation coverage (Gate 2 per whitepaper §6.3). Gate 1 (compile
+  coverage) is already implemented. Gate 3 (assurance/continuous) is
+  deferred until Functions reach 'monitored'. Gate 2 is now reachable
+  because Stage 6 produces Gate2Input bundles. Per whitepaper §3 Stage 3
+  guardrail #2, each Capability yields execution/control/evidence triple.
+
+name: Enforce simulation coverage on produced code before lifecycle promotion
+description: >
+  The Factory's durable ability to evaluate whether code produced by Stage 6
+  satisfies the specification's invariants and scenarios before the Function
+  transitions from 'implemented' to 'verified'. Gate 2 consumes Gate2Input
+  (the normalized evidence bundle from Stage 6's evidence Function) and
+  produces a Coverage Report with per-invariant scenario results, required
+  validation pass rate, and a fail-closed verdict.
+
+  Gate 2 does NOT read raw Stage6TraceLogs — it reads Gate2Input only.
+  This is the contract boundary: Stage 6 produces evidence; Gate 2
+  evaluates it. The ACL (handToGate2 / execution_bundleEvidenceForAcceptanceReview)
+  normalizes Stage 6 output into Gate 2 input.
+
+yields:
+  execution: FP-META-SIMULATION-COVERAGE-EXECUTION
+  control: FP-META-SIMULATION-COVERAGE-CONTROL
+  evidence: FP-META-SIMULATION-COVERAGE-EVIDENCE
