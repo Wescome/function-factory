@@ -635,3 +635,28 @@ do not, creating a two-tier auditability gap.
 **Scope:** ~600 LOC new code (PiAgentBindingMode + tool schemas + prompt rendering). Everything else exists in `@factory/function-synthesis`.
 
 **Status:** Active.
+
+## 2026-04-24: Bootstrap carve-out EXPIRED — Critic role operational
+
+**Decision:** The bootstrap carve-out established in "Bootstrap carve-out —
+Architect is Critic for PRD-META-FUNCTION-SYNTHESIS" (2026-04-24) is
+expired as of commit `060db28`. Both conditions met:
+
+1. The FUNCTION-SYNTHESIS WorkGraph has been executed. The five-role
+   topology (Planner/Coder/Critic/Tester/Verifier) ran against
+   WG-V2-CLASSIFY-COMMITS via PiAgentBindingMode with real Anthropic API
+   calls through pi-ai (25-provider substrate). All five roles completed.
+   Verifier rendered pass. Code produced on disk. Commit `80baaeb`.
+
+2. The Critic role is operational. The Critic reviewed PRD-META-COMPILER-
+   PASS-8 against whitepaper §3 via pi-ai, producing a typed verdict
+   (miscast, confidence 0.92) with 8 citations to specific §3 text.
+   The review was substantive — it identified a real pass-numbering
+   discrepancy and a citation error. Commit `060db28`.
+
+**Effect:** All PRDs from this point forward are subject to Critic review
+before compilation. No exceptions. The Architect no longer fills the
+Critic role manually. The Architect's role shifts from semantic reviewer
+to the person who decides what to do when the Critic says miscast.
+
+**Status:** Active.
