@@ -703,3 +703,51 @@ Critic just demonstrated it retroactively on a production artifact.
 
 **Status:** Observed. Amendment deferred to a future PRD or whitepaper
 revision. No retraction required.
+
+## 2026-04-24: Universal Critic review before compilation — no exceptions
+
+**Decision:** Every PRD entering the Stage 5 compiler is subject to
+automated Critic review before Pass 0 (normalize). No exceptions. No
+bypass. No "just this once." The Critic review is as mandatory as Gate 1.
+
+**Mechanism:**
+1. Before `pnpm compile <prd-path>`, the Critic reads the PRD + the
+   whitepaper sections cited in its `source_refs` chain.
+2. The Critic produces a typed `CRV-*` artifact at
+   `specs/critic-reviews/CRV-<PRD-ID>-<timestamp>.yaml` with verdict
+   (`aligned / miscast / uncertain`), confidence, citations, and summary.
+3. Verdict gating:
+   - `aligned` → compilation proceeds. CRV artifact committed for lineage.
+   - `miscast` → compilation HALTS. CRV artifact committed. Architect
+     decides: retract (like HARNESS-EXECUTE), amend (like the pass-
+     numbering finding), or override with explicit rationale in DECISIONS.
+   - `uncertain` → compilation proceeds with the CRV flagged for
+     Architect review. The uncertainty is recorded, not suppressed.
+4. The CRV artifact carries lineage (`source_refs` cites the PRD) and is
+   a first-class Factory artifact subject to the same audit discipline as
+   Coverage Reports.
+
+**Model:** The Critic runs on the minimum-sufficient model — currently
+Claude Haiku 4.5 via pi-ai at ~$0.02 per review. Model selection is
+governed by the same ArchitectureCandidate.model_binding discipline as
+Stage 6 roles; the Critic is not hardcoded to one model.
+
+**Economics:** $0.02 per review vs the cost of one miscast retraction
+(half a session-day for HARNESS-EXECUTE). Universal review is ~1000x
+cheaper than one retraction. At 100 PRDs/year, universal review costs
+$2/year. The economics are not marginal — they are overwhelming.
+
+**Rationale:** The 2026-04-19 Observed entry documented the failure mode:
+"A PRD can be internally coherent by Gate 1's metrics while describing a
+conceptually wrong Function." The 2026-04-24 Critic review of
+PRD-META-COMPILER-PASS-8 demonstrated the capability: Haiku at $0.019
+found a real miscast (pass-numbering discrepancy) with 8 citations at
+0.92 confidence. Universal review makes the demonstrated capability a
+permanent, automated, fail-closed governance property.
+
+**What this replaces:** The bootstrap carve-out (Architect fills Critic
+role manually). That carve-out expired at `060db28`. This decision
+formalizes what replaces it: automated Critic review, universal, before
+every compile, at two cents per review.
+
+**Status:** Active.
