@@ -1,7 +1,7 @@
 // Tangled from specs/reference/literate-canonical-reference.md
 // Context: assurance
 // Blocks: 3
-// Generated: 2026-04-24T14:39:52.556Z
+// Generated: 2026-04-24T15:11:44.400Z
 // DO NOT EDIT — edit the literate reference and re-run tangle.
 // --- Block from line 1765 (Part IV -- How Does a Function Prove Itself?) ---
 /**

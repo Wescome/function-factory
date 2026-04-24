@@ -1,7 +1,7 @@
 // Tangled from specs/reference/literate-canonical-reference.md
 // Context: types
 // Blocks: 8
-// Generated: 2026-04-24T14:39:52.553Z
+// Generated: 2026-04-24T15:11:44.397Z
 // DO NOT EDIT — edit the literate reference and re-run tangle.
 // --- Block from line 116 (Part I -- What Is a Function?) ---
 /**

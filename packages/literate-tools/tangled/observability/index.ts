@@ -1,7 +1,7 @@
 // Tangled from specs/reference/literate-canonical-reference.md
 // Context: observability
 // Blocks: 4
-// Generated: 2026-04-24T14:39:52.556Z
+// Generated: 2026-04-24T15:11:44.400Z
 // DO NOT EDIT — edit the literate reference and re-run tangle.
 // --- Block from line 1901 (Part V -- How Does a Function Stay Healthy?) ---
 /** CANONICAL-ONLY. Continuous monitoring report per function. */
