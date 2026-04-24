@@ -1,0 +1,94 @@
+name: Literate Sync
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'specs/reference/literate-canonical-reference.md'
+      - 'packages/schemas/src/**'
+      - 'packages/literate-tools/**'
+  pull_request:
+    paths:
+      - 'specs/reference/literate-canonical-reference.md'
+      - 'packages/schemas/src/**'
+      - 'packages/literate-tools/**'
+
+jobs:
+  literate-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Step 1: Run tangle and verify output matches committed files
+      - name: Tangle literate reference
+        run: npx tsx packages/literate-tools/src/tangle.ts
+
+      - name: Verify tangled output is up-to-date
+        run: |
+          git diff --exit-code packages/literate-tools/tangled/ || {
+            echo "::error::Tangled output is stale. Run 'npx tsx packages/literate-tools/src/tangle.ts' and commit the result."
+            exit 1
+          }
+
+      # Step 2: Run walkthrough (type-composition validation)
+      - name: Run lifecycle walkthrough
+        run: npx tsx packages/literate-tools/src/walkthrough.ts
+
+      # Step 3: Verify literate reference size < 200KB
+      - name: Check reference file size
+        run: |
+          REF_FILE="specs/reference/literate-canonical-reference.md"
+          if [ -f "$REF_FILE" ]; then
+            SIZE=$(stat -c%s "$REF_FILE" 2>/dev/null || stat -f%z "$REF_FILE")
+            MAX_SIZE=$((200 * 1024))
+            if [ "$SIZE" -gt "$MAX_SIZE" ]; then
+              echo "::error::Literate reference is ${SIZE} bytes (limit: ${MAX_SIZE} bytes / 200KB)"
+              exit 1
+            fi
+            echo "Reference size: ${SIZE} bytes (limit: ${MAX_SIZE})"
+          else
+            echo "::warning::Literate reference file not found at ${REF_FILE}"
+          fi
+
+      # Step 4: Verify no CANONICAL-ONLY markers remain in tangled output
+      #         that have matching schemas (i.e., schemas that exist should
+      #         not still be marked CANONICAL-ONLY in tangled code)
+      - name: Check for stale CANONICAL-ONLY markers
+        run: |
+          TANGLED_DIR="packages/literate-tools/tangled"
+          if [ -d "$TANGLED_DIR" ]; then
+            MARKERS=$(grep -rn "CANONICAL-ONLY" "$TANGLED_DIR" || true)
+            if [ -n "$MARKERS" ]; then
+              echo "::warning::Found CANONICAL-ONLY markers in tangled output:"
+              echo "$MARKERS"
+              # Check if matching schemas exist for any marked types
+              SCHEMA_DIR="packages/schemas/src"
+              STALE=0
+              while IFS= read -r line; do
+                # Extract the type name after CANONICAL-ONLY (if pattern is like "// CANONICAL-ONLY: TypeName")
+                TYPE=$(echo "$line" | grep -oP 'CANONICAL-ONLY[:\s]+\K\w+' || true)
+                if [ -n "$TYPE" ]; then
+                  if grep -rq "export.*${TYPE}" "$SCHEMA_DIR"; then
+                    echo "::error::CANONICAL-ONLY marker for '${TYPE}' but schema exists in ${SCHEMA_DIR}"
+                    STALE=1
+                  fi
+                fi
+              done <<< "$MARKERS"
+              if [ "$STALE" -eq 1 ]; then
+                exit 1
+              fi
+            fi
+            echo "No stale CANONICAL-ONLY markers found."
+          fi
