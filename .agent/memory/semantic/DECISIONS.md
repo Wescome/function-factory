@@ -615,3 +615,23 @@ do not, creating a two-tier auditability gap.
   to the PRD that specifies the crystallization Function.
 
 **Status:** Active.
+
+## 2026-04-24: PiAgentBindingMode authorized as downstream Function under FUNCTION-SYNTHESIS
+
+**Decision:** The first real binding mode (`PiAgentBindingMode`, implementing `BindingMode` interface from `@factory/function-synthesis`) is authorized for implementation as a downstream Function per the 2026-04-24 DECISIONS entry: "implementation of any specific binding mode is a downstream Function, not part of the FUNCTION-SYNTHESIS chain itself." No separate PRS/BC/FP/PRD chain is required. The binding mode uses `@mariozechner/pi-ai` (model routing) and `@mariozechner/pi-agent-core` (stateful agent execution) as its execution substrate.
+
+**Implementation constraints (Architect-directed, 2026-04-24):**
+
+1. **`beforeToolCall: enforceRoleContract` MUST block, not log-and-continue.** When a role attempts a tool call outside its contract, the hook returns `{ block: true, reason: "do_not violation: <role> attempted <tool>" }` and records the violation in the RoleAdherenceReport. Log-and-continue makes role contracts advisory; block-and-record makes them governed. The RoleAdherenceReport produced by blocking IS the audit artifact. This is the entire control Function expressed as a hook.
+
+2. **Carve-out expiration requires BOTH conditions.** Step 6 (Critic reviews code during synthesis of WG-V2-CLASSIFY-COMMITS) proves the Critic can review patches. Step 7 (Critic reviews a real PRD for semantic alignment against whitepaper §3, producing `aligned / miscast / uncertain` with citations) proves the Critic can review conceptual framing. The carve-out does not expire until Step 7 produces a real verdict on a real PRD. Step 6 alone is insufficient.
+
+3. **WG-V2-CLASSIFY-COMMITS is the first synthesis target.** It is small, non-meta, has domain-specific invariants (Conventional Commits taxonomy), and is already compiled through Gate 1. The commit-classification Function will require git CLI integration (`git log`). The Coder role's tool policy must account for this — either route through `@factory/controlled-effectors` (governed tool invocation) or treat it as a Stage 7 effector concern. The architectural choice between these is deferred to implementation but must be explicit in the binding-mode code.
+
+4. **Run dual configurations as the first empirical CEF data point.** After the binding mode is operational, execute WG-V2-CLASSIFY-COMMITS with two ArchitectureCandidate configurations: (a) Haiku-everywhere (all five roles on claude-haiku-4-5), (b) Sonnet-mix (Coder + Verifier on claude-sonnet-4-6, Planner + Critic + Tester on claude-haiku-4-5). Diff the produced code. If the outputs are functionally equivalent, Haiku is sufficient for that Function class. That equivalence-or-divergence result is the first Signal from the CEF feedback loop — it feeds back as SIG-META-CEF-MODEL-SUFFICIENCY and may recalibrate the default routing table.
+
+5. **BindingMode interface vindication noted.** The 2026-04-24 hybrid topology DECISIONS entry anticipated this moment. The orchestration logic (`orchestrate.ts`) does not change. The `StubBindingMode` swaps for `PiAgentBindingMode`. The 2,452 lines of function-synthesis implementation (role contracts, evidence emission, disagreement resolution, repair loops) become the system prompts, tool schemas, and beforeToolCall hooks for five real agents. The interface boundary held. Architectural validation.
+
+**Scope:** ~600 LOC new code (PiAgentBindingMode + tool schemas + prompt rendering). Everything else exists in `@factory/function-synthesis`.
+
+**Status:** Active.
