@@ -1,0 +1,36 @@
+id: BC-META-FUNCTION-SYNTHESIS
+source_refs:
+  - PRS-META-FUNCTION-SYNTHESIS
+  - SIG-META-WHITEPAPER-V4
+explicitness: explicit
+rationale: >
+  Maps directly to the canonical Capability BC-META-EXECUTE-WORKGRAPH-VIA-
+  AGENTS from factory-meta/SKILL.md rule 4. Renamed to FUNCTION-SYNTHESIS
+  per DECISIONS 2026-04-24 to name the output (synthesized Function), not
+  the implementation mechanism. Per whitepaper §3 Stage 3 guardrail #2,
+  this Capability yields three Function types: execution, control, evidence.
+
+name: Synthesize Functions from WorkGraphs
+description: >
+  The Factory's durable ability to transform a compiled WorkGraph plus an
+  ArchitectureCandidate into a complete Function implementation: source code,
+  tests, configuration, and documentation. The synthesis is performed by a
+  five-role topology (Planner/Coder/Critic/Tester/Verifier per whitepaper §3)
+  executing under governed binding modes (external harness delegation or
+  in-Factory role execution, pluggable per DECISIONS 2026-04-24). The
+  Capability owns the role contracts (typed state-transform interfaces with
+  strict read/write/do-not/output rules and JSON-only footers) and the
+  binding-mode interface; specific binding-mode implementations are
+  downstream Functions.
+
+  The Factory is a superset of Archon (architecture search, via
+  ArchitectureCandidate selection) and StrongDM Dark Factory (execution +
+  scenario validation, via the five-role topology). FUNCTION-SYNTHESIS is
+  where both converge: the candidate determines HOW to synthesize (model
+  binding, topology, inference config); the roles determine WHAT to produce
+  (code that satisfies the WorkGraph's specification).
+
+yields:
+  execution: FP-META-FUNCTION-SYNTHESIS-EXECUTION
+  control: FP-META-FUNCTION-SYNTHESIS-CONTROL
+  evidence: FP-META-FUNCTION-SYNTHESIS-EVIDENCE

@@ -1,0 +1,40 @@
+id: FP-META-FUNCTION-SYNTHESIS-CONTROL
+source_refs:
+  - BC-META-FUNCTION-SYNTHESIS
+  - PRS-META-FUNCTION-SYNTHESIS
+explicitness: explicit
+rationale: >
+  Control Function for the FUNCTION-SYNTHESIS Capability. Governs the
+  synthesis process: role-adherence enforcement, repair-loop governance,
+  disagreement resolution between Verifier and acceptance review, and
+  binding-mode selection. Ensures the execution Function operates within
+  its architectural contracts.
+
+type: control
+capability_ref: BC-META-FUNCTION-SYNTHESIS
+
+inputs:
+  - Role execution traces (from the execution Function)
+  - ArchitectureCandidate constraints (max_repair_loops, tool_policy, convergence_policy)
+  - Acceptance review verdicts (when disagreement occurs)
+
+outputs:
+  - RoleAdherenceReport (per-role, per-contract-surface compliance verdict)
+  - DisagreementReport (when Verifier pass meets acceptance fail)
+  - Binding-mode selection decision (which binding mode for this WorkGraph + Candidate)
+
+governing_constraints:
+  - Role-adherence checks verify 4 of 5 contract surfaces (read/write/do-not/output); semantic intent is acknowledged unverifiable
+  - Disagreement resolution follows three classes (repairable_local / architectural / governance) per DECISIONS 2026-04-24
+  - Blind replay of failed candidates is forbidden on architectural disagreements
+  - Governance-class disagreements route to human approval (no autonomous retry)
+
+candidate_invariants:
+  - Every synthesis execution produces a RoleAdherenceReport regardless of outcome
+  - No binding mode bypasses role-adherence checking
+  - Disagreement classification is deterministic given the evidence
+
+success_signals:
+  - Role-adherence reports show ≥95% compliance per role
+  - Disagreement resolution follows the correct class-specific procedure
+  - Binding-mode selection is traceable to the ArchitectureCandidate

@@ -1,0 +1,40 @@
+id: FP-META-FUNCTION-SYNTHESIS-EVIDENCE
+source_refs:
+  - BC-META-FUNCTION-SYNTHESIS
+  - PRS-META-FUNCTION-SYNTHESIS
+explicitness: explicit
+rationale: >
+  Evidence Function for the FUNCTION-SYNTHESIS Capability. Captures the
+  proof that synthesis happened correctly: execution traces, candidate
+  selection rationale, and the normalized evidence bundle for acceptance
+  review. This is what makes function synthesis auditable and what feeds
+  the Factory's trust computation downstream.
+
+type: evidence
+capability_ref: BC-META-FUNCTION-SYNTHESIS
+
+inputs:
+  - Raw execution events (tool calls, role iterations, resample branches)
+  - Candidate selection scores (admissibility results, weighted scores)
+  - Role-adherence check results (from the control Function)
+
+outputs:
+  - ExecutionTrace (full Stage 6 trace log with resample tree)
+  - CandidateSelectionReport (paper trail for weighted selection audit)
+  - AcceptanceEvidence (normalized bundle for acceptance review — the ACL output)
+
+governing_constraints:
+  - Every execution produces a trace regardless of outcome (pass or fail)
+  - Trace includes per-role tool calls, iteration records, and resample branches
+  - AcceptanceEvidence is a NORMALIZED projection — acceptance review never reads raw traces directly
+  - Candidate lineage updated on every selection (compounds across syntheses)
+
+candidate_invariants:
+  - No synthesis completes without a persisted ExecutionTrace
+  - CandidateSelectionReport is immutable once written; downstream outcomes live in lineage
+  - AcceptanceEvidence schema matches Gate2Input contract exactly
+
+success_signals:
+  - Every synthesis produces all three evidence artifacts
+  - Acceptance review can evaluate from AcceptanceEvidence alone (no raw trace dependency)
+  - Candidate lineage index grows by ≥1 entry per synthesis

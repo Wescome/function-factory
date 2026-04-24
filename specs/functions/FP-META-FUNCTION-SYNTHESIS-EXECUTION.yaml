@@ -1,0 +1,41 @@
+id: FP-META-FUNCTION-SYNTHESIS-EXECUTION
+source_refs:
+  - BC-META-FUNCTION-SYNTHESIS
+  - PRS-META-FUNCTION-SYNTHESIS
+explicitness: explicit
+rationale: >
+  Execution Function for the FUNCTION-SYNTHESIS Capability. Owns the five-
+  role topology orchestration: given a WorkGraph + ArchitectureCandidate,
+  instantiate Planner/Coder/Critic/Tester/Verifier under the selected
+  binding mode, manage the decision algebra state (D = <I,C,P,E,A,X,O,J,T>),
+  enforce repair-loop bounds, handle DCE escalation at the Verifier, and
+  emit produced code artifacts to disk.
+
+type: execution
+capability_ref: BC-META-FUNCTION-SYNTHESIS
+
+inputs:
+  - WorkGraph (compiled specification from Stage 5)
+  - ArchitectureCandidate (selected by Stage 5.75)
+
+outputs:
+  - Produced code files (TypeScript source, tests, configuration, docs)
+  - Stage completion signal for acceptance review
+
+governing_constraints:
+  - Five-role contracts are typed interfaces (read/write/do-not/output per whitepaper §3)
+  - Binding modes are pluggable (external harness OR in-Factory, per DECISIONS 2026-04-24)
+  - Repair loops bounded by maxRepairLoops from ArchitectureCandidate.inference_config
+  - DCE escalation at Verifier: calibrated score, not binary flag
+  - Human-approval escape valve on scope/hard-constraint violations
+  - The package name follows naming principles: describes WHAT (function synthesis), not WHERE (stage 6)
+
+candidate_invariants:
+  - The Factory writes no code directly; all code emission is through the role topology
+  - No binding-mode-specific logic in the contract layer; binding modes are adapters
+  - Produced code carries lineage back to the WorkGraph node that specified it
+
+success_signals:
+  - A WorkGraph enters function synthesis and a complete Function exits with code on disk
+  - Acceptance review (Gate 2) receives normalized evidence from the synthesis
+  - The execution trace is reproducible given the same WorkGraph + Candidate

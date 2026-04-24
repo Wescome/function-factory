@@ -1,0 +1,33 @@
+id: PRS-META-FUNCTION-SYNTHESIS
+source_refs:
+  - SIG-META-WHITEPAPER-V4
+explicitness: explicit
+rationale: >
+  The Factory compiles WorkGraphs (Stage 5 complete, 4 WorkGraphs on disk)
+  but cannot produce code from them. Every downstream Factory concern —
+  Gate 2 (acceptance), Gate 3 (assurance), trust composition, trajectory-
+  driven closure — is blocked on the absence of a function-synthesis
+  capability. Whitepaper §11 non-negotiable #6 requires three fail-closed
+  Coverage Gates; Gate 2 cannot evaluate without Stage 6 execution evidence.
+  This is the forcing function that compels a function-synthesis capability.
+
+category: reliability
+strength: 1.0
+urgency: 1.0
+frequency: continuous
+confidence: 1.0
+
+source: specs/reference/The_Function_Factory_2026-04-18_v4.md
+description: >
+  The Factory has no mechanism to synthesize executable Functions from
+  compiled WorkGraphs. Stage 5 produces specification artifacts (WorkGraph +
+  CoverageReport); nothing downstream transforms those specifications into
+  running code, tests, configuration, and documentation. The pipeline is
+  complete through specification but broken at production. Every Function
+  remains at lifecycle state 'specified' indefinitely. The closed loop
+  (Stage 7 observability → Stage 1 signals) cannot activate because no
+  Function has ever reached 'monitored'. The Factory is a specification
+  engine, not yet a production system.
+
+derived_from_signals:
+  - SIG-META-WHITEPAPER-V4
