@@ -15,6 +15,7 @@
     "lint": "echo 'lint: TODO'"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.91.0",
     "@factory/schemas": "workspace:*",
     "zod": "^3.22.4"
   },
