@@ -44,3 +44,69 @@ export const PolicySuccessorNote = Lineage.extend({
   summary: z.string().min(1),
 })
 export type PolicySuccessorNote = z.infer<typeof PolicySuccessorNote>
+
+// ─── Governance Metrics ─────────────────────────────────────────────
+
+export const GovernanceMetrics = z.object({
+  architect_override_rate: z.number().min(0).max(1),
+  approval_latency_p50: z.number().nonnegative(),
+  approval_latency_p95: z.number().nonnegative(),
+  decisions_logged_rate: z.number().min(0).max(1),
+  role_boundary_violation_rate: z.number().min(0).max(1),
+})
+export type GovernanceMetrics = z.infer<typeof GovernanceMetrics>
+
+// ─── Policy Stress Indicator ────────────────────────────────────────
+
+export const PolicyStressType = z.enum([
+  "override_spike",
+  "latency_breach",
+  "violation_cluster",
+  "repeated_proposal",
+  "drift_accumulation",
+])
+export type PolicyStressType = z.infer<typeof PolicyStressType>
+
+export const PolicyStressIndicator = z.object({
+  policy_id: ArtifactId,
+  stress_type: PolicyStressType,
+  magnitude: z.number().min(0).max(1),
+  trigger_source: z.string().min(1),
+  detected_at: z.string().datetime(),
+})
+export type PolicyStressIndicator = z.infer<typeof PolicyStressIndicator>
+
+// ─── Amendment Record ───────────────────────────────────────────────
+
+export const AmendmentClass = z.enum(["A", "B", "C"])
+export type AmendmentClass = z.infer<typeof AmendmentClass>
+
+export const AmendmentRecord = Lineage.extend({
+  id: ArtifactId.refine(
+    (s) => s.startsWith("AMD-"),
+    "AmendmentRecord IDs must start with AMD-"
+  ),
+  amendment_class: AmendmentClass,
+  changed_node_types: z.array(z.string().min(1)).min(1),
+  prior_default: z.string().min(1),
+  new_default: z.string().min(1),
+  evidence_basis: z.array(z.string().min(1)).min(1),
+  expected_impact: z.string().min(1),
+  approved_by: z.string().min(1),
+  approved_at: z.string().datetime(),
+})
+export type AmendmentRecord = z.infer<typeof AmendmentRecord>
+
+// ─── Policy Action ──────────────────────────────────────────────────
+
+export const PolicyActionType = z.enum(["activate", "deactivate", "rollback", "amend"])
+export type PolicyActionType = z.infer<typeof PolicyActionType>
+
+export const PolicyAction = z.object({
+  action_type: PolicyActionType,
+  target_policy_id: ArtifactId,
+  rationale: z.string().min(1),
+  rollback_plan: z.string().min(1),
+  activated_at: z.string().datetime(),
+})
+export type PolicyAction = z.infer<typeof PolicyAction>

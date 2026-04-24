@@ -134,3 +134,32 @@ export const CoverageReport = z.discriminatedUnion("gate", [
   Gate3Report,
 ])
 export type CoverageReport = z.infer<typeof CoverageReport>
+
+// ─── Gate 2 — Acceptance Review Verdict ─────────────────────────────
+
+export const Gate2Verdict = z.object({
+  verdict: z.enum(["accepted", "rejected", "needs_remediation"]),
+  evidence_reviewed: z.array(z.string().min(1)).min(1),
+  scenario_coverage_score: z.number().min(0).max(1),
+  invariant_exercise_rate: z.number().min(0).max(1),
+  remediation_notes: z.array(z.string()).default([]),
+})
+export type Gate2Verdict = z.infer<typeof Gate2Verdict>
+
+// ─── Coverage Check Failure ─────────────────────────────────────────
+
+export const CoverageCheckType = z.enum([
+  "atom",
+  "invariant",
+  "validation",
+  "dependency",
+  "bootstrap_prefix",
+])
+export type CoverageCheckType = z.infer<typeof CoverageCheckType>
+
+export const CoverageFailure = z.object({
+  check_type: CoverageCheckType,
+  failed_artifact_ids: z.array(ArtifactId).min(1),
+  remediation: z.string().min(1),
+})
+export type CoverageFailure = z.infer<typeof CoverageFailure>

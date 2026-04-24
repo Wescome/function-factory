@@ -23,3 +23,16 @@ export const SelectionBiasInput = Lineage.extend({
   summary: z.string().min(1),
 })
 export type SelectionBiasInput = z.infer<typeof SelectionBiasInput>
+
+// ─── Bias Report ────────────────────────────────────────────────────
+
+export const BiasReport = z.object({
+  id: z.string().min(1),
+  candidate_family: z.string().min(1),
+  observed_selection_rate: z.number().min(0).max(1),
+  expected_selection_rate: z.number().min(0).max(1),
+  bias_magnitude: z.number(),
+  confidence: z.number().min(0).max(1),
+  recommendation: z.string().min(1),
+})
+export type BiasReport = z.infer<typeof BiasReport>

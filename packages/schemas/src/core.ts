@@ -341,3 +341,21 @@ export const Incident = Lineage.extend({
   confidence: z.number().min(0).max(1),
 })
 export type Incident = z.infer<typeof Incident>
+
+// ─── Function Birth Score (proposal ranking) ────────────────────────
+
+export const ResponseType = z.enum(["reinforce", "create_new", "refactor"])
+export type ResponseType = z.infer<typeof ResponseType>
+
+export const FunctionBirthScore = z.object({
+  proposal_id: ArtifactId,
+  response_type: ResponseType,
+  drift_severity: z.number().min(0).max(1),
+  recurrence: z.number().min(0).max(1),
+  coupling: z.number().min(0).max(1),
+  recovery_cost: z.number().min(0).max(1),
+  implementation_cost: z.number().min(0).max(1),
+  overlap_with_existing: z.number().min(0).max(1),
+  total_score: z.number(),
+})
+export type FunctionBirthScore = z.infer<typeof FunctionBirthScore>
