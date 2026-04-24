@@ -1,0 +1,106 @@
+id: CRV-PRD-META-COMPILER-PASS-8-2026-04-24
+source_refs:
+  - PRD-META-COMPILER-PASS-8
+explicitness: explicit
+rationale: >
+  First automated Critic semantic review in the Factory's history.
+  Reviewed PRD-META-COMPILER-PASS-8 against whitepaper §3 using the
+  Critic role via pi-ai (claude-haiku-4-5-20251001). Produced a typed
+  verdict with 8 citations. Bootstrap carve-out expiration proof.
+
+reviewer: Critic-role-via-pi-ai
+model: claude-haiku-4-5-20251001
+provider: anthropic
+timestamp: "2026-04-24T18:17:40Z"
+cost_usd: 0.0192
+tokens_input: 3
+tokens_output: 1878
+tokens_total: 9730
+duration_seconds: 21.4
+
+prd_reviewed: PRD-META-COMPILER-PASS-8
+whitepaper_sections_checked:
+  - "§3.2"
+  - "§3.3"
+  - "§3.4"
+  - "§3.5"
+  - "§3.6"
+  - "§3.7"
+
+verdict: miscast
+confidence: 0.92
+
+findings:
+  - type: miscast
+    severity: amendment
+    section: "§3.5"
+    description: >
+      Whitepaper §3.5 describes an eight-pass compiler pipeline.
+      PRD implements Passes 0-8 (nine passes), inserting Gate 1 as
+      discrete Pass 7. §3 does not name the gating step as a numbered
+      compiler pass. The PRD's Pass 8 is §3's eighth pass, not a ninth.
+    supports_prd: false
+
+  - type: citation_error
+    severity: minor
+    section: "§3.2 vs §3.4"
+    description: >
+      PRD cites §3.2 for execution Function type definition. §3.2
+      defines organizational transfer functions (Business Capabilities),
+      not Function types. Function types (execution, control, evidence,
+      integration) are defined in §3.4.
+    supports_prd: false
+
+  - type: aligned
+    section: "§3.4"
+    description: >
+      PRD correctly implements four Function types from §3.4 in its
+      node-type assignment rule set.
+    supports_prd: true
+
+  - type: aligned
+    section: "§3.5"
+    description: >
+      PRD correctly implements lineage preservation, source-reference
+      tracking, explicit/inferred tagging, and fail-closed discipline.
+    supports_prd: true
+
+  - type: aligned
+    section: "§3.5"
+    description: >
+      WorkGraph correctly described as output artifact and input to
+      Stage 6 multi-agent execution layer.
+    supports_prd: true
+
+  - type: aligned
+    section: "§3.6"
+    description: >
+      PRD correctly defers WorkGraph execution to Stage 6 and does
+      not embed execution semantics.
+    supports_prd: true
+
+  - type: aligned
+    section: "§3.7"
+    description: >
+      Assurance-graph propagation and feedback loop correctly deferred
+      to downstream stages.
+    supports_prd: true
+
+  - type: observation
+    section: "§3.3 vs §3.4"
+    description: >
+      Latent inconsistency in whitepaper: §3.3 says capabilities yield
+      three Function types (execution, control, evidence); §3.4 adds
+      a fourth (integration). PRD implements §3.4 version (four types)
+      without noting the discrepancy.
+    supports_prd: true
+
+summary: >
+  The PRD's conceptual frame (assemble WorkGraph from compiler
+  intermediates) is correct. The implementation is correct. The
+  pass numbering diverges from §3's narrative: §3 counts eight named
+  activities, the implementation 0-indexes and inserts Gate 1 as a
+  discrete ninth pass. A citation error attributes Function types to
+  §3.2 instead of §3.4. Neither finding warrants retraction; both are
+  amendment triggers. The Critic also identified a latent inconsistency
+  in the whitepaper itself (§3.3 vs §3.4 on Function type count).
