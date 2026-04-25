@@ -26,12 +26,12 @@ export type Explicitness = z.infer<typeof Explicitness>
  * DEP-, ATOM-, CR-, CTR-, TRJ-, PF-, INC-, DET-, DEL-, SIG-,
  * RGD-, AC-, ACS-, RAD-, EXS-, EXT-, EXR-, EFF-, EFFR-, OBS-,
  * SNB-, GOV-, RPRS-, DDI-, CRL-, SBI-, PSR-, GOVP-, GOVD-, GOVS-, GOVA-, GOVR-,
- * SRR-, AMD-).
+ * SRR-, AMD-, MR-, CRP-, VCR-, MRP-).
  */
 export const ArtifactId = z
   .string()
   .regex(
-    /^(PRS|BC|FN|CONTRACT|FP|PRD|WG|INV|VAL|DEP|ATOM|CR|CTR|TRJ|PF|INC|DET|DEL|SIG|RGD|AC|ACS|RAD|EXS|EXT|EXR|EFF|EFFR|OBS|SNB|GOV|RPRS|DDI|CRL|SBI|PSR|GOVP|GOVD|GOVS|GOVA|GOVR|SRR|AMD)-[A-Z0-9][A-Z0-9-]*$/,
+    /^(PRS|BC|FN|CONTRACT|FP|PRD|WG|INV|VAL|DEP|ATOM|CR|CTR|TRJ|PF|INC|DET|DEL|SIG|RGD|AC|ACS|RAD|EXS|EXT|EXR|EFF|EFFR|OBS|SNB|GOV|RPRS|DDI|CRL|SBI|PSR|GOVP|GOVD|GOVS|GOVA|GOVR|SRR|AMD|MR|CRP|VCR|MRP)-[A-Z0-9][A-Z0-9-]*$/,
     "ArtifactId must be <TYPE-PREFIX>-<ALPHANUM-WITH-HYPHENS>"
   )
 export type ArtifactId = z.infer<typeof ArtifactId>
