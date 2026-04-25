@@ -10,12 +10,18 @@
  */
 
 export type TaskKind =
+  // Pipeline stage kinds (Stages 1-5)
   | 'planning'
   | 'structured'
   | 'interpretive'
   | 'critic'
   | 'synthesis'
   | 'validation'
+  // Stage 6 synthesis role kinds
+  | 'planner'
+  | 'coder'
+  | 'tester'
+  | 'verifier'
 
 export interface RouteTarget {
   provider: 'anthropic' | 'openai' | 'deepseek'
@@ -29,6 +35,11 @@ const DEFAULT_ROUTES: Record<TaskKind, RouteTarget> = {
   critic:        { provider: 'anthropic', model: 'claude-sonnet-4-6' },
   synthesis:     { provider: 'anthropic', model: 'claude-sonnet-4-6' },
   validation:    { provider: 'anthropic', model: 'claude-haiku-4-5-20251001' },
+  // Stage 6 roles — Haiku for planning/testing, Sonnet for code/decisions
+  planner:       { provider: 'anthropic', model: 'claude-haiku-4-5-20251001' },
+  coder:         { provider: 'anthropic', model: 'claude-sonnet-4-6' },
+  tester:        { provider: 'anthropic', model: 'claude-haiku-4-5-20251001' },
+  verifier:      { provider: 'anthropic', model: 'claude-sonnet-4-6' },
 }
 
 let overrides: Partial<Record<TaskKind, RouteTarget>> = {}

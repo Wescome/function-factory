@@ -14,6 +14,16 @@
     }
   ],
 
+  // Durable Objects
+  "durable_objects": {
+    "bindings": [
+      { "name": "COORDINATOR", "class_name": "SynthesisCoordinator" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["SynthesisCoordinator"] }
+  ],
+
   // Service Bindings
   "services": [
     { "binding": "GATES", "service": "ff-gates", "entrypoint": "GatesService" }

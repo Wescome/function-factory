@@ -192,14 +192,53 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       return { persisted: true }
     })
 
+    // ── Stage 6: Function synthesis ──
+    if (!compState.workGraph) {
+      return {
+        status: 'compile-incomplete',
+        signalId: signalKey,
+        reason: 'No WorkGraph produced by compilation',
+      }
+    }
+
+    const synthesis = await step.do('stage-6-synthesis', async () => {
+      const wg = compState.workGraph as Record<string, unknown>
+      const coordinatorId = this.env.COORDINATOR.idFromName(wg._key as string)
+      const coordinator = this.env.COORDINATOR.get(coordinatorId)
+      const result = await coordinator.synthesize(wg, { dryRun })
+      return toStep(result as unknown as Record<string, unknown>)
+    })
+
+    const synthResult = synthesis as unknown as {
+      verdict: { decision: string; confidence: number; reason: string }
+      tokenUsage: number
+      repairCount: number
+    }
+
+    await step.do('edge-synthesis-workgraph', async () => {
+      await db.saveEdge('lineage_edges',
+        `execution_artifacts/EA-${wgKey}-synthesis`,
+        `specs_workgraphs/${wgKey}`,
+        { type: 'synthesized-from', createdAt: new Date().toISOString() },
+      )
+      return { ok: true }
+    })
+
     return {
-      status: 'gate-1-passed',
+      status: synthResult.verdict.decision === 'pass'
+        ? 'synthesis-passed'
+        : `synthesis-${synthResult.verdict.decision}`,
       signalId: signalKey,
       pressureId: pressureKey,
       capabilityId: capabilityKey,
       proposalId: proposalKey,
       workGraphId: wgKey,
       gate1Report: gate1,
+      synthesisResult: {
+        verdict: synthResult.verdict,
+        tokenUsage: synthResult.tokenUsage,
+        repairCount: synthResult.repairCount,
+      },
     }
   }
 }

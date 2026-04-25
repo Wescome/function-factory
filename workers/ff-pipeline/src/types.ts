@@ -14,6 +14,8 @@ export interface PipelineEnv {
     get(id: string): Promise<WorkflowInstance>
   }
 
+  COORDINATOR: DurableObjectNamespace<import('./coordinator/coordinator').SynthesisCoordinator>
+
   ANTHROPIC_API_KEY?: string
   OPENAI_API_KEY?: string
   DEEPSEEK_API_KEY?: string
@@ -47,6 +49,11 @@ export interface PipelineResult {
   gate1Report?: Gate1Report
   report?: unknown
   reason?: string
+  synthesisResult?: {
+    verdict: { decision: string; confidence: number; reason: string }
+    tokenUsage: number
+    repairCount: number
+  }
 }
 
 export interface Gate1Report {

@@ -1,4 +1,5 @@
 export { FactoryPipeline } from './pipeline'
+export { SynthesisCoordinator } from './coordinator'
 
 export { ingestSignal } from './stages/ingest-signal'
 export { synthesizePressure } from './stages/synthesize-pressure'
