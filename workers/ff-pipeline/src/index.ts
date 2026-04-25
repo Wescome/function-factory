@@ -69,6 +69,23 @@ export default {
       }
     }
 
-    return new Response('ff-pipeline: use /test-do or /test-fetch for diagnostics', { status: 404 })
+    if (url.pathname === '/test-do-live') {
+      const id = env.COORDINATOR.idFromName('test-live-diag')
+      const stub = env.COORDINATOR.get(id)
+      const testWg = { _key: 'WG-TEST-LIVE', title: 'test', atoms: [{ id: 'atom-1', type: 'impl', description: 'hello world function' }], invariants: [], dependencies: [] }
+      try {
+        const result = await stub.synthesize(testWg, { dryRun: false })
+        return new Response(JSON.stringify(result, null, 2), {
+          headers: { 'Content-Type': 'application/json' },
+        })
+      } catch (err) {
+        return new Response(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+    }
+
+    return new Response('ff-pipeline: use /test-do, /test-do-live, or /test-fetch', { status: 404 })
   },
 }
