@@ -32,11 +32,11 @@ export class SynthesisCoordinator extends DurableObject<CoordinatorEnv> {
     return this.db
   }
 
-  async fetch(request: Request): Promise<Response> {
+  override async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url)
     if (url.pathname === '/synthesize' && request.method === 'POST') {
       const body = await request.json() as { workGraph: Record<string, unknown>; dryRun?: boolean }
-      const result = await this.synthesize(body.workGraph, { dryRun: body.dryRun })
+      const result = await this.synthesize(body.workGraph, { dryRun: body.dryRun ?? false })
       return new Response(JSON.stringify(result), {
         headers: { 'Content-Type': 'application/json' },
       })
