@@ -32,6 +32,28 @@ export class SynthesisCoordinator extends DurableObject<CoordinatorEnv> {
     return this.db
   }
 
+  /**
+   * DO Alarm — wall-clock timeout managed by Cloudflare runtime.
+   * Fires even when the V8 isolate is suspended on I/O.
+   * setTimeout does NOT tick during fetch() suspension in DOs.
+   */
+  override async alarm(): Promise<void> {
+    const completed = await this.ctx.storage.get<boolean>('__completed')
+    if (completed) return
+
+    const state = await this.ctx.storage.get<GraphState>('graphState')
+    const timedOutState: GraphState = {
+      ...(state ?? createInitialState('unknown', {})),
+      verdict: {
+        decision: 'interrupt',
+        confidence: 1.0,
+        reason: 'DO alarm: synthesis exceeded 180s wall-clock deadline',
+      },
+    }
+    await this.ctx.storage.put('graphState', timedOutState)
+    await this.ctx.storage.put('__alarm_fired', true)
+  }
+
   async synthesize(
     workGraph: Record<string, unknown>,
     opts?: { dryRun?: boolean },
@@ -45,6 +67,8 @@ export class SynthesisCoordinator extends DurableObject<CoordinatorEnv> {
     if (persisted?.verdict?.decision === 'pass' ||
         persisted?.verdict?.decision === 'fail' ||
         persisted?.verdict?.decision === 'interrupt') {
+      await this.ctx.storage.deleteAlarm()
+      await this.ctx.storage.put('__completed', true)
       return this.buildResult(workGraphId, persisted)
     }
 
@@ -73,33 +97,36 @@ export class SynthesisCoordinator extends DurableObject<CoordinatorEnv> {
 
     const graph = buildSynthesisGraph(deps)
 
-    const graphPromise = graph.run(initialState, {
-      onNodeStart: (name, state) => {
-        console.log(`[Stage 6] ${name} starting (repair ${state.repairCount}, tokens ${state.tokenUsage})`)
-      },
-      maxSteps: 50,
-    })
-
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error('Stage 6 synthesis timed out after 3 minutes')), 180_000)
-    })
+    // Set wall-clock alarm — survives I/O suspension and DO hibernation
+    await this.ctx.storage.put('__completed', false)
+    await this.ctx.storage.put('__alarm_fired', false)
+    await this.ctx.storage.setAlarm(Date.now() + 180_000)
 
     let finalState: GraphState
     try {
-      finalState = await Promise.race([graphPromise, timeoutPromise])
-    } catch (err) {
-      const timedOutState: GraphState = {
-        ...initialState,
-        verdict: {
-          decision: 'interrupt',
-          confidence: 1.0,
-          reason: err instanceof Error ? err.message : 'Synthesis failed',
+      finalState = await graph.run(initialState, {
+        onNodeStart: (name, state) => {
+          console.log(`[Stage 6] ${name} starting (repair ${state.repairCount}, tokens ${state.tokenUsage})`)
         },
+        maxSteps: 50,
+      })
+    } catch (err) {
+      await this.ctx.storage.deleteAlarm()
+      const alarmFired = await this.ctx.storage.get<boolean>('__alarm_fired')
+      const reason = alarmFired
+        ? 'DO alarm: synthesis exceeded 180s wall-clock deadline'
+        : (err instanceof Error ? err.message : 'Synthesis failed')
+      const failState: GraphState = {
+        ...initialState,
+        verdict: { decision: 'interrupt', confidence: 1.0, reason },
       }
       await this.ctx.storage.delete('graphState')
-      return this.buildResult(workGraphId, timedOutState)
+      await this.ctx.storage.put('__completed', true)
+      return this.buildResult(workGraphId, failState)
     }
 
+    await this.ctx.storage.deleteAlarm()
+    await this.ctx.storage.put('__completed', true)
     await this.ctx.storage.delete('graphState')
     await this.persistSynthesisResult(workGraphId, finalState)
 
