@@ -1,0 +1,23 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ff-gateway",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-01-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Service Bindings — internal Workers, no public route
+  "services": [
+    { "binding": "GATES", "service": "ff-gates" },
+    { "binding": "QUERY", "service": "ff-gateway", "entrypoint": "QueryService" }
+  ],
+
+  // Phase 2: query-worker runs as a named entrypoint in the same deployment.
+  // If query load requires independent scaling, split to separate Worker.
+
+  "vars": {
+    "ENVIRONMENT": "production"
+  }
+
+  // Secrets (set via `wrangler secret put`):
+  //   ARANGO_URL, ARANGO_DATABASE, ARANGO_JWT
+}
