@@ -58,12 +58,16 @@ export class SynthesisCoordinator extends DurableObject<CoordinatorEnv> {
         await this.ctx.storage.put('graphState', state)
       },
       fetchMentorRules: async () => {
-        const db = this.getDb()
-        return db.query<{ ruleId: string; rule: string }>(
-          `FOR r IN mentorscript_rules
-             FILTER r.status == 'active'
-             RETURN { ruleId: r._key, rule: r.rule }`,
-        )
+        try {
+          const db = this.getDb()
+          return await db.query<{ ruleId: string; rule: string }>(
+            `FOR r IN mentorscript_rules
+               FILTER r.status == 'active'
+               RETURN { ruleId: r._key, rule: r.rule }`,
+          )
+        } catch {
+          return []
+        }
       },
     }
 

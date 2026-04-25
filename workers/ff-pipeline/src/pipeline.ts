@@ -201,7 +201,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       }
     }
 
-    const synthesis = await step.do('stage-6-synthesis', async () => {
+    const synthesis = await step.do('stage-6-synthesis', { retries: { limit: 1, delay: '5 seconds' }, timeout: '4 minutes' }, async () => {
       const wg = compState.workGraph as Record<string, unknown>
       const coordinatorId = this.env.COORDINATOR.idFromName(wg._key as string)
       const coordinator = this.env.COORDINATOR.get(coordinatorId)
