@@ -8,7 +8,8 @@
   // Service Bindings — internal Workers, no public route
   "services": [
     { "binding": "GATES", "service": "ff-gates" },
-    { "binding": "QUERY", "service": "ff-gateway", "entrypoint": "QueryService" }
+    { "binding": "QUERY", "service": "ff-gateway", "entrypoint": "QueryService" },
+    { "binding": "PIPELINE", "service": "ff-pipeline" }
   ],
 
   // Phase 2: query-worker runs as a named entrypoint in the same deployment.

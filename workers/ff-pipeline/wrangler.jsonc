@@ -1,0 +1,30 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ff-pipeline",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-01-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Workflow definition
+  "workflows": [
+    {
+      "name": "factory-pipeline",
+      "binding": "FACTORY_PIPELINE",
+      "class_name": "FactoryPipeline"
+    }
+  ],
+
+  // Service Bindings
+  "services": [
+    { "binding": "GATES", "service": "ff-gates" }
+  ],
+
+  "vars": {
+    "ENVIRONMENT": "production"
+  }
+
+  // Secrets (set via `wrangler secret put`):
+  //   ARANGO_URL, ARANGO_DATABASE, ARANGO_JWT
+  //   ANTHROPIC_API_KEY
+  //   (optional: OPENAI_API_KEY, DEEPSEEK_API_KEY)
+}

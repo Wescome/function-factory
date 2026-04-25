@@ -18,10 +18,12 @@
  *   GET  /mrps/pending      → pending MRPs (ACE inbox)
  *   GET  /mentorscript      → active MentorScript rules
  *
+ * Phase 3 routes:
+ *   POST /pipeline          → trigger FactoryPipeline Workflow
+ *   POST /approve/:id       → send approval event to paused Workflow
+ *   GET  /pipeline/:id      → Workflow instance status
+ *
  * Future phases add:
- *   POST /pipeline          → trigger Workflow (Phase 3)
- *   POST /signal            → enqueue Signal (Phase 3)
- *   POST /approve/:id       → Workflow event (Phase 3)
  *   POST /webhook/ci-result → CI feedback (Phase 7)
  */
 
@@ -135,6 +137,55 @@ export default {
         return json({ items: rules, count: rules.length })
       }
 
+      // ── Pipeline (Phase 3) ──
+
+      if (method === 'POST' && path === '/pipeline') {
+        const body = await request.json() as Record<string, unknown>
+        if (!body.signal) {
+          return json({ error: 'Missing "signal" field in request body' }, 400)
+        }
+        const instance = await env.PIPELINE.create({
+          params: {
+            signal: body.signal,
+            dryRun: body.dryRun ?? false,
+          },
+        })
+        return json({
+          instanceId: instance.id,
+          status: 'started',
+          statusUrl: `/pipeline/${instance.id}`,
+          approveUrl: `/approve/${instance.id}`,
+        }, 201)
+      }
+
+      if (method === 'POST' && path.startsWith('/approve/')) {
+        const instanceId = path.slice('/approve/'.length)
+        if (!instanceId) {
+          return json({ error: 'Missing instance ID' }, 400)
+        }
+        const body = await request.json() as Record<string, unknown>
+        const decision = body.decision ?? 'approved'
+        const reason = body.reason as string | undefined
+        const by = request.headers.get('cf-access-authenticated-user-email')
+          ?? body.by as string
+          ?? 'unknown'
+        const instance = await env.PIPELINE.get(instanceId)
+        await instance.sendEvent('architect-approval', {
+          payload: { decision, reason, by },
+        })
+        return json({ instanceId, event: 'architect-approval', decision, by })
+      }
+
+      if (method === 'GET' && path.startsWith('/pipeline/')) {
+        const instanceId = path.slice('/pipeline/'.length)
+        if (!instanceId) {
+          return json({ error: 'Missing instance ID' }, 400)
+        }
+        const instance = await env.PIPELINE.get(instanceId)
+        const status = await instance.status()
+        return json(status)
+      }
+
       // ── 404 ──
       return json({
         error: 'Not found',
@@ -150,6 +201,9 @@ export default {
           'GET  /crps/pending',
           'GET  /mrps/pending',
           'GET  /mentorscript',
+          'POST /pipeline',
+          'POST /approve/:id',
+          'GET  /pipeline/:id',
         ],
       }, 404)
 

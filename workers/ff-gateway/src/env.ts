@@ -26,9 +26,19 @@ interface QueryBinding {
   listMentorRules(): Promise<unknown[]>
 }
 
+interface PipelineBinding {
+  create(opts: { params: unknown }): Promise<{ id: string }>
+  get(id: string): Promise<{
+    id: string
+    status(): Promise<unknown>
+    sendEvent(name: string, payload: unknown): Promise<void>
+  }>
+}
+
 export interface GatewayEnv {
   GATES: GatesBinding
   QUERY: QueryBinding
+  PIPELINE: PipelineBinding
   ARANGO_URL: string
   ARANGO_DATABASE: string
   ARANGO_JWT: string
