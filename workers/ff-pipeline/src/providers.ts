@@ -14,7 +14,7 @@ export async function callProvider(
   if (!key) throw new Error('OFOX_API_KEY not set')
 
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 60_000)
+  const timeout = setTimeout(() => controller.abort(), 30_000)
 
   let res: Response
   try {
@@ -37,7 +37,7 @@ export async function callProvider(
   } catch (err) {
     clearTimeout(timeout)
     if (err instanceof DOMException && err.name === 'AbortError') {
-      throw new Error(`ofox [${target.provider}/${target.model}] timed out after 60s`)
+      throw new Error(`ofox [${target.provider}/${target.model}] timed out after 30s`)
     }
     throw err
   }

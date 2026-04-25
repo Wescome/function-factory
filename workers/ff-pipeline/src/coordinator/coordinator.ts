@@ -73,12 +73,32 @@ export class SynthesisCoordinator extends DurableObject<CoordinatorEnv> {
 
     const graph = buildSynthesisGraph(deps)
 
-    const finalState = await graph.run(initialState, {
+    const graphPromise = graph.run(initialState, {
       onNodeStart: (name, state) => {
         console.log(`[Stage 6] ${name} starting (repair ${state.repairCount}, tokens ${state.tokenUsage})`)
       },
       maxSteps: 50,
     })
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Stage 6 synthesis timed out after 3 minutes')), 180_000)
+    })
+
+    let finalState: GraphState
+    try {
+      finalState = await Promise.race([graphPromise, timeoutPromise])
+    } catch (err) {
+      const timedOutState: GraphState = {
+        ...initialState,
+        verdict: {
+          decision: 'interrupt',
+          confidence: 1.0,
+          reason: err instanceof Error ? err.message : 'Synthesis failed',
+        },
+      }
+      await this.ctx.storage.delete('graphState')
+      return this.buildResult(workGraphId, timedOutState)
+    }
 
     await this.ctx.storage.delete('graphState')
     await this.persistSynthesisResult(workGraphId, finalState)
