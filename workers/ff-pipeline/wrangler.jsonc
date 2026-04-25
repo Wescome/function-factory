@@ -16,7 +16,7 @@
 
   // Service Bindings
   "services": [
-    { "binding": "GATES", "service": "ff-gates" }
+    { "binding": "GATES", "service": "ff-gates", "entrypoint": "GatesService" }
   ],
 
   "vars": {

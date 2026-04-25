@@ -7,9 +7,18 @@
 
   // Service Bindings — internal Workers, no public route
   "services": [
-    { "binding": "GATES", "service": "ff-gates" },
-    { "binding": "QUERY", "service": "ff-gateway", "entrypoint": "QueryService" },
-    { "binding": "PIPELINE", "service": "ff-pipeline" }
+    { "binding": "GATES", "service": "ff-gates", "entrypoint": "GatesService" },
+    { "binding": "QUERY", "service": "ff-gateway", "entrypoint": "QueryService" }
+  ],
+
+  // Workflow Binding — triggers FactoryPipeline in ff-pipeline Worker
+  "workflows": [
+    {
+      "name": "factory-pipeline",
+      "binding": "PIPELINE",
+      "script_name": "ff-pipeline",
+      "class_name": "FactoryPipeline"
+    }
   ],
 
   // Phase 2: query-worker runs as a named entrypoint in the same deployment.
