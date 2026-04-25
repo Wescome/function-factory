@@ -13,6 +13,12 @@
 import { WorkerEntrypoint } from 'cloudflare:workers'
 import { createClientFromEnv, type ArangoClient } from '@factory/arango-client'
 
+export default {
+  async fetch(): Promise<Response> {
+    return new Response('ff-gates: use via Service Binding, not HTTP', { status: 404 })
+  },
+}
+
 interface GatesEnv {
   ARANGO_URL: string
   ARANGO_DATABASE: string
@@ -37,7 +43,9 @@ export interface Gate1Check {
   detail: string
 }
 
-export default class GatesService extends WorkerEntrypoint<GatesEnv> {
+export { GatesService }
+
+class GatesService extends WorkerEntrypoint<GatesEnv> {
   private db!: ArangoClient
 
   private getDb(): ArangoClient {
@@ -189,7 +197,7 @@ export default class GatesService extends WorkerEntrypoint<GatesEnv> {
 
     // Trace back from WorkGraph through lineage edges — should reach a Signal
     const path = await db.query<{ depth: number; type: string }>(
-      `FOR v, e, p IN 1..10 INBOUND @start lineage_edges
+      `FOR v, e, p IN 1..10 OUTBOUND @start lineage_edges
          FILTER v.type == 'signal' OR STARTS_WITH(v._key, 'SIG-')
          LIMIT 1
          RETURN { depth: LENGTH(p.edges), type: v.type }`,

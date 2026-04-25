@@ -88,7 +88,7 @@ export default class QueryService extends WorkerEntrypoint<QueryEnv> {
     const db = this.getDb()
 
     return db.query<LineageNode>(
-      `FOR v, e, p IN 1..@maxDepth INBOUND @start lineage_edges
+      `FOR v, e, p IN 1..@maxDepth OUTBOUND @start lineage_edges
          RETURN {
            id: v._key,
            collection: PARSE_IDENTIFIER(v._id).collection,
@@ -111,7 +111,7 @@ export default class QueryService extends WorkerEntrypoint<QueryEnv> {
     const db = this.getDb()
 
     return db.query<LineageNode>(
-      `FOR v, e, p IN 1..@maxDepth OUTBOUND @start lineage_edges
+      `FOR v, e, p IN 1..@maxDepth INBOUND @start lineage_edges
          RETURN {
            id: v._key,
            collection: PARSE_IDENTIFIER(v._id).collection,
