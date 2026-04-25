@@ -32,6 +32,18 @@ export class SynthesisCoordinator extends DurableObject<CoordinatorEnv> {
     return this.db
   }
 
+  async fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url)
+    if (url.pathname === '/synthesize' && request.method === 'POST') {
+      const body = await request.json() as { workGraph: Record<string, unknown>; dryRun?: boolean }
+      const result = await this.synthesize(body.workGraph, { dryRun: body.dryRun })
+      return new Response(JSON.stringify(result), {
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+    return new Response('Not found', { status: 404 })
+  }
+
   /**
    * DO Alarm — wall-clock timeout managed by Cloudflare runtime.
    * Fires even when the V8 isolate is suspended on I/O.
