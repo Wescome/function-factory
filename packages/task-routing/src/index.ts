@@ -54,8 +54,8 @@ const DEFAULT_ROUTES: Record<TaskKind, RouteTarget> = {
 
   // Stage 6 roles
   planner:       { provider: 'google',   model: 'gemini-3.1-pro-preview' },
-  coder:         { provider: 'deepseek', model: 'deepseek-v4-pro' },
-  tester:        { provider: 'deepseek', model: 'deepseek-v4-pro' },
+  coder:         { provider: 'deepseek', model: 'deepseek-v4-flash' },
+  tester:        { provider: 'deepseek', model: 'deepseek-v4-flash' },
   verifier:      { provider: 'google',   model: 'gemini-3.1-pro-preview' },
 }
 
