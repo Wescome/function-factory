@@ -1,12 +1,9 @@
 /**
  * @module task-routing
  *
- * Maps task kinds to provider/model pairs. The Factory's model routing
- * layer — stages and gates call resolve() to get a target, then use
- * the target to make the actual LLM call.
- *
- * Default routing table optimized for cost: Haiku for structured/planning
- * work, Sonnet for critic/synthesis where quality matters more.
+ * Maps task kinds to provider/model pairs via ofox.ai unified gateway.
+ * April 2026 routing config: DeepSeek V4 Flash default, Gemini for
+ * proposals, Opus for Critic only, GLM-5 for invariants/validations.
  */
 
 export type TaskKind =
@@ -23,23 +20,43 @@ export type TaskKind =
   | 'tester'
   | 'verifier'
 
+export type Provider =
+  | 'deepseek'
+  | 'google'
+  | 'anthropic'
+  | 'zhipu'
+  | 'moonshot'
+  | 'minimax'
+
 export interface RouteTarget {
-  provider: 'anthropic' | 'openai' | 'deepseek'
+  provider: Provider
   model: string
 }
 
 const DEFAULT_ROUTES: Record<TaskKind, RouteTarget> = {
-  planning:      { provider: 'anthropic', model: 'claude-haiku-4-5-20251001' },
-  structured:    { provider: 'anthropic', model: 'claude-haiku-4-5-20251001' },
-  interpretive:  { provider: 'anthropic', model: 'claude-haiku-4-5-20251001' },
-  critic:        { provider: 'anthropic', model: 'claude-sonnet-4-6' },
-  synthesis:     { provider: 'anthropic', model: 'claude-sonnet-4-6' },
-  validation:    { provider: 'anthropic', model: 'claude-haiku-4-5-20251001' },
-  // Stage 6 roles — Haiku for planning/testing, Sonnet for code/decisions
-  planner:       { provider: 'anthropic', model: 'claude-haiku-4-5-20251001' },
-  coder:         { provider: 'anthropic', model: 'claude-sonnet-4-6' },
-  tester:        { provider: 'anthropic', model: 'claude-haiku-4-5-20251001' },
-  verifier:      { provider: 'anthropic', model: 'claude-sonnet-4-6' },
+  // Stage 1: Signal ingestion — extraction, cheap
+  planning:      { provider: 'deepseek', model: 'deepseek-v4-flash' },
+
+  // Stages 2-3 compile passes: classification + structured output
+  structured:    { provider: 'deepseek', model: 'deepseek-v4-flash' },
+
+  // Stage 4: Function proposal — needs design judgment
+  interpretive:  { provider: 'google',   model: 'gemini-3.1-pro' },
+
+  // Semantic review (Critic) — Opus only, latent associative reasoning
+  critic:        { provider: 'anthropic', model: 'claude-opus-4-6' },
+
+  // Compile passes 3+5: invariant/validation generation — mid-tier reasoning
+  synthesis:     { provider: 'zhipu',    model: 'glm-5' },
+
+  // Validation / runtime checks — cheap
+  validation:    { provider: 'deepseek', model: 'deepseek-v4-flash' },
+
+  // Stage 6 roles
+  planner:       { provider: 'google',   model: 'gemini-3.1-pro' },
+  coder:         { provider: 'deepseek', model: 'deepseek-v4-pro' },
+  tester:        { provider: 'deepseek', model: 'deepseek-v4-pro' },
+  verifier:      { provider: 'google',   model: 'gemini-3.1-pro' },
 }
 
 let overrides: Partial<Record<TaskKind, RouteTarget>> = {}

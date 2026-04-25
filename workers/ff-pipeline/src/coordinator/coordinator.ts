@@ -11,9 +11,7 @@ export interface CoordinatorEnv {
   ARANGO_JWT: string
   ARANGO_USERNAME?: string
   ARANGO_PASSWORD?: string
-  ANTHROPIC_API_KEY?: string
-  OPENAI_API_KEY?: string
-  DEEPSEEK_API_KEY?: string
+  OFOX_API_KEY?: string
 }
 
 export interface SynthesisResult {

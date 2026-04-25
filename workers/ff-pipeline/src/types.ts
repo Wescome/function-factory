@@ -16,9 +16,7 @@ export interface PipelineEnv {
 
   COORDINATOR: DurableObjectNamespace<import('./coordinator/coordinator').SynthesisCoordinator>
 
-  ANTHROPIC_API_KEY?: string
-  OPENAI_API_KEY?: string
-  DEEPSEEK_API_KEY?: string
+  OFOX_API_KEY?: string
 
   ENVIRONMENT: string
 }

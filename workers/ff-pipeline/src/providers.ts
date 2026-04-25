@@ -1,9 +1,7 @@
 import type { RouteTarget } from '@factory/task-routing'
 
 export interface ProviderEnv {
-  ANTHROPIC_API_KEY?: string
-  OPENAI_API_KEY?: string
-  DEEPSEEK_API_KEY?: string
+  OFOX_API_KEY?: string
 }
 
 export async function callProvider(
@@ -12,64 +10,17 @@ export async function callProvider(
   user: string,
   env: ProviderEnv,
 ): Promise<string> {
-  switch (target.provider) {
-    case 'anthropic':
-      return callAnthropic(target.model, system, user, env)
-    case 'openai':
-      return callOpenAI(target.model, system, user, env)
-    case 'deepseek':
-      return callDeepSeek(target.model, system, user, env)
-    default:
-      throw new Error(`Unknown provider: ${target.provider}`)
-  }
-}
+  const key = env.OFOX_API_KEY
+  if (!key) throw new Error('OFOX_API_KEY not set')
 
-async function callAnthropic(
-  model: string, system: string, user: string, env: ProviderEnv,
-): Promise<string> {
-  const key = env.ANTHROPIC_API_KEY
-  if (!key) throw new Error('ANTHROPIC_API_KEY not set')
-
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': key,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: 4096,
-      system,
-      messages: [{ role: 'user', content: user }],
-    }),
-  })
-
-  if (!res.ok) {
-    const body = await res.text()
-    throw new Error(`Anthropic ${res.status}: ${body}`)
-  }
-
-  const data = await res.json() as { content: { type: string; text: string }[] }
-  const textBlock = data.content.find((b) => b.type === 'text')
-  if (!textBlock) throw new Error('No text block in Anthropic response')
-  return textBlock.text
-}
-
-async function callOpenAI(
-  model: string, system: string, user: string, env: ProviderEnv,
-): Promise<string> {
-  const key = env.OPENAI_API_KEY
-  if (!key) throw new Error('OPENAI_API_KEY not set')
-
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+  const res = await fetch('https://api.ofox.ai/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${key}`,
     },
     body: JSON.stringify({
-      model,
+      model: `${target.provider}/${target.model}`,
       max_tokens: 4096,
       messages: [
         { role: 'system', content: system },
@@ -80,44 +31,11 @@ async function callOpenAI(
 
   if (!res.ok) {
     const body = await res.text()
-    throw new Error(`OpenAI ${res.status}: ${body}`)
+    throw new Error(`ofox [${target.provider}/${target.model}] ${res.status}: ${body}`)
   }
 
   const data = await res.json() as { choices: { message: { content: string } }[] }
   const choice = data.choices[0]
-  if (!choice) throw new Error('No choices in OpenAI response')
-  return choice.message.content
-}
-
-async function callDeepSeek(
-  model: string, system: string, user: string, env: ProviderEnv,
-): Promise<string> {
-  const key = env.DEEPSEEK_API_KEY
-  if (!key) throw new Error('DEEPSEEK_API_KEY not set')
-
-  const res = await fetch('https://api.deepseek.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${key}`,
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: 4096,
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
-      ],
-    }),
-  })
-
-  if (!res.ok) {
-    const body = await res.text()
-    throw new Error(`DeepSeek ${res.status}: ${body}`)
-  }
-
-  const data = await res.json() as { choices: { message: { content: string } }[] }
-  const choice = data.choices[0]
-  if (!choice) throw new Error('No choices in DeepSeek response')
+  if (!choice) throw new Error(`No choices from ${target.provider}/${target.model}`)
   return choice.message.content
 }
