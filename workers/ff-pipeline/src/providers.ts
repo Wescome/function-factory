@@ -37,5 +37,11 @@ export async function callProvider(
   const data = await res.json() as { choices: { message: { content: string } }[] }
   const choice = data.choices[0]
   if (!choice) throw new Error(`No choices from ${target.provider}/${target.model}`)
-  return choice.message.content
+  return stripCodeFences(choice.message.content)
+}
+
+function stripCodeFences(text: string): string {
+  const trimmed = text.trim()
+  const match = /^```(?:json)?\s*\n([\s\S]*?)\n```\s*$/s.exec(trimmed)
+  return match ? match[1]! : trimmed
 }
