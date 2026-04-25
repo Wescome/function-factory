@@ -13,21 +13,35 @@ export async function callProvider(
   const key = env.OFOX_API_KEY
   if (!key) throw new Error('OFOX_API_KEY not set')
 
-  const res = await fetch('https://api.ofox.ai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${key}`,
-    },
-    body: JSON.stringify({
-      model: `${target.provider}/${target.model}`,
-      max_tokens: 4096,
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
-      ],
-    }),
-  })
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 60_000)
+
+  let res: Response
+  try {
+    res = await fetch('https://api.ofox.ai/v1/chat/completions', {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${key}`,
+      },
+      body: JSON.stringify({
+        model: `${target.provider}/${target.model}`,
+        max_tokens: 4096,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+        ],
+      }),
+    })
+  } catch (err) {
+    clearTimeout(timeout)
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error(`ofox [${target.provider}/${target.model}] timed out after 60s`)
+    }
+    throw err
+  }
+  clearTimeout(timeout)
 
   if (!res.ok) {
     const body = await res.text()
