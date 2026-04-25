@@ -1,5 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { join, extname, basename } from 'node:path'
+import YAML from 'yaml'
 
 const ARANGO_URL = process.env.ARANGO_URL ?? 'http://localhost:8529'
 const ARANGO_DB = process.env.ARANGO_DB ?? 'function_factory'
@@ -64,92 +65,13 @@ async function insertEdge(from: string, to: string, type: string) {
   })
 }
 
-function parseYaml(content: string): Record<string, unknown> {
-  const lines = content.split('\n')
-  const result: Record<string, unknown> = {}
-  let currentKey = ''
-  let currentValue = ''
-  let inMultiline = false
-
-  for (const line of lines) {
-    if (line.startsWith('---')) continue
-
-    if (!inMultiline && /^[a-z_]+:/i.test(line)) {
-      if (currentKey) {
-        result[currentKey] = parseValue(currentValue.trim())
-      }
-      const colonIdx = line.indexOf(':')
-      currentKey = line.slice(0, colonIdx).trim()
-      currentValue = line.slice(colonIdx + 1).trim()
-      if (currentValue === '>' || currentValue === '|') {
-        inMultiline = true
-        currentValue = ''
-      }
-    } else if (inMultiline && /^[a-z_]+:/i.test(line) && !line.startsWith('  ')) {
-      result[currentKey] = currentValue.trim()
-      inMultiline = false
-      const colonIdx = line.indexOf(':')
-      currentKey = line.slice(0, colonIdx).trim()
-      currentValue = line.slice(colonIdx + 1).trim()
-    } else if (line.trim().startsWith('- ')) {
-      if (inMultiline) {
-        currentValue += '\n' + line
-      } else {
-        currentValue += '\n' + line
-      }
-    } else {
-      currentValue += '\n' + line
-    }
-  }
-  if (currentKey) {
-    result[currentKey] = parseValue(currentValue.trim())
-  }
-
-  return result
-}
-
-function parseValue(val: string): unknown {
-  if (val === '' || val === '[]') return []
-  if (val === 'true') return true
-  if (val === 'false') return false
-  if (/^\d+(\.\d+)?$/.test(val)) return Number(val)
-
-  if (val.includes('\n') && val.trim().startsWith('-')) {
-    return val
-      .split('\n')
-      .map(l => l.trim())
-      .filter(l => l.startsWith('- '))
-      .map(l => l.slice(2).trim().replace(/^["']|["']$/g, ''))
-  }
-
-  return val.replace(/^["']|["']$/g, '')
+function parseYamlFile(content: string): Record<string, unknown> {
+  return YAML.parse(content) ?? {}
 }
 
 function parsePrdFrontmatter(content: string): Record<string, unknown> {
-  const lines = content.split('\n')
-  const result: Record<string, unknown> = {}
-  let inFrontmatter = false
-  let frontmatterContent = ''
-
-  for (const line of lines) {
-    if (line.trim() === '---') {
-      if (!inFrontmatter) {
-        inFrontmatter = true
-        continue
-      } else {
-        break
-      }
-    }
-    if (inFrontmatter) {
-      frontmatterContent += line + '\n'
-    }
-  }
-
-  if (frontmatterContent) {
-    const parsed = parseYaml(frontmatterContent)
-    Object.assign(result, parsed)
-  }
-
+  const match = content.match(/^---\n([\s\S]*?)\n---/)
+  const result: Record<string, unknown> = match ? YAML.parse(match[1]) ?? {} : {}
   result.content = content
   return result
 }
@@ -196,7 +118,7 @@ async function seedSpecs() {
       if (extname(file) === '.md') {
         doc = parsePrdFrontmatter(content)
       } else {
-        doc = parseYaml(content)
+        doc = parseYamlFile(content)
       }
 
       const id = (doc.id as string) ?? basename(file, extname(file))

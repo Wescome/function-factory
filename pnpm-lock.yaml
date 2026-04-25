@@ -20,6 +20,9 @@ importers:
       vitest:
         specifier: ^1.4.0
         version: 1.6.1(@types/node@20.19.39)
+      yaml:
+        specifier: ^2.4.0
+        version: 2.8.3
 
   packages/adaptive-recalibration:
     dependencies:
