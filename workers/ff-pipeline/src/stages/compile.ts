@@ -150,7 +150,23 @@ async function runLivePass(
   const taskKind = PASS_TASK_KINDS[passName]
   const systemPrompt = PASS_PROMPTS[passName]
 
-  if (passName === 'assembly' || passName === 'verification') {
+  if (passName === 'assembly') {
+    // Merge bindings onto atoms before assembly
+    const atoms = state.atoms as Record<string, unknown>[] | undefined
+    const bindings = state.bindings as Record<string, unknown>[] | undefined
+    if (atoms && bindings) {
+      const bindingMap = new Map(bindings.map(b => [b.atomId as string, b.binding]))
+      const boundAtoms = atoms.map(a => ({
+        ...a,
+        binding: bindingMap.get(a.id as string) ?? a.binding,
+        implementation: bindingMap.has(a.id as string) ? 'bound' : (a.implementation ?? null),
+      }))
+      return runDryPass(passName, { ...state, atoms: boundAtoms }, db)
+    }
+    return runDryPass(passName, state, db)
+  }
+
+  if (passName === 'verification') {
     return runDryPass(passName, state, db)
   }
 
