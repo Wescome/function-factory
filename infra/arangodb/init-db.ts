@@ -42,6 +42,8 @@ async function main() {
     'gate_status', 'trust_scores', 'invariant_health',
     'memory_episodic', 'memory_semantic', 'memory_working', 'memory_personal',
     'function_runs', 'execution_artifacts',
+    'mentorscript_rules', 'consultation_requests',
+    'version_controlled_resolutions', 'merge_readiness_packs',
   ]
 
   console.log('\nCreating document collections...')

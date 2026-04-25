@@ -886,3 +886,31 @@ Key changes from the prior ADR:
 **Canonical documents:** `specs/reference/ADR-003-pi-sdk-default-executor.md` (320 lines) and `specs/reference/FULL-PI-DEPLOYMENT-ARCHITECTURE.md` (1065 lines), both 2026-04-24.
 
 **Status:** Active.
+
+## 2026-04-24: SDLC Architecture — full lifecycle coverage above the deployment layer
+
+**Decision:** Adopt the SDLC-ARCHITECTURE as the lifecycle layer above the deployment architecture. The deployment doc specifies WHERE things run (CF Workers, Workflows, DOs, Containers, ArangoDB). The SDLC doc specifies WHAT the Factory produces across the full software development lifecycle and how artifacts flow between humans and agents.
+
+Key additions:
+
+1. **Four new artifact types.** MentorScript (MR-*): typed, testable, version-controlled operational rules stored in ArangoDB — supplements (not replaces) narrative SKILL.md and LESSONS.md. Consultation Request Pack (CRP-*): structured agent-to-human escalation with context, options, tradeoffs, and urgency routing. Version Controlled Resolution (VCR-*): architect's typed, traceable response to CRP or MRP, optionally proposing new MentorScript rules. Merge-Readiness Pack (MRP-*): single evidence bundle proving a Function meets five merge criteria (functional completeness, sound verification, SE hygiene, rationale, auditability).
+
+2. **Stage 8 — PR Creation + Deployment Handoff.** Factory creates merge-ready GitHub PRs with MRP evidence bundles. Humans merge. Existing CD deploys. Factory never gets push-to-main access. GitHub App installation tokens (scoped, 1-hour expiry) for API access.
+
+3. **CI Feedback Loop (§4.1–4.12).** Complete specification: typed Signal schema with `signalType: 'internal'` + `subtype` discriminant for CI events. Webhook worker with 11-step processing pipeline, idempotency dedup, episodic memory writes with pain_score/importance. Failure classifier (deterministic / test-regression / environment / ambiguous) with repair routing. Repair pipeline: scoped Stage 6 re-entry via separate RepairPipeline Workflow, 3-attempt outer budget, 9-attempt global ceiling (3 outer × 3 inner), CRP escalation on budget exhaustion. CI pass path updates MRP with ciEvidence, adds lineage edges, Dream DO picks up patterns. Branch naming contract: `ff-{functionId}` as bidirectional contract between Stage 8 and webhook worker.
+
+4. **Stale PR Cleanup Policy.** Assurance DO alarm sweeps: CRP pending >14 days → close PR + delete branch. MRP pending >30 days → same. Repair budget exhausted + no VCR for 7 days → convert PR to draft. Architect VCR "abandon" → close immediately.
+
+5. **ACE — Agent Command Environment.** API-only through Phase 8. Gateway-worker endpoints for CRP inbox, MRP review, MentorScript CRUD, pipeline monitoring, cost dashboard, lineage explorer. UI deferred to Phase 9.
+
+6. **MentorScript across migration phases.** Phase 1: collection created. Phase 3: Critic loads rules for compliance checking. Phase 4: pi SDK extensions load rules for Coder/Tester tool gating. Phase 6: Dream DO crystallization proposes new rules. Phase 7+: CI feedback generates MentorRule proposals. Phase 9: ACE UI for rule management.
+
+7. **Four new ArangoDB collections.** `mentorscript_rules`, `consultation_requests`, `version_controlled_resolutions`, `merge_readiness_packs`. All participate in lineage graph via `lineage_edges`. ArtifactId prefixes MR-*, CRP-*, VCR-*, MRP-* to be registered in `packages/schemas/src/lineage.ts`.
+
+8. **Migration path extended to 9 phases.** Phases 0–6 unchanged from deployment architecture. Phase 7: Stage 8 PR creation + CI feedback loop + repair pipeline. Phase 8: GitHub App installation + branch contract enforcement. Phase 9: ACE UI.
+
+**Rationale:** The deployment architecture ends at "produce a Function and monitor it." Real SDLC coverage requires structured human-agent dialogue (CRP/VCR), evidence bundling (MRP), operational knowledge management (MentorScript), codebase integration (Stage 8 PR creation), and CI feedback loops that re-enter the pipeline. The SASE paper (Hassan et al.) provided an analytical framework; the Factory's four identified gaps (MentorScript, CRP, VCR, MRP) map to real missing artifact types, not forced SASE compliance. Architect review confirmed all four gaps are genuine and the artifact designs are sound.
+
+**Canonical document:** `specs/reference/SDLC-ARCHITECTURE.md` (1823 lines, 2026-04-24).
+
+**Status:** Active.
