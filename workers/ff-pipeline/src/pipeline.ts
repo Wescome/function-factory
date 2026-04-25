@@ -203,10 +203,18 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
 
     const synthesis = await step.do('stage-6-synthesis', { retries: { limit: 0, delay: '1 second' }, timeout: '4 minutes' }, async () => {
       const wg = compState.workGraph as Record<string, unknown>
+      console.log(`[Pipeline] Stage 6: creating DO for ${wg._key}, dryRun=${dryRun}`)
       const coordinatorId = this.env.COORDINATOR.idFromName(wg._key as string)
       const coordinator = this.env.COORDINATOR.get(coordinatorId)
-      const result = await coordinator.synthesize(wg, { dryRun })
-      return toStep(result as unknown as Record<string, unknown>)
+      console.log(`[Pipeline] Stage 6: calling synthesize...`)
+      try {
+        const result = await coordinator.synthesize(wg, { dryRun })
+        console.log(`[Pipeline] Stage 6: synthesize returned`)
+        return toStep(result as unknown as Record<string, unknown>)
+      } catch (err) {
+        console.error(`[Pipeline] Stage 6 ERROR:`, err instanceof Error ? err.message : String(err))
+        throw err
+      }
     })
 
     const synthResult = synthesis as unknown as {
