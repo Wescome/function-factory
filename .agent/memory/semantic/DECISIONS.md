@@ -851,6 +851,38 @@ The architecture was validated against the existing codebase: `packages/function
 
 6. **ArangoDB as SPOF.** With D1+R2 eliminated, ArangoDB Oasis is a single failure domain for all Factory data. Acceptable for bootstrap (solo developer, minutes of downtime tolerable). Document as a steady-state concern requiring mitigation (read replicas or regional failover) when the Factory serves multiple users.
 
-**Canonical document:** `~/Downloads/FINAL-DEPLOYMENT-ARCHITECTURE.md` (954 lines, 2026-04-24). To be moved to `specs/reference/` upon vault ingestion.
+**Canonical document:** `specs/reference/FINAL-DEPLOYMENT-ARCHITECTURE.md` (954 lines, 2026-04-24). Superseded by FULL-PI-DEPLOYMENT-ARCHITECTURE per ADR-003.
+
+**Status:** Active. Amended by ADR-003 (pi SDK default executor).
+
+## 2026-04-24: ADR-003 — Pi SDK as default Coder/Tester executor
+
+**Decision:** Adopt `@mariozechner/pi-coding-agent` SDK as the default executor for the Coder and Tester roles in Stage 6. Container-based executors (OpenHands, Aider) become fallbacks for specialty cases (browser automation, Docker sandboxing). Claude Code is dropped as a container executor — pi accesses the same Claude models via pi-ai.
+
+Key changes from the prior ADR:
+
+1. **Default execution path is pi SDK, not Containers.** The Coordinator DO's `executionRole()` method dispatches to `piSdkRole()` (default) or `containerRole()` (fallback) based on the Planner's output. `createAgentSession()` embeds a pi coding agent inside the DO with read/write/edit/bash tools, same pi-ai substrate, same cost tracking.
+
+2. **Structural tool gating via pi extensions.** File scope and command policy enforced *before* tool execution via `beforeToolCall` hooks — not post-hoc validation. The model cannot write outside allowed paths regardless of what it decides to do.
+
+3. **Claude Code removed as executor.** Pi accesses the same Claude models via pi-ai. Claude Code has no SDK/embedding mode. Keeping it as a container executor would mean paying for both container compute and API calls with no cost visibility. Claude Code remains the development governor (human-facing harness), not a deployed executor.
+
+4. **Container triggers narrowed.** Containers only for: browser automation (OpenHands), Docker-level sandboxing (OpenHands), strict network isolation. Everything else — read/write/edit files, run tests, run linters, git operations — runs via pi SDK.
+
+5. **Migration Phase 4 now delivers full Stage 6.** Pi SDK gives Coder and Tester real filesystem access on the same substrate. Phase 4 = full automated synthesis without Containers. Phase 5 = optional Container fallback for specialty cases.
+
+6. **Cost reduction.** Container compute drops from ~$15/mo to ~$3/mo at steady-state (50 Functions/month). ~80% of executions run via pi SDK with zero container overhead. Total steady-state cost drops from ~$169/mo to ~$157/mo.
+
+**Rationale:** Pi is built on pi-ai. The Factory is built on pi-ai. Running the Coder via `createAgentSession()` and the Planner via `complete()` means both flow through the same `getModel()`, same provider routing, same cost tracking, same session management. With Container executors, the Coder's model calls are invisible — the container has its own API keys and own cost accounting. Pi eliminates this blind spot. Cross-role context continuity (Planner → Coder → Critic → Verifier) stays in-memory without serialize-to-ArangoDB round trips. Session tree preservation enables repair-loop debugging. Factory-specific skills can be loaded at session creation.
+
+**Tradeoffs accepted:**
+
+1. **No container isolation for pi SDK path.** Pi runs in the DO's Node.js process. If the Coder produces malicious code and runs it via bash, it executes in the DO. Acceptable for bootstrap (Factory building itself — trusted code). Flag for steady-state if the Factory ever builds untrusted third-party code.
+
+2. **Container fallback must stay functional.** Even if rarely used, the OpenHands/Aider path must be integration-tested. Two execution paths = two maintenance surfaces.
+
+3. **128MB DO memory concern amplified.** Pi SDK + LangGraph.js + pi-ai all run inside the Coordinator DO. The pi-coding-agent dependency adds to the bundle. The Phase 2 LangGraph-in-DO spike (from the prior ADR's non-blocking conditions) is now more critical.
+
+**Canonical documents:** `specs/reference/ADR-003-pi-sdk-default-executor.md` (320 lines) and `specs/reference/FULL-PI-DEPLOYMENT-ARCHITECTURE.md` (1065 lines), both 2026-04-24.
 
 **Status:** Active.
