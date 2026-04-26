@@ -147,4 +147,63 @@ export default {
 
     return new Response('ff-pipeline: use /test-do, /test-do-live, /test-fetch, or POST /trigger-synthesis', { status: 404 })
   },
+
+  async queue(batch: MessageBatch, env: PipelineEnv, _ctx: ExecutionContext): Promise<void> {
+    for (const msg of batch.messages) {
+      const { workflowId, workGraphId, workGraph, dryRun } = msg.body as {
+        workflowId: string
+        workGraphId: string
+        workGraph: Record<string, unknown>
+        dryRun?: boolean
+      }
+
+      try {
+        // Call DO via stub.fetch (works outside step.do)
+        const doId = env.COORDINATOR.idFromName(`synth-${workGraphId}`)
+        const stub = env.COORDINATOR.get(doId)
+        const doResponse = await stub.fetch(new Request('https://do/synthesize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ workGraph, dryRun: dryRun ?? false }),
+        }))
+
+        const result = await doResponse.json() as {
+          verdict: { decision: string; confidence: number; reason: string }
+          tokenUsage: number
+          repairCount: number
+        }
+
+        // Send synthesis result back to the waiting Workflow
+        const workflow = await env.FACTORY_PIPELINE.get(workflowId)
+        await workflow.sendEvent('synthesis-complete', {
+          verdict: result.verdict,
+          tokenUsage: result.tokenUsage,
+          repairCount: result.repairCount,
+        })
+
+        msg.ack()
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : String(err)
+
+        // max_retries: 2 in wrangler config = 3 total attempts (1 initial + 2 retries)
+        if (msg.attempts >= 3) {
+          // Max retries exhausted — send failure event so Workflow doesn't hang
+          try {
+            const workflow = await env.FACTORY_PIPELINE.get(workflowId)
+            await workflow.sendEvent('synthesis-complete', {
+              verdict: { decision: 'fail', confidence: 1.0, reason: `Queue consumer error after ${msg.attempts} attempts: ${errorMessage}` },
+              tokenUsage: 0,
+              repairCount: 0,
+            })
+          } catch {
+            // If even the failure event can't be sent, log and move on
+            console.error(`Failed to send failure event for workflow ${workflowId}: ${errorMessage}`)
+          }
+          msg.ack() // Remove from queue even though it failed
+        } else {
+          msg.retry()
+        }
+      }
+    }
+  },
 }

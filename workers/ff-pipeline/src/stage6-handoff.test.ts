@@ -147,6 +147,9 @@ function createEnv(overrides?: Record<string, unknown>) {
         })),
       })),
     },
+    SYNTHESIS_QUEUE: {
+      send: vi.fn(async () => ({})),
+    },
     ...overrides,
   }
 }
@@ -422,30 +425,28 @@ describe('Stage 6: event-driven synthesis handoff', () => {
   // ── Test 4: Pipeline queues synthesis after Gate 1 pass ──
 
   describe('pipeline synthesis queueing', () => {
-    it('writes to synthesis_queue collection with workGraphId and pending status after Gate 1 pass', async () => {
-      const { result } = await runPipelineWithSynthesis({
-        verdict: { decision: 'pass', confidence: 0.95, reason: 'ok' },
-        tokenUsage: 100,
-        repairCount: 0,
-      })
+    it('enqueues to CF Queue with workGraphId and workGraph after Gate 1 pass', async () => {
+      const mockQueueSend = vi.fn(async () => ({}))
+      const { result } = await runPipelineWithSynthesis(
+        {
+          verdict: { decision: 'pass', confidence: 0.95, reason: 'ok' },
+          tokenUsage: 100,
+          repairCount: 0,
+        },
+        { SYNTHESIS_QUEUE: { send: mockQueueSend } },
+      )
 
       // Pipeline completed past Gate 1
       expect(result.status).not.toBe('gate-1-failed')
 
-      // Verify ArangoDB write to synthesis_queue
-      const saveCalls = mockDb.save.mock.calls as unknown as unknown[][]
-      const queueSave = saveCalls.find(
-        (call) => call[0] === 'synthesis_queue',
-      )
-      expect(queueSave).toBeDefined()
-
-      const queueItem = queueSave![1] as Record<string, unknown>
-      expect(queueItem._key).toBe('synth-WG-TEST')
-      expect(queueItem.workGraphId).toBe('WG-TEST')
-      expect(queueItem.workGraph).toBeDefined()
-      expect((queueItem.workGraph as Record<string, unknown>)._key).toBe('WG-TEST')
-      expect(queueItem.status).toBe('pending')
-      expect(queueItem.createdAt).toBeDefined()
+      // Verify CF Queue send was called with correct payload
+      expect(mockQueueSend).toHaveBeenCalledOnce()
+      const calls = mockQueueSend.mock.calls as unknown[][]
+      const sentMessage = calls[0]![0] as Record<string, unknown>
+      expect(sentMessage.workGraphId).toBe('WG-TEST')
+      expect(sentMessage.workGraph).toBeDefined()
+      expect((sentMessage.workGraph as Record<string, unknown>)._key).toBe('WG-TEST')
+      expect(sentMessage.dryRun).toBe(false)
     })
 
     it('does not queue synthesis when Gate 1 fails', async () => {

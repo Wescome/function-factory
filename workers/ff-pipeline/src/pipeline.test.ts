@@ -122,6 +122,9 @@ function createMockEnv(overrides?: Partial<Record<string, unknown>>) {
         })),
       })),
     },
+    SYNTHESIS_QUEUE: {
+      send: vi.fn(async () => ({})),
+    },
     ...overrides,
   }
 }
@@ -204,13 +207,13 @@ describe('Stage 6: Event-driven synthesis handoff', () => {
 
   describe('queue-and-wait pattern', () => {
 
-    it('queues a synthesis request to ArangoDB after Gate 1 passes', async () => {
-      // Clear shared mock to isolate this test
-      sharedMockDb.save.mockClear()
-
+    it('enqueues a synthesis request to CF Queue after Gate 1 passes', async () => {
       const { FactoryPipeline } = await import('./pipeline')
 
-      const env = createMockEnv()
+      const mockQueueSend = vi.fn(async () => ({}))
+      const env = createMockEnv({
+        SYNTHESIS_QUEUE: { send: mockQueueSend },
+      })
       const mockStep = createMockStep()
 
       mockStep.step.waitForEvent = vi.fn((name: string) => {
@@ -237,17 +240,14 @@ describe('Stage 6: Event-driven synthesis handoff', () => {
         mockStep.step,
       )
 
-      // Verify queue-synthesis step was called
-      const queueCall = mockStep.step.do.mock.calls.find(
-        (call: unknown[]) => call[0] === 'queue-synthesis',
+      // Verify enqueue-synthesis step was called (not queue-synthesis)
+      const enqueueCall = mockStep.step.do.mock.calls.find(
+        (call: unknown[]) => call[0] === 'enqueue-synthesis',
       )
-      expect(queueCall).toBeDefined()
+      expect(enqueueCall).toBeDefined()
 
-      // Verify it saved to synthesis_queue collection
-      const saveToQueue = sharedMockDb.save.mock.calls.find(
-        (call: unknown[]) => call[0] === 'synthesis_queue',
-      )
-      expect(saveToQueue).toBeDefined()
+      // Verify SYNTHESIS_QUEUE.send was called
+      expect(mockQueueSend).toHaveBeenCalledOnce()
     })
 
     it('enters waitForEvent(synthesis-complete) with 5-minute timeout after queueing', async () => {
@@ -404,13 +404,13 @@ describe('Stage 6: Event-driven synthesis handoff', () => {
       expect(synthWait).toBeUndefined()
     })
 
-    it('queues workGraphId and workGraph in the synthesis_queue item', async () => {
-      // Clear shared mock to isolate this test
-      sharedMockDb.save.mockClear()
-
+    it('sends workGraphId and workGraph via SYNTHESIS_QUEUE.send', async () => {
       const { FactoryPipeline } = await import('./pipeline')
 
-      const env = createMockEnv()
+      const mockQueueSend = vi.fn(async () => ({}))
+      const env = createMockEnv({
+        SYNTHESIS_QUEUE: { send: mockQueueSend },
+      })
       const mockStep = createMockStep()
 
       mockStep.step.waitForEvent = vi.fn((name: string) => {
@@ -437,16 +437,13 @@ describe('Stage 6: Event-driven synthesis handoff', () => {
         mockStep.step,
       )
 
-      // Find the synthesis_queue save call
-      const saveCalls = sharedMockDb.save.mock.calls as unknown as unknown[][]
-      const queueSave = saveCalls.find(
-        (call) => call[0] === 'synthesis_queue',
-      )
-      expect(queueSave).toBeDefined()
-      const queueItem = queueSave![1] as Record<string, unknown>
-      expect(queueItem.workGraphId).toBe('WG-TEST')
-      expect(queueItem.workGraph).toBeDefined()
-      expect(queueItem.status).toBe('pending')
+      // Verify CF Queue message has correct shape
+      const calls = mockQueueSend.mock.calls as unknown[][]
+      expect(calls.length).toBeGreaterThan(0)
+      const sentMessage = calls[0]![0] as Record<string, unknown>
+      expect(sentMessage.workGraphId).toBe('WG-TEST')
+      expect(sentMessage.workGraph).toBeDefined()
+      expect(sentMessage.dryRun).toBe(false)
     })
   })
 
@@ -760,12 +757,15 @@ describe('Stage 6: Event-driven synthesis handoff', () => {
     })
   })
 
-  describe('fire-synthesis-trigger step', () => {
+  describe('enqueue-synthesis step (CF Queue)', () => {
 
-    it('executes a fire-synthesis-trigger step.do between queue-synthesis and waitForEvent', async () => {
+    it('enqueue-synthesis step runs between gate-1 and waitForEvent(synthesis-complete)', async () => {
       const { FactoryPipeline } = await import('./pipeline')
 
-      const env = createMockEnv({ PIPELINE_URL: 'https://ff-pipeline.koales.workers.dev' })
+      const mockQueueSend = vi.fn(async () => ({}))
+      const env = createMockEnv({
+        SYNTHESIS_QUEUE: { send: mockQueueSend },
+      })
       const mockStep = createMockStep()
       const stepOrder: string[] = []
 
@@ -806,26 +806,21 @@ describe('Stage 6: Event-driven synthesis handoff', () => {
         mockStep.step,
       )
 
-      // Verify fire-synthesis-trigger appears in the step order
-      const triggerIdx = stepOrder.indexOf('fire-synthesis-trigger')
-      const queueIdx = stepOrder.indexOf('queue-synthesis')
+      const enqueueIdx = stepOrder.indexOf('enqueue-synthesis')
       const waitIdx = stepOrder.indexOf('waitForEvent:synthesis-complete')
 
-      expect(triggerIdx).toBeGreaterThan(-1)
-      expect(queueIdx).toBeGreaterThan(-1)
+      expect(enqueueIdx).toBeGreaterThan(-1)
       expect(waitIdx).toBeGreaterThan(-1)
-
-      // fire-synthesis-trigger must be AFTER queue-synthesis and BEFORE waitForEvent
-      expect(triggerIdx).toBeGreaterThan(queueIdx)
-      expect(triggerIdx).toBeLessThan(waitIdx)
+      expect(enqueueIdx).toBeLessThan(waitIdx)
     })
 
-    it('sends fetch to PIPELINE_URL/trigger-synthesis with correct payload', async () => {
-      mockFetch.mockClear()
-
+    it('sends correct payload to SYNTHESIS_QUEUE.send', async () => {
       const { FactoryPipeline } = await import('./pipeline')
 
-      const env = createMockEnv({ PIPELINE_URL: 'https://ff-pipeline.koales.workers.dev' })
+      const mockQueueSend = vi.fn(async () => ({}))
+      const env = createMockEnv({
+        SYNTHESIS_QUEUE: { send: mockQueueSend },
+      })
       const mockStep = createMockStep()
 
       mockStep.step.waitForEvent = vi.fn((name: string) => {
@@ -855,33 +850,22 @@ describe('Stage 6: Event-driven synthesis handoff', () => {
         mockStep.step,
       )
 
-      // Verify fetch was called
-      expect(mockFetch).toHaveBeenCalled()
-
-      // Find the trigger-synthesis fetch call
-      const triggerCall = mockFetch.mock.calls.find((call: unknown[]) => {
-        const url = call[0] as string
-        return typeof url === 'string' && url.includes('/trigger-synthesis')
-      })
-      expect(triggerCall).toBeDefined()
-
-      const [url, opts] = triggerCall as unknown as [string, RequestInit]
-      expect(url).toBe('https://ff-pipeline.koales.workers.dev/trigger-synthesis')
-      expect(opts.method).toBe('POST')
-
-      const body = JSON.parse(opts.body as string) as Record<string, unknown>
-      expect(body.workflowId).toBe('wf-test-456')
-      expect(body.workGraphId).toBe('WG-TEST')
-      expect(body.workGraph).toBeDefined()
-      expect(body.dryRun).toBe(false)
+      expect(mockQueueSend).toHaveBeenCalledOnce()
+      const calls = mockQueueSend.mock.calls as unknown[][]
+      const sentMessage = calls[0]![0] as Record<string, unknown>
+      expect(sentMessage.workflowId).toBe('wf-test-456')
+      expect(sentMessage.workGraphId).toBe('WG-TEST')
+      expect(sentMessage.workGraph).toBeDefined()
+      expect(sentMessage.dryRun).toBe(false)
     })
 
     it('includes dryRun: true when pipeline params specify dryRun', async () => {
-      mockFetch.mockClear()
-
       const { FactoryPipeline } = await import('./pipeline')
 
-      const env = createMockEnv({ PIPELINE_URL: 'https://ff-pipeline.koales.workers.dev' })
+      const mockQueueSend = vi.fn(async () => ({}))
+      const env = createMockEnv({
+        SYNTHESIS_QUEUE: { send: mockQueueSend },
+      })
       const mockStep = createMockStep()
 
       mockStep.step.waitForEvent = vi.fn((name: string) => {
@@ -914,23 +898,17 @@ describe('Stage 6: Event-driven synthesis handoff', () => {
         mockStep.step,
       )
 
-      const triggerCall = mockFetch.mock.calls.find((call: unknown[]) => {
-        const url = call[0] as string
-        return typeof url === 'string' && url.includes('/trigger-synthesis')
-      })
-      expect(triggerCall).toBeDefined()
-
-      const body = JSON.parse((triggerCall as unknown as [string, RequestInit])[1].body as string) as Record<string, unknown>
-      expect(body.dryRun).toBe(true)
+      const calls = mockQueueSend.mock.calls as unknown[][]
+      const sentMessage = calls[0]![0] as Record<string, unknown>
+      expect(sentMessage.dryRun).toBe(true)
     })
 
-    it('does not fire trigger when Gate 1 fails', async () => {
-      mockFetch.mockClear()
-
+    it('does not enqueue when Gate 1 fails', async () => {
       const { FactoryPipeline } = await import('./pipeline')
 
+      const mockQueueSend = vi.fn(async () => ({}))
       const env = createMockEnv({
-        PIPELINE_URL: 'https://ff-pipeline.koales.workers.dev',
+        SYNTHESIS_QUEUE: { send: mockQueueSend },
         GATES: {
           evaluateGate1: vi.fn(async () => ({
             gate: 1,
@@ -963,29 +941,26 @@ describe('Stage 6: Event-driven synthesis handoff', () => {
       )
 
       expect(result.status).toBe('gate-1-failed')
-
-      // No fetch call to trigger-synthesis should have been made
-      const triggerCall = mockFetch.mock.calls.find((call: unknown[]) => {
-        const url = call[0] as string
-        return typeof url === 'string' && url.includes('/trigger-synthesis')
-      })
-      expect(triggerCall).toBeUndefined()
+      expect(mockQueueSend).not.toHaveBeenCalled()
     })
 
-    it('returns { triggered: true } from the fire-synthesis-trigger step', async () => {
+    it('returns { enqueued: true } from the enqueue-synthesis step', async () => {
       const { FactoryPipeline } = await import('./pipeline')
 
-      const env = createMockEnv({ PIPELINE_URL: 'https://ff-pipeline.koales.workers.dev' })
+      const mockQueueSend = vi.fn(async () => ({}))
+      const env = createMockEnv({
+        SYNTHESIS_QUEUE: { send: mockQueueSend },
+      })
       const mockStep = createMockStep()
-      let triggerResult: unknown
+      let enqueueResult: unknown
 
       mockStep.step.do = vi.fn(async (name: string, optsOrFn: unknown, maybeFn?: unknown) => {
         const fn = typeof optsOrFn === 'function'
           ? optsOrFn as () => Promise<unknown>
           : maybeFn as () => Promise<unknown>
         const result = await fn()
-        if (name === 'fire-synthesis-trigger') {
-          triggerResult = result
+        if (name === 'enqueue-synthesis') {
+          enqueueResult = result
         }
         return result
       })
@@ -1017,7 +992,7 @@ describe('Stage 6: Event-driven synthesis handoff', () => {
         mockStep.step,
       )
 
-      expect(triggerResult).toEqual({ triggered: true })
+      expect(enqueueResult).toEqual({ enqueued: true })
     })
   })
 })

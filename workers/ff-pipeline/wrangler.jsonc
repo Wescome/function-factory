@@ -29,6 +29,12 @@
     { "binding": "GATES", "service": "ff-gates", "entrypoint": "GatesService" }
   ],
 
+  // Queue bindings (Stage 6 synthesis bridge)
+  "queues": {
+    "producers": [{ "binding": "SYNTHESIS_QUEUE", "queue": "synthesis-queue" }],
+    "consumers": [{ "queue": "synthesis-queue", "max_batch_size": 1, "max_retries": 2 }]
+  },
+
   "vars": {
     "ENVIRONMENT": "production"
   }

@@ -16,6 +16,8 @@ export interface PipelineEnv {
 
   COORDINATOR: DurableObjectNamespace<import('./coordinator/coordinator').SynthesisCoordinator>
 
+  SYNTHESIS_QUEUE: Queue
+
   OFOX_API_KEY?: string
 
   /** Base URL for self-referencing fetch (e.g. 'https://ff-pipeline.koales.workers.dev') */

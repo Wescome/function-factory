@@ -206,35 +206,17 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
 
     const wg = compState.workGraph as Record<string, unknown>
 
-    // Queue synthesis request for external trigger
-    await step.do('queue-synthesis', async () => {
-      await db.save('synthesis_queue', {
-        _key: `synth-${wgKey}`,
+    // Enqueue synthesis request to CF Queue.
+    // The queue consumer (queue() handler) will call the DO and send
+    // the result back as a workflow event.
+    await step.do('enqueue-synthesis', async () => {
+      await this.env.SYNTHESIS_QUEUE.send({
+        workflowId: event.instanceId,
         workGraphId: wgKey,
         workGraph: wg,
         dryRun,
-        status: 'pending',
-        createdAt: new Date().toISOString(),
       })
-      return { queued: true, workGraphId: wgKey }
-    })
-
-    // Fire the trigger: call our own /trigger-synthesis HTTP route.
-    // This runs inside step.do() but the fetch goes to the Worker's
-    // fetch handler (not the DO), which bridges Workflow <-> DO.
-    const pipelineUrl = this.env.PIPELINE_URL ?? 'https://ff-pipeline.koales.workers.dev'
-    await step.do('fire-synthesis-trigger', async () => {
-      await fetch(`${pipelineUrl}/trigger-synthesis`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          workflowId: event.instanceId,
-          workGraphId: wgKey,
-          workGraph: wg,
-          dryRun,
-        }),
-      })
-      return { triggered: true }
+      return { enqueued: true }
     })
 
     // Wait for external trigger to complete synthesis via DO and send event
