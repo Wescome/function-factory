@@ -219,6 +219,24 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       return { queued: true, workGraphId: wgKey }
     })
 
+    // Fire the trigger: call our own /trigger-synthesis HTTP route.
+    // This runs inside step.do() but the fetch goes to the Worker's
+    // fetch handler (not the DO), which bridges Workflow <-> DO.
+    const pipelineUrl = this.env.PIPELINE_URL ?? 'https://ff-pipeline.koales.workers.dev'
+    await step.do('fire-synthesis-trigger', async () => {
+      await fetch(`${pipelineUrl}/trigger-synthesis`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workflowId: event.instanceId,
+          workGraphId: wgKey,
+          workGraph: wg,
+          dryRun,
+        }),
+      })
+      return { triggered: true }
+    })
+
     // Wait for external trigger to complete synthesis via DO and send event
     const synthEvent = await step.waitForEvent<{
       verdict: { decision: string; confidence: number; reason: string }

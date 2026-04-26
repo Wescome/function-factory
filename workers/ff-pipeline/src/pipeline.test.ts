@@ -12,7 +12,7 @@
  * DO bindings since the real CF runtime is not available in vitest.
  */
 
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 
 // ─── Mock cloudflare:workers runtime (not available outside CF) ───
 
@@ -182,9 +182,25 @@ vi.mock('./stages/compile', () => ({
 }))
 
 
+// ─── Global fetch mock (needed for fire-synthesis-trigger step) ───
+
+const originalFetch = globalThis.fetch
+const mockFetch = vi.fn(async () => new Response(JSON.stringify({ ok: true }), {
+  headers: { 'Content-Type': 'application/json' },
+}))
+
 // ─── Tests ───
 
 describe('Stage 6: Event-driven synthesis handoff', () => {
+
+  beforeEach(() => {
+    globalThis.fetch = mockFetch as unknown as typeof fetch
+    mockFetch.mockClear()
+  })
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch
+  })
 
   describe('queue-and-wait pattern', () => {
 
@@ -735,6 +751,267 @@ describe('Stage 6: Event-driven synthesis handoff', () => {
           (call[1] as string).includes('synthesis'),
       )
       expect(edgeCall).toBeDefined()
+    })
+  })
+
+  describe('fire-synthesis-trigger step', () => {
+
+    it('executes a fire-synthesis-trigger step.do between queue-synthesis and waitForEvent', async () => {
+      const { FactoryPipeline } = await import('./pipeline')
+
+      const env = createMockEnv({ PIPELINE_URL: 'https://ff-pipeline.koales.workers.dev' })
+      const mockStep = createMockStep()
+      const stepOrder: string[] = []
+
+      // Track the order of step.do calls
+      mockStep.step.do = vi.fn(async (name: string, optsOrFn: unknown, maybeFn?: unknown) => {
+        const fn = typeof optsOrFn === 'function'
+          ? optsOrFn as () => Promise<unknown>
+          : maybeFn as () => Promise<unknown>
+        stepOrder.push(name)
+        return fn()
+      })
+
+      mockStep.step.waitForEvent = vi.fn((name: string) => {
+        if (name === 'architect-approval') {
+          return Promise.resolve({ payload: { decision: 'approved', by: 'test' } })
+        }
+        if (name === 'synthesis-complete') {
+          stepOrder.push('waitForEvent:synthesis-complete')
+          return Promise.resolve({
+            payload: {
+              verdict: { decision: 'pass', confidence: 0.95, reason: 'ok' },
+              tokenUsage: 100,
+              repairCount: 0,
+            },
+          })
+        }
+        return Promise.reject(new Error(`Unexpected: ${name}`))
+      })
+
+      const pipeline = Object.create(FactoryPipeline.prototype)
+      pipeline.env = env
+
+      await pipeline.run(
+        {
+          instanceId: 'wf-test-123',
+          payload: { signal: { signalType: 'internal', source: 'test', title: 'Test', description: 'Test signal' } },
+        },
+        mockStep.step,
+      )
+
+      // Verify fire-synthesis-trigger appears in the step order
+      const triggerIdx = stepOrder.indexOf('fire-synthesis-trigger')
+      const queueIdx = stepOrder.indexOf('queue-synthesis')
+      const waitIdx = stepOrder.indexOf('waitForEvent:synthesis-complete')
+
+      expect(triggerIdx).toBeGreaterThan(-1)
+      expect(queueIdx).toBeGreaterThan(-1)
+      expect(waitIdx).toBeGreaterThan(-1)
+
+      // fire-synthesis-trigger must be AFTER queue-synthesis and BEFORE waitForEvent
+      expect(triggerIdx).toBeGreaterThan(queueIdx)
+      expect(triggerIdx).toBeLessThan(waitIdx)
+    })
+
+    it('sends fetch to PIPELINE_URL/trigger-synthesis with correct payload', async () => {
+      mockFetch.mockClear()
+
+      const { FactoryPipeline } = await import('./pipeline')
+
+      const env = createMockEnv({ PIPELINE_URL: 'https://ff-pipeline.koales.workers.dev' })
+      const mockStep = createMockStep()
+
+      mockStep.step.waitForEvent = vi.fn((name: string) => {
+        if (name === 'architect-approval') {
+          return Promise.resolve({ payload: { decision: 'approved', by: 'test' } })
+        }
+        if (name === 'synthesis-complete') {
+          return Promise.resolve({
+            payload: {
+              verdict: { decision: 'pass', confidence: 0.95, reason: 'ok' },
+              tokenUsage: 100,
+              repairCount: 0,
+            },
+          })
+        }
+        return Promise.reject(new Error(`Unexpected: ${name}`))
+      })
+
+      const pipeline = Object.create(FactoryPipeline.prototype)
+      pipeline.env = env
+
+      await pipeline.run(
+        {
+          instanceId: 'wf-test-456',
+          payload: { signal: { signalType: 'internal', source: 'test', title: 'Test', description: 'Test signal' } },
+        },
+        mockStep.step,
+      )
+
+      // Verify fetch was called
+      expect(mockFetch).toHaveBeenCalled()
+
+      // Find the trigger-synthesis fetch call
+      const triggerCall = mockFetch.mock.calls.find((call: unknown[]) => {
+        const url = call[0] as string
+        return typeof url === 'string' && url.includes('/trigger-synthesis')
+      })
+      expect(triggerCall).toBeDefined()
+
+      const [url, opts] = triggerCall as unknown as [string, RequestInit]
+      expect(url).toBe('https://ff-pipeline.koales.workers.dev/trigger-synthesis')
+      expect(opts.method).toBe('POST')
+
+      const body = JSON.parse(opts.body as string) as Record<string, unknown>
+      expect(body.workflowId).toBe('wf-test-456')
+      expect(body.workGraphId).toBe('WG-TEST')
+      expect(body.workGraph).toBeDefined()
+      expect(body.dryRun).toBe(false)
+    })
+
+    it('includes dryRun: true when pipeline params specify dryRun', async () => {
+      mockFetch.mockClear()
+
+      const { FactoryPipeline } = await import('./pipeline')
+
+      const env = createMockEnv({ PIPELINE_URL: 'https://ff-pipeline.koales.workers.dev' })
+      const mockStep = createMockStep()
+
+      mockStep.step.waitForEvent = vi.fn((name: string) => {
+        if (name === 'architect-approval') {
+          return Promise.resolve({ payload: { decision: 'approved', by: 'test' } })
+        }
+        if (name === 'synthesis-complete') {
+          return Promise.resolve({
+            payload: {
+              verdict: { decision: 'pass', confidence: 0.95, reason: 'ok' },
+              tokenUsage: 100,
+              repairCount: 0,
+            },
+          })
+        }
+        return Promise.reject(new Error(`Unexpected: ${name}`))
+      })
+
+      const pipeline = Object.create(FactoryPipeline.prototype)
+      pipeline.env = env
+
+      await pipeline.run(
+        {
+          instanceId: 'wf-dry-789',
+          payload: {
+            signal: { signalType: 'internal', source: 'test', title: 'Test', description: 'Test signal' },
+            dryRun: true,
+          },
+        },
+        mockStep.step,
+      )
+
+      const triggerCall = mockFetch.mock.calls.find((call: unknown[]) => {
+        const url = call[0] as string
+        return typeof url === 'string' && url.includes('/trigger-synthesis')
+      })
+      expect(triggerCall).toBeDefined()
+
+      const body = JSON.parse((triggerCall as unknown as [string, RequestInit])[1].body as string) as Record<string, unknown>
+      expect(body.dryRun).toBe(true)
+    })
+
+    it('does not fire trigger when Gate 1 fails', async () => {
+      mockFetch.mockClear()
+
+      const { FactoryPipeline } = await import('./pipeline')
+
+      const env = createMockEnv({
+        PIPELINE_URL: 'https://ff-pipeline.koales.workers.dev',
+        GATES: {
+          evaluateGate1: vi.fn(async () => ({
+            gate: 1,
+            passed: false,
+            timestamp: '2026-04-25T00:00:00Z',
+            workGraphId: 'WG-TEST',
+            checks: [{ name: 'lineage', passed: false, detail: 'broken' }],
+            summary: 'Gate 1 failed',
+          })),
+        },
+      })
+      const mockStep = createMockStep()
+
+      mockStep.step.waitForEvent = vi.fn((name: string) => {
+        if (name === 'architect-approval') {
+          return Promise.resolve({ payload: { decision: 'approved', by: 'test' } })
+        }
+        return Promise.reject(new Error(`Unexpected waitForEvent: ${name}`))
+      })
+
+      const pipeline = Object.create(FactoryPipeline.prototype)
+      pipeline.env = env
+
+      const result = await pipeline.run(
+        {
+          instanceId: 'wf-gate-fail',
+          payload: { signal: { signalType: 'internal', source: 'test', title: 'Test', description: 'Test signal' } },
+        },
+        mockStep.step,
+      )
+
+      expect(result.status).toBe('gate-1-failed')
+
+      // No fetch call to trigger-synthesis should have been made
+      const triggerCall = mockFetch.mock.calls.find((call: unknown[]) => {
+        const url = call[0] as string
+        return typeof url === 'string' && url.includes('/trigger-synthesis')
+      })
+      expect(triggerCall).toBeUndefined()
+    })
+
+    it('returns { triggered: true } from the fire-synthesis-trigger step', async () => {
+      const { FactoryPipeline } = await import('./pipeline')
+
+      const env = createMockEnv({ PIPELINE_URL: 'https://ff-pipeline.koales.workers.dev' })
+      const mockStep = createMockStep()
+      let triggerResult: unknown
+
+      mockStep.step.do = vi.fn(async (name: string, optsOrFn: unknown, maybeFn?: unknown) => {
+        const fn = typeof optsOrFn === 'function'
+          ? optsOrFn as () => Promise<unknown>
+          : maybeFn as () => Promise<unknown>
+        const result = await fn()
+        if (name === 'fire-synthesis-trigger') {
+          triggerResult = result
+        }
+        return result
+      })
+
+      mockStep.step.waitForEvent = vi.fn((name: string) => {
+        if (name === 'architect-approval') {
+          return Promise.resolve({ payload: { decision: 'approved', by: 'test' } })
+        }
+        if (name === 'synthesis-complete') {
+          return Promise.resolve({
+            payload: {
+              verdict: { decision: 'pass', confidence: 0.95, reason: 'ok' },
+              tokenUsage: 100,
+              repairCount: 0,
+            },
+          })
+        }
+        return Promise.reject(new Error(`Unexpected: ${name}`))
+      })
+
+      const pipeline = Object.create(FactoryPipeline.prototype)
+      pipeline.env = env
+
+      await pipeline.run(
+        {
+          instanceId: 'wf-result-check',
+          payload: { signal: { signalType: 'internal', source: 'test', title: 'Test', description: 'Test signal' } },
+        },
+        mockStep.step,
+      )
+
+      expect(triggerResult).toEqual({ triggered: true })
     })
   })
 })

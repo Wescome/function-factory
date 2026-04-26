@@ -18,6 +18,9 @@ export interface PipelineEnv {
 
   OFOX_API_KEY?: string
 
+  /** Base URL for self-referencing fetch (e.g. 'https://ff-pipeline.koales.workers.dev') */
+  PIPELINE_URL?: string
+
   ENVIRONMENT: string
 }
 

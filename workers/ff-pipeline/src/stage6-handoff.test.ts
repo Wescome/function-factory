@@ -12,7 +12,7 @@
  * No implementation files are modified.
  */
 
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 
 // ─── Mock cloudflare:workers (unavailable outside CF runtime) ───
 
@@ -174,12 +174,25 @@ async function runPipelineWithSynthesis(
   return { result, step, env }
 }
 
+// ─── Global fetch mock (needed for fire-synthesis-trigger step in pipeline) ───
+
+const originalFetch = globalThis.fetch
+const mockGlobalFetch = vi.fn(async () => new Response(JSON.stringify({ ok: true }), {
+  headers: { 'Content-Type': 'application/json' },
+}))
+
 // ─── Tests ───
 
 describe('Stage 6: event-driven synthesis handoff', () => {
   beforeEach(() => {
     mockDb.save.mockClear()
     mockDb.saveEdge.mockClear()
+    globalThis.fetch = mockGlobalFetch as unknown as typeof fetch
+    mockGlobalFetch.mockClear()
+  })
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch
   })
 
   // ── Test 1: /trigger-synthesis returns 400 if missing required fields ──
