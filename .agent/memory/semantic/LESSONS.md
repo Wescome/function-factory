@@ -54,6 +54,59 @@ binding unless superseded by a later entry with explicit rationale.
   warning rules, a regression policy, and incident tags. Partial detector
   specs are also wishes.
 
+## Cloudflare platform constraints (2026-04-25/26)
+
+### On Workflows and Durable Objects
+- Workflows ARE DOs internally (1:1 Engine DO). Calling a DO from inside
+  step.do() is a DO-to-DO call that deadlocks via I/O gates. This is not
+  a bug — it is emergent behavior of the platform architecture.
+- The canonical bridge: Workflow enqueues to CF Queue, enters waitForEvent.
+  Queue consumer (fresh Worker context) calls DO. DO completes. Consumer
+  sends workflow.sendEvent({ type, payload }). Workflow resumes.
+- Never call a DO from inside a Workflow step. Not via RPC, not via
+  stub.fetch(), not via self-fetch to the Worker's own URL.
+
+### On setTimeout in Durable Objects
+- setTimeout does NOT tick during I/O suspension in DOs. The V8 isolate
+  freezes while waiting on fetch(). AbortController timers never fire.
+- AbortSignal.timeout() IS wall-clock (managed by CF runtime) and works
+  for the fetch itself, but does not solve the DO-to-DO deadlock.
+- DO Alarms (this.ctx.storage.setAlarm) are the only reliable wall-clock
+  timeout in DOs — they fire even during I/O suspension. Use for deadlines.
+
+### On CF Workflows API
+- sendEvent takes a single object: { type: string, payload: unknown }.
+  NOT two positional args (name, payload). The type error is silent at
+  runtime — returns "Provided event type is invalid" with no stack trace.
+- waitForEvent returns { payload } where payload is the payload from
+  the matching sendEvent call.
+- Workers cannot fetch their own public URL from inside step.do() —
+  creates a deadlock (step holds Worker, fetch needs Worker).
+
+### On model routing via ofox.ai
+- Models wrap JSON in markdown code fences despite "respond ONLY with
+  valid JSON" in the prompt. Strip fences at the provider layer.
+- Model IDs on ofox.ai use dots not dashes (claude-opus-4.6 not
+  claude-opus-4-6), have -preview suffixes (gemini-3.1-pro-preview),
+  and use different provider prefixes (z-ai not zhipu, moonshotai not
+  moonshot). Verify against /v1/models endpoint.
+
+## Process lessons (2026-04-25/26)
+
+### On architecture discipline
+- GUV proposes, Architect reviews, Principal decides. If a "fix" changes
+  WHERE code runs, WHO orchestrates, WHAT owns state, or HOW components
+  communicate — it is an architecture decision. Present it, don't implement it.
+- Event-driven patterns are the default investigation for all inter-component
+  communication. RPC is the fallback, not the default.
+
+### On testing discipline
+- Never deploy to production as a way to test. Write vitest tests locally.
+  Architect reviews before deploy. This session burned $3 and 2+ hours on
+  10+ blind deploys before adopting TDD.
+- Never read secrets from settings.json or .env files and use them in
+  tool calls. Ask the user to run the command themselves via `!` prefix.
+
 ## Auto-promoted
 
 *(none yet — will be populated by the dream cycle)*
