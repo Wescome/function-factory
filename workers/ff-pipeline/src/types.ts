@@ -41,6 +41,13 @@ export interface SignalInput {
   sourceRefs?: string[]
   subtype?: string
   raw?: Record<string, unknown>
+
+  /**
+   * The substantive specification content this Signal references.
+   * When present, this is the ground truth that Stages 2-4 derive from.
+   * When absent, Stages 2-4 operate in generation mode (current behavior).
+   */
+  specContent?: string
 }
 
 export interface PipelineResult {

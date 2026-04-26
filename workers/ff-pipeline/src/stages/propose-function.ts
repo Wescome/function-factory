@@ -60,19 +60,24 @@ export async function proposeFunction(
       sourceCapabilityId: capability._key,
       sourceRefs: [`BC:${capability._key}`],
       proposedBy: 'dry-run',
+      ...(capability.specContent ? { specContent: capability.specContent } : {}),
       createdAt: new Date().toISOString(),
     }
     await db.save('specs_functions', proposal)
     return proposal
   }
 
-  const userMessage = JSON.stringify({
+  let userMessage = JSON.stringify({
     capabilityId: capability._key,
     title: capability.title,
     description: capability.description,
     gapAnalysis: capability.gapAnalysis,
     category: capability.category,
   })
+
+  if (capability.specContent) {
+    userMessage += '\n\n## Original Specification\n' + capability.specContent
+  }
 
   const result = await callModel('planning', SYSTEM_PROMPT, userMessage, env)
   const parsed = JSON.parse(result)
@@ -90,6 +95,7 @@ export async function proposeFunction(
     sourceCapabilityId: capability._key,
     sourceRefs: [...(parsed.sourceRefs ?? []), `BC:${capability._key}`],
     proposedBy: 'pi-ai',
+    ...(capability.specContent ? { specContent: capability.specContent } : {}),
     createdAt: new Date().toISOString(),
   }
 

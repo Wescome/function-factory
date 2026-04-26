@@ -29,6 +29,36 @@ Output JSON:
 
 Respond ONLY with valid JSON.`
 
+const GROUNDED_SYSTEM_PROMPT = `You are a Semantic Reviewer in the Function Factory pipeline.
+
+You review a PRD BEFORE it enters compilation. Your job is to verify
+that the PRD faithfully represents the ORIGINAL SPECIFICATION it was
+derived from.
+
+Compare this PRD against the ORIGINAL SPECIFICATION provided.
+
+Questions to answer:
+1. Does the PRD's objective match what the specification actually says?
+2. Are the acceptance criteria derivable from the specification?
+3. Are the invariants grounded in specification constraints?
+4. Does the scope match the specification's boundaries?
+5. Is anything in the PRD NOT in the specification (hallucinated)?
+6. Is anything in the specification NOT in the PRD (dropped)?
+
+Output JSON:
+{
+  "alignment": "aligned | miscast | uncertain",
+  "confidence": 0.0-1.0,
+  "citations": ["Specific spec passages supporting your assessment"],
+  "rationale": "Why you assessed this alignment level"
+}
+
+"miscast" = the PRD is fundamentally wrong about what the spec says.
+"uncertain" = you can't tell — needs human review.
+"aligned" = the PRD correctly captures the specification's intent.
+
+Respond ONLY with valid JSON.`
+
 export async function semanticReview(
   proposal: Record<string, unknown>,
   db: ArangoClient,
@@ -47,8 +77,11 @@ export async function semanticReview(
   }
 
   const prd = proposal.prd as Record<string, unknown>
+  const hasSpecContent = typeof proposal.specContent === 'string' && proposal.specContent.length > 0
 
-  const userMessage = JSON.stringify({
+  const systemPrompt = hasSpecContent ? GROUNDED_SYSTEM_PROMPT : SYSTEM_PROMPT
+
+  const userPayload: Record<string, unknown> = {
     proposalId: proposal._key,
     title: proposal.title,
     prd: {
@@ -60,9 +93,15 @@ export async function semanticReview(
     },
     sourceCapabilityId: proposal.sourceCapabilityId,
     sourceRefs: proposal.sourceRefs,
-  })
+  }
 
-  const result = await callModel('critic', SYSTEM_PROMPT, userMessage, env)
+  if (hasSpecContent) {
+    userPayload.originalSpecification = proposal.specContent
+  }
+
+  const userMessage = JSON.stringify(userPayload)
+
+  const result = await callModel('critic', systemPrompt, userMessage, env)
   const parsed = JSON.parse(result)
 
   const review: SemanticReviewResult = {

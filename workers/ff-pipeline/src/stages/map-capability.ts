@@ -43,6 +43,7 @@ export async function mapCapability(
       sourcePressureId: pressure._key,
       sourceRefs: [`PRS:${pressure._key}`],
       mappedBy: 'dry-run',
+      ...(pressure.specContent ? { specContent: pressure.specContent } : {}),
       createdAt: new Date().toISOString(),
     }
     await db.save('specs_capabilities', capability)
@@ -67,6 +68,7 @@ export async function mapCapability(
     sourcePressureId: pressure._key,
     sourceRefs: [...(parsed.sourceRefs ?? []), `PRS:${pressure._key}`],
     mappedBy: 'pi-ai',
+    ...(pressure.specContent ? { specContent: pressure.specContent } : {}),
     createdAt: new Date().toISOString(),
   }
 

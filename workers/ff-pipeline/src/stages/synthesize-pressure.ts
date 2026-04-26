@@ -44,6 +44,7 @@ export async function synthesizePressure(
       evidence: signal.evidence ?? [],
       sourceRefs: [`SIG:${signal._key}`],
       synthesizedBy: 'dry-run',
+      ...(signal.specContent ? { specContent: signal.specContent } : {}),
       createdAt: new Date().toISOString(),
     }
     await db.save('specs_pressures', pressure)
@@ -69,6 +70,7 @@ export async function synthesizePressure(
     sourceSignalId: signal._key,
     sourceRefs: [...(parsed.sourceRefs ?? []), `SIG:${signal._key}`],
     synthesizedBy: 'pi-ai',
+    ...(signal.specContent ? { specContent: signal.specContent } : {}),
     createdAt: new Date().toISOString(),
   }
 
