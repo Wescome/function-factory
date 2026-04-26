@@ -300,6 +300,165 @@ describe('Semantic Grounding: Stage 4 prompt enrichment', () => {
 
 
 // ═══════════════════════════════════════════════════════════════════
+// Test 3b: Stage 4 uses SPEC_GROUNDED_PROMPT for full decomposition
+// ═══════════════════════════════════════════════════════════════════
+
+describe('Semantic Grounding: Stage 4 full-spec decomposition', () => {
+  let db: ReturnType<typeof createMockDb>
+  let env: ReturnType<typeof createMockEnv>
+
+  beforeEach(() => {
+    db = createMockDb()
+    env = createMockEnv()
+    mockCallModel.mockClear()
+  })
+
+  it('uses SPEC_GROUNDED_PROMPT (not generic SYSTEM_PROMPT) when specContent is present', async () => {
+    const multiSectionSpec = [
+      '# Phase 5 Hybrid Agent Sandbox',
+      '',
+      '## 1. Sandbox Lifecycle',
+      'Requirements for sandbox creation and teardown.',
+      '',
+      '## 2. Resource Isolation',
+      'Requirements for CPU/memory/network isolation.',
+      '',
+      '## 3. Agent Communication',
+      'Requirements for inter-agent messaging.',
+    ].join('\n')
+
+    const capability = {
+      _key: 'BC-001',
+      title: 'Hybrid Agent Sandbox',
+      description: 'Full sandbox architecture',
+      category: 'infrastructure',
+      gapAnalysis: 'No sandbox exists',
+      specContent: multiSectionSpec,
+    }
+
+    await proposeFunction(capability, db as any, env, false)
+
+    expect(mockCallModel).toHaveBeenCalledOnce()
+    const callArgs = mockCallModel.mock.calls[0] as unknown as [string, string, string, unknown]
+    const systemPrompt = callArgs[1]
+
+    // The system prompt must instruct full decomposition, not single-Function proposal
+    expect(systemPrompt).toContain('EVERY')
+    expect(systemPrompt).toContain('section')
+    // Must NOT be the generic "propose a Function" prompt
+    expect(systemPrompt).not.toContain('propose a Function — a\nconcrete, implementable unit of work')
+  })
+
+  it('system prompt instructs covering all sections, not narrowing to one subsystem', async () => {
+    const multiSectionSpec = [
+      '## 1. Sandbox Lifecycle',
+      'Create and destroy sandboxes.',
+      '',
+      '## 2. Resource Isolation',
+      'CPU and memory limits.',
+      '',
+      '## 3. Agent Communication',
+      'Message passing between agents.',
+    ].join('\n')
+
+    const capability = {
+      _key: 'BC-001',
+      title: 'Test capability',
+      description: 'Test desc',
+      category: 'infrastructure',
+      gapAnalysis: 'Test gap',
+      specContent: multiSectionSpec,
+    }
+
+    await proposeFunction(capability, db as any, env, false)
+
+    const callArgs = mockCallModel.mock.calls[0] as unknown as [string, string, string, unknown]
+    const systemPrompt = callArgs[1]
+
+    // Must instruct: do NOT narrow to a single subsystem
+    expect(systemPrompt).toContain('Do NOT narrow to a single subsystem')
+    // Must instruct: decompose the COMPLETE specification
+    expect(systemPrompt).toContain('COMPLETE specification')
+    // Must instruct: dependencies should reflect spec ordering
+    expect(systemPrompt).toContain('ordering')
+  })
+
+  it('user message includes instruction to cover all sections when specContent has multiple sections', async () => {
+    const multiSectionSpec = [
+      '## 1. Section Alpha',
+      'Alpha details.',
+      '',
+      '## 2. Section Beta',
+      'Beta details.',
+      '',
+      '## 3. Section Gamma',
+      'Gamma details.',
+    ].join('\n')
+
+    const capability = {
+      _key: 'BC-001',
+      title: 'Multi-section capability',
+      description: 'Covers alpha, beta, gamma',
+      category: 'infrastructure',
+      gapAnalysis: 'Test gap',
+      specContent: multiSectionSpec,
+    }
+
+    await proposeFunction(capability, db as any, env, false)
+
+    const callArgs = mockCallModel.mock.calls[0] as unknown as [string, string, string, unknown]
+    const userMessage = callArgs[2]
+
+    // User message must still contain the full spec content
+    expect(userMessage).toContain('Section Alpha')
+    expect(userMessage).toContain('Section Beta')
+    expect(userMessage).toContain('Section Gamma')
+  })
+
+  it('uses original SYSTEM_PROMPT when specContent is absent (backwards compat)', async () => {
+    const capability = {
+      _key: 'BC-001',
+      title: 'No spec capability',
+      description: 'No spec attached',
+      category: 'infrastructure',
+      gapAnalysis: 'Test gap',
+    }
+
+    await proposeFunction(capability, db as any, env, false)
+
+    const callArgs = mockCallModel.mock.calls[0] as unknown as [string, string, string, unknown]
+    const systemPrompt = callArgs[1]
+
+    // Original prompt should be used — contains the generic instruction
+    expect(systemPrompt).toContain('propose a Function')
+    // Must NOT contain spec-grounded instructions
+    expect(systemPrompt).not.toContain('EVERY')
+    expect(systemPrompt).not.toContain('Do NOT narrow')
+  })
+
+  it('uses original SYSTEM_PROMPT when specContent is empty string', async () => {
+    const capability = {
+      _key: 'BC-001',
+      title: 'Empty spec capability',
+      description: 'Empty spec',
+      category: 'infrastructure',
+      gapAnalysis: 'Test gap',
+      specContent: '',
+    }
+
+    await proposeFunction(capability, db as any, env, false)
+
+    const callArgs = mockCallModel.mock.calls[0] as unknown as [string, string, string, unknown]
+    const systemPrompt = callArgs[1]
+
+    // Empty specContent = treat as absent, use original prompt
+    expect(systemPrompt).toContain('propose a Function')
+    expect(systemPrompt).not.toContain('Do NOT narrow')
+  })
+})
+
+
+// ═══════════════════════════════════════════════════════════════════
 // Test 4: semanticReview uses specContent as ground truth
 // ═══════════════════════════════════════════════════════════════════
 
