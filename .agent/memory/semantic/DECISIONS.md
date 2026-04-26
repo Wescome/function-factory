@@ -914,3 +914,27 @@ Key additions:
 **Canonical document:** `specs/reference/SDLC-ARCHITECTURE.md` (1823 lines, 2026-04-24).
 
 **Status:** Active.
+
+## 2026-04-25: Stage 6 event-driven handoff — Workflow waits, DO executes independently
+
+**Decision:** Stage 6 synthesis uses an event-driven handoff instead of synchronous RPC. The pipeline Workflow ends its active work at Gate 1 pass, queues a synthesis request, then enters `step.waitForEvent('synthesis-complete')`. An external trigger (gateway route or Queue consumer) calls the Coordinator DO via direct HTTP. The DO runs the full 5-role synthesis graph. On completion, the DO sends `workflow.sendEvent('synthesis-complete', result)` to resume the Workflow. The Workflow returns the final PipelineResult.
+
+**Rationale:** CF Workflows cannot communicate with Durable Objects during `step.do()` execution — both RPC (`stub.synthesize()`) and `stub.fetch()` hang indefinitely. Verified over 2+ hours of testing on 2026-04-25. The DO itself works perfectly via direct HTTP (proven at `/test-do-live`: 5 roles, 27s, real LLM calls, verdict: pass). The constraint is specific to the Workflow→DO boundary inside step callbacks.
+
+The event-driven pattern already exists in the pipeline (`step.waitForEvent('architect-approval')`) and is proven. Applying the same pattern to Stage 6 preserves the DO's stated responsibilities (graph ownership, state persistence, alarm timeout, mentor rules, repair loops, Container dispatch for Phase 5) while working within the platform constraint.
+
+**Alternatives considered:** (a) Move LLM calls into Workflow steps, bypass DO. Rejected — contradicts 3 DECISIONS entries (DO owns graph, DO manages repair loops, Phase 5 Container delegation dispatches from DO). Was implemented briefly and reverted. (b) Use DO alarms as timeout mechanism for RPC. Rejected — alarms write state but cannot kill a hung fetch in the original execution context; the Workflow step still hangs waiting for the DO RPC to return.
+
+**Event-driven architecture as default:** This decision also establishes event-driven patterns as the default design investigation for all Factory inter-component communication. RPC/synchronous calls are acceptable only when latency matters AND both sides share the same execution context. All architecture proposals must evaluate event-driven alternatives first.
+
+**TDD mandate:** All implementation of this decision must follow test-driven development. Tests written first, verified locally, Architect-reviewed before deploy.
+
+**Status:** Active.
+
+## 2026-04-25: TDD mandatory for all Factory code
+
+**Decision:** All Factory code follows test-driven development. Tests are written before implementation, run locally, and must pass before any deploy. No code deploys to production without Architect agent review.
+
+**Rationale:** On 2026-04-25, 10+ deploys were made to production to "test" Stage 6 fixes. Each failed for a different reason, burning ~$3 in LLM credits and 2+ hours. If each change had been tested locally first, the issue would have resolved in 1-2 iterations.
+
+**Status:** Active.

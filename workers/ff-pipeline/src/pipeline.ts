@@ -10,11 +10,6 @@ import { mapCapability } from './stages/map-capability'
 import { proposeFunction } from './stages/propose-function'
 import { semanticReview } from './stages/semantic-review'
 import { compilePRD, PASS_NAMES } from './stages/compile'
-import { ROLE_CONTRACTS } from './coordinator/contracts'
-import { callProvider } from './providers'
-import { resolve } from '@factory/task-routing'
-import type { TaskKind } from '@factory/task-routing'
-import type { ProviderEnv } from './providers'
 import type { PipelineEnv, PipelineParams, PipelineResult, SemanticReviewResult, Gate1Report } from './types'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -197,9 +192,10 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       return { persisted: true }
     })
 
-    // ── Stage 6: Function synthesis ──
-    // Each role runs as its own Workflow step (timeouts work here).
-    // The Workflow drives the repair loop; LLM calls happen in step.do().
+    // ── Stage 6: Function synthesis (event-driven handoff) ──
+    // CF Workflows CANNOT communicate with DOs during step.do().
+    // Instead: queue a synthesis request, wait for an external trigger
+    // to call the DO via HTTP and send the result back as a workflow event.
     if (!compState.workGraph) {
       return {
         status: 'compile-incomplete',
@@ -209,83 +205,34 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     }
 
     const wg = compState.workGraph as Record<string, unknown>
-    const roles = ['planner', 'coder', 'critic', 'tester', 'verifier'] as const
-    type SynthState = {
-      plan: unknown; code: unknown; critique: unknown; tests: unknown;
-      verdict: { decision: string; confidence: number; reason: string; notes?: string } | null;
-      tokenUsage: number; repairCount: number;
-      roleHistory: { role: string; tokenUsage: number; timestamp: string }[];
-    }
-    let synth: SynthState = {
-      plan: null, code: null, critique: null, tests: null, verdict: null,
-      tokenUsage: 0, repairCount: 0, roleHistory: [],
-    }
-    const maxRepairs = 5
 
-    for (let cycle = 0; cycle <= maxRepairs; cycle++) {
-      if (synth.repairCount >= maxRepairs) {
-        synth.verdict = { decision: 'fail', confidence: 1.0, reason: `Repair cap (${maxRepairs})` }
-        break
-      }
+    // Queue synthesis request for external trigger
+    await step.do('queue-synthesis', async () => {
+      await db.save('synthesis_queue', {
+        _key: `synth-${wgKey}`,
+        workGraphId: wgKey,
+        workGraph: wg,
+        dryRun,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+      })
+      return { queued: true, workGraphId: wgKey }
+    })
 
-      for (const roleName of roles) {
-        const contract = ROLE_CONTRACTS[roleName]
-        const stepName = `stage-6-${roleName}${cycle > 0 ? `-r${cycle}` : ''}`
+    // Wait for external trigger to complete synthesis via DO and send event
+    const synthEvent = await step.waitForEvent<{
+      verdict: { decision: string; confidence: number; reason: string }
+      tokenUsage: number
+      repairCount: number
+    }>('synthesis-complete', { type: 'synthesis-complete', timeout: '5 minutes' })
 
-        const roleResult = await step.do(stepName, { timeout: '2 minutes' }, async () => {
-          if (dryRun) {
-            const stubs: Record<string, string> = {
-              planner: '{"approach":"dry-run","atoms":[{"id":"a1","description":"stub","assignedTo":"coder"}],"executorRecommendation":"pi-sdk","estimatedComplexity":"low"}',
-              coder: '{"files":[{"path":"src/stub.ts","content":"// dry-run","action":"create"}],"summary":"dry-run","testsIncluded":false}',
-              critic: '{"passed":true,"issues":[],"mentorRuleCompliance":[],"overallAssessment":"dry-run pass"}',
-              tester: '{"passed":true,"testsRun":1,"testsPassed":1,"testsFailed":0,"failures":[],"summary":"dry-run pass"}',
-              verifier: '{"decision":"pass","confidence":1.0,"reason":"dry-run auto-pass"}',
-            }
-            return toStep({ raw: stubs[roleName] ?? '{}', role: roleName })
-          }
-
-          const context: Record<string, unknown> = {
-            workGraphId: wg._key, workGraph: { title: wg.title, atoms: wg.atoms, invariants: wg.invariants, dependencies: wg.dependencies },
-            repairCount: synth.repairCount, maxRepairs,
-          }
-          if (roleName === 'coder' || roleName === 'critic' || roleName === 'tester' || roleName === 'verifier') {
-            if (synth.plan) context.plan = synth.plan
-            if (synth.code) context.code = synth.code
-          }
-          if (roleName === 'tester' || roleName === 'verifier') {
-            if (synth.critique) context.critique = synth.critique
-          }
-          if (roleName === 'verifier' && synth.tests) context.tests = synth.tests
-          if ((roleName === 'planner' || roleName === 'coder') && synth.verdict?.notes) {
-            context.repairNotes = synth.verdict.notes
-          }
-
-          const target = resolve(contract.taskKind as TaskKind)
-          const raw = await callProvider(target, contract.systemPrompt, JSON.stringify(context), this.env as unknown as ProviderEnv)
-          return toStep({ raw, role: roleName })
-        })
-
-        const raw = (roleResult as Rec).raw as string
-        const parsed = contract.parse(raw)
-        const tokens = Math.ceil(raw.length / 4)
-
-        synth[contract.outputChannel as keyof Pick<SynthState, 'plan' | 'code' | 'critique' | 'tests' | 'verdict'>] = parsed as never
-        synth.tokenUsage += tokens
-        synth.roleHistory = [...synth.roleHistory, { role: roleName, tokenUsage: tokens, timestamp: new Date().toISOString() }]
-      }
-
-      if (!synth.verdict || synth.verdict.decision === 'pass' || synth.verdict.decision === 'fail' || synth.verdict.decision === 'interrupt') {
-        break
-      }
-      synth.repairCount++
+    const synthPayload = synthEvent.payload as {
+      verdict: { decision: string; confidence: number; reason: string }
+      tokenUsage: number
+      repairCount: number
     }
 
-    const synthResult = {
-      verdict: synth.verdict ?? { decision: 'fail', confidence: 0, reason: 'No verdict' },
-      tokenUsage: synth.tokenUsage,
-      repairCount: synth.repairCount,
-    }
-
+    // Lineage: execution artifact -> workgraph
     await step.do('edge-synthesis-workgraph', async () => {
       await db.saveEdge('lineage_edges',
         `execution_artifacts/EA-${wgKey}-synthesis`,
@@ -296,9 +243,9 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     })
 
     return {
-      status: synthResult.verdict.decision === 'pass'
+      status: synthPayload.verdict.decision === 'pass'
         ? 'synthesis-passed'
-        : `synthesis-${synthResult.verdict.decision}`,
+        : `synthesis-${synthPayload.verdict.decision}`,
       signalId: signalKey,
       pressureId: pressureKey,
       capabilityId: capabilityKey,
@@ -306,9 +253,9 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       workGraphId: wgKey,
       gate1Report: gate1,
       synthesisResult: {
-        verdict: synthResult.verdict,
-        tokenUsage: synthResult.tokenUsage,
-        repairCount: synthResult.repairCount,
+        verdict: synthPayload.verdict,
+        tokenUsage: synthPayload.tokenUsage,
+        repairCount: synthPayload.repairCount,
       },
     }
   }

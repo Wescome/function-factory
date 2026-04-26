@@ -86,6 +86,68 @@ export default {
       }
     }
 
-    return new Response('ff-pipeline: use /test-do, /test-do-live, or /test-fetch', { status: 404 })
+    // ── Synthesis trigger: external route that bridges Workflow <-> DO ──
+    if (url.pathname === '/trigger-synthesis' && request.method === 'POST') {
+      const body = await request.json() as {
+        workflowId?: string
+        workGraphId?: string
+        workGraph?: Record<string, unknown>
+        dryRun?: boolean
+      }
+
+      if (!body.workflowId || !body.workGraphId || !body.workGraph) {
+        return new Response(JSON.stringify({ error: 'Missing required fields: workflowId, workGraphId, workGraph' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+
+      // Get the workflow instance to send the event back to
+      const workflow = await env.FACTORY_PIPELINE.get(body.workflowId)
+
+      try {
+        // Call DO via HTTP (the only reliable path from outside step.do)
+        const doId = env.COORDINATOR.idFromName(`synth-${body.workGraphId}`)
+        const stub = env.COORDINATOR.get(doId)
+        const doResponse = await stub.fetch(new Request('https://do/synthesize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ workGraph: body.workGraph, dryRun: body.dryRun ?? false }),
+        }))
+
+        const result = await doResponse.json() as {
+          verdict: { decision: string; confidence: number; reason: string }
+          tokenUsage: number
+          repairCount: number
+        }
+
+        // Send result back to the waiting workflow
+        await workflow.sendEvent('synthesis-complete', {
+          verdict: result.verdict,
+          tokenUsage: result.tokenUsage,
+          repairCount: result.repairCount,
+        })
+
+        return new Response(JSON.stringify({ ok: true, verdict: result.verdict }), {
+          headers: { 'Content-Type': 'application/json' },
+        })
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : String(err)
+
+        // Send failure event so the workflow doesn't hang
+        await workflow.sendEvent('synthesis-complete', {
+          verdict: { decision: 'fail', confidence: 1.0, reason: `Trigger error: ${errorMessage}` },
+          tokenUsage: 0,
+          repairCount: 0,
+        })
+
+        return new Response(JSON.stringify({ error: errorMessage }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+    }
+
+    return new Response('ff-pipeline: use /test-do, /test-do-live, /test-fetch, or POST /trigger-synthesis', { status: 404 })
   },
 }
