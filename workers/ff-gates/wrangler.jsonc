@@ -3,11 +3,5 @@
   "name": "ff-gates",
   "main": "src/index.ts",
   "compatibility_date": "2026-01-01",
-  "compatibility_flags": ["nodejs_compat"],
-
-  // No routes — this Worker is only reachable via Service Binding
-  // from ff-gateway. Not publicly accessible.
-
-  // Secrets (set via `wrangler secret put`):
-  //   ARANGO_URL, ARANGO_DATABASE, ARANGO_JWT
+  "compatibility_flags": ["nodejs_compat"]
 }

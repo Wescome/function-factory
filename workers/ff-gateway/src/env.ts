@@ -26,13 +26,19 @@ interface QueryBinding {
   listMentorRules(): Promise<unknown[]>
 }
 
+interface WorkflowInstance {
+  id: string
+  pause(): Promise<void>
+  resume(): Promise<void>
+  terminate(): Promise<void>
+  restart(): Promise<void>
+  status(): Promise<unknown>
+  sendEvent(event: { type: string; payload: unknown }): Promise<void>
+}
+
 interface PipelineBinding {
-  create(opts: { params: unknown }): Promise<{ id: string }>
-  get(id: string): Promise<{
-    id: string
-    status(): Promise<unknown>
-    sendEvent(name: string, payload: unknown): Promise<void>
-  }>
+  create(opts?: { id?: string; params?: unknown }): Promise<WorkflowInstance>
+  get(id: string): Promise<WorkflowInstance>
 }
 
 export interface GatewayEnv {

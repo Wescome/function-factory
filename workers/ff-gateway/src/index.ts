@@ -170,7 +170,8 @@ export default {
           ?? body.by as string
           ?? 'unknown'
         const instance = await env.PIPELINE.get(instanceId)
-        await instance.sendEvent('architect-approval', {
+        await instance.sendEvent({
+          type: 'architect-approval',
           payload: { decision, reason, by },
         })
         return json({ instanceId, event: 'architect-approval', decision, by })

@@ -9,3 +9,5 @@ coverage
 *.log
 .turbo
 .pnpm-store
+workers/ff-gateway/.dev.vars
+workers/ff-gates/.dev.vars
