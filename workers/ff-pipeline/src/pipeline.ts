@@ -10,6 +10,11 @@ import { mapCapability } from './stages/map-capability'
 import { proposeFunction } from './stages/propose-function'
 import { semanticReview } from './stages/semantic-review'
 import { compilePRD, PASS_NAMES } from './stages/compile'
+import { ROLE_CONTRACTS } from './coordinator/contracts'
+import { callProvider } from './providers'
+import { resolve } from '@factory/task-routing'
+import type { TaskKind } from '@factory/task-routing'
+import type { ProviderEnv } from './providers'
 import type { PipelineEnv, PipelineParams, PipelineResult, SemanticReviewResult, Gate1Report } from './types'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -217,11 +222,6 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     }
     const maxRepairs = 5
 
-    // Import contracts for prompts
-    const { ROLE_CONTRACTS } = await import('./coordinator/contracts')
-    const { callProvider } = await import('./providers')
-    const { resolve } = await import('@factory/task-routing')
-
     for (let cycle = 0; cycle <= maxRepairs; cycle++) {
       if (synth.repairCount >= maxRepairs) {
         synth.verdict = { decision: 'fail', confidence: 1.0, reason: `Repair cap (${maxRepairs})` }
@@ -260,8 +260,8 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
             context.repairNotes = synth.verdict.notes
           }
 
-          const target = resolve(contract.taskKind as Parameters<typeof resolve>[0])
-          const raw = await callProvider(target, contract.systemPrompt, JSON.stringify(context), this.env as unknown as Parameters<typeof callProvider>[3])
+          const target = resolve(contract.taskKind as TaskKind)
+          const raw = await callProvider(target, contract.systemPrompt, JSON.stringify(context), this.env as unknown as ProviderEnv)
           return toStep({ raw, role: roleName })
         })
 
