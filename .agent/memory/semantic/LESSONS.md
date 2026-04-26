@@ -100,10 +100,16 @@ binding unless superseded by a later entry with explicit rationale.
 - Event-driven patterns are the default investigation for all inter-component
   communication. RPC is the fallback, not the default.
 
-### On testing discipline
-- Never deploy to production as a way to test. Write vitest tests locally.
-  Architect reviews before deploy. This session burned $3 and 2+ hours on
-  10+ blind deploys before adopting TDD.
+### On Test-Driven Development (TDD)
+- Write the test FIRST. Then write the code to make it pass. Not the
+  other way around. Not "write code, then add tests." The test defines
+  the behavior. The code satisfies the test.
+- Every new function, every new route, every new integration — the test
+  exists before the implementation. If you can't write the test, you
+  don't understand the requirement well enough to write the code.
+- This session shipped 10+ untested deploys that each failed differently.
+  When TDD was adopted, the Queue bridge shipped in one deploy with 45
+  tests passing. The discipline pays for itself immediately.
 - Never read secrets from settings.json or .env files and use them in
   tool calls. Ask the user to run the command themselves via `!` prefix.
 
