@@ -112,7 +112,10 @@ export class SynthesisCoordinator extends DurableObject<CoordinatorEnv> {
     // Set wall-clock alarm — survives I/O suspension and DO hibernation
     await this.ctx.storage.put('__completed', false)
     await this.ctx.storage.put('__alarm_fired', false)
-    await this.ctx.storage.setAlarm(Date.now() + 180_000)
+    // Scale timeout with WorkGraph complexity: 3min base + 30s per atom
+    const atoms = (workGraph.atoms as unknown[] | undefined)?.length ?? 0
+    const timeoutMs = Math.max(180_000, 180_000 + atoms * 30_000)
+    await this.ctx.storage.setAlarm(Date.now() + timeoutMs)
 
     let finalState: GraphState
     try {
