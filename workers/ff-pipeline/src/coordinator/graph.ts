@@ -40,14 +40,11 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
 
       const userMessage = buildRoleMessage(roleName, state, await deps.fetchMentorRules())
 
-      console.log(`[Stage 6] ${roleName}: calling model (taskKind=${contract.taskKind})`)
-      const callStart = Date.now()
       const rawResult = await deps.callModel(
         contract.taskKind,
         contract.systemPrompt,
         userMessage,
       )
-      console.log(`[Stage 6] ${roleName}: model returned in ${Date.now() - callStart}ms (${rawResult.length} chars)`)
 
       const parsed = contract.parse(rawResult)
 

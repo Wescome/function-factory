@@ -25,67 +25,6 @@ export default {
   async fetch(request: Request, env: PipelineEnv, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url)
 
-    if (url.pathname === '/test-do') {
-      const id = env.COORDINATOR.idFromName('test-diag')
-      const stub = env.COORDINATOR.get(id)
-      const testWg = { _key: 'WG-TEST', title: 'test', atoms: [], invariants: [], dependencies: [] }
-      try {
-        const result = await stub.synthesize(testWg, { dryRun: true })
-        return new Response(JSON.stringify(result, null, 2), {
-          headers: { 'Content-Type': 'application/json' },
-        })
-      } catch (err) {
-        return new Response(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }), {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' },
-        })
-      }
-    }
-
-    if (url.pathname === '/test-fetch') {
-      try {
-        const res = await fetch('https://api.ofox.ai/v1/chat/completions', {
-          method: 'POST',
-          signal: AbortSignal.timeout(30_000),
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${env.OFOX_API_KEY}`,
-          },
-          body: JSON.stringify({
-            model: 'deepseek/deepseek-v4-flash',
-            max_tokens: 50,
-            messages: [{ role: 'user', content: 'Say "hello" and nothing else.' }],
-          }),
-        })
-        const data = await res.json()
-        return new Response(JSON.stringify(data, null, 2), {
-          headers: { 'Content-Type': 'application/json' },
-        })
-      } catch (err) {
-        return new Response(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }), {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' },
-        })
-      }
-    }
-
-    if (url.pathname === '/test-do-live') {
-      const id = env.COORDINATOR.idFromName('test-live-diag')
-      const stub = env.COORDINATOR.get(id)
-      const testWg = { _key: 'WG-TEST-LIVE', title: 'test', atoms: [{ id: 'atom-1', type: 'impl', description: 'hello world function' }], invariants: [], dependencies: [] }
-      try {
-        const result = await stub.synthesize(testWg, { dryRun: false })
-        return new Response(JSON.stringify(result, null, 2), {
-          headers: { 'Content-Type': 'application/json' },
-        })
-      } catch (err) {
-        return new Response(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }), {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' },
-        })
-      }
-    }
-
     // ── Synthesis trigger: external route that bridges Workflow <-> DO ──
     if (url.pathname === '/trigger-synthesis' && request.method === 'POST') {
       const body = await request.json() as {
@@ -151,7 +90,7 @@ export default {
       })
     }
 
-    return new Response('ff-pipeline: use /test-do, /test-do-live, /test-fetch, or POST /trigger-synthesis', { status: 404 })
+    return new Response('ff-pipeline: POST /trigger-synthesis or use Queue consumer', { status: 404 })
   },
 
   async queue(batch: MessageBatch, env: PipelineEnv, _ctx: ExecutionContext): Promise<void> {
