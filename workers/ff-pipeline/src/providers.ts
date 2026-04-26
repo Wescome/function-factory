@@ -2,6 +2,9 @@ import type { RouteTarget } from '@factory/task-routing'
 
 export interface ProviderEnv {
   OFOX_API_KEY?: string
+  AI?: {
+    run(model: string, input: Record<string, unknown>): Promise<{ response: string }>
+  }
 }
 
 export async function callProvider(
@@ -10,6 +13,19 @@ export async function callProvider(
   user: string,
   env: ProviderEnv,
 ): Promise<string> {
+  // Workers AI path: bypass ofox.ai entirely
+  if (target.provider === 'cloudflare') {
+    if (!env.AI) throw new Error('AI binding not available for Workers AI')
+    const result = await env.AI.run(target.model, {
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+    })
+    return result.response
+  }
+
+  // Default path: ofox.ai unified gateway
   const key = env.OFOX_API_KEY
   if (!key) throw new Error('OFOX_API_KEY not set')
 

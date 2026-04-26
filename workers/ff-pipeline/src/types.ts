@@ -20,6 +20,10 @@ export interface PipelineEnv {
 
   OFOX_API_KEY?: string
 
+  AI?: {
+    run(model: string, input: Record<string, unknown>): Promise<{ response: string }>
+  }
+
   ENVIRONMENT: string
 }
 
