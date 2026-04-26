@@ -496,12 +496,11 @@ describe('Stage 6: Event-driven synthesis handoff', () => {
         }),
       })
 
-      const response = await worker.fetch(request, env as never)
-      expect(response.status).toBe(200)
+      const response = await worker.fetch(request, env as never, { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as unknown as ExecutionContext)
+      expect(response.status).toBe(202)
 
       const body = await response.json() as Record<string, unknown>
-      expect(body.ok).toBe(true)
-      expect(body.verdict).toBeDefined()
+      expect(body.accepted).toBe(true)
     })
 
     it('sends synthesis-complete event to the workflow after DO completes', async () => {
@@ -548,9 +547,12 @@ describe('Stage 6: Event-driven synthesis handoff', () => {
         }),
       })
 
-      await worker.fetch(request, env as never)
+      const waitUntilFn = vi.fn((p: Promise<unknown>) => { p.catch(() => {}) })
+      await worker.fetch(request, env as never, { waitUntil: waitUntilFn, passThroughOnException: vi.fn() } as unknown as ExecutionContext)
 
-      // Verify sendEvent was called with 'synthesis-complete' and the result
+      // waitUntil runs async — await the promise it captured
+      if (waitUntilFn.mock.calls[0]) await waitUntilFn.mock.calls[0][0]
+
       expect(mockSendEvent).toHaveBeenCalledWith(
         'synthesis-complete',
         expect.objectContaining({
@@ -571,7 +573,7 @@ describe('Stage 6: Event-driven synthesis handoff', () => {
         body: JSON.stringify({ workflowId: 'wf-123' }), // missing workGraphId, workGraph
       })
 
-      const response = await worker.fetch(request, env as never)
+      const response = await worker.fetch(request, env as never, { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as unknown as ExecutionContext)
       expect(response.status).toBe(400)
     })
 
@@ -609,8 +611,12 @@ describe('Stage 6: Event-driven synthesis handoff', () => {
         }),
       })
 
-      const response = await worker.fetch(request, env as never)
-      expect(response.status).toBe(500)
+      const waitUntilFn = vi.fn((p: Promise<unknown>) => { p.catch(() => {}) })
+      const response = await worker.fetch(request, env as never, { waitUntil: waitUntilFn, passThroughOnException: vi.fn() } as unknown as ExecutionContext)
+      expect(response.status).toBe(202)
+
+      // waitUntil runs async — await the promise it captured
+      if (waitUntilFn.mock.calls[0]) await waitUntilFn.mock.calls[0][0]
 
       // Should still send an error event to the workflow so it doesn't hang
       expect(mockSendEvent).toHaveBeenCalledWith(

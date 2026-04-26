@@ -22,7 +22,7 @@ export type {
 import type { PipelineEnv } from './types'
 
 export default {
-  async fetch(request: Request, env: PipelineEnv): Promise<Response> {
+  async fetch(request: Request, env: PipelineEnv, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url)
 
     if (url.pathname === '/test-do') {
@@ -102,50 +102,47 @@ export default {
         })
       }
 
-      // Get the workflow instance to send the event back to
+      // Fire-and-forget: DO work + event sending happens in background
       const workflow = await env.FACTORY_PIPELINE.get(body.workflowId)
+      const workGraphId = body.workGraphId
+      const workGraph = body.workGraph
+      const dryRun = body.dryRun ?? false
 
-      try {
-        // Call DO via HTTP (the only reliable path from outside step.do)
-        const doId = env.COORDINATOR.idFromName(`synth-${body.workGraphId}`)
-        const stub = env.COORDINATOR.get(doId)
-        const doResponse = await stub.fetch(new Request('https://do/synthesize', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ workGraph: body.workGraph, dryRun: body.dryRun ?? false }),
-        }))
+      ctx.waitUntil((async () => {
+        try {
+          const doId = env.COORDINATOR.idFromName(`synth-${workGraphId}`)
+          const stub = env.COORDINATOR.get(doId)
+          const doResponse = await stub.fetch(new Request('https://do/synthesize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ workGraph, dryRun }),
+          }))
 
-        const result = await doResponse.json() as {
-          verdict: { decision: string; confidence: number; reason: string }
-          tokenUsage: number
-          repairCount: number
+          const result = await doResponse.json() as {
+            verdict: { decision: string; confidence: number; reason: string }
+            tokenUsage: number
+            repairCount: number
+          }
+
+          await workflow.sendEvent('synthesis-complete', {
+            verdict: result.verdict,
+            tokenUsage: result.tokenUsage,
+            repairCount: result.repairCount,
+          })
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : String(err)
+          await workflow.sendEvent('synthesis-complete', {
+            verdict: { decision: 'fail', confidence: 1.0, reason: `Trigger error: ${errorMessage}` },
+            tokenUsage: 0,
+            repairCount: 0,
+          })
         }
+      })())
 
-        // Send result back to the waiting workflow
-        await workflow.sendEvent('synthesis-complete', {
-          verdict: result.verdict,
-          tokenUsage: result.tokenUsage,
-          repairCount: result.repairCount,
-        })
-
-        return new Response(JSON.stringify({ ok: true, verdict: result.verdict }), {
-          headers: { 'Content-Type': 'application/json' },
-        })
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : String(err)
-
-        // Send failure event so the workflow doesn't hang
-        await workflow.sendEvent('synthesis-complete', {
-          verdict: { decision: 'fail', confidence: 1.0, reason: `Trigger error: ${errorMessage}` },
-          tokenUsage: 0,
-          repairCount: 0,
-        })
-
-        return new Response(JSON.stringify({ error: errorMessage }), {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' },
-        })
-      }
+      return new Response(JSON.stringify({ accepted: true, workGraphId }), {
+        status: 202,
+        headers: { 'Content-Type': 'application/json' },
+      })
     }
 
     return new Response('ff-pipeline: use /test-do, /test-do-live, /test-fetch, or POST /trigger-synthesis', { status: 404 })

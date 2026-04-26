@@ -92,6 +92,13 @@ vi.mock('./stages/compile', () => ({
 
 // ─── Test helpers ───
 
+function createMockCtx() {
+  return {
+    waitUntil: vi.fn(),
+    passThroughOnException: vi.fn(),
+  }
+}
+
 function createMockStep() {
   const step = {
     do: vi.fn(async (_name: string, optsOrFn: unknown, maybeFn?: unknown) => {
@@ -201,6 +208,7 @@ describe('Stage 6: event-driven synthesis handoff', () => {
     it('returns 400 when workflowId is missing', async () => {
       const { default: worker } = await import('./index')
       const env = createEnv()
+      const ctx = createMockCtx()
 
       const request = new Request('https://host/trigger-synthesis', {
         method: 'POST',
@@ -211,7 +219,7 @@ describe('Stage 6: event-driven synthesis handoff', () => {
         }),
       })
 
-      const response = await worker.fetch(request, env as never)
+      const response = await worker.fetch(request, env as never, ctx as never)
       expect(response.status).toBe(400)
 
       const body = await response.json() as { error: string }
@@ -221,6 +229,7 @@ describe('Stage 6: event-driven synthesis handoff', () => {
     it('returns 400 when workGraphId is missing', async () => {
       const { default: worker } = await import('./index')
       const env = createEnv()
+      const ctx = createMockCtx()
 
       const request = new Request('https://host/trigger-synthesis', {
         method: 'POST',
@@ -231,13 +240,14 @@ describe('Stage 6: event-driven synthesis handoff', () => {
         }),
       })
 
-      const response = await worker.fetch(request, env as never)
+      const response = await worker.fetch(request, env as never, ctx as never)
       expect(response.status).toBe(400)
     })
 
     it('returns 400 when workGraph is missing', async () => {
       const { default: worker } = await import('./index')
       const env = createEnv()
+      const ctx = createMockCtx()
 
       const request = new Request('https://host/trigger-synthesis', {
         method: 'POST',
@@ -248,13 +258,14 @@ describe('Stage 6: event-driven synthesis handoff', () => {
         }),
       })
 
-      const response = await worker.fetch(request, env as never)
+      const response = await worker.fetch(request, env as never, ctx as never)
       expect(response.status).toBe(400)
     })
 
     it('returns 400 when all three required fields are missing', async () => {
       const { default: worker } = await import('./index')
       const env = createEnv()
+      const ctx = createMockCtx()
 
       const request = new Request('https://host/trigger-synthesis', {
         method: 'POST',
@@ -262,7 +273,7 @@ describe('Stage 6: event-driven synthesis handoff', () => {
         body: JSON.stringify({ dryRun: true }),
       })
 
-      const response = await worker.fetch(request, env as never)
+      const response = await worker.fetch(request, env as never, ctx as never)
       expect(response.status).toBe(400)
     })
   })
@@ -270,7 +281,7 @@ describe('Stage 6: event-driven synthesis handoff', () => {
   // ── Test 2: /trigger-synthesis calls DO via fetch and sends workflow event ──
 
   describe('/trigger-synthesis success path', () => {
-    it('calls DO via fetch and sends synthesis-complete event to workflow', async () => {
+    it('returns 202 accepted immediately and calls waitUntil for background work', async () => {
       const { default: worker } = await import('./index')
 
       const doResult = {
@@ -299,6 +310,8 @@ describe('Stage 6: event-driven synthesis handoff', () => {
         },
       })
 
+      const ctx = createMockCtx()
+
       const request = new Request('https://host/trigger-synthesis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -310,12 +323,19 @@ describe('Stage 6: event-driven synthesis handoff', () => {
         }),
       })
 
-      const response = await worker.fetch(request, env as never)
-      expect(response.status).toBe(200)
+      const response = await worker.fetch(request, env as never, ctx as never)
+      expect(response.status).toBe(202)
 
-      const body = await response.json() as { ok: boolean; verdict: unknown }
-      expect(body.ok).toBe(true)
-      expect(body.verdict).toEqual(doResult.verdict)
+      const body = await response.json() as { accepted: boolean }
+      expect(body.accepted).toBe(true)
+
+      // waitUntil must have been called with a promise
+      expect(ctx.waitUntil).toHaveBeenCalledOnce()
+      const backgroundPromise = ctx.waitUntil.mock.calls[0]![0] as Promise<void>
+      expect(backgroundPromise).toBeInstanceOf(Promise)
+
+      // Await the background work to verify it runs correctly
+      await backgroundPromise
 
       // DO was called via fetch with correct URL and payload
       expect(mockDoFetch).toHaveBeenCalledOnce()
@@ -338,7 +358,7 @@ describe('Stage 6: event-driven synthesis handoff', () => {
   // ── Test 3: /trigger-synthesis sends failure event if DO throws ──
 
   describe('/trigger-synthesis failure path', () => {
-    it('returns 500 and sends failure event when DO throws so workflow does not hang', async () => {
+    it('returns 202 immediately and sends failure event in background when DO throws', async () => {
       const { default: worker } = await import('./index')
 
       const mockSendEvent = vi.fn(async () => {})
@@ -359,6 +379,8 @@ describe('Stage 6: event-driven synthesis handoff', () => {
         },
       })
 
+      const ctx = createMockCtx()
+
       const request = new Request('https://host/trigger-synthesis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -369,11 +391,17 @@ describe('Stage 6: event-driven synthesis handoff', () => {
         }),
       })
 
-      const response = await worker.fetch(request, env as never)
-      expect(response.status).toBe(500)
+      const response = await worker.fetch(request, env as never, ctx as never)
+      // Fire-and-forget: always returns 202 regardless of background outcome
+      expect(response.status).toBe(202)
 
-      const body = await response.json() as { error: string }
-      expect(body.error).toContain('DO isolate crashed')
+      const body = await response.json() as { accepted: boolean }
+      expect(body.accepted).toBe(true)
+
+      // Await the background work
+      expect(ctx.waitUntil).toHaveBeenCalledOnce()
+      const backgroundPromise = ctx.waitUntil.mock.calls[0]![0] as Promise<void>
+      await backgroundPromise
 
       // The critical behavior: workflow still gets an event so it does not hang
       expect(mockSendEvent).toHaveBeenCalledOnce()
