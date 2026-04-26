@@ -11,6 +11,25 @@ crystallization-from-execution; PiAgentBindingMode authorized).
 
 ---
 
+## Amendment Log
+
+| Version | Date | Summary |
+|---|---|---|
+| v4.0 | 2026-04-26 | Initial v4 spec (Agents SDK + Sandbox topology) |
+| v4.1 | 2026-04-26 | GDK substrate amendment. ADR: DECISIONS.md 2026-04-26. Analysis: GDK-PLATFORM-ANALYSIS.md |
+
+**v4.1 changes (GDK substrate):**
+
+- SS0: "What is PRESERVED" table amended -- ofox.ai routing replaced by gdk-ai, tool gating via `beforeToolCall` hooks
+- SS2.3: model-bridge-do.ts replaced by `@weops/gdk-ai` `getModel()` + `streamSimple()`/`complete()`
+- SS3.1: ArchitectAgent model calls use gdk-ai directly
+- SS5.5: Sandbox sessions use `@weops/gdk-agent` `agentLoop()` + `@weops/gdk-ts` `buildCoreTools()` instead of pi-coding-agent `createAgentSession()`
+- SS10: Dockerfile installs `@weops/gdk-agent` + `@weops/gdk-ai` + `@weops/gdk-ts` instead of `@mariozechner/pi-coding-agent`
+- SS12: File scope gate and command policy gate become `beforeToolCall` implementations
+- SS18: New section -- GDK Substrate Integration
+
+---
+
 ## 0. What Changed From v3
 
 | Concern | v3 | v4 (this spec) |
@@ -32,13 +51,13 @@ crystallization-from-execution; PiAgentBindingMode authorized).
 - `graph-runner.ts` (StateGraph orchestration logic)
 - Queue bridge (Workflow -> Queue -> Consumer -> Coordinator DO)
 - CRP flow (custom business logic, not Agents SDK tool approval)
-- ofox.ai routing (called from inside Agent methods via model-bridge)
+- ~~ofox.ai routing (called from inside Agent methods via model-bridge)~~ (amended v4.1 -- GDK substrate): replaced by `@weops/gdk-ai` `getModel()` + `streamSimple()`/`complete()`
 - Planner/Verifier stay inline in Coordinator graph nodes
 - Three-tier dispatch: dry-run / sandbox / piAiRole fallback
 - Repair loop lifecycle: patch = keep workspace, resample = fresh
 - Cost model structure (~$0.009/synthesis base)
 - Security model (keys in env vars, ephemeral sandboxes)
-- Tool gating via pi SDK `customTools`
+- ~~Tool gating via pi SDK `customTools`~~ (amended v4.1 -- GDK substrate): tool gating via `@weops/gdk-agent` `beforeToolCall`/`afterToolCall` hooks
 
 ---
 
@@ -67,8 +86,8 @@ CF Workflow (FactoryPipeline)
                     |     No Container/Sandbox needed
                     |
                     +-- Sandbox (@cloudflare/sandbox)
-                          Coder: pi SDK session with write tools
-                          Tester: pi SDK session with bash/read tools
+                          Coder: gdk-agent session with write tools (amended v4.1)
+                          Tester: gdk-agent session with bash/read tools (amended v4.1)
                           Shared workspace (real filesystem)
                           R2 backup for repair loops
 ```
@@ -163,15 +182,13 @@ build graph, run graph, persist result. What changes:
 4. **Alarm mechanism preserved.** `Agent` extends `DurableObject` under the
    hood. DO Alarms remain available for wall-clock timeout.
 
-### 2.3 What Does NOT Change
+### 2.3 What Does NOT Change (amended v4.1 -- GDK substrate)
 
 - `graph-runner.ts` -- zero changes. The StateGraph class is framework-agnostic.
 - `contracts.ts` -- zero changes. ROLE_CONTRACTS stay as typed objects.
-- `model-bridge-do.ts` -- zero changes. ofox.ai routing stays internal.
+- ~~`model-bridge-do.ts` -- zero changes. ofox.ai routing stays internal.~~ **v4.1:** `model-bridge-do.ts` is replaced by a thin wrapper over `@weops/gdk-ai`. The bridge calls `getModel(provider, modelId)` for model resolution and `complete(model, context, options)` or `streamSimple(model, context, options)` for inference. The wrapper maps Factory role contracts to gdk-ai `Context` (systemPrompt + messages + tools). See SS18 for API signatures.
 - `buildRoleMessage()` -- zero changes. Message assembly is state-driven.
-- Planner and Verifier nodes -- stay as `callModel()` inside graph nodes.
-  These roles need no filesystem, no Container, no Agent. They are
-  structured JSON producers via the model bridge.
+- Planner and Verifier nodes -- stay as inline graph nodes calling gdk-ai `complete()`. These roles need no filesystem, no Container, no Agent. They are structured JSON producers.
 
 ---
 
@@ -194,6 +211,9 @@ interface ArchitectEnv {
   OFOX_API_KEY?: string;
 }
 
+// (amended v4.1 — GDK substrate): model calls use @weops/gdk-ai
+import { getModel, complete } from "@weops/gdk-ai";
+
 export class ArchitectAgent extends Agent<ArchitectEnv> {
   @callable()
   async produceBriefingScript(input: {
@@ -202,9 +222,9 @@ export class ArchitectAgent extends Agent<ArchitectEnv> {
     codebaseSnapshot?: string; // Pre-loaded relevant files
     skillContent: string;      // Role-scoped skills
   }): Promise<BriefingScript> {
-    const model = this.resolveModel("architect");
-    const systemPrompt = this.buildSystemPrompt(input);
-    const result = await this.callModel(model, systemPrompt, input);
+    const model = getModel("anthropic", "claude-sonnet-4-5");
+    const context = { systemPrompt: this.buildSystemPrompt(input), messages: [...] };
+    const result = await complete(model, context);
     return this.parseBriefingScript(result);
   }
 }
@@ -433,9 +453,9 @@ across Coder -> Tester).
 Sandbox lifecycle:
   1. sandbox = getSandbox(env.SANDBOX, name)
   2. Workspace prep: git clone, pnpm install
-  3. Coder session: pi SDK with write tools
+  3. Coder session: gdk-agent Agent with write tools (amended v4.1)
   4. Code-Critic review (CriticAgent, no sandbox needed)
-  5. Tester session: pi SDK with bash/read tools (same sandbox)
+  5. Tester session: gdk-agent Agent with bash/read tools, same sandbox (amended v4.1)
   6. Verifier decision (Coordinator, no sandbox needed)
      +-- pass      -> sandbox.destroy()
      +-- patch     -> sandbox stays alive, Coder runs again
@@ -444,34 +464,40 @@ Sandbox lifecycle:
      +-- fail      -> sandbox.destroy()
 ```
 
-### 5.5 Pi SDK Inside the Sandbox
+### 5.5 GDK Agent Loop Inside the Sandbox (amended v4.1 -- GDK substrate)
 
-The pi SDK runs inside the sandbox's Linux environment with full POSIX
-capabilities. API usage is identical to v3 SS4.2:
+The `@weops/gdk-agent` agent loop runs inside the sandbox's Linux environment
+with full POSIX capabilities. This replaces `@mariozechner/pi-coding-agent`
+`createAgentSession()` with `agentLoop()` + `Agent` class from gdk-agent,
+using `@weops/gdk-ts` `buildCoreTools()` for file_read/file_write/bash_execute/grep_search:
 
 ```typescript
 // Inside /factory/run-session.js (runs in sandbox)
-import { createAgentSession, SessionManager } from "@mariozechner/pi-coding-agent";
-import { getModel } from "@mariozechner/pi-ai";
+import { Agent } from "@weops/gdk-agent";
+import { getModel } from "@weops/gdk-ai";
+import { buildCoreTools } from "@weops/gdk-ts/tools/core-tools";
 
-// Keys from process.env (set by sandbox env config)
 const model = getModel("anthropic", "claude-sonnet-4-5");
+const tools = buildCoreTools({ workDir: "/workspace" });
 
-const { session } = await createAgentSession({
+const agent = new Agent({
+  systemPrompt: roleSystemPrompt,
   model,
-  sessionManager: SessionManager.inMemory(),
+  tools,
+  beforeToolCall: fileScopeGate,   // see SS12 for gate impl
+  afterToolCall: evidenceCapture,
 });
 
-const events = [];
-session.subscribe((event) => {
-  events.push(event);
-});
-
-await session.prompt(objectiveText);
-
-// Collect results
-session.dispose();
+agent.subscribe((event) => { /* stream AgentEvents */ });
+await agent.prompt(objectiveText);
+await agent.waitForIdle();
 ```
+
+The `Agent` class provides: `prompt()`, `subscribe()`, `abort()`,
+`waitForIdle()`, and `steer()` for mid-run injection. The `agentLoop()`
+function (used internally by `Agent`) implements the loop: prompt -> model
+response -> tool calls (parallel by default) -> tool results -> repeat.
+`beforeToolCall`/`afterToolCall` hooks gate every tool call (see SS12, SS18).
 
 ---
 
@@ -631,11 +657,11 @@ budget-check -> architect -> semantic-critic -> compile -> gate-1
 | `semantic-critic` | `CriticAgent.semanticReview()` | Agents SDK Agent |
 | `compile` | Deterministic compiler passes | Coordinator graph node |
 | `gate-1` | `evaluateGate1()` deterministic | Coordinator graph node |
-| `planner` | `callModel()` via model bridge | Coordinator graph node (existing) |
-| `coder` | pi SDK session in Sandbox | `@cloudflare/sandbox` |
+| `planner` | gdk-ai `complete()` via model bridge | Coordinator graph node (existing, amended v4.1) |
+| `coder` | gdk-agent `Agent` session in Sandbox | `@cloudflare/sandbox` (amended v4.1) |
 | `code-critic` | `CriticAgent.codeReview()` | Agents SDK Agent |
-| `tester` | pi SDK session in Sandbox | `@cloudflare/sandbox` |
-| `verifier` | `callModel()` via model bridge | Coordinator graph node (existing) |
+| `tester` | gdk-agent `Agent` session in Sandbox | `@cloudflare/sandbox` (amended v4.1) |
+| `verifier` | gdk-ai `complete()` via model bridge | Coordinator graph node (existing, amended v4.1) |
 
 ### 8.3 Graph Wiring
 
@@ -790,34 +816,40 @@ runs ONCE per synthesis. Repairs only re-run the inner loop
 ## 10. Dockerfile for Sandbox
 
 ```dockerfile
+# (amended v4.1 — GDK substrate)
 FROM node:22-slim
 
 RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 RUN corepack enable && corepack prepare pnpm@latest --activate
-RUN npm install -g @mariozechner/pi-coding-agent@0.70.2
 
 WORKDIR /factory
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 COPY sandbox-scripts/ .
 
 EXPOSE 8080
 CMD ["node", "agent-server.js"]
 ```
 
+Dependencies in `/factory/package.json`: `@weops/gdk-agent`, `@weops/gdk-ai`,
+`@weops/gdk-ts` (core-tools only, no Node.js-specific governance imports).
+
 | Component | Purpose | Size |
 |---|---|---|
 | Node.js 22 | Runtime | ~180MB |
 | git | Clone, branch, diff, commit | ~30MB |
 | pnpm | Package management | ~10MB |
-| pi-coding-agent | Agent loop + tools (read/write/edit/bash) | ~15MB |
-| pi-ai | Model access, streaming, tool calling | ~5MB |
+| @weops/gdk-agent | Agent loop (agentLoop, Agent class, tool execution) | ~15MB |
+| @weops/gdk-ai | Model access, streaming, 22 providers | ~5MB |
+| @weops/gdk-ts (core-tools) | file_read, file_write, bash_execute, grep_search | ~2MB |
 | sandbox-scripts | Session runner + optional agent-server | ~50KB |
 
 Total: ~240MB. Well within CF Container limits.
 
 The `sandbox-scripts/` directory contains:
-- `run-session.js` -- CLI script: reads input JSON, runs pi SDK session, writes output JSON
+- `run-session.js` -- CLI script: reads input JSON, creates gdk-agent `Agent`, runs session, writes output JSON
 - `agent-server.js` -- Optional HTTP server (Strategy B from SS5.3)
-- `tool-gates.js` -- File scope + command policy enforcement via `customTools`
+- `tool-gates.js` -- File scope + command policy enforcement via `beforeToolCall` hooks (see SS12)
 
 ---
 
@@ -914,10 +946,7 @@ interface SemanticReviewResult {
   filesystem namespace. Sandboxes do not share filesystems. Network egress
   is restricted to LLM APIs, github.com, and npm registries.
 
-- **File scope:** Enforced via pi SDK `customTools` in `createAgentSession()`.
-  The Coordinator sends `fileScope` / `commandPolicy` as part of the session
-  input. The sandbox session runner builds gated tools. Violations are
-  blocked pre-filesystem and recorded in `blockedToolCalls`.
+- **File scope (amended v4.1 -- GDK substrate):** Enforced via `beforeToolCall` hook in the gdk-agent `Agent` config. The Coordinator sends `fileScope` / `commandPolicy` as part of the session input. The sandbox session runner builds a `beforeToolCall` function that checks file paths against `fileScope` and commands against `commandPolicy`. Denied calls return `{ block: true, reason }` to the agent loop; the model sees the denial and adjusts. Violations are recorded in `blockedToolCalls`. The `afterToolCall` hook captures evidence (output hash, timing) for audit.
 
 - **Sandbox lifetime:** Fresh sandbox per synthesis (deterministic name from
   workGraphId). No cross-synthesis state. Destroyed after terminal verdict.
@@ -986,8 +1015,8 @@ package (`cloudflare:agents`) as their base class. Rationale:
 
 **What Agents SDK is NOT used for:**
 - Tool approval (CRP flow is custom business logic)
-- Model routing (ofox.ai handles this via model-bridge)
-- Session management (pi SDK handles coding sessions inside sandboxes)
+- Model routing (`@weops/gdk-ai` handles this -- amended v4.1)
+- Session management (`@weops/gdk-agent` handles coding sessions inside sandboxes -- amended v4.1)
 
 ### 14.3 Sandbox SDK Adoption
 
@@ -1012,9 +1041,9 @@ of raw `Container` subclass. Rationale:
 3. Verify `@callable()` decorator works on `synthesize()` and `resolveCrp()`
 4. Verify `ArchitectAgent.produceBriefingScript()` returns valid BriefingScript
 5. Verify `CriticAgent.semanticReview()` returns valid SemanticReviewResult
-6. Test pi SDK inside Docker container: `createAgentSession()`, `session.prompt()`, `session.subscribe()`
-7. Verify `getModel("anthropic", "claude-sonnet-4-5")` reads key from `process.env`
-8. Test tool gating: confirm writes outside fileScope are blocked
+6. Test gdk-agent inside Docker container: `Agent` constructor, `agent.prompt()`, `agent.subscribe()` (amended v4.1)
+7. Verify gdk-ai `getModel("anthropic", "claude-sonnet-4-5")` reads key from `process.env` (amended v4.1)
+8. Test tool gating: confirm `beforeToolCall` blocks writes outside fileScope (amended v4.1)
 
 ### 15.2 Cloudflare Integration
 
@@ -1095,12 +1124,59 @@ still works."
 | Workspace backup | Not specified | R2 via `sandbox.createBackup()` |
 | Graph topology | 5 nodes (planner/coder/critic/tester/verifier) | 9 nodes (+architect/semantic-critic/compile/gate-1) |
 | DO classes | 2 (Coordinator + FactoryAgent) | 4 (Coordinator + Architect + Critic + Sandbox) |
-| npm packages | `@cloudflare/containers` | `agents`, `@cloudflare/sandbox` |
-| LLM routing | ofox.ai via model-bridge | ofox.ai via model-bridge (unchanged) |
-| Pi SDK location | Container (correct) | Sandbox (correct) |
-| Session API | `session.prompt()` + `subscribe()` | `session.prompt()` + `subscribe()` (unchanged) |
-| Model API | `getModel(provider, modelId)` | `getModel(provider, modelId)` (unchanged) |
+| npm packages | `@cloudflare/containers` | `agents`, `@cloudflare/sandbox`, `@weops/gdk-ai`, `@weops/gdk-agent`, `@weops/gdk-ts` (amended v4.1) |
+| LLM routing | ofox.ai via model-bridge | `@weops/gdk-ai` `getModel()` + `complete()`/`streamSimple()` (amended v4.1) |
+| Agent substrate | pi-coding-agent `createAgentSession()` | `@weops/gdk-agent` `Agent` class + `agentLoop()` (amended v4.1) |
+| Session API | `session.prompt()` + `subscribe()` | `agent.prompt()` + `agent.subscribe()` + `agent.waitForIdle()` (gdk-agent, amended v4.1) |
+| Model API | `getModel(provider, modelId)` from pi-ai | `getModel(provider, modelId)` from `@weops/gdk-ai` (amended v4.1) |
 | CRP flow | Custom (Coordinator -> Queue -> waitForEvent) | Custom (unchanged, NOT Agents SDK approval) |
 | graph-runner.ts | StateGraph class | StateGraph class (unchanged) |
 | Repair loop | patch/resample via verifier routing | patch/resample via verifier routing (unchanged) |
 | Cost per synthesis | ~$0.009 | ~$0.007 (cheaper: no Architect Container) |
+
+---
+
+## 18. GDK Substrate Integration (added v4.1)
+
+**ADR:** DECISIONS.md 2026-04-26 "GDK substrate adoption for Factory agent infrastructure"
+**Analysis:** `specs/reference/GDK-PLATFORM-ANALYSIS.md`
+
+### 18.1 Package Mapping
+
+| GDK Package | Replaces | Used For |
+|---|---|---|
+| `@weops/gdk-ai` | ofox.ai + `@factory/task-routing` + `@mariozechner/pi-ai` | Model resolution (`getModel`), inference (`complete`, `streamSimple`), 22-provider routing, faux provider for testing |
+| `@weops/gdk-agent` | `@mariozechner/pi-coding-agent` `createAgentSession()` | Agent loop (`agentLoop`, `Agent` class), parallel tool execution, `beforeToolCall`/`afterToolCall` hooks, streaming `AgentEvent` |
+| `@weops/gdk-ts` (core-tools only) | Custom tool implementations in sandbox-scripts | `buildCoreTools()`: file_read, file_write, bash_execute, grep_search |
+
+### 18.2 Key API Signatures (verified from source)
+
+**Model resolution and inference (gdk-ai):**
+```typescript
+getModel<TProvider, TModelId>(provider, modelId): Model<...>
+complete(model, context, options?): Promise<AssistantMessage>
+streamSimple(model, context, options?): AssistantMessageEventStream  // with reasoning
+```
+
+**Agent loop (gdk-agent):**
+```typescript
+class Agent {
+  prompt(message | string): Promise<void>
+  subscribe(listener: (event: AgentEvent) => void): () => void
+  waitForIdle(): Promise<void>
+  abort(): void
+  steer(message): void       // inject mid-run
+  followUp(message): void    // queue post-completion
+}
+```
+
+**Tool gating hooks (gdk-agent AgentLoopConfig):**
+```typescript
+beforeToolCall?: (ctx: BeforeToolCallContext, signal?) => Promise<BeforeToolCallResult>
+afterToolCall?: (ctx: AfterToolCallContext, signal?) => Promise<AfterToolCallResult>
+// BeforeToolCallResult: undefined (permit) | { block: true, reason: string } (deny)
+```
+
+### 18.3 What the Factory KEEPS Custom
+
+Pipeline orchestration (CF Workflow + Queue bridge), Coordinator Agent (extends `agents` SDK `Agent`), `graph-runner.ts` (StateGraph), compiler passes, coverage gates (Gate 1/2/3), lineage graph (ArangoDB), WorkGraph assembly, CRP/VCR flow, Dream DO consolidation, R2 workspace backup. These are Factory-specific logic that GDK does not address.
