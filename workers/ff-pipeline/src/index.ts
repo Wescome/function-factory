@@ -207,9 +207,12 @@ export default {
                 repairCount: 0,
               },
             })
-          } catch {
-            // If even the failure event can't be sent, log and move on
-            console.error(`Failed to send failure event for workflow ${workflowId}: ${errorMessage}`)
+          } catch (sendErr) {
+            // Log the ACTUAL sendEvent error, not the original error — the sendEvent
+            // failure reason (e.g. invalid_event_type, workflow not running) is what
+            // matters for debugging why the workflow hangs.
+            const sendErrMsg = sendErr instanceof Error ? sendErr.message : String(sendErr)
+            console.error(`Failed to send failure event for workflow ${workflowId}: sendEvent error: ${sendErrMsg} (original error: ${errorMessage})`)
           }
           msg.ack() // Remove from queue even though it failed
         } else {

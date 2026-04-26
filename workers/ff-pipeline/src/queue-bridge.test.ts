@@ -881,6 +881,163 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
     })
   })
 
+  // ── C) sendEvent failure resilience ──
+
+  describe('queue consumer sendEvent failure resilience', () => {
+
+    it('logs the ACTUAL sendEvent error, not the original DO error, when failure event also fails', async () => {
+      const { default: worker } = await import('./index')
+
+      const originalError = new Error('DO permanently broken')
+      const sendEventError = new Error('(workflow.invalid_event_type) Provided event type is invalid')
+
+      const mockDoFetch = vi.fn(async () => { throw originalError })
+      const mockSendEvent = vi.fn(async () => { throw sendEventError })
+
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      const env = createEnv({
+        FACTORY_PIPELINE: {
+          create: vi.fn(),
+          get: vi.fn(async () => ({
+            id: 'wf-logbug',
+            status: vi.fn(),
+            sendEvent: mockSendEvent,
+          })),
+        },
+        COORDINATOR: {
+          idFromName: vi.fn(() => 'do-id'),
+          get: vi.fn(() => ({ fetch: mockDoFetch })),
+        },
+      })
+
+      const msg = createMockMessage({
+        workflowId: 'wf-logbug',
+        workGraphId: 'WG-LOGBUG',
+        workGraph: { _key: 'WG-LOGBUG' },
+        dryRun: false,
+      }, 3) // max retries exhausted
+
+      const batch = createMockBatch([msg])
+      const ctx = createMockCtx()
+
+      await worker.queue(batch as never, env as never, ctx as never)
+
+      // The console.error should log the ACTUAL sendEvent error, not just the original error
+      expect(consoleSpy).toHaveBeenCalled()
+      const loggedMessage = consoleSpy.mock.calls[0]![0] as string
+      expect(loggedMessage).toContain('wf-logbug')
+      // Must contain the sendEvent failure reason so we can debug why the workflow hangs
+      expect(loggedMessage).toContain('invalid_event_type')
+      // Should also include the original error for full context
+      expect(loggedMessage).toContain('DO permanently broken')
+
+      consoleSpy.mockRestore()
+    })
+
+    it('retries (does NOT ack) when sendEvent fails on happy path and attempts remain', async () => {
+      // This tests the case where DO succeeds but sendEvent fails.
+      // The message should be retried, not acked, because the workflow never got the event.
+      const { default: worker } = await import('./index')
+
+      const doResult = {
+        verdict: { decision: 'pass', confidence: 0.95, reason: 'All roles passed' },
+        tokenUsage: 4200,
+        repairCount: 0,
+      }
+
+      const mockDoFetch = vi.fn(async () => new Response(JSON.stringify(doResult), {
+        headers: { 'Content-Type': 'application/json' },
+      }))
+
+      const mockSendEvent = vi.fn(async () => {
+        throw new Error('(workflow.invalid_event_type) Provided event type is invalid')
+      })
+
+      const env = createEnv({
+        FACTORY_PIPELINE: {
+          create: vi.fn(),
+          get: vi.fn(async () => ({
+            id: 'wf-sendfail-retry',
+            status: vi.fn(),
+            sendEvent: mockSendEvent,
+          })),
+        },
+        COORDINATOR: {
+          idFromName: vi.fn(() => 'do-id'),
+          get: vi.fn(() => ({ fetch: mockDoFetch })),
+        },
+      })
+
+      const msg = createMockMessage({
+        workflowId: 'wf-sendfail-retry',
+        workGraphId: 'WG-SENDFAIL',
+        workGraph: { _key: 'WG-SENDFAIL' },
+        dryRun: false,
+      }, 1) // first attempt — should retry
+
+      const batch = createMockBatch([msg])
+      const ctx = createMockCtx()
+
+      await worker.queue(batch as never, env as never, ctx as never)
+
+      // Message must be retried, NOT acked
+      expect(msg.retry).toHaveBeenCalledOnce()
+      expect(msg.ack).not.toHaveBeenCalled()
+    })
+
+    it('includes workflow status in error log when sendEvent fails at max retries', async () => {
+      const { default: worker } = await import('./index')
+
+      const mockDoFetch = vi.fn(async () => { throw new Error('DO crashed') })
+
+      const mockStatus = vi.fn(async () => ({ status: 'errored' }))
+      const mockSendEvent = vi.fn(async () => {
+        throw new Error('workflow not running')
+      })
+
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      const env = createEnv({
+        FACTORY_PIPELINE: {
+          create: vi.fn(),
+          get: vi.fn(async () => ({
+            id: 'wf-status-log',
+            status: mockStatus,
+            sendEvent: mockSendEvent,
+          })),
+        },
+        COORDINATOR: {
+          idFromName: vi.fn(() => 'do-id'),
+          get: vi.fn(() => ({ fetch: mockDoFetch })),
+        },
+      })
+
+      const msg = createMockMessage({
+        workflowId: 'wf-status-log',
+        workGraphId: 'WG-STATUSLOG',
+        workGraph: { _key: 'WG-STATUSLOG' },
+        dryRun: false,
+      }, 3)
+
+      const batch = createMockBatch([msg])
+      const ctx = createMockCtx()
+
+      await worker.queue(batch as never, env as never, ctx as never)
+
+      // Should still ack and log
+      expect(consoleSpy).toHaveBeenCalled()
+      const loggedMessage = consoleSpy.mock.calls[0]![0] as string
+      expect(loggedMessage).toContain('wf-status-log')
+      // Must contain sendEvent error info so we know WHY the event couldn't be sent
+      expect(loggedMessage).toContain('workflow not running')
+      // Should also contain original error for context
+      expect(loggedMessage).toContain('DO crashed')
+
+      consoleSpy.mockRestore()
+    })
+  })
+
   // ── D) Existing /trigger-synthesis route still works ──
 
   describe('/trigger-synthesis HTTP route preserved', () => {

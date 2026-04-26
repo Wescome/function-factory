@@ -285,7 +285,7 @@ describe('Stage 6: Event-driven synthesis handoff', () => {
         (call: unknown[]) => call[0] === 'synthesis-complete',
       )
       expect(synthWait).toBeDefined()
-      expect((synthWait![1] as { timeout: string }).timeout).toBe('5 minutes')
+      expect((synthWait![1] as { timeout: string }).timeout).toBe('15 minutes')
     })
 
     it('returns PipelineResult with synthesis verdict on success', async () => {
@@ -667,7 +667,7 @@ describe('Stage 6: Event-driven synthesis handoff', () => {
       expect(synthCall).toBeDefined()
       const opts = synthCall![1] as { type: string; timeout: string }
       expect(opts.type).toBe('synthesis-complete')
-      expect(opts.timeout).toBe('5 minutes')
+      expect(opts.timeout).toBe('15 minutes')
     })
   })
 
