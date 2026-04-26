@@ -938,3 +938,21 @@ The event-driven pattern already exists in the pipeline (`step.waitForEvent('arc
 **Rationale:** On 2026-04-25, 10+ deploys were made to production to "test" Stage 6 fixes. Each failed for a different reason, burning ~$3 in LLM credits and 2+ hours. If each change had been tested locally first, the issue would have resolved in 1-2 iterations.
 
 **Status:** Active.
+
+## 2026-04-26: ADR — GDK substrate adoption for Factory agent infrastructure
+
+**Decision:** The Function Factory adopts `@weops/gdk-ai` and `@weops/gdk-agent` from the `weops-pi-foundation` monorepo as its agent and model routing substrate. Factory-specific logic (pipeline orchestration, compiler passes, coverage gates, lineage graph, WorkGraph assembly) remains custom.
+
+**What the Factory USES from GDK:**
+
+1. **`@weops/gdk-ai`** (forked pi-ai) — Unified LLM API with 22 providers. Replaces ofox.ai and `@factory/task-routing`. Providers include: Anthropic, OpenAI, Google, DeepSeek, GLM/ZAI, Kimi, Mistral, Bedrock, Groq, xAI. Push-based EventStream streaming. Faux provider for testing.
+
+2. **`@weops/gdk-agent`** (forked pi-agent) — Agent loop with `agentLoop()` returning `EventStream<AgentEvent>`. Parallel + sequential tool execution, abort, steering, `beforeToolCall`/`afterToolCall` hooks. Runtime-agnostic core — runs in CF Sandbox Containers.
+
+**What the Factory KEEPS custom:** CF Workflow pipeline, Queue bridge, Coordinator Agent, graph-runner.ts, Stage 5 compiler, Coverage gates, Lineage graph, WorkGraph assembly.
+
+**Rationale:** GDK packages encode design decisions (provider quirks, streaming edge cases, tool execution, abort handling) that would need to be rediscovered from scratch. The implementation IS the specification. However, Factory and GDK solve different problems (I-layer vs We-layer). They share substrate, not identity. The Factory builds itself first, then builds WeOps.
+
+**Canonical analysis:** `specs/reference/GDK-PLATFORM-ANALYSIS.md` (714 lines).
+
+**Status:** Active.
