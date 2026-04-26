@@ -224,7 +224,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       verdict: { decision: string; confidence: number; reason: string }
       tokenUsage: number
       repairCount: number
-    }>('synthesis-complete', { type: 'synthesis-complete', timeout: '5 minutes' })
+    }>('synthesis-complete', { type: 'synthesis-complete', timeout: '15 minutes' })
 
     const synthPayload = synthEvent.payload as {
       verdict: { decision: string; confidence: number; reason: string }
