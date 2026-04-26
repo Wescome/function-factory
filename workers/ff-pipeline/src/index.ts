@@ -124,17 +124,23 @@ export default {
             repairCount: number
           }
 
-          await workflow.sendEvent('synthesis-complete', {
-            verdict: result.verdict,
-            tokenUsage: result.tokenUsage,
-            repairCount: result.repairCount,
+          await workflow.sendEvent({
+            type: 'synthesis-complete',
+            payload: {
+              verdict: result.verdict,
+              tokenUsage: result.tokenUsage,
+              repairCount: result.repairCount,
+            },
           })
         } catch (err) {
           const errorMessage = err instanceof Error ? err.message : String(err)
-          await workflow.sendEvent('synthesis-complete', {
-            verdict: { decision: 'fail', confidence: 1.0, reason: `Trigger error: ${errorMessage}` },
-            tokenUsage: 0,
-            repairCount: 0,
+          await workflow.sendEvent({
+            type: 'synthesis-complete',
+            payload: {
+              verdict: { decision: 'fail', confidence: 1.0, reason: `Trigger error: ${errorMessage}` },
+              tokenUsage: 0,
+              repairCount: 0,
+            },
           })
         }
       })())
@@ -175,10 +181,13 @@ export default {
 
         // Send synthesis result back to the waiting Workflow
         const workflow = await env.FACTORY_PIPELINE.get(workflowId)
-        await workflow.sendEvent('synthesis-complete', {
-          verdict: result.verdict,
-          tokenUsage: result.tokenUsage,
-          repairCount: result.repairCount,
+        await workflow.sendEvent({
+          type: 'synthesis-complete',
+          payload: {
+            verdict: result.verdict,
+            tokenUsage: result.tokenUsage,
+            repairCount: result.repairCount,
+          },
         })
 
         msg.ack()
@@ -190,10 +199,13 @@ export default {
           // Max retries exhausted — send failure event so Workflow doesn't hang
           try {
             const workflow = await env.FACTORY_PIPELINE.get(workflowId)
-            await workflow.sendEvent('synthesis-complete', {
-              verdict: { decision: 'fail', confidence: 1.0, reason: `Queue consumer error after ${msg.attempts} attempts: ${errorMessage}` },
-              tokenUsage: 0,
-              repairCount: 0,
+            await workflow.sendEvent({
+              type: 'synthesis-complete',
+              payload: {
+                verdict: { decision: 'fail', confidence: 1.0, reason: `Queue consumer error after ${msg.attempts} attempts: ${errorMessage}` },
+                tokenUsage: 0,
+                repairCount: 0,
+              },
             })
           } catch {
             // If even the failure event can't be sent, log and move on

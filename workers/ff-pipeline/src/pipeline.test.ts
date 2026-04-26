@@ -551,11 +551,13 @@ describe('Stage 6: Event-driven synthesis handoff', () => {
       if (waitUntilFn.mock.calls[0]) await waitUntilFn.mock.calls[0][0]
 
       expect(mockSendEvent).toHaveBeenCalledWith(
-        'synthesis-complete',
         expect.objectContaining({
-          verdict: expect.objectContaining({ decision: 'pass' }),
-          tokenUsage: 4200,
-          repairCount: 0,
+          type: 'synthesis-complete',
+          payload: expect.objectContaining({
+            verdict: expect.objectContaining({ decision: 'pass' }),
+            tokenUsage: 4200,
+            repairCount: 0,
+          }),
         }),
       )
     })
@@ -617,9 +619,11 @@ describe('Stage 6: Event-driven synthesis handoff', () => {
 
       // Should still send an error event to the workflow so it doesn't hang
       expect(mockSendEvent).toHaveBeenCalledWith(
-        'synthesis-complete',
         expect.objectContaining({
-          verdict: expect.objectContaining({ decision: 'fail' }),
+          type: 'synthesis-complete',
+          payload: expect.objectContaining({
+            verdict: expect.objectContaining({ decision: 'fail' }),
+          }),
         }),
       )
     })

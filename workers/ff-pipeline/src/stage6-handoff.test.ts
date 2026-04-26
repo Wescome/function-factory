@@ -348,11 +348,13 @@ describe('Stage 6: event-driven synthesis handoff', () => {
 
       // Workflow received the synthesis-complete event with DO result
       expect(mockSendEvent).toHaveBeenCalledWith(
-        'synthesis-complete',
         expect.objectContaining({
-          verdict: { decision: 'pass', confidence: 0.95, reason: 'All roles passed' },
-          tokenUsage: 4200,
-          repairCount: 0,
+          type: 'synthesis-complete',
+          payload: expect.objectContaining({
+            verdict: { decision: 'pass', confidence: 0.95, reason: 'All roles passed' },
+            tokenUsage: 4200,
+            repairCount: 0,
+          }),
         }),
       )
     })
@@ -409,14 +411,16 @@ describe('Stage 6: event-driven synthesis handoff', () => {
       // The critical behavior: workflow still gets an event so it does not hang
       expect(mockSendEvent).toHaveBeenCalledOnce()
       expect(mockSendEvent).toHaveBeenCalledWith(
-        'synthesis-complete',
         expect.objectContaining({
-          verdict: expect.objectContaining({
-            decision: 'fail',
-            reason: expect.stringContaining('DO isolate crashed'),
+          type: 'synthesis-complete',
+          payload: expect.objectContaining({
+            verdict: expect.objectContaining({
+              decision: 'fail',
+              reason: expect.stringContaining('DO isolate crashed'),
+            }),
+            tokenUsage: 0,
+            repairCount: 0,
           }),
-          tokenUsage: 0,
-          repairCount: 0,
         }),
       )
     })

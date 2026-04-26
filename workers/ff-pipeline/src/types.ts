@@ -79,5 +79,5 @@ export interface SemanticReviewResult {
 interface WorkflowInstance {
   id: string
   status(): Promise<unknown>
-  sendEvent(name: string, payload: unknown): Promise<void>
+  sendEvent(event: { type: string; payload: unknown }): Promise<void>
 }

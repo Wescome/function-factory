@@ -309,11 +309,13 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
       await worker.queue(batch as never, env as never, ctx as never)
 
       expect(mockSendEvent).toHaveBeenCalledWith(
-        'synthesis-complete',
         expect.objectContaining({
-          verdict: { decision: 'pass', confidence: 0.95, reason: 'All roles passed' },
-          tokenUsage: 4200,
-          repairCount: 0,
+          type: 'synthesis-complete',
+          payload: expect.objectContaining({
+            verdict: { decision: 'pass', confidence: 0.95, reason: 'All roles passed' },
+            tokenUsage: 4200,
+            repairCount: 0,
+          }),
         }),
       )
     })
@@ -611,14 +613,16 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
 
       // Should send failure event so workflow doesn't hang
       expect(mockSendEvent).toHaveBeenCalledWith(
-        'synthesis-complete',
         expect.objectContaining({
-          verdict: expect.objectContaining({
-            decision: 'fail',
-            reason: expect.stringContaining('DO permanently broken'),
+          type: 'synthesis-complete',
+          payload: expect.objectContaining({
+            verdict: expect.objectContaining({
+              decision: 'fail',
+              reason: expect.stringContaining('DO permanently broken'),
+            }),
+            tokenUsage: 0,
+            repairCount: 0,
           }),
-          tokenUsage: 0,
-          repairCount: 0,
         }),
       )
 
