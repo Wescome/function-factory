@@ -167,14 +167,25 @@ Phase E (queryable ontology) ← depends on all above
 
 Structured deployment and validation using the same ontology-backed methodology.
 
+**Pre-flight checklist (all must pass before deploy):**
+
+| # | Check | Command / action | Pass condition |
+|---|-------|-----------------|----------------|
+| PF1 | Bundle size | `wrangler deploy --dry-run` | Bundle < 10MB (CF Worker limit) |
+| PF2 | API key set | `wrangler secret list` | OFOX_API_KEY present |
+| PF3 | ArangoDB reachable | `curl $ARANGO_URL/_api/version` | HTTP 200 |
+| PF4 | Collections exist | AQL: `RETURN COLLECTIONS()` | All 20+ Factory collections present |
+| PF5 | All tests pass | `pnpm --filter @factory/ff-pipeline test` | 401+ tests, 0 failures |
+| PF6 | No secrets in staged code | `git diff --cached` scan | No patterns from C15 |
+
 **Success criteria (binary pass/fail):**
 
 | # | Criterion | Evidence required | Pass condition |
 |---|-----------|-------------------|----------------|
 | F1 | wrangler deploy succeeds | Deploy log, no errors | HTTP 200 on all 3 workers |
 | F2 | ArangoDB seeded | seedOntology() + seedAgentDesigns() output | Counts match: 215 ontology docs + 6 agent designs |
-| F3 | Dry-run synthesis completes | POST /trigger-synthesis with dryRun: true | Verdict: pass, all 9 nodes visited |
-| F4 | Live synthesis completes | POST /trigger-synthesis with real Signal | Verdict: pass or patch (not error/timeout) |
+| F3 | Dry-run synthesis completes | POST /trigger-synthesis with dryRun: true | Verdict: pass. RoleHistory contains all 10 nodes: budget-check, architect, semantic-critic, compile, gate-1, planner, coder, code-critic, tester, verifier. Response within 30 seconds. |
+| F4 | Live synthesis completes | POST /trigger-synthesis with real Signal | Verdict is not `interrupt` and no uncaught exception. Response within 5 minutes. If verdict is `fail`, investigate root cause before declaring F4 passed. |
 | F5 | Artifact validator fires | Query consultation_requests after low-confidence run | CRP document exists with correct fields |
 | F6 | Lifecycle transitions persist | Query specs_functions for lifecycleState | State matches expected stage |
 | F7 | Ontology queryable | ontology_query tool returns constraints for WorkGraph | Returns C1, C6, C13 |
@@ -183,14 +194,16 @@ Structured deployment and validation using the same ontology-backed methodology.
 
 | # | Risk | Likelihood | Impact | Mitigation |
 |---|------|-----------|--------|------------|
-| R7 | wrangler deploy fails on gdk-ai bundle size | Medium | High | Tree-shake unused providers; test with `wrangler deploy --dry-run` first |
-| R8 | ArangoDB collections don't exist | Low | High | Create collections via AQL before seeding; idempotent |
-| R9 | ofox.ai API key not in Worker secrets | High | Critical | Verify `wrangler secret list` before deploy; block on missing |
-| R10 | Sandbox binding not provisioned | Medium | Medium | Tier 2 fallback handles this — gdk-agent in V8 |
+| R7 | wrangler deploy fails on gdk-ai bundle size | Medium | High | Run `wrangler deploy --dry-run` (PF1). If > 10MB, refactor gdk-ai imports to explicit provider paths. Fallback: move gdk-ai to separate Worker via Service Binding. |
+| R8 | ArangoDB collections don't exist | Low | High | Create collections via AQL before seeding; idempotent. Checked by PF4. |
+| R9 | ofox.ai API key not in Worker secrets | High | Critical | Verified by PF2. Block deploy on missing. |
+| R10 | Sandbox binding not provisioned | Medium | High | Verify Sandbox binding in wrangler.jsonc and deployed env. If absent: SC-4 is blocked — mark synthesis as Tier 2 (agent-only, no real filesystem), log degradation. Do NOT claim SC-4 satisfied under Tier 2. |
 
-**Dependency:** Phases 0-E complete. ArangoDB Oasis reachable. ofox.ai API key set.
+**Dependency:** Phases 0-E complete. Pre-flight checklist passed.
 
 **Rollback plan:** `wrangler rollback` to previous deployment. No schema migration — ontology seed is additive.
+
+**Rollback triggers:** F1 fails (workers unreachable) or F3 fails (graph execution broken). F4/F5/F6/F7 failures do NOT trigger rollback — they indicate feature gaps, not deployment breakage.
 
 ---
 
@@ -212,10 +225,15 @@ Phase B enforces 4 of 16 constraints at persist time (C1, C7, C9, C15). The rema
 | C11 — Coder has filesystem | runsIn == SandboxContainer check | Small — config check |
 | C12 — Tester runs real tests | runsIn == SandboxContainer check | Small — config check |
 | C13 — WorkGraph has atoms | hasNode minCount 1 | Small — array check |
-| C14 — Lifecycle transitions | Gate requirements on state changes | Already in lifecycle.ts |
+| C14 — Lifecycle transitions | Gate requirements on state changes | **Separately enforced** in lifecycle.ts — not in artifact-validator. No Phase G work needed. |
 | C16 — Event-driven communication | communicatesVia == synthesisQueue | Small — config check |
 
-**Success criteria:** All 16 constraints have corresponding validators. Artifact-validator test count > 100.
+**Implementation order:**
+1. **Batch 1 (Small):** C3, C4, C5, C6, C8, C11, C12, C13, C16 — pure field/schema checks, no graph queries
+2. **Batch 2 (Medium):** C2, C10 — require upstream lineage queries against ArangoDB
+3. **C14:** Already enforced via lifecycle.ts `validateTransition()` — excluded from artifact-validator
+
+**Success criteria:** Every constraint has a corresponding enforcement mechanism. Every validator has at least 3 tests (pass, fail, edge case). Minimum 27 new tests for 9 Small + 6 for 2 Medium = 33 new tests.
 
 ---
 
@@ -226,7 +244,7 @@ The ontology implementation is complete when:
 | # | Criterion | Status | Evidence |
 |---|-----------|--------|----------|
 | SC-1 | All 30 competency questions answerable via AQL | **Done** | ontology-loader seeds 215 docs, 33 tests pass |
-| SC-2 | All 16 SHACL constraints enforced at persist time | **Partial** | 4/16 enforced (C1, C7, C9, C15), rest queryable. Phase G closes gap |
+| SC-2 | All 16 SHACL constraints enforced at runtime | **Partial** | 3 hard-block (C1, C9, C15) + 1 warning+CRP signal (C7) at persist time. C14 enforced via lifecycle.ts. Remaining 11 queryable but not enforced. Phase G closes gap. |
 | SC-3 | Every agent role is a gdk-agent session with tools | **Done** | 6 agents, 55 tests, all use agentLoop + arango_query |
 | SC-4 | Factory synthesizes with real code + real tests | **Pending** | Phase F live run required |
 | SC-5 | CRPs fire automatically on low confidence | **Done** | crp.ts wired, 7 tests pass |
@@ -263,4 +281,4 @@ The ontology implementation is complete when:
 | R7 | wrangler deploy fails on gdk-ai bundle size | Medium | High | Tree-shake unused providers; --dry-run first | Open — Phase F |
 | R8 | ArangoDB collections don't exist | Low | High | Create collections via AQL before seeding | Open — Phase F |
 | R9 | ofox.ai API key not in Worker secrets | High | Critical | Verify before deploy; block on missing | Open — Phase F |
-| R10 | Sandbox binding not provisioned | Medium | Medium | Tier 2 fallback handles this | Open — Phase F |
+| R10 | Sandbox binding not provisioned | Medium | High | Verify in wrangler.jsonc + deployed env. SC-4 blocked under Tier 2. | Open — Phase F |
