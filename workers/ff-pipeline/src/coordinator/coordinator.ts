@@ -200,7 +200,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         persistState,
         fetchMentorRules,
         // Sandbox execution for coder/tester — stubs throw until container is deployed,
-        // triggering automatic fallback to callModel (piAiRole equivalent)
+        // triggering automatic fallback to callModel (callModel fallback equivalent)
         executionRole: makeExecutionRole({
           dryRun,
           sandboxDeps: this.buildSandboxDeps(),
@@ -281,7 +281,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
           return JSON.stringify({
             approach: 'Dry-run implementation plan',
             atoms: [{ id: 'atom-001', description: 'Stub implementation', assignedTo: 'coder' }],
-            executorRecommendation: 'pi-sdk',
+            executorRecommendation: 'gdk-agent',
             estimatedComplexity: 'low',
           })
         case 'coder':
@@ -316,10 +316,10 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       return buildRealSandboxDeps(this.env.SANDBOX, this.currentWorkGraphId)
     }
     // No SANDBOX binding — return stubs that throw so makeExecutionRole
-    // falls back to callModel (piAiRole equivalent)
+    // falls back to callModel (callModel fallback equivalent)
     return {
       execInSandbox: async (_taskJson) => {
-        throw new Error('Sandbox not yet deployed — falling back to piAiRole')
+        throw new Error('Sandbox not yet deployed — falling back to callModel')
       },
       prepareWorkspace: async (_config) => {
         throw new Error('Sandbox not yet deployed')

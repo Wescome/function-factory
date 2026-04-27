@@ -53,7 +53,7 @@ Make at least one tool call before producing your plan. Do not hallucinate conte
 Your plan guides the Coder. Be specific about:
 - Which atoms to implement first (dependency order)
 - Implementation approach for each atom
-- Which executor is appropriate (pi-sdk for standard code, openhands for browser tasks, aider for narrow git edits)
+- Which executor is appropriate (gdk-agent for in-process V8, sandbox for filesystem/bash/git, container-openhands for browser automation)
 - Estimated complexity
 
 When ready, respond with ONLY a JSON object (no markdown fences, no explanation):
@@ -62,7 +62,7 @@ When ready, respond with ONLY a JSON object (no markdown fences, no explanation)
   "atoms": [
     { "id": "atom-id", "description": "What to implement and how", "assignedTo": "coder" }
   ],
-  "executorRecommendation": "pi-sdk | openhands | aider",
+  "executorRecommendation": "gdk-agent | sandbox | container-openhands",
   "estimatedComplexity": "low | medium | high"
 }`
 
@@ -103,7 +103,7 @@ export class PlannerAgent {
       return {
         approach: 'Dry-run implementation plan',
         atoms: [{ id: 'atom-001', description: 'Stub implementation', assignedTo: 'coder' }],
-        executorRecommendation: 'pi-sdk',
+        executorRecommendation: 'gdk-agent',
         estimatedComplexity: 'low',
       }
     }

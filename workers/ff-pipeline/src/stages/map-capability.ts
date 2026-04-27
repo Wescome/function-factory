@@ -67,7 +67,7 @@ export async function mapCapability(
     ...parsed,
     sourcePressureId: pressure._key,
     sourceRefs: [...(parsed.sourceRefs ?? []), `PRS:${pressure._key}`],
-    mappedBy: 'pi-ai',
+    mappedBy: 'gdk-ai',
     ...(pressure.specContent ? { specContent: pressure.specContent } : {}),
     createdAt: new Date().toISOString(),
   }

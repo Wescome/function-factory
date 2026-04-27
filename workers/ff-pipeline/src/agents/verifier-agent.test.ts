@@ -34,7 +34,7 @@ const SAMPLE_VERIFIER_INPUT: VerifierInput = {
   plan: {
     approach: 'Implement JWT middleware with refresh token rotation',
     atoms: [{ id: 'atom-001', description: 'Auth middleware', assignedTo: 'coder' }],
-    executorRecommendation: 'pi-sdk' as const,
+    executorRecommendation: 'gdk-agent' as const,
     estimatedComplexity: 'medium' as const,
   },
   code: {

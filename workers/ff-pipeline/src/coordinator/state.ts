@@ -1,7 +1,7 @@
 export interface Plan {
   approach: string
   atoms: { id: string; description: string; assignedTo: string }[]
-  executorRecommendation: 'pi-sdk' | 'openhands' | 'aider'
+  executorRecommendation: 'gdk-agent' | 'sandbox' | 'container-openhands'
   estimatedComplexity: 'low' | 'medium' | 'high'
 }
 
@@ -75,7 +75,7 @@ export interface GraphState {
   sandboxName: string | null
   freshBackupHandle: string | null
   coderBackupHandle: string | null
-  executionMode: 'dry-run' | 'sandbox' | 'piAiRole' | null
+  executionMode: 'dry-run' | 'sandbox' | 'callModel-fallback' | null
 
   // Tool tracking
   workspaceReady?: boolean

@@ -21,7 +21,7 @@ function makeState(overrides: Partial<GraphState> = {}): GraphState {
     plan: {
       approach: 'Test approach',
       atoms: [{ id: 'atom-001', description: 'Stub', assignedTo: 'coder' }],
-      executorRecommendation: 'pi-sdk',
+      executorRecommendation: 'gdk-agent',
       estimatedComplexity: 'low',
     },
     ...overrides,
@@ -506,7 +506,7 @@ describe('patch repair cycle via sandboxRole', () => {
           return JSON.stringify({
             approach: 'Plan',
             atoms: [{ id: 'a1', description: 'impl', assignedTo: 'coder' }],
-            executorRecommendation: 'pi-sdk',
+            executorRecommendation: 'gdk-agent',
             estimatedComplexity: 'low',
           })
         case 'critic':
@@ -601,7 +601,7 @@ describe('executionRole()', () => {
 // ────────────────────────────────────────────────────────────
 
 describe('executionRole dispatch', () => {
-  // ── Test 5 (from spec): falls back to piAiRole when sandbox throws ──
+  // ── Test 5 (from spec): falls back to callModel fallback when sandbox throws ──
   it('falls back to callModel when sandbox throws', async () => {
     const failingSandboxDeps = makeSandboxDeps({
       execInSandbox: vi.fn().mockRejectedValue(new Error('sandbox unavailable')),
@@ -625,7 +625,7 @@ describe('executionRole dispatch', () => {
     const state = makeState({ workspaceReady: true })
     const result = await executionRole('coder')(state)
 
-    // Sandbox failed — should fall back to callModel (piAiRole equivalent)
+    // Sandbox failed — should fall back to callModel (callModel fallback equivalent)
     expect(callModel).toHaveBeenCalled()
     expect(result.code).toBeDefined()
   })
@@ -678,18 +678,18 @@ describe('executionRole dispatch', () => {
 // ────────────────────────────────────────────────────────────
 
 describe('graph topology with executionRole', () => {
-  it('runs full graph with executionRole for coder/tester while piAiRole handles others', async () => {
+  it('runs full graph with executionRole for coder/tester while callModel fallback handles others', async () => {
     const { buildSynthesisGraph } = await import('./graph.js')
     const { makeExecutionRole } = await import('./sandbox-role.js')
 
-    // Stub callModel for planner, critic, verifier (piAiRole path)
+    // Stub callModel for planner, critic, verifier (callModel fallback path)
     const callModel = vi.fn().mockImplementation(async (taskKind: string) => {
       switch (taskKind) {
         case 'planner':
           return JSON.stringify({
             approach: 'Test plan',
             atoms: [{ id: 'atom-001', description: 'Stub', assignedTo: 'coder' }],
-            executorRecommendation: 'pi-sdk',
+            executorRecommendation: 'gdk-agent',
             estimatedComplexity: 'low',
           })
         case 'critic':
@@ -736,7 +736,7 @@ describe('graph topology with executionRole', () => {
     expect(finalState.verdict).toBeDefined()
     expect(finalState.verdict!.decision).toBe('pass')
 
-    // Planner, critic, verifier used callModel (piAiRole)
+    // Planner, critic, verifier used callModel (callModel fallback)
     // callModel should have been called for planner, critic, verifier = 3 times
     expect(callModel).toHaveBeenCalledTimes(3)
 
@@ -747,7 +747,7 @@ describe('graph topology with executionRole', () => {
     expect(finalState.tests!.passed).toBe(true)
   })
 
-  it('without executionRole, all roles use piAiRole (backward compat)', async () => {
+  it('without executionRole, all roles use callModel fallback (backward compat)', async () => {
     const { buildSynthesisGraph } = await import('./graph.js')
 
     const callModel = vi.fn().mockImplementation(async (taskKind: string) => {
@@ -755,7 +755,7 @@ describe('graph topology with executionRole', () => {
         case 'planner':
           return JSON.stringify({
             approach: 'Plan', atoms: [{ id: 'a1', description: 'x', assignedTo: 'coder' }],
-            executorRecommendation: 'pi-sdk', estimatedComplexity: 'low',
+            executorRecommendation: 'gdk-agent', estimatedComplexity: 'low',
           })
         case 'coder':
           return JSON.stringify({

@@ -237,7 +237,7 @@ describe('CriticAgent.codeReview', () => {
   const samplePlan: Plan = {
     approach: 'Implement auth module with JWT',
     atoms: [{ id: 'A1', description: 'Create token validator', assignedTo: 'coder' }],
-    executorRecommendation: 'pi-sdk',
+    executorRecommendation: 'gdk-agent',
     estimatedComplexity: 'medium',
   }
 

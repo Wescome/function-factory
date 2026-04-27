@@ -40,7 +40,7 @@ function makeStubCallModel() {
         return JSON.stringify({
           approach: 'Test plan',
           atoms: [{ id: 'atom-001', description: 'Stub', assignedTo: 'coder' }],
-          executorRecommendation: 'pi-sdk',
+          executorRecommendation: 'gdk-agent',
           estimatedComplexity: 'low',
         })
       case 'coder':
@@ -302,7 +302,7 @@ describe('T11: 9-node synthesis graph', () => {
           return JSON.stringify({
             approach: 'Test plan',
             atoms: [{ id: 'atom-001', description: 'Stub', assignedTo: 'coder' }],
-            executorRecommendation: 'pi-sdk',
+            executorRecommendation: 'gdk-agent',
             estimatedComplexity: 'low',
           })
         case 'coder':

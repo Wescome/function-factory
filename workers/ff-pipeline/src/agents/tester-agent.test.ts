@@ -50,7 +50,7 @@ const SAMPLE_WORKGRAPH = {
 const SAMPLE_PLAN = {
   approach: 'Implement JWT auth middleware',
   atoms: [{ id: 'atom-001', description: 'Auth middleware', assignedTo: 'coder' }],
-  executorRecommendation: 'pi-sdk' as const,
+  executorRecommendation: 'gdk-agent' as const,
   estimatedComplexity: 'medium' as const,
 }
 

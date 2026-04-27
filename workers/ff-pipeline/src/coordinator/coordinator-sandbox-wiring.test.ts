@@ -191,7 +191,7 @@ import { createInitialState, type GraphState } from './state.js'
 describe('T12-wiring: throwing stubs trigger callModel fallback (integration)', () => {
   function makeThrowingStubs(): SandboxDeps {
     return {
-      execInSandbox: async () => { throw new Error('Sandbox not yet deployed — falling back to piAiRole') },
+      execInSandbox: async () => { throw new Error('Sandbox not yet deployed — falling back to callModel') },
       prepareWorkspace: async () => { throw new Error('Sandbox not yet deployed') },
       createBackup: async () => '',
       restoreBackup: async () => {},
@@ -239,7 +239,7 @@ describe('T12-wiring: throwing stubs trigger callModel fallback (integration)', 
       plan: {
         approach: 'test',
         atoms: [{ id: 'a1', description: 'test', assignedTo: 'coder' }],
-        executorRecommendation: 'pi-sdk',
+        executorRecommendation: 'gdk-agent',
         estimatedComplexity: 'low',
       },
     }
@@ -278,7 +278,7 @@ describe('T12-wiring: throwing stubs trigger callModel fallback (integration)', 
       plan: {
         approach: 'test',
         atoms: [],
-        executorRecommendation: 'pi-sdk',
+        executorRecommendation: 'gdk-agent',
         estimatedComplexity: 'low',
       },
       code: {

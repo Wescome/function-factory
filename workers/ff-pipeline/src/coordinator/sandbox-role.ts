@@ -2,7 +2,7 @@
  * sandboxRole() — Graph node factory for sandbox-based execution.
  *
  * T6 integration crux: connects the Coordinator graph to the Sandbox Container.
- * Instead of calling an LLM directly (piAiRole), this node:
+ * Instead of calling an LLM directly (callModel-fallback), this node:
  *   1. Prepares the sandbox workspace (first coder call or resample)
  *   2. Sends the role task to the sandbox via execInSandbox()
  *   3. Parses the result and returns a Partial<GraphState> update
@@ -244,7 +244,7 @@ export function makeExecutionRole(config: ExecutionRoleConfig) {
         const node = sandboxRole(role, config.sandboxDeps, config.persistState)
         return await node(state)
       } catch {
-        // Fallback to piAiRole-equivalent via callModel
+        // Fallback to callModel-fallback-equivalent via callModel
         return await fallbackToCallModel(role, state, config)
       }
     }
@@ -292,7 +292,7 @@ async function dryRunRole(
 }
 
 // ────────────────────────────────────────────────────────────
-// Fallback: piAiRole-equivalent via callModel
+// Fallback: callModel-fallback-equivalent via callModel
 // ────────────────────────────────────────────────────────────
 
 async function fallbackToCallModel(

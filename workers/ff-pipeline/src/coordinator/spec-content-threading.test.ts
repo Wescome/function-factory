@@ -295,7 +295,7 @@ describe('specContent threading: pipeline -> queue -> DO -> graph nodes', () => 
     it('specContent survives spread-merge cycle', async () => {
       const { createInitialState } = await import('./state')
       const base = createInitialState('WG-001', { id: 'WG-001' }, { specContent: 'Original spec' })
-      const merged = { ...base, plan: { approach: 'test', atoms: [], executorRecommendation: 'pi-sdk' as const, estimatedComplexity: 'low' as const } }
+      const merged = { ...base, plan: { approach: 'test', atoms: [], executorRecommendation: 'gdk-agent' as const, estimatedComplexity: 'low' as const } }
       expect(merged.specContent).toBe('Original spec')
     })
   })
@@ -323,7 +323,7 @@ describe('specContent threading: pipeline -> queue -> DO -> graph nodes', () => 
               return JSON.stringify({
                 approach: 'Test plan',
                 atoms: [{ id: 'a1', description: 'Stub', assignedTo: 'coder' }],
-                executorRecommendation: 'pi-sdk',
+                executorRecommendation: 'gdk-agent',
                 estimatedComplexity: 'low',
               })
             case 'coder':
@@ -404,7 +404,7 @@ describe('specContent threading: pipeline -> queue -> DO -> graph nodes', () => 
             case 'planner':
               return JSON.stringify({
                 approach: 'Plan', atoms: [{ id: 'a1', description: 'Stub', assignedTo: 'coder' }],
-                executorRecommendation: 'pi-sdk', estimatedComplexity: 'low',
+                executorRecommendation: 'gdk-agent', estimatedComplexity: 'low',
               })
             case 'coder':
               return JSON.stringify({
@@ -472,7 +472,7 @@ describe('specContent threading: pipeline -> queue -> DO -> graph nodes', () => 
             case 'planner':
               return JSON.stringify({
                 approach: 'Plan', atoms: [{ id: 'a1', description: 'Stub', assignedTo: 'coder' }],
-                executorRecommendation: 'pi-sdk', estimatedComplexity: 'low',
+                executorRecommendation: 'gdk-agent', estimatedComplexity: 'low',
               })
             case 'coder':
               return JSON.stringify({
@@ -530,7 +530,7 @@ describe('specContent threading: pipeline -> queue -> DO -> graph nodes', () => 
             case 'planner':
               return JSON.stringify({
                 approach: 'Plan', atoms: [{ id: 'a1', description: 'Stub', assignedTo: 'coder' }],
-                executorRecommendation: 'pi-sdk', estimatedComplexity: 'low',
+                executorRecommendation: 'gdk-agent', estimatedComplexity: 'low',
               })
             case 'coder':
               return JSON.stringify({
@@ -688,7 +688,7 @@ describe('specContent threading: pipeline -> queue -> DO -> graph nodes', () => 
             case 'planner':
               return JSON.stringify({
                 approach: 'Plan', atoms: [{ id: 'a1', description: 'Stub', assignedTo: 'coder' }],
-                executorRecommendation: 'pi-sdk', estimatedComplexity: 'low',
+                executorRecommendation: 'gdk-agent', estimatedComplexity: 'low',
               })
             case 'coder':
               return JSON.stringify({

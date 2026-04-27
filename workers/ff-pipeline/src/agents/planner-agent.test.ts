@@ -23,7 +23,7 @@ const VALID_PLAN: Plan = {
     { id: 'atom-001', description: 'Create JWT validation middleware', assignedTo: 'coder' },
     { id: 'atom-002', description: 'Add login/logout route handlers', assignedTo: 'coder' },
   ],
-  executorRecommendation: 'pi-sdk',
+  executorRecommendation: 'gdk-agent',
   estimatedComplexity: 'medium',
 }
 
@@ -84,7 +84,7 @@ describe('PlannerAgent', () => {
       expect(result.approach).toBe('Dry-run implementation plan')
       expect(result.atoms).toHaveLength(1)
       expect(result.atoms[0]!.id).toBe('atom-001')
-      expect(result.executorRecommendation).toBe('pi-sdk')
+      expect(result.executorRecommendation).toBe('gdk-agent')
       expect(result.estimatedComplexity).toBe('low')
     })
   })
@@ -97,12 +97,12 @@ describe('PlannerAgent', () => {
 
       // Missing approach
       expect(() => validate({
-        atoms: [], executorRecommendation: 'pi-sdk', estimatedComplexity: 'low',
+        atoms: [], executorRecommendation: 'gdk-agent', estimatedComplexity: 'low',
       })).toThrow('missing required field "approach"')
 
       // Missing atoms
       expect(() => validate({
-        approach: 'test', executorRecommendation: 'pi-sdk', estimatedComplexity: 'low',
+        approach: 'test', executorRecommendation: 'gdk-agent', estimatedComplexity: 'low',
       })).toThrow('missing required field "atoms"')
 
       // Missing executorRecommendation
@@ -112,7 +112,7 @@ describe('PlannerAgent', () => {
 
       // Missing estimatedComplexity
       expect(() => validate({
-        approach: 'test', atoms: [], executorRecommendation: 'pi-sdk',
+        approach: 'test', atoms: [], executorRecommendation: 'gdk-agent',
       })).toThrow('missing required field "estimatedComplexity"')
     })
 
@@ -122,11 +122,11 @@ describe('PlannerAgent', () => {
       const validate = (agent as any).validatePlan.bind(agent)
 
       expect(() => validate({
-        approach: 123, atoms: [], executorRecommendation: 'pi-sdk', estimatedComplexity: 'low',
+        approach: 123, atoms: [], executorRecommendation: 'gdk-agent', estimatedComplexity: 'low',
       })).toThrow('"approach" must be a string')
 
       expect(() => validate({
-        approach: 'ok', atoms: 'not-array', executorRecommendation: 'pi-sdk', estimatedComplexity: 'low',
+        approach: 'ok', atoms: 'not-array', executorRecommendation: 'gdk-agent', estimatedComplexity: 'low',
       })).toThrow('"atoms" must be an array')
 
       expect(() => validate({
@@ -134,7 +134,7 @@ describe('PlannerAgent', () => {
       })).toThrow('"executorRecommendation" must be a string')
 
       expect(() => validate({
-        approach: 'ok', atoms: [], executorRecommendation: 'pi-sdk', estimatedComplexity: 99,
+        approach: 'ok', atoms: [], executorRecommendation: 'gdk-agent', estimatedComplexity: 99,
       })).toThrow('"estimatedComplexity" must be a string')
     })
 

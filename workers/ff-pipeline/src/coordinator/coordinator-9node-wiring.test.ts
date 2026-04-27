@@ -54,7 +54,7 @@ function makeStubCallModel() {
         return JSON.stringify({
           approach: 'Test plan',
           atoms: [{ id: 'atom-001', description: 'Stub', assignedTo: 'coder' }],
-          executorRecommendation: 'pi-sdk',
+          executorRecommendation: 'gdk-agent',
           estimatedComplexity: 'low',
         })
       case 'coder':
@@ -195,7 +195,7 @@ describe('T12: agent shape satisfies GraphDeps', () => {
 
     const result = await depsShape!.produceCode({
       workGraph: { test: true },
-      plan: { approach: 'test', atoms: [], executorRecommendation: 'pi-sdk', estimatedComplexity: 'low' },
+      plan: { approach: 'test', atoms: [], executorRecommendation: 'gdk-agent', estimatedComplexity: 'low' },
     })
     expect(result.files).toBeDefined()
     expect(Array.isArray(result.files)).toBe(true)
@@ -213,7 +213,7 @@ describe('T12: agent shape satisfies GraphDeps', () => {
 
     const result = await depsShape!.codeReview({
       code: { files: [], summary: 'test', testsIncluded: false },
-      plan: { approach: 'test', atoms: [], executorRecommendation: 'pi-sdk', estimatedComplexity: 'low' },
+      plan: { approach: 'test', atoms: [], executorRecommendation: 'gdk-agent', estimatedComplexity: 'low' },
       workGraph: { test: true },
       mentorRules: [],
     })

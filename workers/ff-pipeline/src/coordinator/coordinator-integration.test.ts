@@ -4,7 +4,7 @@
  * Tests that:
  * 1. coordinator builds deps with executionRole
  * 2. dry-run still works (executionRole uses stub path)
- * 3. live mode with sandbox stubs falls back to piAiRole (no crash)
+ * 3. live mode with sandbox stubs falls back to callModel fallback (no crash)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { GraphDeps } from './graph.js'
@@ -37,7 +37,7 @@ function makeStubCallModel() {
         return JSON.stringify({
           approach: 'Test plan',
           atoms: [{ id: 'atom-001', description: 'Stub', assignedTo: 'coder' }],
-          executorRecommendation: 'pi-sdk',
+          executorRecommendation: 'gdk-agent',
           estimatedComplexity: 'low',
         })
       case 'coder':
@@ -72,7 +72,7 @@ function makeStubCallModel() {
 function makeThrowingSandboxDeps(): SandboxDeps {
   return {
     execInSandbox: vi.fn().mockRejectedValue(
-      new Error('Sandbox not yet deployed — falling back to piAiRole'),
+      new Error('Sandbox not yet deployed — falling back to callModel'),
     ),
     prepareWorkspace: vi.fn().mockRejectedValue(
       new Error('Sandbox not yet deployed'),
@@ -168,7 +168,7 @@ describe('T7: coordinator executionRole wiring', () => {
   // T7.3: Live mode with throwing sandbox falls back to callModel
   // ────────────────────────────────────────────────────────────
 
-  it('live mode with sandbox stubs: falls back to piAiRole via callModel (no crash)', async () => {
+  it('live mode with sandbox stubs: falls back to callModel fallback via callModel (no crash)', async () => {
     const callModel = makeStubCallModel()
     const persistState = vi.fn().mockResolvedValue(undefined)
     const fetchMentorRules = vi.fn().mockResolvedValue([])

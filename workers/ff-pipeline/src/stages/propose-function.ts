@@ -137,7 +137,7 @@ export async function proposeFunction(
     ...parsed,
     sourceCapabilityId: capability._key,
     sourceRefs: [...(parsed.sourceRefs ?? []), `BC:${capability._key}`],
-    proposedBy: 'pi-ai',
+    proposedBy: 'gdk-ai',
     ...(capability.specContent ? { specContent: capability.specContent } : {}),
     createdAt: new Date().toISOString(),
   }

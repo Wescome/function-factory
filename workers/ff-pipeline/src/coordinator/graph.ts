@@ -12,7 +12,7 @@ export interface GraphDeps {
   callModel: (taskKind: string, system: string, user: string) => Promise<string>
   persistState: (state: GraphState, role: string) => Promise<void>
   fetchMentorRules: () => Promise<{ ruleId: string; rule: string }[]>
-  /** Optional execution dispatch for coder/tester. When provided, overrides piAiRole for those nodes. */
+  /** Optional execution dispatch for coder/tester. When provided, overrides callModel fallback for those nodes. */
   executionRole?: (role: 'coder' | 'tester') => (state: GraphState) => Promise<Partial<GraphState>>
 
   // ── 9-node extensions (SS8) ──

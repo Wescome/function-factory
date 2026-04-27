@@ -22,7 +22,7 @@ Given a WorkGraph (the compiled specification), produce a Plan that decomposes t
 Your plan guides the Coder. Be specific about:
 - Which atoms to implement first (dependency order)
 - Implementation approach for each atom
-- Which executor is appropriate (pi-sdk for standard code, openhands for browser tasks, aider for narrow git edits)
+- Which executor is appropriate (gdk-agent for in-process V8, sandbox for filesystem/bash/git, container-openhands for browser automation)
 - Estimated complexity
 
 Output JSON:
@@ -31,7 +31,7 @@ Output JSON:
   "atoms": [
     { "id": "atom-id", "description": "What to implement and how", "assignedTo": "coder" }
   ],
-  "executorRecommendation": "pi-sdk | openhands | aider",
+  "executorRecommendation": "gdk-agent | sandbox | container-openhands",
   "estimatedComplexity": "low | medium | high"
 }
 

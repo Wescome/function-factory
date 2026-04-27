@@ -1,36 +1,36 @@
 # Current Workspace
 
 ## Status
-Session ended at 2026-04-27T19:56:50.452Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
+Session ended at 2026-04-27T20:06:44.494Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
 
 ## Last update
-2026-04-27T19:56:50.452Z
+2026-04-27T20:06:44.494Z
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
-- [19:53:23] Bash: git commit -m "$(cat <<'EOF'
-META: Phase 0 spike — Architect role → gdk-agent agentLoop with tools
+- [20:03:28] Write: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/designs.ts
+- [20:03:36] Edit: /Users/wes/Developer/function-factory/specs/ontology/factory-ontology.ttl
+- [20:03:52] Bash: pnpm --filter @factory/ff-pipeline test 2>&1 | tail -20
+- [20:04:00] Bash: find /Users/wes/Developer/function-factory -name "ADR*" -o -name "adr*" | head -10
+- [20:04:01] Bash: grep -r "inherit\|extends.*Agent\|cloudflare.*agent\|agents.*sdk\|CF.*Container\|DurableObject" /Users/wes/Developer/fun
+- [20:04:07] Bash: ls /Users/wes/Developer/function-factory/specs/reference/ADR*
+- [20:04:19] Bash: grep -r "Agent.*extends\|extends.*Agent\|class.*Agent\|cloudflare.*Agent\|agents.*Agent" /Users/wes/Developer/function-f
+- [20:04:25] Bash: grep -B2 -A5 "extends Agent\|CF.*Agent\|Agents SDK\|agents.*SDK\|cloudflare.*agent\|hybrid.*Agent" /Users/wes/Developer/
+- [20:04:45] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/designs.ts
+- [20:04:57] Bash: grep -n "permissions:" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/designs.ts
+- [20:05:06] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/designs.ts
+- [20:05:15] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/designs.ts
+- [20:05:22] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/designs.ts
+- [20:05:29] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/designs.ts
+- [20:05:36] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/designs.ts
+- [20:05:43] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/designs.ts
+- [20:05:54] Bash: pnpm --filter @factory/ff-pipeline test 2>&1 | tail -8
+- [20:06:02] Bash: git add -A && git diff --cached --stat
+- [20:06:20] Bash: git commit -m "$(cat <<'EOF'
+META: Phase A — all 6 roles → real gdk-agent sessions + agent designs in ArangoDB
 
-Convert ArchitectAge
-- [19:53:29] Bash: git push origin main
-- [19:55:58] Agent: Convert Critic to gdk-agent
-- [19:56:10] Bash: find /Users/wes/Developer/function-factory/workers/ff-pipeline/src -name "*.test.ts" | grep -i agent
-- [19:56:10] Bash: find /Users/wes/Developer/function-factory/workers/ff-pipeline/src -name "*.test.ts" | grep -i critic
-- [19:56:13] Agent: Convert Planner to gdk-agent
-- [19:56:22] Bash: grep -n 'SemanticReviewResult' /Users/wes/Developer/function-factory/workers/ff-pipeline/src/types.ts
-- [19:56:22] Agent: Convert Verifier to gdk-agent
-- [19:56:22] Bash: grep -n 'CritiqueReport\|CriticAgent\|critic' /Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/
-- [19:56:23] Bash: grep -n 'CriticAgent\|critic-agent' /Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/graph.ts
-- [19:56:25] Bash: ls /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/
-- [19:56:32] Bash: grep -rn 'registerFauxProvider\|fauxAssistantMessage\|fauxText\|fauxToolCall\|FauxProviderRegistration' /Users/wes/Devel
-- [19:56:34] Agent: Convert Coder to gdk-agent
-- [19:56:36] Bash: ls /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/
-- [19:56:36] Bash: find /Users/wes/Developer/function-factory/workers/ff-pipeline/src -name "*.test.ts" | head -20
-- [19:56:38] Bash: pnpm --filter @factory/ff-pipeline test -- --run 2>&1 | tail -50
-- [19:56:41] Agent: Convert Tester to gdk-agent
-- [19:56:45] Bash: ls /Users/wes/Developer/function-factory/packages/gdk-ai/src/ 2>/dev/null || echo "not found"
-- [19:56:45] Bash: ls /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/
-- [19:56:47] Bash: ls /Users/wes/Developer/function-factory/packages/gdk-ai/src/providers/faux.ts 2>/dev/null && echo "EXISTS" || echo "NOT
+Convert 
+- [20:06:32] Bash: git push origin main
 
 ## Notes
 This file is auto-updated on session end. Manual edits will be overwritten.

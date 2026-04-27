@@ -69,7 +69,7 @@ export async function synthesizePressure(
     ...parsed,
     sourceSignalId: signal._key,
     sourceRefs: [...(parsed.sourceRefs ?? []), `SIG:${signal._key}`],
-    synthesizedBy: 'pi-ai',
+    synthesizedBy: 'gdk-ai',
     ...(signal.specContent ? { specContent: signal.specContent } : {}),
     createdAt: new Date().toISOString(),
   }

@@ -34,7 +34,7 @@ export interface AgentDesign {
       /** Runtime: gdk-agent agentLoop (in-process) or sandbox exec (cross-process) */
       runtime: 'gdk-agent-agentloop' | 'sandbox-exec-rpc'
       /** Per ADR-003: pi SDK is default, container is fallback */
-      executorDefault: 'gdk-agent' | 'container-openhands' | 'container-aider'
+      executorDefault: 'gdk-agent' | 'sandbox' | 'container-openhands'
     }
   }
 
@@ -292,13 +292,13 @@ Always query mentorscript_rules before producing a code review.`,
       outputShape: {
         approach: 'string — high-level implementation strategy',
         atoms: '{ id, description, assignedTo }[] — ordered implementation steps',
-        executorRecommendation: '"pi-sdk" | "openhands" | "aider" — tool selection',
+        executorRecommendation: '"gdk-agent" | "sandbox" | "container-openhands"',
         estimatedComplexity: '"low" | "medium" | "high"',
       },
       successCriteria: [
         'Every WorkGraph atom has a corresponding plan atom',
         'Atoms are ordered by dependency (no forward references)',
-        'Executor recommendation matches the work type (pi-sdk for code, openhands for browser)',
+        'Executor recommendation matches the work type (gdk-agent for V8, sandbox for filesystem, container-openhands for browser)',
         'Repair cycles reference the specific failure and adjust strategy',
       ],
     },
@@ -336,7 +336,7 @@ If this is a repair cycle (repairNotes/resampleReason provided), adjust your str
   "atoms": [
     { "id": "atom-id", "description": "What to implement and how", "assignedTo": "coder" }
   ],
-  "executorRecommendation": "pi-sdk | openhands | aider",
+  "executorRecommendation": "gdk-agent | sandbox | container-openhands",
   "estimatedComplexity": "low | medium | high"
 }`,
       toolGuidance: `Query before planning:
