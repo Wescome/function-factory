@@ -7,6 +7,8 @@ export interface GraphDeps {
   callModel: (taskKind: string, system: string, user: string) => Promise<string>
   persistState: (state: GraphState, role: string) => Promise<void>
   fetchMentorRules: () => Promise<{ ruleId: string; rule: string }[]>
+  /** Optional execution dispatch for coder/tester. When provided, overrides piAiRole for those nodes. */
+  executionRole?: (role: 'coder' | 'tester') => (state: GraphState) => Promise<Partial<GraphState>>
 }
 
 export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
@@ -35,6 +37,12 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
   })
 
   for (const roleName of ['planner', 'coder', 'critic', 'tester', 'verifier'] as RoleName[]) {
+    // Use executionRole dispatch for coder/tester when provided
+    if ((roleName === 'coder' || roleName === 'tester') && deps.executionRole) {
+      graph.addNode(roleName, deps.executionRole(roleName))
+      continue
+    }
+
     graph.addNode(roleName, async (state) => {
       const contract = ROLE_CONTRACTS[roleName]
 
