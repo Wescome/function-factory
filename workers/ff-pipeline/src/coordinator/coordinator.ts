@@ -26,6 +26,8 @@ export interface SynthesisResult {
   tokenUsage: number
   repairCount: number
   roleHistory: { role: string; tokenUsage: number; timestamp: string }[]
+  briefingScript?: unknown
+  semanticReview?: unknown
 }
 
 export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
@@ -308,6 +310,8 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         tokenUsage: r.tokenUsage,
         timestamp: r.timestamp,
       })),
+      briefingScript: state.briefingScript ?? undefined,
+      semanticReview: state.semanticReview ?? undefined,
     }
   }
 
@@ -344,7 +348,10 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         critique: state.critique?.overallAssessment,
         tokenUsage: state.tokenUsage,
         repairCount: state.repairCount,
-        roleHistory: state.roleHistory.map(r => ({ role: r.role, timestamp: r.timestamp })),
+        roleHistory: state.roleHistory,
+        briefingScript: state.briefingScript,
+        semanticReview: state.semanticReview,
+        gate1Report: state.gate1Report,
       }),
       createdAt: new Date().toISOString(),
     }).catch(() => {})
