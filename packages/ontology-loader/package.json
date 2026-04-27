@@ -1,0 +1,20 @@
+{
+  "name": "@factory/ontology-loader",
+  "version": "0.1.0",
+  "description": "Loads Factory OWL ontology into ArangoDB as a queryable knowledge graph",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@factory/arango-client": "workspace:*"
+  },
+  "devDependencies": {
+    "@weops/gdk-ai": "workspace:*",
+    "@weops/gdk-agent": "workspace:*",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}

@@ -94,6 +94,10 @@ export const AGENT_DESIGNS: AgentDesign[] = [
           'FOR r IN mentorscript_rules FILTER r.status == "active" RETURN { ruleId: r._key, rule: r.rule }',
           'FOR f IN specs_functions LIMIT 5 RETURN { key: f._key, name: f.name, domain: f.domain }',
         ],
+      }, {
+        name: 'ontology_query',
+        description: 'Query the Factory ontology for constraints, role specs, lifecycle states, and pending CRPs. Preferred over raw AQL for ontology questions.',
+        aqlExamples: [],
       }],
       memoryAccess: ['memory_semantic', 'memory_episodic', 'mentorscript_rules', 'specs_functions', 'specs_workgraphs'],
       environment: 'v8-isolate',

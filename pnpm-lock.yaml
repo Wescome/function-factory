@@ -356,6 +356,25 @@ importers:
         specifier: ^1.4.0
         version: 1.6.1(@types/node@24.12.2)
 
+  packages/ontology-loader:
+    dependencies:
+      '@factory/arango-client':
+        specifier: workspace:*
+        version: link:../arango-client
+    devDependencies:
+      '@weops/gdk-agent':
+        specifier: workspace:*
+        version: link:../gdk-agent
+      '@weops/gdk-ai':
+        specifier: workspace:*
+        version: link:../gdk-ai
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.0
+        version: 2.1.9(@types/node@24.12.2)
+
   packages/policy-activation:
     dependencies:
       '@factory/schemas':

@@ -2821,3 +2821,25 @@
 {"timestamp":"2026-04-27T21:55:46.963Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/ontology-loader/src/properties.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
 {"timestamp":"2026-04-27T21:55:54.651Z","tool":"Bash","summary":"cd /Users/wes/Developer/function-factory/workers/ff-pipeline && pnpm test 2>&1","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
 {"timestamp":"2026-04-27T21:56:27.412Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test 2>&1 | tail -10","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:56:32.634Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/ontology-loader/src/constraints.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:56:32.849Z","tool":"Bash","summary":"git add -A && git diff --cached --stat","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:56:43.927Z","tool":"Bash","summary":"pnpm --filter @factory/ontology-loader test 2>&1 | tail -10","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:56:50.370Z","tool":"Bash","summary":"git reset HEAD packages/ontology-loader/ pnpm-lock.yaml","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:56:55.121Z","tool":"Bash","summary":"git diff --cached --stat","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:57:08.836Z","tool":"Bash","summary":"git commit -m \"$(cat <<'EOF'\nMETA: Phase C — sandbox execution with 3-tier fallback and tool gates\n\nActivate sandbox exe","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:57:14.470Z","tool":"Bash","summary":"ls /Users/wes/Developer/function-factory/packages/ontology-loader/src/","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:57:19.085Z","tool":"Bash","summary":"head -40 /Users/wes/Developer/function-factory/packages/ontology-loader/src/index.test.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:57:40.426Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/ontology-loader/src/instances.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:57:44.964Z","tool":"Bash","summary":"grep -rn \"ONTOLOGY_INSTANCES\" /Users/wes/Developer/function-factory/packages/ontology-loader/src/ 2>/dev/null","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:57:50.127Z","tool":"Bash","summary":"ls -la /Users/wes/Developer/function-factory/packages/ontology-loader/src/","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:58:06.482Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/ontology-loader/src/ontology-tool.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:58:36.528Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/ontology-loader/src/index.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:58:47.876Z","tool":"Bash","summary":"test -f /Users/wes/Developer/function-factory/packages/ontology-loader/src/index.ts && echo \"EXISTS\" || echo \"NEW\"","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:58:56.404Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/ontology-loader/src/index.test.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:58:58.638Z","tool":"Bash","summary":"test -f /Users/wes/Developer/function-factory/packages/ontology-loader/src/ontology-tool.ts && echo \"EXISTS\" || echo \"MI","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:59:02.861Z","tool":"Bash","summary":"pnpm --filter @factory/ontology-loader test 2>&1","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:59:12.335Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/package.json","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:59:14.291Z","tool":"Bash","summary":"pnpm install 2>&1 | tail -5","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:59:22.554Z","tool":"Bash","summary":"pnpm --filter @factory/ontology-loader test 2>&1 | tail -12","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:59:34.163Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test 2>&1 | tail -5","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:59:37.215Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/designs.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
