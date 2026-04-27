@@ -31,8 +31,9 @@ const SPEC_COLLECTIONS: Record<string, string> = {
   workgraphs: 'WG',
   invariants: 'INV',
   coverage_reports: 'CR',
-  execution_artifacts: 'EA',
 }
+
+const NON_PREFIXED_COLLECTIONS = new Set(['execution_artifacts', 'memory_episodic', 'memory_semantic', 'memory_working', 'memory_personal', 'gate_status'])
 
 export default class QueryService extends WorkerEntrypoint<QueryEnv> {
   private db!: ArangoClient
@@ -48,7 +49,7 @@ export default class QueryService extends WorkerEntrypoint<QueryEnv> {
 
   /** Get a single spec artifact by collection and key */
   async getSpec(collection: string, key: string): Promise<unknown> {
-    const fullCollection = `specs_${collection}`
+    const fullCollection = NON_PREFIXED_COLLECTIONS.has(collection) ? collection : `specs_${collection}`
     return this.getDb().get(fullCollection, key)
   }
 
@@ -58,7 +59,7 @@ export default class QueryService extends WorkerEntrypoint<QueryEnv> {
     opts: { limit?: number; offset?: number } = {},
   ): Promise<{ items: unknown[]; total: number }> {
     const { limit = 25, offset = 0 } = opts
-    const fullCollection = `specs_${collection}`
+    const fullCollection = NON_PREFIXED_COLLECTIONS.has(collection) ? collection : `specs_${collection}`
     const db = this.getDb()
 
     const items = await db.query(
