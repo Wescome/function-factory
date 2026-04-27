@@ -35,22 +35,14 @@
     "consumers": [{ "queue": "synthesis-queue", "max_batch_size": 1, "max_retries": 2 }]
   },
 
+  // R2 bucket for workspace persistence
+  "r2_buckets": [{ "binding": "WORKSPACE_BUCKET", "bucket_name": "ff-workspaces" }],
+
   "vars": {
     "ENVIRONMENT": "production"
   }
 
   // Secrets (set via `wrangler secret put`):
   //   ARANGO_URL, ARANGO_DATABASE, ARANGO_JWT
-  //   ANTHROPIC_API_KEY
-  //   (optional: OPENAI_API_KEY, DEEPSEEK_API_KEY)
-
-  // Phase 5: Sandbox Container (uncomment when container image is deployed)
-  // "containers": [{ "class_name": "Sandbox", "image": "./Dockerfile", "max_instances": 5 }],
-  // Add to durable_objects.bindings:
-  //   { "name": "SANDBOX", "class_name": "Sandbox" }
-  // Add to migrations:
-  //   { "tag": "v3", "new_sqlite_classes": ["Sandbox"] }
-
-  // R2 bucket for workspace backups (uncomment when bucket is created)
-  // "r2_buckets": [{ "binding": "WORKSPACE_BUCKET", "bucket_name": "ff-workspaces" }]
+  //   OFOX_API_KEY
 }

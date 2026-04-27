@@ -41,10 +41,8 @@ import { execSync } from "node:child_process";
 import { Type } from "@sinclair/typebox";
 
 import { agentLoop } from "@weops/gdk-agent";
-import { getModel, registerBuiltins } from "@weops/gdk-ai";
-import { buildCoreTools } from "@weops/gdk-ts";
-
-registerBuiltins();
+import { getModel, registerBuiltInApiProviders } from "@weops/gdk-ai";
+registerBuiltInApiProviders();
 
 import {
   createFileScopeGate,
