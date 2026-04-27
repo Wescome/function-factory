@@ -31,6 +31,7 @@ const SPEC_COLLECTIONS: Record<string, string> = {
   workgraphs: 'WG',
   invariants: 'INV',
   coverage_reports: 'CR',
+  execution_artifacts: 'EA',
 }
 
 export default class QueryService extends WorkerEntrypoint<QueryEnv> {
