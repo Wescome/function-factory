@@ -159,7 +159,12 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       }
 
       // Instantiate reasoning agents for 9-node topology
-      const architectAgent = new ArchitectAgent({ callModel })
+      // Phase 0 spike: Architect is a real agent with tools (gdk-agent agentLoop)
+      const architectAgent = new ArchitectAgent({
+        db: this.getDb(),
+        apiKey: this.env.OFOX_API_KEY ?? '',
+        dryRun,
+      })
       const criticAgent = new CriticAgent({ callModel })
 
       const deps: GraphDeps = {
@@ -230,15 +235,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
   private dryRunModelBridge() {
     return async (taskKind: string, _system: string, _user: string): Promise<string> => {
       switch (taskKind) {
-        case 'architect':
-          return JSON.stringify({
-            goal: 'Dry-run goal',
-            successCriteria: ['Dry-run criterion'],
-            architecturalContext: 'Dry-run context',
-            strategicAdvice: 'Dry-run advice',
-            knownGotchas: [],
-            validationLoop: 'Dry-run validation',
-          })
+        // 'architect' removed — ArchitectAgent handles dry-run internally
         case 'semantic_review':
           return JSON.stringify({
             alignment: 'aligned',

@@ -120,8 +120,10 @@ describe('T12: coordinator 9-node wiring — source structure', () => {
     expect(coordinatorSrc).toMatch(/import\s*\{[^}]*CriticAgent[^}]*\}\s*from\s*['"]\.\.\/agents\/critic-agent['"]/)
   })
 
-  it('T12.1c: instantiates ArchitectAgent with { callModel }', () => {
-    expect(coordinatorSrc).toMatch(/new\s+ArchitectAgent\(\s*\{\s*callModel\s*\}\s*\)/)
+  it('T12.1c: instantiates ArchitectAgent with db and apiKey (Phase 0 spike)', () => {
+    expect(coordinatorSrc).toMatch(/new\s+ArchitectAgent\(\s*\{/)
+    expect(coordinatorSrc).toContain('db:')
+    expect(coordinatorSrc).toContain('apiKey:')
   })
 
   it('T12.1d: instantiates CriticAgent with { callModel }', () => {
@@ -145,18 +147,15 @@ describe('T12: coordinator 9-node wiring — source structure', () => {
 
 describe('T12: agent shape satisfies GraphDeps', () => {
   it('T12.2a: ArchitectAgent.produceBriefingScript callable from GraphDeps.architectAgent shape', async () => {
-    const callModel = vi.fn().mockResolvedValue(JSON.stringify(makeStubBriefingScript()))
-    const architectAgent = new ArchitectAgent({ callModel })
+    const architectAgent = new ArchitectAgent({ db: {} as any, apiKey: 'test', dryRun: true })
 
-    // Build the GraphDeps-compatible shape
     const depsShape: GraphDeps['architectAgent'] = {
       produceBriefingScript: (input) => architectAgent.produceBriefingScript(input),
     }
 
     const result = await depsShape!.produceBriefingScript({ signal: { test: true } })
-    expect(result.goal).toBe('Test goal')
-    expect(result.successCriteria).toEqual(['criterion-1'])
-    expect(callModel).toHaveBeenCalledTimes(1)
+    expect(result.goal).toBe('Dry-run goal')
+    expect(result.successCriteria).toEqual(['Dry-run criterion'])
   })
 
   it('T12.2b: CriticAgent.semanticReview callable from GraphDeps.criticAgent shape', async () => {
@@ -201,52 +200,16 @@ describe('T12: agent shape satisfies GraphDeps', () => {
 
 describe('T12: integration — real agent instances drive 9-node graph', () => {
   it('T12.3a: graph with ArchitectAgent/CriticAgent instances traverses full 9-node path', async () => {
-    // ArchitectAgent calls callModel with taskKind='architect'
-    const architectCallModel = vi.fn().mockResolvedValue(JSON.stringify(makeStubBriefingScript()))
-
-    // CriticAgent calls callModel with taskKind='critic' for both semantic and code review
-    // We need to return the right shape based on call order:
-    // first call = semanticReview, second call = codeReview
     let criticCallCount = 0
     const criticCallModel = vi.fn().mockImplementation(async () => {
       criticCallCount++
-      if (criticCallCount === 1) {
-        return JSON.stringify(makeStubSemanticReview())
-      }
+      if (criticCallCount === 1) return JSON.stringify(makeStubSemanticReview())
       return JSON.stringify(makeStubCodeCritique())
     })
 
-    // Standard callModel for planner/coder/tester/verifier nodes
-    const callModel = vi.fn().mockImplementation(async (taskKind: string) => {
-      switch (taskKind) {
-        case 'planner':
-          return JSON.stringify({
-            approach: 'Test plan',
-            atoms: [{ id: 'atom-001', description: 'Stub', assignedTo: 'coder' }],
-            executorRecommendation: 'pi-sdk',
-            estimatedComplexity: 'low',
-          })
-        case 'coder':
-          return JSON.stringify({
-            files: [{ path: 'src/x.ts', content: '//', action: 'create' }],
-            summary: 'Code output',
-            testsIncluded: false,
-          })
-        case 'tester':
-          return JSON.stringify({
-            passed: true, testsRun: 1, testsPassed: 1, testsFailed: 0,
-            failures: [], summary: 'OK',
-          })
-        case 'verifier':
-          return JSON.stringify({
-            decision: 'pass', confidence: 1.0, reason: 'OK',
-          })
-        default:
-          return JSON.stringify({ result: 'stub' })
-      }
-    })
+    const callModel = makeStubCallModel()
 
-    const architectAgent = new ArchitectAgent({ callModel: architectCallModel })
+    const architectAgent = new ArchitectAgent({ db: {} as any, apiKey: 'test', dryRun: true })
     const criticAgent = new CriticAgent({ callModel: criticCallModel })
 
     // Build deps the same way coordinator.ts should
@@ -293,7 +256,7 @@ describe('T12: integration — real agent instances drive 9-node graph', () => {
 
   it('T12.3b: budget-check routes to architect (not planner) on first pass with agent deps', async () => {
     const callModel = makeStubCallModel()
-    const architectAgent = new ArchitectAgent({ callModel: vi.fn().mockResolvedValue(JSON.stringify(makeStubBriefingScript())) })
+    const architectAgent = new ArchitectAgent({ db: {} as any, apiKey: 'test', dryRun: true })
     // CriticAgent is called twice: first for semanticReview, then codeReview
     let criticCallCount2 = 0
     const criticCallModel2 = vi.fn().mockImplementation(async () => {
@@ -376,8 +339,6 @@ describe('T12: integration — real agent instances drive 9-node graph', () => {
     // Simulate what coordinator.synthesize() does in dry-run mode
     // Agents each get their own callModel (in practice they share the same one,
     // but taskKind differs: architect uses 'architect', critic uses 'critic')
-    const architectDryRun = vi.fn().mockResolvedValue(JSON.stringify(makeStubBriefingScript()))
-
     let criticDryRunCount = 0
     const criticDryRun = vi.fn().mockImplementation(async () => {
       criticDryRunCount++
@@ -385,38 +346,9 @@ describe('T12: integration — real agent instances drive 9-node graph', () => {
       return JSON.stringify(makeStubCodeCritique())
     })
 
-    const dryRunCallModel = async (taskKind: string, _system: string, _user: string): Promise<string> => {
-      switch (taskKind) {
-        case 'planner':
-          return JSON.stringify({
-            approach: 'Dry-run implementation plan',
-            atoms: [{ id: 'atom-001', description: 'Stub implementation', assignedTo: 'coder' }],
-            executorRecommendation: 'pi-sdk',
-            estimatedComplexity: 'low',
-          })
-        case 'coder':
-          return JSON.stringify({
-            files: [{ path: 'src/stub.ts', content: '// dry-run stub', action: 'create' }],
-            summary: 'Dry-run code output',
-            testsIncluded: false,
-          })
-        case 'tester':
-          return JSON.stringify({
-            passed: true, testsRun: 1, testsPassed: 1, testsFailed: 0,
-            failures: [], summary: 'Dry-run — all tests pass',
-          })
-        case 'verifier':
-          return JSON.stringify({
-            decision: 'pass', confidence: 1.0,
-            reason: 'Dry-run — auto-pass',
-          })
-        default:
-          return JSON.stringify({ result: 'dry-run stub' })
-      }
-    }
+    const dryRunCallModel = makeStubCallModel()
 
-    // In dry-run mode, coordinator still creates agents with the dry-run callModel
-    const architectAgent = new ArchitectAgent({ callModel: architectDryRun })
+    const architectAgent = new ArchitectAgent({ db: {} as any, apiKey: 'test', dryRun: true })
     const criticAgent = new CriticAgent({ callModel: criticDryRun })
 
     const deps: GraphDeps = {

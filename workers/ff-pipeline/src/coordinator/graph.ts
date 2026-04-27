@@ -14,7 +14,7 @@ export interface GraphDeps {
 
   // ── 9-node extensions (SS8) ──
   /** When provided, enables the architect pipeline (architect → semantic-critic → compile → gate-1). */
-  architectAgent?: { produceBriefingScript: (input: { signal: Record<string, unknown> }) => Promise<BriefingScript> }
+  architectAgent?: { produceBriefingScript: (input: { signal: Record<string, unknown>; specContent?: string }) => Promise<BriefingScript> }
   /** When provided, enables semantic-critic and code-critic nodes. */
   criticAgent?: {
     semanticReview: (input: { prd: Record<string, unknown>; specContent?: string }) => Promise<SemanticReviewResult>
