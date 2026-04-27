@@ -318,29 +318,116 @@ function createResultCollector() {
 // ---------------------------------------------------------------------------
 
 const DEFAULT_SYSTEM_PROMPTS = {
-  coder: `You are the Coder agent in a Factory pipeline sandbox.
+  coder: `You are the Coder agent in a Factory pipeline sandbox with real filesystem access.
 
-Your job is to implement code changes according to the task prompt.
+Your job is to implement code changes according to the WorkGraph specification and Plan.
 You have access to: file_read, file_write, bash_execute, grep_search.
 
+Workflow:
+1. Read existing code with file_read and grep_search to understand the codebase
+2. Implement changes with file_write following the Plan's atom ordering
+3. Run tests with bash_execute (pnpm test) to verify your changes
+4. Fix any test failures before finishing
+
 Rules:
-- Write clean, tested code
-- Follow the project's existing patterns
-- Run tests after making changes
-- Output a summary of what you changed and why`,
+- Write clean, tested TypeScript code
+- Follow the project's existing patterns (grep for similar implementations)
+- Run tests after making changes — do not declare done without passing tests
+- Output a summary of what you changed and why
 
-  tester: `You are the Tester agent in a Factory pipeline sandbox.
+If this is a repair cycle (repairNotes provided), focus on fixing the specific issues noted.
+Reuse existing patterns from the codebase. Do not rewrite from scratch on repairs.`,
 
-Your job is to verify code quality by reading source and running tests.
+  tester: `You are the Tester agent in a Factory pipeline sandbox with real filesystem access.
+
+Your job is to verify code quality by reading source and running the real test suite.
 You have access to: file_read, bash_execute, grep_search.
-You do NOT have write access — you are read-only.
+You do NOT have write access — you are read-only (C12 enforcement).
+
+Workflow:
+1. Read the code under test with file_read
+2. Read relevant test files to understand what's being tested
+3. Run the test suite with bash_execute: pnpm test
+4. Analyze results — report exact pass/fail counts
 
 Rules:
-- Read the code under test
-- Run the existing test suite
-- Report pass/fail status with details
-- Note any coverage gaps or missing test cases`,
+- ALWAYS run pnpm test — never simulate or infer test results
+- Report the real test output, not a guess
+- Note any coverage gaps or missing test cases
+- If tests fail, include the exact error messages`,
 };
+
+// ---------------------------------------------------------------------------
+// Build user prompt from structured task context
+// ---------------------------------------------------------------------------
+
+function buildUserPrompt({
+  role,
+  rawPrompt,
+  workGraphId,
+  workGraph,
+  plan,
+  code,
+  critique,
+  repairNotes,
+  previousCode,
+  critiqueIssues,
+  resampleReason,
+  previousApproach,
+  repairCount,
+  maxRepairs,
+}) {
+  // If there's a raw prompt and no structured context, use the raw prompt
+  if (rawPrompt && !workGraph) return rawPrompt;
+
+  const parts = [];
+
+  if (workGraphId) {
+    parts.push(`WorkGraph ID: ${workGraphId}`);
+  }
+
+  if (workGraph) {
+    parts.push(`WorkGraph specification:\n${JSON.stringify(workGraph, null, 2)}`);
+  }
+
+  if (plan) {
+    parts.push(`\nPlan:\n${JSON.stringify(plan, null, 2)}`);
+  }
+
+  if (role === "tester") {
+    if (code) {
+      parts.push(`\nCode artifacts to test:\n${JSON.stringify(code, null, 2)}`);
+    }
+    if (critique) {
+      parts.push(`\nCode critique:\n${JSON.stringify(critique, null, 2)}`);
+    }
+    parts.push(`\nACTION: Run the test suite with 'pnpm test' and report the real results.`);
+  }
+
+  if (role === "coder") {
+    if (repairCount > 0) {
+      parts.push(`\n--- REPAIR CYCLE ${repairCount}/${maxRepairs} ---`);
+    }
+    if (repairNotes) {
+      parts.push(`Repair notes from Verifier:\n${repairNotes}`);
+    }
+    if (previousCode) {
+      parts.push(`\nPrevious code summary (fix, don't rewrite):\n${previousCode}`);
+    }
+    if (critiqueIssues?.length > 0) {
+      parts.push(`\nCritique issues to address:\n${JSON.stringify(critiqueIssues, null, 2)}`);
+    }
+    if (resampleReason) {
+      parts.push(`\nResample reason: ${resampleReason}`);
+    }
+    if (previousApproach) {
+      parts.push(`\nPrevious approach (try a different strategy):\n${previousApproach}`);
+    }
+    parts.push(`\nACTION: Read existing code, implement the plan, run tests, verify they pass.`);
+  }
+
+  return parts.join("\n") || rawPrompt || "Execute the task as described in your system prompt.";
+}
 
 // ---------------------------------------------------------------------------
 // Main
@@ -365,40 +452,74 @@ async function main() {
 
   const {
     role,
-    prompt,
-    workDir,
+    prompt: rawPrompt,
+    workDir: taskWorkDir,
     model: modelSpec,
     systemPrompt: customSystemPrompt,
     fileScope,
     commandPolicy,
     apiKey,
+    // Phase C: rich task context from sandboxRole
+    workGraphId,
+    workGraph,
+    plan,
+    code,
+    critique,
+    repairNotes,
+    previousCode,
+    critiqueIssues,
+    resampleReason,
+    previousApproach,
+    repairCount,
+    maxRepairs,
   } = task;
 
+  const workDir = taskWorkDir ?? "/workspace";
+
   log(`Role: ${role}`);
-  log(`Model: ${modelSpec.provider}/${modelSpec.modelId}`);
+  log(`Model: ${modelSpec?.provider ?? "default"}/${modelSpec?.modelId ?? "default"}`);
   log(`WorkDir: ${workDir}`);
+  if (workGraphId) log(`WorkGraph: ${workGraphId}`);
 
   // Ensure workspace exists
   ensureWorkspace(workDir);
 
-  // Resolve the model
+  // Resolve the model — fall back to a default if modelSpec is provided
   let model;
   try {
-    model = getModel(modelSpec.provider, modelSpec.modelId);
+    if (modelSpec?.provider && modelSpec?.modelId) {
+      model = getModel(modelSpec.provider, modelSpec.modelId);
+    }
     if (!model) {
-      throw new Error(`Model not found: ${modelSpec.provider}/${modelSpec.modelId}`);
+      // Fallback: construct a minimal model spec for ofox.ai
+      model = {
+        id: modelSpec?.modelId ?? "deepseek/deepseek-v4-pro",
+        name: "DeepSeek V4 Pro via ofox.ai",
+        api: "openai-completions",
+        provider: modelSpec?.provider ?? "deepseek",
+        baseUrl: "https://api.ofox.ai/v1",
+        reasoning: false,
+        input: ["text"],
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+        contextWindow: 128000,
+        maxTokens: 4096,
+      };
     }
   } catch (err) {
-    const result = {
-      ok: false,
-      role,
-      filesChanged: [],
-      agentOutput: "",
-      tokenUsage: { input: 0, output: 0, total: 0 },
-      error: `Model resolution failed: ${err.message}`,
+    // If getModel throws, construct the model manually
+    model = {
+      id: modelSpec?.modelId ?? "deepseek/deepseek-v4-pro",
+      name: "Fallback model",
+      api: "openai-completions",
+      provider: modelSpec?.provider ?? "deepseek",
+      baseUrl: "https://api.ofox.ai/v1",
+      reasoning: false,
+      input: ["text"],
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      contextWindow: 128000,
+      maxTokens: 4096,
     };
-    process.stdout.write(JSON.stringify(result, null, 2) + "\n");
-    process.exit(1);
+    log(`Model resolution fell back to manual construction: ${err.message}`);
   }
 
   // Build tools and gates
@@ -421,16 +542,38 @@ async function main() {
     model,
     apiKey,
     convertToLlm: (messages) => messages.filter((m) => m.role !== undefined),
+    getApiKey: apiKey ? async () => apiKey : undefined,
+    maxTokens: 4096,
     beforeToolCall: beforeToolCall
       ? async (ctx) => beforeToolCall(ctx)
       : undefined,
   };
 
+  // ── Build user prompt from task context ──
+  // Phase C: construct a rich prompt from workGraph, plan, code, etc.
+  // Falls back to rawPrompt if no structured context provided
+  const userPrompt = buildUserPrompt({
+    role,
+    rawPrompt,
+    workGraphId,
+    workGraph,
+    plan,
+    code,
+    critique,
+    repairNotes,
+    previousCode,
+    critiqueIssues,
+    resampleReason,
+    previousApproach,
+    repairCount,
+    maxRepairs,
+  });
+
   // Run the agent loop
   log("Starting agent loop...");
   const userMessage = {
     role: "user",
-    content: prompt,
+    content: userPrompt,
     timestamp: Date.now(),
   };
 

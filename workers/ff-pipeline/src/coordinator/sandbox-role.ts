@@ -102,9 +102,34 @@ export function sandboxRole(
       prompt: contract.systemPrompt,
       repairCount: state.repairCount,
       maxRepairs: state.maxRepairs,
+      // Phase C: sandbox-specific fields for run-session.js
+      workDir: '/workspace',
+      model: {
+        provider: 'deepseek',
+        modelId: 'deepseek/deepseek-v4-pro',
+      },
     }
 
+    // Phase C: role-specific sandbox gates
     if (role === 'coder') {
+      taskPayload.fileScope = {
+        allowWrite: ['/workspace'],
+        denyWrite: ['/workspace/node_modules', '/workspace/.git'],
+      }
+      taskPayload.commandPolicy = {
+        denyCommands: [
+          'rm -rf /',
+          'curl',
+          'wget',
+          'nc ',
+          'ncat',
+          'dd ',
+          'mkfs',
+          'shutdown',
+          'reboot',
+        ],
+      }
+
       if (state.verdict?.decision === 'patch') {
         taskPayload.repairNotes = state.verdict.notes
         taskPayload.previousCode = state.code?.summary
@@ -224,12 +249,19 @@ export interface ExecutionRoleConfig {
   persistState: GraphDeps['persistState']
   fetchMentorRules: GraphDeps['fetchMentorRules']
   dryRun: boolean
+  /** Phase C: optional CoderAgent for 3-tier fallback (sandbox > agent > callModel) */
+  coderAgent?: { produceCode: (input: any) => Promise<import('./state.js').CodeArtifact> }
+  /** Phase C: optional TesterAgent for 3-tier fallback (sandbox > agent > callModel) */
+  testerAgent?: { runTests: (input: any) => Promise<import('./state.js').TestReport> }
 }
 
 /**
  * Creates the executionRole dispatcher.
  * - dryRun mode: returns stub data without calling sandbox or LLM
- * - sandbox mode: calls sandboxRole(), falls back to callModel on error
+ * - sandbox mode: calls sandboxRole(), falls back through 3-tier chain:
+ *   1. Sandbox Container (real filesystem, real tools)
+ *   2. Agent (gdk-agent agentLoop in V8, arango_query tool)
+ *   3. callModel (raw prompt, no tools)
  */
 export function makeExecutionRole(config: ExecutionRoleConfig) {
   return (role: 'coder' | 'tester') => {
@@ -239,14 +271,28 @@ export function makeExecutionRole(config: ExecutionRoleConfig) {
         return dryRunRole(role, state, config.persistState)
       }
 
-      // ── Sandbox path with callModel fallback ──
+      // ── Tier 1: Sandbox Container ──
       try {
         const node = sandboxRole(role, config.sandboxDeps, config.persistState)
         return await node(state)
       } catch {
-        // Fallback to callModel-fallback-equivalent via callModel
-        return await fallbackToCallModel(role, state, config)
+        // Sandbox failed — try agent fallback
       }
+
+      // ── Tier 2: Agent (gdk-agent agentLoop in V8) ──
+      try {
+        if (role === 'coder' && config.coderAgent) {
+          return await fallbackToCoderAgent(state, config)
+        }
+        if (role === 'tester' && config.testerAgent) {
+          return await fallbackToTesterAgent(state, config)
+        }
+      } catch {
+        // Agent failed — fall through to callModel
+      }
+
+      // ── Tier 3: callModel (raw prompt, no tools) ──
+      return await fallbackToCallModel(role, state, config)
     }
   }
 }
@@ -292,7 +338,64 @@ async function dryRunRole(
 }
 
 // ────────────────────────────────────────────────────────────
-// Fallback: callModel-fallback-equivalent via callModel
+// Tier 2 Fallback: CoderAgent (gdk-agent agentLoop in V8)
+// ────────────────────────────────────────────────────────────
+
+async function fallbackToCoderAgent(
+  state: GraphState,
+  config: ExecutionRoleConfig,
+): Promise<Partial<GraphState>> {
+  const code = await config.coderAgent!.produceCode({
+    workGraph: state.workGraph,
+    plan: state.plan,
+    ...(state.verdict?.decision === 'patch' && state.verdict.notes ? {
+      repairNotes: state.verdict.notes,
+      previousCode: state.code ?? undefined,
+      critiqueIssues: state.critique?.issues,
+    } : {}),
+  })
+
+  const updated: Partial<GraphState> = {
+    code,
+    roleHistory: [
+      ...state.roleHistory,
+      { role: 'coder', output: code, tokenUsage: 0, timestamp: new Date().toISOString() },
+    ],
+  }
+
+  await config.persistState({ ...state, ...updated } as GraphState, 'coder')
+  return updated
+}
+
+// ────────────────────────────────────────────────────────────
+// Tier 2 Fallback: TesterAgent (gdk-agent agentLoop in V8)
+// ────────────────────────────────────────────────────────────
+
+async function fallbackToTesterAgent(
+  state: GraphState,
+  config: ExecutionRoleConfig,
+): Promise<Partial<GraphState>> {
+  const tests = await config.testerAgent!.runTests({
+    workGraph: state.workGraph,
+    plan: state.plan ?? {},
+    code: state.code ?? {},
+    ...(state.critique ? { critique: state.critique } : {}),
+  })
+
+  const updated: Partial<GraphState> = {
+    tests,
+    roleHistory: [
+      ...state.roleHistory,
+      { role: 'tester', output: tests, tokenUsage: 0, timestamp: new Date().toISOString() },
+    ],
+  }
+
+  await config.persistState({ ...state, ...updated } as GraphState, 'tester')
+  return updated
+}
+
+// ────────────────────────────────────────────────────────────
+// Tier 3 Fallback: callModel-fallback-equivalent via callModel
 // ────────────────────────────────────────────────────────────
 
 async function fallbackToCallModel(

@@ -202,14 +202,18 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         callModel,
         persistState,
         fetchMentorRules,
-        // Sandbox execution for coder/tester — stubs throw until container is deployed,
-        // triggering automatic fallback to callModel (callModel fallback equivalent)
+        // Phase C: sandbox execution for coder/tester with 3-tier fallback:
+        // Tier 1: Sandbox Container (real filesystem, real tools) — stubs throw when no binding
+        // Tier 2: Agent (gdk-agent agentLoop in V8, arango_query tool)
+        // Tier 3: callModel (raw prompt, no tools)
         executionRole: makeExecutionRole({
           dryRun,
           sandboxDeps: this.buildSandboxDeps(),
           callModel,
           persistState,
           fetchMentorRules,
+          coderAgent: { produceCode: (input) => coderAgent.produceCode(input) },
+          testerAgent: { runTests: (input) => testerAgent.runTests(input) },
         }),
         // 9-node topology: architect pipeline + planner agent + code-critic
         architectAgent: {
