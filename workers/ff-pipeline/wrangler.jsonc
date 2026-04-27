@@ -43,4 +43,14 @@
   //   ARANGO_URL, ARANGO_DATABASE, ARANGO_JWT
   //   ANTHROPIC_API_KEY
   //   (optional: OPENAI_API_KEY, DEEPSEEK_API_KEY)
+
+  // Phase 5: Sandbox Container (uncomment when container image is deployed)
+  // "containers": [{ "class_name": "Sandbox", "image": "./Dockerfile", "max_instances": 5 }],
+  // Add to durable_objects.bindings:
+  //   { "name": "SANDBOX", "class_name": "Sandbox" }
+  // Add to migrations:
+  //   { "tag": "v3", "new_sqlite_classes": ["Sandbox"] }
+
+  // R2 bucket for workspace backups (uncomment when bucket is created)
+  // "r2_buckets": [{ "binding": "WORKSPACE_BUCKET", "bucket_name": "ff-workspaces" }]
 }

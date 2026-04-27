@@ -24,6 +24,11 @@ export interface PipelineEnv {
     run(model: string, input: Record<string, unknown>): Promise<{ response: string }>
   }
 
+  /** @cloudflare/sandbox binding — activated when container image is deployed */
+  SANDBOX?: unknown
+  /** R2 bucket for workspace backups */
+  WORKSPACE_BUCKET?: unknown
+
   ENVIRONMENT: string
 }
 

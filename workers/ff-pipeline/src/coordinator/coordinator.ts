@@ -4,6 +4,7 @@ import { buildSynthesisGraph } from './graph'
 import type { GraphDeps } from './graph'
 import { createModelBridge } from './model-bridge-do'
 import { createInitialState, type GraphState, type Verdict } from './state'
+import { makeExecutionRole, type SandboxDeps } from './sandbox-role'
 
 export interface CoordinatorEnv {
   ARANGO_URL: string
@@ -88,23 +89,36 @@ export class SynthesisCoordinator extends DurableObject<CoordinatorEnv> {
       ? this.dryRunModelBridge()
       : createModelBridge(this.env)
 
+    const persistState = async (state: GraphState, _role?: string) => {
+      await this.ctx.storage.put('graphState', state)
+    }
+
+    const fetchMentorRules = async () => {
+      try {
+        const db = this.getDb()
+        return await db.query<{ ruleId: string; rule: string }>(
+          `FOR r IN mentorscript_rules
+             FILTER r.status == 'active'
+             RETURN { ruleId: r._key, rule: r.rule }`,
+        )
+      } catch {
+        return []
+      }
+    }
+
     const deps: GraphDeps = {
       callModel,
-      persistState: async (state) => {
-        await this.ctx.storage.put('graphState', state)
-      },
-      fetchMentorRules: async () => {
-        try {
-          const db = this.getDb()
-          return await db.query<{ ruleId: string; rule: string }>(
-            `FOR r IN mentorscript_rules
-               FILTER r.status == 'active'
-               RETURN { ruleId: r._key, rule: r.rule }`,
-          )
-        } catch {
-          return []
-        }
-      },
+      persistState,
+      fetchMentorRules,
+      // Sandbox execution for coder/tester — stubs throw until container is deployed,
+      // triggering automatic fallback to callModel (piAiRole equivalent)
+      executionRole: makeExecutionRole({
+        dryRun,
+        sandboxDeps: this.buildSandboxDeps(),
+        callModel,
+        persistState,
+        fetchMentorRules,
+      }),
     }
 
     const graph = buildSynthesisGraph(deps)
@@ -184,6 +198,23 @@ export class SynthesisCoordinator extends DurableObject<CoordinatorEnv> {
         default:
           return JSON.stringify({ result: 'dry-run stub' })
       }
+    }
+  }
+
+  /**
+   * Build SandboxDeps — stubs that throw until the sandbox container is deployed.
+   * When the stubs throw, makeExecutionRole catches and falls back to callModel.
+   */
+  private buildSandboxDeps(): SandboxDeps {
+    return {
+      execInSandbox: async (_taskJson) => {
+        throw new Error('Sandbox not yet deployed — falling back to piAiRole')
+      },
+      prepareWorkspace: async (_config) => {
+        throw new Error('Sandbox not yet deployed')
+      },
+      createBackup: async (_dir) => '',
+      restoreBackup: async (_handle) => {},
     }
   }
 
