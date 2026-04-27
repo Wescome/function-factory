@@ -163,43 +163,104 @@ Phase E (queryable ontology) ← depends on all above
 
 ---
 
+## Phase F — Deploy + live validation (closes SC-4, SC-7)
+
+Structured deployment and validation using the same ontology-backed methodology.
+
+**Success criteria (binary pass/fail):**
+
+| # | Criterion | Evidence required | Pass condition |
+|---|-----------|-------------------|----------------|
+| F1 | wrangler deploy succeeds | Deploy log, no errors | HTTP 200 on all 3 workers |
+| F2 | ArangoDB seeded | seedOntology() + seedAgentDesigns() output | Counts match: 215 ontology docs + 6 agent designs |
+| F3 | Dry-run synthesis completes | POST /trigger-synthesis with dryRun: true | Verdict: pass, all 9 nodes visited |
+| F4 | Live synthesis completes | POST /trigger-synthesis with real Signal | Verdict: pass or patch (not error/timeout) |
+| F5 | Artifact validator fires | Query consultation_requests after low-confidence run | CRP document exists with correct fields |
+| F6 | Lifecycle transitions persist | Query specs_functions for lifecycleState | State matches expected stage |
+| F7 | Ontology queryable | ontology_query tool returns constraints for WorkGraph | Returns C1, C6, C13 |
+
+**Risk register:**
+
+| # | Risk | Likelihood | Impact | Mitigation |
+|---|------|-----------|--------|------------|
+| R7 | wrangler deploy fails on gdk-ai bundle size | Medium | High | Tree-shake unused providers; test with `wrangler deploy --dry-run` first |
+| R8 | ArangoDB collections don't exist | Low | High | Create collections via AQL before seeding; idempotent |
+| R9 | ofox.ai API key not in Worker secrets | High | Critical | Verify `wrangler secret list` before deploy; block on missing |
+| R10 | Sandbox binding not provisioned | Medium | Medium | Tier 2 fallback handles this — gdk-agent in V8 |
+
+**Dependency:** Phases 0-E complete. ArangoDB Oasis reachable. ofox.ai API key set.
+
+**Rollback plan:** `wrangler rollback` to previous deployment. No schema migration — ontology seed is additive.
+
+---
+
+### Phase G — Remaining constraint enforcement (closes SC-2)
+
+Phase B enforces 4 of 16 constraints at persist time (C1, C7, C9, C15). The remaining 12 exist as queryable ontology documents but are not runtime-enforced. This phase adds validators for the rest.
+
+**Constraints to add to artifact-validator:**
+
+| Constraint | What to enforce | Complexity |
+|-----------|----------------|-----------|
+| C2 — specContent propagation | If upstream Signal has specContent, derivation must carry it | Medium — requires upstream query |
+| C3 — BriefingScript completeness | 6 required fields, min lengths | Small — pure validation |
+| C4 — Agent is real agent | hasTools, hasMemoryAccess, runsIn on role docs | Small — schema check |
+| C5 — Invariant has detector | detectedBy field required | Small — field check |
+| C6 — Every artifact reviewed | reviewedBy field required on WorkGraphs and CodeArtifacts | Small — field check |
+| C8 — MentorScript enforcement | mentorRulesChecked field on CritiqueReports | Small — field check |
+| C10 — Semantic review grounded | groundedIn references original Signal | Medium — requires lineage query |
+| C11 — Coder has filesystem | runsIn == SandboxContainer check | Small — config check |
+| C12 — Tester runs real tests | runsIn == SandboxContainer check | Small — config check |
+| C13 — WorkGraph has atoms | hasNode minCount 1 | Small — array check |
+| C14 — Lifecycle transitions | Gate requirements on state changes | Already in lifecycle.ts |
+| C16 — Event-driven communication | communicatesVia == synthesisQueue | Small — config check |
+
+**Success criteria:** All 16 constraints have corresponding validators. Artifact-validator test count > 100.
+
+---
+
 ## Success Criteria
 
 The ontology implementation is complete when:
-1. All 30 competency questions are answerable via AQL queries
-2. All 16 SHACL constraints are enforced at artifact creation time
-3. Every agent role is a gdk-agent session with tools (not a callModel wrapper)
-4. The Factory can synthesize a Function with real code (sandbox Coder) and real tests (sandbox Tester)
-5. CRPs fire automatically when agent confidence is low
-6. MentorScript rules are loaded and checked in every Critic review
-7. CQ-29 answer changes from "most activities aspirational" to "all activities operational"
+
+| # | Criterion | Status | Evidence |
+|---|-----------|--------|----------|
+| SC-1 | All 30 competency questions answerable via AQL | **Done** | ontology-loader seeds 215 docs, 33 tests pass |
+| SC-2 | All 16 SHACL constraints enforced at persist time | **Partial** | 4/16 enforced (C1, C7, C9, C15), rest queryable. Phase G closes gap |
+| SC-3 | Every agent role is a gdk-agent session with tools | **Done** | 6 agents, 55 tests, all use agentLoop + arango_query |
+| SC-4 | Factory synthesizes with real code + real tests | **Pending** | Phase F live run required |
+| SC-5 | CRPs fire automatically on low confidence | **Done** | crp.ts wired, 7 tests pass |
+| SC-6 | MentorScript rules loaded in every Critic review | **Done** | Critic queries mentorscript_rules via arango_query |
+| SC-7 | CQ-29 "all activities operational" | **Pending** | Phase F live evidence required |
 
 ---
 
 ## Estimated Effort
 
-| Phase | Tasks | Effort | Parallel? |
-|-------|-------|--------|-----------|
-| 0 — Spike | Architect role → gdk-agent + 1 test | Small | First |
-| A — Real agents | 5 remaining role conversions + tests | Large | After 0 |
-| B — Artifact validation | Validator package + integration | Medium | After 0 (parallel with A) |
-| C — Sandbox execution | run-session.js upgrade + integration | Medium | After A |
-| D — CRP + lifecycle | CRP auto-gen + lifecycle states | Medium | After B |
-| E — Queryable ontology | ArangoDB loader + query tool | Small | After all |
-
-**Total: 4-6 focused sessions.** Phase 0 de-risks Phase A before committing.
+| Phase | Tasks | Effort | Status |
+|-------|-------|--------|--------|
+| 0 — Spike | Architect role → gdk-agent + 1 test | Small | **Done** |
+| A — Real agents | 5 remaining role conversions + tests | Large | **Done** |
+| B — Artifact validation | Validator package + integration | Medium | **Done** |
+| C — Sandbox execution | run-session.js upgrade + integration | Medium | **Done** |
+| D — CRP + lifecycle | CRP auto-gen + lifecycle states | Medium | **Done** |
+| E — Queryable ontology | ArangoDB loader + query tool | Small | **Done** |
+| F — Deploy + live validation | wrangler deploy + live Signal | Medium | **Next** |
+| G — Full constraint enforcement | Remaining 12 validators | Medium | After F |
 
 ---
 
 ## Risk Register (SE Assessment)
 
-| # | Risk | Likelihood | Impact | Mitigation |
-|---|------|-----------|--------|------------|
-| R1 | gdk-agent agentLoop incompatible with CF Workers V8 | Medium | Critical | Phase 0 spike validates this FIRST |
-| R2 | Tool execution latency exceeds Workflow step timeout | Medium | High | AbortSignal.timeout per tool; budget-check node |
-| R3 | SHACL validation adds unacceptable latency to writes | Low | Medium | TS validators (not RDF engine); benchmark in Phase B |
-| R4 | Sandbox Container cold-start too slow for inner loop | Medium | High | Fork-based repair; workspace prep during compile |
-| R5 | MentorScript rules stale or contradictory | Low | Medium | Version MentorScripts; Critic checks rule freshness |
-| R6 | CRP waitForEvent blocks pipeline indefinitely | Low | High | CRP timeout (7d); auto-escalation on expiry |
-
-**R1 is the showstopper.** Phase 0 exists to retire it.
+| # | Risk | Likelihood | Impact | Mitigation | Status |
+|---|------|-----------|--------|------------|--------|
+| R1 | gdk-agent agentLoop incompatible with CF Workers V8 | Medium | Critical | Phase 0 spike validates this FIRST | **Retired** — 336 tests pass |
+| R2 | Tool execution latency exceeds Workflow step timeout | Medium | High | AbortSignal.timeout per tool; budget-check node | Open |
+| R3 | SHACL validation adds unacceptable latency to writes | Low | Medium | TS validators (not RDF engine); benchmark in Phase B | **Retired** — 51 tests, <1ms per validation |
+| R4 | Sandbox Container cold-start too slow for inner loop | Medium | High | Fork-based repair; workspace prep during compile | Open — Phase F validates |
+| R5 | MentorScript rules stale or contradictory | Low | Medium | Version MentorScripts; Critic checks rule freshness | Open |
+| R6 | CRP waitForEvent blocks pipeline indefinitely | Low | High | CRP timeout (7d); auto-escalation on expiry | **Mitigated** — CRP is non-blocking |
+| R7 | wrangler deploy fails on gdk-ai bundle size | Medium | High | Tree-shake unused providers; --dry-run first | Open — Phase F |
+| R8 | ArangoDB collections don't exist | Low | High | Create collections via AQL before seeding | Open — Phase F |
+| R9 | ofox.ai API key not in Worker secrets | High | Critical | Verify before deploy; block on missing | Open — Phase F |
+| R10 | Sandbox binding not provisioned | Medium | Medium | Tier 2 fallback handles this | Open — Phase F |
