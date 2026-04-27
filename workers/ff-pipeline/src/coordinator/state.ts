@@ -9,6 +9,11 @@ export interface CodeArtifact {
   files: { path: string; content: string; action: 'create' | 'modify' | 'delete' }[]
   summary: string
   testsIncluded: boolean
+
+  // Phase 5 additions (sandbox mode)
+  diff?: string
+  commitLog?: string
+  toolCallCount?: number
 }
 
 export interface CritiqueReport {
@@ -55,6 +60,25 @@ export interface GraphState {
   tokenUsage: number
   maxRepairs: number
   maxTokens: number
+
+  // ── Phase 5 v4: Briefing, gating, and sandbox execution (SS11) ──
+  briefingScript: unknown | null
+  semanticReview: unknown | null
+  gate1Passed: boolean
+  gate1Report: unknown | null
+  compiledPrd: unknown | null
+
+  // Sandbox state
+  sandboxName: string | null
+  freshBackupHandle: string | null
+  coderBackupHandle: string | null
+  executionMode: 'dry-run' | 'sandbox' | 'piAiRole' | null
+
+  // Tool tracking
+  workspaceReady?: boolean
+  coderToolCalls?: number
+  testerToolCalls?: number
+  blockedToolCalls?: { role: string; toolName: string; reason: string }[]
 }
 
 export function createInitialState(
@@ -75,5 +99,17 @@ export function createInitialState(
     tokenUsage: 0,
     maxRepairs: opts?.maxRepairs ?? 5,
     maxTokens: opts?.maxTokens ?? 150_000,
+
+    // Phase 5 v4 defaults (SS11)
+    briefingScript: null,
+    semanticReview: null,
+    gate1Passed: false,
+    gate1Report: null,
+    compiledPrd: null,
+    sandboxName: null,
+    freshBackupHandle: null,
+    coderBackupHandle: null,
+    executionMode: null,
+    workspaceReady: false,
   }
 }

@@ -1,0 +1,20 @@
+{
+  "name": "@factory/sandbox-scripts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sandbox agent session scripts for Factory pipeline containers",
+  "type": "module",
+  "main": "run-session.js",
+  "scripts": {
+    "start": "node run-session.js"
+  },
+  "dependencies": {
+    "@weops/gdk-agent": "^0.67.2",
+    "@weops/gdk-ai": "^0.67.2",
+    "@weops/gdk-ts": "^0.67.2",
+    "@sinclair/typebox": "^0.34.41"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
