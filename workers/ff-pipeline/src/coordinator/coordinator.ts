@@ -5,6 +5,7 @@ import type { GraphDeps } from './graph'
 import { createModelBridge } from './model-bridge-do'
 import { createInitialState, type GraphState, type Verdict } from './state'
 import { makeExecutionRole, type SandboxDeps } from './sandbox-role'
+import { buildSandboxDeps as buildRealSandboxDeps } from './sandbox-deps-factory'
 
 export interface CoordinatorEnv {
   ARANGO_URL: string
@@ -13,6 +14,8 @@ export interface CoordinatorEnv {
   ARANGO_USERNAME?: string
   ARANGO_PASSWORD?: string
   OFOX_API_KEY?: string
+  /** @cloudflare/sandbox DurableObject namespace binding. Optional until sandbox container is deployed. */
+  SANDBOX?: unknown
 }
 
 export interface SynthesisResult {
@@ -25,6 +28,7 @@ export interface SynthesisResult {
 
 export class SynthesisCoordinator extends DurableObject<CoordinatorEnv> {
   private db: ArangoClient | null = null
+  private currentWorkGraphId: string = 'unknown'
 
   private getDb(): ArangoClient {
     if (!this.db) {
@@ -72,6 +76,7 @@ export class SynthesisCoordinator extends DurableObject<CoordinatorEnv> {
     opts?: { dryRun?: boolean },
   ): Promise<SynthesisResult> {
     const workGraphId = (workGraph._key ?? workGraph.id ?? 'unknown') as string
+    this.currentWorkGraphId = workGraphId
     const dryRun = opts?.dryRun ?? false
 
     const persisted = await this.ctx.storage.get<GraphState>('graphState')
@@ -202,10 +207,15 @@ export class SynthesisCoordinator extends DurableObject<CoordinatorEnv> {
   }
 
   /**
-   * Build SandboxDeps — stubs that throw until the sandbox container is deployed.
-   * When the stubs throw, makeExecutionRole catches and falls back to callModel.
+   * Build SandboxDeps — wired to @cloudflare/sandbox when SANDBOX binding is
+   * available, otherwise returns stubs that throw (triggering callModel fallback).
    */
   private buildSandboxDeps(): SandboxDeps {
+    if (this.env.SANDBOX) {
+      return buildRealSandboxDeps(this.env.SANDBOX, this.currentWorkGraphId)
+    }
+    // No SANDBOX binding — return stubs that throw so makeExecutionRole
+    // falls back to callModel (piAiRole equivalent)
     return {
       execInSandbox: async (_taskJson) => {
         throw new Error('Sandbox not yet deployed — falling back to piAiRole')
