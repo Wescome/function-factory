@@ -44,8 +44,15 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
   override async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url)
     if (url.pathname === '/synthesize' && request.method === 'POST') {
-      const body = await request.json() as { workGraph: Record<string, unknown>; dryRun?: boolean }
-      const result = await this.synthesize(body.workGraph, { dryRun: body.dryRun ?? false })
+      const body = await request.json() as {
+        workGraph: Record<string, unknown>
+        dryRun?: boolean
+        specContent?: string
+      }
+      const result = await this.synthesize(body.workGraph, {
+        dryRun: body.dryRun ?? false,
+        ...(body.specContent ? { specContent: body.specContent } : {}),
+      })
       return new Response(JSON.stringify(result), {
         headers: { 'Content-Type': 'application/json' },
       })
@@ -105,14 +112,16 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
   @callable()
   async synthesize(
     workGraph: Record<string, unknown>,
-    opts?: { dryRun?: boolean },
+    opts?: { dryRun?: boolean; specContent?: string },
   ): Promise<SynthesisResult> {
     const workGraphId = (workGraph._key ?? workGraph.id ?? 'unknown') as string
     this.currentWorkGraphId = workGraphId
     const dryRun = opts?.dryRun ?? false
 
     const persisted = await this.ctx.storage.get<GraphState>('graphState')
-    const initialState = persisted ?? createInitialState(workGraphId, workGraph)
+    const initialState = persisted ?? createInitialState(workGraphId, workGraph, {
+      ...(opts?.specContent ? { specContent: opts.specContent } : {}),
+    })
 
     // Already completed — return cached result
     if (persisted?.verdict?.decision === 'pass' ||

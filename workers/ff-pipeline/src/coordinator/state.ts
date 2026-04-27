@@ -68,6 +68,9 @@ export interface GraphState {
   gate1Report: unknown | null
   compiledPrd: unknown | null
 
+  // Specification content threaded from the proposal through the Queue
+  specContent: string | null
+
   // Sandbox state
   sandboxName: string | null
   freshBackupHandle: string | null
@@ -84,7 +87,7 @@ export interface GraphState {
 export function createInitialState(
   workGraphId: string,
   workGraph: Record<string, unknown>,
-  opts?: { maxRepairs?: number; maxTokens?: number },
+  opts?: { maxRepairs?: number; maxTokens?: number; specContent?: string | null },
 ): GraphState {
   return {
     workGraphId,
@@ -99,6 +102,9 @@ export function createInitialState(
     tokenUsage: 0,
     maxRepairs: opts?.maxRepairs ?? 5,
     maxTokens: opts?.maxTokens ?? 150_000,
+
+    // Specification content threaded from proposal
+    specContent: opts?.specContent ?? null,
 
     // Phase 5 v4 defaults (SS11)
     briefingScript: null,

@@ -56,6 +56,7 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
     graph.addNode('architect', async (state) => {
       const briefingScript = await deps.architectAgent!.produceBriefingScript({
         signal: state.workGraph as Record<string, unknown>,
+        ...(state.specContent ? { specContent: state.specContent } : {}),
       })
       const updated: Partial<GraphState> = {
         briefingScript,
@@ -72,6 +73,7 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
     graph.addNode('semantic-critic', async (state) => {
       const review = await deps.criticAgent!.semanticReview({
         prd: state.workGraph as Record<string, unknown>,
+        ...(state.specContent ? { specContent: state.specContent } : {}),
       })
       const updated: Partial<GraphState> = {
         semanticReview: review,

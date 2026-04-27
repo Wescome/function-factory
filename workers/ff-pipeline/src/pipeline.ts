@@ -209,12 +209,16 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     // Enqueue synthesis request to CF Queue.
     // The queue consumer (queue() handler) will call the DO and send
     // the result back as a workflow event.
+    // Thread specContent from the proposal through to the DO (when present)
+    const specContent = typeof proposal.specContent === 'string' ? proposal.specContent : undefined
+
     await step.do('enqueue-synthesis', async () => {
       await this.env.SYNTHESIS_QUEUE.send({
         workflowId: event.instanceId,
         workGraphId: wgKey,
         workGraph: wg,
         dryRun,
+        ...(specContent ? { specContent } : {}),
       })
       return { enqueued: true }
     })

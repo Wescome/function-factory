@@ -96,11 +96,12 @@ export default {
 
   async queue(batch: MessageBatch, env: PipelineEnv, _ctx: ExecutionContext): Promise<void> {
     for (const msg of batch.messages) {
-      const { workflowId, workGraphId, workGraph, dryRun } = msg.body as {
+      const { workflowId, workGraphId, workGraph, dryRun, specContent } = msg.body as {
         workflowId: string
         workGraphId: string
         workGraph: Record<string, unknown>
         dryRun?: boolean
+        specContent?: string
       }
 
       try {
@@ -110,7 +111,11 @@ export default {
         const doResponse = await stub.fetch(new Request('https://do/synthesize', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ workGraph, dryRun: dryRun ?? false }),
+          body: JSON.stringify({
+            workGraph,
+            dryRun: dryRun ?? false,
+            ...(specContent ? { specContent } : {}),
+          }),
         }))
 
         const result = await doResponse.json() as {
