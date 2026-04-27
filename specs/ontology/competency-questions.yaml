@@ -1,0 +1,201 @@
+# Function Factory Ontology — Competency Questions
+# These are the queries the world model MUST be able to answer.
+# If a question cannot be answered, the ontology is incomplete.
+
+questions:
+
+  # ── Domain 1: Signals & Environment ──
+
+  - id: CQ-01
+    question: "What Signals have been ingested in the last 24 hours?"
+    domain: signals
+    expected: "List of Signal IDs with signalType, source, title, timestamp"
+    aql: |
+      FOR s IN specs_signals
+        FILTER s.createdAt > DATE_SUBTRACT(DATE_NOW(), 1, 'day')
+        RETURN { id: s._key, type: s.signalType, source: s.source, title: s.title }
+
+  - id: CQ-02
+    question: "Which Signals have specContent attached?"
+    domain: signals
+    expected: "List of Signals where specContent is non-null and non-empty"
+    validates: "CONSTRAINT 2 — specContent propagation starts at Signal"
+
+  - id: CQ-03
+    question: "What is the full lineage chain from a given WorkGraph back to its originating Signal?"
+    domain: signals
+    expected: "Ordered path: WorkGraph → Proposal → Capability → Pressure → Signal"
+    validates: "CONSTRAINT 1 — lineage completeness"
+
+  # ── Domain 2: Specification Chain ──
+
+  - id: CQ-04
+    question: "How many atoms does WorkGraph WG-XXX have, and are all bound?"
+    domain: specification
+    expected: "Count of atoms + binding status for each"
+    validates: "Gate 1 atom_coverage check"
+
+  - id: CQ-05
+    question: "Which Invariants in WorkGraph WG-XXX lack DetectorSpecs?"
+    domain: specification
+    expected: "List of INV-* IDs without detectedBy relationship"
+    validates: "CONSTRAINT 5 — invariant without detector is a wish"
+
+  - id: CQ-06
+    question: "What is the derivationMode of each artifact in the chain for Signal SIG-XXX?"
+    domain: specification
+    expected: "Each artifact labeled: extracted, generated, pre-authored, or architect-extracted"
+    validates: "CONSTRAINT 2 — derivation mode tracking"
+
+  - id: CQ-07
+    question: "Did specContent propagate from Signal through Pressure, Capability, Proposal to WorkGraph?"
+    domain: specification
+    expected: "Boolean per artifact in chain — true if specContent is present"
+    validates: "CONSTRAINT 2 — no telephone game"
+
+  # ── Domain 3: Governance & Trust ──
+
+  - id: CQ-08
+    question: "Has every WorkGraph been reviewed by an agent before synthesis?"
+    domain: governance
+    expected: "List of WorkGraphs with/without reviewedBy relationship"
+    validates: "CONSTRAINT 6 — every artifact reviewed"
+
+  - id: CQ-09
+    question: "Which MentorScript rules are active and which agents should load them?"
+    domain: governance
+    expected: "List of MR-* with scope, appliesTo roles, status"
+    validates: "CONSTRAINT 8 — MentorScript enforcement"
+
+  - id: CQ-10
+    question: "What is the current trust score for Function FN-XXX?"
+    domain: governance
+    expected: "TrustComposite with Gate 1/2/3 status, invariant health"
+
+  - id: CQ-11
+    question: "Are there any Invariants with stale detectors (> 48h since last check)?"
+    domain: governance
+    expected: "List of INV-* with last check timestamp > 48h ago"
+    validates: "Gate 3 detector_freshness"
+
+  # ── Domain 4: Execution & Synthesis ──
+
+  - id: CQ-12
+    question: "For synthesis session EA-XXX, what did each of the 9 nodes produce?"
+    domain: execution
+    expected: "Per-node: role, input fields read, output written, token usage"
+    validates: "Full synthesis trace"
+
+  - id: CQ-13
+    question: "Does the latest BriefingScript have all 6 required fields?"
+    domain: execution
+    expected: "Boolean + missing field names"
+    validates: "CONSTRAINT 3 — BriefingScript completeness"
+
+  - id: CQ-14
+    question: "Did the Critic catch any issues in the latest synthesis?"
+    domain: execution
+    expected: "CritiqueReport with passed, issues[], mentorRuleCompliance[]"
+    validates: "CONSTRAINT 8 — MentorScript enforcement in reviews"
+
+  - id: CQ-15
+    question: "How many repair cycles did the latest synthesis go through?"
+    domain: execution
+    expected: "repairCount, verdict.decision per cycle"
+
+  - id: CQ-16
+    question: "Was the Coder running in a real Sandbox or producing JSON (piAiRole fallback)?"
+    domain: execution
+    expected: "executionMode: sandbox | piAiRole | dry-run"
+    validates: "CONSTRAINT 11 — Coder has filesystem"
+
+  # ── Domain 5: Human-Agent Dialogue ──
+
+  - id: CQ-17
+    question: "Are there any pending CRPs waiting for human resolution?"
+    domain: dialogue
+    expected: "List of CRP-* with status=pending, question, routing"
+
+  - id: CQ-18
+    question: "Has any agent produced output with confidence < 0.7 without filing a CRP?"
+    domain: dialogue
+    expected: "List of artifacts violating CONSTRAINT 7"
+    validates: "CONSTRAINT 7 — CRP escalation on low confidence"
+
+  - id: CQ-19
+    question: "What VCRs has the architect issued this week?"
+    domain: dialogue
+    expected: "List of VCR-* with decision, rationale, what they resolved"
+
+  # ── Domain 6: Agent Topology ──
+
+  - id: CQ-20
+    question: "Which agent roles have tools defined vs which are prompt wrappers?"
+    domain: agents
+    expected: "Per role: tools list. Empty = prompt wrapper = VIOLATION"
+    validates: "CONSTRAINT 4 — agent is real agent"
+
+  - id: CQ-21
+    question: "What memory does each agent load at session start?"
+    domain: agents
+    expected: "Per role: DECISIONS, LESSONS, MentorRules, Codebase access"
+    validates: "CONSTRAINT 4 — agent has memory"
+
+  - id: CQ-22
+    question: "Where does each agent execute — V8 isolate or Sandbox Container?"
+    domain: agents
+    expected: "Per role: execution environment"
+    validates: "CONSTRAINTS 11, 12 — Coder/Tester need Sandbox"
+
+  # ── Domain 7: Infrastructure & Lifecycle ──
+
+  - id: CQ-23
+    question: "What is the lifecycle state of every Function in the system?"
+    domain: lifecycle
+    expected: "Per Function: proposed → designed → in_progress → implemented → verified → monitored"
+    validates: "CONSTRAINT 14 — lifecycle transitions require gates"
+
+  - id: CQ-24
+    question: "Which Functions are monitored but have stale Gate 3 checks?"
+    domain: lifecycle
+    expected: "Functions in 'monitored' state with Gate 3 older than threshold"
+
+  - id: CQ-25
+    question: "What is the full infrastructure topology — Workers, DOs, Containers, Queues?"
+    domain: infrastructure
+    expected: "Graph of all deployed components and their bindings"
+
+  # ── Cross-Domain ──
+
+  - id: CQ-26
+    question: "Given a Signal, what is the complete artifact chain through to deployed code?"
+    domain: cross
+    expected: "Signal → Pressure → Capability → Proposal → WorkGraph → Gate 1 → BriefingScript → Plan → Code → Critique → Tests → Verdict → MRP → PR"
+    validates: "End-to-end traceability"
+
+  - id: CQ-27
+    question: "What would break if we changed Invariant INV-XXX?"
+    domain: cross
+    expected: "Impact analysis: Functions, WorkGraphs, Detectors, Gates affected"
+    validates: "Assurance graph traversal"
+
+  - id: CQ-28
+    question: "Is the Factory currently in Bootstrap or Steady-State mode?"
+    domain: cross
+    expected: "FactoryMode with evidence (META- prefixes, self-referential Signals)"
+
+  - id: CQ-29
+    question: "Which SASE engineering activities have been practiced vs which are aspirational?"
+    domain: cross
+    expected: |
+      BriefingEng: PARTIAL (BriefingScript produced but by prompt wrapper, not real agent)
+      LoopEng: OPERATIONAL (9-node graph with repair loops)
+      MentorEng: STORED NOT ENFORCED (rules in ArangoDB, not loaded by agents)
+      GuidanceEng: NOT PRACTICED (CRPs never fire, VCRs manual only)
+      InfraEng: OPERATIONAL (CF Workers + Containers + Queues + ArangoDB)
+
+  - id: CQ-30
+    question: "What is the document-implementation gap — what's specced but not built?"
+    domain: cross
+    expected: "Diff between ontology classes and actual ArangoDB collections + code implementations"
+    validates: "The gap that the ontology exists to close"

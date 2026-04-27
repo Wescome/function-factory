@@ -1,0 +1,378 @@
+@prefix ff:    <https://koales.ai/ontology/function-factory#> .
+@prefix sh:    <http://www.w3.org/ns/shacl#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+
+# ═══════════════════════════════════════════════════════════════════
+# Function Factory SHACL Shapes — Validation Constraints
+#
+# These shapes make the Factory's historical failure modes
+# structurally impossible. If an artifact violates a shape,
+# it CANNOT enter the graph.
+# ═══════════════════════════════════════════════════════════════════
+
+
+# ─── CONSTRAINT 1: Lineage Completeness ──────────────────────────
+# Failure mode: artifacts with no source_refs (lineage break)
+# Lesson: "Empty source_refs. Never." (except Stage 1 Signals)
+
+ff:NonSignalLineageShape a sh:NodeShape ;
+    sh:targetClass ff:Pressure, ff:BusinessCapability, ff:FunctionProposal,
+                   ff:PRDDraft, ff:WorkGraph, ff:CoverageReport ;
+    sh:property [
+        sh:path ff:derivesFrom ;
+        sh:minCount 1 ;
+        sh:message "LINEAGE BREAK: Every non-Signal artifact MUST derive from at least one upstream artifact." ;
+        sh:severity sh:Violation ;
+    ] ;
+    sh:property [
+        sh:path ff:sourceRefs ;
+        sh:minCount 1 ;
+        sh:message "LINEAGE BREAK: source_refs cannot be empty for non-Signal artifacts." ;
+        sh:severity sh:Violation ;
+    ] .
+
+
+# ─── CONSTRAINT 2: specContent Propagation ───────────────────────
+# Failure mode: specContent lost in telephone game (Stages 2-4)
+# Lesson: "Information that never enters the pipeline cannot be preserved"
+
+ff:SpecContentPropagationShape a sh:NodeShape ;
+    sh:targetClass ff:Pressure, ff:BusinessCapability, ff:FunctionProposal ;
+    sh:sparql [
+        sh:message "SPEC LOSS: When the originating Signal has specContent, every derivation artifact MUST carry it." ;
+        sh:severity sh:Violation ;
+        sh:select """
+            SELECT $this WHERE {
+                $this ff:derivesFrom+ ?signal .
+                ?signal a ff:Signal .
+                ?signal ff:specContent ?spec .
+                FILTER NOT EXISTS { $this ff:specContent ?_ }
+            }
+        """ ;
+    ] .
+
+
+# ─── CONSTRAINT 3: BriefingScript Completeness ───────────────────
+# Failure mode: incomplete BriefingScripts (missing fields)
+# SASE §5.1: goal, successCriteria, architecturalContext,
+#             strategicAdvice, knownGotchas, validationLoop
+
+ff:BriefingScriptShape a sh:NodeShape ;
+    sh:targetClass ff:BriefingScript ;
+    sh:property [
+        sh:path ff:goal ;
+        sh:minCount 1 ; sh:datatype xsd:string ; sh:minLength 10 ;
+        sh:message "BriefingScript MUST have a goal (min 10 chars)." ;
+    ] ;
+    sh:property [
+        sh:path ff:successCriteria ;
+        sh:minCount 1 ;
+        sh:message "BriefingScript MUST have at least one success criterion." ;
+    ] ;
+    sh:property [
+        sh:path ff:architecturalContext ;
+        sh:minCount 1 ; sh:datatype xsd:string ; sh:minLength 20 ;
+        sh:message "BriefingScript MUST have architectural context (min 20 chars)." ;
+    ] ;
+    sh:property [
+        sh:path ff:strategicAdvice ;
+        sh:minCount 1 ; sh:datatype xsd:string ;
+        sh:message "BriefingScript MUST have strategic advice." ;
+    ] ;
+    sh:property [
+        sh:path ff:knownGotchas ;
+        sh:minCount 0 ;
+        sh:message "BriefingScript SHOULD list known gotchas." ;
+        sh:severity sh:Warning ;
+    ] ;
+    sh:property [
+        sh:path ff:validationLoop ;
+        sh:minCount 1 ; sh:datatype xsd:string ;
+        sh:message "BriefingScript MUST define a validation loop." ;
+    ] ;
+    sh:property [
+        sh:path ff:producedBy ;
+        sh:hasValue ff:ArchitectRole ;
+        sh:message "BriefingScript MUST be produced by the Architect Agent (not a prompt wrapper)." ;
+    ] .
+
+
+# ─── CONSTRAINT 4: Agent Is Real Agent ───────────────────────────
+# Failure mode: prompt wrappers pretending to be agents
+# Lesson: "A real agent has tools, memory, multi-turn loops"
+
+ff:AgentRoleShape a sh:NodeShape ;
+    sh:targetClass ff:AgentRole ;
+    sh:property [
+        sh:path ff:hasTools ;
+        sh:minCount 1 ;
+        sh:message "FAKE AGENT: An agent without tools is not an agent. It's a prompt wrapper." ;
+        sh:severity sh:Violation ;
+    ] ;
+    sh:property [
+        sh:path ff:hasMemoryAccess ;
+        sh:minCount 1 ;
+        sh:message "CONTEXT BLIND: An agent without memory access will hallucinate." ;
+        sh:severity sh:Violation ;
+    ] ;
+    sh:property [
+        sh:path ff:runsIn ;
+        sh:minCount 1 ;
+        sh:message "HOMELESS AGENT: Every agent must have a defined execution environment." ;
+        sh:severity sh:Violation ;
+    ] .
+
+
+# ─── CONSTRAINT 5: Invariant Has Detector ────────────────────────
+# Failure mode: invariants without detectors (wishes)
+# Lesson: "An invariant without a detector is a wish. Gate 1 rejects."
+
+ff:InvariantDetectorShape a sh:NodeShape ;
+    sh:targetClass ff:Invariant ;
+    sh:property [
+        sh:path ff:detectedBy ;
+        sh:minCount 1 ;
+        sh:message "WISH NOT INVARIANT: An Invariant without a DetectorSpec is a wish. Gate 1 MUST reject." ;
+        sh:severity sh:Violation ;
+    ] .
+
+ff:DetectorSpecShape a sh:NodeShape ;
+    sh:targetClass ff:DetectorSpec ;
+    sh:property [
+        sh:path ff:evidenceSources ;
+        sh:minCount 1 ;
+        sh:message "Detector MUST name evidence sources." ;
+    ] ;
+    sh:property [
+        sh:path ff:directRules ;
+        sh:minCount 1 ;
+        sh:message "Detector MUST have direct rules." ;
+    ] ;
+    sh:property [
+        sh:path ff:regressionPolicy ;
+        sh:minCount 1 ;
+        sh:message "Detector MUST define regression policy." ;
+    ] .
+
+
+# ─── CONSTRAINT 6: Every Artifact Reviewed ───────────────────────
+# Failure mode: unreviewed artifacts passing through pipeline
+# Lesson: "Every Factory artifact gets Architect review. No exceptions."
+
+ff:WorkGraphReviewShape a sh:NodeShape ;
+    sh:targetClass ff:WorkGraph ;
+    sh:property [
+        sh:path ff:reviewedBy ;
+        sh:minCount 1 ;
+        sh:message "UNREVIEWED: Every WorkGraph MUST be reviewed by an Agent before synthesis." ;
+        sh:severity sh:Violation ;
+    ] .
+
+ff:CodeArtifactReviewShape a sh:NodeShape ;
+    sh:targetClass ff:CodeArtifact ;
+    sh:property [
+        sh:path ff:reviewedBy ;
+        sh:hasValue ff:CriticRole ;
+        sh:message "UNREVIEWED CODE: Every CodeArtifact MUST be reviewed by the Critic." ;
+        sh:severity sh:Violation ;
+    ] .
+
+
+# ─── CONSTRAINT 7: CRP Escalation on Low Confidence ─────────────
+# Failure mode: agents produce confident garbage instead of escalating
+# Lesson: CRPs never fire — agents should escalate uncertainty
+
+ff:ConfidenceEscalationShape a sh:NodeShape ;
+    sh:targetClass ff:ExecutionArtifact ;
+    sh:sparql [
+        sh:message "SILENT UNCERTAINTY: Artifact with confidence < 0.7 MUST have an associated CRP." ;
+        sh:severity sh:Violation ;
+        sh:select """
+            SELECT $this WHERE {
+                $this ff:confidence ?conf .
+                FILTER (?conf < 0.7)
+                FILTER NOT EXISTS {
+                    ?crp a ff:ConsultationRequestPack .
+                    ?crp ff:relatedArtifact $this .
+                }
+            }
+        """ ;
+    ] .
+
+
+# ─── CONSTRAINT 8: MentorScript Enforcement ──────────────────────
+# Failure mode: rules stored but never consumed
+# Lesson: MentorScript rules stored in ArangoDB but no agent loads them
+
+ff:CritiqueRulComplianceShape a sh:NodeShape ;
+    sh:targetClass ff:CritiqueReport ;
+    sh:property [
+        sh:path ff:mentorRulesChecked ;
+        sh:minCount 1 ;
+        sh:message "RULES IGNORED: CritiqueReport MUST document which MentorScript rules were checked." ;
+        sh:severity sh:Violation ;
+    ] .
+
+
+# ─── CONSTRAINT 9: Gate Fail-Closed ──────────────────────────────
+# Failure mode: gates passing structurally valid but semantically wrong artifacts
+# Lesson: "Gate 1 PASS does not imply conceptual correctness"
+
+ff:GateFailClosedShape a sh:NodeShape ;
+    sh:targetClass ff:CoverageReport ;
+    sh:property [
+        sh:path ff:passed ;
+        sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:boolean ;
+        sh:message "Gate result MUST be explicitly pass or fail. No ambiguity." ;
+    ] ;
+    sh:property [
+        sh:path ff:gateResult ;
+        sh:minCount 1 ;
+        sh:message "Gate MUST produce a CoverageReport with lineage." ;
+    ] .
+
+
+# ─── CONSTRAINT 10: Semantic Review Grounded ─────────────────────
+# Failure mode: Critic reviews hallucination against hallucination
+# Lesson: "Critic verifies against source, not pipeline intermediates"
+
+ff:SemanticReviewGroundedShape a sh:NodeShape ;
+    sh:targetClass ff:CritiqueReport ;
+    sh:sparql [
+        sh:message "UNGROUNDED REVIEW: Semantic review MUST compare against original specContent, not pipeline intermediates." ;
+        sh:severity sh:Warning ;
+        sh:select """
+            SELECT $this WHERE {
+                $this ff:reviewType "semantic" .
+                FILTER NOT EXISTS { $this ff:groundedIn ?spec . ?spec a ff:Signal . }
+            }
+        """ ;
+    ] .
+
+
+# ─── CONSTRAINT 11: Coder Has Filesystem ─────────────────────────
+# Failure mode: Coder produces JSON files instead of real code
+# Lesson: "Phase 4 Coder produces JSON — structurally correct, untested"
+
+ff:CoderEnvironmentShape a sh:NodeShape ;
+    sh:targetNode ff:CoderRole ;
+    sh:property [
+        sh:path ff:runsIn ;
+        sh:hasValue ff:SandboxContainer ;
+        sh:message "FAKE CODE: Coder MUST run in a Sandbox Container with real filesystem, not a V8 isolate producing JSON." ;
+        sh:severity sh:Warning ;
+    ] ;
+    sh:property [
+        sh:path ff:hasTools ;
+        sh:qualifiedValueShape [ sh:hasValue ff:FileWriteTool ] ;
+        sh:qualifiedMinCount 1 ;
+        sh:message "Coder MUST have FileWriteTool." ;
+    ] ;
+    sh:property [
+        sh:path ff:hasTools ;
+        sh:qualifiedValueShape [ sh:hasValue ff:BashExecuteTool ] ;
+        sh:qualifiedMinCount 1 ;
+        sh:message "Coder MUST have BashExecuteTool." ;
+    ] ;
+    sh:property [
+        sh:path ff:hasTools ;
+        sh:qualifiedValueShape [ sh:hasValue ff:GitTool ] ;
+        sh:qualifiedMinCount 1 ;
+        sh:message "Coder MUST have GitTool." ;
+    ] .
+
+
+# ─── CONSTRAINT 12: Tester Runs Real Tests ───────────────────────
+# Failure mode: Tester simulates test results instead of executing
+
+ff:TesterEnvironmentShape a sh:NodeShape ;
+    sh:targetNode ff:TesterRole ;
+    sh:property [
+        sh:path ff:runsIn ;
+        sh:hasValue ff:SandboxContainer ;
+        sh:message "SIMULATED TESTS: Tester MUST run in a Sandbox Container with real test execution." ;
+        sh:severity sh:Warning ;
+    ] ;
+    sh:property [
+        sh:path ff:hasTools ;
+        sh:qualifiedValueShape [ sh:hasValue ff:BashExecuteTool ] ;
+        sh:qualifiedMinCount 1 ;
+        sh:message "Tester MUST have BashExecuteTool to run pnpm test." ;
+    ] .
+
+
+# ─── CONSTRAINT 13: WorkGraph Has Atoms ──────────────────────────
+# Failure mode: empty or single-atom WorkGraphs
+
+ff:WorkGraphCompletenessShape a sh:NodeShape ;
+    sh:targetClass ff:WorkGraph ;
+    sh:property [
+        sh:path ff:hasNode ;
+        sh:minCount 1 ;
+        sh:message "EMPTY WORKGRAPH: WorkGraph must have at least one node." ;
+    ] ;
+    sh:property [
+        sh:path ff:specContent ;
+        sh:minCount 0 ;
+        sh:message "WorkGraph SHOULD carry specContent for traceability." ;
+        sh:severity sh:Info ;
+    ] .
+
+
+# ─── CONSTRAINT 14: Function Lifecycle Transitions ───────────────
+# Failure mode: Functions promoted without required gates
+
+ff:LifecycleTransitionShape a sh:NodeShape ;
+    sh:targetClass ff:FunctionProposal ;
+    sh:sparql [
+        sh:message "UNGATED PROMOTION: Function cannot transition to 'verified' without Gate 2 pass." ;
+        sh:severity sh:Violation ;
+        sh:select """
+            SELECT $this WHERE {
+                $this ff:hasLifecycleState ff:Verified .
+                FILTER NOT EXISTS {
+                    ?cr a ff:CoverageReport .
+                    ?cr ff:validatedBy ff:Gate2 .
+                    ?cr ff:passed true .
+                    ?cr ff:derivesFrom $this .
+                }
+            }
+        """ ;
+    ] .
+
+
+# ─── CONSTRAINT 15: No Secrets in Artifacts ──────────────────────
+# Failure mode: API keys leaked in tool calls or commits
+
+ff:NoSecretsShape a sh:NodeShape ;
+    sh:targetClass ff:CodeArtifact ;
+    sh:sparql [
+        sh:message "SECRET LEAK: CodeArtifact must not contain API keys, passwords, or tokens." ;
+        sh:severity sh:Violation ;
+        sh:select """
+            SELECT $this WHERE {
+                $this ff:content ?content .
+                FILTER (
+                    CONTAINS(?content, "sk-ant-") ||
+                    CONTAINS(?content, "sk-proj-") ||
+                    CONTAINS(?content, "GOCSPX-") ||
+                    CONTAINS(?content, "Bearer ey")
+                )
+            }
+        """ ;
+    ] .
+
+
+# ─── CONSTRAINT 16: Event-Driven Communication ──────────────────
+# Failure mode: synchronous RPC between Workflows and DOs (deadlock)
+# Lesson: "Workflow → DO inside step.do() deadlocks"
+
+ff:EventDrivenShape a sh:NodeShape ;
+    sh:targetClass ff:Workflow ;
+    sh:property [
+        sh:path ff:communicatesVia ;
+        sh:hasValue ff:synthesisQueue ;
+        sh:message "DEADLOCK RISK: Workflows MUST communicate with DOs via Queue, not direct RPC." ;
+        sh:severity sh:Violation ;
+    ] .
