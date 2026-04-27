@@ -1,4 +1,4 @@
-import { DurableObject } from 'cloudflare:workers'
+import { Agent, callable, type FiberContext, type FiberRecoveryContext } from 'agents'
 import { createClientFromEnv, type ArangoClient } from '@factory/arango-client'
 import { buildSynthesisGraph } from './graph'
 import type { GraphDeps } from './graph'
@@ -26,7 +26,7 @@ export interface SynthesisResult {
   roleHistory: { role: string; tokenUsage: number; timestamp: string }[]
 }
 
-export class SynthesisCoordinator extends DurableObject<CoordinatorEnv> {
+export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
   private db: ArangoClient | null = null
   private currentWorkGraphId: string = 'unknown'
 
@@ -71,6 +71,34 @@ export class SynthesisCoordinator extends DurableObject<CoordinatorEnv> {
     await this.ctx.storage.put('__alarm_fired', true)
   }
 
+  /**
+   * Fiber recovery hook — fires when the DO restarts after eviction
+   * and finds an interrupted synthesis fiber in SQLite.
+   */
+  override async onFiberRecovered(ctx: FiberRecoveryContext): Promise<void> {
+    const snapshot = ctx.snapshot as { workGraphId?: string; state?: GraphState } | null
+    const workGraphId = snapshot?.workGraphId ?? ctx.name.replace('synth-', '')
+    console.warn(
+      `[Stage 6] Fiber "${ctx.name}" (id=${ctx.id}) recovered after eviction. ` +
+      `WorkGraph=${workGraphId}, age=${Date.now() - ctx.createdAt}ms`,
+    )
+
+    // If there's a stashed state, mark it as interrupted so the next
+    // synthesize() call sees a terminal verdict and returns immediately.
+    if (snapshot?.state && !snapshot.state.verdict) {
+      const interruptedState: GraphState = {
+        ...snapshot.state,
+        verdict: {
+          decision: 'interrupt',
+          confidence: 1.0,
+          reason: `Fiber recovered after DO eviction (fiber=${ctx.id})`,
+        },
+      }
+      await this.ctx.storage.put('graphState', interruptedState)
+    }
+  }
+
+  @callable()
   async synthesize(
     workGraph: Record<string, unknown>,
     opts?: { dryRun?: boolean },
@@ -82,6 +110,7 @@ export class SynthesisCoordinator extends DurableObject<CoordinatorEnv> {
     const persisted = await this.ctx.storage.get<GraphState>('graphState')
     const initialState = persisted ?? createInitialState(workGraphId, workGraph)
 
+    // Already completed — return cached result
     if (persisted?.verdict?.decision === 'pass' ||
         persisted?.verdict?.decision === 'fail' ||
         persisted?.verdict?.decision === 'interrupt') {
@@ -90,81 +119,87 @@ export class SynthesisCoordinator extends DurableObject<CoordinatorEnv> {
       return this.buildResult(workGraphId, persisted)
     }
 
-    const callModel = dryRun
-      ? this.dryRunModelBridge()
-      : createModelBridge(this.env)
+    // Wrap synthesis in runFiber for crash recovery.
+    // If the DO is evicted mid-synthesis, onFiberRecovered fires on restart.
+    return this.runFiber(`synth-${workGraphId}`, async (fiberCtx: FiberContext) => {
+      const callModel = dryRun
+        ? this.dryRunModelBridge()
+        : createModelBridge(this.env)
 
-    const persistState = async (state: GraphState, _role?: string) => {
-      await this.ctx.storage.put('graphState', state)
-    }
-
-    const fetchMentorRules = async () => {
-      try {
-        const db = this.getDb()
-        return await db.query<{ ruleId: string; rule: string }>(
-          `FOR r IN mentorscript_rules
-             FILTER r.status == 'active'
-             RETURN { ruleId: r._key, rule: r.rule }`,
-        )
-      } catch {
-        return []
+      const persistState = async (state: GraphState, _role?: string) => {
+        await this.ctx.storage.put('graphState', state)
+        // Checkpoint into fiber for crash recovery
+        fiberCtx.stash({ workGraphId, state })
       }
-    }
 
-    const deps: GraphDeps = {
-      callModel,
-      persistState,
-      fetchMentorRules,
-      // Sandbox execution for coder/tester — stubs throw until container is deployed,
-      // triggering automatic fallback to callModel (piAiRole equivalent)
-      executionRole: makeExecutionRole({
-        dryRun,
-        sandboxDeps: this.buildSandboxDeps(),
+      const fetchMentorRules = async () => {
+        try {
+          const db = this.getDb()
+          return await db.query<{ ruleId: string; rule: string }>(
+            `FOR r IN mentorscript_rules
+               FILTER r.status == 'active'
+               RETURN { ruleId: r._key, rule: r.rule }`,
+          )
+        } catch {
+          return []
+        }
+      }
+
+      const deps: GraphDeps = {
         callModel,
         persistState,
         fetchMentorRules,
-      }),
-    }
-
-    const graph = buildSynthesisGraph(deps)
-
-    // Set wall-clock alarm — survives I/O suspension and DO hibernation
-    await this.ctx.storage.put('__completed', false)
-    await this.ctx.storage.put('__alarm_fired', false)
-    // Scale timeout with WorkGraph complexity: 3min base + 30s per atom
-    const atoms = (workGraph.atoms as unknown[] | undefined)?.length ?? 0
-    const timeoutMs = Math.max(180_000, 180_000 + atoms * 30_000)
-    await this.ctx.storage.setAlarm(Date.now() + timeoutMs)
-
-    let finalState: GraphState
-    try {
-      finalState = await graph.run(initialState, {
-        onNodeStart: (name, state) => {
-          console.log(`[Stage 6] ${name} starting (repair ${state.repairCount}, tokens ${state.tokenUsage})`)
-        },
-        maxSteps: 50,
-      })
-    } catch (err) {
-      await this.ctx.storage.deleteAlarm()
-      const alarmFired = await this.ctx.storage.get<boolean>('__alarm_fired')
-      const reason = alarmFired
-        ? 'DO alarm: synthesis exceeded 180s wall-clock deadline'
-        : (err instanceof Error ? err.message : 'Synthesis failed')
-      const failState: GraphState = {
-        ...initialState,
-        verdict: { decision: 'interrupt', confidence: 1.0, reason },
+        // Sandbox execution for coder/tester — stubs throw until container is deployed,
+        // triggering automatic fallback to callModel (piAiRole equivalent)
+        executionRole: makeExecutionRole({
+          dryRun,
+          sandboxDeps: this.buildSandboxDeps(),
+          callModel,
+          persistState,
+          fetchMentorRules,
+        }),
       }
-      await this.ctx.storage.delete('graphState')
+
+      const graph = buildSynthesisGraph(deps)
+
+      // Set wall-clock alarm — survives I/O suspension and DO hibernation
+      await this.ctx.storage.put('__completed', false)
+      await this.ctx.storage.put('__alarm_fired', false)
+      // Scale timeout with WorkGraph complexity: 3min base + 30s per atom
+      const atoms = (workGraph.atoms as unknown[] | undefined)?.length ?? 0
+      const timeoutMs = Math.max(180_000, 180_000 + atoms * 30_000)
+      await this.ctx.storage.setAlarm(Date.now() + timeoutMs)
+
+      let finalState: GraphState
+      try {
+        finalState = await graph.run(initialState, {
+          onNodeStart: (name, state) => {
+            console.log(`[Stage 6] ${name} starting (repair ${state.repairCount}, tokens ${state.tokenUsage})`)
+          },
+          maxSteps: 50,
+        })
+      } catch (err) {
+        await this.ctx.storage.deleteAlarm()
+        const alarmFired = await this.ctx.storage.get<boolean>('__alarm_fired')
+        const reason = alarmFired
+          ? 'DO alarm: synthesis exceeded 180s wall-clock deadline'
+          : (err instanceof Error ? err.message : 'Synthesis failed')
+        const failState: GraphState = {
+          ...initialState,
+          verdict: { decision: 'interrupt', confidence: 1.0, reason },
+        }
+        await this.ctx.storage.delete('graphState')
+        await this.ctx.storage.put('__completed', true)
+        return this.buildResult(workGraphId, failState)
+      }
+
+      await this.ctx.storage.deleteAlarm()
       await this.ctx.storage.put('__completed', true)
-      return this.buildResult(workGraphId, failState)
-    }
+      await this.ctx.storage.delete('graphState')
+      await this.persistSynthesisResult(workGraphId, finalState)
 
-    await this.ctx.storage.deleteAlarm()
-    await this.ctx.storage.put('__completed', true)
-    await this.ctx.storage.delete('graphState')
-    await this.persistSynthesisResult(workGraphId, finalState)
-
-    return this.buildResult(workGraphId, finalState)
+      return this.buildResult(workGraphId, finalState)
+    })
   }
 
   private dryRunModelBridge() {

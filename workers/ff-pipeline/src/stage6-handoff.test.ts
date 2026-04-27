@@ -32,6 +32,26 @@ vi.mock('cloudflare:workers', () => {
   return { WorkflowEntrypoint, DurableObject }
 })
 
+// ─── Mock agents SDK (depends on cloudflare:workers transitively) ───
+
+vi.mock('agents', () => {
+  class Agent {
+    env: unknown
+    ctx: unknown
+    constructor(ctx: unknown, env: unknown) {
+      this.ctx = ctx
+      this.env = env
+    }
+    async runFiber(_name: string, fn: (ctx: unknown) => Promise<unknown>) {
+      return fn({ id: 'mock-fiber', stash: () => {}, snapshot: null })
+    }
+    stash() {}
+    async onFiberRecovered() {}
+  }
+  const callable = () => (_target: unknown, _context: unknown) => _target
+  return { Agent, callable }
+})
+
 // ─── Shared ArangoDB mock ───
 
 const mockDb = {
