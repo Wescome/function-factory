@@ -17,6 +17,7 @@ crystallization-from-execution; PiAgentBindingMode authorized).
 |---|---|---|
 | v4.0 | 2026-04-26 | Initial v4 spec (Agents SDK + Sandbox topology) |
 | v4.1 | 2026-04-26 | GDK substrate amendment. ADR: DECISIONS.md 2026-04-26. Analysis: GDK-PLATFORM-ANALYSIS.md |
+| v4.2 | 2026-04-26 | Fibers + @cloudflare/shell primitives. ADR: DECISIONS.md 2026-04-26 |
 
 **v4.1 changes (GDK substrate):**
 
@@ -27,6 +28,14 @@ crystallization-from-execution; PiAgentBindingMode authorized).
 - SS10: Dockerfile installs `@weops/gdk-agent` + `@weops/gdk-ai` + `@weops/gdk-ts` instead of `@mariozechner/pi-coding-agent`
 - SS12: File scope gate and command policy gate become `beforeToolCall` implementations
 - SS18: New section -- GDK Substrate Integration
+
+**v4.2 changes (Fibers + @cloudflare/shell):**
+
+- SS2: Coordinator `synthesize()` wraps in `runFiber()`; manual alarm + storage persistence replaced by Fiber checkpointing via `stash()`
+- SS5/SS6: `createBackup()`/`restoreBackup()` replaced by `@cloudflare/shell` Workspace fork-based repair loops
+- SS4: Critic gains FTS5 full-text search over workspace via Shell Workspace
+- SS9: `agents@0.11.6` + `@cloudflare/shell@0.3.4` added to dependencies
+- SS10: Dockerfile adds `@cloudflare/shell` for sandbox workspace operations
 
 ---
 
@@ -148,8 +157,16 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
     workGraph: Record<string, unknown>,
     opts?: { dryRun?: boolean },
   ): Promise<SynthesisResult> {
-    // ... graph construction + run logic preserved from v3 ...
-    // See SS2.2 for graph changes
+    // (amended v4.2 — Fibers + Shell): synthesis loop runs inside a Fiber.
+    // Manual alarm + this.ctx.storage persistence replaced by stash().
+    return this.runFiber(`synth-${workGraph.id}`, async (fiber) => {
+      const state = createInitialState(workGraph, opts);
+      const graph = buildSynthesisGraph(this.buildDeps());
+      for await (const next of graph.stream(state)) {
+        fiber.stash(next);  // checkpoint after each node
+      }
+      return next;
+    });
   }
 
   // Agents SDK: callable for CRP resolution from gateway
@@ -179,8 +196,12 @@ build graph, run graph, persist result. What changes:
 3. **`this.state` replaces `this.ctx.storage`.** Agent state is reactive
    and automatically persisted. GraphState is stored as `this.state.graphState`.
 
-4. **Alarm mechanism preserved.** `Agent` extends `DurableObject` under the
-   hood. DO Alarms remain available for wall-clock timeout.
+4. **~~Alarm mechanism preserved.~~ (amended v4.2 -- Fibers + Shell):**
+   `runFiber()` replaces manual alarm + `this.ctx.storage` crash recovery.
+   The synthesis loop runs inside a Fiber; `stash()` checkpoints state
+   after each graph node. On DO eviction, `onFiberRecovered()` resumes
+   from the last stash point. Wall-clock timeout uses Fiber's built-in
+   timeout parameter instead of raw DO Alarms.
 
 ### 2.3 What Does NOT Change (amended v4.1 -- GDK substrate)
 
@@ -322,6 +343,13 @@ Same reasoning as the Architect. The Critic reads artifacts and produces
 structured verdicts. It does not touch a filesystem. All inputs arrive as
 structured data from the Coordinator. LLM calls go through the model bridge.
 
+**(amended v4.2 -- Fibers + Shell):** For code review (post-Coder), the
+Critic gains FTS5 full-text search over workspace contents via
+`@cloudflare/shell` Workspace. The Coordinator passes a Workspace handle
+to `codeReview()`; the Critic can query file contents with structured
+search instead of receiving pre-serialized code strings. Semantic review
+(post-Architect) remains string-input-only -- no workspace needed.
+
 ### 4.3 Dual Review Positions
 
 The Critic runs at two positions in the graph:
@@ -385,11 +413,16 @@ const response = await sandbox.containerFetch(
   8080,
 );
 
-// Backup workspace to R2
-const handle = await sandbox.createBackup({ dir: "/workspace", ttl: 3600 });
+// (amended v4.2 — Fibers + Shell): fork-based repair replaces R2 backup/restore
+// Fork workspace before Coder runs — creates copy-on-write snapshot
+const fork = await workspace.fork();
 
-// Restore from backup (for repair loops)
-await sandbox.restoreBackup(handle);
+// On resample verdict: discard fork, workspace reverts to pre-Coder state
+await fork.discard();
+
+// Legacy R2 backup API retained as fallback for cross-sandbox restore:
+// const handle = await sandbox.createBackup({ dir: "/workspace", ttl: 3600 });
+// await sandbox.restoreBackup(handle);
 
 // Cleanup
 await sandbox.destroy();
@@ -450,16 +483,17 @@ dependencies. This is architecturally identical to v3 SS7 (Container reuse
 across Coder -> Tester).
 
 ```
-Sandbox lifecycle:
+Sandbox lifecycle (amended v4.2 — Fibers + Shell):
   1. sandbox = getSandbox(env.SANDBOX, name)
-  2. Workspace prep: git clone, pnpm install
+  2. Workspace prep: git clone, pnpm install (via @cloudflare/shell Workspace)
+  3. workspace.fork() — snapshot before Coder
   3. Coder session: gdk-agent Agent with write tools (amended v4.1)
-  4. Code-Critic review (CriticAgent, no sandbox needed)
+  4. Code-Critic review (CriticAgent, FTS5 search over workspace — amended v4.2)
   5. Tester session: gdk-agent Agent with bash/read tools, same sandbox (amended v4.1)
   6. Verifier decision (Coordinator, no sandbox needed)
      +-- pass      -> sandbox.destroy()
-     +-- patch     -> sandbox stays alive, Coder runs again
-     +-- resample  -> sandbox.restoreBackup(freshHandle) or sandbox.destroy() + new
+     +-- patch     -> sandbox stays alive, Coder runs again on current fork
+     +-- resample  -> fork.discard(), workspace.fork(), Coder runs on fresh fork
      +-- interrupt -> sandbox.destroy()
      +-- fail      -> sandbox.destroy()
 ```
@@ -501,44 +535,40 @@ response -> tool calls (parallel by default) -> tool results -> repeat.
 
 ---
 
-## 6. R2 Workspace Persistence
+## 6. Workspace Persistence (amended v4.2 -- Fibers + Shell)
 
-### 6.1 Backup on First Workspace Prep
+### 6.1 Fork-Based Repair Model
 
-After the initial workspace setup (clone + install), the Coordinator creates
-a backup. This serves as the "clean" restore point for `resample` verdicts.
+**(amended v4.2 -- Fibers + Shell):** `@cloudflare/shell` Workspace
+provides fork-based snapshots that replace R2 backup/restore for repair
+loops. After workspace prep (clone + install), the Coordinator creates
+a fork. Forks are copy-on-write -- near-instant, no R2 round-trip.
 
 ```typescript
 // After workspace prep in sandbox
-const freshBackup = await sandbox.createBackup({
-  dir: "/workspace",
-  ttl: 7200,  // 2 hours, covers max synthesis duration
-});
-state.freshBackupHandle = freshBackup;
+const workspace = await shell.createWorkspace("/workspace");
+const freshFork = await workspace.fork();  // snapshot for resample
 ```
 
-### 6.2 Backup After Each Coder Pass
+### 6.2 Fork After Each Coder Pass
 
-After each Coder session, create a backup before the Tester runs.
-This enables `patch` verdicts to restore to post-Coder state if the
-Tester corrupts the workspace.
+Before each Coder session, fork the workspace. On `resample`, discard
+the fork to revert. On `patch`, keep the fork and re-enter Coder.
 
 ```typescript
-const coderBackup = await sandbox.createBackup({
-  dir: "/workspace",
-  ttl: 3600,
-});
-state.coderBackupHandle = coderBackup;
+const coderFork = await workspace.fork();
+// ... Coder session runs on coderFork ...
+// On resample: await coderFork.discard();
 ```
 
-### 6.3 Restore Strategies
+### 6.3 Restore Strategies (amended v4.2)
 
 | Verdict | Restore Strategy |
 |---|---|
-| `patch` | Keep workspace as-is. Coder receives repair notes. |
-| `resample` | `sandbox.restoreBackup(state.freshBackupHandle)` -- reset to post-install |
+| `patch` | Keep current fork. Coder receives repair notes, runs again. |
+| `resample` | `fork.discard()` -- revert to pre-Coder state, create new fork |
 | `pass` | `sandbox.destroy()` -- workspace no longer needed |
-| `fail` | Backup final state for debugging, then `sandbox.destroy()` |
+| `fail` | Snapshot final state for debugging (`workspace.fork()`), then `sandbox.destroy()` |
 | `interrupt` | Same as fail |
 
 ### 6.4 R2 Bucket Configuration
@@ -842,14 +872,15 @@ Dependencies in `/factory/package.json`: `@weops/gdk-agent`, `@weops/gdk-ai`,
 | @weops/gdk-agent | Agent loop (agentLoop, Agent class, tool execution) | ~15MB |
 | @weops/gdk-ai | Model access, streaming, 22 providers | ~5MB |
 | @weops/gdk-ts (core-tools) | file_read, file_write, bash_execute, grep_search | ~2MB |
+| @cloudflare/shell@0.3.4 | Workspace (fork, FTS5, isomorphic-git) (amended v4.2) | ~8MB |
 | sandbox-scripts | Session runner + optional agent-server | ~50KB |
 
-Total: ~240MB. Well within CF Container limits.
+Total: ~248MB. Well within CF Container limits.
 
 The `sandbox-scripts/` directory contains:
 - `run-session.js` -- CLI script: reads input JSON, creates gdk-agent `Agent`, runs session, writes output JSON
 - `agent-server.js` -- Optional HTTP server (Strategy B from SS5.3)
-- `tool-gates.js` -- File scope + command policy enforcement via `beforeToolCall` hooks (see SS12)
+- `tool-gates.js` -- File scope + command policy enforcement via `beforeToolCall` hooks (see SS12). (amended v4.2): filesystem ops delegate to `@cloudflare/shell` Workspace methods instead of raw `fs` calls
 
 ---
 
@@ -878,10 +909,10 @@ interface GraphState {
   gate1Report: unknown | null;                  // Gate 1 Coverage Report
   compiledPrd: unknown | null;                  // Compiler output (PRD intermediates)
 
-  // Sandbox state
+  // Sandbox state (amended v4.2 — fork-based repair)
   sandboxName: string | null;                   // Active sandbox identifier
-  freshBackupHandle: string | null;             // R2 backup after initial workspace prep
-  coderBackupHandle: string | null;             // R2 backup after Coder pass
+  freshForkId: string | null;                   // Workspace fork after initial prep (replaces R2 backup)
+  coderForkId: string | null;                   // Workspace fork before each Coder pass
   executionMode: "dry-run" | "sandbox" | "piAiRole"; // Which tier ran
 
   // Tool tracking
@@ -1086,7 +1117,7 @@ Expected flow:
 
 | Step | What | Reversible? |
 |---|---|---|
-| 1 | Install `agents` npm package in ff-pipeline | Yes (remove dep) |
+| 1 | Install `agents@0.11.6` + `@cloudflare/shell@0.3.4` in ff-pipeline (amended v4.2) | Yes (remove deps) |
 | 2 | Change `SynthesisCoordinator extends DurableObject` to `extends Agent` | Yes (revert) |
 | 3 | Add `@callable()` to `synthesize()` method | Yes (remove decorator) |
 | 4 | Create `ArchitectAgent extends Agent` class | N/A (additive) |
@@ -1124,7 +1155,7 @@ still works."
 | Workspace backup | Not specified | R2 via `sandbox.createBackup()` |
 | Graph topology | 5 nodes (planner/coder/critic/tester/verifier) | 9 nodes (+architect/semantic-critic/compile/gate-1) |
 | DO classes | 2 (Coordinator + FactoryAgent) | 4 (Coordinator + Architect + Critic + Sandbox) |
-| npm packages | `@cloudflare/containers` | `agents`, `@cloudflare/sandbox`, `@weops/gdk-ai`, `@weops/gdk-agent`, `@weops/gdk-ts` (amended v4.1) |
+| npm packages | `@cloudflare/containers` | `agents@0.11.6`, `@cloudflare/sandbox`, `@cloudflare/shell@0.3.4`, `@weops/gdk-ai`, `@weops/gdk-agent`, `@weops/gdk-ts` (amended v4.1, v4.2) |
 | LLM routing | ofox.ai via model-bridge | `@weops/gdk-ai` `getModel()` + `complete()`/`streamSimple()` (amended v4.1) |
 | Agent substrate | pi-coding-agent `createAgentSession()` | `@weops/gdk-agent` `Agent` class + `agentLoop()` (amended v4.1) |
 | Session API | `session.prompt()` + `subscribe()` | `agent.prompt()` + `agent.subscribe()` + `agent.waitForIdle()` (gdk-agent, amended v4.1) |

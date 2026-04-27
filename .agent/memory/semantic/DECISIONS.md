@@ -956,3 +956,82 @@ The event-driven pattern already exists in the pipeline (`step.waitForEvent('arc
 **Canonical analysis:** `specs/reference/GDK-PLATFORM-ANALYSIS.md` (714 lines).
 
 **Status:** Active.
+
+## 2026-04-26: ADR — Adopt Fibers + @cloudflare/shell as standalone primitives
+
+**Decision:** Adopt `agents@0.11.6` Fibers and `@cloudflare/shell@0.3.4`
+as standalone primitives for the Phase 5 Coordinator and Sandbox layers.
+Do NOT adopt `@cloudflare/think@0.4.1` (experimental, chat-model
+abstraction mismatched to our StateGraph) or `@cloudflare/worker-bundler@0.1.2`
+(26MB, no use case). Dynamic Workers are skipped — LLM-call roles do not
+benefit from on-demand Worker spawning.
+
+**What is adopted and why:**
+
+1. **Fibers (`agents@0.11.6` — `runFiber`, `stash`, `onFiberRecovered`,
+   Facets).** Replaces 40+ lines of manual alarm + `this.ctx.storage`
+   crash-recovery code in the Coordinator. `runFiber()` wraps the
+   synthesis loop: if the DO evicts mid-run, `onFiberRecovered()` resumes
+   from the last `stash()` checkpoint. State persistence that was manual
+   becomes declarative. The Coordinator's `synthesize()` method body moves
+   inside a Fiber; the StateGraph loop calls `stash(state)` after each
+   node completes.
+
+2. **`@cloudflare/shell@0.3.4` — virtual Workspace, isomorphic-git,
+   FTS5 search.** Replaces the `createBackup()`/`restoreBackup()` stubs
+   in the Sandbox layer. Shell's Workspace provides a fork-based repair
+   model: `workspace.fork()` before Coder runs; on `resample` verdict,
+   discard the fork instead of R2 round-trip restore. FTS5 full-text
+   search gives the Critic role indexed search over workspace contents
+   during code review — replaces naive `grep` with structured query.
+   `isomorphic-git` inside the shell replaces manual `git` CLI calls.
+
+3. **`@cloudflare/shell@0.3.4` replaces custom `tool-gates.js` filesystem
+   operations.** Shell's Workspace provides governed `readFile`/`writeFile`/
+   `exec` with built-in path scoping. The custom filesystem-op stubs in
+   `sandbox-scripts/tool-gates.js` become thin wrappers over Workspace
+   methods instead of raw `fs` calls.
+
+**What is NOT adopted:**
+
+- **`@cloudflare/think@0.4.1`** — Marked `@experimental`. Its chat-model
+  abstraction (`Think.run()` with messages/tools) duplicates what
+  `@weops/gdk-ai` `complete()` and `@weops/gdk-agent` `agentLoop()`
+  already provide. Our StateGraph does not use a chat model; it uses
+  typed state transforms. Think's model would require wrapping every
+  graph node in a chat turn, adding indirection with no benefit.
+
+- **`@cloudflare/worker-bundler@0.1.2`** — 26MB package for bundling
+  Workers at runtime. No current use case. Dynamic Worker creation is
+  a Phase 7+ concern if ever.
+
+- **Dynamic Workers** — The Agents SDK `spawnWorker()` pattern spawns
+  ephemeral Workers for parallel tasks. Our LLM-call roles (Architect,
+  Critic, Planner, Verifier) are already fast enough as `@callable()`
+  RPC on DO instances. Spawning a Worker to make one LLM call adds
+  cold-start latency with no throughput gain.
+
+**Migration impact (Engineer assessment):**
+
+- Coordinator: `extends Agent` (unchanged) but `synthesize()` body wraps
+  in `runFiber()`. Manual alarm + storage persistence code deleted.
+  ~20-30 tests need modification (Coordinator base class behavior change
+  around state persistence — tests currently mock `this.ctx.storage`
+  directly; Fiber-based tests mock `stash`/`onFiberRecovered` instead).
+- StateGraph (`graph-runner.ts`): NO CHANGE. Think's chat model does not
+  fit our graph topology. The graph remains framework-agnostic.
+- SandboxDeps: `createBackup()`/`restoreBackup()` stubs replaced by
+  `@cloudflare/shell` Workspace `fork()`/discard pattern. Repair loops
+  become fork-based instead of backup/restore.
+- Critic: gains FTS5 search over workspace contents via Shell Workspace
+  during code review phase.
+
+**Package versions (verified available on npm):**
+
+- `agents@0.11.6` — Fibers API: `runFiber()`, `stash()`,
+  `onFiberRecovered()`, Facets
+- `@cloudflare/shell@0.3.4` — Workspace, isomorphic-git, FTS5
+
+**Canonical spec amendment:** PHASE5-V4-HYBRID-AGENTS-SANDBOX.md v4.2.
+
+**Status:** Active.
