@@ -6,6 +6,8 @@ import { createModelBridge } from './model-bridge-do'
 import { createInitialState, type GraphState, type Verdict } from './state'
 import { makeExecutionRole, type SandboxDeps } from './sandbox-role'
 import { buildSandboxDeps as buildRealSandboxDeps } from './sandbox-deps-factory'
+import { ArchitectAgent } from '../agents/architect-agent'
+import { CriticAgent, type CodeReviewInput } from '../agents/critic-agent'
 
 export interface CoordinatorEnv {
   ARANGO_URL: string
@@ -145,6 +147,10 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         }
       }
 
+      // Instantiate reasoning agents for 9-node topology
+      const architectAgent = new ArchitectAgent({ callModel })
+      const criticAgent = new CriticAgent({ callModel })
+
       const deps: GraphDeps = {
         callModel,
         persistState,
@@ -158,6 +164,14 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
           persistState,
           fetchMentorRules,
         }),
+        // 9-node topology: architect pipeline + code-critic
+        architectAgent: {
+          produceBriefingScript: (input) => architectAgent.produceBriefingScript(input),
+        },
+        criticAgent: {
+          semanticReview: (input) => criticAgent.semanticReview(input),
+          codeReview: (input) => criticAgent.codeReview(input as CodeReviewInput),
+        },
       }
 
       const graph = buildSynthesisGraph(deps)
@@ -205,6 +219,22 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
   private dryRunModelBridge() {
     return async (taskKind: string, _system: string, _user: string): Promise<string> => {
       switch (taskKind) {
+        case 'architect':
+          return JSON.stringify({
+            goal: 'Dry-run goal',
+            successCriteria: ['Dry-run criterion'],
+            architecturalContext: 'Dry-run context',
+            strategicAdvice: 'Dry-run advice',
+            knownGotchas: [],
+            validationLoop: 'Dry-run validation',
+          })
+        case 'semantic_review':
+          return JSON.stringify({
+            alignment: 'aligned',
+            confidence: 1.0,
+            citations: [],
+            rationale: 'Dry-run — auto-aligned',
+          })
         case 'planner':
           return JSON.stringify({
             approach: 'Dry-run implementation plan',
