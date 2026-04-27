@@ -77,8 +77,14 @@ export function sandboxRole(
     }
 
     // ── 2. Restore backup on resample (coder only) ──
+    // Failure is non-fatal: if restore fails, the coder proceeds on the existing workspace.
     if (role === 'coder' && state.coderBackupHandle && state.verdict?.decision === 'resample') {
-      await deps.restoreBackup(state.coderBackupHandle)
+      try {
+        await deps.restoreBackup(state.coderBackupHandle)
+      } catch {
+        // Backup restoration failed — proceed without it. The coder will
+        // work on the current workspace state, which is suboptimal but not fatal.
+      }
     }
 
     // ── 3. Build task JSON ──
@@ -119,7 +125,14 @@ export function sandboxRole(
 
     // ── 4. Execute in sandbox ──
     const rawResult = await deps.execInSandbox(taskJson)
-    const sandboxResult: SandboxResult = JSON.parse(rawResult)
+    let sandboxResult: SandboxResult
+    try {
+      sandboxResult = JSON.parse(rawResult)
+    } catch {
+      throw new Error(
+        `Sandbox returned invalid JSON for role "${role}": ${rawResult.slice(0, 200)}`,
+      )
+    }
 
     // ── 5. Parse result into GraphState updates ──
     const estimatedTokens = sandboxResult.tokenUsage?.total ?? 0
@@ -162,8 +175,14 @@ export function sandboxRole(
       updated.coderToolCalls = sandboxResult.filesChanged.length
 
       // ── 6. Create backup for repair loop recovery ──
-      const backupHandle = await deps.createBackup('/workspace')
-      updated.coderBackupHandle = backupHandle
+      // Failure is non-fatal: coder result is still usable without a backup handle.
+      try {
+        const backupHandle = await deps.createBackup('/workspace')
+        updated.coderBackupHandle = backupHandle
+      } catch {
+        // Backup creation failed — the coder result is still valid, but the
+        // repair loop won't be able to restore to this checkpoint.
+      }
     }
 
     if (role === 'tester') {

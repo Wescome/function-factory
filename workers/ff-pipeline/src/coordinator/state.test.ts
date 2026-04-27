@@ -60,44 +60,39 @@ describe('createInitialState', () => {
 })
 
 describe('GraphState type', () => {
-  it('accepts Phase 5 v4 fields via assignment', () => {
-    const state = createInitialState('WG-002', { id: 'WG-002' })
+  it('Phase 5 v4 fields survive a spread-merge cycle (simulates graph state update)', () => {
+    const base = createInitialState('WG-002', { id: 'WG-002' })
 
-    // Assign Phase 5 v4 fields — these must compile without error
-    state.briefingScript = { sections: ['intro', 'context'] }
-    state.semanticReview = { score: 0.95 }
-    state.gate1Passed = true
-    state.gate1Report = { coverage: 0.88 }
-    state.compiledPrd = { sections: ['overview'] }
-    state.sandboxName = 'ff-sandbox-wg002'
-    state.freshBackupHandle = 'r2://backups/fresh-001'
-    state.coderBackupHandle = 'r2://backups/coder-001'
-    state.executionMode = 'sandbox'
-    state.workspaceReady = true
-    state.coderToolCalls = 12
-    state.testerToolCalls = 5
-    state.blockedToolCalls = [
-      { role: 'coder', toolName: 'exec', reason: 'not allowed in sandbox' },
-    ]
+    // Simulate what sandboxRole does: spread-merge partial updates into state
+    const update: Partial<GraphState> = {
+      workspaceReady: true,
+      coderBackupHandle: 'r2://backups/coder-001',
+      executionMode: 'sandbox',
+      gate1Passed: true,
+      coderToolCalls: 12,
+    }
 
-    expect(state.briefingScript).toEqual({ sections: ['intro', 'context'] })
-    expect(state.semanticReview).toEqual({ score: 0.95 })
-    expect(state.gate1Passed).toBe(true)
-    expect(state.gate1Report).toEqual({ coverage: 0.88 })
-    expect(state.compiledPrd).toEqual({ sections: ['overview'] })
-    expect(state.sandboxName).toBe('ff-sandbox-wg002')
-    expect(state.freshBackupHandle).toBe('r2://backups/fresh-001')
-    expect(state.coderBackupHandle).toBe('r2://backups/coder-001')
-    expect(state.executionMode).toBe('sandbox')
-    expect(state.workspaceReady).toBe(true)
-    expect(state.coderToolCalls).toBe(12)
-    expect(state.testerToolCalls).toBe(5)
-    expect(state.blockedToolCalls).toHaveLength(1)
-    expect(state.blockedToolCalls![0]).toEqual({
-      role: 'coder',
-      toolName: 'exec',
-      reason: 'not allowed in sandbox',
-    })
+    const merged = { ...base, ...update } as GraphState
+
+    // The merge must preserve base defaults that were NOT overridden
+    expect(merged.briefingScript).toBeNull()
+    expect(merged.semanticReview).toBeNull()
+    expect(merged.gate1Report).toBeNull()
+    expect(merged.compiledPrd).toBeNull()
+    expect(merged.sandboxName).toBeNull()
+    expect(merged.freshBackupHandle).toBeNull()
+
+    // And the overrides must take effect
+    expect(merged.workspaceReady).toBe(true)
+    expect(merged.coderBackupHandle).toBe('r2://backups/coder-001')
+    expect(merged.executionMode).toBe('sandbox')
+    expect(merged.gate1Passed).toBe(true)
+    expect(merged.coderToolCalls).toBe(12)
+
+    // Original state must be unmodified (no mutation)
+    expect(base.workspaceReady).toBe(false)
+    expect(base.coderBackupHandle).toBeNull()
+    expect(base.executionMode).toBeNull()
   })
 
   it('preserves index signature for arbitrary keys', () => {

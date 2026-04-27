@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { GraphState } from './state.js'
 import type { SandboxDeps } from './sandbox-role.js'
-import { sandboxRole } from './sandbox-role.js'
+import { sandboxRole, makeExecutionRole } from './sandbox-role.js'
 import { createInitialState } from './state.js'
 import type { GraphDeps } from './graph.js'
 
@@ -342,6 +342,231 @@ describe('sandboxRole()', () => {
       expect(persistedState.code).toBeDefined()
     })
   })
+
+  // ────────────────────────────────────────────────────────────
+  // Error path tests (quality review gaps)
+  // ────────────────────────────────────────────────────────────
+
+  describe('error paths', () => {
+    // ── 1. Malformed JSON from sandbox ──
+    it('throws a descriptive error when execInSandbox returns malformed JSON', async () => {
+      const malformedDeps = makeSandboxDeps({
+        execInSandbox: vi.fn().mockResolvedValue('not json {garbage'),
+      })
+      const state = makeState({ workspaceReady: true })
+      const node = sandboxRole('coder', malformedDeps, persistState)
+
+      await expect(node(state)).rejects.toThrow(/sandbox.*JSON/i)
+      // Must NOT be a raw SyntaxError — must be wrapped with context
+      try {
+        await node(state)
+      } catch (err: unknown) {
+        expect((err as Error).message).not.toBe('Unexpected token \'o\', "not json {garbage" is not valid JSON')
+        expect((err as Error).message).toMatch(/sandbox/i)
+      }
+    })
+
+    // ── 2. prepareWorkspace throws ──
+    it('propagates prepareWorkspace errors (so makeExecutionRole can fall back)', async () => {
+      const failingDeps = makeSandboxDeps({
+        prepareWorkspace: vi.fn().mockRejectedValue(new Error('clone failed')),
+      })
+      const state = makeState({ workspaceReady: false })
+      const node = sandboxRole('coder', failingDeps, persistState)
+
+      // sandboxRole should let this propagate — makeExecutionRole catches it
+      await expect(node(state)).rejects.toThrow('clone failed')
+    })
+
+    // ── 3. createBackup throws — non-fatal ──
+    it('returns coder result even when createBackup throws (backup is non-fatal)', async () => {
+      const failBackupDeps = makeSandboxDeps({
+        createBackup: vi.fn().mockRejectedValue(new Error('R2 write failed')),
+      })
+      const state = makeState({ workspaceReady: true })
+      const node = sandboxRole('coder', failBackupDeps, persistState)
+
+      // Should NOT throw — backup failure is non-fatal
+      const result = await node(state)
+
+      // Coder result must still be present
+      expect(result.code).toBeDefined()
+      expect(result.code!.files).toHaveLength(1)
+      // Backup handle should be null/undefined since backup failed
+      expect(result.coderBackupHandle).toBeUndefined()
+      // State must still be persisted
+      expect(persistState).toHaveBeenCalled()
+    })
+
+    // ── 4. restoreBackup throws on resample ──
+    it('handles restoreBackup failure on resample gracefully', async () => {
+      const failRestoreDeps = makeSandboxDeps({
+        restoreBackup: vi.fn().mockRejectedValue(new Error('backup corrupted')),
+      })
+      const state = makeState({
+        workspaceReady: true,
+        coderBackupHandle: 'backup-previous',
+        verdict: {
+          decision: 'resample',
+          confidence: 0.7,
+          reason: 'Wrong approach',
+        },
+      })
+      const node = sandboxRole('coder', failRestoreDeps, persistState)
+
+      // Should still proceed — restoreBackup failure should not block the coder run
+      const result = await node(state)
+      expect(result.code).toBeDefined()
+      expect(result.workspaceReady).toBe(true)
+    })
+
+    // ── 5. Tester regex parsing — no numbers in summary ──
+    it('tester defaults gracefully when test output has no numbers', async () => {
+      ;(sandboxDeps.execInSandbox as ReturnType<typeof vi.fn>).mockResolvedValue(JSON.stringify({
+        ok: true,
+        role: 'tester',
+        filesChanged: [],
+        testOutput: 'All assertions satisfied successfully',
+        agentOutput: 'Tests complete',
+        tokenUsage: { input: 50, output: 25, total: 75 },
+      }))
+
+      const state = makeState({
+        workspaceReady: true,
+        code: {
+          files: [{ path: 'src/stub.ts', content: '//', action: 'create' }],
+          summary: 'Stub',
+          testsIncluded: false,
+        },
+      })
+      const node = sandboxRole('tester', sandboxDeps, persistState)
+
+      const result = await node(state)
+
+      // When ok=true but no regex match, should default to 1 passed, 0 failed
+      expect(result.tests).toBeDefined()
+      expect(result.tests!.testsPassed).toBe(1)
+      expect(result.tests!.testsFailed).toBe(0)
+      expect(result.tests!.testsRun).toBe(1)
+      expect(result.tests!.passed).toBe(true)
+    })
+
+    // ── 6. persistState throws ──
+    it('propagates persistState errors (caller decides recovery)', async () => {
+      const failingPersist = vi.fn().mockRejectedValue(new Error('KV write failed'))
+      const state = makeState({ workspaceReady: true })
+      const node = sandboxRole('coder', sandboxDeps, failingPersist)
+
+      // persistState failure should propagate — this is a hard dependency
+      await expect(node(state)).rejects.toThrow('KV write failed')
+    })
+  })
+})
+
+// ────────────────────────────────────────────────────────────
+// Patch → re-coder repair cycle (graph-level test)
+// ────────────────────────────────────────────────────────────
+
+describe('patch repair cycle via sandboxRole', () => {
+  it('coder runs twice when verifier returns patch then pass, repairCount increments', async () => {
+    const { buildSynthesisGraph } = await import('./graph.js')
+
+    let coderCallCount = 0
+    const sandboxDeps = makeSandboxDeps({
+      execInSandbox: vi.fn().mockImplementation(async (taskJson: string) => {
+        const task = JSON.parse(taskJson)
+        if (task.role === 'coder') {
+          coderCallCount++
+          return JSON.stringify({
+            ok: true,
+            role: 'coder',
+            filesChanged: ['src/impl.ts'],
+            agentOutput: `Coder attempt ${coderCallCount}`,
+            tokenUsage: { input: 100, output: 50, total: 150 },
+          })
+        }
+        if (task.role === 'tester') {
+          return JSON.stringify({
+            ok: true,
+            role: 'tester',
+            filesChanged: [],
+            testOutput: '1 test passed',
+            agentOutput: 'Pass',
+            tokenUsage: { input: 50, output: 25, total: 75 },
+          })
+        }
+        return JSON.stringify({ ok: true, role: task.role, filesChanged: [], agentOutput: '', tokenUsage: { input: 0, output: 0, total: 0 } })
+      }),
+    })
+
+    let verifierCallCount = 0
+    const callModel = vi.fn().mockImplementation(async (taskKind: string) => {
+      switch (taskKind) {
+        case 'planner':
+          return JSON.stringify({
+            approach: 'Plan',
+            atoms: [{ id: 'a1', description: 'impl', assignedTo: 'coder' }],
+            executorRecommendation: 'pi-sdk',
+            estimatedComplexity: 'low',
+          })
+        case 'critic':
+          return JSON.stringify({
+            passed: true,
+            issues: [],
+            mentorRuleCompliance: [],
+            overallAssessment: 'OK',
+          })
+        case 'verifier': {
+          verifierCallCount++
+          if (verifierCallCount === 1) {
+            // First pass: patch
+            return JSON.stringify({
+              decision: 'patch',
+              confidence: 0.6,
+              reason: 'Missing error handling',
+              notes: 'Add try/catch in main handler',
+            })
+          }
+          // Second pass: pass
+          return JSON.stringify({
+            decision: 'pass',
+            confidence: 0.95,
+            reason: 'All good',
+          })
+        }
+        default:
+          return JSON.stringify({})
+      }
+    })
+
+    const persistState = makePersistState()
+    const fetchMentorRules = vi.fn().mockResolvedValue([])
+
+    const executionRole = makeExecutionRole({
+      sandboxDeps,
+      callModel,
+      persistState,
+      fetchMentorRules,
+      dryRun: false,
+    })
+
+    const graph = buildSynthesisGraph({
+      callModel,
+      persistState,
+      fetchMentorRules,
+      executionRole,
+    })
+
+    const initialState = makeState()
+    const finalState = await graph.run(initialState, { maxSteps: 100 })
+
+    // Coder must have run twice (initial + patch repair)
+    expect(coderCallCount).toBe(2)
+    // Verifier ran twice (patch first, pass second)
+    expect(verifierCallCount).toBe(2)
+    // Final verdict is pass
+    expect(finalState.verdict!.decision).toBe('pass')
+  })
 })
 
 // ────────────────────────────────────────────────────────────
@@ -349,10 +574,25 @@ describe('sandboxRole()', () => {
 // ────────────────────────────────────────────────────────────
 
 describe('executionRole()', () => {
-  it('is exported from graph.ts and added to GraphDeps', async () => {
-    // Verify the type exists — import check
-    const graphModule = await import('./graph.js')
-    expect(graphModule.buildSynthesisGraph).toBeDefined()
+  it('makeExecutionRole returns a dispatcher that creates distinct node functions per role', () => {
+    const sandboxDeps = makeSandboxDeps()
+    const persistState = makePersistState()
+
+    const executionRole = makeExecutionRole({
+      sandboxDeps,
+      callModel: vi.fn().mockResolvedValue('{}'),
+      persistState,
+      fetchMentorRules: vi.fn().mockResolvedValue([]),
+      dryRun: true,
+    })
+
+    const coderNode = executionRole('coder')
+    const testerNode = executionRole('tester')
+
+    // Must return functions (not undefined, not the same reference)
+    expect(typeof coderNode).toBe('function')
+    expect(typeof testerNode).toBe('function')
+    expect(coderNode).not.toBe(testerNode)
   })
 })
 
@@ -361,14 +601,6 @@ describe('executionRole()', () => {
 // ────────────────────────────────────────────────────────────
 
 describe('executionRole dispatch', () => {
-  // Import the standalone dispatch helper
-  let makeExecutionRole: typeof import('./sandbox-role.js')['makeExecutionRole']
-
-  beforeEach(async () => {
-    const mod = await import('./sandbox-role.js')
-    makeExecutionRole = mod.makeExecutionRole
-  })
-
   // ── Test 5 (from spec): falls back to piAiRole when sandbox throws ──
   it('falls back to callModel when sandbox throws', async () => {
     const failingSandboxDeps = makeSandboxDeps({

@@ -213,14 +213,22 @@ describe('T7: coordinator executionRole wiring', () => {
   // T7.4: buildSandboxDeps returns proper SandboxDeps shape
   // ────────────────────────────────────────────────────────────
 
-  it('throwing SandboxDeps conforms to SandboxDeps interface', () => {
+  it('throwing SandboxDeps actually rejects when called (validates mock fidelity)', async () => {
     const deps = makeThrowingSandboxDeps()
 
-    // All four methods must exist
-    expect(typeof deps.execInSandbox).toBe('function')
-    expect(typeof deps.prepareWorkspace).toBe('function')
-    expect(typeof deps.createBackup).toBe('function')
-    expect(typeof deps.restoreBackup).toBe('function')
+    // execInSandbox must reject with a descriptive error
+    await expect(deps.execInSandbox('{}'))
+      .rejects.toThrow('Sandbox not yet deployed')
+
+    // prepareWorkspace must reject
+    await expect(deps.prepareWorkspace({ repoUrl: '', ref: '', branch: '' }))
+      .rejects.toThrow('Sandbox not yet deployed')
+
+    // createBackup must resolve (non-throwing even when sandbox is down)
+    await expect(deps.createBackup('/workspace')).resolves.toBe('')
+
+    // restoreBackup must resolve
+    await expect(deps.restoreBackup('')).resolves.toBeUndefined()
   })
 
   // ────────────────────────────────────────────────────────────
