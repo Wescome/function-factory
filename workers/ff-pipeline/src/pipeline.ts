@@ -11,6 +11,8 @@ import { mapCapability } from './stages/map-capability'
 import { proposeFunction } from './stages/propose-function'
 import { semanticReview } from './stages/semantic-review'
 import { compilePRD, PASS_NAMES } from './stages/compile'
+import { createCRP } from './crp'
+import { transitionLifecycle } from './lifecycle'
 import type { PipelineEnv, PipelineParams, PipelineResult, SemanticReviewResult, Gate1Report } from './types'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -80,6 +82,16 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       return { ok: true }
     })
 
+    // ── Phase D: Lifecycle → proposed ──
+    await step.do('lifecycle-proposed', async () => {
+      await transitionLifecycle(db, proposalKey, 'proposed', {
+        triggeredBy: 'pipeline-propose-function',
+      }).catch((err: unknown) => {
+        console.warn(`[lifecycle] Failed to set proposed: ${err instanceof Error ? err.message : err}`)
+      })
+      return { ok: true }
+    })
+
     // ── Architect approval ──
     const approval = await step.waitForEvent<{ decision: string; reason?: string; by?: string }>(
       'architect-approval',
@@ -112,6 +124,22 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       return toStep(result as unknown as Record<string, unknown>) as unknown as SemanticReviewResult
     }) as unknown as SemanticReviewResult
 
+    // ── Phase D: CRP on low-confidence semantic review (C7) ──
+    const reviewConfidence = (review as unknown as { confidence?: number }).confidence
+    if (typeof reviewConfidence === 'number' && reviewConfidence < 0.7) {
+      await step.do('crp-semantic-review', async () => {
+        await createCRP(db, {
+          artifactKey: proposalKey,
+          collection: 'specs_functions',
+          confidence: reviewConfidence,
+          context: `Semantic review alignment: ${review.alignment}`,
+          agentRole: 'critic',
+          workGraphId: proposalKey,
+        })
+        return { ok: true }
+      })
+    }
+
     if (review.alignment === 'miscast') {
       return {
         status: 'semantic-miscast',
@@ -135,6 +163,16 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     }
 
     const wgKey = (compState.workGraph as Record<string, unknown>)?._key as string ?? 'unknown'
+
+    // ── Phase D: Lifecycle → designed (after compilation) ──
+    await step.do('lifecycle-designed', async () => {
+      await transitionLifecycle(db, proposalKey, 'designed', {
+        triggeredBy: 'pipeline-compile',
+      }).catch((err: unknown) => {
+        console.warn(`[lifecycle] Failed to set designed: ${err instanceof Error ? err.message : err}`)
+      })
+      return { ok: true }
+    })
 
     // Lineage: WorkGraph → Proposal (written before Gate 1 so lineage check passes)
     await step.do('edge-workgraph-proposal', async () => {
@@ -225,6 +263,16 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       return { enqueued: true }
     })
 
+    // ── Phase D: Lifecycle → in_progress (synthesis enqueued) ──
+    await step.do('lifecycle-in-progress', async () => {
+      await transitionLifecycle(db, proposalKey, 'in_progress', {
+        triggeredBy: 'pipeline-enqueue-synthesis',
+      }).catch((err: unknown) => {
+        console.warn(`[lifecycle] Failed to set in_progress: ${err instanceof Error ? err.message : err}`)
+      })
+      return { ok: true }
+    })
+
     // Wait for external trigger to complete synthesis via DO and send event
     const synthEvent = await step.waitForEvent<{
       verdict: { decision: string; confidence: number; reason: string }
@@ -247,6 +295,18 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       )
       return { ok: true }
     })
+
+    // ── Phase D: Lifecycle → implemented (if synthesis passed) ──
+    if (synthPayload.verdict.decision === 'pass') {
+      await step.do('lifecycle-implemented', async () => {
+        await transitionLifecycle(db, proposalKey, 'implemented', {
+          triggeredBy: 'pipeline-synthesis-pass',
+        }).catch((err: unknown) => {
+          console.warn(`[lifecycle] Failed to set implemented: ${err instanceof Error ? err.message : err}`)
+        })
+        return { ok: true }
+      })
+    }
 
     return {
       status: synthPayload.verdict.decision === 'pass'

@@ -13,6 +13,7 @@ import { PlannerAgent } from '../agents/planner-agent'
 import { TesterAgent } from '../agents/tester-agent'
 import { VerifierAgent } from '../agents/verifier-agent'
 import { CriticAgent, type CodeReviewInput } from '../agents/critic-agent'
+import { createCRP } from '../crp'
 
 export interface CoordinatorEnv {
   ARANGO_URL: string
@@ -406,5 +407,31 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       pain_score: state.verdict?.decision === 'fail' ? 8 : state.verdict?.decision === 'pass' ? 1 : 5,
       importance: 8,
     }).catch(() => {})
+
+    // ── Phase D: CRP auto-generation (C7) ──
+    // Check verdict confidence — if < 0.7 and not a clean pass, create CRP
+    if (state.verdict && state.verdict.confidence < 0.7 && state.verdict.decision !== 'pass') {
+      await createCRP(db, {
+        artifactKey: `EA-${workGraphId}-synthesis`,
+        collection: 'execution_artifacts',
+        confidence: state.verdict.confidence,
+        context: `Synthesis verdict: ${state.verdict.decision} — ${state.verdict.reason}`,
+        agentRole: 'verifier',
+        workGraphId,
+      })
+    }
+
+    // Check semantic review confidence
+    const semReview = state.semanticReview as { confidence?: number } | null
+    if (semReview && typeof semReview.confidence === 'number' && semReview.confidence < 0.7) {
+      await createCRP(db, {
+        artifactKey: `EA-${workGraphId}-semantic-review`,
+        collection: 'execution_artifacts',
+        confidence: semReview.confidence,
+        context: 'Semantic review produced low-confidence result',
+        agentRole: 'critic',
+        workGraphId,
+      })
+    }
   }
 }

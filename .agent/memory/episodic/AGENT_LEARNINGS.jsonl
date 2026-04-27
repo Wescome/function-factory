@@ -2751,3 +2751,31 @@
 {"timestamp":"2026-04-27T21:10:56.287Z","tool":"Agent","summary":"Build artifact validator package","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
 {"timestamp":"2026-04-27T21:11:09.273Z","tool":"Bash","summary":"pnpm --filter @factory/artifact-validator test 2>&1 | tail -10","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
 {"timestamp":"2026-04-27T21:11:19.065Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test 2>&1 | tail -8","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:11:24.280Z","tool":"Bash","summary":"git add -A && git diff --cached --stat","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:11:44.093Z","tool":"Bash","summary":"git commit -m \"$(cat <<'EOF'\nMETA: Phase B — artifact validator enforces SHACL constraints at persist time\n\nNew package ","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:39:56.167Z","tool":"Agent","summary":"Build Phase D — CRP + lifecycle","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:40:10.657Z","tool":"Bash","summary":"ls /Users/wes/Developer/function-factory/workers/ff-pipeline/","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:40:12.276Z","tool":"Bash","summary":"find /Users/wes/Developer/function-factory/workers/ff-pipeline/src -name \"*.test.ts\" | head -10","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:40:27.203Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test 2>&1 | tail -30","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:40:54.202Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/crp.test.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:41:24.074Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/lifecycle.test.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:41:31.347Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test -- --reporter=verbose src/crp.test.ts src/lifecycle.test.ts 2>&1 | tail -40","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:41:54.148Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/crp.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:42:17.363Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/lifecycle.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:42:23.867Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test -- --reporter=verbose src/crp.test.ts src/lifecycle.test.ts 2>&1","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:42:42.618Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/coordinator.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:42:53.776Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/coordinator.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:43:04.294Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/pipeline.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:43:14.692Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/pipeline.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:43:23.398Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/pipeline.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:43:30.379Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/pipeline.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:43:42.141Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/pipeline.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:43:51.123Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/pipeline.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:44:02.109Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test 2>&1","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:44:13.259Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test -- --reporter=verbose src/coordinator/coordinator-persistence-boundary.test.ts 2","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:44:24.328Z","tool":"Bash","summary":"cd /Users/wes/Developer/function-factory/workers/ff-pipeline && npx tsc --noEmit 2>&1 | head -30","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:44:35.761Z","tool":"Bash","summary":"cd /Users/wes/Developer/function-factory/workers/ff-pipeline && npx tsc --noEmit 2>&1 | grep -E \"(crp|lifecycle|pipeline","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:44:41.518Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/lifecycle.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:44:52.421Z","tool":"Bash","summary":"cd /Users/wes/Developer/function-factory/workers/ff-pipeline && npx tsc --noEmit 2>&1 | grep -E \"(crp|lifecycle|pipeline","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:45:03.166Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test 2>&1 | tail -10","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:45:34.551Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test 2>&1 | tail -10","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
