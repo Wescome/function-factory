@@ -1,7 +1,9 @@
 import { StateGraph, END } from './graph-runner'
 import { ROLE_CONTRACTS } from './contracts'
 import type { RoleName } from './contracts'
-import type { GraphState, Verdict } from './state'
+import type { GraphState, Verdict, CritiqueReport } from './state'
+import type { BriefingScript } from '../agents/architect-agent'
+import type { SemanticReviewResult } from '../types'
 
 export interface GraphDeps {
   callModel: (taskKind: string, system: string, user: string) => Promise<string>
@@ -9,11 +11,23 @@ export interface GraphDeps {
   fetchMentorRules: () => Promise<{ ruleId: string; rule: string }[]>
   /** Optional execution dispatch for coder/tester. When provided, overrides piAiRole for those nodes. */
   executionRole?: (role: 'coder' | 'tester') => (state: GraphState) => Promise<Partial<GraphState>>
+
+  // ── 9-node extensions (SS8) ──
+  /** When provided, enables the architect pipeline (architect → semantic-critic → compile → gate-1). */
+  architectAgent?: { produceBriefingScript: (input: { signal: Record<string, unknown> }) => Promise<BriefingScript> }
+  /** When provided, enables semantic-critic and code-critic nodes. */
+  criticAgent?: {
+    semanticReview: (input: { prd: Record<string, unknown>; specContent?: string }) => Promise<SemanticReviewResult>
+    codeReview: (input: { code: unknown; plan: unknown; workGraph: Record<string, unknown>; mentorRules?: string[] }) => Promise<CritiqueReport>
+  }
 }
 
 export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
   const graph = new StateGraph<GraphState>()
 
+  const has9Node = !!(deps.architectAgent && deps.criticAgent)
+
+  // ── Budget-check node (unchanged logic) ──
   graph.addNode('budget-check', async (state) => {
     if (state.repairCount >= state.maxRepairs) {
       return {
@@ -36,7 +50,117 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
     return {}
   })
 
-  for (const roleName of ['planner', 'coder', 'critic', 'tester', 'verifier'] as RoleName[]) {
+  // ── Architect pipeline nodes (only when 9-node mode) ──
+  if (has9Node) {
+    // architect — calls ArchitectAgent.produceBriefingScript()
+    graph.addNode('architect', async (state) => {
+      const briefingScript = await deps.architectAgent!.produceBriefingScript({
+        signal: state.workGraph as Record<string, unknown>,
+      })
+      const updated: Partial<GraphState> = {
+        briefingScript,
+        roleHistory: [
+          ...state.roleHistory,
+          { role: 'architect', output: briefingScript, tokenUsage: 0, timestamp: new Date().toISOString() },
+        ],
+      }
+      await deps.persistState({ ...state, ...updated } as GraphState, 'architect')
+      return updated
+    })
+
+    // semantic-critic — calls CriticAgent.semanticReview()
+    graph.addNode('semantic-critic', async (state) => {
+      const review = await deps.criticAgent!.semanticReview({
+        prd: state.workGraph as Record<string, unknown>,
+      })
+      const updated: Partial<GraphState> = {
+        semanticReview: review,
+        roleHistory: [
+          ...state.roleHistory,
+          { role: 'semantic-critic', output: review, tokenUsage: 0, timestamp: new Date().toISOString() },
+        ],
+      }
+      // If miscast, set verdict=fail so the conditional edge routes to END
+      if (review.alignment === 'miscast') {
+        updated.verdict = {
+          decision: 'fail' as const,
+          confidence: review.confidence,
+          reason: `Semantic review: miscast — ${review.rationale}`,
+        }
+      }
+      await deps.persistState({ ...state, ...updated } as GraphState, 'semantic-critic')
+      return updated
+    })
+
+    // compile — passthrough stub (real compiler is in the Workflow's Stage 5)
+    graph.addNode('compile', async (state) => {
+      const compiledPrd = {
+        source: 'graph-compile-stub',
+        workGraphId: state.workGraphId,
+        timestamp: new Date().toISOString(),
+      }
+      const updated: Partial<GraphState> = {
+        compiledPrd,
+        roleHistory: [
+          ...state.roleHistory,
+          { role: 'compile', output: compiledPrd, tokenUsage: 0, timestamp: new Date().toISOString() },
+        ],
+      }
+      await deps.persistState({ ...state, ...updated } as GraphState, 'compile')
+      return updated
+    })
+
+    // gate-1 — stub (real Gate 1 is in the Workflow)
+    graph.addNode('gate-1', async (state) => {
+      const gate1Report = {
+        gate: 1,
+        passed: true,
+        timestamp: new Date().toISOString(),
+        workGraphId: state.workGraphId,
+        checks: [{ name: 'stub-check', passed: true, detail: 'Graph-internal gate-1 stub' }],
+        summary: 'Gate 1 passed (stub)',
+      }
+      const updated: Partial<GraphState> = {
+        gate1Passed: true,
+        gate1Report,
+        roleHistory: [
+          ...state.roleHistory,
+          { role: 'gate-1', output: gate1Report, tokenUsage: 0, timestamp: new Date().toISOString() },
+        ],
+      }
+      await deps.persistState({ ...state, ...updated } as GraphState, 'gate-1')
+      return updated
+    })
+
+    // code-critic — calls CriticAgent.codeReview() between coder and tester
+    graph.addNode('code-critic', async (state) => {
+      const mentorRules = await deps.fetchMentorRules()
+      const critique = await deps.criticAgent!.codeReview({
+        code: state.code,
+        plan: state.plan,
+        workGraph: state.workGraph as Record<string, unknown>,
+        mentorRules: mentorRules.map(r => `${r.ruleId}: ${r.rule}`),
+      })
+      const updated: Partial<GraphState> = {
+        critique,
+        roleHistory: [
+          ...state.roleHistory,
+          { role: 'code-critic', output: critique, tokenUsage: 0, timestamp: new Date().toISOString() },
+        ],
+      }
+      await deps.persistState({ ...state, ...updated } as GraphState, 'code-critic')
+      return updated
+    })
+  }
+
+  // ── Standard role nodes ──
+  // In 9-node mode: planner, coder, tester, verifier (critic replaced by code-critic)
+  // In 5-node mode: planner, coder, critic, tester, verifier
+  const standardRoles: RoleName[] = has9Node
+    ? ['planner', 'coder', 'tester', 'verifier']
+    : ['planner', 'coder', 'critic', 'tester', 'verifier']
+
+  for (const roleName of standardRoles) {
     // Use executionRole dispatch for coder/tester when provided
     if ((roleName === 'coder' || roleName === 'tester') && deps.executionRole) {
       graph.addNode(roleName, deps.executionRole(roleName))
@@ -79,19 +203,54 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
     })
   }
 
+  // ── Entry point ──
   graph.setEntryPoint('budget-check')
-  graph.addEdge('planner', 'coder')
-  graph.addEdge('coder', 'critic')
-  graph.addEdge('critic', 'tester')
-  graph.addEdge('tester', 'verifier')
 
-  graph.addConditionalEdge('budget-check', (state) => {
-    if (state.verdict?.decision === 'fail' || state.verdict?.decision === 'interrupt') {
-      return END
-    }
-    return 'planner'
-  })
+  // ── Edges ──
+  if (has9Node) {
+    // Architect pipeline edges
+    graph.addEdge('architect', 'semantic-critic')
+    graph.addEdge('compile', 'gate-1')
+    graph.addEdge('gate-1', 'planner')
 
+    // Inner loop edges
+    graph.addEdge('planner', 'coder')
+    graph.addEdge('coder', 'code-critic')
+    graph.addEdge('code-critic', 'tester')
+    graph.addEdge('tester', 'verifier')
+
+    // Semantic-critic conditional: miscast → END, else → compile
+    graph.addConditionalEdge('semantic-critic', (state) => {
+      if (state.verdict?.decision === 'fail') return END
+      return 'compile'
+    })
+
+    // Budget-check conditional: fail/interrupt → END, first pass → architect, repair → planner
+    graph.addConditionalEdge('budget-check', (state) => {
+      if (state.verdict?.decision === 'fail' || state.verdict?.decision === 'interrupt') {
+        return END
+      }
+      // First pass: no briefingScript yet → architect pipeline
+      if (!state.briefingScript) return 'architect'
+      // Repair: briefingScript already set → skip to planner
+      return 'planner'
+    })
+  } else {
+    // Original 5-node edges
+    graph.addEdge('planner', 'coder')
+    graph.addEdge('coder', 'critic')
+    graph.addEdge('critic', 'tester')
+    graph.addEdge('tester', 'verifier')
+
+    graph.addConditionalEdge('budget-check', (state) => {
+      if (state.verdict?.decision === 'fail' || state.verdict?.decision === 'interrupt') {
+        return END
+      }
+      return 'planner'
+    })
+  }
+
+  // Verifier routing (shared between both topologies)
   graph.addConditionalEdge('verifier', (state) => {
     if (!state.verdict) return END
     switch (state.verdict.decision) {
