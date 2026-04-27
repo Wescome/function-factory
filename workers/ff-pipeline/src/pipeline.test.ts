@@ -52,6 +52,19 @@ vi.mock('agents', () => {
   return { Agent, callable }
 })
 
+// ─── Mock @cloudflare/sandbox + containers (unavailable in vitest) ───
+
+vi.mock('@cloudflare/sandbox', () => ({
+  Sandbox: class {},
+  getSandbox: () => ({}),
+}))
+
+vi.mock('@cloudflare/containers', () => ({
+  Container: class {},
+  getContainer: () => ({}),
+}))
+
+
 // ─── Mock types matching CF Workflow contracts ───
 
 interface StepDoCall {
