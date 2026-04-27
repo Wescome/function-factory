@@ -1,6 +1,6 @@
 # Ontology Implementation Plan — Map to Territory
 
-**Status:** Pending Architect review
+**Status:** Architect approved (SE review 2026-04-27)
 **Prerequisite:** factory-ontology.ttl, factory-shapes.ttl, competency-questions.yaml
 
 ---
@@ -32,9 +32,26 @@ The ontology describes 16 constraints. The Factory currently violates 12 of them
 
 ## Implementation Phases
 
-### Phase A — Make agents real (fixes C4, C8)
+### Phase 0 — Spike: Convert one role end-to-end (validates Phase A approach)
 
-**The single highest-leverage change.** Convert every role from `callModel()` wrapper to `gdk-agent` `agentLoop()` session with tools.
+**Purpose:** Reduce risk before committing to all 6 role conversions. Convert the Architect role from `callModel()` wrapper to a `gdk-agent` `agentLoop()` session with tools. This validates: gdk-agent works in CF Workers, tools execute correctly, output shape is compatible with graph.ts.
+
+**Acceptance criteria:**
+1. Architect role uses `agentLoop()` with `file_read`, `grep_search`, `arango_query` tools
+2. Produces a valid 6-field BriefingScript (same shape as current)
+3. Loads DECISIONS.md, LESSONS.md, and MentorScript rules from ArangoDB
+4. Runs in V8 isolate (Coordinator DO context)
+5. graph.ts `architect` node calls the new session, not `callModel()`
+6. One integration test: mock tools → verify BriefingScript output shape
+
+**Blocked by:** Nothing. gdk-agent is in the monorepo.
+**Estimated effort:** 1 focused session.
+
+---
+
+### Phase A — Make all agents real (fixes C4, C8)
+
+**The single highest-leverage change.** Convert every remaining role from `callModel()` wrapper to `gdk-agent` `agentLoop()` session with tools.
 
 | Role | Current | Target | Tools | Environment |
 |------|---------|--------|-------|-------------|
@@ -55,7 +72,7 @@ Each session loads: DECISIONS.md, LESSONS.md, active MentorScript rules (C8).
 5. graph.ts nodes call agent sessions instead of `callModel()`
 6. TDD: test each role produces correct output shape with mock tools
 
-**Blocked by:** Nothing. gdk-agent is in the monorepo.
+**Blocked by:** Phase 0 (spike validates approach before full conversion).
 
 ---
 
@@ -128,18 +145,21 @@ Load the OWL ontology into ArangoDB as a queryable graph. Agents can ask:
 ## Dependency Graph
 
 ```
-Phase A (real agents)
+Phase 0 (spike: Architect → gdk-agent)
   ↓
-Phase B (artifact validation) ← can start in parallel with A
+Phase A (all 6 roles → real agents)
+  ├──→ Phase B (artifact validation) ← can start after Phase 0
+  │      ↓
+  │    Phase D (CRP + lifecycle) ← depends on B
   ↓
-Phase C (sandbox execution) ← depends on A
-  ↓
-Phase D (CRP + lifecycle) ← depends on B
+Phase C (sandbox execution) ← depends on A (Coder/Tester must be real)
   ↓
 Phase E (queryable ontology) ← depends on all above
 ```
 
-**Phase A is the critical path.** Everything else is additive.
+**Phase 0 is first.** Validates the approach before committing to all roles.
+**Phase A is the critical path.** B can start in parallel after Phase 0 proves feasibility.
+**C cannot start until A completes** — sandbox roles need real agent sessions.
 
 ---
 
@@ -160,10 +180,26 @@ The ontology implementation is complete when:
 
 | Phase | Tasks | Effort | Parallel? |
 |-------|-------|--------|-----------|
-| A — Real agents | 6 role conversions + tests | Large | No (sequential per role) |
-| B — Artifact validation | Validator package + integration | Medium | Yes (parallel with A) |
+| 0 — Spike | Architect role → gdk-agent + 1 test | Small | First |
+| A — Real agents | 5 remaining role conversions + tests | Large | After 0 |
+| B — Artifact validation | Validator package + integration | Medium | After 0 (parallel with A) |
 | C — Sandbox execution | run-session.js upgrade + integration | Medium | After A |
 | D — CRP + lifecycle | CRP auto-gen + lifecycle states | Medium | After B |
 | E — Queryable ontology | ArangoDB loader + query tool | Small | After all |
 
-**Total: 3-5 focused sessions.**
+**Total: 4-6 focused sessions.** Phase 0 de-risks Phase A before committing.
+
+---
+
+## Risk Register (SE Assessment)
+
+| # | Risk | Likelihood | Impact | Mitigation |
+|---|------|-----------|--------|------------|
+| R1 | gdk-agent agentLoop incompatible with CF Workers V8 | Medium | Critical | Phase 0 spike validates this FIRST |
+| R2 | Tool execution latency exceeds Workflow step timeout | Medium | High | AbortSignal.timeout per tool; budget-check node |
+| R3 | SHACL validation adds unacceptable latency to writes | Low | Medium | TS validators (not RDF engine); benchmark in Phase B |
+| R4 | Sandbox Container cold-start too slow for inner loop | Medium | High | Fork-based repair; workspace prep during compile |
+| R5 | MentorScript rules stale or contradictory | Low | Medium | Version MentorScripts; Critic checks rule freshness |
+| R6 | CRP waitForEvent blocks pipeline indefinitely | Low | High | CRP timeout (7d); auto-escalation on expiry |
+
+**R1 is the showstopper.** Phase 0 exists to retire it.

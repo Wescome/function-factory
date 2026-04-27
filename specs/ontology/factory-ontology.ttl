@@ -542,6 +542,90 @@ ff:approvedBy a owl:ObjectProperty ;
     rdfs:domain ff:MergeReadinessPack ;
     rdfs:range ff:VersionControlledResolution .
 
+# ── Missing properties (SE review amendment) ──
+ff:relatedArtifact a owl:ObjectProperty ;
+    rdfs:domain ff:ConsultationRequestPack ;
+    rdfs:range owl:Thing ;
+    rdfs:comment "The artifact that triggered this CRP (used in C7 confidence escalation)." .
+
+ff:groundedIn a owl:ObjectProperty ;
+    rdfs:domain ff:CritiqueReport ;
+    rdfs:range ff:Signal ;
+    rdfs:comment "The originating Signal whose specContent grounds this review (C10)." .
+
+ff:communicatesVia a owl:ObjectProperty ;
+    rdfs:domain ff:Workflow ;
+    rdfs:range ff:Queue ;
+    rdfs:comment "Workflows MUST communicate with DOs via Queue, not direct RPC (C16)." .
+
+ff:goal a owl:DatatypeProperty ;
+    rdfs:domain ff:BriefingScript ;
+    rdfs:range xsd:string .
+
+ff:successCriteria a owl:DatatypeProperty ;
+    rdfs:domain ff:BriefingScript ;
+    rdfs:range xsd:string .
+
+ff:architecturalContext a owl:DatatypeProperty ;
+    rdfs:domain ff:BriefingScript ;
+    rdfs:range xsd:string .
+
+ff:strategicAdvice a owl:DatatypeProperty ;
+    rdfs:domain ff:BriefingScript ;
+    rdfs:range xsd:string .
+
+ff:knownGotchas a owl:DatatypeProperty ;
+    rdfs:domain ff:BriefingScript ;
+    rdfs:range xsd:string .
+
+ff:validationLoop a owl:DatatypeProperty ;
+    rdfs:domain ff:BriefingScript ;
+    rdfs:range xsd:string .
+
+ff:evidenceSources a owl:DatatypeProperty ;
+    rdfs:domain ff:DetectorSpec ;
+    rdfs:range xsd:string .
+
+ff:directRules a owl:DatatypeProperty ;
+    rdfs:domain ff:DetectorSpec ;
+    rdfs:range xsd:string .
+
+ff:regressionPolicy a owl:DatatypeProperty ;
+    rdfs:domain ff:DetectorSpec ;
+    rdfs:range xsd:string .
+
+ff:mentorRulesChecked a owl:DatatypeProperty ;
+    rdfs:domain ff:CritiqueReport ;
+    rdfs:range xsd:string .
+
+ff:content a owl:DatatypeProperty ;
+    rdfs:domain ff:CodeArtifact ;
+    rdfs:range xsd:string .
+
+ff:reviewType a owl:DatatypeProperty ;
+    rdfs:domain ff:CritiqueReport ;
+    rdfs:range xsd:string .
+
+# ── Lifecycle State Transitions (dynamics model) ──
+ff:allowedTransition a owl:ObjectProperty ;
+    rdfs:domain ff:FunctionLifecycleState ;
+    rdfs:range ff:FunctionLifecycleState ;
+    rdfs:comment "Allowed lifecycle state transitions. Transitions not in this graph are forbidden." .
+
+ff:transitionRequires a owl:ObjectProperty ;
+    rdfs:domain ff:FunctionLifecycleState ;
+    rdfs:range ff:Gate ;
+    rdfs:comment "Gate that must pass for this transition to be allowed." .
+
+ff:Proposed ff:allowedTransition ff:Designed .
+ff:Designed ff:allowedTransition ff:InProgress .
+ff:InProgress ff:allowedTransition ff:Implemented .
+ff:Implemented ff:allowedTransition ff:Verified ;
+    ff:transitionRequires ff:Gate2 .
+ff:Verified ff:allowedTransition ff:Monitored ;
+    ff:transitionRequires ff:Gate3 .
+ff:Monitored ff:allowedTransition ff:Retired .
+
 # ── Agent Capabilities ──
 ff:hasTools a owl:ObjectProperty ;
     rdfs:domain ff:AgentRole ;

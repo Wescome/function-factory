@@ -1,44 +1,35 @@
 # Current Workspace
 
 ## Status
-Session ended at 2026-04-27T17:32:27.478Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
+Session ended at 2026-04-27T18:42:41.455Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
 
 ## Last update
-2026-04-27T17:32:27.478Z
+2026-04-27T18:42:41.455Z
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
-- [16:56:55] Bash: # Get the full roleHistory with output from the successful run
-curl -s "https://ff-gateway.koales.workers.dev/specs/exec
-- [16:59:09] Bash: curl -s "https://ff-gateway.koales.workers.dev/specs/execution_artifacts/EA-WG-MOHD906V-WZB8-synthesis" | python3 -c "
-i
-- [17:09:44] Bash: curl -s "https://ff-gateway.koales.workers.dev/specs/execution_artifacts/EA-WG-MOHD906V-WZB8-synthesis" | python3 -c "
-i
-- [17:26:36] Bash: grep "'architect'\|'critic'\|'planner'\|'verifier'\|'coder'\|'tester'\|'semantic_review'" /Users/wes/Developer/function-
-- [17:26:50] Bash: grep -A 2 "kind:" /Users/wes/Developer/function-factory/packages/task-routing/src/index.ts | grep -B 1 "primary:" | head
-- [17:29:45] Bash: mkdir -p /Users/wes/Developer/function-factory/packages/gdk-ai/src /Users/wes/Developer/function-factory/packages/gdk-ag
-- [17:29:52] Bash: # Add to pnpm workspace
-cat /Users/wes/Developer/function-factory/pnpm-workspace.yaml
-- [17:30:02] Bash: pnpm install 2>&1 | tail -10
-- [17:30:13] Bash: # Fix gdk-agent to use workspace dep
-cd /Users/wes/Developer/function-factory
-python3 -c "
-import json
-
-# gdk-agent depe
-- [17:30:31] Bash: pnpm install 2>&1 | tail -5
-- [17:30:41] Bash: echo "=== GDK packages in workspace ===" && ls -d packages/gdk-* packages/stream-types 2>/dev/null && echo "" && echo "=
-- [17:30:53] Bash: git add packages/gdk-ai/ packages/gdk-agent/ packages/gdk-ts/ packages/stream-types/ pnpm-lock.yaml && git commit -m "$(
-- [17:31:02] Bash: find packages/gdk-ai/src -name "*.ts" -exec wc -l {} + | sort -rn | head -5
-- [17:31:09] Bash: git push origin main 2>&1 | head -20
-- [17:31:17] Bash: grep -n "client_id\|clientId\|GOCSPX\|apps.googleusercontent" /Users/wes/Developer/function-factory/packages/gdk-ai/src/
-- [17:31:33] Bash: grep -n "CLIENT_ID\s*=" /Users/wes/Developer/function-factory/packages/gdk-ai/src/utils/oauth/google-gemini-cli.ts | hea
-- [17:31:50] Edit: /Users/wes/Developer/function-factory/packages/gdk-ai/src/utils/oauth/google-gemini-cli.ts
-- [17:31:59] Bash: # Check for other secrets in gdk packages
-grep -rn "GOCSPX\|client_secret.*=.*['\"].*['\"]$\|api_key.*=.*['\"].*['\"]$\|
-- [17:32:10] Bash: git add -A && git commit --amend --no-edit && git push origin main 2>&1 | tail -5
-- [17:32:18] Bash: # Check if the secret is still in the current file
-grep "NjgxMjU1ODA5\|R09DU1BYLTR" packages/gdk-ai/src/utils/oauth/goog
+- [17:37:18] Bash: git add -A && git commit --amend --no-edit && git push origin main 2>&1 | tail -5
+- [18:17:11] Bash: curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"message": "Running the Design wor
+- [18:17:39] Bash: ls -la /Users/wes/Developer/function-factory/packages/schemas/src/ | grep -E "\.ts$"
+- [18:17:45] Bash: ls -la /Users/wes/Developer/function-factory/workers/ff-pipeline/src/stages/*.ts 2>/dev/null | head -20
+- [18:18:03] Bash: ls -la /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/ 2>/dev/null
+- [18:18:13] Bash: ls -la /Users/wes/Developer/function-factory/specs/reference/ 2>/dev/null
+- [18:18:19] Bash: find /Users/wes/Developer/function-factory/packages/schemas/src -name "*.ts" -type f | sort
+- [18:18:19] Bash: grep -r "ArtifactId.refine" /Users/wes/Developer/function-factory/packages/schemas/src --include="*.ts" | grep "startsWi
+- [18:18:22] Bash: grep -r "startsWith.*(" /Users/wes/Developer/function-factory/packages/schemas/src/*.ts | grep "refine" | sed 's/.*start
+- [18:18:23] Bash: grep "^export const ArtifactId" /Users/wes/Developer/function-factory/packages/schemas/src/lineage.ts -A 6
+- [18:19:41] Agent: Explore: gather Factory domain knowledge
+- [18:27:36] Bash: mkdir -p /Users/wes/Developer/function-factory/specs/ontology
+- [18:30:11] Write: /Users/wes/Developer/function-factory/specs/ontology/factory-ontology.ttl
+- [18:31:30] Write: /Users/wes/Developer/function-factory/specs/ontology/factory-shapes.ttl
+- [18:32:38] Write: /Users/wes/Developer/function-factory/specs/ontology/competency-questions.yaml
+- [18:33:01] Bash: wc -l specs/ontology/*.ttl specs/ontology/*.yaml && git add specs/ontology/ && git commit -m "$(cat <<'EOF'
+META: Functi
+- [18:37:39] Write: /Users/wes/Developer/function-factory/specs/ontology/IMPLEMENTATION-PLAN.md
+- [18:37:55] Bash: git add specs/ontology/IMPLEMENTATION-PLAN.md && git commit -m "$(cat <<'EOF'
+META: ontology implementation plan — map t
+- [18:39:57] Bash: curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"message": "Running the Architectu
+- [18:42:23] Agent: SE: full systems engineering review of ontology
 
 ## Notes
 This file is auto-updated on session end. Manual edits will be overwritten.
