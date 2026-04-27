@@ -1,0 +1,27 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "paths": {
+      "@kernel/*": [
+        "./src/kernel/*"
+      ],
+      "@stream/*": [
+        "./src/stream/*"
+      ],
+      "@mappers/*": [
+        "./src/mappers/*"
+      ],
+      "@validators/*": [
+        "./src/validators/*"
+      ]
+    },
+    "types": [
+      "bun"
+    ]
+  },
+  "include": [
+    "src/**/*.ts",
+    "test/**/*.ts"
+  ]
+}

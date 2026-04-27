@@ -1,0 +1,114 @@
+{
+	"name": "@weops/gdk-ai",
+	"version": "0.67.2",
+	"description": "Unified LLM API with automatic model discovery and provider configuration",
+	"type": "module",
+	"main": "./src/index.ts",
+	"types": "./src/index.ts",
+	"exports": {
+		".": {
+			"types": "./src/index.ts",
+			"import": "./src/index.ts"
+		},
+		"./anthropic": {
+			"types": "./src/providers/anthropic.ts",
+			"import": "./src/providers/anthropic.ts"
+		},
+		"./azure-openai-responses": {
+			"types": "./src/providers/azure-openai-responses.ts",
+			"import": "./src/providers/azure-openai-responses.ts"
+		},
+		"./google": {
+			"types": "./src/providers/google.ts",
+			"import": "./src/providers/google.ts"
+		},
+		"./google-gemini-cli": {
+			"types": "./src/providers/google-gemini-cli.ts",
+			"import": "./src/providers/google-gemini-cli.ts"
+		},
+		"./google-vertex": {
+			"types": "./src/providers/google-vertex.ts",
+			"import": "./src/providers/google-vertex.ts"
+		},
+		"./mistral": {
+			"types": "./src/providers/mistral.ts",
+			"import": "./src/providers/mistral.ts"
+		},
+		"./openai-codex-responses": {
+			"types": "./src/providers/openai-codex-responses.ts",
+			"import": "./src/providers/openai-codex-responses.ts"
+		},
+		"./openai-completions": {
+			"types": "./src/providers/openai-completions.ts",
+			"import": "./src/providers/openai-completions.ts"
+		},
+		"./openai-responses": {
+			"types": "./src/providers/openai-responses.ts",
+			"import": "./src/providers/openai-responses.ts"
+		},
+		"./oauth": {
+			"types": "./src/oauth.ts",
+			"import": "./src/oauth.ts"
+		},
+		"./bedrock-provider": {
+			"types": "./src/bedrock-provider.ts",
+			"import": "./src/bedrock-provider.ts"
+		}
+	},
+	"bin": {
+		"gdk-ai": "./dist/cli.js"
+	},
+	"files": [
+		"dist",
+		"README.md"
+	],
+	"scripts": {
+		"clean": "shx rm -rf dist",
+		"generate-models": "npx tsx scripts/generate-models.ts",
+		"build": "npm run generate-models && tsgo -p tsconfig.build.json",
+		"dev": "tsgo -p tsconfig.build.json --watch --preserveWatchOutput",
+		"dev:tsc": "tsgo -p tsconfig.build.json --watch --preserveWatchOutput",
+		"test": "vitest --run",
+		"prepublishOnly": "npm run clean && npm run build"
+	},
+	"dependencies": {
+		"@anthropic-ai/sdk": "^0.73.0",
+		"@aws-sdk/client-bedrock-runtime": "^3.983.0",
+		"@google/genai": "^1.40.0",
+		"@mistralai/mistralai": "1.14.1",
+		"@sinclair/typebox": "^0.34.41",
+		"ajv": "^8.17.1",
+		"ajv-formats": "^3.0.1",
+		"chalk": "^5.6.2",
+		"openai": "6.26.0",
+		"partial-json": "^0.1.7",
+		"proxy-agent": "^6.5.0",
+		"undici": "^7.19.1",
+		"zod-to-json-schema": "^3.24.6"
+	},
+	"keywords": [
+		"ai",
+		"llm",
+		"openai",
+		"anthropic",
+		"gemini",
+		"bedrock",
+		"unified",
+		"api"
+	],
+	"author": "Mario Zechner",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/badlogic/pi-mono.git",
+		"directory": "packages/ai"
+	},
+	"engines": {
+		"node": ">=20.0.0"
+	},
+	"devDependencies": {
+		"@types/node": "^24.3.0",
+		"canvas": "^3.2.0",
+		"vitest": "^3.2.4"
+	}
+}

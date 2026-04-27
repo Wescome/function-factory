@@ -1,0 +1,17 @@
+{
+  "name": "@weops/stream-types",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./kernel": "./src/kernel/index.ts",
+    "./stream": "./src/stream/index.ts",
+    "./mappers": "./src/mappers/index.ts",
+    "./validators": "./src/validators/index.ts",
+    "./coordination": "./src/coordination/index.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5"
+  }
+}

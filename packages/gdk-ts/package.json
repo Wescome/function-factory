@@ -1,0 +1,28 @@
+{
+  "name": "@weops/gdk-ts",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./src/testing/index.ts",
+    "./agent-governance.js": "./src/agent-governance.ts",
+    "./agent-session.js": "./src/agent-session.ts",
+    "./tools/coding-agent-tool.js": "./src/tools/coding-agent-tool.ts",
+    "./tools/core-tools.js": "./src/tools/core-tools.ts",
+    "./service.js": "./src/service.ts",
+    "./types.js": "./src/types.ts",
+    "./errors.js": "./src/errors.ts",
+    "./resilience.js": "./src/resilience.ts",
+    "./observability.js": "./src/observability.ts",
+    "./integrations/slack-notifier.js": "./src/integrations/slack-notifier.ts"
+  },
+  "dependencies": {
+    "@weops/stream-types": "workspace:*",
+    "@weops/gdk-agent": "workspace:*",
+    "@sinclair/typebox": "^0.34.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5"
+  }
+}
