@@ -17,11 +17,22 @@
   // Durable Objects
   "durable_objects": {
     "bindings": [
-      { "name": "COORDINATOR", "class_name": "SynthesisCoordinator" }
+      { "name": "COORDINATOR", "class_name": "SynthesisCoordinator" },
+      { "name": "SANDBOX", "class_name": "Sandbox" }
     ]
   },
   "migrations": [
-    { "tag": "v1", "new_sqlite_classes": ["SynthesisCoordinator"] }
+    { "tag": "v1", "new_sqlite_classes": ["SynthesisCoordinator"] },
+    { "tag": "v2", "new_sqlite_classes": ["Sandbox"] }
+  ],
+
+  // Sandbox Container for Coder/Tester execution
+  "containers": [
+    {
+      "class_name": "Sandbox",
+      "image": "./Dockerfile",
+      "max_instances": 5
+    }
   ],
 
   // Service Bindings
