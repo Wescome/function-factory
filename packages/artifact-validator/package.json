@@ -1,0 +1,15 @@
+{
+  "name": "@factory/artifact-validator",
+  "version": "0.1.0",
+  "description": "SHACL-equivalent artifact validation for Function Factory — enforces ontology constraints before ArangoDB persist",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^2.0.0",
+    "typescript": "^5.5.0"
+  }
+}

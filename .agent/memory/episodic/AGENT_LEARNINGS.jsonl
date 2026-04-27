@@ -2704,3 +2704,50 @@
 {"timestamp":"2026-04-27T20:21:18.385Z","tool":"Bash","summary":"sed -i '' \"s/falling back to callModel fallback/falling back to callModel/g\" /Users/wes/Developer/function-factory/worke","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
 {"timestamp":"2026-04-27T20:21:30.759Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test 2>&1 | tail -12","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
 {"timestamp":"2026-04-27T20:21:37.313Z","tool":"Bash","summary":"grep -rn \"pi-sdk\\|piAiRole\\|pi-ai\\|pi_ai\\|pi-coding-agent\\|@mariozechner\\|'aider'\" /Users/wes/Developer/function-factory","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T20:21:42.301Z","tool":"Bash","summary":"git add -A && git diff --cached --stat","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T20:21:51.667Z","tool":"Bash","summary":"git commit -m \"$(cat <<'EOF'\nMETA: purge stale executor/naming from pre-ADR era\n\n- pi-sdk → gdk-agent (Plan.executorReco","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T20:21:59.683Z","tool":"Bash","summary":"git push origin main","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T20:25:31.425Z","tool":"Bash","summary":"grep -rn \"LangGraph\\|langgraph\\|StateGraph\\|graph-runner\" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T20:28:18.574Z","tool":"Bash","summary":"ls /Users/wes/Developer/function-factory/specs/reference/ADR*","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T20:28:26.868Z","tool":"Bash","summary":"grep -n \"checkpoint\\|streaming\\|interrupt\\|fiber\\|Fiber\\|runFiber\\|waitForEvent\\|stash\\|alarm\\|step.do\\|step.sleep\" /Use","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T20:28:31.632Z","tool":"Bash","summary":"grep -n \"waitForEvent\\|step\\.do\\|step\\.sleep\\|sendEvent\" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/p","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T20:29:53.221Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/specs/reference/ADR-004-custom-graph-runner-over-langgraph.md","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T20:30:01.938Z","tool":"Bash","summary":"git add specs/reference/ADR-004-custom-graph-runner-over-langgraph.md && git commit -m \"$(cat <<'EOF'\nMETA: ADR-004 — cu","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T20:30:09.216Z","tool":"Bash","summary":"git push origin main","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:03:57.332Z","tool":"Bash","summary":"grep -rn \"db\\.save\\|db\\.saveEdge\" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/ --include=\"*.ts\" | grep","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:04:53.406Z","tool":"Bash","summary":"ls /Users/wes/Developer/function-factory/packages/","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:04:54.132Z","tool":"Bash","summary":"ls /Users/wes/Developer/function-factory/workers/ff-pipeline/vitest.config.ts 2>/dev/null || echo \"no vitest config\"","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:04:59.210Z","tool":"Bash","summary":"cat /Users/wes/Developer/function-factory/workers/ff-pipeline/package.json | head -30","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:04:59.397Z","tool":"Bash","summary":"ls /Users/wes/Developer/function-factory/packages/arango-client/","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:05:08.546Z","tool":"Bash","summary":"mkdir -p /Users/wes/Developer/function-factory/packages/artifact-validator/src","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:05:13.513Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/artifact-validator/package.json","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:05:17.882Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/artifact-validator/tsconfig.json","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:06:12.981Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/artifact-validator/src/index.test.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:06:19.627Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/artifact-validator/src/index.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:06:32.436Z","tool":"Bash","summary":"pnpm install 2>&1 | tail -5","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:07:17.292Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/artifact-validator/src/index.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:07:24.155Z","tool":"Bash","summary":"pnpm --filter @factory/artifact-validator test 2>&1","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:07:41.233Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/arango-client/src/index.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:07:48.582Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/arango-client/src/index.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:07:58.149Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/coordinator.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:08:03.857Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/coordinator.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:08:10.583Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/pipeline.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:08:15.521Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/pipeline.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:08:24.291Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/package.json","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:08:35.333Z","tool":"Bash","summary":"pnpm install 2>&1 | tail -5","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:08:42.611Z","tool":"Bash","summary":"pnpm --filter @factory/artifact-validator test 2>&1","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:09:00.133Z","tool":"Bash","summary":"grep -n \"createClientFromEnv\\|setValidator\\|mock.*arango\" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:09:12.578Z","tool":"Bash","summary":"grep -n \"createMockDb\\|createClientFromEnv\\|arango-client\" /Users/wes/Developer/function-factory/workers/ff-pipeline/src","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:09:16.316Z","tool":"Bash","summary":"grep -n \"createMockDb\\|createClientFromEnv\\|arango-client\" /Users/wes/Developer/function-factory/workers/ff-pipeline/src","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:09:20.220Z","tool":"Bash","summary":"grep -n \"createMockDb\\|createClientFromEnv\\|arango-client\" /Users/wes/Developer/function-factory/workers/ff-pipeline/src","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:09:38.535Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/pipeline.test.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:09:47.480Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/stage6-handoff.test.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:09:54.386Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/queue-bridge.test.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:10:00.741Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/spec-content-threading.test.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:10:11.124Z","tool":"Bash","summary":"grep -n \"artifact-validator\" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/pipeline.test.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:10:19.693Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/pipeline.test.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:10:28.558Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test 2>&1","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:10:35.707Z","tool":"Bash","summary":"pnpm --filter @factory/artifact-validator test 2>&1","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:10:56.287Z","tool":"Agent","summary":"Build artifact validator package","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:11:09.273Z","tool":"Bash","summary":"pnpm --filter @factory/artifact-validator test 2>&1 | tail -10","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-27T21:11:19.065Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test 2>&1 | tail -8","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}

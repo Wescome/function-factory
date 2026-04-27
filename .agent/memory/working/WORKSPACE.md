@@ -1,36 +1,37 @@
 # Current Workspace
 
 ## Status
-Session ended at 2026-04-27T20:06:44.494Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
+Session ended at 2026-04-27T20:30:18.580Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
 
 ## Last update
-2026-04-27T20:06:44.494Z
+2026-04-27T20:30:18.580Z
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
-- [20:03:28] Write: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/designs.ts
-- [20:03:36] Edit: /Users/wes/Developer/function-factory/specs/ontology/factory-ontology.ttl
-- [20:03:52] Bash: pnpm --filter @factory/ff-pipeline test 2>&1 | tail -20
-- [20:04:00] Bash: find /Users/wes/Developer/function-factory -name "ADR*" -o -name "adr*" | head -10
-- [20:04:01] Bash: grep -r "inherit\|extends.*Agent\|cloudflare.*agent\|agents.*sdk\|CF.*Container\|DurableObject" /Users/wes/Developer/fun
-- [20:04:07] Bash: ls /Users/wes/Developer/function-factory/specs/reference/ADR*
-- [20:04:19] Bash: grep -r "Agent.*extends\|extends.*Agent\|class.*Agent\|cloudflare.*Agent\|agents.*Agent" /Users/wes/Developer/function-f
-- [20:04:25] Bash: grep -B2 -A5 "extends Agent\|CF.*Agent\|Agents SDK\|agents.*SDK\|cloudflare.*agent\|hybrid.*Agent" /Users/wes/Developer/
-- [20:04:45] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/designs.ts
-- [20:04:57] Bash: grep -n "permissions:" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/designs.ts
-- [20:05:06] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/designs.ts
-- [20:05:15] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/designs.ts
-- [20:05:22] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/designs.ts
-- [20:05:29] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/designs.ts
-- [20:05:36] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/designs.ts
-- [20:05:43] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/designs.ts
-- [20:05:54] Bash: pnpm --filter @factory/ff-pipeline test 2>&1 | tail -8
-- [20:06:02] Bash: git add -A && git diff --cached --stat
-- [20:06:20] Bash: git commit -m "$(cat <<'EOF'
-META: Phase A — all 6 roles → real gdk-agent sessions + agent designs in ArangoDB
+- [20:20:15] Bash: sed -i '' "s/piAiRole/callModel-fallback/g" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/sa
+- [20:20:23] Bash: grep -rn "piAiRole\|pi-ai\|pi_ai" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/ --include="*.ts" | grep
+- [20:20:29] Bash: find /Users/wes/Developer/function-factory/workers/ff-pipeline/src -name "*.test.ts" -exec sed -i '' "s/piAiRole/callMod
+- [20:20:43] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/coordinator.ts
+- [20:20:51] Bash: grep -n "falling back" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/sandbox-role.ts
+- [20:21:05] Bash: sed -i '' "s/proposedBy: 'pi-ai'/proposedBy: 'gdk-ai'/" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/st
+- [20:21:12] Bash: grep -rn "falling back to callModel fallback" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/ --include="
+- [20:21:18] Bash: sed -i '' "s/falling back to callModel fallback/falling back to callModel/g" /Users/wes/Developer/function-factory/worke
+- [20:21:30] Bash: pnpm --filter @factory/ff-pipeline test 2>&1 | tail -12
+- [20:21:37] Bash: grep -rn "pi-sdk\|piAiRole\|pi-ai\|pi_ai\|pi-coding-agent\|@mariozechner\|'aider'" /Users/wes/Developer/function-factory
+- [20:21:42] Bash: git add -A && git diff --cached --stat
+- [20:21:51] Bash: git commit -m "$(cat <<'EOF'
+META: purge stale executor/naming from pre-ADR era
 
-Convert 
-- [20:06:32] Bash: git push origin main
+- pi-sdk → gdk-agent (Plan.executorReco
+- [20:21:59] Bash: git push origin main
+- [20:25:31] Bash: grep -rn "LangGraph\|langgraph\|StateGraph\|graph-runner" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/
+- [20:28:18] Bash: ls /Users/wes/Developer/function-factory/specs/reference/ADR*
+- [20:28:26] Bash: grep -n "checkpoint\|streaming\|interrupt\|fiber\|Fiber\|runFiber\|waitForEvent\|stash\|alarm\|step.do\|step.sleep" /Use
+- [20:28:31] Bash: grep -n "waitForEvent\|step\.do\|step\.sleep\|sendEvent" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/p
+- [20:29:53] Write: /Users/wes/Developer/function-factory/specs/reference/ADR-004-custom-graph-runner-over-langgraph.md
+- [20:30:01] Bash: git add specs/reference/ADR-004-custom-graph-runner-over-langgraph.md && git commit -m "$(cat <<'EOF'
+META: ADR-004 — cu
+- [20:30:09] Bash: git push origin main
 
 ## Notes
 This file is auto-updated on session end. Manual edits will be overwritten.

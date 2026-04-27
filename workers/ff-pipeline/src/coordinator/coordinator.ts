@@ -1,5 +1,6 @@
 import { Agent, callable, type FiberContext, type FiberRecoveryContext } from 'agents'
 import { createClientFromEnv, type ArangoClient } from '@factory/arango-client'
+import { validateArtifact } from '@factory/artifact-validator'
 import { buildSynthesisGraph } from './graph'
 import type { GraphDeps } from './graph'
 import { createModelBridge } from './model-bridge-do'
@@ -41,6 +42,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
   private getDb(): ArangoClient {
     if (!this.db) {
       this.db = createClientFromEnv(this.env)
+      this.db.setValidator(validateArtifact)
     }
     return this.db
   }

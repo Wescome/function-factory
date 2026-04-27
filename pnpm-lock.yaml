@@ -59,6 +59,15 @@ importers:
         specifier: ^1.4.0
         version: 1.6.1(@types/node@24.12.2)
 
+  packages/artifact-validator:
+    devDependencies:
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.0
+        version: 2.1.9(@types/node@24.12.2)
+
   packages/assurance-graph:
     dependencies:
       '@factory/schemas':
@@ -515,6 +524,9 @@ importers:
       '@factory/arango-client':
         specifier: workspace:*
         version: link:../../packages/arango-client
+      '@factory/artifact-validator':
+        specifier: workspace:*
+        version: link:../../packages/artifact-validator
       '@factory/task-routing':
         specifier: workspace:*
         version: link:../../packages/task-routing

@@ -116,6 +116,7 @@ function createMockDb() {
     save: vi.fn(async () => ({ _key: 'mock-key' })),
     saveEdge: vi.fn(async () => ({ _key: 'mock-edge' })),
     query: vi.fn(async () => []),
+    setValidator: vi.fn(),
   }
 }
 
@@ -171,6 +172,10 @@ const sharedMockDb = createMockDb()
 
 vi.mock('@factory/arango-client', () => ({
   createClientFromEnv: () => sharedMockDb,
+}))
+
+vi.mock('@factory/artifact-validator', () => ({
+  validateArtifact: () => ({ valid: true, violations: [] }),
 }))
 
 vi.mock('./stages/ingest-signal', () => ({

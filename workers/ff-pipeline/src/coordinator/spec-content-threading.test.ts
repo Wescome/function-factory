@@ -72,10 +72,15 @@ const mockDb = {
   save: vi.fn(async () => ({ _key: 'mock-key' })),
   saveEdge: vi.fn(async () => ({ _key: 'mock-edge' })),
   query: vi.fn(async () => []),
+  setValidator: vi.fn(),
 }
 
 vi.mock('@factory/arango-client', () => ({
   createClientFromEnv: () => mockDb,
+}))
+
+vi.mock('@factory/artifact-validator', () => ({
+  validateArtifact: () => ({ valid: true, violations: [] }),
 }))
 
 // ─── Stage stubs ───

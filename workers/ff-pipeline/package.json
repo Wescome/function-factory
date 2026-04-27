@@ -14,6 +14,7 @@
     "@cloudflare/sandbox": "latest",
     "@cloudflare/shell": "0.3.4",
     "@factory/arango-client": "workspace:*",
+    "@factory/artifact-validator": "workspace:*",
     "@factory/task-routing": "workspace:*",
     "@weops/gdk-agent": "workspace:*",
     "@weops/gdk-ai": "workspace:*",

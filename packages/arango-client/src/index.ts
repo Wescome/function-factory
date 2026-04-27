@@ -29,9 +29,15 @@ export interface ArangoQueryResult<T = unknown> {
   count?: number
 }
 
+export interface ArangoValidationResult {
+  valid: boolean
+  violations: { constraint: string; severity: string; message: string; field?: string }[]
+}
+
 export class ArangoClient {
   private baseUrl: string
   private headers: Record<string, string>
+  private validator?: (collection: string, doc: Record<string, unknown>) => ArangoValidationResult
 
   constructor(private config: ArangoConfig) {
     this.baseUrl = `${config.url}/_db/${config.database}`
@@ -39,6 +45,16 @@ export class ArangoClient {
       'Content-Type': 'application/json',
       ...this.authHeader(),
     }
+  }
+
+  /**
+   * Set a validation function that runs before every save().
+   * If validation returns violations with severity 'violation',
+   * the save is blocked and an error is thrown.
+   * Warnings are logged but do not block.
+   */
+  setValidator(fn: (collection: string, doc: Record<string, unknown>) => ArangoValidationResult): void {
+    this.validator = fn
   }
 
   private authHeader(): Record<string, string> {
@@ -70,6 +86,21 @@ export class ArangoClient {
     collection: string,
     doc: Record<string, unknown>,
   ): Promise<T> {
+    if (this.validator) {
+      const result = this.validator(collection, doc)
+      if (!result.valid) {
+        const violationMessages = result.violations
+          .filter((v) => v.severity === 'violation')
+          .map((v) => v.message)
+        throw new Error(
+          `Artifact validation failed for ${collection}: ${violationMessages.join('; ')}`,
+        )
+      }
+      // Log warnings (non-blocking)
+      for (const v of result.violations.filter((v) => v.severity === 'warning')) {
+        console.warn(`[artifact-validator] ${v.constraint}: ${v.message}`)
+      }
+    }
     const res = await fetch(
       `${this.baseUrl}/_api/document/${collection}`,
       {

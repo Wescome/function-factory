@@ -4,6 +4,7 @@ import {
   type WorkflowStep,
 } from 'cloudflare:workers'
 import { createClientFromEnv } from '@factory/arango-client'
+import { validateArtifact } from '@factory/artifact-validator'
 import { ingestSignal } from './stages/ingest-signal'
 import { synthesizePressure } from './stages/synthesize-pressure'
 import { mapCapability } from './stages/map-capability'
@@ -27,6 +28,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
   ): Promise<PipelineResult> {
 
     const db = createClientFromEnv(this.env)
+    db.setValidator(validateArtifact)
     const params = event.payload
     const dryRun = params.dryRun ?? false
 
