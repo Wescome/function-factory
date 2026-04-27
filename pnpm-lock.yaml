@@ -35,7 +35,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^1.4.0
-        version: 1.6.1(@types/node@20.19.39)
+        version: 1.6.1(@types/node@24.12.2)
 
   packages/arango-client:
     devDependencies:
@@ -44,7 +44,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^1.4.0
-        version: 1.6.1(@types/node@20.19.39)
+        version: 1.6.1(@types/node@24.12.2)
 
   packages/architecture-candidates:
     dependencies:
@@ -57,7 +57,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^1.4.0
-        version: 1.6.1(@types/node@20.19.39)
+        version: 1.6.1(@types/node@24.12.2)
 
   packages/assurance-graph:
     dependencies:
@@ -73,7 +73,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^1.4.0
-        version: 1.6.1(@types/node@20.19.39)
+        version: 1.6.1(@types/node@24.12.2)
 
   packages/candidate-selection:
     dependencies:
@@ -86,7 +86,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^1.4.0
-        version: 1.6.1(@types/node@20.19.39)
+        version: 1.6.1(@types/node@24.12.2)
 
   packages/capability-delta:
     dependencies:
@@ -105,7 +105,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^1.4.0
-        version: 1.6.1(@types/node@20.19.39)
+        version: 1.6.1(@types/node@24.12.2)
 
   packages/compiler:
     dependencies:
@@ -146,7 +146,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^1.4.0
-        version: 1.6.1(@types/node@20.19.39)
+        version: 1.6.1(@types/node@24.12.2)
 
   packages/coverage-gates:
     dependencies:
@@ -181,7 +181,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^1.4.0
-        version: 1.6.1(@types/node@20.19.39)
+        version: 1.6.1(@types/node@24.12.2)
 
   packages/execution-lifecycle:
     dependencies:
@@ -194,7 +194,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^1.4.0
-        version: 1.6.1(@types/node@20.19.39)
+        version: 1.6.1(@types/node@24.12.2)
 
   packages/function-synthesis:
     dependencies:
@@ -216,7 +216,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^1.4.0
-        version: 1.6.1(@types/node@20.19.39)
+        version: 1.6.1(@types/node@24.12.2)
 
   packages/gdk-agent:
     dependencies:
@@ -319,7 +319,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^1.6.1
-        version: 1.6.1(@types/node@20.19.39)
+        version: 1.6.1(@types/node@24.12.2)
 
   packages/meta-governance:
     dependencies:
@@ -332,7 +332,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^1.4.0
-        version: 1.6.1(@types/node@20.19.39)
+        version: 1.6.1(@types/node@24.12.2)
 
   packages/observability-feedback:
     dependencies:
@@ -345,7 +345,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^1.4.0
-        version: 1.6.1(@types/node@20.19.39)
+        version: 1.6.1(@types/node@24.12.2)
 
   packages/policy-activation:
     dependencies:
@@ -358,7 +358,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^1.4.0
-        version: 1.6.1(@types/node@20.19.39)
+        version: 1.6.1(@types/node@24.12.2)
 
   packages/prd-authoring:
     dependencies:
@@ -371,7 +371,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^1.4.0
-        version: 1.6.1(@types/node@20.19.39)
+        version: 1.6.1(@types/node@24.12.2)
 
   packages/recursion-governance:
     dependencies:
@@ -384,7 +384,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^1.4.0
-        version: 1.6.1(@types/node@20.19.39)
+        version: 1.6.1(@types/node@24.12.2)
 
   packages/runtime:
     dependencies:
@@ -400,7 +400,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^1.4.0
-        version: 1.6.1(@types/node@20.19.39)
+        version: 1.6.1(@types/node@24.12.2)
 
   packages/runtime-admission:
     dependencies:
@@ -413,7 +413,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^1.4.0
-        version: 1.6.1(@types/node@20.19.39)
+        version: 1.6.1(@types/node@24.12.2)
 
   packages/schemas:
     dependencies:
@@ -426,7 +426,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^1.4.0
-        version: 1.6.1(@types/node@20.19.39)
+        version: 1.6.1(@types/node@24.12.2)
 
   packages/selection-bias:
     dependencies:
@@ -439,7 +439,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^1.4.0
-        version: 1.6.1(@types/node@20.19.39)
+        version: 1.6.1(@types/node@24.12.2)
 
   packages/signal-hygiene:
     dependencies:
@@ -452,7 +452,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^1.4.0
-        version: 1.6.1(@types/node@20.19.39)
+        version: 1.6.1(@types/node@24.12.2)
 
   packages/stream-types:
     devDependencies:
@@ -470,7 +470,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.0.0
-        version: 2.1.9(@types/node@20.19.39)
+        version: 2.1.9(@types/node@24.12.2)
 
   workers/ff-gates:
     dependencies:
@@ -518,9 +518,15 @@ importers:
       '@factory/task-routing':
         specifier: workspace:*
         version: link:../../packages/task-routing
+      '@weops/gdk-agent':
+        specifier: workspace:*
+        version: link:../../packages/gdk-agent
+      '@weops/gdk-ai':
+        specifier: workspace:*
+        version: link:../../packages/gdk-ai
       agents:
         specifier: 0.11.6
-        version: 0.11.6(@babel/core@7.29.0)(@babel/runtime@7.29.2)(@cloudflare/codemode@0.3.4(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76))(ai@6.0.168(zod@3.25.76))(zod@3.25.76))(@cloudflare/workers-types@4.20260425.1)(ai@6.0.168(zod@3.25.76))(react@19.2.5)(rolldown@1.0.0-rc.17)(vite@5.4.21(@types/node@20.19.39))(zod@3.25.76)
+        version: 0.11.6(@babel/core@7.29.0)(@babel/runtime@7.29.2)(@cloudflare/codemode@0.3.4(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76))(ai@6.0.168(zod@3.25.76))(zod@3.25.76))(@cloudflare/workers-types@4.20260425.1)(ai@6.0.168(zod@3.25.76))(react@19.2.5)(rolldown@1.0.0-rc.17)(vite@5.4.21(@types/node@24.12.2))(zod@3.25.76)
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20260101.0
@@ -530,7 +536,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.0.0
-        version: 2.1.9(@types/node@20.19.39)
+        version: 2.1.9(@types/node@24.12.2)
       wrangler:
         specifier: ^3.100.0
         version: 3.114.17(@cloudflare/workers-types@4.20260425.1)
@@ -4908,14 +4914,14 @@ snapshots:
   '@rolldown/binding-win32-x64-msvc@1.0.0-rc.17':
     optional: true
 
-  '@rolldown/plugin-babel@0.2.3(@babel/core@7.29.0)(@babel/runtime@7.29.2)(rolldown@1.0.0-rc.17)(vite@5.4.21(@types/node@20.19.39))':
+  '@rolldown/plugin-babel@0.2.3(@babel/core@7.29.0)(@babel/runtime@7.29.2)(rolldown@1.0.0-rc.17)(vite@5.4.21(@types/node@24.12.2))':
     dependencies:
       '@babel/core': 7.29.0
       picomatch: 4.0.4
       rolldown: 1.0.0-rc.17
     optionalDependencies:
       '@babel/runtime': 7.29.2
-      vite: 5.4.21(@types/node@20.19.39)
+      vite: 5.4.21(@types/node@24.12.2)
 
   '@rolldown/pluginutils@1.0.0-rc.17': {}
 
@@ -5355,13 +5361,13 @@ snapshots:
       chai: 5.3.3
       tinyrainbow: 2.0.0
 
-  '@vitest/mocker@2.1.9(vite@5.4.21(@types/node@20.19.39))':
+  '@vitest/mocker@2.1.9(vite@5.4.21(@types/node@24.12.2))':
     dependencies:
       '@vitest/spy': 2.1.9
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 5.4.21(@types/node@20.19.39)
+      vite: 5.4.21(@types/node@24.12.2)
 
   '@vitest/mocker@3.2.4(vite@5.4.21(@types/node@24.12.2))':
     dependencies:
@@ -5466,12 +5472,12 @@ snapshots:
 
   agent-base@7.1.4: {}
 
-  agents@0.11.6(@babel/core@7.29.0)(@babel/runtime@7.29.2)(@cloudflare/codemode@0.3.4(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76))(ai@6.0.168(zod@3.25.76))(zod@3.25.76))(@cloudflare/workers-types@4.20260425.1)(ai@6.0.168(zod@3.25.76))(react@19.2.5)(rolldown@1.0.0-rc.17)(vite@5.4.21(@types/node@20.19.39))(zod@3.25.76):
+  agents@0.11.6(@babel/core@7.29.0)(@babel/runtime@7.29.2)(@cloudflare/codemode@0.3.4(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76))(ai@6.0.168(zod@3.25.76))(zod@3.25.76))(@cloudflare/workers-types@4.20260425.1)(ai@6.0.168(zod@3.25.76))(react@19.2.5)(rolldown@1.0.0-rc.17)(vite@5.4.21(@types/node@24.12.2))(zod@3.25.76):
     dependencies:
       '@babel/plugin-proposal-decorators': 7.29.0(@babel/core@7.29.0)
       '@cfworker/json-schema': 4.1.1
       '@modelcontextprotocol/sdk': 1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76)
-      '@rolldown/plugin-babel': 0.2.3(@babel/core@7.29.0)(@babel/runtime@7.29.2)(rolldown@1.0.0-rc.17)(vite@5.4.21(@types/node@20.19.39))
+      '@rolldown/plugin-babel': 0.2.3(@babel/core@7.29.0)(@babel/runtime@7.29.2)(rolldown@1.0.0-rc.17)(vite@5.4.21(@types/node@24.12.2))
       ai: 6.0.168(zod@3.25.76)
       cron-schedule: 6.0.0
       mimetext: 3.0.28
@@ -5483,7 +5489,7 @@ snapshots:
       zod: 3.25.76
     optionalDependencies:
       '@cloudflare/codemode': 0.3.4(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76))(ai@6.0.168(zod@3.25.76))(zod@3.25.76)
-      vite: 5.4.21(@types/node@20.19.39)
+      vite: 5.4.21(@types/node@24.12.2)
     transitivePeerDependencies:
       - '@babel/core'
       - '@babel/plugin-transform-runtime'
@@ -6958,13 +6964,31 @@ snapshots:
       - supports-color
       - terser
 
-  vite-node@2.1.9(@types/node@20.19.39):
+  vite-node@1.6.1(@types/node@24.12.2):
+    dependencies:
+      cac: 6.7.14
+      debug: 4.4.3
+      pathe: 1.1.2
+      picocolors: 1.1.1
+      vite: 5.4.21(@types/node@24.12.2)
+    transitivePeerDependencies:
+      - '@types/node'
+      - less
+      - lightningcss
+      - sass
+      - sass-embedded
+      - stylus
+      - sugarss
+      - supports-color
+      - terser
+
+  vite-node@2.1.9(@types/node@24.12.2):
     dependencies:
       cac: 6.7.14
       debug: 4.4.3
       es-module-lexer: 1.7.0
       pathe: 1.1.2
-      vite: 5.4.21(@types/node@20.19.39)
+      vite: 5.4.21(@types/node@24.12.2)
     transitivePeerDependencies:
       - '@types/node'
       - less
@@ -7046,10 +7070,44 @@ snapshots:
       - supports-color
       - terser
 
-  vitest@2.1.9(@types/node@20.19.39):
+  vitest@1.6.1(@types/node@24.12.2):
+    dependencies:
+      '@vitest/expect': 1.6.1
+      '@vitest/runner': 1.6.1
+      '@vitest/snapshot': 1.6.1
+      '@vitest/spy': 1.6.1
+      '@vitest/utils': 1.6.1
+      acorn-walk: 8.3.5
+      chai: 4.5.0
+      debug: 4.4.3
+      execa: 8.0.1
+      local-pkg: 0.5.1
+      magic-string: 0.30.21
+      pathe: 1.1.2
+      picocolors: 1.1.1
+      std-env: 3.10.0
+      strip-literal: 2.1.1
+      tinybench: 2.9.0
+      tinypool: 0.8.4
+      vite: 5.4.21(@types/node@24.12.2)
+      vite-node: 1.6.1(@types/node@24.12.2)
+      why-is-node-running: 2.3.0
+    optionalDependencies:
+      '@types/node': 24.12.2
+    transitivePeerDependencies:
+      - less
+      - lightningcss
+      - sass
+      - sass-embedded
+      - stylus
+      - sugarss
+      - supports-color
+      - terser
+
+  vitest@2.1.9(@types/node@24.12.2):
     dependencies:
       '@vitest/expect': 2.1.9
-      '@vitest/mocker': 2.1.9(vite@5.4.21(@types/node@20.19.39))
+      '@vitest/mocker': 2.1.9(vite@5.4.21(@types/node@24.12.2))
       '@vitest/pretty-format': 2.1.9
       '@vitest/runner': 2.1.9
       '@vitest/snapshot': 2.1.9
@@ -7065,11 +7123,11 @@ snapshots:
       tinyexec: 0.3.2
       tinypool: 1.1.1
       tinyrainbow: 1.2.0
-      vite: 5.4.21(@types/node@20.19.39)
-      vite-node: 2.1.9(@types/node@20.19.39)
+      vite: 5.4.21(@types/node@24.12.2)
+      vite-node: 2.1.9(@types/node@24.12.2)
       why-is-node-running: 2.3.0
     optionalDependencies:
-      '@types/node': 20.19.39
+      '@types/node': 24.12.2
     transitivePeerDependencies:
       - less
       - lightningcss

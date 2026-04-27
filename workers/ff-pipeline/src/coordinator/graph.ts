@@ -1,8 +1,11 @@
 import { StateGraph, END } from './graph-runner'
 import { ROLE_CONTRACTS } from './contracts'
 import type { RoleName } from './contracts'
-import type { GraphState, Verdict, CritiqueReport } from './state'
+import type { GraphState, Plan, Verdict, CritiqueReport, TestReport, CodeArtifact } from './state'
 import type { BriefingScript } from '../agents/architect-agent'
+import type { CoderInput } from '../agents/coder-agent'
+import type { PlannerInput } from '../agents/planner-agent'
+import type { TesterInput } from '../agents/tester-agent'
 import type { SemanticReviewResult } from '../types'
 
 export interface GraphDeps {
@@ -15,11 +18,20 @@ export interface GraphDeps {
   // ── 9-node extensions (SS8) ──
   /** When provided, enables the architect pipeline (architect → semantic-critic → compile → gate-1). */
   architectAgent?: { produceBriefingScript: (input: { signal: Record<string, unknown>; specContent?: string }) => Promise<BriefingScript> }
+  /** When provided, the planner node calls PlannerAgent instead of callModel. */
+  plannerAgent?: { producePlan: (input: PlannerInput) => Promise<Plan> }
+  /** When provided, the coder node calls CoderAgent instead of callModel. Priority: executionRole > coderAgent > callModel. */
+  coderAgent?: { produceCode: (input: CoderInput) => Promise<CodeArtifact> }
+
   /** When provided, enables semantic-critic and code-critic nodes. */
   criticAgent?: {
     semanticReview: (input: { prd: Record<string, unknown>; specContent?: string }) => Promise<SemanticReviewResult>
     codeReview: (input: { code: unknown; plan: unknown; workGraph: Record<string, unknown>; mentorRules?: string[] }) => Promise<CritiqueReport>
   }
+  /** When provided, the tester node uses the real TesterAgent (gdk-agent agentLoop) instead of callModel. */
+  testerAgent?: { runTests: (input: TesterInput) => Promise<TestReport> }
+  /** When provided, the verifier node uses the real VerifierAgent (gdk-agent agentLoop) instead of callModel. */
+  verifierAgent?: { verify: (input: any) => Promise<Verdict> }
 }
 
 export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
@@ -166,6 +178,128 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
     // Use executionRole dispatch for coder/tester when provided
     if ((roleName === 'coder' || roleName === 'tester') && deps.executionRole) {
       graph.addNode(roleName, deps.executionRole(roleName))
+      continue
+    }
+
+    // Use PlannerAgent when provided (real agent with tools, like ArchitectAgent)
+    if (roleName === 'planner' && deps.plannerAgent) {
+      graph.addNode(roleName, async (state) => {
+        const plannerInput: PlannerInput = {
+          workGraph: state.workGraph,
+          briefingScript: (state.briefingScript ?? {}) as Record<string, unknown>,
+          ...(state.specContent ? { specContent: state.specContent } : {}),
+          ...(state.verdict?.decision === 'patch' && state.verdict.notes ? {
+            repairNotes: state.verdict.notes,
+            previousPlan: state.plan ?? undefined,
+          } : {}),
+          ...(state.verdict?.decision === 'resample' ? {
+            resampleReason: state.verdict.reason,
+          } : {}),
+        }
+
+        const plan = await deps.plannerAgent!.producePlan(plannerInput)
+
+        const updated: Partial<GraphState> = {
+          plan,
+          roleHistory: [
+            ...state.roleHistory,
+            { role: 'planner', output: plan, tokenUsage: 0, timestamp: new Date().toISOString() },
+          ],
+        }
+
+        if (state.repairCount > 0 && state.verdict?.decision === 'resample') {
+          updated.repairCount = state.repairCount
+        }
+
+        await deps.persistState({ ...state, ...updated } as GraphState, 'planner')
+        return updated
+      })
+      continue
+    }
+
+    // Use CoderAgent when provided (real agent with tools, like ArchitectAgent)
+    // Priority: executionRole (Phase C sandbox) > coderAgent (Phase A agentLoop) > callModel
+    if (roleName === 'coder' && deps.coderAgent) {
+      graph.addNode(roleName, async (state) => {
+        const coderInput: CoderInput = {
+          workGraph: state.workGraph,
+          plan: state.plan!,
+          ...(state.specContent ? { specContent: state.specContent } : {}),
+          ...(state.verdict?.decision === 'patch' && state.verdict.notes ? {
+            repairNotes: state.verdict.notes,
+            previousCode: state.code ?? undefined,
+            critiqueIssues: state.critique?.issues,
+          } : {}),
+        }
+
+        const code = await deps.coderAgent!.produceCode(coderInput)
+
+        const updated: Partial<GraphState> = {
+          code,
+          roleHistory: [
+            ...state.roleHistory,
+            { role: 'coder', output: code, tokenUsage: 0, timestamp: new Date().toISOString() },
+          ],
+        }
+
+        await deps.persistState({ ...state, ...updated } as GraphState, 'coder')
+        return updated
+      })
+      continue
+    }
+
+    // Use TesterAgent when provided (real agent with tools, like ArchitectAgent)
+    if (roleName === 'tester' && deps.testerAgent) {
+      graph.addNode(roleName, async (state) => {
+        const testerInput: TesterInput = {
+          workGraph: state.workGraph,
+          plan: state.plan ?? {},
+          code: state.code ?? {},
+          ...(state.critique ? { critique: state.critique } : {}),
+        }
+
+        const tests = await deps.testerAgent!.runTests(testerInput)
+
+        const updated: Partial<GraphState> = {
+          tests,
+          roleHistory: [
+            ...state.roleHistory,
+            { role: 'tester', output: tests, tokenUsage: 0, timestamp: new Date().toISOString() },
+          ],
+        }
+
+        await deps.persistState({ ...state, ...updated } as GraphState, 'tester')
+        return updated
+      })
+      continue
+    }
+
+    // Use VerifierAgent when provided (real agent with tools, like ArchitectAgent)
+    if (roleName === 'verifier' && deps.verifierAgent) {
+      graph.addNode(roleName, async (state) => {
+        const verdict = await deps.verifierAgent!.verify({
+          workGraph: state.workGraph,
+          plan: state.plan,
+          code: state.code,
+          critique: state.critique,
+          tests: state.tests,
+          repairCount: state.repairCount,
+          maxRepairs: state.maxRepairs,
+          tokenUsage: state.tokenUsage,
+          maxTokens: state.maxTokens,
+        })
+
+        const updated: Partial<GraphState> = {
+          verdict,
+          roleHistory: [
+            ...state.roleHistory,
+            { role: 'verifier', output: verdict, tokenUsage: 0, timestamp: new Date().toISOString() },
+          ],
+        }
+
+        await deps.persistState({ ...state, ...updated } as GraphState, 'verifier')
+        return updated
+      })
       continue
     }
 

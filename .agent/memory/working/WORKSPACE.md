@@ -1,35 +1,36 @@
 # Current Workspace
 
 ## Status
-Session ended at 2026-04-27T18:42:41.455Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
+Session ended at 2026-04-27T19:56:50.452Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
 
 ## Last update
-2026-04-27T18:42:41.455Z
+2026-04-27T19:56:50.452Z
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
-- [17:37:18] Bash: git add -A && git commit --amend --no-edit && git push origin main 2>&1 | tail -5
-- [18:17:11] Bash: curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"message": "Running the Design wor
-- [18:17:39] Bash: ls -la /Users/wes/Developer/function-factory/packages/schemas/src/ | grep -E "\.ts$"
-- [18:17:45] Bash: ls -la /Users/wes/Developer/function-factory/workers/ff-pipeline/src/stages/*.ts 2>/dev/null | head -20
-- [18:18:03] Bash: ls -la /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/ 2>/dev/null
-- [18:18:13] Bash: ls -la /Users/wes/Developer/function-factory/specs/reference/ 2>/dev/null
-- [18:18:19] Bash: find /Users/wes/Developer/function-factory/packages/schemas/src -name "*.ts" -type f | sort
-- [18:18:19] Bash: grep -r "ArtifactId.refine" /Users/wes/Developer/function-factory/packages/schemas/src --include="*.ts" | grep "startsWi
-- [18:18:22] Bash: grep -r "startsWith.*(" /Users/wes/Developer/function-factory/packages/schemas/src/*.ts | grep "refine" | sed 's/.*start
-- [18:18:23] Bash: grep "^export const ArtifactId" /Users/wes/Developer/function-factory/packages/schemas/src/lineage.ts -A 6
-- [18:19:41] Agent: Explore: gather Factory domain knowledge
-- [18:27:36] Bash: mkdir -p /Users/wes/Developer/function-factory/specs/ontology
-- [18:30:11] Write: /Users/wes/Developer/function-factory/specs/ontology/factory-ontology.ttl
-- [18:31:30] Write: /Users/wes/Developer/function-factory/specs/ontology/factory-shapes.ttl
-- [18:32:38] Write: /Users/wes/Developer/function-factory/specs/ontology/competency-questions.yaml
-- [18:33:01] Bash: wc -l specs/ontology/*.ttl specs/ontology/*.yaml && git add specs/ontology/ && git commit -m "$(cat <<'EOF'
-META: Functi
-- [18:37:39] Write: /Users/wes/Developer/function-factory/specs/ontology/IMPLEMENTATION-PLAN.md
-- [18:37:55] Bash: git add specs/ontology/IMPLEMENTATION-PLAN.md && git commit -m "$(cat <<'EOF'
-META: ontology implementation plan — map t
-- [18:39:57] Bash: curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"message": "Running the Architectu
-- [18:42:23] Agent: SE: full systems engineering review of ontology
+- [19:53:23] Bash: git commit -m "$(cat <<'EOF'
+META: Phase 0 spike — Architect role → gdk-agent agentLoop with tools
+
+Convert ArchitectAge
+- [19:53:29] Bash: git push origin main
+- [19:55:58] Agent: Convert Critic to gdk-agent
+- [19:56:10] Bash: find /Users/wes/Developer/function-factory/workers/ff-pipeline/src -name "*.test.ts" | grep -i agent
+- [19:56:10] Bash: find /Users/wes/Developer/function-factory/workers/ff-pipeline/src -name "*.test.ts" | grep -i critic
+- [19:56:13] Agent: Convert Planner to gdk-agent
+- [19:56:22] Bash: grep -n 'SemanticReviewResult' /Users/wes/Developer/function-factory/workers/ff-pipeline/src/types.ts
+- [19:56:22] Agent: Convert Verifier to gdk-agent
+- [19:56:22] Bash: grep -n 'CritiqueReport\|CriticAgent\|critic' /Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/
+- [19:56:23] Bash: grep -n 'CriticAgent\|critic-agent' /Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/graph.ts
+- [19:56:25] Bash: ls /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/
+- [19:56:32] Bash: grep -rn 'registerFauxProvider\|fauxAssistantMessage\|fauxText\|fauxToolCall\|FauxProviderRegistration' /Users/wes/Devel
+- [19:56:34] Agent: Convert Coder to gdk-agent
+- [19:56:36] Bash: ls /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/
+- [19:56:36] Bash: find /Users/wes/Developer/function-factory/workers/ff-pipeline/src -name "*.test.ts" | head -20
+- [19:56:38] Bash: pnpm --filter @factory/ff-pipeline test -- --run 2>&1 | tail -50
+- [19:56:41] Agent: Convert Tester to gdk-agent
+- [19:56:45] Bash: ls /Users/wes/Developer/function-factory/packages/gdk-ai/src/ 2>/dev/null || echo "not found"
+- [19:56:45] Bash: ls /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/
+- [19:56:47] Bash: ls /Users/wes/Developer/function-factory/packages/gdk-ai/src/providers/faux.ts 2>/dev/null && echo "EXISTS" || echo "NOT
 
 ## Notes
 This file is auto-updated on session end. Manual edits will be overwritten.

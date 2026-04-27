@@ -1,9 +1,16 @@
 /**
- * CriticAgent — reasoning agent for semantic review and code review.
+ * CriticAgent -- real agent with tools for semantic review and code review.
  *
- * Plain TypeScript class (no Durable Object lifecycle needed).
- * Can be converted to extend Agent from 'agents' SDK when ready.
+ * Phase 0 spike: validates gdk-agent agentLoop for critic passes.
+ * Uses arango_query tool to read specs, mentor rules, and context
+ * from the knowledge graph before producing reviews.
  */
+
+import { agentLoop } from '@weops/gdk-agent'
+import type { AgentTool } from '@weops/gdk-agent'
+import { Type, type Model, type AssistantMessage, type Message, type UserMessage } from '@weops/gdk-ai'
+import type { ArangoClient } from '@factory/arango-client'
+import { buildArangoTool } from './architect-agent'
 
 import type { SemanticReviewResult } from '../types.js'
 import type { CritiqueReport, Plan, CodeArtifact } from '../coordinator/state.js'
@@ -20,51 +27,185 @@ export interface CodeReviewInput {
   mentorRules?: string[]
 }
 
-type ModelCaller = (taskKind: string, system: string, user: string) => Promise<string>
-
 export interface CriticAgentOpts {
-  callModel: ModelCaller
+  db: ArangoClient
+  apiKey: string
+  dryRun?: boolean
+  /** Override model for testing (e.g. faux provider) */
+  model?: Model<any>
 }
 
+// ── System Prompts ──────────────────────────────────────────
+
+const SEMANTIC_REVIEW_SYSTEM = `You are the Semantic Review critic in the Function Factory synthesis pipeline.
+
+Your job: compare a PRD against the original specification/signal and assess alignment.
+
+You have the arango_query tool. USE IT to ground your review in real Factory context:
+
+1. Query the original signal or spec that produced this PRD:
+   FOR s IN specs_functions LIMIT 5 RETURN { key: s._key, name: s.name, domain: s.domain }
+
+2. Query relevant decisions for context:
+   FOR d IN memory_semantic FILTER d.type == 'decision' RETURN { key: d._key, decision: d.decision }
+
+3. Query lessons about past misalignments:
+   FOR l IN memory_semantic FILTER l.type == 'lesson' RETURN { key: l._key, lesson: l.lesson }
+
+Make at least one tool call before producing your review. Do not hallucinate context.
+
+When ready, respond with ONLY a JSON object (no markdown fences, no explanation):
+{
+  "alignment": "aligned" | "miscast" | "uncertain",
+  "confidence": 0.0 to 1.0,
+  "citations": ["spec section or reference"],
+  "rationale": "explanation of assessment",
+  "timestamp": "ISO 8601 timestamp"
+}`
+
+const CODE_REVIEW_SYSTEM = `You are the Code Review critic in the Function Factory synthesis pipeline.
+
+Your job: review code against the plan, work graph, and mentor rules.
+
+You have the arango_query tool. USE IT to ground your review:
+
+1. Query active MentorScript rules:
+   FOR r IN mentorscript_rules FILTER r.status == 'active' RETURN { ruleId: r._key, rule: r.rule }
+
+2. Query architectural decisions relevant to the code:
+   FOR d IN memory_semantic FILTER d.type == 'decision' RETURN { key: d._key, decision: d.decision }
+
+3. Query lessons about past code issues:
+   FOR l IN memory_semantic FILTER l.type == 'lesson' RETURN { key: l._key, lesson: l.lesson, pain: l.pain_score }
+
+Make at least one tool call before producing your review. Do not hallucinate context.
+
+When ready, respond with ONLY a JSON object (no markdown fences, no explanation):
+{
+  "passed": true/false,
+  "issues": [
+    { "severity": "critical" | "major" | "minor", "description": "...", "file": "optional", "line": 0 }
+  ],
+  "mentorRuleCompliance": [
+    { "ruleId": "...", "compliant": true/false }
+  ],
+  "overallAssessment": "summary of the review"
+}`
+
+// ── Model factory ───────────────────────────────────────────
+
+function createOfoxModel(apiKey: string): Model<'openai-completions'> {
+  return {
+    id: 'deepseek/deepseek-v4-pro',
+    name: 'DeepSeek V4 Pro via ofox.ai',
+    api: 'openai-completions' as const,
+    provider: 'deepseek',
+    baseUrl: 'https://api.ofox.ai/v1',
+    reasoning: false,
+    input: ['text'] as ('text' | 'image')[],
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: 128000,
+    maxTokens: 4096,
+  }
+}
+
+// ── JSON extraction ─────────────────────────────────────────
+
+function extractAndParseJSON(text: string): unknown {
+  const trimmed = text.trim()
+
+  // Try direct parse first
+  try { return JSON.parse(trimmed) } catch { /* continue */ }
+
+  // Strip markdown fences
+  const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/)
+  if (fenceMatch) {
+    try { return JSON.parse(fenceMatch[1].trim()) } catch { /* continue */ }
+  }
+
+  // Find first { and last }
+  const start = trimmed.indexOf('{')
+  const end = trimmed.lastIndexOf('}')
+  if (start !== -1 && end > start) {
+    try { return JSON.parse(trimmed.slice(start, end + 1)) } catch { /* continue */ }
+  }
+
+  throw new Error(`CriticAgent: could not extract JSON from response: ${trimmed.slice(0, 200)}`)
+}
+
+// ── CriticAgent class ───────────────────────────────────────
+
 export class CriticAgent {
-  private callModel: ModelCaller
+  private db: ArangoClient
+  private apiKey: string
+  private dryRun: boolean
+  private modelOverride?: Model<any>
 
   constructor(opts: CriticAgentOpts) {
-    this.callModel = opts.callModel
+    this.db = opts.db
+    this.apiKey = opts.apiKey
+    this.dryRun = opts.dryRun ?? false
+    this.modelOverride = opts.model
   }
 
   // ── Semantic Review ─────────────────────────────────────
 
   async semanticReview(input: SemanticReviewInput): Promise<SemanticReviewResult> {
-    const system = [
-      'You are a semantic review critic for a synthesis pipeline.',
-      'Compare the PRD against the specification and assess alignment.',
-      'Respond with a JSON object containing exactly these fields:',
-      '  alignment ("aligned" | "miscast" | "uncertain"): how well the PRD matches the spec',
-      '  confidence (number 0-1): your confidence in the assessment',
-      '  citations (string[]): specific spec sections supporting your assessment',
-      '  rationale (string): explanation of your assessment',
-      '  timestamp (string): ISO 8601 timestamp of this review',
-      'Respond ONLY with valid JSON. No markdown, no explanation.',
-    ].join('\n')
+    if (this.dryRun) {
+      return {
+        alignment: 'aligned',
+        confidence: 1.0,
+        citations: [],
+        rationale: 'Dry-run -- auto-aligned',
+        timestamp: new Date().toISOString(),
+      }
+    }
 
-    const userParts: string[] = [
-      `PRD: ${JSON.stringify(input.prd)}`,
-    ]
+    const tools: AgentTool[] = [buildArangoTool(this.db)]
+    const model = this.modelOverride ?? createOfoxModel(this.apiKey)
 
+    const userParts: string[] = [`PRD:\n${JSON.stringify(input.prd, null, 2)}`]
     if (input.specContent) {
       userParts.push(`\nSpecification:\n${input.specContent}`)
     }
 
-    const raw = await this.callModel('critic', system, userParts.join('\n'))
-
-    let parsed: unknown
-    try {
-      parsed = JSON.parse(raw)
-    } catch {
-      throw new Error(`CriticAgent.semanticReview: model returned invalid JSON: ${raw.slice(0, 200)}`)
+    const userMessage: UserMessage = {
+      role: 'user',
+      content: userParts.join('\n'),
+      timestamp: Date.now(),
     }
 
+    const stream = agentLoop(
+      [userMessage],
+      { systemPrompt: SEMANTIC_REVIEW_SYSTEM, messages: [], tools },
+      {
+        model,
+        convertToLlm: (msgs) => msgs as Message[],
+        getApiKey: async () => this.apiKey,
+        maxTokens: 4096,
+      },
+      AbortSignal.timeout(120_000),
+    )
+
+    const messages = await stream.result()
+
+    const lastAssistant = [...messages].reverse().find(
+      (m): m is AssistantMessage => m.role === 'assistant',
+    )
+    if (!lastAssistant) {
+      throw new Error('CriticAgent.semanticReview: no assistant response from agent loop')
+    }
+
+    if (lastAssistant.stopReason === 'error' || lastAssistant.stopReason === 'aborted') {
+      throw new Error(`CriticAgent.semanticReview: agent loop failed: ${lastAssistant.errorMessage ?? 'unknown error'}`)
+    }
+
+    const textBlock = lastAssistant.content.find(c => c.type === 'text')
+    if (!textBlock || textBlock.type !== 'text') {
+      throw new Error('CriticAgent.semanticReview: final response has no text content')
+    }
+
+    const parsed = extractAndParseJSON(textBlock.text)
     this.validateSemanticReview(parsed)
     return parsed as SemanticReviewResult
   }
@@ -72,42 +213,65 @@ export class CriticAgent {
   // ── Code Review ─────────────────────────────────────────
 
   async codeReview(input: CodeReviewInput): Promise<CritiqueReport> {
-    const system = [
-      'You are a code review critic for a synthesis pipeline.',
-      'Review the code against the plan, work graph, and mentor rules.',
-      'Respond with a JSON object containing exactly these fields:',
-      '  passed (boolean): whether the code passes review',
-      '  issues (array): list of issues, each with:',
-      '    severity ("critical" | "major" | "minor")',
-      '    description (string)',
-      '    file (string, optional)',
-      '    line (number, optional)',
-      '  mentorRuleCompliance (array): list of rule checks, each with:',
-      '    ruleId (string)',
-      '    compliant (boolean)',
-      '  overallAssessment (string): summary of the review',
-      'Respond ONLY with valid JSON. No markdown, no explanation.',
-    ].join('\n')
+    if (this.dryRun) {
+      return {
+        passed: true,
+        issues: [],
+        mentorRuleCompliance: [],
+        overallAssessment: 'Dry-run -- no issues found',
+      }
+    }
+
+    const tools: AgentTool[] = [buildArangoTool(this.db)]
+    const model = this.modelOverride ?? createOfoxModel(this.apiKey)
 
     const userParts: string[] = [
-      `Code artifacts:\n${JSON.stringify(input.code)}`,
-      `\nPlan:\n${JSON.stringify(input.plan)}`,
-      `\nWork graph:\n${JSON.stringify(input.workGraph)}`,
+      `Code artifacts:\n${JSON.stringify(input.code, null, 2)}`,
+      `\nPlan:\n${JSON.stringify(input.plan, null, 2)}`,
+      `\nWork graph:\n${JSON.stringify(input.workGraph, null, 2)}`,
     ]
 
     if (input.mentorRules && input.mentorRules.length > 0) {
       userParts.push(`\nMentor rules:\n${input.mentorRules.map((r) => `- ${r}`).join('\n')}`)
     }
 
-    const raw = await this.callModel('critic', system, userParts.join('\n'))
-
-    let parsed: unknown
-    try {
-      parsed = JSON.parse(raw)
-    } catch {
-      throw new Error(`CriticAgent.codeReview: model returned invalid JSON: ${raw.slice(0, 200)}`)
+    const userMessage: UserMessage = {
+      role: 'user',
+      content: userParts.join('\n'),
+      timestamp: Date.now(),
     }
 
+    const stream = agentLoop(
+      [userMessage],
+      { systemPrompt: CODE_REVIEW_SYSTEM, messages: [], tools },
+      {
+        model,
+        convertToLlm: (msgs) => msgs as Message[],
+        getApiKey: async () => this.apiKey,
+        maxTokens: 4096,
+      },
+      AbortSignal.timeout(120_000),
+    )
+
+    const messages = await stream.result()
+
+    const lastAssistant = [...messages].reverse().find(
+      (m): m is AssistantMessage => m.role === 'assistant',
+    )
+    if (!lastAssistant) {
+      throw new Error('CriticAgent.codeReview: no assistant response from agent loop')
+    }
+
+    if (lastAssistant.stopReason === 'error' || lastAssistant.stopReason === 'aborted') {
+      throw new Error(`CriticAgent.codeReview: agent loop failed: ${lastAssistant.errorMessage ?? 'unknown error'}`)
+    }
+
+    const textBlock = lastAssistant.content.find(c => c.type === 'text')
+    if (!textBlock || textBlock.type !== 'text') {
+      throw new Error('CriticAgent.codeReview: final response has no text content')
+    }
+
+    const parsed = extractAndParseJSON(textBlock.text)
     this.validateCritiqueReport(parsed)
     return parsed as CritiqueReport
   }

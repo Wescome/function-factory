@@ -20,9 +20,10 @@ import { resolve } from 'node:path'
 import { buildSynthesisGraph, type GraphDeps } from './graph.js'
 import { createInitialState, type GraphState } from './state.js'
 import { ArchitectAgent, type BriefingScript } from '../agents/architect-agent.js'
+import { CoderAgent } from '../agents/coder-agent.js'
 import { CriticAgent, type CodeReviewInput } from '../agents/critic-agent.js'
 import type { SemanticReviewResult } from '../types.js'
-import type { CritiqueReport } from './state.js'
+import type { CodeArtifact, CritiqueReport } from './state.js'
 
 const coordinatorSrc = readFileSync(
   resolve(__dirname, './coordinator.ts'),
@@ -126,8 +127,22 @@ describe('T12: coordinator 9-node wiring — source structure', () => {
     expect(coordinatorSrc).toContain('apiKey:')
   })
 
-  it('T12.1d: instantiates CriticAgent with { callModel }', () => {
-    expect(coordinatorSrc).toMatch(/new\s+CriticAgent\(\s*\{\s*callModel\s*\}\s*\)/)
+  it('T12.1d: instantiates CriticAgent with db and apiKey (Phase 0 spike)', () => {
+    expect(coordinatorSrc).toMatch(/new\s+CriticAgent\(\s*\{/)
+    expect(coordinatorSrc).toContain('db:')
+    expect(coordinatorSrc).toContain('apiKey:')
+  })
+
+  it('T12.1g: imports CoderAgent from agents/coder-agent', () => {
+    expect(coordinatorSrc).toMatch(/import\s*\{[^}]*CoderAgent[^}]*\}\s*from\s*['"]\.\.\/agents\/coder-agent['"]/)
+  })
+
+  it('T12.1h: instantiates CoderAgent with db and apiKey', () => {
+    expect(coordinatorSrc).toMatch(/new\s+CoderAgent\(\s*\{/)
+  })
+
+  it('T12.1i: passes coderAgent to GraphDeps', () => {
+    expect(coordinatorSrc).toMatch(/coderAgent\s*[:{]/)
   })
 
   it('T12.1e: passes architectAgent to GraphDeps', () => {
@@ -159,8 +174,7 @@ describe('T12: agent shape satisfies GraphDeps', () => {
   })
 
   it('T12.2b: CriticAgent.semanticReview callable from GraphDeps.criticAgent shape', async () => {
-    const callModel = vi.fn().mockResolvedValue(JSON.stringify(makeStubSemanticReview()))
-    const criticAgent = new CriticAgent({ callModel })
+    const criticAgent = new CriticAgent({ db: {} as any, apiKey: 'test', dryRun: true })
 
     const depsShape: GraphDeps['criticAgent'] = {
       semanticReview: (input) => criticAgent.semanticReview(input),
@@ -169,13 +183,28 @@ describe('T12: agent shape satisfies GraphDeps', () => {
 
     const result = await depsShape!.semanticReview({ prd: { test: true } })
     expect(result.alignment).toBe('aligned')
-    expect(result.confidence).toBe(0.95)
-    expect(callModel).toHaveBeenCalledTimes(1)
+    expect(result.confidence).toBe(1.0)
+  })
+
+  it('T12.2d: CoderAgent.produceCode callable from GraphDeps.coderAgent shape', async () => {
+    const coderAgent = new CoderAgent({ db: {} as any, apiKey: 'test', dryRun: true })
+
+    const depsShape: GraphDeps['coderAgent'] = {
+      produceCode: (input) => coderAgent.produceCode(input),
+    }
+
+    const result = await depsShape!.produceCode({
+      workGraph: { test: true },
+      plan: { approach: 'test', atoms: [], executorRecommendation: 'pi-sdk', estimatedComplexity: 'low' },
+    })
+    expect(result.files).toBeDefined()
+    expect(Array.isArray(result.files)).toBe(true)
+    expect(result.summary).toBe('Dry-run code output')
+    expect(result.testsIncluded).toBe(false)
   })
 
   it('T12.2c: CriticAgent.codeReview callable from GraphDeps.criticAgent shape', async () => {
-    const callModel = vi.fn().mockResolvedValue(JSON.stringify(makeStubCodeCritique()))
-    const criticAgent = new CriticAgent({ callModel })
+    const criticAgent = new CriticAgent({ db: {} as any, apiKey: 'test', dryRun: true })
 
     const depsShape: GraphDeps['criticAgent'] = {
       semanticReview: (input) => criticAgent.semanticReview(input),
@@ -189,8 +218,7 @@ describe('T12: agent shape satisfies GraphDeps', () => {
       mentorRules: [],
     })
     expect(result.passed).toBe(true)
-    expect(result.overallAssessment).toBe('Code looks good')
-    expect(callModel).toHaveBeenCalledTimes(1)
+    expect(result.overallAssessment).toContain('Dry-run')
   })
 })
 
@@ -200,17 +228,10 @@ describe('T12: agent shape satisfies GraphDeps', () => {
 
 describe('T12: integration — real agent instances drive 9-node graph', () => {
   it('T12.3a: graph with ArchitectAgent/CriticAgent instances traverses full 9-node path', async () => {
-    let criticCallCount = 0
-    const criticCallModel = vi.fn().mockImplementation(async () => {
-      criticCallCount++
-      if (criticCallCount === 1) return JSON.stringify(makeStubSemanticReview())
-      return JSON.stringify(makeStubCodeCritique())
-    })
-
     const callModel = makeStubCallModel()
 
     const architectAgent = new ArchitectAgent({ db: {} as any, apiKey: 'test', dryRun: true })
-    const criticAgent = new CriticAgent({ callModel: criticCallModel })
+    const criticAgent = new CriticAgent({ db: {} as any, apiKey: 'test', dryRun: true })
 
     // Build deps the same way coordinator.ts should
     const deps: GraphDeps = {
@@ -257,14 +278,7 @@ describe('T12: integration — real agent instances drive 9-node graph', () => {
   it('T12.3b: budget-check routes to architect (not planner) on first pass with agent deps', async () => {
     const callModel = makeStubCallModel()
     const architectAgent = new ArchitectAgent({ db: {} as any, apiKey: 'test', dryRun: true })
-    // CriticAgent is called twice: first for semanticReview, then codeReview
-    let criticCallCount2 = 0
-    const criticCallModel2 = vi.fn().mockImplementation(async () => {
-      criticCallCount2++
-      if (criticCallCount2 === 1) return JSON.stringify(makeStubSemanticReview())
-      return JSON.stringify(makeStubCodeCritique())
-    })
-    const criticAgent = new CriticAgent({ callModel: criticCallModel2 })
+    const criticAgent = new CriticAgent({ db: {} as any, apiKey: 'test', dryRun: true })
 
     const deps: GraphDeps = {
       callModel,
@@ -335,21 +349,113 @@ describe('T12: integration — real agent instances drive 9-node graph', () => {
     expect(mockCritic.codeReview).toHaveBeenCalledTimes(1)
   })
 
-  it('T12.3d: dry-run traverses full 9-node path end-to-end', async () => {
-    // Simulate what coordinator.synthesize() does in dry-run mode
-    // Agents each get their own callModel (in practice they share the same one,
-    // but taskKind differs: architect uses 'architect', critic uses 'critic')
-    let criticDryRunCount = 0
-    const criticDryRun = vi.fn().mockImplementation(async () => {
-      criticDryRunCount++
-      if (criticDryRunCount === 1) return JSON.stringify(makeStubSemanticReview())
-      return JSON.stringify(makeStubCodeCritique())
+  it('T12.3e: coderAgent dispatch produces code when provided in deps', async () => {
+    const callModel = makeStubCallModel()
+    const coderAgent = new CoderAgent({ db: {} as any, apiKey: 'test', dryRun: true })
+    const architectAgent = new ArchitectAgent({ db: {} as any, apiKey: 'test', dryRun: true })
+    const criticAgent = new CriticAgent({ db: {} as any, apiKey: 'test', dryRun: true })
+
+    const deps: GraphDeps = {
+      callModel,
+      persistState: vi.fn().mockResolvedValue(undefined),
+      fetchMentorRules: vi.fn().mockResolvedValue([]),
+      architectAgent: {
+        produceBriefingScript: (input) => architectAgent.produceBriefingScript(input),
+      },
+      coderAgent: {
+        produceCode: (input) => coderAgent.produceCode(input),
+      },
+      criticAgent: {
+        semanticReview: (input) => criticAgent.semanticReview(input),
+        codeReview: (input) => criticAgent.codeReview(input as CodeReviewInput),
+      },
+    }
+
+    const graph = buildSynthesisGraph(deps)
+    const state = makeState()
+
+    const visited: string[] = []
+    const finalState = await graph.run(state, {
+      maxSteps: 50,
+      onNodeStart: (name) => visited.push(name),
     })
 
+    // Coder node must execute
+    expect(visited).toContain('coder')
+
+    // Code must come from CoderAgent dry-run (not callModel)
+    expect(finalState.code).toBeDefined()
+    expect(finalState.code!.summary).toBe('Dry-run code output')
+    expect(finalState.code!.files[0].path).toBe('src/stub.ts')
+
+    // callModel should NOT have been called with taskKind 'coder'
+    const coderCalls = (callModel as ReturnType<typeof vi.fn>).mock.calls.filter(
+      ([taskKind]: [string]) => taskKind === 'coder',
+    )
+    expect(coderCalls).toHaveLength(0)
+  })
+
+  it('T12.3f: executionRole takes priority over coderAgent', async () => {
+    const callModel = makeStubCallModel()
+    const coderAgent = new CoderAgent({ db: {} as any, apiKey: 'test', dryRun: true })
+    const mockArchitect = {
+      produceBriefingScript: vi.fn().mockResolvedValue(makeStubBriefingScript()),
+    }
+    const mockCritic = {
+      semanticReview: vi.fn().mockResolvedValue(makeStubSemanticReview()),
+      codeReview: vi.fn().mockResolvedValue(makeStubCodeCritique()),
+    }
+
+    const executionRoleCode: CodeArtifact = {
+      files: [{ path: 'src/sandbox.ts', content: '// sandbox code', action: 'create' }],
+      summary: 'Sandbox execution output',
+      testsIncluded: false,
+    }
+
+    const deps: GraphDeps = {
+      callModel,
+      persistState: vi.fn().mockResolvedValue(undefined),
+      fetchMentorRules: vi.fn().mockResolvedValue([]),
+      executionRole: (role) => async (state) => {
+        if (role === 'coder') {
+          return { code: executionRoleCode }
+        }
+        // tester fallback
+        return {
+          tests: {
+            passed: true, testsRun: 1, testsPassed: 1, testsFailed: 0,
+            failures: [], summary: 'sandbox tester',
+          },
+        }
+      },
+      architectAgent: mockArchitect,
+      coderAgent: {
+        produceCode: (input) => coderAgent.produceCode(input),
+      },
+      criticAgent: mockCritic,
+    }
+
+    const graph = buildSynthesisGraph(deps)
+    const state = makeState()
+
+    const visited: string[] = []
+    const finalState = await graph.run(state, {
+      maxSteps: 50,
+      onNodeStart: (name) => visited.push(name),
+    })
+
+    // executionRole should have produced the code, not coderAgent
+    expect(finalState.code).toBeDefined()
+    expect(finalState.code!.summary).toBe('Sandbox execution output')
+  })
+
+  it('T12.3d: dry-run traverses full 9-node path end-to-end', async () => {
+    // Simulate what coordinator.synthesize() does in dry-run mode
+    // Both agents handle dry-run internally (no callModel needed)
     const dryRunCallModel = makeStubCallModel()
 
     const architectAgent = new ArchitectAgent({ db: {} as any, apiKey: 'test', dryRun: true })
-    const criticAgent = new CriticAgent({ callModel: criticDryRun })
+    const criticAgent = new CriticAgent({ db: {} as any, apiKey: 'test', dryRun: true })
 
     const deps: GraphDeps = {
       callModel: dryRunCallModel,

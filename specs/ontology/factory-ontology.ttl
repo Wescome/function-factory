@@ -811,6 +811,7 @@ ff:col_memory_semantic a ff:ArangoCollection ; rdfs:label "memory_semantic" .
 ff:col_memory_working a ff:ArangoCollection ; rdfs:label "memory_working" .
 ff:col_memory_personal a ff:ArangoCollection ; rdfs:label "memory_personal" .
 ff:col_function_runs a ff:ArangoCollection ; rdfs:label "function_runs" .
+ff:col_agent_designs a ff:ArangoCollection ; rdfs:label "agent_designs" .
 
 # ArangoDB Graphs
 ff:lineageGraph a ff:ArangoGraph ; rdfs:label "lineage_graph" .

@@ -7,6 +7,10 @@ import { createInitialState, type GraphState, type Verdict } from './state'
 import { makeExecutionRole, type SandboxDeps } from './sandbox-role'
 import { buildSandboxDeps as buildRealSandboxDeps } from './sandbox-deps-factory'
 import { ArchitectAgent } from '../agents/architect-agent'
+import { CoderAgent } from '../agents/coder-agent'
+import { PlannerAgent } from '../agents/planner-agent'
+import { TesterAgent } from '../agents/tester-agent'
+import { VerifierAgent } from '../agents/verifier-agent'
 import { CriticAgent, type CodeReviewInput } from '../agents/critic-agent'
 
 export interface CoordinatorEnv {
@@ -159,13 +163,37 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       }
 
       // Instantiate reasoning agents for 9-node topology
-      // Phase 0 spike: Architect is a real agent with tools (gdk-agent agentLoop)
+      // All roles converted to gdk-agent agentLoop sessions with arango_query tool
       const architectAgent = new ArchitectAgent({
         db: this.getDb(),
         apiKey: this.env.OFOX_API_KEY ?? '',
         dryRun,
       })
-      const criticAgent = new CriticAgent({ callModel })
+      const coderAgent = new CoderAgent({
+        db: this.getDb(),
+        apiKey: this.env.OFOX_API_KEY ?? '',
+        dryRun,
+      })
+      const plannerAgent = new PlannerAgent({
+        db: this.getDb(),
+        apiKey: this.env.OFOX_API_KEY ?? '',
+        dryRun,
+      })
+      const testerAgent = new TesterAgent({
+        db: this.getDb(),
+        apiKey: this.env.OFOX_API_KEY ?? '',
+        dryRun,
+      })
+      const verifierAgent = new VerifierAgent({
+        db: this.getDb(),
+        apiKey: this.env.OFOX_API_KEY ?? '',
+        dryRun,
+      })
+      const criticAgent = new CriticAgent({
+        db: this.getDb(),
+        apiKey: this.env.OFOX_API_KEY ?? '',
+        dryRun,
+      })
 
       const deps: GraphDeps = {
         callModel,
@@ -180,13 +208,25 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
           persistState,
           fetchMentorRules,
         }),
-        // 9-node topology: architect pipeline + code-critic
+        // 9-node topology: architect pipeline + planner agent + code-critic
         architectAgent: {
           produceBriefingScript: (input) => architectAgent.produceBriefingScript(input),
+        },
+        plannerAgent: {
+          producePlan: (input) => plannerAgent.producePlan(input),
+        },
+        coderAgent: {
+          produceCode: (input) => coderAgent.produceCode(input),
         },
         criticAgent: {
           semanticReview: (input) => criticAgent.semanticReview(input),
           codeReview: (input) => criticAgent.codeReview(input as CodeReviewInput),
+        },
+        testerAgent: {
+          runTests: (input) => testerAgent.runTests(input),
+        },
+        verifierAgent: {
+          verify: (input) => verifierAgent.verify(input),
         },
       }
 
@@ -236,13 +276,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
     return async (taskKind: string, _system: string, _user: string): Promise<string> => {
       switch (taskKind) {
         // 'architect' removed — ArchitectAgent handles dry-run internally
-        case 'semantic_review':
-          return JSON.stringify({
-            alignment: 'aligned',
-            confidence: 1.0,
-            citations: [],
-            rationale: 'Dry-run — auto-aligned',
-          })
+        // 'semantic_review' removed — CriticAgent handles dry-run internally
         case 'planner':
           return JSON.stringify({
             approach: 'Dry-run implementation plan',
@@ -256,13 +290,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
             summary: 'Dry-run code output',
             testsIncluded: false,
           })
-        case 'critic':
-          return JSON.stringify({
-            passed: true,
-            issues: [],
-            mentorRuleCompliance: [],
-            overallAssessment: 'Dry-run — no issues found',
-          })
+        // 'critic' removed — CriticAgent handles dry-run internally
         case 'tester':
           return JSON.stringify({
             passed: true, testsRun: 1, testsPassed: 1, testsFailed: 0,
