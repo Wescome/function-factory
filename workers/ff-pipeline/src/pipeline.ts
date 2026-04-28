@@ -290,6 +290,55 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       repairCount: number
     }
 
+    // ── If Phase 1 dispatched atoms, wait for Phase 2+3 completion ──
+    // When the coordinator dispatches atoms (vertical slicing), the synthesis-complete
+    // event carries verdict.decision === 'dispatched'. The actual pass/fail comes later
+    // via the 'atoms-complete' event after all atoms finish and Phase 3 runs.
+    let finalVerdict = synthPayload.verdict
+    let finalTokenUsage = synthPayload.tokenUsage
+    let finalRepairCount = synthPayload.repairCount
+    let atomResults: Record<string, unknown> | undefined
+
+    if (synthPayload.verdict.decision === 'dispatched') {
+      try {
+        const atomsEvent = await step.waitForEvent<{
+          verdict: { decision: string; confidence: number; reason: string }
+          tokenUsage: number
+          repairCount: number
+          atomResults?: Record<string, unknown>
+        }>('atoms-complete', { type: 'atoms-complete', timeout: '30 minutes' })
+
+        const atomsPayload = atomsEvent.payload as {
+          verdict: { decision: string; confidence: number; reason: string }
+          tokenUsage: number
+          repairCount: number
+          atomResults?: Record<string, unknown>
+        }
+
+        // Use the atoms-complete verdict as the final synthesis result
+        finalVerdict = atomsPayload.verdict
+        finalTokenUsage = synthPayload.tokenUsage + atomsPayload.tokenUsage
+        finalRepairCount = synthPayload.repairCount + atomsPayload.repairCount
+        atomResults = atomsPayload.atomResults
+      } catch {
+        // Timeout or error waiting for atoms — report as synthesis-timeout
+        return {
+          status: 'synthesis-timeout',
+          signalId: signalKey,
+          pressureId: pressureKey,
+          capabilityId: capabilityKey,
+          proposalId: proposalKey,
+          workGraphId: wgKey,
+          gate1Report: gate1,
+          synthesisResult: {
+            verdict: { decision: 'timeout', confidence: 1.0, reason: 'Atoms did not complete within 30 minutes' },
+            tokenUsage: synthPayload.tokenUsage,
+            repairCount: synthPayload.repairCount,
+          },
+        }
+      }
+    }
+
     // Lineage: execution artifact -> workgraph
     await step.do('edge-synthesis-workgraph', async () => {
       await db.saveEdge('lineage_edges',
@@ -301,7 +350,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     })
 
     // ── Phase D: Lifecycle → implemented (if synthesis passed) ──
-    if (synthPayload.verdict.decision === 'pass') {
+    if (finalVerdict.decision === 'pass') {
       await step.do('lifecycle-implemented', async () => {
         await transitionLifecycle(db, proposalKey, 'implemented', {
           triggeredBy: 'pipeline-synthesis-pass',
@@ -313,9 +362,9 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     }
 
     return {
-      status: synthPayload.verdict.decision === 'pass'
+      status: finalVerdict.decision === 'pass'
         ? 'synthesis-passed'
-        : `synthesis-${synthPayload.verdict.decision}`,
+        : `synthesis-${finalVerdict.decision}`,
       signalId: signalKey,
       pressureId: pressureKey,
       capabilityId: capabilityKey,
@@ -323,10 +372,11 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       workGraphId: wgKey,
       gate1Report: gate1,
       synthesisResult: {
-        verdict: synthPayload.verdict,
-        tokenUsage: synthPayload.tokenUsage,
-        repairCount: synthPayload.repairCount,
+        verdict: finalVerdict,
+        tokenUsage: finalTokenUsage,
+        repairCount: finalRepairCount,
       },
+      ...(atomResults ? { atomResults } : {}),
     }
   }
 }

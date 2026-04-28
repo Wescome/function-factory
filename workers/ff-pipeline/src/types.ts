@@ -79,6 +79,7 @@ export interface PipelineResult {
     tokenUsage: number
     repairCount: number
   }
+  atomResults?: Record<string, unknown>
 }
 
 export interface Gate1Report {

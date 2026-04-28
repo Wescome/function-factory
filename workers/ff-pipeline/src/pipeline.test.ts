@@ -753,6 +753,371 @@ describe('Stage 6: Event-driven synthesis handoff', () => {
     })
   })
 
+  describe('atoms-complete wiring (two-step waitForEvent)', () => {
+
+    it('waits for atoms-complete after dispatched verdict', async () => {
+      const { FactoryPipeline } = await import('./pipeline')
+
+      const env = createMockEnv()
+      const mockStep = createMockStep()
+      const waitEventNames: string[] = []
+
+      mockStep.step.waitForEvent = vi.fn((name: string) => {
+        waitEventNames.push(name)
+        if (name === 'architect-approval') {
+          return Promise.resolve({ payload: { decision: 'approved', by: 'test' } })
+        }
+        if (name === 'synthesis-complete') {
+          return Promise.resolve({
+            payload: {
+              verdict: { decision: 'dispatched', confidence: 1.0, reason: '3 atoms dispatched in 2 layers' },
+              tokenUsage: 200,
+              repairCount: 0,
+            },
+          })
+        }
+        if (name === 'atoms-complete') {
+          return Promise.resolve({
+            payload: {
+              verdict: { decision: 'pass', confidence: 0.9, reason: 'All 3 atoms passed' },
+              tokenUsage: 5000,
+              repairCount: 1,
+              atomResults: { 'atom-1': { verdict: { decision: 'pass' } } },
+            },
+          })
+        }
+        return Promise.reject(new Error(`Unexpected waitForEvent: ${name}`))
+      })
+
+      const pipeline = Object.create(FactoryPipeline.prototype)
+      pipeline.env = env
+
+      const result = await pipeline.run(
+        { payload: { signal: { signalType: 'internal', source: 'test', title: 'Test', description: 'Test signal' } } },
+        mockStep.step,
+      )
+
+      // Both events should have been waited on
+      expect(waitEventNames).toContain('synthesis-complete')
+      expect(waitEventNames).toContain('atoms-complete')
+
+      // Final result uses the atoms-complete verdict, not the dispatched one
+      expect(result.status).toBe('synthesis-passed')
+      expect(result.synthesisResult!.verdict.decision).toBe('pass')
+      expect(result.synthesisResult!.verdict.reason).toBe('All 3 atoms passed')
+      // Token usage is summed from both events
+      expect(result.synthesisResult!.tokenUsage).toBe(5200)
+      expect(result.synthesisResult!.repairCount).toBe(1)
+      // Atom results are included
+      expect(result.atomResults).toBeDefined()
+      expect(result.atomResults!['atom-1']).toBeDefined()
+    })
+
+    it('atoms-complete with pass verdict returns synthesis-passed', async () => {
+      const { FactoryPipeline } = await import('./pipeline')
+
+      const env = createMockEnv()
+      const mockStep = createMockStep()
+
+      mockStep.step.waitForEvent = vi.fn((name: string) => {
+        if (name === 'architect-approval') {
+          return Promise.resolve({ payload: { decision: 'approved', by: 'test' } })
+        }
+        if (name === 'synthesis-complete') {
+          return Promise.resolve({
+            payload: {
+              verdict: { decision: 'dispatched', confidence: 1.0, reason: '5 atoms dispatched' },
+              tokenUsage: 100,
+              repairCount: 0,
+            },
+          })
+        }
+        if (name === 'atoms-complete') {
+          return Promise.resolve({
+            payload: {
+              verdict: { decision: 'pass', confidence: 0.95, reason: 'All 5 atoms passed' },
+              tokenUsage: 8000,
+              repairCount: 0,
+            },
+          })
+        }
+        return Promise.reject(new Error(`Unexpected: ${name}`))
+      })
+
+      const pipeline = Object.create(FactoryPipeline.prototype)
+      pipeline.env = env
+
+      const result = await pipeline.run(
+        { payload: { signal: { signalType: 'internal', source: 'test', title: 'Test', description: 'Test signal' } } },
+        mockStep.step,
+      )
+
+      expect(result.status).toBe('synthesis-passed')
+      expect(result.synthesisResult!.verdict.decision).toBe('pass')
+    })
+
+    it('atoms-complete with fail verdict returns synthesis-fail', async () => {
+      const { FactoryPipeline } = await import('./pipeline')
+
+      const env = createMockEnv()
+      const mockStep = createMockStep()
+
+      mockStep.step.waitForEvent = vi.fn((name: string) => {
+        if (name === 'architect-approval') {
+          return Promise.resolve({ payload: { decision: 'approved', by: 'test' } })
+        }
+        if (name === 'synthesis-complete') {
+          return Promise.resolve({
+            payload: {
+              verdict: { decision: 'dispatched', confidence: 1.0, reason: '4 atoms dispatched' },
+              tokenUsage: 150,
+              repairCount: 0,
+            },
+          })
+        }
+        if (name === 'atoms-complete') {
+          return Promise.resolve({
+            payload: {
+              verdict: { decision: 'fail', confidence: 0.8, reason: '2/4 atoms failed: atom-2, atom-3' },
+              tokenUsage: 6000,
+              repairCount: 3,
+            },
+          })
+        }
+        return Promise.reject(new Error(`Unexpected: ${name}`))
+      })
+
+      const pipeline = Object.create(FactoryPipeline.prototype)
+      pipeline.env = env
+
+      const result = await pipeline.run(
+        { payload: { signal: { signalType: 'internal', source: 'test', title: 'Test', description: 'Test signal' } } },
+        mockStep.step,
+      )
+
+      expect(result.status).toBe('synthesis-fail')
+      expect(result.synthesisResult!.verdict.decision).toBe('fail')
+      expect(result.synthesisResult!.verdict.reason).toContain('2/4 atoms failed')
+      expect(result.synthesisResult!.tokenUsage).toBe(6150)
+      expect(result.synthesisResult!.repairCount).toBe(3)
+    })
+
+    it('atoms-complete timeout returns synthesis-timeout', async () => {
+      const { FactoryPipeline } = await import('./pipeline')
+
+      const env = createMockEnv()
+      const mockStep = createMockStep()
+
+      mockStep.step.waitForEvent = vi.fn((name: string) => {
+        if (name === 'architect-approval') {
+          return Promise.resolve({ payload: { decision: 'approved', by: 'test' } })
+        }
+        if (name === 'synthesis-complete') {
+          return Promise.resolve({
+            payload: {
+              verdict: { decision: 'dispatched', confidence: 1.0, reason: '2 atoms dispatched' },
+              tokenUsage: 100,
+              repairCount: 0,
+            },
+          })
+        }
+        if (name === 'atoms-complete') {
+          // Simulate CF Workflow timeout by rejecting with an error
+          return Promise.reject(new Error('Timed out waiting for event'))
+        }
+        return Promise.reject(new Error(`Unexpected: ${name}`))
+      })
+
+      const pipeline = Object.create(FactoryPipeline.prototype)
+      pipeline.env = env
+
+      const result = await pipeline.run(
+        { payload: { signal: { signalType: 'internal', source: 'test', title: 'Test', description: 'Test signal' } } },
+        mockStep.step,
+      )
+
+      expect(result.status).toBe('synthesis-timeout')
+      expect(result.synthesisResult!.verdict.decision).toBe('timeout')
+      expect(result.synthesisResult!.verdict.reason).toContain('30 minutes')
+      expect(result.synthesisResult!.tokenUsage).toBe(100)
+    })
+
+    it('does NOT wait for atoms-complete when verdict is not dispatched (e.g., pass)', async () => {
+      const { FactoryPipeline } = await import('./pipeline')
+
+      const env = createMockEnv()
+      const mockStep = createMockStep()
+      const waitEventNames: string[] = []
+
+      mockStep.step.waitForEvent = vi.fn((name: string) => {
+        waitEventNames.push(name)
+        if (name === 'architect-approval') {
+          return Promise.resolve({ payload: { decision: 'approved', by: 'test' } })
+        }
+        if (name === 'synthesis-complete') {
+          return Promise.resolve({
+            payload: {
+              verdict: { decision: 'pass', confidence: 0.95, reason: 'All roles passed' },
+              tokenUsage: 4200,
+              repairCount: 0,
+            },
+          })
+        }
+        return Promise.reject(new Error(`Unexpected waitForEvent: ${name}`))
+      })
+
+      const pipeline = Object.create(FactoryPipeline.prototype)
+      pipeline.env = env
+
+      const result = await pipeline.run(
+        { payload: { signal: { signalType: 'internal', source: 'test', title: 'Test', description: 'Test signal' } } },
+        mockStep.step,
+      )
+
+      // Should NOT have waited for atoms-complete
+      expect(waitEventNames).not.toContain('atoms-complete')
+      expect(result.status).toBe('synthesis-passed')
+    })
+
+    it('does NOT wait for atoms-complete when verdict is interrupt', async () => {
+      const { FactoryPipeline } = await import('./pipeline')
+
+      const env = createMockEnv()
+      const mockStep = createMockStep()
+      const waitEventNames: string[] = []
+
+      mockStep.step.waitForEvent = vi.fn((name: string) => {
+        waitEventNames.push(name)
+        if (name === 'architect-approval') {
+          return Promise.resolve({ payload: { decision: 'approved', by: 'test' } })
+        }
+        if (name === 'synthesis-complete') {
+          return Promise.resolve({
+            payload: {
+              verdict: { decision: 'interrupt', confidence: 1.0, reason: 'Wall-clock deadline exceeded' },
+              tokenUsage: 500,
+              repairCount: 0,
+            },
+          })
+        }
+        return Promise.reject(new Error(`Unexpected waitForEvent: ${name}`))
+      })
+
+      const pipeline = Object.create(FactoryPipeline.prototype)
+      pipeline.env = env
+
+      const result = await pipeline.run(
+        { payload: { signal: { signalType: 'internal', source: 'test', title: 'Test', description: 'Test signal' } } },
+        mockStep.step,
+      )
+
+      expect(waitEventNames).not.toContain('atoms-complete')
+      expect(result.status).toBe('synthesis-interrupt')
+    })
+
+    it('lifecycle transitions to implemented only when final verdict is pass (atoms path)', async () => {
+      const { FactoryPipeline } = await import('./pipeline')
+
+      const env = createMockEnv()
+      const mockStep = createMockStep()
+      const stepDoNames: string[] = []
+
+      mockStep.step.do = vi.fn(async (name: string, optsOrFn: unknown, maybeFn?: unknown) => {
+        const fn = typeof optsOrFn === 'function'
+          ? optsOrFn as () => Promise<unknown>
+          : maybeFn as () => Promise<unknown>
+        stepDoNames.push(name)
+        return fn()
+      })
+
+      mockStep.step.waitForEvent = vi.fn((name: string) => {
+        if (name === 'architect-approval') {
+          return Promise.resolve({ payload: { decision: 'approved', by: 'test' } })
+        }
+        if (name === 'synthesis-complete') {
+          return Promise.resolve({
+            payload: {
+              verdict: { decision: 'dispatched', confidence: 1.0, reason: 'atoms dispatched' },
+              tokenUsage: 0,
+              repairCount: 0,
+            },
+          })
+        }
+        if (name === 'atoms-complete') {
+          return Promise.resolve({
+            payload: {
+              verdict: { decision: 'pass', confidence: 0.9, reason: 'All atoms passed' },
+              tokenUsage: 3000,
+              repairCount: 0,
+            },
+          })
+        }
+        return Promise.reject(new Error(`Unexpected: ${name}`))
+      })
+
+      const pipeline = Object.create(FactoryPipeline.prototype)
+      pipeline.env = env
+
+      await pipeline.run(
+        { payload: { signal: { signalType: 'internal', source: 'test', title: 'Test', description: 'Test signal' } } },
+        mockStep.step,
+      )
+
+      expect(stepDoNames).toContain('lifecycle-implemented')
+    })
+
+    it('does NOT transition lifecycle to implemented when atoms fail', async () => {
+      const { FactoryPipeline } = await import('./pipeline')
+
+      const env = createMockEnv()
+      const mockStep = createMockStep()
+      const stepDoNames: string[] = []
+
+      mockStep.step.do = vi.fn(async (name: string, optsOrFn: unknown, maybeFn?: unknown) => {
+        const fn = typeof optsOrFn === 'function'
+          ? optsOrFn as () => Promise<unknown>
+          : maybeFn as () => Promise<unknown>
+        stepDoNames.push(name)
+        return fn()
+      })
+
+      mockStep.step.waitForEvent = vi.fn((name: string) => {
+        if (name === 'architect-approval') {
+          return Promise.resolve({ payload: { decision: 'approved', by: 'test' } })
+        }
+        if (name === 'synthesis-complete') {
+          return Promise.resolve({
+            payload: {
+              verdict: { decision: 'dispatched', confidence: 1.0, reason: 'atoms dispatched' },
+              tokenUsage: 0,
+              repairCount: 0,
+            },
+          })
+        }
+        if (name === 'atoms-complete') {
+          return Promise.resolve({
+            payload: {
+              verdict: { decision: 'fail', confidence: 0.8, reason: 'atom-2 failed' },
+              tokenUsage: 2000,
+              repairCount: 2,
+            },
+          })
+        }
+        return Promise.reject(new Error(`Unexpected: ${name}`))
+      })
+
+      const pipeline = Object.create(FactoryPipeline.prototype)
+      pipeline.env = env
+
+      await pipeline.run(
+        { payload: { signal: { signalType: 'internal', source: 'test', title: 'Test', description: 'Test signal' } } },
+        mockStep.step,
+      )
+
+      expect(stepDoNames).not.toContain('lifecycle-implemented')
+    })
+  })
+
   describe('lineage edge persistence', () => {
 
     it('persists synthesis lineage edge after synthesis completes', async () => {

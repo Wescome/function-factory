@@ -269,15 +269,35 @@ export default {
 
             console.log(`[Stage 6] Phase 3: ${allPassed ? 'PASS' : 'FAIL'} — ${atomResults.length} atoms, ${failedAtoms.length} failed`)
 
-            // Publish final result to SYNTHESIS_RESULTS queue
+            // Send atoms-complete event directly to the Workflow so it receives
+            // the final Phase 2+3 verdict (not just the Phase 1 "dispatched" result)
             const targetWorkflowId = workflowId ?? ledger.workflowId
-            if (targetWorkflowId && env.SYNTHESIS_RESULTS) {
-              await (env.SYNTHESIS_RESULTS as unknown as { send(body: unknown): Promise<void> }).send({
-                workflowId: targetWorkflowId,
-                verdict,
-                tokenUsage: 0,
-                repairCount: totalRetries,
-              })
+            if (targetWorkflowId) {
+              try {
+                const workflow = await env.FACTORY_PIPELINE.get(targetWorkflowId)
+                await workflow.sendEvent({
+                  type: 'atoms-complete',
+                  payload: {
+                    verdict,
+                    tokenUsage: 0,
+                    repairCount: totalRetries,
+                    atomResults: ledger.atomResults,
+                    mergedFiles,
+                  },
+                })
+              } catch (sendErr) {
+                const sendErrMsg = sendErr instanceof Error ? sendErr.message : String(sendErr)
+                console.error(`[Stage 6] Failed to send atoms-complete event for workflow ${targetWorkflowId}: ${sendErrMsg}`)
+                // Fall back to SYNTHESIS_RESULTS queue so the result isn't lost
+                if (env.SYNTHESIS_RESULTS) {
+                  await (env.SYNTHESIS_RESULTS as unknown as { send(body: unknown): Promise<void> }).send({
+                    workflowId: targetWorkflowId,
+                    verdict,
+                    tokenUsage: 0,
+                    repairCount: totalRetries,
+                  })
+                }
+              }
             }
           }
 
