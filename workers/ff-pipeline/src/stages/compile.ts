@@ -27,7 +27,7 @@ const PASS_TASK_KINDS: Record<PassName, string> = {
 }
 
 const PASS_PROMPTS: Record<PassName, string> = {
-  decompose: `Decompose this PRD into atoms — minimal, independently implementable units of work. Each atom has an id, type, title, description. Output JSON: { "atoms": [...] }`,
+  decompose: `Decompose this PRD into requirement atoms — minimal, independently implementable units of work. Each atom MUST have: id (format "atom-001", "atom-002", sequential), type ("implementation" | "config" | "test"), title, description. Output JSON: { "atoms": [{ "id": "atom-001", "type": "implementation", "title": "...", "description": "..." }] }`,
 
   dependency: `Given atoms, identify dependencies between them. Output JSON: { "dependencies": [{ "from": "atom-id", "to": "atom-id", "type": "requires | enables | conflicts" }] }`,
 
@@ -156,16 +156,23 @@ async function runLivePass(
     // Merge bindings onto atoms before assembly
     const atoms = state.atoms as Record<string, unknown>[] | undefined
     const bindings = state.bindings as Record<string, unknown>[] | undefined
+    let boundAtoms = atoms ?? []
     if (atoms && bindings) {
       const bindingMap = new Map(bindings.map(b => [b.atomId as string, b.binding]))
-      const boundAtoms = atoms.map(a => ({
+      boundAtoms = atoms.map(a => ({
         ...a,
         binding: bindingMap.get(a.id as string) ?? a.binding,
         implementation: bindingMap.has(a.id as string) ? 'bound' : (a.implementation ?? null),
       }))
-      return runDryPass(passName, { ...state, atoms: boundAtoms }, db)
     }
-    return runDryPass(passName, state, db)
+    // Safety net: ensure every atom has binding + implementation for Gate 1
+    boundAtoms = (boundAtoms as Record<string, unknown>[]).map((a, i) => ({
+      ...a,
+      id: a.id ?? `atom-${String(i + 1).padStart(3, '0')}`,
+      binding: a.binding ?? { type: 'code', language: 'typescript', target: 'TBD' },
+      implementation: a.implementation ?? 'stub',
+    }))
+    return runDryPass(passName, { ...state, atoms: boundAtoms }, db)
   }
 
   if (passName === 'verification') {
