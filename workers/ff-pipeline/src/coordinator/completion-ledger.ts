@@ -50,6 +50,7 @@ interface ArangoDb {
   save(collection: string, doc: Record<string, unknown>): Promise<{ _key: string }>
   get(collection: string, key: string): Promise<Record<string, unknown> | null>
   update(collection: string, key: string, doc: Record<string, unknown>): Promise<{ _key: string }>
+  ensureCollection?(name: string): Promise<void>
 }
 
 // ────────────────────────────────────────────────────────────
@@ -81,6 +82,7 @@ export async function createLedger(db: ArangoDb, input: CreateLedgerInput): Prom
     phase: 'dispatched',
   }
 
+  if (db.ensureCollection) await db.ensureCollection('completion_ledgers')
   await db.save('completion_ledgers', ledger)
 }
 

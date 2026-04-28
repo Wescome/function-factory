@@ -3039,3 +3039,5 @@
 {"timestamp":"2026-04-28T13:42:46.515Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/index.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
 {"timestamp":"2026-04-28T13:42:59.366Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test -- --run 2>&1 | tail -15","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
 {"timestamp":"2026-04-28T13:43:34.123Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test 2>&1 | tail -5","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T13:43:39.534Z","tool":"Bash","summary":"git add -A && git diff --cached --stat","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T13:43:51.599Z","tool":"Bash","summary":"git commit -m \"$(cat <<'EOF'\nINFRA: v5.1 — AtomExecutor DOs for event-driven per-atom synthesis\n\nFully event-driven atom","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}

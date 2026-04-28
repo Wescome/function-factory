@@ -67,6 +67,19 @@ export class ArangoClient {
     return { Authorization: `Basic ${encoded}` }
   }
 
+  // ── Collection operations ──
+
+  async ensureCollection(name: string): Promise<void> {
+    const res = await fetch(`${this.baseUrl}/_api/collection`, {
+      method: 'POST',
+      headers: this.headers,
+      body: JSON.stringify({ name }),
+    })
+    if (res.ok || res.status === 409) return // 409 = already exists
+    // Non-critical — log and continue
+    console.warn(`ArangoDB: failed to ensure collection ${name}: ${res.status}`)
+  }
+
   // ── Document operations ──
 
   async get<T = unknown>(
