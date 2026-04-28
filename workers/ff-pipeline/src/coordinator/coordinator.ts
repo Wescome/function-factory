@@ -14,8 +14,9 @@ import { TesterAgent } from '../agents/tester-agent'
 import { VerifierAgent } from '../agents/verifier-agent'
 import { CriticAgent, type CodeReviewInput } from '../agents/critic-agent'
 import { createCRP } from '../crp'
-import { topologicalSort, executeLayer } from './layer-dispatch'
-import type { AtomResult, AtomExecutorDeps } from './atom-executor'
+import { topologicalSort } from './layer-dispatch'
+import { createLedger } from './completion-ledger'
+import type { AtomResult } from './atom-executor'
 
 export interface CoordinatorEnv {
   ARANGO_URL: string
@@ -28,6 +29,8 @@ export interface CoordinatorEnv {
   SANDBOX?: unknown
   /** Queue for publishing synthesis results back to the Worker (avoids self-fetch deadlock) */
   SYNTHESIS_RESULTS?: { send(body: unknown): Promise<void> }
+  /** v5.1: Queue for dispatching individual atoms to AtomExecutor DOs */
+  SYNTHESIS_QUEUE?: { send(body: unknown): Promise<void> }
 }
 
 export interface SynthesisResult {
@@ -304,79 +307,106 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         return this.buildResult(workGraphId, finalState)
       }
 
-      // ── Phase 2: per-atom parallel execution ──
+      // ── Phase 2: dispatch atoms to queue (event-driven, coordinator exits) ──
       try {
         const wgAtoms = (finalState.workGraph as Record<string, unknown>).atoms as Record<string, unknown>[] ?? []
         const wgDeps = (finalState.workGraph as Record<string, unknown>).dependencies as Record<string, unknown>[] ?? []
         const layers = topologicalSort(wgAtoms, wgDeps)
 
-        console.log(`[Stage 6] Phase 2: ${wgAtoms.length} atoms in ${layers.length} layers`)
+        console.log(`[Stage 6] Phase 2 dispatch: ${wgAtoms.length} atoms in ${layers.length} layers`)
 
-        const atomSpecs = new Map<string, Record<string, unknown>>()
+        const allAtomSpecs: Record<string, Record<string, unknown>> = {}
         for (const atom of wgAtoms) {
-          atomSpecs.set((atom.id ?? atom._key) as string, atom)
+          const id = (atom.id ?? atom._key) as string
+          allAtomSpecs[id] = atom
         }
 
-        const atomDeps: AtomExecutorDeps = {
-          coderAgent,
-          criticAgent: { codeReview: (input) => criticAgent.codeReview(input as CodeReviewInput) },
-          testerAgent,
-          verifierAgent,
-          callModel,
-          fetchMentorRules,
-        }
-
-        const completedArtifacts = new Map<string, AtomResult>()
         const sharedContext = {
           workGraphId,
           specContent: finalState.specContent ?? null,
           briefingScript: finalState.briefingScript,
         }
 
-        for (const layer of layers) {
-          console.log(`[Stage 6] Phase 2: Layer ${layer.index} — ${layer.atomIds.length} atoms (${layer.atomIds.join(', ')})`)
-          const layerResults = await executeLayer(
-            layer,
-            atomSpecs,
-            completedArtifacts,
-            atomDeps,
-            sharedContext,
-            { maxRetries: 3, dryRun },
-          )
-          for (const [atomId, result] of layerResults) {
-            completedArtifacts.set(atomId, result)
-            console.log(`[Stage 6] Phase 2: Atom ${atomId} → ${result.verdict.decision} (retries: ${result.retryCount})`)
+        const workflowId = await this.ctx.storage.get<string>('__workflowId')
+
+        // Create completion ledger in ArangoDB
+        const db = this.getDb()
+        await createLedger(db as never, {
+          workGraphId,
+          workflowId: workflowId ?? '',
+          totalAtoms: wgAtoms.length,
+          layers,
+          allAtomSpecs,
+          sharedContext,
+        })
+
+        // Dispatch Layer 0 atoms to SYNTHESIS_QUEUE (type: 'atom-execute')
+        const layer0 = layers[0]
+        if (layer0 && this.env.SYNTHESIS_QUEUE) {
+          for (const atomId of layer0.atomIds) {
+            await this.env.SYNTHESIS_QUEUE.send({
+              type: 'atom-execute',
+              workGraphId,
+              workflowId: workflowId ?? '',
+              atomId,
+              atomSpec: allAtomSpecs[atomId],
+              sharedContext,
+              upstreamArtifacts: {},
+              maxRetries: 3,
+              dryRun,
+            })
           }
+          console.log(`[Stage 6] Phase 2 dispatch: ${layer0.atomIds.length} Layer 0 atoms dispatched to queue`)
         }
 
-        // ── Phase 3: integration verdict ──
-        const atomResults = [...completedArtifacts.values()]
-        const allPassed = atomResults.every(r => r.verdict.decision === 'pass')
-        const failedAtoms = atomResults.filter(r => r.verdict.decision !== 'pass')
-
-        const mergedCode = {
-          files: atomResults.flatMap(r => r.codeArtifact?.files ?? []),
-          summary: atomResults.map(r => `[${r.atomId}] ${r.codeArtifact?.summary ?? 'no code'}`).join('; '),
-          testsIncluded: atomResults.some(r => r.codeArtifact?.testsIncluded),
-        }
-
+        // Coordinator exits — does NOT wait for atoms.
+        // Phase 3 runs in the atom-results queue consumer when all atoms complete.
         finalState = {
           ...finalState,
-          code: mergedCode,
-          verdict: allPassed
-            ? { decision: 'pass', confidence: 0.9, reason: `All ${atomResults.length} atoms passed` }
-            : {
-                decision: 'fail',
-                confidence: 0.8,
-                reason: `${failedAtoms.length}/${atomResults.length} atoms failed: ${failedAtoms.map(a => a.atomId).join(', ')}`,
-                failedAtomIds: failedAtoms.map(a => a.atomId),
-              },
-          repairCount: atomResults.reduce((sum, r) => sum + r.retryCount, 0),
+          verdict: undefined as never, // no verdict yet — atoms are running
         }
 
-        console.log(`[Stage 6] Phase 3: ${allPassed ? 'PASS' : 'FAIL'} — ${atomResults.length} atoms, ${failedAtoms.length} failed`)
+        // Return Phase 1 result immediately
+        await this.ctx.storage.deleteAlarm()
+        await this.ctx.storage.put('__completed', true)
+        await this.ctx.storage.delete('graphState')
+
+        // Persist Phase 1 result
+        await this.persistSynthesisResult(workGraphId, {
+          ...finalState,
+          verdict: null, // Phase 1 complete, Phase 2 dispatched
+        })
+
+        // Notify via SYNTHESIS_RESULTS that Phase 1 is done + atoms dispatched
+        if (workflowId && this.env.SYNTHESIS_RESULTS) {
+          await this.env.SYNTHESIS_RESULTS.send({
+            type: 'phase1-complete',
+            workflowId,
+            workGraphId,
+            atomCount: wgAtoms.length,
+            layerCount: layers.length,
+          })
+        }
+
+        return {
+          functionId: workGraphId,
+          verdict: {
+            decision: 'dispatched' as const,
+            confidence: 1.0,
+            reason: `Phase 1 complete. ${wgAtoms.length} atoms dispatched to ${layers.length} layers.`,
+          },
+          tokenUsage: finalState.tokenUsage,
+          repairCount: 0,
+          roleHistory: finalState.roleHistory.map(r => ({
+            role: r.role,
+            tokenUsage: r.tokenUsage,
+            timestamp: r.timestamp,
+          })),
+          briefingScript: finalState.briefingScript ?? undefined,
+          semanticReview: finalState.semanticReview ?? undefined,
+        } as SynthesisResult
       } catch (err) {
-        const reason = err instanceof Error ? err.message : 'Phase 2/3 failed'
+        const reason = err instanceof Error ? err.message : 'Phase 2 dispatch failed'
         finalState = {
           ...finalState,
           verdict: { decision: 'interrupt', confidence: 1.0, reason },

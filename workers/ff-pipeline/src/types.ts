@@ -16,10 +16,16 @@ export interface PipelineEnv {
 
   COORDINATOR: DurableObjectNamespace<import('./coordinator/coordinator').SynthesisCoordinator>
 
+  /** v5.1: AtomExecutor DO namespace — one DO per atom for independent lifetimes */
+  ATOM_EXECUTOR: DurableObjectNamespace<import('./coordinator/atom-executor-do').AtomExecutor>
+
   SYNTHESIS_QUEUE: Queue
 
   /** Queue for DO -> Worker result relay (avoids self-fetch deadlock) */
   SYNTHESIS_RESULTS: Queue
+
+  /** v5.1: Queue for atom completion results from AtomExecutor DOs */
+  ATOM_RESULTS: Queue
 
   OFOX_API_KEY?: string
 

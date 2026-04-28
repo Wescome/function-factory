@@ -3009,3 +3009,33 @@
 {"timestamp":"2026-04-28T12:53:05.496Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test 2>&1","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
 {"timestamp":"2026-04-28T12:53:26.848Z","tool":"Agent","summary":"Fix coercion test expectations","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
 {"timestamp":"2026-04-28T12:53:48.562Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test 2>&1 | tail -5","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T12:53:54.367Z","tool":"Bash","summary":"git add -A && git diff --cached --stat","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T12:54:08.710Z","tool":"Bash","summary":"git commit -m \"$(cat <<'EOF'\nINFRA: coerce LLM output types instead of rejecting (all 6 agents)\n\nLive runs showed LLMs r","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T12:54:23.639Z","tool":"Bash","summary":"cd /Users/wes/Developer/function-factory/workers/ff-pipeline && npx wrangler deploy 2>&1 | tail -3 && echo \"---\" && INST","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T13:15:39.526Z","tool":"Bash","summary":"grep \"Instance:\\|complete\\|error\\|interrupt\\|pass\\|fail\" /private/tmp/claude-501/-Users-wes-Developer-function-factory/2","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T13:15:51.036Z","tool":"Bash","summary":"curl -s https://ff-gateway.koales.workers.dev/pipeline/69a4d266-5751-4db7-9413-ee91a889b2af 2>&1 | python3 -c \"\nimport s","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T13:16:02.301Z","tool":"Bash","summary":"for i in $(seq 1 60); do sleep 20; st=$(curl -s \"https://ff-gateway.koales.workers.dev/pipeline/69a4d266-5751-4db7-9413-","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T13:35:48.466Z","tool":"Agent","summary":"Engineer: v5.1 AtomExecutor DOs","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T13:36:00.549Z","tool":"Bash","summary":"ls /Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T13:36:01.060Z","tool":"Bash","summary":"find /Users/wes/Developer/function-factory/workers/ff-pipeline -name \"*.test.ts\" | head -20","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T13:36:24.485Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test -- --run 2>&1 | tail -30","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T13:37:10.929Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/completion-ledger.test.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T13:37:52.418Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/atom-executor-do.test.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T13:38:00.043Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test -- --run --reporter=verbose src/coordinator/completion-ledger.test.ts src/coordi","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T13:38:24.349Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/completion-ledger.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T13:39:01.036Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/atom-executor-do.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T13:39:10.448Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test -- --run --reporter=verbose src/coordinator/completion-ledger.test.ts src/coordi","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T13:39:19.812Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/types.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T13:39:24.832Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/coordinator.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T13:39:32.695Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/coordinator.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T13:40:07.452Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/coordinator.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T13:40:24.692Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/index.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T13:41:18.999Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/index.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T13:41:27.665Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/wrangler.jsonc","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T13:41:36.555Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/wrangler.jsonc","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T13:41:48.657Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test -- --run 2>&1 | tail -40","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T13:42:25.478Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/queue-bridge.test.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T13:42:35.807Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test -- --run 2>&1 | tail -40","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T13:42:46.515Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/index.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T13:42:59.366Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test -- --run 2>&1 | tail -15","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T13:43:34.123Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test 2>&1 | tail -5","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}

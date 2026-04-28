@@ -1237,4 +1237,207 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
       expect(response.status).toBe(202)
     })
   })
+
+  // ── F) v5.1: atom-execute queue messages ──
+
+  describe('v5.1: atom-execute queue messages', () => {
+
+    it('dispatches atom-execute messages to AtomExecutor DO', async () => {
+      const { default: worker } = await import('./index')
+
+      const mockDoFetch = vi.fn(async () => new Response('{}', {
+        headers: { 'Content-Type': 'application/json' },
+      }))
+
+      const env = createEnv({
+        ATOM_EXECUTOR: {
+          idFromName: vi.fn(() => 'atom-do-id'),
+          get: vi.fn(() => ({ fetch: mockDoFetch })),
+        },
+      })
+
+      const msg = createMockMessage({
+        type: 'atom-execute',
+        workGraphId: 'WG-ATOM',
+        workflowId: 'wf-atom-1',
+        atomId: 'atom-001',
+        atomSpec: { id: 'atom-001', description: 'Test atom' },
+        sharedContext: { workGraphId: 'WG-ATOM', specContent: null, briefingScript: {} },
+        upstreamArtifacts: {},
+        maxRetries: 3,
+        dryRun: true,
+      })
+
+      const batch = createMockBatch([msg])
+      const ctx = createMockCtx()
+
+      await worker.queue(batch as never, env as never, ctx as never)
+
+      // AtomExecutor DO was called
+      expect(mockDoFetch).toHaveBeenCalledOnce()
+      const calls = mockDoFetch.mock.calls as unknown[][]
+      const fetchArg = calls[0]![0] as Request
+      expect(new URL(fetchArg.url).pathname).toBe('/execute-atom')
+
+      const fetchBody = await new Request(fetchArg).json() as Record<string, unknown>
+      expect(fetchBody.atomId).toBe('atom-001')
+      expect(fetchBody.workGraphId).toBe('WG-ATOM')
+
+      // Message acked
+      expect(msg.ack).toHaveBeenCalledOnce()
+    })
+
+    it('uses idFromName with atom-{workGraphId}-{atomId}', async () => {
+      const { default: worker } = await import('./index')
+
+      const mockIdFromName = vi.fn(() => 'atom-do-id')
+      const mockDoFetch = vi.fn(async () => new Response('{}'))
+
+      const env = createEnv({
+        ATOM_EXECUTOR: {
+          idFromName: mockIdFromName,
+          get: vi.fn(() => ({ fetch: mockDoFetch })),
+        },
+      })
+
+      const msg = createMockMessage({
+        type: 'atom-execute',
+        workGraphId: 'WG-NAME',
+        workflowId: 'wf-1',
+        atomId: 'atom-xyz',
+        atomSpec: {},
+        sharedContext: {},
+        upstreamArtifacts: {},
+        maxRetries: 3,
+        dryRun: false,
+      })
+
+      const batch = createMockBatch([msg])
+      const ctx = createMockCtx()
+
+      await worker.queue(batch as never, env as never, ctx as never)
+
+      expect(mockIdFromName).toHaveBeenCalledWith('atom-WG-NAME-atom-xyz')
+    })
+
+    it('retries atom-execute on DO dispatch failure', async () => {
+      const { default: worker } = await import('./index')
+
+      const mockDoFetch = vi.fn(async () => { throw new Error('DO unavailable') })
+
+      const env = createEnv({
+        ATOM_EXECUTOR: {
+          idFromName: vi.fn(() => 'atom-do-id'),
+          get: vi.fn(() => ({ fetch: mockDoFetch })),
+        },
+      })
+
+      const msg = createMockMessage({
+        type: 'atom-execute',
+        workGraphId: 'WG-ERR',
+        workflowId: 'wf-err',
+        atomId: 'atom-err',
+        atomSpec: {},
+        sharedContext: {},
+        upstreamArtifacts: {},
+        maxRetries: 3,
+        dryRun: false,
+      }, 1)
+
+      const batch = createMockBatch([msg])
+      const ctx = createMockCtx()
+
+      await worker.queue(batch as never, env as never, ctx as never)
+
+      expect(msg.retry).toHaveBeenCalledOnce()
+      expect(msg.ack).not.toHaveBeenCalled()
+    })
+
+    it('publishes failure result to ATOM_RESULTS when atom-execute max retries exhausted', async () => {
+      const { default: worker } = await import('./index')
+
+      const mockDoFetch = vi.fn(async () => { throw new Error('Permanent failure') })
+      const mockAtomResultsSend = vi.fn(async () => {})
+
+      const env = createEnv({
+        ATOM_EXECUTOR: {
+          idFromName: vi.fn(() => 'atom-do-id'),
+          get: vi.fn(() => ({ fetch: mockDoFetch })),
+        },
+        ATOM_RESULTS: { send: mockAtomResultsSend },
+      })
+
+      const msg = createMockMessage({
+        type: 'atom-execute',
+        workGraphId: 'WG-MAXRETRY',
+        workflowId: 'wf-maxretry',
+        atomId: 'atom-dead',
+        atomSpec: {},
+        sharedContext: {},
+        upstreamArtifacts: {},
+        maxRetries: 3,
+        dryRun: false,
+      }, 3) // max retries exhausted
+
+      const batch = createMockBatch([msg])
+      const ctx = createMockCtx()
+
+      await worker.queue(batch as never, env as never, ctx as never)
+
+      expect(msg.ack).toHaveBeenCalledOnce()
+      expect(mockAtomResultsSend).toHaveBeenCalledOnce()
+
+      const sentMsg = mockAtomResultsSend.mock.calls[0]![0] as Record<string, unknown>
+      expect(sentMsg.atomId).toBe('atom-dead')
+      expect(sentMsg.workGraphId).toBe('WG-MAXRETRY')
+      const result = sentMsg.result as Record<string, unknown>
+      const verdict = result.verdict as Record<string, unknown>
+      expect(verdict.decision).toBe('fail')
+    })
+  })
+
+  // ── G) v5.1: synthesis-results phase1-complete messages ──
+
+  describe('v5.1: synthesis-results phase1-complete', () => {
+
+    it('acks phase1-complete messages without relaying to workflow', async () => {
+      const { default: worker } = await import('./index')
+
+      const mockSendEvent = vi.fn(async () => {})
+
+      const env = createEnv({
+        FACTORY_PIPELINE: {
+          create: vi.fn(),
+          get: vi.fn(async () => ({
+            id: 'wf-p1',
+            status: vi.fn(),
+            sendEvent: mockSendEvent,
+          })),
+        },
+      })
+
+      const msg = createMockMessage({
+        type: 'phase1-complete',
+        workflowId: 'wf-p1',
+        workGraphId: 'WG-P1',
+        atomCount: 3,
+        layerCount: 2,
+      })
+
+      const batch = {
+        messages: [msg],
+        queue: 'synthesis-results',
+        metadata: { metrics: { backlogCount: 1, backlogBytes: 0 } },
+        retryAll: vi.fn(),
+        ackAll: vi.fn(),
+      }
+
+      const ctx = createMockCtx()
+      await worker.queue(batch as never, env as never, ctx as never)
+
+      expect(msg.ack).toHaveBeenCalledOnce()
+      // Should NOT relay to workflow
+      expect(mockSendEvent).not.toHaveBeenCalled()
+    })
+  })
 })

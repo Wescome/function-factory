@@ -18,12 +18,14 @@
   "durable_objects": {
     "bindings": [
       { "name": "COORDINATOR", "class_name": "SynthesisCoordinator" },
-      { "name": "SANDBOX", "class_name": "Sandbox" }
+      { "name": "SANDBOX", "class_name": "Sandbox" },
+      { "name": "ATOM_EXECUTOR", "class_name": "AtomExecutor" }
     ]
   },
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["SynthesisCoordinator"] },
-    { "tag": "v2", "new_sqlite_classes": ["Sandbox"] }
+    { "tag": "v2", "new_sqlite_classes": ["Sandbox"] },
+    { "tag": "v3", "new_sqlite_classes": ["AtomExecutor"] }
   ],
 
   // Sandbox Container for Coder/Tester execution
@@ -40,16 +42,19 @@
   ],
 
   // Queue bindings (Stage 6 synthesis bridge)
-  // SYNTHESIS_QUEUE: pipeline enqueues work for the DO
+  // SYNTHESIS_QUEUE: pipeline enqueues work for the DO + atom-execute dispatch
   // SYNTHESIS_RESULTS: DO publishes completion results back (avoids self-fetch deadlock)
+  // ATOM_RESULTS: AtomExecutor DOs publish per-atom results for ledger tracking
   "queues": {
     "producers": [
       { "binding": "SYNTHESIS_QUEUE", "queue": "synthesis-queue" },
-      { "binding": "SYNTHESIS_RESULTS", "queue": "synthesis-results" }
+      { "binding": "SYNTHESIS_RESULTS", "queue": "synthesis-results" },
+      { "binding": "ATOM_RESULTS", "queue": "atom-results" }
     ],
     "consumers": [
       { "queue": "synthesis-queue", "max_batch_size": 1, "max_retries": 2 },
-      { "queue": "synthesis-results", "max_batch_size": 1, "max_retries": 3 }
+      { "queue": "synthesis-results", "max_batch_size": 1, "max_retries": 3 },
+      { "queue": "atom-results", "max_batch_size": 1, "max_retries": 3 }
     ]
   },
 

@@ -1,5 +1,6 @@
 export { FactoryPipeline } from './pipeline'
 export { SynthesisCoordinator } from './coordinator'
+export { AtomExecutor } from './coordinator/atom-executor-do'
 export { Sandbox } from '@cloudflare/sandbox'
 
 export { ingestSignal } from './stages/ingest-signal'
@@ -142,7 +143,16 @@ export default {
       // The DO publishes to SYNTHESIS_RESULTS queue after synthesis completes.
       // This consumer relays the result to the Workflow, avoiding CF self-fetch deadlock.
       if (batch.queue === 'synthesis-results') {
-        const { workflowId, verdict, tokenUsage, repairCount } = msg.body as {
+        const body = msg.body as Record<string, unknown>
+
+        // v5.1: phase1-complete messages are informational — ack and continue
+        if (body.type === 'phase1-complete') {
+          console.log(`[Stage 6] Phase 1 complete for ${body.workGraphId}: ${body.atomCount} atoms in ${body.layerCount} layers`)
+          msg.ack()
+          continue
+        }
+
+        const { workflowId, verdict, tokenUsage, repairCount } = body as {
           workflowId: string
           verdict: { decision: string; confidence: number; reason: string }
           tokenUsage: number
@@ -169,8 +179,190 @@ export default {
         continue
       }
 
-      // ── synthesis-queue: dispatch work to Coordinator DO ──
-      const { workflowId, workGraphId, workGraph, dryRun, specContent } = msg.body as {
+      // ── atom-results queue: AtomExecutor DO completion → ledger update → Phase 3 ──
+      if (batch.queue === 'atom-results') {
+        const { workGraphId, atomId, result, workflowId } = msg.body as {
+          workGraphId: string
+          atomId: string
+          result: {
+            atomId: string
+            verdict: { decision: string; confidence: number; reason: string }
+            codeArtifact: unknown
+            testReport: unknown
+            critiqueReport: unknown
+            retryCount: number
+          }
+          workflowId: string | null
+        }
+
+        try {
+          // Lazy import to avoid circular deps at module level
+          const { recordAtomResult, getReadyAtoms, isComplete } = await import('./coordinator/completion-ledger.js')
+          const { createClientFromEnv } = await import('@factory/arango-client')
+          const { validateArtifact } = await import('@factory/artifact-validator')
+
+          const db = createClientFromEnv(env)
+          db.setValidator(validateArtifact)
+
+          // Record this atom's result in the completion ledger
+          const ledger = await recordAtomResult(db as never, workGraphId, atomId, result as never)
+          console.log(`[Stage 6] Atom ${atomId} complete (${result.verdict.decision}) — ${ledger.completedAtoms}/${ledger.totalAtoms} atoms done`)
+
+          // Check if dependent atoms are now ready to dispatch
+          const readyAtoms = getReadyAtoms(ledger)
+          if (readyAtoms.length > 0 && env.SYNTHESIS_QUEUE) {
+            for (const readyAtomId of readyAtoms) {
+              // Build upstream artifacts from completed atoms
+              const upstreamArtifacts: Record<string, unknown> = {}
+              const atomSpec = ledger.allAtomSpecs[readyAtomId]
+              const deps = (atomSpec?.dependencies ?? []) as Array<{ atomId: string }>
+              for (const dep of deps) {
+                const upstreamResult = ledger.atomResults[dep.atomId]
+                if (upstreamResult?.codeArtifact) {
+                  upstreamArtifacts[dep.atomId] = upstreamResult.codeArtifact
+                }
+              }
+
+              await (env.SYNTHESIS_QUEUE as unknown as { send(body: unknown): Promise<void> }).send({
+                type: 'atom-execute',
+                workGraphId,
+                workflowId: workflowId ?? ledger.workflowId,
+                atomId: readyAtomId,
+                atomSpec: ledger.allAtomSpecs[readyAtomId],
+                sharedContext: ledger.sharedContext,
+                upstreamArtifacts,
+                maxRetries: 3,
+                dryRun: false,
+              })
+              console.log(`[Stage 6] Dispatched dependent atom ${readyAtomId} (deps satisfied)`)
+            }
+          }
+
+          // Check if ALL atoms are complete → run Phase 3
+          if (isComplete(ledger)) {
+            console.log(`[Stage 6] All ${ledger.totalAtoms} atoms complete — running Phase 3`)
+
+            const atomResults = Object.values(ledger.atomResults)
+            const allPassed = atomResults.every((r: Record<string, unknown>) => {
+              const v = r.verdict as Record<string, unknown>
+              return v.decision === 'pass'
+            })
+            const failedAtoms = atomResults.filter((r: Record<string, unknown>) => {
+              const v = r.verdict as Record<string, unknown>
+              return v.decision !== 'pass'
+            })
+
+            // Merge code artifacts
+            const mergedFiles = atomResults.flatMap((r: Record<string, unknown>) => {
+              const ca = r.codeArtifact as Record<string, unknown> | null
+              return (ca?.files as unknown[] ?? [])
+            })
+            const totalRetries = atomResults.reduce((sum: number, r: Record<string, unknown>) => sum + (r.retryCount as number ?? 0), 0)
+
+            const verdict = allPassed
+              ? { decision: 'pass', confidence: 0.9, reason: `All ${atomResults.length} atoms passed` }
+              : {
+                  decision: 'fail',
+                  confidence: 0.8,
+                  reason: `${failedAtoms.length}/${atomResults.length} atoms failed: ${failedAtoms.map((a: Record<string, unknown>) => a.atomId).join(', ')}`,
+                }
+
+            console.log(`[Stage 6] Phase 3: ${allPassed ? 'PASS' : 'FAIL'} — ${atomResults.length} atoms, ${failedAtoms.length} failed`)
+
+            // Publish final result to SYNTHESIS_RESULTS queue
+            const targetWorkflowId = workflowId ?? ledger.workflowId
+            if (targetWorkflowId && env.SYNTHESIS_RESULTS) {
+              await (env.SYNTHESIS_RESULTS as unknown as { send(body: unknown): Promise<void> }).send({
+                workflowId: targetWorkflowId,
+                verdict,
+                tokenUsage: 0,
+                repairCount: totalRetries,
+              })
+            }
+          }
+
+          msg.ack()
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : String(err)
+          console.error(`[Stage 6] atom-results processing failed for atom ${atomId}: ${errorMessage}`)
+          if (msg.attempts >= 4) {
+            console.error(`[Stage 6] atom-results exhausted retries for atom ${atomId} in ${workGraphId}`)
+            msg.ack()
+          } else {
+            msg.retry()
+          }
+        }
+        continue
+      }
+
+      // ── synthesis-queue: dispatch work ──
+      const body = msg.body as Record<string, unknown>
+
+      // v5.1: atom-execute messages — dispatch to AtomExecutor DO
+      if (body.type === 'atom-execute') {
+        const { workGraphId, workflowId, atomId, atomSpec, sharedContext, upstreamArtifacts, maxRetries, dryRun } = body as {
+          workGraphId: string
+          workflowId: string
+          atomId: string
+          atomSpec: Record<string, unknown>
+          sharedContext: Record<string, unknown>
+          upstreamArtifacts: Record<string, unknown>
+          maxRetries: number
+          dryRun: boolean
+        }
+
+        try {
+          const doId = env.ATOM_EXECUTOR.idFromName(`atom-${workGraphId}-${atomId}`)
+          const stub = env.ATOM_EXECUTOR.get(doId)
+          await stub.fetch(new Request('https://do/execute-atom', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              atomId,
+              atomSpec,
+              sharedContext,
+              upstreamArtifacts,
+              workflowId,
+              workGraphId,
+              maxRetries: maxRetries ?? 3,
+              dryRun: dryRun ?? false,
+            }),
+          }))
+          msg.ack()
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : String(err)
+          console.error(`[Stage 6] atom-execute dispatch failed for atom ${atomId}: ${errorMessage}`)
+          if (msg.attempts >= 3) {
+            // Publish failure result to atom-results queue so ledger is updated
+            try {
+              if (env.ATOM_RESULTS) {
+                await (env.ATOM_RESULTS as unknown as { send(body: unknown): Promise<void> }).send({
+                  workGraphId,
+                  atomId,
+                  result: {
+                    atomId,
+                    verdict: { decision: 'fail', confidence: 1.0, reason: `Atom dispatch failed after ${msg.attempts} attempts: ${errorMessage}` },
+                    codeArtifact: null,
+                    testReport: null,
+                    critiqueReport: null,
+                    retryCount: 0,
+                  },
+                  workflowId,
+                })
+              }
+            } catch (pubErr) {
+              console.error(`[Stage 6] Failed to publish atom failure for ${atomId}: ${pubErr instanceof Error ? pubErr.message : String(pubErr)}`)
+            }
+            msg.ack()
+          } else {
+            msg.retry()
+          }
+        }
+        continue
+      }
+
+      // ── synthesis-queue: original coordinator dispatch ──
+      const { workflowId, workGraphId, workGraph, dryRun, specContent } = body as {
         workflowId: string
         workGraphId: string
         workGraph: Record<string, unknown>
