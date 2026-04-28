@@ -604,6 +604,14 @@ export const BRIEFING_SCRIPT_SCHEMA: OutputSchema<BriefingScript> = {
     knownGotchas: 'array',
     validationLoop: 'string',
   },
+  fieldAliases: {
+    goal: ['objective', 'target', 'aim', 'purpose', 'primary_objective', 'main_goal'],
+    successCriteria: ['criteria', 'success_criteria', 'acceptance_criteria', 'conditions', 'success_conditions'],
+    architecturalContext: ['context', 'arch_context', 'background', 'architectural_context', 'architecture'],
+    strategicAdvice: ['advice', 'strategy', 'recommendations', 'strategic_advice', 'guidance', 'strategic_guidance'],
+    knownGotchas: ['gotchas', 'risks', 'pitfalls', 'known_issues', 'known_gotchas', 'warnings', 'caveats'],
+    validationLoop: ['validation', 'test_plan', 'verification', 'validation_loop', 'how_to_validate'],
+  },
   coerce: true,
 }
 
@@ -615,6 +623,12 @@ export const PLAN_SCHEMA: OutputSchema<Plan> = {
     atoms: 'array',
     executorRecommendation: 'string',
     estimatedComplexity: 'string',
+  },
+  fieldAliases: {
+    approach: ['strategy', 'plan', 'implementation_plan', 'implementation_approach', 'overview'],
+    atoms: ['steps', 'tasks', 'work_items', 'items', 'components'],
+    executorRecommendation: ['executor', 'executor_recommendation', 'recommended_executor', 'runtime'],
+    estimatedComplexity: ['complexity', 'estimated_complexity', 'difficulty', 'effort'],
   },
   defaults: {
     executorRecommendation: 'gdk-agent',
@@ -664,6 +678,13 @@ export const SEMANTIC_REVIEW_SCHEMA: OutputSchema<SemanticReviewResult> = {
     rationale: 'string',
     timestamp: 'string',
   },
+  fieldAliases: {
+    alignment: ['result', 'assessment', 'status', 'verdict'],
+    confidence: ['score', 'confidence_score', 'certainty'],
+    citations: ['references', 'sources', 'evidence', 'refs'],
+    rationale: ['reasoning', 'explanation', 'justification', 'reason'],
+    timestamp: ['time', 'date', 'created_at', 'createdAt'],
+  },
   enumFields: { alignment: ['aligned', 'miscast', 'uncertain'] },
   defaults: { alignment: 'uncertain', timestamp: new Date().toISOString() },
   coerce: true,
@@ -685,6 +706,12 @@ export const CRITIQUE_REPORT_SCHEMA: OutputSchema<CritiqueReport> = {
     issues: 'array',
     mentorRuleCompliance: 'array',
     overallAssessment: 'string',
+  },
+  fieldAliases: {
+    passed: ['pass', 'approved', 'ok', 'is_passed'],
+    issues: ['problems', 'findings', 'defects', 'bugs'],
+    mentorRuleCompliance: ['mentor_rule_compliance', 'ruleCompliance', 'rule_compliance', 'rules'],
+    overallAssessment: ['overall_assessment', 'assessment', 'summary', 'conclusion'],
   },
   coerce: true,
   postCoerce(data) {
@@ -712,6 +739,14 @@ export const TEST_REPORT_SCHEMA: OutputSchema<TestReport> = {
     failures: 'array',
     summary: 'string',
   },
+  fieldAliases: {
+    passed: ['pass', 'success', 'ok', 'all_passed'],
+    testsRun: ['tests_run', 'total', 'total_tests', 'test_count'],
+    testsPassed: ['tests_passed', 'passed_count', 'successes'],
+    testsFailed: ['tests_failed', 'failed_count', 'failure_count'],
+    failures: ['failed_tests', 'errors', 'test_failures'],
+    summary: ['assessment', 'overview', 'conclusion', 'report'],
+  },
   coerce: true,
 }
 
@@ -723,6 +758,12 @@ export const VERDICT_SCHEMA: OutputSchema<Verdict> = {
     confidence: 'number',
     reason: 'string',
     notes: 'string',
+  },
+  fieldAliases: {
+    decision: ['verdict', 'result', 'status', 'outcome'],
+    confidence: ['score', 'confidence_score', 'certainty'],
+    reason: ['reasoning', 'explanation', 'justification', 'rationale'],
+    notes: ['repair_notes', 'feedback', 'details', 'guidance'],
   },
   enumFields: { decision: ['pass', 'fail', 'patch', 'resample', 'interrupt'] },
   defaults: { decision: 'interrupt' },

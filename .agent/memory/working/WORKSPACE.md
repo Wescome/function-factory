@@ -1,44 +1,36 @@
 # Current Workspace
 
 ## Status
-Session ended at 2026-04-28T21:15:08.448Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
+Session ended at 2026-04-28T21:31:07.392Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
 
 ## Last update
-2026-04-28T21:15:08.448Z
+2026-04-28T21:31:07.392Z
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
-- [20:59:09] Write: /Users/wes/Developer/function-factory/specs/reference/ADR-007-output-reliability-layer.md
-- [20:59:15] Bash: wc -l /Users/wes/Developer/function-factory/specs/reference/ADR-007-output-reliability-layer.md
-- [20:59:16] Bash: grep -c "extractAndParseJSON" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/*.ts /Users/wes/Devel
-- [20:59:21] Edit: /Users/wes/Developer/function-factory/specs/ontology/output-reliability-extension.ttl
-- [20:59:47] Edit: /Users/wes/Developer/function-factory/specs/ontology/output-reliability-extension.ttl
-- [21:00:08] Bash: git add specs/ontology/output-reliability-extension.ttl specs/reference/SE-ASSESSMENT-LLM-OUTPUT-RELIABILITY.md && git c
-- [21:00:16] Bash: wc -l /Users/wes/Developer/function-factory/specs/reference/ADR-007-output-reliability-layer.md /Users/wes/Developer/fun
-- [21:00:30] Bash: git add specs/reference/ADR-007-output-reliability-layer.md && git commit -m "$(cat <<'EOF'
-META: ADR-007 — Output Relia
-- [21:02:35] Agent: Architect: LLM world model ontology
-- [21:05:14] Edit: /Users/wes/Developer/function-factory/specs/ontology/output-reliability-extension.ttl
-- [21:05:18] Bash: wc -l /Users/wes/Developer/function-factory/specs/ontology/output-reliability-extension.ttl
-- [21:05:19] Bash: grep -n "^# [═─]" /Users/wes/Developer/function-factory/specs/ontology/output-reliability-extension.ttl
-- [21:05:26] Bash: python3 -c "
-# Simple Turtle syntax check: balanced brackets, proper statement termination
-content = open('specs/ontolog
-- [21:05:34] Bash: python3 -c "
-content = open('specs/ontology/output-reliability-extension.ttl').read()
-lines = content.split('\n')
-depth 
-- [21:05:48] Bash: python3 -c "
-import re
-content = open('specs/ontology/output-reliability-extension.ttl').read()
+- [21:22:52] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/architect-agent.test.ts
+- [21:23:11] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/architect-agent.test.ts
+- [21:23:18] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/planner-agent.test.ts
+- [21:23:37] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/planner-agent.test.ts
+- [21:23:44] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/coder-agent.test.ts
+- [21:24:02] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/coder-agent.test.ts
+- [21:24:08] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/tester-agent.test.ts
+- [21:24:32] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/tester-agent.test.ts
+- [21:24:39] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/verifier-agent.test.ts
+- [21:25:04] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/verifier-agent.test.ts
+- [21:25:14] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/coder-agent.test.ts
+- [21:25:25] Bash: pnpm --filter @factory/ff-pipeline test 2>&1 | tail -60
+- [21:25:34] Bash: grep -rn "extractAndParseJSON" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/*.ts | grep -v test 
+- [21:25:40] Bash: grep -rn "private validate" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/*.ts | grep -v test | g
+- [21:25:46] Bash: wc -l /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/architect-agent.ts /Users/wes/Developer/funct
+- [21:25:54] Bash: ls -la /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/coerce.ts && echo "---" && grep "extractJSON
+- [21:26:29] Bash: pnpm --filter @factory/ff-pipeline test 2>&1 | tail -5
+- [21:26:38] Bash: git add -A && git diff --cached --stat | tail -5 && echo "---" && git diff --cached --stat | head -3
+- [21:26:53] Bash: git commit -m "$(cat <<'EOF'
+META: ADR-007 Phase 1 — Output Reliability Layer (ORL)
 
-# Remove all triple-quo
-- [21:06:36] Bash: wc -l /Users/wes/Developer/function-factory/specs/ontology/output-reliability-extension.ttl
-- [21:06:52] Bash: git add specs/ontology/output-reliability-extension.ttl && git commit -m "$(cat <<'EOF'
-META: LLM world model ontology —
-- [21:14:01] Agent: Architect reviews ADR-007 + ontology
-- [21:14:47] Agent: Engineer: Output Reliability Layer Phase 1
-- [21:15:05] Bash: ls /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/*.test.ts 2>/dev/null; echo "---"; cat /Users/we
+Unified output-reliability.ts repla
+- [21:27:14] Bash: cd /Users/wes/Developer/function-factory/workers/ff-pipeline && npx wrangler deploy 2>&1 | tail -3 && echo "---" && INST
 
 ## Notes
 This file is auto-updated on session end. Manual edits will be overwritten.
