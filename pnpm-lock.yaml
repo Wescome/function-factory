@@ -546,6 +546,9 @@ importers:
       '@factory/artifact-validator':
         specifier: workspace:*
         version: link:../../packages/artifact-validator
+      '@factory/ontology-loader':
+        specifier: workspace:*
+        version: link:../../packages/ontology-loader
       '@factory/task-routing':
         specifier: workspace:*
         version: link:../../packages/task-routing

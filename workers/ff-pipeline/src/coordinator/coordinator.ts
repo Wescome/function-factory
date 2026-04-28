@@ -55,11 +55,23 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         workGraph: Record<string, unknown>
         dryRun?: boolean
         specContent?: string
+        callbackUrl?: string
+        workflowId?: string
       }
+
+      // Store callback info in DO storage so alarm handler can also call back
+      if (body.callbackUrl) await this.ctx.storage.put('__callbackUrl', body.callbackUrl)
+      if (body.workflowId) await this.ctx.storage.put('__workflowId', body.workflowId)
+
       const result = await this.synthesize(body.workGraph, {
         dryRun: body.dryRun ?? false,
         ...(body.specContent ? { specContent: body.specContent } : {}),
       })
+
+      // If callback info was provided, notify the Worker (fire-and-forget pattern).
+      // The Worker's /synthesis-callback route will forward to the Workflow.
+      await this.notifyCallback(result)
+
       return new Response(JSON.stringify(result), {
         headers: { 'Content-Type': 'application/json' },
       })
@@ -77,6 +89,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
     if (completed) return
 
     const state = await this.ctx.storage.get<GraphState>('graphState')
+    const workGraphId = (state?.workGraphId ?? await this.ctx.storage.get<string>('workGraphId')) || 'unknown'
     const timedOutState: GraphState = {
       ...(state ?? createInitialState('unknown', {})),
       verdict: {
@@ -87,6 +100,10 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
     }
     await this.ctx.storage.put('graphState', timedOutState)
     await this.ctx.storage.put('__alarm_fired', true)
+    await this.ctx.storage.put('__completed', true)
+
+    // Notify the Workflow via callback so it doesn't hang at waitForEvent
+    await this.notifyCallback(this.buildResult(workGraphId, timedOutState))
   }
 
   /**
@@ -333,6 +350,35 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       },
       createBackup: async (_dir) => '',
       restoreBackup: async (_handle) => {},
+    }
+  }
+
+  /**
+   * Notify the Worker via callback URL so it can forward the result to the Workflow.
+   * Called after synthesis completes (success or failure) and from the alarm handler.
+   * Non-fatal: if the callback fails, the result is still in DO storage and
+   * the response is returned to the caller. The Workflow has a 30-min waitForEvent
+   * timeout as backstop.
+   */
+  private async notifyCallback(result: SynthesisResult): Promise<void> {
+    const callbackUrl = await this.ctx.storage.get<string>('__callbackUrl')
+    const workflowId = await this.ctx.storage.get<string>('__workflowId')
+
+    if (!callbackUrl || !workflowId) return
+
+    try {
+      await fetch(callbackUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workflowId,
+          verdict: result.verdict,
+          tokenUsage: result.tokenUsage,
+          repairCount: result.repairCount,
+        }),
+      })
+    } catch (err) {
+      console.error(`[Stage 6] Callback failed for ${result.functionId}: ${err instanceof Error ? err.message : String(err)}`)
     }
   }
 

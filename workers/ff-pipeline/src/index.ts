@@ -91,10 +91,57 @@ export default {
       })
     }
 
-    return new Response('ff-pipeline: POST /trigger-synthesis or use Queue consumer', { status: 404 })
+    // ── Synthesis callback: DO calls back when synthesis completes ──
+    if (url.pathname === '/synthesis-callback' && request.method === 'POST') {
+      try {
+        const body = await request.json() as {
+          workflowId: string
+          verdict: { decision: string; confidence: number; reason: string }
+          tokenUsage: number
+          repairCount: number
+        }
+
+        if (!body.workflowId) {
+          return new Response(JSON.stringify({ error: 'Missing workflowId' }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        }
+
+        const workflow = await env.FACTORY_PIPELINE.get(body.workflowId)
+        await workflow.sendEvent({
+          type: 'synthesis-complete',
+          payload: {
+            verdict: body.verdict,
+            tokenUsage: body.tokenUsage,
+            repairCount: body.repairCount,
+          },
+        })
+
+        return new Response(JSON.stringify({ received: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : String(err)
+        console.error(`[Stage 6] /synthesis-callback error: ${errorMessage}`)
+        return new Response(JSON.stringify({ error: errorMessage }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+    }
+
+    return new Response('ff-pipeline: POST /trigger-synthesis, POST /synthesis-callback, or use Queue consumer', { status: 404 })
   },
 
   async queue(batch: MessageBatch, env: PipelineEnv, _ctx: ExecutionContext): Promise<void> {
+    // Construct the callback URL for the DO to call back on completion.
+    // In production this is the Worker's own URL; the DO calls this route
+    // after synthesis finishes (or on alarm timeout) so the Workflow gets
+    // its synthesis-complete event without the queue consumer blocking.
+    const callbackUrl = 'https://ff-pipeline.koales.workers.dev/synthesis-callback'
+
     for (const msg of batch.messages) {
       const { workflowId, workGraphId, workGraph, dryRun, specContent } = msg.body as {
         workflowId: string
@@ -105,61 +152,48 @@ export default {
       }
 
       try {
-        // Call DO via stub.fetch (works outside step.do)
+        // Fire-and-forget: dispatch to DO with callback info, then ack immediately.
+        // The DO will call back to /synthesis-callback when synthesis completes.
+        // This eliminates the queue visibility timeout problem (CF Queues ~30s).
         const doId = env.COORDINATOR.idFromName(`synth-${workGraphId}`)
         const stub = env.COORDINATOR.get(doId)
-        const doResponse = await stub.fetch(new Request('https://do/synthesize', {
+        await stub.fetch(new Request('https://do/synthesize', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             workGraph,
             dryRun: dryRun ?? false,
+            callbackUrl,
+            workflowId,
             ...(specContent ? { specContent } : {}),
           }),
         }))
 
-        const result = await doResponse.json() as {
-          verdict: { decision: string; confidence: number; reason: string }
-          tokenUsage: number
-          repairCount: number
-        }
-
-        // Send synthesis result back to the waiting Workflow
-        const workflow = await env.FACTORY_PIPELINE.get(workflowId)
-        await workflow.sendEvent({
-          type: 'synthesis-complete',
-          payload: {
-            verdict: result.verdict,
-            tokenUsage: result.tokenUsage,
-            repairCount: result.repairCount,
-          },
-        })
-
+        // DO accepted the request — ack immediately.
+        // DO will call back to Worker /synthesis-callback on completion.
         msg.ack()
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err)
 
         // max_retries: 2 in wrangler config = 3 total attempts (1 initial + 2 retries)
         if (msg.attempts >= 3) {
-          // Max retries exhausted — send failure event so Workflow doesn't hang
+          // Max retries exhausted — send failure event so Workflow doesn't hang.
+          // This only fires if the initial dispatch to the DO fails (not synthesis).
           try {
             const workflow = await env.FACTORY_PIPELINE.get(workflowId)
             await workflow.sendEvent({
               type: 'synthesis-complete',
               payload: {
-                verdict: { decision: 'fail', confidence: 1.0, reason: `Queue consumer error after ${msg.attempts} attempts: ${errorMessage}` },
+                verdict: { decision: 'fail', confidence: 1.0, reason: `Queue dispatch error after ${msg.attempts} attempts: ${errorMessage}` },
                 tokenUsage: 0,
                 repairCount: 0,
               },
             })
           } catch (sendErr) {
-            // Log the ACTUAL sendEvent error, not the original error — the sendEvent
-            // failure reason (e.g. invalid_event_type, workflow not running) is what
-            // matters for debugging why the workflow hangs.
             const sendErrMsg = sendErr instanceof Error ? sendErr.message : String(sendErr)
             console.error(`Failed to send failure event for workflow ${workflowId}: sendEvent error: ${sendErrMsg} (original error: ${errorMessage})`)
           }
-          msg.ack() // Remove from queue even though it failed
+          msg.ack() // Remove from queue even though dispatch failed
         } else {
           msg.retry()
         }

@@ -247,34 +247,18 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
     globalThis.fetch = originalFetch
   })
 
-  // ── A) Queue consumer tests ──
+  // ── A) Queue consumer tests (fire-and-forget pattern, ADR-005 v4.1) ──
 
-  describe('queue consumer (queue() handler)', () => {
+  describe('queue consumer (queue() handler) — fire-and-forget', () => {
 
-    it('calls DO via stub.fetch with workGraph and dryRun from message body', async () => {
+    it('dispatches to DO via stub.fetch with workGraph, dryRun, callbackUrl, and workflowId', async () => {
       const { default: worker } = await import('./index')
 
-      const doResult = {
-        verdict: { decision: 'pass', confidence: 0.95, reason: 'All roles passed' },
-        tokenUsage: 4200,
-        repairCount: 0,
-      }
-
-      const mockDoFetch = vi.fn(async () => new Response(JSON.stringify(doResult), {
+      const mockDoFetch = vi.fn(async () => new Response('{}', {
         headers: { 'Content-Type': 'application/json' },
       }))
 
-      const mockSendEvent = vi.fn(async () => {})
-
       const env = createEnv({
-        FACTORY_PIPELINE: {
-          create: vi.fn(),
-          get: vi.fn(async () => ({
-            id: 'wf-123',
-            status: vi.fn(),
-            sendEvent: mockSendEvent,
-          })),
-        },
         COORDINATOR: {
           idFromName: vi.fn(() => 'do-synth-WG-TEST'),
           get: vi.fn(() => ({ fetch: mockDoFetch })),
@@ -293,7 +277,7 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
 
       await worker.queue(batch as never, env as never, ctx as never)
 
-      // DO was called with correct payload
+      // DO was called with correct payload including callback info
       expect(mockDoFetch).toHaveBeenCalledOnce()
       const calls = mockDoFetch.mock.calls as unknown[][]
       const fetchArg = calls[0]![0] as Request
@@ -302,18 +286,47 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
       const fetchBody = await new Request(fetchArg).json() as Record<string, unknown>
       expect(fetchBody.workGraph).toBeDefined()
       expect(fetchBody.dryRun).toBe(false)
+      // ADR-005: callbackUrl and workflowId are included for fire-and-forget
+      expect(fetchBody.callbackUrl).toBe('https://ff-pipeline.koales.workers.dev/synthesis-callback')
+      expect(fetchBody.workflowId).toBe('wf-123')
     })
 
-    it('sends synthesis-complete event to workflow with DO result', async () => {
+    it('acks IMMEDIATELY after dispatching — does NOT await DO synthesis result', async () => {
       const { default: worker } = await import('./index')
 
-      const doResult = {
-        verdict: { decision: 'pass', confidence: 0.95, reason: 'All roles passed' },
-        tokenUsage: 4200,
-        repairCount: 0,
-      }
+      // DO that takes "forever" (returns response, but the key is we don't parse it)
+      const mockDoFetch = vi.fn(async () => new Response('{}', {
+        headers: { 'Content-Type': 'application/json' },
+      }))
 
-      const mockDoFetch = vi.fn(async () => new Response(JSON.stringify(doResult), {
+      const env = createEnv({
+        COORDINATOR: {
+          idFromName: vi.fn(() => 'do-id'),
+          get: vi.fn(() => ({ fetch: mockDoFetch })),
+        },
+      })
+
+      const msg = createMockMessage({
+        workflowId: 'wf-123',
+        workGraphId: 'WG-TEST',
+        workGraph: { _key: 'WG-TEST' },
+        dryRun: false,
+      })
+
+      const batch = createMockBatch([msg])
+      const ctx = createMockCtx()
+
+      await worker.queue(batch as never, env as never, ctx as never)
+
+      // Acked immediately — fire-and-forget
+      expect(msg.ack).toHaveBeenCalledOnce()
+      expect(msg.retry).not.toHaveBeenCalled()
+    })
+
+    it('does NOT call workflow.sendEvent directly — callback handles that', async () => {
+      const { default: worker } = await import('./index')
+
+      const mockDoFetch = vi.fn(async () => new Response('{}', {
         headers: { 'Content-Type': 'application/json' },
       }))
 
@@ -337,60 +350,6 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
       const msg = createMockMessage({
         workflowId: 'wf-123',
         workGraphId: 'WG-TEST',
-        workGraph: { _key: 'WG-TEST', title: 'Test' },
-        dryRun: false,
-      })
-
-      const batch = createMockBatch([msg])
-      const ctx = createMockCtx()
-
-      await worker.queue(batch as never, env as never, ctx as never)
-
-      expect(mockSendEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: 'synthesis-complete',
-          payload: expect.objectContaining({
-            verdict: { decision: 'pass', confidence: 0.95, reason: 'All roles passed' },
-            tokenUsage: 4200,
-            repairCount: 0,
-          }),
-        }),
-      )
-    })
-
-    it('acks message after successful DO call and event send', async () => {
-      const { default: worker } = await import('./index')
-
-      const doResult = {
-        verdict: { decision: 'pass', confidence: 0.95, reason: 'ok' },
-        tokenUsage: 100,
-        repairCount: 0,
-      }
-
-      const mockDoFetch = vi.fn(async () => new Response(JSON.stringify(doResult), {
-        headers: { 'Content-Type': 'application/json' },
-      }))
-
-      const mockSendEvent = vi.fn(async () => {})
-
-      const env = createEnv({
-        FACTORY_PIPELINE: {
-          create: vi.fn(),
-          get: vi.fn(async () => ({
-            id: 'wf-123',
-            status: vi.fn(),
-            sendEvent: mockSendEvent,
-          })),
-        },
-        COORDINATOR: {
-          idFromName: vi.fn(() => 'do-id'),
-          get: vi.fn(() => ({ fetch: mockDoFetch })),
-        },
-      })
-
-      const msg = createMockMessage({
-        workflowId: 'wf-123',
-        workGraphId: 'WG-TEST',
         workGraph: { _key: 'WG-TEST' },
         dryRun: false,
       })
@@ -400,29 +359,19 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
 
       await worker.queue(batch as never, env as never, ctx as never)
 
-      expect(msg.ack).toHaveBeenCalledOnce()
-      expect(msg.retry).not.toHaveBeenCalled()
+      // Queue consumer should NOT call sendEvent — the DO callback does that
+      expect(mockSendEvent).not.toHaveBeenCalled()
     })
 
     it('uses env.COORDINATOR.idFromName with synth-{workGraphId} naming', async () => {
       const { default: worker } = await import('./index')
 
       const mockIdFromName = vi.fn(() => 'do-synth-WG-CUSTOM')
-      const mockDoFetch = vi.fn(async () => new Response(JSON.stringify({
-        verdict: { decision: 'pass', confidence: 0.9, reason: 'ok' },
-        tokenUsage: 100,
-        repairCount: 0,
-      }), { headers: { 'Content-Type': 'application/json' } }))
+      const mockDoFetch = vi.fn(async () => new Response('{}', {
+        headers: { 'Content-Type': 'application/json' },
+      }))
 
       const env = createEnv({
-        FACTORY_PIPELINE: {
-          create: vi.fn(),
-          get: vi.fn(async () => ({
-            id: 'wf-456',
-            status: vi.fn(),
-            sendEvent: vi.fn(async () => {}),
-          })),
-        },
         COORDINATOR: {
           idFromName: mockIdFromName,
           get: vi.fn(() => ({ fetch: mockDoFetch })),
@@ -447,21 +396,11 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
     it('passes dryRun: true through to DO when message specifies it', async () => {
       const { default: worker } = await import('./index')
 
-      const mockDoFetch = vi.fn(async () => new Response(JSON.stringify({
-        verdict: { decision: 'pass', confidence: 0.9, reason: 'ok' },
-        tokenUsage: 100,
-        repairCount: 0,
-      }), { headers: { 'Content-Type': 'application/json' } }))
+      const mockDoFetch = vi.fn(async () => new Response('{}', {
+        headers: { 'Content-Type': 'application/json' },
+      }))
 
       const env = createEnv({
-        FACTORY_PIPELINE: {
-          create: vi.fn(),
-          get: vi.fn(async () => ({
-            id: 'wf-789',
-            status: vi.fn(),
-            sendEvent: vi.fn(async () => {}),
-          })),
-        },
         COORDINATOR: {
           idFromName: vi.fn(() => 'do-id'),
           get: vi.fn(() => ({ fetch: mockDoFetch })),
@@ -489,21 +428,11 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
     it('defaults dryRun to false when not specified in message', async () => {
       const { default: worker } = await import('./index')
 
-      const mockDoFetch = vi.fn(async () => new Response(JSON.stringify({
-        verdict: { decision: 'pass', confidence: 0.9, reason: 'ok' },
-        tokenUsage: 100,
-        repairCount: 0,
-      }), { headers: { 'Content-Type': 'application/json' } }))
+      const mockDoFetch = vi.fn(async () => new Response('{}', {
+        headers: { 'Content-Type': 'application/json' },
+      }))
 
       const env = createEnv({
-        FACTORY_PIPELINE: {
-          create: vi.fn(),
-          get: vi.fn(async () => ({
-            id: 'wf-789',
-            status: vi.fn(),
-            sendEvent: vi.fn(async () => {}),
-          })),
-        },
         COORDINATOR: {
           idFromName: vi.fn(() => 'do-id'),
           get: vi.fn(() => ({ fetch: mockDoFetch })),
@@ -529,24 +458,16 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
     })
   })
 
-  // ── B) Error handling tests ──
+  // ── B) Error handling tests (dispatch failures only — synthesis errors go through callback) ──
 
   describe('queue consumer error handling', () => {
 
-    it('retries message when DO fetch throws', async () => {
+    it('retries message when DO dispatch (stub.fetch) throws', async () => {
       const { default: worker } = await import('./index')
 
       const mockDoFetch = vi.fn(async () => { throw new Error('DO unavailable') })
 
       const env = createEnv({
-        FACTORY_PIPELINE: {
-          create: vi.fn(),
-          get: vi.fn(async () => ({
-            id: 'wf-err',
-            status: vi.fn(),
-            sendEvent: vi.fn(async () => {}),
-          })),
-        },
         COORDINATOR: {
           idFromName: vi.fn(() => 'do-id'),
           get: vi.fn(() => ({ fetch: mockDoFetch })),
@@ -569,49 +490,7 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
       expect(msg.ack).not.toHaveBeenCalled()
     })
 
-    it('retries message when sendEvent throws', async () => {
-      const { default: worker } = await import('./index')
-
-      const mockDoFetch = vi.fn(async () => new Response(JSON.stringify({
-        verdict: { decision: 'pass', confidence: 0.9, reason: 'ok' },
-        tokenUsage: 100,
-        repairCount: 0,
-      }), { headers: { 'Content-Type': 'application/json' } }))
-
-      const mockSendEvent = vi.fn(async () => { throw new Error('Workflow gone') })
-
-      const env = createEnv({
-        FACTORY_PIPELINE: {
-          create: vi.fn(),
-          get: vi.fn(async () => ({
-            id: 'wf-sendfail',
-            status: vi.fn(),
-            sendEvent: mockSendEvent,
-          })),
-        },
-        COORDINATOR: {
-          idFromName: vi.fn(() => 'do-id'),
-          get: vi.fn(() => ({ fetch: mockDoFetch })),
-        },
-      })
-
-      const msg = createMockMessage({
-        workflowId: 'wf-sendfail',
-        workGraphId: 'WG-SENDFAIL',
-        workGraph: { _key: 'WG-SENDFAIL' },
-        dryRun: false,
-      }, 1)
-
-      const batch = createMockBatch([msg])
-      const ctx = createMockCtx()
-
-      await worker.queue(batch as never, env as never, ctx as never)
-
-      expect(msg.retry).toHaveBeenCalledOnce()
-      expect(msg.ack).not.toHaveBeenCalled()
-    })
-
-    it('sends failure event and acks when max retries exhausted (attempts >= 3)', async () => {
+    it('sends failure event and acks when max dispatch retries exhausted (attempts >= 3)', async () => {
       const { default: worker } = await import('./index')
 
       const mockDoFetch = vi.fn(async () => { throw new Error('DO permanently broken') })
@@ -919,18 +798,17 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
     })
   })
 
-  // ── C) sendEvent failure resilience ──
+  // ── C) Dispatch failure event resilience ──
 
-  describe('queue consumer sendEvent failure resilience', () => {
+  describe('queue consumer dispatch failure event resilience', () => {
 
-    it('logs the ACTUAL sendEvent error, not the original DO error, when failure event also fails', async () => {
+    it('logs the ACTUAL sendEvent error when failure event also fails at max retries', async () => {
       const { default: worker } = await import('./index')
 
-      const originalError = new Error('DO permanently broken')
-      const sendEventError = new Error('(workflow.invalid_event_type) Provided event type is invalid')
-
-      const mockDoFetch = vi.fn(async () => { throw originalError })
-      const mockSendEvent = vi.fn(async () => { throw sendEventError })
+      const mockDoFetch = vi.fn(async () => { throw new Error('DO permanently broken') })
+      const mockSendEvent = vi.fn(async () => {
+        throw new Error('(workflow.invalid_event_type) Provided event type is invalid')
+      })
 
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
@@ -967,69 +845,16 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
       expect(loggedMessage).toContain('wf-logbug')
       // Must contain the sendEvent failure reason so we can debug why the workflow hangs
       expect(loggedMessage).toContain('invalid_event_type')
-      // Should also include the original error for full context
+      // Should also include the original dispatch error for full context
       expect(loggedMessage).toContain('DO permanently broken')
 
       consoleSpy.mockRestore()
     })
 
-    it('retries (does NOT ack) when sendEvent fails on happy path and attempts remain', async () => {
-      // This tests the case where DO succeeds but sendEvent fails.
-      // The message should be retried, not acked, because the workflow never got the event.
-      const { default: worker } = await import('./index')
-
-      const doResult = {
-        verdict: { decision: 'pass', confidence: 0.95, reason: 'All roles passed' },
-        tokenUsage: 4200,
-        repairCount: 0,
-      }
-
-      const mockDoFetch = vi.fn(async () => new Response(JSON.stringify(doResult), {
-        headers: { 'Content-Type': 'application/json' },
-      }))
-
-      const mockSendEvent = vi.fn(async () => {
-        throw new Error('(workflow.invalid_event_type) Provided event type is invalid')
-      })
-
-      const env = createEnv({
-        FACTORY_PIPELINE: {
-          create: vi.fn(),
-          get: vi.fn(async () => ({
-            id: 'wf-sendfail-retry',
-            status: vi.fn(),
-            sendEvent: mockSendEvent,
-          })),
-        },
-        COORDINATOR: {
-          idFromName: vi.fn(() => 'do-id'),
-          get: vi.fn(() => ({ fetch: mockDoFetch })),
-        },
-      })
-
-      const msg = createMockMessage({
-        workflowId: 'wf-sendfail-retry',
-        workGraphId: 'WG-SENDFAIL',
-        workGraph: { _key: 'WG-SENDFAIL' },
-        dryRun: false,
-      }, 1) // first attempt — should retry
-
-      const batch = createMockBatch([msg])
-      const ctx = createMockCtx()
-
-      await worker.queue(batch as never, env as never, ctx as never)
-
-      // Message must be retried, NOT acked
-      expect(msg.retry).toHaveBeenCalledOnce()
-      expect(msg.ack).not.toHaveBeenCalled()
-    })
-
-    it('includes workflow status in error log when sendEvent fails at max retries', async () => {
+    it('includes error context in log when sendEvent fails at max dispatch retries', async () => {
       const { default: worker } = await import('./index')
 
       const mockDoFetch = vi.fn(async () => { throw new Error('DO crashed') })
-
-      const mockStatus = vi.fn(async () => ({ status: 'errored' }))
       const mockSendEvent = vi.fn(async () => {
         throw new Error('workflow not running')
       })
@@ -1041,7 +866,7 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
           create: vi.fn(),
           get: vi.fn(async () => ({
             id: 'wf-status-log',
-            status: mockStatus,
+            status: vi.fn(),
             sendEvent: mockSendEvent,
           })),
         },
@@ -1067,9 +892,7 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
       expect(consoleSpy).toHaveBeenCalled()
       const loggedMessage = consoleSpy.mock.calls[0]![0] as string
       expect(loggedMessage).toContain('wf-status-log')
-      // Must contain sendEvent error info so we know WHY the event couldn't be sent
       expect(loggedMessage).toContain('workflow not running')
-      // Should also contain original error for context
       expect(loggedMessage).toContain('DO crashed')
 
       consoleSpy.mockRestore()
