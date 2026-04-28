@@ -1,17 +1,13 @@
 # Current Workspace
 
 ## Status
-Session ended at 2026-04-28T15:55:32.564Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
+Session ended at 2026-04-28T16:02:18.206Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
 
 ## Last update
-2026-04-28T15:55:32.564Z
+2026-04-28T16:02:18.206Z
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
-- [15:31:28] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/wrangler.jsonc
-- [15:31:45] Bash: pnpm --filter @factory/ff-pipeline test 2>&1 | tail -3 && git add -A && git commit -m "$(cat <<'EOF'
-INFRA: add Workers 
-- [15:32:01] Bash: pnpm --filter @factory/ff-pipeline test 2>&1 | grep "FAIL" | head -5
 - [15:32:08] Bash: grep -n "AI binding not available" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/providers.test.ts
 - [15:32:17] Bash: grep -n "cloudflare.*AI\|no AI binding\|Workers AI" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/provid
 - [15:32:34] Bash: pnpm --filter @factory/ff-pipeline test -- src/providers.test.ts 2>&1 | tail -10
@@ -30,6 +26,10 @@ import s
 - [15:54:48] Edit: /Users/wes/Developer/function-factory/packages/task-routing/src/index.ts
 - [15:55:04] Bash: pnpm --filter @factory/ff-pipeline test 2>&1 | tail -3 && git add packages/task-routing/src/index.ts && git commit -m "$
 - [15:55:23] Bash: cd /Users/wes/Developer/function-factory/workers/ff-pipeline && npx wrangler deploy 2>&1 | tail -3 && echo "---" && INST
+- [16:01:48] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/providers.ts
+- [16:02:03] Bash: pnpm --filter @factory/ff-pipeline test 2>&1 | tail -3 && git add -A && git commit -m "$(cat <<'EOF'
+INFRA: stringify Wo
+- [16:02:12] Bash: cd /Users/wes/Developer/function-factory/workers/ff-pipeline && npx wrangler deploy 2>&1 | tail -3 && echo "---" && INST
 
 ## Notes
 This file is auto-updated on session end. Manual edits will be overwritten.

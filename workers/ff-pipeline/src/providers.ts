@@ -23,7 +23,8 @@ export async function callProvider(
       ],
     })
     const resp = result.response
-    return typeof resp === 'string' ? resp : JSON.stringify(resp)
+    const raw = typeof resp === 'string' ? resp : JSON.stringify(resp)
+    return extractJSON(raw)
   }
 
   // Default path: ofox.ai unified gateway
