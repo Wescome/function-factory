@@ -1,19 +1,16 @@
 /**
  * @module task-routing
  *
- * Maps task kinds to provider/model pairs via ofox.ai unified gateway.
+ * Maps task kinds to provider/model pairs.
  *
- * v2: adds pass-level overrides (passId), new TaskKinds (semantic_review,
- * runtime_check), and cloudflare (Workers AI) as a fallback provider.
+ * v3: Workers AI (cloudflare) as PRIMARY for cost-sensitive tiers.
+ * ofox.ai as fallback for quality-critical tasks only.
+ * CF Workers AI is included in the paid plan — essentially free.
  *
  * Resolution order:
  *   1. If passId provided -> check route.passOverrides[passId]
  *   2. If no override     -> use route primary/fallback
  *   3. If no route        -> use config default
- *
- * Model IDs use ofox.ai identifiers: claude-opus-4.6 (dots),
- * gemini-3.1-pro-preview (-preview suffix), z-ai (not zhipu),
- * moonshotai (not moonshot).
  */
 
 // ── Types (plain TS, no Zod) ──
@@ -71,148 +68,105 @@ export interface RoutingConfig {
 export interface ResolvedRoute {
   primary: RouteTarget
   fallback?: RouteTarget | undefined
-  /** Which resolution path was taken */
   resolvedVia: 'pass-override' | 'route-default' | 'config-default'
-  /** The passId that matched (if any) */
   passId?: string | undefined
 }
 
+// ── Providers ──
+
+const CF_70B: RouteTarget = { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' }
+const DEEPSEEK_FLASH: RouteTarget = { provider: 'deepseek', model: 'deepseek-v4-flash' }
+const DEEPSEEK_PRO: RouteTarget = { provider: 'deepseek', model: 'deepseek-v4-pro' }
+const GEMINI_PRO: RouteTarget = { provider: 'google', model: 'gemini-3.1-pro-preview' }
+const CLAUDE_OPUS: RouteTarget = { provider: 'anthropic', model: 'claude-opus-4.6' }
+
 // ── Default config ──
+// Workers AI is primary for cost-sensitive tiers (Stages 1-5, validation).
+// ofox.ai providers are fallback for quality-critical roles (critic, coder).
 
 export const DEFAULT_CONFIG: RoutingConfig = {
   routes: [
-    // Planning tier (signal, pressure, capability, simple compiler passes)
+    // Planning tier: Workers AI primary (signal, pressure, capability, compiler passes)
     {
       kind: 'planning',
-      primary: { provider: 'deepseek', model: 'deepseek-v4-flash' },
-      fallback: { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
-      passOverrides: {
-        // Stage 2: Pressure synthesis — needs causal reasoning
-        'stage_2_pressure': {
-          primary: { provider: 'deepseek', model: 'deepseek-v4-pro' },
-          fallback: { provider: 'google', model: 'gemini-3.1-pro-preview' },
-        },
-        // Stage 3: Capability mapping — needs disciplined scoping
-        'stage_3_capability': {
-          primary: { provider: 'google', model: 'gemini-3.1-pro-preview' },
-          fallback: { provider: 'deepseek', model: 'deepseek-v4-pro' },
-        },
-        // Stage 1: Signal ingestion — trivial extraction, Workers AI
-        'stage_1_signal': {
-          primary: { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
-          fallback: { provider: 'deepseek', model: 'deepseek-v4-flash' },
-        },
-        // Compiler pass 0: Normalize — extraction
-        'pass_0_normalize': {
-          primary: { provider: 'deepseek', model: 'deepseek-v4-flash' },
-          fallback: { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
-        },
-        // Compiler pass 1: Atoms — decomposition
-        'pass_1_atoms': {
-          primary: { provider: 'deepseek', model: 'deepseek-v4-flash' },
-          fallback: { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
-        },
-      },
+      primary: CF_70B,
+      fallback: DEEPSEEK_FLASH,
     },
 
-    // Structured tier (contracts, invariants, validations, dependencies)
+    // Structured tier: Workers AI primary (contracts, invariants, deps, validations)
     {
       kind: 'structured',
-      primary: { provider: 'deepseek', model: 'deepseek-v4-flash' },
-      fallback: { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
-      passOverrides: {
-        'pass_2_contracts': {
-          primary: { provider: 'deepseek', model: 'deepseek-v4-flash' },
-          fallback: { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
-        },
-        'pass_3_invariants': {
-          primary: { provider: 'z-ai', model: 'glm-5' },
-          fallback: { provider: 'deepseek', model: 'deepseek-v4-pro' },
-        },
-        'pass_4_dependencies': {
-          primary: { provider: 'deepseek', model: 'deepseek-v4-flash' },
-          fallback: { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
-        },
-        'pass_5_validations': {
-          primary: { provider: 'z-ai', model: 'glm-5' },
-          fallback: { provider: 'deepseek', model: 'deepseek-v4-pro' },
-        },
-      },
+      primary: CF_70B,
+      fallback: DEEPSEEK_FLASH,
     },
 
-    // Interpretive tier (function proposal, ambiguity resolution)
+    // Interpretive tier: Workers AI primary (function proposal)
     {
       kind: 'interpretive',
-      primary: { provider: 'google', model: 'gemini-3.1-pro-preview' },
-      fallback: { provider: 'deepseek', model: 'deepseek-v4-pro' },
+      primary: CF_70B,
+      fallback: GEMINI_PRO,
     },
 
-    // Synthesis tier (assembly, cross-referencing)
+    // Synthesis tier: Workers AI primary (assembly)
     {
       kind: 'synthesis',
-      primary: { provider: 'deepseek', model: 'deepseek-v4-pro' },
-      fallback: { provider: 'google', model: 'gemini-3.1-pro-preview' },
+      primary: CF_70B,
+      fallback: DEEPSEEK_PRO,
     },
 
-    // Semantic review (Opus only — judgment, not reasoning)
+    // Semantic review: quality-critical — ofox.ai primary
     {
       kind: 'semantic_review',
-      primary: { provider: 'anthropic', model: 'claude-opus-4.6' },
-      fallback: { provider: 'google', model: 'gemini-3.1-pro-preview' },
+      primary: CLAUDE_OPUS,
+      fallback: GEMINI_PRO,
     },
 
-    // Validation (high-volume, cost-sensitive)
+    // Validation: Workers AI primary (high-volume, cost-sensitive)
     {
       kind: 'validation',
-      primary: { provider: 'deepseek', model: 'deepseek-v4-flash' },
-      fallback: { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
+      primary: CF_70B,
+      fallback: DEEPSEEK_FLASH,
     },
 
-    // Runtime check (Stage 7 monitoring, Gate 3)
+    // Runtime check: Workers AI primary
     {
       kind: 'runtime_check',
-      primary: { provider: 'deepseek', model: 'deepseek-v4-flash' },
-      fallback: { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
+      primary: CF_70B,
+      fallback: DEEPSEEK_FLASH,
     },
 
-    // Stage 6 roles
+    // Stage 6 roles — quality-critical roles use ofox.ai, others use Workers AI
     {
       kind: 'planner',
-      primary: { provider: 'google', model: 'gemini-3.1-pro-preview' },
-      fallback: { provider: 'deepseek', model: 'deepseek-v4-pro' },
+      primary: CF_70B,
+      fallback: GEMINI_PRO,
     },
     {
       kind: 'coder',
-      primary: { provider: 'deepseek', model: 'deepseek-v4-pro' },
-      fallback: { provider: 'anthropic', model: 'claude-opus-4.6' },
+      primary: DEEPSEEK_PRO,
+      fallback: CF_70B,
     },
     {
       kind: 'critic',
-      primary: { provider: 'anthropic', model: 'claude-opus-4.6' },
-      fallback: { provider: 'google', model: 'gemini-3.1-pro-preview' },
+      primary: CLAUDE_OPUS,
+      fallback: CF_70B,
     },
     {
       kind: 'tester',
-      primary: { provider: 'deepseek', model: 'deepseek-v4-pro' },
-      fallback: { provider: 'moonshotai', model: 'kimi-k2.6' },
+      primary: CF_70B,
+      fallback: DEEPSEEK_PRO,
     },
     {
       kind: 'verifier',
-      primary: { provider: 'google', model: 'gemini-3.1-pro-preview' },
-      fallback: { provider: 'anthropic', model: 'claude-opus-4.6' },
+      primary: GEMINI_PRO,
+      fallback: CF_70B,
     },
   ],
-  default: { provider: 'deepseek', model: 'deepseek-v4-flash' },
+  default: CF_70B,
 }
 
 // ── Resolution functions ──
 
-/**
- * Look up the provider/model pair for a pipeline task.
- *
- * @param kind   - task kind (broad category)
- * @param opts   - optional: passId for pass-level override, config override
- */
 export function resolve(
   kind: TaskKind,
   opts?: { passId?: string; config?: RoutingConfig },
@@ -229,7 +183,6 @@ export function resolve(
     }
   }
 
-  // Check pass-level override first
   if (passId && route.passOverrides?.[passId]) {
     const override = route.passOverrides[passId]!
     return {
@@ -247,10 +200,6 @@ export function resolve(
   }
 }
 
-/**
- * Resolve with automatic fallback attempt. Calls `fn` with the primary
- * target; if it throws, retries with the fallback (if one exists).
- */
 export async function resolveAndCall<T>(
   kind: TaskKind,
   fn: (target: RouteTarget) => Promise<T>,
