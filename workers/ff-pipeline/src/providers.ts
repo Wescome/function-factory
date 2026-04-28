@@ -22,7 +22,8 @@ export async function callProvider(
         { role: 'user', content: user },
       ],
     })
-    return result.response
+    const resp = result.response
+    return typeof resp === 'string' ? resp : JSON.stringify(resp)
   }
 
   // Default path: ofox.ai unified gateway
