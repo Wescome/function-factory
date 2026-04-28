@@ -82,7 +82,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       verdict: {
         decision: 'interrupt',
         confidence: 1.0,
-        reason: 'DO alarm: synthesis exceeded 180s wall-clock deadline',
+        reason: 'DO alarm: synthesis exceeded wall-clock deadline',
       },
     }
     await this.ctx.storage.put('graphState', timedOutState)
@@ -242,9 +242,9 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       // Set wall-clock alarm — survives I/O suspension and DO hibernation
       await this.ctx.storage.put('__completed', false)
       await this.ctx.storage.put('__alarm_fired', false)
-      // Scale timeout with WorkGraph complexity: 3min base + 30s per atom
+      // Scale timeout: 10min base (10 graph nodes × ~60s each) + 30s per atom
       const atoms = (workGraph.atoms as unknown[] | undefined)?.length ?? 0
-      const timeoutMs = Math.max(180_000, 180_000 + atoms * 30_000)
+      const timeoutMs = Math.max(600_000, 600_000 + atoms * 30_000)
       await this.ctx.storage.setAlarm(Date.now() + timeoutMs)
 
       let finalState: GraphState
