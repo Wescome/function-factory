@@ -14,6 +14,8 @@ import { TesterAgent } from '../agents/tester-agent'
 import { VerifierAgent } from '../agents/verifier-agent'
 import { CriticAgent, type CodeReviewInput } from '../agents/critic-agent'
 import { createCRP } from '../crp'
+import { topologicalSort, executeLayer } from './layer-dispatch'
+import type { AtomResult, AtomExecutorDeps } from './atom-executor'
 
 export interface CoordinatorEnv {
   ARANGO_URL: string
@@ -256,6 +258,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         verifierAgent: {
           verify: (input) => verifierAgent.verify(input),
         },
+        verticalSlicing: true,
       }
 
       const graph = buildSynthesisGraph(deps)
@@ -263,25 +266,26 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       // Set wall-clock alarm — survives I/O suspension and DO hibernation
       await this.ctx.storage.put('__completed', false)
       await this.ctx.storage.put('__alarm_fired', false)
-      // Scale timeout: 15min base (10 graph nodes × ~90s each for real LLM) + 30s per atom
-      const atoms = (workGraph.atoms as unknown[] | undefined)?.length ?? 0
-      const timeoutMs = Math.max(900_000, 900_000 + atoms * 30_000)
+      const atomCount = (workGraph.atoms as unknown[] | undefined)?.length ?? 0
+      // v5: shorter Phase 1 (5 nodes) + parallel Phase 2, so less total serial time
+      const timeoutMs = Math.max(900_000, 900_000 + atomCount * 30_000)
       await this.ctx.storage.setAlarm(Date.now() + timeoutMs)
 
       let finalState: GraphState
       try {
+        // ── Phase 1: serial planning graph (architect → critic → compile → gate-1 → planner) ──
         finalState = await graph.run(initialState, {
           onNodeStart: (name, state) => {
-            console.log(`[Stage 6] ${name} starting (repair ${state.repairCount}, tokens ${state.tokenUsage})`)
+            console.log(`[Stage 6] Phase 1: ${name} starting (tokens ${state.tokenUsage})`)
           },
-          maxSteps: 50,
+          maxSteps: 20,
         })
       } catch (err) {
         await this.ctx.storage.deleteAlarm()
         const alarmFired = await this.ctx.storage.get<boolean>('__alarm_fired')
         const reason = alarmFired
-          ? 'DO alarm: synthesis exceeded 180s wall-clock deadline'
-          : (err instanceof Error ? err.message : 'Synthesis failed')
+          ? 'DO alarm: synthesis exceeded wall-clock deadline'
+          : (err instanceof Error ? err.message : 'Phase 1 failed')
         const failState: GraphState = {
           ...initialState,
           verdict: { decision: 'interrupt', confidence: 1.0, reason },
@@ -289,6 +293,94 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         await this.ctx.storage.delete('graphState')
         await this.ctx.storage.put('__completed', true)
         return this.buildResult(workGraphId, failState)
+      }
+
+      // Phase 1 may have ended early (budget exceeded, semantic miscast, gate-1 fail)
+      if (finalState.verdict) {
+        await this.ctx.storage.deleteAlarm()
+        await this.ctx.storage.put('__completed', true)
+        await this.ctx.storage.delete('graphState')
+        await this.persistSynthesisResult(workGraphId, finalState)
+        return this.buildResult(workGraphId, finalState)
+      }
+
+      // ── Phase 2: per-atom parallel execution ──
+      try {
+        const wgAtoms = (finalState.workGraph as Record<string, unknown>).atoms as Record<string, unknown>[] ?? []
+        const wgDeps = (finalState.workGraph as Record<string, unknown>).dependencies as Record<string, unknown>[] ?? []
+        const layers = topologicalSort(wgAtoms, wgDeps)
+
+        console.log(`[Stage 6] Phase 2: ${wgAtoms.length} atoms in ${layers.length} layers`)
+
+        const atomSpecs = new Map<string, Record<string, unknown>>()
+        for (const atom of wgAtoms) {
+          atomSpecs.set((atom.id ?? atom._key) as string, atom)
+        }
+
+        const atomDeps: AtomExecutorDeps = {
+          coderAgent,
+          criticAgent: { codeReview: (input) => criticAgent.codeReview(input as CodeReviewInput) },
+          testerAgent,
+          verifierAgent,
+          callModel,
+          fetchMentorRules,
+        }
+
+        const completedArtifacts = new Map<string, AtomResult>()
+        const sharedContext = {
+          workGraphId,
+          specContent: finalState.specContent ?? null,
+          briefingScript: finalState.briefingScript,
+        }
+
+        for (const layer of layers) {
+          console.log(`[Stage 6] Phase 2: Layer ${layer.index} — ${layer.atomIds.length} atoms (${layer.atomIds.join(', ')})`)
+          const layerResults = await executeLayer(
+            layer,
+            atomSpecs,
+            completedArtifacts,
+            atomDeps,
+            sharedContext,
+            { maxRetries: 3, dryRun },
+          )
+          for (const [atomId, result] of layerResults) {
+            completedArtifacts.set(atomId, result)
+            console.log(`[Stage 6] Phase 2: Atom ${atomId} → ${result.verdict.decision} (retries: ${result.retryCount})`)
+          }
+        }
+
+        // ── Phase 3: integration verdict ──
+        const atomResults = [...completedArtifacts.values()]
+        const allPassed = atomResults.every(r => r.verdict.decision === 'pass')
+        const failedAtoms = atomResults.filter(r => r.verdict.decision !== 'pass')
+
+        const mergedCode = {
+          files: atomResults.flatMap(r => r.codeArtifact?.files ?? []),
+          summary: atomResults.map(r => `[${r.atomId}] ${r.codeArtifact?.summary ?? 'no code'}`).join('; '),
+          testsIncluded: atomResults.some(r => r.codeArtifact?.testsIncluded),
+        }
+
+        finalState = {
+          ...finalState,
+          code: mergedCode,
+          verdict: allPassed
+            ? { decision: 'pass', confidence: 0.9, reason: `All ${atomResults.length} atoms passed` }
+            : {
+                decision: 'fail',
+                confidence: 0.8,
+                reason: `${failedAtoms.length}/${atomResults.length} atoms failed: ${failedAtoms.map(a => a.atomId).join(', ')}`,
+                failedAtomIds: failedAtoms.map(a => a.atomId),
+              },
+          repairCount: atomResults.reduce((sum, r) => sum + r.retryCount, 0),
+        }
+
+        console.log(`[Stage 6] Phase 3: ${allPassed ? 'PASS' : 'FAIL'} — ${atomResults.length} atoms, ${failedAtoms.length} failed`)
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : 'Phase 2/3 failed'
+        finalState = {
+          ...finalState,
+          verdict: { decision: 'interrupt', confidence: 1.0, reason },
+        }
       }
 
       await this.ctx.storage.deleteAlarm()

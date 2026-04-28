@@ -32,12 +32,20 @@ export interface GraphDeps {
   testerAgent?: { runTests: (input: TesterInput) => Promise<TestReport> }
   /** When provided, the verifier node uses the real VerifierAgent (gdk-agent agentLoop) instead of callModel. */
   verifierAgent?: { verify: (input: any) => Promise<Verdict> }
+
+  /**
+   * v5: When true, graph stops after planner (Phase 1 only).
+   * Phase 2 (per-atom execution) is handled by the coordinator via layer-dispatch.
+   * Requires 9-node mode (architectAgent + criticAgent).
+   */
+  verticalSlicing?: boolean
 }
 
 export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
   const graph = new StateGraph<GraphState>()
 
   const has9Node = !!(deps.architectAgent && deps.criticAgent)
+  const verticalSlicing = !!(deps.verticalSlicing && has9Node)
 
   // ── Budget-check node (unchanged logic) ──
   graph.addNode('budget-check', async (state) => {
@@ -147,32 +155,38 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
     })
 
     // code-critic — calls CriticAgent.codeReview() between coder and tester
-    graph.addNode('code-critic', async (state) => {
-      const mentorRules = await deps.fetchMentorRules()
-      const critique = await deps.criticAgent!.codeReview({
-        code: state.code,
-        plan: state.plan,
-        workGraph: state.workGraph as Record<string, unknown>,
-        mentorRules: mentorRules.map(r => `${r.ruleId}: ${r.rule}`),
+    // Not added in verticalSlicing mode (handled per-atom in Phase 2)
+    if (!verticalSlicing) {
+      graph.addNode('code-critic', async (state) => {
+        const mentorRules = await deps.fetchMentorRules()
+        const critique = await deps.criticAgent!.codeReview({
+          code: state.code,
+          plan: state.plan,
+          workGraph: state.workGraph as Record<string, unknown>,
+          mentorRules: mentorRules.map(r => `${r.ruleId}: ${r.rule}`),
+        })
+        const updated: Partial<GraphState> = {
+          critique,
+          roleHistory: [
+            ...state.roleHistory,
+            { role: 'code-critic', output: critique, tokenUsage: 0, timestamp: new Date().toISOString() },
+          ],
+        }
+        await deps.persistState({ ...state, ...updated } as GraphState, 'code-critic')
+        return updated
       })
-      const updated: Partial<GraphState> = {
-        critique,
-        roleHistory: [
-          ...state.roleHistory,
-          { role: 'code-critic', output: critique, tokenUsage: 0, timestamp: new Date().toISOString() },
-        ],
-      }
-      await deps.persistState({ ...state, ...updated } as GraphState, 'code-critic')
-      return updated
-    })
+    }
   }
 
   // ── Standard role nodes ──
+  // In vertical-slicing mode: only planner (coder/tester/verifier handled per-atom by layer-dispatch)
   // In 9-node mode: planner, coder, tester, verifier (critic replaced by code-critic)
   // In 5-node mode: planner, coder, critic, tester, verifier
-  const standardRoles: RoleName[] = has9Node
-    ? ['planner', 'coder', 'tester', 'verifier']
-    : ['planner', 'coder', 'critic', 'tester', 'verifier']
+  const standardRoles: RoleName[] = verticalSlicing
+    ? ['planner']
+    : has9Node
+      ? ['planner', 'coder', 'tester', 'verifier']
+      : ['planner', 'coder', 'critic', 'tester', 'verifier']
 
   for (const roleName of standardRoles) {
     // Use executionRole dispatch for coder/tester when provided
@@ -353,7 +367,33 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
   graph.setEntryPoint('budget-check')
 
   // ── Edges ──
-  if (has9Node) {
+  if (verticalSlicing) {
+    // v5: Phase 1 only — graph stops after planner
+    // Architect pipeline edges
+    graph.addEdge('architect', 'semantic-critic')
+    graph.addEdge('compile', 'gate-1')
+    graph.addEdge('gate-1', 'planner')
+
+    // Planner goes to END — Phase 2 handled by coordinator via layer-dispatch
+    graph.addEdge('planner', END)
+
+    // Semantic-critic conditional: miscast → END, else → compile
+    graph.addConditionalEdge('semantic-critic', (state) => {
+      if (state.verdict?.decision === 'fail') return END
+      return 'compile'
+    })
+
+    // Budget-check conditional: fail/interrupt → END, else → architect
+    graph.addConditionalEdge('budget-check', (state) => {
+      if (state.verdict?.decision === 'fail' || state.verdict?.decision === 'interrupt') {
+        return END
+      }
+      // First pass: no briefingScript yet → architect pipeline
+      if (!state.briefingScript) return 'architect'
+      // Repair: briefingScript already set → skip to planner
+      return 'planner'
+    })
+  } else if (has9Node) {
     // Architect pipeline edges
     graph.addEdge('architect', 'semantic-critic')
     graph.addEdge('compile', 'gate-1')
@@ -396,21 +436,25 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
     })
   }
 
-  // Verifier routing (shared between both topologies)
-  graph.addConditionalEdge('verifier', (state) => {
-    if (!state.verdict) return END
-    switch (state.verdict.decision) {
-      case 'pass':
-      case 'interrupt':
-      case 'fail':
-        return END
-      case 'patch':
-      case 'resample':
-        return 'budget-check'
-      default:
-        return END
-    }
-  })
+  // Verifier routing (shared between non-verticalSlicing topologies)
+  // In verticalSlicing mode, there is no verifier node in the graph —
+  // per-atom verification is handled by executeAtomSlice in Phase 2.
+  if (!verticalSlicing) {
+    graph.addConditionalEdge('verifier', (state) => {
+      if (!state.verdict) return END
+      switch (state.verdict.decision) {
+        case 'pass':
+        case 'interrupt':
+        case 'fail':
+          return END
+        case 'patch':
+        case 'resample':
+          return 'budget-check'
+        default:
+          return END
+      }
+    })
+  }
 
   return graph
 }
