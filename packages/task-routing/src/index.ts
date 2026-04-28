@@ -72,26 +72,31 @@ export interface ResolvedRoute {
 
 // ── Workers AI models ──
 
-const CF_PRIMARY: RouteTarget = { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' }
+const CF_70B: RouteTarget = { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' }
+const CF_CODER: RouteTarget = { provider: 'cloudflare', model: '@cf/qwen/qwen2.5-coder-32b-instruct' }
 
-// ── Default config: Workers AI for everything ──
+// ── Default config ──
+// Pipeline stages (1-5): llama-70b for richer structural output (invariants, deps)
+// Agent roles (Stage 6): qwen-coder-32b for reliable text tool calls + JSON output
 
 export const DEFAULT_CONFIG: RoutingConfig = {
   routes: [
-    { kind: 'planning', primary: CF_PRIMARY },
-    { kind: 'structured', primary: CF_PRIMARY },
-    { kind: 'interpretive', primary: CF_PRIMARY },
-    { kind: 'synthesis', primary: CF_PRIMARY },
-    { kind: 'semantic_review', primary: CF_PRIMARY },
-    { kind: 'validation', primary: CF_PRIMARY },
-    { kind: 'runtime_check', primary: CF_PRIMARY },
-    { kind: 'planner', primary: CF_PRIMARY },
-    { kind: 'coder', primary: CF_PRIMARY },
-    { kind: 'critic', primary: CF_PRIMARY },
-    { kind: 'tester', primary: CF_PRIMARY },
-    { kind: 'verifier', primary: CF_PRIMARY },
+    // Pipeline stages — llama-70b (best Gate 1 results: 12 atoms, 7 invariants)
+    { kind: 'planning', primary: CF_70B },
+    { kind: 'structured', primary: CF_70B },
+    { kind: 'interpretive', primary: CF_70B },
+    { kind: 'synthesis', primary: CF_70B },
+    { kind: 'semantic_review', primary: CF_70B },
+    { kind: 'validation', primary: CF_70B },
+    { kind: 'runtime_check', primary: CF_70B },
+    // Agent roles — qwen-coder-32b (reliable text tool calls, completed synthesis)
+    { kind: 'planner', primary: CF_CODER },
+    { kind: 'coder', primary: CF_CODER },
+    { kind: 'critic', primary: CF_CODER },
+    { kind: 'tester', primary: CF_CODER },
+    { kind: 'verifier', primary: CF_CODER },
   ],
-  default: CF_PRIMARY,
+  default: CF_70B,
 }
 
 // ── Resolution functions ──

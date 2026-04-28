@@ -3442,3 +3442,6 @@
 {"timestamp":"2026-04-28T22:15:25.817Z","tool":"Bash","summary":"git status -- '*.test.ts'","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
 {"timestamp":"2026-04-28T22:15:46.285Z","tool":"Agent","summary":"Engineer: wire hot-config into coordinator","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
 {"timestamp":"2026-04-28T22:16:01.808Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test 2>&1 | tail -5","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T22:16:15.753Z","tool":"Bash","summary":"git add -A && git commit -m \"$(cat <<'EOF'\nINFRA: wire hot-config into coordinator — agents get alias overrides + model ","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T22:16:36.565Z","tool":"Bash","summary":"cd /Users/wes/Developer/function-factory/workers/ff-pipeline && npx wrangler deploy 2>&1 | tail -3 && echo \"---\" && INST","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T22:26:05.471Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/task-routing/src/index.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
