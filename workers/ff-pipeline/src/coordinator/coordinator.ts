@@ -130,6 +130,10 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         },
       }
       await this.ctx.storage.put('graphState', interruptedState)
+      await this.ctx.storage.put('__completed', true)
+
+      // Notify the Workflow via Queue so it doesn't hang at waitForEvent
+      await this.notifyCallback(this.buildResult(workGraphId, interruptedState))
     }
   }
 
@@ -259,9 +263,9 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       // Set wall-clock alarm — survives I/O suspension and DO hibernation
       await this.ctx.storage.put('__completed', false)
       await this.ctx.storage.put('__alarm_fired', false)
-      // Scale timeout: 10min base (10 graph nodes × ~60s each) + 30s per atom
+      // Scale timeout: 15min base (10 graph nodes × ~90s each for real LLM) + 30s per atom
       const atoms = (workGraph.atoms as unknown[] | undefined)?.length ?? 0
-      const timeoutMs = Math.max(600_000, 600_000 + atoms * 30_000)
+      const timeoutMs = Math.max(900_000, 900_000 + atoms * 30_000)
       await this.ctx.storage.setAlarm(Date.now() + timeoutMs)
 
       let finalState: GraphState
