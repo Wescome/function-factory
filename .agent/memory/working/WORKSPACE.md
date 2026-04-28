@@ -1,40 +1,40 @@
 # Current Workspace
 
 ## Status
-Session ended at 2026-04-28T17:59:07.212Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
+Session ended at 2026-04-28T19:22:07.766Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
 
 ## Last update
-2026-04-28T17:59:07.212Z
+2026-04-28T19:22:07.766Z
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
-- [17:47:42] Bash: find ~/Library/Preferences/.wrangler -name "*.toml" 2>/dev/null | head -5
-- [17:47:58] Bash: TOKEN=$(grep 'oauth_token' /Users/wes/Library/Preferences/.wrangler/config/default.toml 2>/dev/null | head -1 | sed 's/.
-- [17:48:17] Bash: npx wrangler ai models --json 2>&1 | python3 -c "
-import sys,json
-raw = sys.stdin.read()
-try:
-    models = json.loads(ra
-- [17:51:41] Edit: /Users/wes/Developer/function-factory/packages/task-routing/src/index.ts
-- [17:51:48] Edit: /Users/wes/Developer/function-factory/packages/task-routing/src/index.ts
-- [17:52:33] Agent: Engineer: smaller compiler pass outputs
-- [17:52:44] Bash: find /Users/wes/Developer/function-factory/workers/ff-pipeline/src -name "*.test.ts" | sort
-- [17:52:49] Bash: grep -rn "compilePRD\|runLivePass\|runDryPass\|compile\." /Users/wes/Developer/function-factory/workers/ff-pipeline/src/
-- [17:52:57] Bash: find /Users/wes/Developer/function-factory/workers/ff-pipeline/src -name "*compile*" -o -name "*compile*test*" | sort
-- [17:53:04] Bash: pnpm --filter @factory/ff-pipeline test 2>&1 | tail -20
-- [17:53:16] Bash: grep -rn "PASS_TASK_KINDS\|task-routing" /Users/wes/Developer/function-factory/packages/task-routing/src/ 2>/dev/null | 
-- [17:54:22] Write: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/stages/compile.test.ts
-- [17:54:52] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/stages/compile.ts
-- [17:55:00] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/stages/compile.ts
-- [17:55:07] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/providers.ts
-- [17:55:19] Bash: pnpm --filter @factory/ff-pipeline test -- src/stages/compile.test.ts 2>&1
-- [17:55:30] Bash: pnpm --filter @factory/ff-pipeline test 2>&1
-- [17:56:10] Bash: pnpm --filter @factory/ff-pipeline test 2>&1 | tail -5
-- [17:56:25] Bash: git add -A && git commit -m "$(cat <<'EOF'
-INFRA: qwen2.5-coder-32b + minimal compiler passes (6 LLM, 2 deterministic)
-
-
 - [17:56:48] Bash: cd /Users/wes/Developer/function-factory/workers/ff-pipeline && npx wrangler deploy 2>&1 | tail -3 && echo "---" && INST
+- [18:16:17] Bash: grep -n "createOfoxModel\|deepseek/deepseek-v4-pro\|api.ofox.ai" /Users/wes/Developer/function-factory/workers/ff-pipeli
+- [18:16:32] Write: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/resolve-model.ts
+- [18:16:42] Bash: for f in architect-agent planner-agent coder-agent critic-agent tester-agent verifier-agent; do
+  FILE="/Users/wes/Devel
+- [18:16:57] Bash: for f in architect-agent planner-agent coder-agent critic-agent tester-agent verifier-agent; do
+  FILE="/Users/wes/Devel
+- [18:17:10] Bash: # Replace this.taskKind with the correct TaskKind string literal per agent
+sed -i '' "s|resolveAgentModel(this.taskKind,
+- [18:17:25] Bash: pnpm --filter @factory/ff-pipeline test 2>&1 | tail -5
+- [18:17:38] Bash: git add -A && git commit -m "$(cat <<'EOF'
+INFRA: agents resolve model from task-routing, not hardcoded ofox.ai
+
+Removed
+- [18:18:00] Bash: cd /Users/wes/Developer/function-factory/workers/ff-pipeline && npx wrangler deploy 2>&1 | tail -3 && echo "---" && INST
+- [19:15:55] Write: /Users/wes/Developer/function-factory/specs/reference/ADR-006-workers-ai-stream-adapter.md
+- [19:16:08] Bash: git add specs/reference/ADR-006-workers-ai-stream-adapter.md && git commit -m "$(cat <<'EOF'
+META: ADR-006 — Workers AI 
+- [19:18:29] Write: /Users/wes/.claude/projects/-Users-wes-Developer-function-factory/memory/feedback_always_review_never_ask.md
+- [19:18:40] Edit: /Users/wes/.claude/projects/-Users-wes-Developer-function-factory/memory/MEMORY.md
+- [19:19:23] Bash: grep -n "AssistantMessageEventStream\|StreamFn\|streamSimple\|export" /Users/wes/Developer/function-factory/packages/gdk
+- [19:19:23] Bash: grep -rn "StreamFn\|StreamFunction" /Users/wes/Developer/function-factory/packages/gdk-ai/src/ 2>/dev/null | head -20
+- [19:19:31] Bash: grep -n "export.*function streamSimple\|export.*streamSimple" /Users/wes/Developer/function-factory/packages/gdk-ai/src/
+- [19:19:32] Bash: grep -n "toolResult\|role.*toolResult" /Users/wes/Developer/function-factory/packages/gdk-ai/src/providers/openai-comple
+- [19:19:46] Bash: grep -rn "qwen\|function_call\|tool_calls\|tool_use" /Users/wes/Developer/function-factory/workers/ff-pipeline/ 2>/dev/n
+- [19:21:13] Agent: Architect reviews ADR-006
+- [19:21:55] Agent: Engineer: ADR-006 Workers AI stream adapter
 
 ## Notes
 This file is auto-updated on session end. Manual edits will be overwritten.

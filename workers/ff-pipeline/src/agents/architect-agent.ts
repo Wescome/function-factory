@@ -12,6 +12,7 @@ import { Type, type Model, type AssistantMessage, type Message, type UserMessage
 import type { ArangoClient } from '@factory/arango-client'
 import { resolveAgentModel } from './resolve-model'
 import { coerceToString, coerceToArray } from './coerce'
+import { createWorkersAIStreamFn, type AIBinding } from './workers-ai-stream'
 
 export interface BriefingScript {
   goal: string
@@ -35,6 +36,8 @@ export interface ArchitectAgentOpts {
   dryRun?: boolean
   /** Override model for testing (e.g. faux provider) */
   model?: Model<any>
+  /** Workers AI binding — when present, uses CF binding instead of HTTP */
+  ai?: AIBinding
 }
 
 const SYSTEM_PROMPT = `You are the Architect agent in the Function Factory synthesis pipeline.
@@ -104,12 +107,14 @@ export class ArchitectAgent {
   private apiKey: string
   private dryRun: boolean
   private modelOverride?: Model<any>
+  private ai?: AIBinding
 
   constructor(opts: ArchitectAgentOpts) {
     this.db = opts.db
     this.apiKey = opts.apiKey
     this.dryRun = opts.dryRun ?? false
     this.modelOverride = opts.model
+    this.ai = opts.ai
   }
 
   async produceBriefingScript(input: BriefingInput): Promise<BriefingScript> {
@@ -138,6 +143,8 @@ export class ArchitectAgent {
       timestamp: Date.now(),
     }
 
+    const streamFn = this.ai ? createWorkersAIStreamFn(this.ai) : undefined
+
     const stream = agentLoop(
       [userMessage],
       { systemPrompt: SYSTEM_PROMPT, messages: [], tools },
@@ -148,6 +155,7 @@ export class ArchitectAgent {
         maxTokens: 4096,
       },
       AbortSignal.timeout(600_000),
+      streamFn,
     )
 
     const messages = await stream.result()

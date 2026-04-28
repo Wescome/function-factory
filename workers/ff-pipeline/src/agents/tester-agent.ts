@@ -16,6 +16,7 @@ import type { CritiqueReport, Plan, CodeArtifact } from '../coordinator/state'
 import { buildArangoTool } from './architect-agent'
 import { resolveAgentModel } from './resolve-model'
 import { coerceToString, coerceToArray, coerceToNumber, coerceToBoolean } from './coerce'
+import { createWorkersAIStreamFn, type AIBinding } from './workers-ai-stream'
 
 // Re-export TestReport from state so consumers can import from tester-agent
 export type { TestReport } from '../coordinator/state'
@@ -34,6 +35,8 @@ export interface TesterAgentOpts {
   dryRun?: boolean
   /** Override model for testing (e.g. faux provider) */
   model?: Model<any>
+  /** Workers AI binding — when present, uses CF binding instead of HTTP */
+  ai?: AIBinding
 }
 
 const SYSTEM_PROMPT = `You are the Tester agent in the Function Factory synthesis pipeline.
@@ -77,12 +80,14 @@ export class TesterAgent {
   private apiKey: string
   private dryRun: boolean
   private modelOverride?: Model<any>
+  private ai?: AIBinding
 
   constructor(opts: TesterAgentOpts) {
     this.db = opts.db
     this.apiKey = opts.apiKey
     this.dryRun = opts.dryRun ?? false
     this.modelOverride = opts.model
+    this.ai = opts.ai
   }
 
   async runTests(input: TesterInput): Promise<TestReport> {
@@ -116,6 +121,8 @@ export class TesterAgent {
       timestamp: Date.now(),
     }
 
+    const streamFn = this.ai ? createWorkersAIStreamFn(this.ai) : undefined
+
     const stream = agentLoop(
       [userMessage],
       { systemPrompt: SYSTEM_PROMPT, messages: [], tools },
@@ -126,6 +133,7 @@ export class TesterAgent {
         maxTokens: 4096,
       },
       AbortSignal.timeout(600_000),
+      streamFn,
     )
 
     const messages = await stream.result()

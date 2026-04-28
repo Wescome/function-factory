@@ -25,6 +25,8 @@ export interface CoordinatorEnv {
   ARANGO_USERNAME?: string
   ARANGO_PASSWORD?: string
   OFOX_API_KEY?: string
+  /** Workers AI binding — when present, agents use CF binding instead of HTTP (ADR-006) */
+  AI?: { run(model: string, input: Record<string, unknown>): Promise<Record<string, unknown>> }
   /** @cloudflare/sandbox DurableObject namespace binding. Optional until sandbox container is deployed. */
   SANDBOX?: unknown
   /** Queue for publishing synthesis results back to the Worker (avoids self-fetch deadlock) */
@@ -197,31 +199,37 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         db: this.getDb(),
         apiKey: this.env.OFOX_API_KEY ?? '',
         dryRun,
+        ai: this.env.AI,
       })
       const coderAgent = new CoderAgent({
         db: this.getDb(),
         apiKey: this.env.OFOX_API_KEY ?? '',
         dryRun,
+        ai: this.env.AI,
       })
       const plannerAgent = new PlannerAgent({
         db: this.getDb(),
         apiKey: this.env.OFOX_API_KEY ?? '',
         dryRun,
+        ai: this.env.AI,
       })
       const testerAgent = new TesterAgent({
         db: this.getDb(),
         apiKey: this.env.OFOX_API_KEY ?? '',
         dryRun,
+        ai: this.env.AI,
       })
       const verifierAgent = new VerifierAgent({
         db: this.getDb(),
         apiKey: this.env.OFOX_API_KEY ?? '',
         dryRun,
+        ai: this.env.AI,
       })
       const criticAgent = new CriticAgent({
         db: this.getDb(),
         apiKey: this.env.OFOX_API_KEY ?? '',
         dryRun,
+        ai: this.env.AI,
       })
 
       const deps: GraphDeps = {
