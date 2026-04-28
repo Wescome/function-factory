@@ -85,7 +85,7 @@ export const DEFAULT_CONFIG: RoutingConfig = {
     {
       kind: 'planning',
       primary: { provider: 'deepseek', model: 'deepseek-v4-flash' },
-      fallback: { provider: 'cloudflare', model: '@cf/meta/llama-3.1-8b-instruct' },
+      fallback: { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
       passOverrides: {
         // Stage 2: Pressure synthesis — needs causal reasoning
         'stage_2_pressure': {
@@ -99,18 +99,18 @@ export const DEFAULT_CONFIG: RoutingConfig = {
         },
         // Stage 1: Signal ingestion — trivial extraction, Workers AI
         'stage_1_signal': {
-          primary: { provider: 'cloudflare', model: '@cf/meta/llama-3.1-8b-instruct' },
+          primary: { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
           fallback: { provider: 'deepseek', model: 'deepseek-v4-flash' },
         },
         // Compiler pass 0: Normalize — extraction
         'pass_0_normalize': {
           primary: { provider: 'deepseek', model: 'deepseek-v4-flash' },
-          fallback: { provider: 'cloudflare', model: '@cf/meta/llama-3.1-8b-instruct' },
+          fallback: { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
         },
         // Compiler pass 1: Atoms — decomposition
         'pass_1_atoms': {
           primary: { provider: 'deepseek', model: 'deepseek-v4-flash' },
-          fallback: { provider: 'cloudflare', model: '@cf/meta/llama-3.1-8b-instruct' },
+          fallback: { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
         },
       },
     },
@@ -119,11 +119,11 @@ export const DEFAULT_CONFIG: RoutingConfig = {
     {
       kind: 'structured',
       primary: { provider: 'deepseek', model: 'deepseek-v4-flash' },
-      fallback: { provider: 'cloudflare', model: '@cf/meta/llama-3.1-8b-instruct' },
+      fallback: { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
       passOverrides: {
         'pass_2_contracts': {
           primary: { provider: 'deepseek', model: 'deepseek-v4-flash' },
-          fallback: { provider: 'cloudflare', model: '@cf/meta/llama-3.1-8b-instruct' },
+          fallback: { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
         },
         'pass_3_invariants': {
           primary: { provider: 'z-ai', model: 'glm-5' },
@@ -131,7 +131,7 @@ export const DEFAULT_CONFIG: RoutingConfig = {
         },
         'pass_4_dependencies': {
           primary: { provider: 'deepseek', model: 'deepseek-v4-flash' },
-          fallback: { provider: 'cloudflare', model: '@cf/meta/llama-3.1-8b-instruct' },
+          fallback: { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
         },
         'pass_5_validations': {
           primary: { provider: 'z-ai', model: 'glm-5' },
@@ -165,14 +165,14 @@ export const DEFAULT_CONFIG: RoutingConfig = {
     {
       kind: 'validation',
       primary: { provider: 'deepseek', model: 'deepseek-v4-flash' },
-      fallback: { provider: 'cloudflare', model: '@cf/meta/llama-3.1-8b-instruct' },
+      fallback: { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
     },
 
     // Runtime check (Stage 7 monitoring, Gate 3)
     {
       kind: 'runtime_check',
       primary: { provider: 'deepseek', model: 'deepseek-v4-flash' },
-      fallback: { provider: 'cloudflare', model: '@cf/meta/llama-3.1-8b-instruct' },
+      fallback: { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
     },
 
     // Stage 6 roles
