@@ -3206,3 +3206,19 @@
 {"timestamp":"2026-04-28T19:28:32.228Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test 2>&1 | tail -60","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
 {"timestamp":"2026-04-28T19:28:44.927Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test 2>&1 | grep \"workers-ai-stream\"","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
 {"timestamp":"2026-04-28T19:29:24.399Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test 2>&1 | tail -5","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T19:29:32.596Z","tool":"Bash","summary":"git add -A && git diff --cached --stat","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T19:29:45.359Z","tool":"Bash","summary":"git commit -m \"$(cat <<'EOF'\nINFRA: ADR-006 — Workers AI stream adapter for gdk-agent agentLoop\n\nCustom StreamFn wraps e","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T19:30:05.926Z","tool":"Bash","summary":"cd /Users/wes/Developer/function-factory/workers/ff-pipeline && npx wrangler deploy 2>&1 | tail -3 && echo \"---\" && INST","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T19:37:19.146Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test -- --run workers-ai-stream 2>&1 | tail -30","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T19:37:25.284Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/workers-ai-stream.test.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T19:37:56.557Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/workers-ai-stream.test.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T19:38:04.501Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test -- --run workers-ai-stream 2>&1 | tail -40","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T19:38:14.489Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test -- --run workers-ai-stream 2>&1 | grep -E '(✓|✗|FAIL|PASS|passed|failed)'","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T19:38:39.235Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/workers-ai-stream.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T19:38:44.729Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/workers-ai-stream.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T19:38:50.781Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test -- --run workers-ai-stream 2>&1","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T19:39:04.415Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test -- --run 2>&1 | tail -20","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T19:39:17.599Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/workers-ai-stream.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T19:39:29.912Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test -- --run 2>&1 | tail -10","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T19:39:47.694Z","tool":"Agent","summary":"Engineer: text-based tool call detection","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T19:40:02.612Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test 2>&1 | tail -5","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}

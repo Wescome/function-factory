@@ -10,6 +10,7 @@
  *   I3: toolResult → { role: 'tool', tool_call_id, content } (OpenAI format)
  *   I4: response_format only when no tools in context
  *   G1: try-with-tools / catch-and-retry-without fallback
+ *   G1-text: detect tool calls returned as plain text JSON (models without native function calling)
  */
 
 import type { StreamFn } from '@weops/gdk-agent'  // I1: correct import
@@ -203,10 +204,88 @@ function zeroUsage(): AssistantMessage['usage'] {
   }
 }
 
+/** Counter for generating unique tool call IDs across turns */
+let toolCallCounter = 0
+
+/**
+ * Detect tool calls embedded as plain text JSON in the model response.
+ *
+ * Some models (e.g. qwen2.5-coder-32b) don't support native function calling
+ * and instead return tool calls as plain text JSON objects. This function
+ * parses those into structured ToolCall blocks.
+ *
+ * Conservative: only matches when the "name" field matches a tool the agent
+ * actually has available. Returns null if no valid tool calls found.
+ */
+export function detectTextToolCalls(text: string, availableTools: string[]): ToolCall[] | null {
+  if (availableTools.length === 0) return null
+
+  const toolCalls: ToolCall[] = []
+
+  // Strategy 1: Try to parse each line as a standalone JSON tool call object.
+  // This handles the common case of one or more tool calls separated by newlines.
+  const lines = text.trim().split('\n').filter(l => l.trim().length > 0)
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (!trimmed.startsWith('{')) continue
+    try {
+      const parsed = JSON.parse(trimmed)
+      if (
+        typeof parsed.name === 'string' &&
+        availableTools.includes(parsed.name) &&
+        parsed.arguments !== undefined
+      ) {
+        const args = typeof parsed.arguments === 'string'
+          ? JSON.parse(parsed.arguments)
+          : parsed.arguments
+        toolCalls.push({
+          type: 'toolCall',
+          id: `tc-${Date.now()}-${toolCallCounter++}`,
+          name: parsed.name,
+          arguments: args,
+        })
+      }
+    } catch {
+      // Not valid JSON on this line, skip
+    }
+  }
+
+  if (toolCalls.length > 0) return toolCalls
+
+  // Strategy 2: The entire text is a single JSON tool call (no newlines).
+  try {
+    const parsed = JSON.parse(text.trim())
+    if (
+      typeof parsed.name === 'string' &&
+      availableTools.includes(parsed.name) &&
+      parsed.arguments !== undefined
+    ) {
+      const args = typeof parsed.arguments === 'string'
+        ? JSON.parse(parsed.arguments)
+        : parsed.arguments
+      toolCalls.push({
+        type: 'toolCall',
+        id: `tc-${Date.now()}-${toolCallCounter++}`,
+        name: parsed.name,
+        arguments: args,
+      })
+    }
+  } catch {
+    // Not a tool call
+  }
+
+  return toolCalls.length > 0 ? toolCalls : null
+}
+
 /**
  * Parse Workers AI response into AssistantMessage content blocks.
+ *
+ * Checks in order:
+ *   1. Native structured tool_calls (model supports function calling)
+ *   2. Text-based tool calls (G1 fallback — model returns tool call as plain text JSON)
+ *   3. Regular text response
  */
-function parseResponse(resp: unknown): {
+function parseResponse(resp: unknown, availableToolNames: string[]): {
   content: AssistantMessage['content']
   stopReason: AssistantMessage['stopReason']
 } {
@@ -214,11 +293,11 @@ function parseResponse(resp: unknown): {
     ? resp as Record<string, unknown>
     : null
 
-  // Check for tool_calls in the response
+  // 1. Check for native tool_calls in the response (structured)
   if (parsed?.tool_calls && Array.isArray(parsed.tool_calls)) {
     const content: ToolCall[] = parsed.tool_calls.map((tc: any) => ({
       type: 'toolCall' as const,
-      id: tc.id ?? `call-${Date.now()}`,
+      id: tc.id ?? `tc-${Date.now()}-${toolCallCounter++}`,
       name: tc.function?.name ?? 'unknown',
       arguments: typeof tc.function?.arguments === 'string'
         ? JSON.parse(tc.function.arguments)
@@ -227,8 +306,18 @@ function parseResponse(resp: unknown): {
     return { content, stopReason: 'toolUse' }
   }
 
-  // Plain text response
+  // Get the raw text
   const raw = typeof resp === 'string' ? resp : JSON.stringify(resp)
+
+  // 2. Check for text-based tool calls (G1 fallback path)
+  if (availableToolNames.length > 0) {
+    const textToolCalls = detectTextToolCalls(raw, availableToolNames)
+    if (textToolCalls) {
+      return { content: textToolCalls, stopReason: 'toolUse' }
+    }
+  }
+
+  // 3. Regular text response
   const content: TextContent[] = [{ type: 'text', text: raw }]
   return { content, stopReason: 'stop' }
 }
@@ -267,7 +356,8 @@ export function createWorkersAIStreamFn(ai: AIBinding): StreamFn {
         }
 
         const resp = result.response
-        const { content, stopReason } = parseResponse(resp)
+        const availableToolNames = context.tools?.map(t => t.name) ?? []
+        const { content, stopReason } = parseResponse(resp, availableToolNames)
 
         const message: AssistantMessage = {
           role: 'assistant',

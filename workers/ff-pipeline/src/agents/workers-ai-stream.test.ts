@@ -12,7 +12,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { Type } from '@weops/gdk-ai'
 import type { AssistantMessage, AssistantMessageEvent, Context, Model, TextContent, ToolCall } from '@weops/gdk-ai'
-import { createWorkersAIStreamFn, type AIBinding } from './workers-ai-stream'
+import { createWorkersAIStreamFn, detectTextToolCalls, type AIBinding } from './workers-ai-stream'
 
 /** Minimal model fixture for Workers AI adapter */
 function makeModel(id = '@cf/qwen/qwen2.5-coder-32b-instruct'): Model<any> {
@@ -411,6 +411,184 @@ describe('createWorkersAIStreamFn', () => {
       const toolMsg = messages.find((m: any) => m.role === 'tool')
       expect(toolMsg).toBeTruthy()
       expect(toolMsg.tool_call_id).toBe('tc-1')
+    })
+  })
+
+  describe('G1-text: text-based tool call detection', () => {
+    describe('detectTextToolCalls unit', () => {
+      it('detects a single tool call JSON in plain text', () => {
+        const text = '{"name": "arango_query", "arguments": {"query": "FOR d IN memory_semantic RETURN d"}}'
+        const result = detectTextToolCalls(text, ['arango_query'])
+        expect(result).not.toBeNull()
+        expect(result!.length).toBe(1)
+        expect(result![0].type).toBe('toolCall')
+        expect(result![0].name).toBe('arango_query')
+        expect(result![0].arguments).toEqual({ query: 'FOR d IN memory_semantic RETURN d' })
+        expect(result![0].id).toMatch(/^tc-/)
+      })
+
+      it('detects multiple tool calls separated by newlines', () => {
+        const text = [
+          '{"name": "arango_query", "arguments": {"query": "FOR d IN col1 RETURN d"}}',
+          '{"name": "arango_query", "arguments": {"query": "FOR d IN col2 RETURN d"}}',
+        ].join('\n')
+        const result = detectTextToolCalls(text, ['arango_query'])
+        expect(result).not.toBeNull()
+        expect(result!.length).toBe(2)
+        expect(result![0].arguments).toEqual({ query: 'FOR d IN col1 RETURN d' })
+        expect(result![1].arguments).toEqual({ query: 'FOR d IN col2 RETURN d' })
+        // IDs must be unique
+        expect(result![0].id).not.toBe(result![1].id)
+      })
+
+      it('returns null when tool name is not in available tools', () => {
+        const text = '{"name": "unknown_tool", "arguments": {"x": 1}}'
+        const result = detectTextToolCalls(text, ['arango_query', 'store_memory'])
+        expect(result).toBeNull()
+      })
+
+      it('returns null for regular text/JSON that is not a tool call', () => {
+        const text = '{"goal": "answer the question", "status": "done"}'
+        const result = detectTextToolCalls(text, ['arango_query'])
+        expect(result).toBeNull()
+      })
+
+      it('returns null for empty available tools list', () => {
+        const text = '{"name": "arango_query", "arguments": {"query": "RETURN 1"}}'
+        const result = detectTextToolCalls(text, [])
+        expect(result).toBeNull()
+      })
+
+      it('handles arguments as nested objects with special characters', () => {
+        const text = '{"name": "arango_query", "arguments": {"query": "FOR d IN memory_semantic FILTER d.type == \'decision\' RETURN { key: d._key }"}}'
+        const result = detectTextToolCalls(text, ['arango_query'])
+        expect(result).not.toBeNull()
+        expect(result!.length).toBe(1)
+        expect(result![0].name).toBe('arango_query')
+      })
+    })
+
+    describe('adapter integration with text tool calls', () => {
+      it('detects text tool call from G1 fallback and returns ToolCall content', async () => {
+        // Simulate: first call with tools fails, fallback returns text-based tool call
+        let callCount = 0
+        const mockAI: AIBinding = {
+          run: vi.fn().mockImplementation(async (_model: string, input: Record<string, unknown>) => {
+            callCount++
+            if (callCount === 1 && input.tools) {
+              throw new Error('tools parameter not supported')
+            }
+            // Fallback returns plain text that is a tool call
+            return {
+              response: '{"name": "arango_query", "arguments": {"query": "FOR d IN decisions RETURN d"}}',
+            }
+          }),
+        }
+
+        const streamFn = createWorkersAIStreamFn(mockAI)
+        const model = makeModel()
+        const context: Context = {
+          systemPrompt: 'You are helpful.',
+          messages: [{ role: 'user', content: 'Show me decisions', timestamp: Date.now() }],
+          tools: [{
+            name: 'arango_query',
+            description: 'Run AQL query',
+            parameters: Type.Object({ query: Type.String() }),
+          }],
+        }
+
+        const stream = await streamFn(model, context)
+        const events = await collectEvents(stream)
+
+        expect(callCount).toBe(2) // tried with tools, then fallback
+        expect(events.some(e => e.type === 'done')).toBe(true)
+
+        const finalMsg = await stream.result()
+        expect(finalMsg.stopReason).toBe('toolUse')
+        expect(finalMsg.content.length).toBe(1)
+        expect(finalMsg.content[0].type).toBe('toolCall')
+
+        const tc = finalMsg.content[0] as ToolCall
+        expect(tc.name).toBe('arango_query')
+        expect(tc.arguments).toEqual({ query: 'FOR d IN decisions RETURN d' })
+      })
+
+      it('treats text as regular response when tool name not in available tools', async () => {
+        const mockAI: AIBinding = {
+          run: vi.fn().mockResolvedValue({
+            response: '{"name": "unknown_tool", "arguments": {"x": 1}}',
+          }),
+        }
+
+        const streamFn = createWorkersAIStreamFn(mockAI)
+        const model = makeModel()
+        const context: Context = {
+          systemPrompt: 'You are helpful.',
+          messages: [{ role: 'user', content: 'Hello', timestamp: Date.now() }],
+          tools: [{
+            name: 'arango_query',
+            description: 'Run AQL query',
+            parameters: Type.Object({ query: Type.String() }),
+          }],
+        }
+
+        const stream = await streamFn(model, context)
+        const finalMsg = await stream.result()
+
+        expect(finalMsg.stopReason).toBe('stop')
+        expect(finalMsg.content[0].type).toBe('text')
+      })
+
+      it('detects text tool call even when native tool calling succeeds (model returns text)', async () => {
+        // Model supports tools parameter but returns tool call as text anyway
+        const mockAI: AIBinding = {
+          run: vi.fn().mockResolvedValue({
+            response: '{"name": "arango_query", "arguments": {"query": "RETURN 1"}}',
+          }),
+        }
+
+        const streamFn = createWorkersAIStreamFn(mockAI)
+        const model = makeModel()
+        const context: Context = {
+          systemPrompt: 'You are helpful.',
+          messages: [{ role: 'user', content: 'Run query', timestamp: Date.now() }],
+          tools: [{
+            name: 'arango_query',
+            description: 'Run AQL query',
+            parameters: Type.Object({ query: Type.String() }),
+          }],
+        }
+
+        const stream = await streamFn(model, context)
+        const finalMsg = await stream.result()
+
+        expect(finalMsg.stopReason).toBe('toolUse')
+        expect(finalMsg.content[0].type).toBe('toolCall')
+        expect((finalMsg.content[0] as ToolCall).name).toBe('arango_query')
+      })
+
+      it('does NOT detect text tool calls when no tools in context', async () => {
+        // Even if text looks like a tool call, without tools in context, treat as text
+        const mockAI: AIBinding = {
+          run: vi.fn().mockResolvedValue({
+            response: '{"name": "arango_query", "arguments": {"query": "RETURN 1"}}',
+          }),
+        }
+
+        const streamFn = createWorkersAIStreamFn(mockAI)
+        const model = makeModel()
+        const context: Context = {
+          systemPrompt: 'You are helpful.',
+          messages: [{ role: 'user', content: 'Hello', timestamp: Date.now() }],
+          // No tools
+        }
+
+        const stream = await streamFn(model, context)
+        const finalMsg = await stream.result()
+
+        expect(finalMsg.stopReason).toBe('stop')
+        expect(finalMsg.content[0].type).toBe('text')
+      })
     })
   })
 })
