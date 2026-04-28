@@ -3091,3 +3091,6 @@
 {"timestamp":"2026-04-28T16:34:07.180Z","tool":"Bash","summary":"curl -s https://ff-gateway.koales.workers.dev/pipeline/d2a4772b-d118-4543-b3a1-8f6254aba74a 2>&1","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
 {"timestamp":"2026-04-28T16:34:27.911Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/providers.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
 {"timestamp":"2026-04-28T16:34:33.655Z","tool":"Bash","summary":"grep -n \"function extractJSON\\|export function extractJSON\" /Users/wes/Developer/function-factory/workers/ff-pipeline/sr","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T16:34:55.163Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test 2>&1 | tail -3 && git add -A && git commit -m \"$(cat <<'EOF'\nINFRA: apply extrac","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T16:35:05.876Z","tool":"Bash","summary":"cd /Users/wes/Developer/function-factory/workers/ff-pipeline && npx wrangler deploy 2>&1 | tail -3 && echo \"---\" && INST","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T16:42:23.227Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/stages/propose-function.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}

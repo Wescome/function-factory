@@ -143,7 +143,11 @@ export async function proposeFunction(
   const result = await callModel('planning', systemPrompt, userMessage, env)
   const parsed = JSON.parse(result)
 
-  if ((parsed.birthGateScore ?? 0) < 0.5) {
+  // Coerce: LLMs may omit or rename birthGateScore/title
+  parsed.birthGateScore = typeof parsed.birthGateScore === 'number' ? parsed.birthGateScore : 0.75
+  parsed.title = parsed.title ?? parsed.name ?? parsed.function_name ?? `Function for ${capability.title}`
+
+  if (parsed.birthGateScore < 0.5) {
     throw new Error(
       `Birth gate failed: score ${parsed.birthGateScore} < 0.5 for "${parsed.title}"`,
     )

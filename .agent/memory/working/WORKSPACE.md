@@ -1,20 +1,13 @@
 # Current Workspace
 
 ## Status
-Session ended at 2026-04-28T16:02:18.206Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
+Session ended at 2026-04-28T16:35:10.394Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
 
 ## Last update
-2026-04-28T16:02:18.206Z
+2026-04-28T16:35:10.394Z
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
-- [15:32:08] Bash: grep -n "AI binding not available" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/providers.test.ts
-- [15:32:17] Bash: grep -n "cloudflare.*AI\|no AI binding\|Workers AI" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/provid
-- [15:32:34] Bash: pnpm --filter @factory/ff-pipeline test -- src/providers.test.ts 2>&1 | tail -10
-- [15:33:10] Bash: pnpm --filter @factory/ff-pipeline test -- src/providers.test.ts 2>&1 | grep -A5 "FAIL"
-- [15:33:18] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/providers.test.ts
-- [15:33:38] Bash: pnpm --filter @factory/ff-pipeline test 2>&1 | tail -3 && git add -A && git commit -m "fix: update providers test to mat
-- [15:33:59] Bash: npx wrangler deploy 2>&1 | tail -3 && echo "---" && INST=$(curl -s -X POST https://ff-gateway.koales.workers.dev/pipelin
 - [15:40:09] Bash: curl -s https://ff-gateway.koales.workers.dev/pipeline/6e060ea9-9b63-426b-b91c-e8b6fac0e93b 2>&1
 - [15:40:17] Bash: cat /Users/wes/Library/Preferences/.wrangler/logs/wrangler-2026-04-28_15-34-12_967.log 2>/dev/null | tail -20
 - [15:40:28] Bash: grep -A2 '"ai"' /Users/wes/Developer/function-factory/workers/ff-pipeline/wrangler.jsonc
@@ -30,6 +23,14 @@ import s
 - [16:02:03] Bash: pnpm --filter @factory/ff-pipeline test 2>&1 | tail -3 && git add -A && git commit -m "$(cat <<'EOF'
 INFRA: stringify Wo
 - [16:02:12] Bash: cd /Users/wes/Developer/function-factory/workers/ff-pipeline && npx wrangler deploy 2>&1 | tail -3 && echo "---" && INST
+- [16:33:45] Bash: tail -10 /private/tmp/claude-501/-Users-wes-Developer-function-factory/2c0291b3-73be-4851-ab4c-c4cef55cb4be/tasks/b86fyn
+- [16:33:56] Bash: grep "Instance:" /private/tmp/claude-501/-Users-wes-Developer-function-factory/2c0291b3-73be-4851-ab4c-c4cef55cb4be/task
+- [16:34:07] Bash: curl -s https://ff-gateway.koales.workers.dev/pipeline/d2a4772b-d118-4543-b3a1-8f6254aba74a 2>&1
+- [16:34:27] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/providers.ts
+- [16:34:33] Bash: grep -n "function extractJSON\|export function extractJSON" /Users/wes/Developer/function-factory/workers/ff-pipeline/sr
+- [16:34:55] Bash: pnpm --filter @factory/ff-pipeline test 2>&1 | tail -3 && git add -A && git commit -m "$(cat <<'EOF'
+INFRA: apply extrac
+- [16:35:05] Bash: cd /Users/wes/Developer/function-factory/workers/ff-pipeline && npx wrangler deploy 2>&1 | tail -3 && echo "---" && INST
 
 ## Notes
 This file is auto-updated on session end. Manual edits will be overwritten.
