@@ -40,9 +40,17 @@
   ],
 
   // Queue bindings (Stage 6 synthesis bridge)
+  // SYNTHESIS_QUEUE: pipeline enqueues work for the DO
+  // SYNTHESIS_RESULTS: DO publishes completion results back (avoids self-fetch deadlock)
   "queues": {
-    "producers": [{ "binding": "SYNTHESIS_QUEUE", "queue": "synthesis-queue" }],
-    "consumers": [{ "queue": "synthesis-queue", "max_batch_size": 1, "max_retries": 2 }]
+    "producers": [
+      { "binding": "SYNTHESIS_QUEUE", "queue": "synthesis-queue" },
+      { "binding": "SYNTHESIS_RESULTS", "queue": "synthesis-results" }
+    ],
+    "consumers": [
+      { "queue": "synthesis-queue", "max_batch_size": 1, "max_retries": 2 },
+      { "queue": "synthesis-results", "max_batch_size": 1, "max_retries": 3 }
+    ]
   },
 
   // R2 bucket for workspace persistence

@@ -136,13 +136,40 @@ export default {
   },
 
   async queue(batch: MessageBatch, env: PipelineEnv, _ctx: ExecutionContext): Promise<void> {
-    // Construct the callback URL for the DO to call back on completion.
-    // In production this is the Worker's own URL; the DO calls this route
-    // after synthesis finishes (or on alarm timeout) so the Workflow gets
-    // its synthesis-complete event without the queue consumer blocking.
-    const callbackUrl = 'https://ff-pipeline.koales.workers.dev/synthesis-callback'
-
     for (const msg of batch.messages) {
+
+      // ── synthesis-results queue: DO -> Queue -> Workflow sendEvent ──
+      // The DO publishes to SYNTHESIS_RESULTS queue after synthesis completes.
+      // This consumer relays the result to the Workflow, avoiding CF self-fetch deadlock.
+      if (batch.queue === 'synthesis-results') {
+        const { workflowId, verdict, tokenUsage, repairCount } = msg.body as {
+          workflowId: string
+          verdict: { decision: string; confidence: number; reason: string }
+          tokenUsage: number
+          repairCount: number
+        }
+        try {
+          const workflow = await env.FACTORY_PIPELINE.get(workflowId)
+          await workflow.sendEvent({
+            type: 'synthesis-complete',
+            payload: { verdict, tokenUsage, repairCount },
+          })
+          msg.ack()
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : String(err)
+          console.error(`[Stage 6] synthesis-results relay failed for workflow ${workflowId}: ${errorMessage}`)
+          if (msg.attempts >= 4) {
+            // max_retries: 3 = 4 total attempts. Give up and ack to prevent infinite retry.
+            console.error(`[Stage 6] synthesis-results exhausted retries for workflow ${workflowId}`)
+            msg.ack()
+          } else {
+            msg.retry()
+          }
+        }
+        continue
+      }
+
+      // ── synthesis-queue: dispatch work to Coordinator DO ──
       const { workflowId, workGraphId, workGraph, dryRun, specContent } = msg.body as {
         workflowId: string
         workGraphId: string
@@ -152,8 +179,8 @@ export default {
       }
 
       try {
-        // Fire-and-forget: dispatch to DO with callback info, then ack immediately.
-        // The DO will call back to /synthesis-callback when synthesis completes.
+        // Fire-and-forget: dispatch to DO with workflowId, then ack immediately.
+        // The DO publishes results to SYNTHESIS_RESULTS queue on completion.
         // This eliminates the queue visibility timeout problem (CF Queues ~30s).
         const doId = env.COORDINATOR.idFromName(`synth-${workGraphId}`)
         const stub = env.COORDINATOR.get(doId)
@@ -163,14 +190,13 @@ export default {
           body: JSON.stringify({
             workGraph,
             dryRun: dryRun ?? false,
-            callbackUrl,
             workflowId,
             ...(specContent ? { specContent } : {}),
           }),
         }))
 
         // DO accepted the request — ack immediately.
-        // DO will call back to Worker /synthesis-callback on completion.
+        // DO will publish to SYNTHESIS_RESULTS queue on completion.
         msg.ack()
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err)

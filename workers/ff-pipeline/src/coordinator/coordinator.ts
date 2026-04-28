@@ -24,6 +24,8 @@ export interface CoordinatorEnv {
   OFOX_API_KEY?: string
   /** @cloudflare/sandbox DurableObject namespace binding. Optional until sandbox container is deployed. */
   SANDBOX?: unknown
+  /** Queue for publishing synthesis results back to the Worker (avoids self-fetch deadlock) */
+  SYNTHESIS_RESULTS?: { send(body: unknown): Promise<void> }
 }
 
 export interface SynthesisResult {
@@ -55,12 +57,10 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         workGraph: Record<string, unknown>
         dryRun?: boolean
         specContent?: string
-        callbackUrl?: string
         workflowId?: string
       }
 
-      // Store callback info in DO storage so alarm handler can also call back
-      if (body.callbackUrl) await this.ctx.storage.put('__callbackUrl', body.callbackUrl)
+      // Store workflowId in DO storage so alarm handler can also publish results
       if (body.workflowId) await this.ctx.storage.put('__workflowId', body.workflowId)
 
       const result = await this.synthesize(body.workGraph, {
@@ -354,31 +354,32 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
   }
 
   /**
-   * Notify the Worker via callback URL so it can forward the result to the Workflow.
+   * Publish synthesis result to SYNTHESIS_RESULTS queue so the Worker's queue
+   * consumer can forward it to the Workflow via sendEvent.
+   *
+   * This replaces the previous fetch-based callback which was blocked by CF's
+   * self-fetch restriction (DO cannot fetch its own Worker URL).
+   *
    * Called after synthesis completes (success or failure) and from the alarm handler.
-   * Non-fatal: if the callback fails, the result is still in DO storage and
+   * Non-fatal: if the queue publish fails, the result is still in DO storage and
    * the response is returned to the caller. The Workflow has a 30-min waitForEvent
    * timeout as backstop.
    */
   private async notifyCallback(result: SynthesisResult): Promise<void> {
-    const callbackUrl = await this.ctx.storage.get<string>('__callbackUrl')
     const workflowId = await this.ctx.storage.get<string>('__workflowId')
-
-    if (!callbackUrl || !workflowId) return
+    if (!workflowId) return
 
     try {
-      await fetch(callbackUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      if (this.env.SYNTHESIS_RESULTS) {
+        await this.env.SYNTHESIS_RESULTS.send({
           workflowId,
           verdict: result.verdict,
           tokenUsage: result.tokenUsage,
           repairCount: result.repairCount,
-        }),
-      })
+        })
+      }
     } catch (err) {
-      console.error(`[Stage 6] Callback failed for ${result.functionId}: ${err instanceof Error ? err.message : String(err)}`)
+      console.error(`[Stage 6] Result queue publish failed: ${err instanceof Error ? err.message : String(err)}`)
     }
   }
 

@@ -18,6 +18,9 @@ export interface PipelineEnv {
 
   SYNTHESIS_QUEUE: Queue
 
+  /** Queue for DO -> Worker result relay (avoids self-fetch deadlock) */
+  SYNTHESIS_RESULTS: Queue
+
   OFOX_API_KEY?: string
 
   AI?: {

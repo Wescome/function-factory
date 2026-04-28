@@ -190,6 +190,9 @@ function createEnv(overrides?: Record<string, unknown>) {
     SYNTHESIS_QUEUE: {
       send: vi.fn(async () => ({})),
     },
+    SYNTHESIS_RESULTS: {
+      send: vi.fn(async () => ({})),
+    },
     ...overrides,
   }
 }
@@ -251,7 +254,7 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
 
   describe('queue consumer (queue() handler) — fire-and-forget', () => {
 
-    it('dispatches to DO via stub.fetch with workGraph, dryRun, callbackUrl, and workflowId', async () => {
+    it('dispatches to DO via stub.fetch with workGraph, dryRun, and workflowId (no callbackUrl)', async () => {
       const { default: worker } = await import('./index')
 
       const mockDoFetch = vi.fn(async () => new Response('{}', {
@@ -277,7 +280,7 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
 
       await worker.queue(batch as never, env as never, ctx as never)
 
-      // DO was called with correct payload including callback info
+      // DO was called with correct payload
       expect(mockDoFetch).toHaveBeenCalledOnce()
       const calls = mockDoFetch.mock.calls as unknown[][]
       const fetchArg = calls[0]![0] as Request
@@ -286,9 +289,9 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
       const fetchBody = await new Request(fetchArg).json() as Record<string, unknown>
       expect(fetchBody.workGraph).toBeDefined()
       expect(fetchBody.dryRun).toBe(false)
-      // ADR-005: callbackUrl and workflowId are included for fire-and-forget
-      expect(fetchBody.callbackUrl).toBe('https://ff-pipeline.koales.workers.dev/synthesis-callback')
+      // Queue fallback: workflowId is passed, callbackUrl is NOT (DO uses Queue instead)
       expect(fetchBody.workflowId).toBe('wf-123')
+      expect(fetchBody.callbackUrl).toBeUndefined()
     })
 
     it('acks IMMEDIATELY after dispatching — does NOT await DO synthesis result', async () => {
@@ -899,7 +902,295 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
     })
   })
 
-  // ── D) Existing /trigger-synthesis route still works ──
+  // ── D) synthesis-results queue consumer (Queue fallback for DO callback) ──
+
+  describe('synthesis-results queue consumer', () => {
+
+    it('calls workflow.sendEvent with synthesis-complete on receiving result message', async () => {
+      const { default: worker } = await import('./index')
+
+      const mockSendEvent = vi.fn(async () => {})
+
+      const env = createEnv({
+        FACTORY_PIPELINE: {
+          create: vi.fn(),
+          get: vi.fn(async () => ({
+            id: 'wf-results-1',
+            status: vi.fn(),
+            sendEvent: mockSendEvent,
+          })),
+        },
+      })
+
+      const msg = createMockMessage({
+        workflowId: 'wf-results-1',
+        verdict: { decision: 'pass', confidence: 0.95, reason: 'All roles passed' },
+        tokenUsage: 4200,
+        repairCount: 0,
+      })
+
+      // Use synthesis-results queue name
+      const batch = {
+        messages: [msg],
+        queue: 'synthesis-results',
+        metadata: { metrics: { backlogCount: 1, backlogBytes: 0 } },
+        retryAll: vi.fn(),
+        ackAll: vi.fn(),
+      }
+
+      const ctx = createMockCtx()
+
+      await worker.queue(batch as never, env as never, ctx as never)
+
+      expect(mockSendEvent).toHaveBeenCalledOnce()
+      expect(mockSendEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'synthesis-complete',
+          payload: {
+            verdict: { decision: 'pass', confidence: 0.95, reason: 'All roles passed' },
+            tokenUsage: 4200,
+            repairCount: 0,
+          },
+        }),
+      )
+
+      expect(msg.ack).toHaveBeenCalledOnce()
+    })
+
+    it('acks after successful sendEvent', async () => {
+      const { default: worker } = await import('./index')
+
+      const mockSendEvent = vi.fn(async () => {})
+
+      const env = createEnv({
+        FACTORY_PIPELINE: {
+          create: vi.fn(),
+          get: vi.fn(async () => ({
+            id: 'wf-ack-test',
+            status: vi.fn(),
+            sendEvent: mockSendEvent,
+          })),
+        },
+      })
+
+      const msg = createMockMessage({
+        workflowId: 'wf-ack-test',
+        verdict: { decision: 'fail', confidence: 1.0, reason: 'Synthesis failed' },
+        tokenUsage: 100,
+        repairCount: 2,
+      })
+
+      const batch = {
+        messages: [msg],
+        queue: 'synthesis-results',
+        metadata: { metrics: { backlogCount: 1, backlogBytes: 0 } },
+        retryAll: vi.fn(),
+        ackAll: vi.fn(),
+      }
+
+      const ctx = createMockCtx()
+
+      await worker.queue(batch as never, env as never, ctx as never)
+
+      expect(msg.ack).toHaveBeenCalledOnce()
+      expect(msg.retry).not.toHaveBeenCalled()
+    })
+
+    it('retries on sendEvent failure', async () => {
+      const { default: worker } = await import('./index')
+
+      const mockSendEvent = vi.fn(async () => {
+        throw new Error('workflow not running')
+      })
+
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      const env = createEnv({
+        FACTORY_PIPELINE: {
+          create: vi.fn(),
+          get: vi.fn(async () => ({
+            id: 'wf-retry-test',
+            status: vi.fn(),
+            sendEvent: mockSendEvent,
+          })),
+        },
+      })
+
+      const msg = createMockMessage({
+        workflowId: 'wf-retry-test',
+        verdict: { decision: 'pass', confidence: 0.9, reason: 'ok' },
+        tokenUsage: 50,
+        repairCount: 0,
+      }, 1) // first attempt
+
+      const batch = {
+        messages: [msg],
+        queue: 'synthesis-results',
+        metadata: { metrics: { backlogCount: 1, backlogBytes: 0 } },
+        retryAll: vi.fn(),
+        ackAll: vi.fn(),
+      }
+
+      const ctx = createMockCtx()
+
+      await worker.queue(batch as never, env as never, ctx as never)
+
+      expect(msg.retry).toHaveBeenCalledOnce()
+      expect(msg.ack).not.toHaveBeenCalled()
+
+      consoleSpy.mockRestore()
+    })
+
+    it('acks and logs when max retries exhausted (attempts >= 4)', async () => {
+      const { default: worker } = await import('./index')
+
+      const mockSendEvent = vi.fn(async () => {
+        throw new Error('workflow permanently broken')
+      })
+
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      const env = createEnv({
+        FACTORY_PIPELINE: {
+          create: vi.fn(),
+          get: vi.fn(async () => ({
+            id: 'wf-maxretry-results',
+            status: vi.fn(),
+            sendEvent: mockSendEvent,
+          })),
+        },
+      })
+
+      // max_retries: 3 = 4 total attempts
+      const msg = createMockMessage({
+        workflowId: 'wf-maxretry-results',
+        verdict: { decision: 'pass', confidence: 0.9, reason: 'ok' },
+        tokenUsage: 50,
+        repairCount: 0,
+      }, 4)
+
+      const batch = {
+        messages: [msg],
+        queue: 'synthesis-results',
+        metadata: { metrics: { backlogCount: 1, backlogBytes: 0 } },
+        retryAll: vi.fn(),
+        ackAll: vi.fn(),
+      }
+
+      const ctx = createMockCtx()
+
+      await worker.queue(batch as never, env as never, ctx as never)
+
+      expect(msg.ack).toHaveBeenCalledOnce()
+      expect(msg.retry).not.toHaveBeenCalled()
+
+      // Should have logged errors
+      expect(consoleSpy).toHaveBeenCalled()
+
+      consoleSpy.mockRestore()
+    })
+
+    it('forwards interrupt verdict from DO alarm timeout', async () => {
+      const { default: worker } = await import('./index')
+
+      const mockSendEvent = vi.fn(async () => {})
+
+      const env = createEnv({
+        FACTORY_PIPELINE: {
+          create: vi.fn(),
+          get: vi.fn(async () => ({
+            id: 'wf-alarm-results',
+            status: vi.fn(),
+            sendEvent: mockSendEvent,
+          })),
+        },
+      })
+
+      const msg = createMockMessage({
+        workflowId: 'wf-alarm-results',
+        verdict: {
+          decision: 'interrupt',
+          confidence: 1.0,
+          reason: 'DO alarm: synthesis exceeded wall-clock deadline',
+        },
+        tokenUsage: 0,
+        repairCount: 0,
+      })
+
+      const batch = {
+        messages: [msg],
+        queue: 'synthesis-results',
+        metadata: { metrics: { backlogCount: 1, backlogBytes: 0 } },
+        retryAll: vi.fn(),
+        ackAll: vi.fn(),
+      }
+
+      const ctx = createMockCtx()
+
+      await worker.queue(batch as never, env as never, ctx as never)
+
+      expect(mockSendEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'synthesis-complete',
+          payload: expect.objectContaining({
+            verdict: expect.objectContaining({
+              decision: 'interrupt',
+              reason: expect.stringContaining('wall-clock deadline'),
+            }),
+          }),
+        }),
+      )
+
+      expect(msg.ack).toHaveBeenCalledOnce()
+    })
+
+    it('does NOT dispatch to Coordinator DO (only relays to Workflow)', async () => {
+      const { default: worker } = await import('./index')
+
+      const mockDoFetch = vi.fn(async () => new Response('{}'))
+      const mockSendEvent = vi.fn(async () => {})
+
+      const env = createEnv({
+        COORDINATOR: {
+          idFromName: vi.fn(() => 'do-id'),
+          get: vi.fn(() => ({ fetch: mockDoFetch })),
+        },
+        FACTORY_PIPELINE: {
+          create: vi.fn(),
+          get: vi.fn(async () => ({
+            id: 'wf-no-do',
+            status: vi.fn(),
+            sendEvent: mockSendEvent,
+          })),
+        },
+      })
+
+      const msg = createMockMessage({
+        workflowId: 'wf-no-do',
+        verdict: { decision: 'pass', confidence: 1.0, reason: 'ok' },
+        tokenUsage: 0,
+        repairCount: 0,
+      })
+
+      const batch = {
+        messages: [msg],
+        queue: 'synthesis-results',
+        metadata: { metrics: { backlogCount: 1, backlogBytes: 0 } },
+        retryAll: vi.fn(),
+        ackAll: vi.fn(),
+      }
+
+      const ctx = createMockCtx()
+
+      await worker.queue(batch as never, env as never, ctx as never)
+
+      // Should relay to workflow, NOT dispatch to DO
+      expect(mockSendEvent).toHaveBeenCalledOnce()
+      expect(mockDoFetch).not.toHaveBeenCalled()
+    })
+  })
+
+  // ── E) Existing /trigger-synthesis route still works ──
 
   describe('/trigger-synthesis HTTP route preserved', () => {
 

@@ -102,6 +102,7 @@ function createEnv(overrides?: Record<string, unknown>) {
       get: vi.fn(() => ({ fetch: vi.fn(async () => new Response('{}')) })),
     },
     SYNTHESIS_QUEUE: { send: vi.fn() },
+    SYNTHESIS_RESULTS: { send: vi.fn() },
     ...overrides,
   }
 }

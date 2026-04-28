@@ -2901,3 +2901,5 @@
 {"timestamp":"2026-04-28T02:18:29.574Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test 2>&1","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
 {"timestamp":"2026-04-28T02:19:10.384Z","tool":"Agent","summary":"Engineer: v4.1 Commit 1 — bug fix","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
 {"timestamp":"2026-04-28T02:19:25.892Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test 2>&1 | tail -8","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T02:19:33.328Z","tool":"Bash","summary":"git add -A && git diff --cached --stat","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T02:19:47.494Z","tool":"Bash","summary":"git commit -m \"$(cat <<'EOF'\nINFRA: ADR-005 v4.1 Commit 1 — fire-and-forget + callback (bug fix)\n\nRoot cause: queue cons","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
