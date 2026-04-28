@@ -11,6 +11,7 @@ import type { AgentTool } from '@weops/gdk-agent'
 import { Type, type Model, type AssistantMessage, type Message, type UserMessage } from '@weops/gdk-ai'
 import type { ArangoClient } from '@factory/arango-client'
 import { buildArangoTool } from './architect-agent'
+import { resolveAgentModel } from './resolve-model'
 import { coerceToString, coerceToArray, coerceToNumber, coerceToBoolean } from './coerce'
 
 import type { SemanticReviewResult } from '../types.js'
@@ -95,20 +96,6 @@ When ready, respond with ONLY a JSON object (no markdown fences, no explanation)
 
 // ── Model factory ───────────────────────────────────────────
 
-function createOfoxModel(apiKey: string): Model<'openai-completions'> {
-  return {
-    id: 'deepseek/deepseek-v4-pro',
-    name: 'DeepSeek V4 Pro via ofox.ai',
-    api: 'openai-completions' as const,
-    provider: 'deepseek',
-    baseUrl: 'https://api.ofox.ai/v1',
-    reasoning: false,
-    input: ['text'] as ('text' | 'image')[],
-    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-    contextWindow: 128000,
-    maxTokens: 4096,
-  }
-}
 
 // ── JSON extraction ─────────────────────────────────────────
 
@@ -163,7 +150,7 @@ export class CriticAgent {
     }
 
     const tools: AgentTool[] = [buildArangoTool(this.db)]
-    const model = this.modelOverride ?? createOfoxModel(this.apiKey)
+    const model = this.modelOverride ?? resolveAgentModel('semantic_review', this.apiKey)
 
     const userParts: string[] = [`PRD:\n${JSON.stringify(input.prd, null, 2)}`]
     if (input.specContent) {
@@ -224,7 +211,7 @@ export class CriticAgent {
     }
 
     const tools: AgentTool[] = [buildArangoTool(this.db)]
-    const model = this.modelOverride ?? createOfoxModel(this.apiKey)
+    const model = this.modelOverride ?? resolveAgentModel('critic', this.apiKey)
 
     const userParts: string[] = [
       `Code artifacts:\n${JSON.stringify(input.code, null, 2)}`,

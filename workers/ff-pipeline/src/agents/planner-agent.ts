@@ -11,6 +11,7 @@ import type { AgentTool } from '@weops/gdk-agent'
 import type { Model, AssistantMessage, Message, UserMessage } from '@weops/gdk-ai'
 import type { ArangoClient } from '@factory/arango-client'
 import { buildArangoTool } from './architect-agent'
+import { resolveAgentModel } from './resolve-model'
 import { coerceToString, coerceToArray } from './coerce'
 import type { Plan } from '../coordinator/state'
 
@@ -73,20 +74,6 @@ const PLAN_REQUIRED_FIELDS: (keyof Plan)[] = [
   'approach', 'atoms', 'executorRecommendation', 'estimatedComplexity',
 ]
 
-function createOfoxModel(apiKey: string): Model<'openai-completions'> {
-  return {
-    id: 'deepseek/deepseek-v4-pro',
-    name: 'DeepSeek V4 Pro via ofox.ai',
-    api: 'openai-completions' as const,
-    provider: 'deepseek',
-    baseUrl: 'https://api.ofox.ai/v1',
-    reasoning: false,
-    input: ['text'] as ('text' | 'image')[],
-    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-    contextWindow: 128000,
-    maxTokens: 4096,
-  }
-}
 
 export class PlannerAgent {
   private db: ArangoClient
@@ -112,7 +99,7 @@ export class PlannerAgent {
     }
 
     const tools: AgentTool[] = [buildArangoTool(this.db)]
-    const model = this.modelOverride ?? createOfoxModel(this.apiKey)
+    const model = this.modelOverride ?? resolveAgentModel('planner', this.apiKey)
 
     const userParts: string[] = [
       `WorkGraph specification:\n${JSON.stringify(input.workGraph, null, 2)}`,

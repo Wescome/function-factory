@@ -12,6 +12,7 @@ import type { Model, AssistantMessage, Message, UserMessage } from '@weops/gdk-a
 import type { ArangoClient } from '@factory/arango-client'
 import type { Verdict, VerdictDecision, Plan, CodeArtifact, CritiqueReport, TestReport } from '../coordinator/state'
 import { buildArangoTool } from './architect-agent'
+import { resolveAgentModel } from './resolve-model'
 import { coerceToString, coerceToNumber } from './coerce'
 
 export interface VerifierInput {
@@ -75,20 +76,6 @@ When ready, respond with ONLY a JSON object (no markdown fences, no explanation)
   "notes": "Specific repair guidance (if patch/resample, otherwise omit)"
 }`
 
-function createOfoxModel(apiKey: string): Model<'openai-completions'> {
-  return {
-    id: 'deepseek/deepseek-v4-pro',
-    name: 'DeepSeek V4 Pro via ofox.ai',
-    api: 'openai-completions' as const,
-    provider: 'deepseek',
-    baseUrl: 'https://api.ofox.ai/v1',
-    reasoning: false,
-    input: ['text'] as ('text' | 'image')[],
-    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-    contextWindow: 128000,
-    maxTokens: 4096,
-  }
-}
 
 export class VerifierAgent {
   private db: ArangoClient
@@ -113,7 +100,7 @@ export class VerifierAgent {
     }
 
     const tools: AgentTool[] = [buildArangoTool(this.db)]
-    const model = this.modelOverride ?? createOfoxModel(this.apiKey)
+    const model = this.modelOverride ?? resolveAgentModel('verifier', this.apiKey)
 
     const userMessage: UserMessage = {
       role: 'user',

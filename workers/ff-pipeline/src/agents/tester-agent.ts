@@ -14,6 +14,7 @@ import { Type, type Model, type AssistantMessage, type Message, type UserMessage
 import type { ArangoClient } from '@factory/arango-client'
 import type { CritiqueReport, Plan, CodeArtifact } from '../coordinator/state'
 import { buildArangoTool } from './architect-agent'
+import { resolveAgentModel } from './resolve-model'
 import { coerceToString, coerceToArray, coerceToNumber, coerceToBoolean } from './coerce'
 
 // Re-export TestReport from state so consumers can import from tester-agent
@@ -70,20 +71,6 @@ When ready, respond with ONLY a JSON object (no markdown fences, no explanation)
   "summary": "Assessment of test quality, invariant coverage, and overall readiness"
 }`
 
-function createOfoxModel(apiKey: string): Model<'openai-completions'> {
-  return {
-    id: 'deepseek/deepseek-v4-pro',
-    name: 'DeepSeek V4 Pro via ofox.ai',
-    api: 'openai-completions' as const,
-    provider: 'deepseek',
-    baseUrl: 'https://api.ofox.ai/v1',
-    reasoning: false,
-    input: ['text'] as ('text' | 'image')[],
-    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-    contextWindow: 128000,
-    maxTokens: 4096,
-  }
-}
 
 export class TesterAgent {
   private db: ArangoClient
@@ -111,7 +98,7 @@ export class TesterAgent {
     }
 
     const tools: AgentTool[] = [buildArangoTool(this.db)]
-    const model = this.modelOverride ?? createOfoxModel(this.apiKey)
+    const model = this.modelOverride ?? resolveAgentModel('tester', this.apiKey)
 
     const userParts: string[] = [
       `WorkGraph specification:\n${JSON.stringify(input.workGraph, null, 2)}`,

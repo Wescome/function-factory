@@ -14,6 +14,7 @@ import { Type, type Model, type AssistantMessage, type Message, type UserMessage
 import type { ArangoClient } from '@factory/arango-client'
 import type { CodeArtifact, Plan, CritiqueReport } from '../coordinator/state'
 import { buildArangoTool } from './architect-agent'
+import { resolveAgentModel } from './resolve-model'
 import { coerceToString, coerceToArray, coerceToBoolean } from './coerce'
 
 export interface CoderInput {
@@ -71,20 +72,6 @@ const CODE_ARTIFACT_REQUIRED_FIELDS: (keyof CodeArtifact)[] = [
   'files', 'summary', 'testsIncluded',
 ]
 
-function createOfoxModel(apiKey: string): Model<'openai-completions'> {
-  return {
-    id: 'deepseek/deepseek-v4-pro',
-    name: 'DeepSeek V4 Pro via ofox.ai',
-    api: 'openai-completions' as const,
-    provider: 'deepseek',
-    baseUrl: 'https://api.ofox.ai/v1',
-    reasoning: false,
-    input: ['text'] as ('text' | 'image')[],
-    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-    contextWindow: 128000,
-    maxTokens: 4096,
-  }
-}
 
 export class CoderAgent {
   private db: ArangoClient
@@ -109,7 +96,7 @@ export class CoderAgent {
     }
 
     const tools: AgentTool[] = [buildArangoTool(this.db)]
-    const model = this.modelOverride ?? createOfoxModel(this.apiKey)
+    const model = this.modelOverride ?? resolveAgentModel('coder', this.apiKey)
 
     const userParts: string[] = [
       `Plan:\n${JSON.stringify(input.plan, null, 2)}`,
