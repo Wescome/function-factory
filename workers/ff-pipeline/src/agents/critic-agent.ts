@@ -12,8 +12,8 @@ import { Type, type Model, type AssistantMessage, type Message, type UserMessage
 import type { ArangoClient } from '@factory/arango-client'
 import { buildArangoTool } from './architect-agent'
 import { resolveAgentModel } from './resolve-model'
-import { coerceToString, coerceToArray, coerceToNumber, coerceToBoolean } from './coerce'
 import { createWorkersAIStreamFn, type AIBinding } from './workers-ai-stream'
+import { processAgentOutput, SEMANTIC_REVIEW_SCHEMA, CRITIQUE_REPORT_SCHEMA } from './output-reliability'
 
 import type { SemanticReviewResult } from '../types.js'
 import type { CritiqueReport, Plan, CodeArtifact } from '../coordinator/state.js'
@@ -100,29 +100,7 @@ When ready, respond with ONLY a JSON object (no markdown fences, no explanation)
 // ── Model factory ───────────────────────────────────────────
 
 
-// ── JSON extraction ─────────────────────────────────────────
-
-function extractAndParseJSON(text: string): unknown {
-  const trimmed = text.trim()
-
-  // Try direct parse first
-  try { return JSON.parse(trimmed) } catch { /* continue */ }
-
-  // Strip markdown fences
-  const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/)
-  if (fenceMatch) {
-    try { return JSON.parse(fenceMatch[1].trim()) } catch { /* continue */ }
-  }
-
-  // Find first { and last }
-  const start = trimmed.indexOf('{')
-  const end = trimmed.lastIndexOf('}')
-  if (start !== -1 && end > start) {
-    try { return JSON.parse(trimmed.slice(start, end + 1)) } catch { /* continue */ }
-  }
-
-  throw new Error(`CriticAgent: could not extract JSON from response: ${trimmed.slice(0, 200)}`)
-}
+// JSON extraction + validation now handled by ORL (output-reliability.ts)
 
 // ── CriticAgent class ───────────────────────────────────────
 
@@ -201,9 +179,11 @@ export class CriticAgent {
       throw new Error('CriticAgent.semanticReview: final response has no text content')
     }
 
-    const parsed = extractAndParseJSON(textBlock.text)
-    this.validateSemanticReview(parsed)
-    return parsed as SemanticReviewResult
+    const result = await processAgentOutput(textBlock.text, SEMANTIC_REVIEW_SCHEMA)
+    if (!result.success) {
+      throw new Error(`CriticAgent.semanticReview: ${result.failureMode}: could not produce valid SemanticReview`)
+    }
+    return result.data!
   }
 
   // ── Code Review ─────────────────────────────────────────
@@ -270,44 +250,12 @@ export class CriticAgent {
       throw new Error('CriticAgent.codeReview: final response has no text content')
     }
 
-    const parsed = extractAndParseJSON(textBlock.text)
-    this.validateCritiqueReport(parsed)
-    return parsed as CritiqueReport
+    const result = await processAgentOutput(textBlock.text, CRITIQUE_REPORT_SCHEMA)
+    if (!result.success) {
+      throw new Error(`CriticAgent.codeReview: ${result.failureMode}: could not produce valid CritiqueReport`)
+    }
+    return result.data!
   }
 
-  // ── Validators ──────────────────────────────────────────
-
-  private validateSemanticReview(obj: unknown): asserts obj is SemanticReviewResult {
-    if (typeof obj !== 'object' || obj === null) {
-      throw new Error('CriticAgent.semanticReview: response is not an object')
-    }
-
-    const r = obj as Record<string, unknown>
-
-    r.alignment = coerceToString(r.alignment)
-    if (!['aligned', 'miscast', 'uncertain'].includes(r.alignment as string)) r.alignment = 'uncertain'
-    r.confidence = coerceToNumber(r.confidence)
-    if (r.confidence < 0 || r.confidence > 1) r.confidence = 0.5
-    r.citations = coerceToArray(r.citations)
-    r.rationale = coerceToString(r.rationale)
-    r.timestamp = coerceToString(r.timestamp) || new Date().toISOString()
-  }
-
-  private validateCritiqueReport(obj: unknown): asserts obj is CritiqueReport {
-    if (typeof obj !== 'object' || obj === null) {
-      throw new Error('CriticAgent.codeReview: response is not an object')
-    }
-
-    const r = obj as Record<string, unknown>
-
-    r.passed = coerceToBoolean(r.passed)
-    r.issues = coerceToArray(r.issues)
-    for (const issue of r.issues as Record<string, unknown>[]) {
-      issue.severity = coerceToString(issue.severity)
-      if (!['critical', 'major', 'minor'].includes(issue.severity as string)) issue.severity = 'minor'
-      issue.description = coerceToString(issue.description)
-    }
-    r.mentorRuleCompliance = coerceToArray(r.mentorRuleCompliance)
-    r.overallAssessment = coerceToString(r.overallAssessment)
-  }
+  // Validators now handled by ORL via schemas (output-reliability.ts)
 }

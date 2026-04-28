@@ -15,8 +15,8 @@ import type { ArangoClient } from '@factory/arango-client'
 import type { CritiqueReport, Plan, CodeArtifact } from '../coordinator/state'
 import { buildArangoTool } from './architect-agent'
 import { resolveAgentModel } from './resolve-model'
-import { coerceToString, coerceToArray, coerceToNumber, coerceToBoolean } from './coerce'
 import { createWorkersAIStreamFn, type AIBinding } from './workers-ai-stream'
+import { processAgentOutput, TEST_REPORT_SCHEMA } from './output-reliability'
 
 // Re-export TestReport from state so consumers can import from tester-agent
 export type { TestReport } from '../coordinator/state'
@@ -155,44 +155,10 @@ export class TesterAgent {
       throw new Error('TesterAgent: final response has no text content')
     }
 
-    const parsed = extractAndParseJSON(textBlock.text)
-    this.validateTestReport(parsed)
-    return parsed as TestReport
-  }
-
-  private validateTestReport(obj: unknown): asserts obj is TestReport {
-    if (typeof obj !== 'object' || obj === null) {
-      throw new Error('TesterAgent: model response is not an object')
+    const result = await processAgentOutput(textBlock.text, TEST_REPORT_SCHEMA)
+    if (!result.success) {
+      throw new Error(`TesterAgent: ${result.failureMode}: could not produce valid TestReport`)
     }
-    const record = obj as Record<string, unknown>
-
-    record.passed = coerceToBoolean(record.passed)
-    record.testsRun = coerceToNumber(record.testsRun)
-    record.testsPassed = coerceToNumber(record.testsPassed)
-    record.testsFailed = coerceToNumber(record.testsFailed)
-    record.failures = coerceToArray(record.failures)
-    record.summary = coerceToString(record.summary)
+    return result.data!
   }
-}
-
-function extractAndParseJSON(text: string): unknown {
-  const trimmed = text.trim()
-
-  // Try direct parse first
-  try { return JSON.parse(trimmed) } catch { /* continue */ }
-
-  // Strip markdown fences
-  const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/)
-  if (fenceMatch) {
-    try { return JSON.parse(fenceMatch[1].trim()) } catch { /* continue */ }
-  }
-
-  // Find first { and last }
-  const start = trimmed.indexOf('{')
-  const end = trimmed.lastIndexOf('}')
-  if (start !== -1 && end > start) {
-    try { return JSON.parse(trimmed.slice(start, end + 1)) } catch { /* continue */ }
-  }
-
-  throw new Error(`TesterAgent: could not extract JSON from response: ${trimmed.slice(0, 200)}`)
 }

@@ -13,8 +13,8 @@ import type { ArangoClient } from '@factory/arango-client'
 import type { Verdict, VerdictDecision, Plan, CodeArtifact, CritiqueReport, TestReport } from '../coordinator/state'
 import { buildArangoTool } from './architect-agent'
 import { resolveAgentModel } from './resolve-model'
-import { coerceToString, coerceToNumber } from './coerce'
 import { createWorkersAIStreamFn, type AIBinding } from './workers-ai-stream'
+import { processAgentOutput, VERDICT_SCHEMA } from './output-reliability'
 
 export interface VerifierInput {
   workGraph: Record<string, unknown>
@@ -38,7 +38,7 @@ export interface VerifierAgentOpts {
   ai?: AIBinding
 }
 
-const VALID_DECISIONS: VerdictDecision[] = ['pass', 'fail', 'patch', 'resample', 'interrupt']
+// Decision enum validation now in VERDICT_SCHEMA (output-reliability.ts)
 
 const SYSTEM_PROMPT = `You are the Verifier agent in the Function Factory synthesis pipeline.
 
@@ -146,17 +146,20 @@ export class VerifierAgent {
       throw new Error('VerifierAgent: final response has no text content')
     }
 
-    const parsed = extractAndParseJSON(textBlock.text)
-    this.validateVerdict(parsed)
+    const result = await processAgentOutput(textBlock.text, VERDICT_SCHEMA)
+    if (!result.success) {
+      throw new Error(`VerifierAgent: ${result.failureMode}: could not produce valid Verdict`)
+    }
 
     // Build clean Verdict, preserving optional notes
+    const data = result.data! as Record<string, unknown>
     const verdict: Verdict = {
-      decision: (parsed as Record<string, unknown>).decision as VerdictDecision,
-      confidence: (parsed as Record<string, unknown>).confidence as number,
-      reason: (parsed as Record<string, unknown>).reason as string,
+      decision: data.decision as VerdictDecision,
+      confidence: data.confidence as number,
+      reason: data.reason as string,
     }
-    if (typeof (parsed as Record<string, unknown>).notes === 'string') {
-      verdict.notes = (parsed as Record<string, unknown>).notes as string
+    if (typeof data.notes === 'string') {
+      verdict.notes = data.notes as string
     }
     return verdict
   }
@@ -177,51 +180,5 @@ export class VerifierAgent {
     }, null, 2)
   }
 
-  private validateVerdict(obj: unknown): asserts obj is Verdict {
-    if (typeof obj !== 'object' || obj === null) {
-      throw new Error('VerifierAgent: model response is not an object')
-    }
-    const record = obj as Record<string, unknown>
-
-    if (!('decision' in record)) {
-      throw new Error('VerifierAgent: missing required field "decision"')
-    }
-    if (!('confidence' in record)) {
-      throw new Error('VerifierAgent: missing required field "confidence"')
-    }
-    if (!('reason' in record)) {
-      throw new Error('VerifierAgent: missing required field "reason"')
-    }
-
-    record.decision = coerceToString(record.decision)
-    if (!VALID_DECISIONS.includes(record.decision as VerdictDecision)) {
-      record.decision = 'interrupt'
-    }
-    record.confidence = coerceToNumber(record.confidence)
-    if (record.confidence < 0 || record.confidence > 1) record.confidence = 0.5
-    record.reason = coerceToString(record.reason)
-    if ('notes' in record && record.notes !== undefined) record.notes = coerceToString(record.notes)
-  }
-}
-
-function extractAndParseJSON(text: string): unknown {
-  const trimmed = text.trim()
-
-  // Try direct parse first
-  try { return JSON.parse(trimmed) } catch { /* continue */ }
-
-  // Strip markdown fences
-  const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/)
-  if (fenceMatch) {
-    try { return JSON.parse(fenceMatch[1].trim()) } catch { /* continue */ }
-  }
-
-  // Find first { and last }
-  const start = trimmed.indexOf('{')
-  const end = trimmed.lastIndexOf('}')
-  if (start !== -1 && end > start) {
-    try { return JSON.parse(trimmed.slice(start, end + 1)) } catch { /* continue */ }
-  }
-
-  throw new Error(`VerifierAgent: could not extract JSON from response: ${trimmed.slice(0, 200)}`)
+  // Validation now handled by ORL via VERDICT_SCHEMA (output-reliability.ts)
 }

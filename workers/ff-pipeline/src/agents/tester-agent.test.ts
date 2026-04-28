@@ -17,6 +17,7 @@ import {
   type FauxProviderRegistration,
 } from '@weops/gdk-ai'
 import { TesterAgent, type TesterInput, type TestReport } from './tester-agent'
+import { processAgentOutput, TEST_REPORT_SCHEMA } from './output-reliability'
 
 const VALID_TEST_REPORT: TestReport = {
   passed: true,
@@ -119,93 +120,76 @@ describe('TesterAgent', () => {
     })
   })
 
-  describe('validation', () => {
-    it('rejects non-objects', () => {
-      const { db } = createMockDb()
-      const agent = new TesterAgent({ db, apiKey: 'test-key', dryRun: true })
-      const validate = (agent as any).validateTestReport.bind(agent)
+  describe('validation (via ORL)', () => {
+    it('rejects non-objects (prose)', async () => {
+      const r1 = await processAgentOutput('just a string', TEST_REPORT_SCHEMA)
+      expect(r1.success).toBe(false)
 
-      expect(() => validate('string')).toThrow('not an object')
-      expect(() => validate(null)).toThrow('not an object')
+      const r2 = await processAgentOutput(null as any, TEST_REPORT_SCHEMA)
+      expect(r2.success).toBe(false)
+      expect(r2.failureMode).toBe('F7')
     })
 
-    it('coerces missing "passed" to false (default boolean)', () => {
-      const { db } = createMockDb()
-      const agent = new TesterAgent({ db, apiKey: 'test-key', dryRun: true })
-      const validate = (agent as any).validateTestReport.bind(agent)
-
-      const obj = {
+    it('rejects missing "passed" field', async () => {
+      const result = await processAgentOutput(JSON.stringify({
         testsRun: 1, testsPassed: 1, testsFailed: 0,
         failures: [], summary: 'ok',
-      } as Record<string, unknown>
-      expect(() => validate(obj)).not.toThrow()
-      expect(obj.passed).toBe(false)
+      }), TEST_REPORT_SCHEMA)
+      expect(result.success).toBe(false)
+      expect(result.failureMode).toBe('F3')
     })
 
-    it('coerces wrong types instead of rejecting', () => {
-      const { db } = createMockDb()
-      const agent = new TesterAgent({ db, apiKey: 'test-key', dryRun: true })
-      const validate = (agent as any).validateTestReport.bind(agent)
-
+    it('coerces wrong types instead of rejecting', async () => {
       // string 'yes' is not 'true', coerces to false
-      const obj1 = {
+      const r1 = await processAgentOutput(JSON.stringify({
         passed: 'yes', testsRun: 1, testsPassed: 1, testsFailed: 0,
         failures: [], summary: 'ok',
-      } as Record<string, unknown>
-      expect(() => validate(obj1)).not.toThrow()
-      expect(obj1.passed).toBe(false)
+      }), TEST_REPORT_SCHEMA)
+      expect(r1.success).toBe(true)
+      expect(r1.data!.passed).toBe(false)
 
       // string testsRun coerced to number (NaN -> 0)
-      const obj2 = {
+      const r2 = await processAgentOutput(JSON.stringify({
         passed: true, testsRun: 'one', testsPassed: 1, testsFailed: 0,
         failures: [], summary: 'ok',
-      } as Record<string, unknown>
-      expect(() => validate(obj2)).not.toThrow()
-      expect(obj2.testsRun).toBe(0)
+      }), TEST_REPORT_SCHEMA)
+      expect(r2.success).toBe(true)
+      expect(r2.data!.testsRun).toBe(0)
 
       // string failures coerced to array
-      const obj3 = {
+      const r3 = await processAgentOutput(JSON.stringify({
         passed: true, testsRun: 1, testsPassed: 1, testsFailed: 0,
         failures: 'none', summary: 'ok',
-      } as Record<string, unknown>
-      expect(() => validate(obj3)).not.toThrow()
-      expect(Array.isArray(obj3.failures)).toBe(true)
+      }), TEST_REPORT_SCHEMA)
+      expect(r3.success).toBe(true)
+      expect(Array.isArray(r3.data!.failures)).toBe(true)
 
       // number summary coerced to string
-      const obj4 = {
+      const r4 = await processAgentOutput(JSON.stringify({
         passed: true, testsRun: 1, testsPassed: 1, testsFailed: 0,
         failures: [], summary: 42,
-      } as Record<string, unknown>
-      expect(() => validate(obj4)).not.toThrow()
-      expect(obj4.summary).toBe('42')
+      }), TEST_REPORT_SCHEMA)
+      expect(r4.success).toBe(true)
+      expect(r4.data!.summary).toBe('42')
     })
 
-    it('accepts valid passing TestReport', () => {
-      const { db } = createMockDb()
-      const agent = new TesterAgent({ db, apiKey: 'test-key', dryRun: true })
-      const validate = (agent as any).validateTestReport.bind(agent)
-
-      expect(() => validate(VALID_TEST_REPORT)).not.toThrow()
+    it('accepts valid passing TestReport', async () => {
+      const result = await processAgentOutput(JSON.stringify(VALID_TEST_REPORT), TEST_REPORT_SCHEMA)
+      expect(result.success).toBe(true)
     })
 
-    it('accepts valid failing TestReport', () => {
-      const { db } = createMockDb()
-      const agent = new TesterAgent({ db, apiKey: 'test-key', dryRun: true })
-      const validate = (agent as any).validateTestReport.bind(agent)
-
-      expect(() => validate(FAILING_TEST_REPORT)).not.toThrow()
+    it('accepts valid failing TestReport', async () => {
+      const result = await processAgentOutput(JSON.stringify(FAILING_TEST_REPORT), TEST_REPORT_SCHEMA)
+      expect(result.success).toBe(true)
     })
 
-    it('accepts TestReport with optional coverage field', () => {
-      const { db } = createMockDb()
-      const agent = new TesterAgent({ db, apiKey: 'test-key', dryRun: true })
-      const validate = (agent as any).validateTestReport.bind(agent)
-
+    it('accepts TestReport with optional coverage field', async () => {
       const withCoverage = {
         ...VALID_TEST_REPORT,
         coverage: { lines: 85, branches: 70, functions: 90 },
       }
-      expect(() => validate(withCoverage)).not.toThrow()
+      const result = await processAgentOutput(JSON.stringify(withCoverage), TEST_REPORT_SCHEMA)
+      expect(result.success).toBe(true)
     })
   })
 

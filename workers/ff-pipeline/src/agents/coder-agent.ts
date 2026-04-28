@@ -15,8 +15,8 @@ import type { ArangoClient } from '@factory/arango-client'
 import type { CodeArtifact, Plan, CritiqueReport } from '../coordinator/state'
 import { buildArangoTool } from './architect-agent'
 import { resolveAgentModel } from './resolve-model'
-import { coerceToString, coerceToArray, coerceToBoolean } from './coerce'
 import { createWorkersAIStreamFn, type AIBinding } from './workers-ai-stream'
+import { processAgentOutput, CODE_ARTIFACT_SCHEMA } from './output-reliability'
 
 export interface CoderInput {
   workGraph: Record<string, unknown>
@@ -71,9 +71,7 @@ When ready, respond with ONLY a JSON object (no markdown fences, no explanation)
 
 Each file entry must have: path (string), content (string), action ("create" | "modify" | "delete").`
 
-const CODE_ARTIFACT_REQUIRED_FIELDS: (keyof CodeArtifact)[] = [
-  'files', 'summary', 'testsIncluded',
-]
+// Required fields now defined in CODE_ARTIFACT_SCHEMA (output-reliability.ts)
 
 
 export class CoderAgent {
@@ -165,54 +163,10 @@ export class CoderAgent {
       throw new Error('CoderAgent: final response has no text content')
     }
 
-    const parsed = extractAndParseJSON(textBlock.text)
-    this.validateCodeArtifact(parsed)
-    return parsed as CodeArtifact
-  }
-
-  private validateCodeArtifact(obj: unknown): asserts obj is CodeArtifact {
-    if (typeof obj !== 'object' || obj === null) {
-      throw new Error('CoderAgent: model response is not an object')
+    const result = await processAgentOutput(textBlock.text, CODE_ARTIFACT_SCHEMA)
+    if (!result.success) {
+      throw new Error(`CoderAgent: ${result.failureMode}: could not produce valid CodeArtifact`)
     }
-    const record = obj as Record<string, unknown>
-    for (const field of CODE_ARTIFACT_REQUIRED_FIELDS) {
-      if (!(field in record)) {
-        throw new Error(`CoderAgent: missing required field "${field}"`)
-      }
-    }
-    record.files = coerceToArray(record.files)
-    for (const file of record.files as Record<string, unknown>[]) {
-      file.path = coerceToString(file.path)
-      file.content = coerceToString(file.content)
-      const ACTION_MAP: Record<string, string> = { add: 'create', new: 'create', write: 'create', update: 'modify', edit: 'modify', change: 'modify', patch: 'modify', remove: 'delete', del: 'delete' }
-      const rawAction = coerceToString(file.action).toLowerCase()
-      file.action = ACTION_MAP[rawAction] ?? (rawAction || 'create')
-    }
-    record.summary = coerceToString(record.summary)
-    if (typeof record.testsIncluded !== 'boolean') {
-      record.testsIncluded = coerceToBoolean(record.testsIncluded)
-    }
+    return result.data!
   }
-}
-
-function extractAndParseJSON(text: string): unknown {
-  const trimmed = text.trim()
-
-  // Try direct parse first
-  try { return JSON.parse(trimmed) } catch { /* continue */ }
-
-  // Strip markdown fences
-  const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/)
-  if (fenceMatch) {
-    try { return JSON.parse(fenceMatch[1].trim()) } catch { /* continue */ }
-  }
-
-  // Find first { and last }
-  const start = trimmed.indexOf('{')
-  const end = trimmed.lastIndexOf('}')
-  if (start !== -1 && end > start) {
-    try { return JSON.parse(trimmed.slice(start, end + 1)) } catch { /* continue */ }
-  }
-
-  throw new Error(`CoderAgent: could not extract JSON from response: ${trimmed.slice(0, 200)}`)
 }

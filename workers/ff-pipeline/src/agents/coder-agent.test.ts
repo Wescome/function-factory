@@ -17,6 +17,7 @@ import {
   type FauxProviderRegistration,
 } from '@weops/gdk-ai'
 import { CoderAgent, type CoderInput } from './coder-agent'
+import { processAgentOutput, CODE_ARTIFACT_SCHEMA } from './output-reliability'
 import type { CodeArtifact } from '../coordinator/state'
 
 const VALID_CODE_ARTIFACT: CodeArtifact = {
@@ -107,72 +108,66 @@ describe('CoderAgent', () => {
   // Validation
   // ────────────────────────────────────────────────────────────
 
-  describe('validation', () => {
-    it('rejects response missing files array', () => {
-      const { db } = createMockDb()
-      const agent = new CoderAgent({ db, apiKey: 'test-key', dryRun: true })
-      const validate = (agent as any).validateCodeArtifact.bind(agent)
-
-      expect(() => validate({ summary: 'ok', testsIncluded: false })).toThrow('missing required field "files"')
+  describe('validation (via ORL)', () => {
+    it('rejects response missing files array', async () => {
+      const result = await processAgentOutput(
+        JSON.stringify({ summary: 'ok', testsIncluded: false }),
+        CODE_ARTIFACT_SCHEMA,
+      )
+      expect(result.success).toBe(false)
+      expect(result.failureMode).toBe('F3')
     })
 
-    it('coerces non-array files to array', () => {
-      const { db } = createMockDb()
-      const agent = new CoderAgent({ db, apiKey: 'test-key', dryRun: true })
-      const validate = (agent as any).validateCodeArtifact.bind(agent)
-
-      // null coerces to empty array via coerceToArray
-      const obj = { files: null, summary: 'ok', testsIncluded: false } as any
-      expect(() => validate(obj)).not.toThrow()
-      expect(Array.isArray(obj.files)).toBe(true)
-      expect(obj.files).toHaveLength(0)
+    it('coerces non-array files to array', async () => {
+      const result = await processAgentOutput(
+        JSON.stringify({ files: null, summary: 'ok', testsIncluded: false }),
+        CODE_ARTIFACT_SCHEMA,
+      )
+      expect(result.success).toBe(true)
+      expect(Array.isArray(result.data!.files)).toBe(true)
+      expect(result.data!.files).toHaveLength(0)
     })
 
-    it('rejects response missing summary', () => {
-      const { db } = createMockDb()
-      const agent = new CoderAgent({ db, apiKey: 'test-key', dryRun: true })
-      const validate = (agent as any).validateCodeArtifact.bind(agent)
-
-      expect(() => validate({ files: [], testsIncluded: false })).toThrow('missing required field "summary"')
+    it('rejects response missing summary', async () => {
+      const result = await processAgentOutput(
+        JSON.stringify({ files: [], testsIncluded: false }),
+        CODE_ARTIFACT_SCHEMA,
+      )
+      expect(result.success).toBe(false)
+      expect(result.failureMode).toBe('F3')
     })
 
-    it('rejects response missing testsIncluded', () => {
-      const { db } = createMockDb()
-      const agent = new CoderAgent({ db, apiKey: 'test-key', dryRun: true })
-      const validate = (agent as any).validateCodeArtifact.bind(agent)
-
-      expect(() => validate({ files: [], summary: 'ok' })).toThrow('missing required field "testsIncluded"')
+    it('rejects response missing testsIncluded', async () => {
+      const result = await processAgentOutput(
+        JSON.stringify({ files: [], summary: 'ok' }),
+        CODE_ARTIFACT_SCHEMA,
+      )
+      expect(result.success).toBe(false)
+      expect(result.failureMode).toBe('F3')
     })
 
-    it('rejects non-objects', () => {
-      const { db } = createMockDb()
-      const agent = new CoderAgent({ db, apiKey: 'test-key', dryRun: true })
-      const validate = (agent as any).validateCodeArtifact.bind(agent)
+    it('rejects non-objects (prose)', async () => {
+      const r1 = await processAgentOutput('just a string', CODE_ARTIFACT_SCHEMA)
+      expect(r1.success).toBe(false)
 
-      expect(() => validate('string')).toThrow('not an object')
-      expect(() => validate(null)).toThrow('not an object')
+      const r2 = await processAgentOutput(null as any, CODE_ARTIFACT_SCHEMA)
+      expect(r2.success).toBe(false)
+      expect(r2.failureMode).toBe('F7')
     })
 
-    it('coerces invalid action to the raw string (fallback)', () => {
-      const { db } = createMockDb()
-      const agent = new CoderAgent({ db, apiKey: 'test-key', dryRun: true })
-      const validate = (agent as any).validateCodeArtifact.bind(agent)
-
-      const obj = {
+    it('coerces invalid action to the raw string (fallback)', async () => {
+      const result = await processAgentOutput(JSON.stringify({
         files: [{ path: 'x.ts', content: '//', action: 'invalid' }],
         summary: 'ok',
         testsIncluded: false,
-      }
-      expect(() => validate(obj)).not.toThrow()
-      expect(obj.files[0].action).toBe('invalid')
+      }), CODE_ARTIFACT_SCHEMA)
+      expect(result.success).toBe(true)
+      expect(result.data!.files[0].action).toBe('invalid')
     })
 
-    it('accepts valid CodeArtifact', () => {
-      const { db } = createMockDb()
-      const agent = new CoderAgent({ db, apiKey: 'test-key', dryRun: true })
-      const validate = (agent as any).validateCodeArtifact.bind(agent)
-
-      expect(() => validate(VALID_CODE_ARTIFACT)).not.toThrow()
+    it('accepts valid CodeArtifact', async () => {
+      const result = await processAgentOutput(JSON.stringify(VALID_CODE_ARTIFACT), CODE_ARTIFACT_SCHEMA)
+      expect(result.success).toBe(true)
     })
   })
 
@@ -332,7 +327,7 @@ describe('CoderAgent', () => {
 
       await expect(
         agent.produceCode({ workGraph: SAMPLE_WORKGRAPH, plan: SAMPLE_PLAN }),
-      ).rejects.toThrow('could not extract JSON')
+      ).rejects.toThrow('could not produce valid CodeArtifact')
     })
   })
 })

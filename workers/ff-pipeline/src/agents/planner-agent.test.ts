@@ -15,6 +15,7 @@ import {
   type FauxProviderRegistration,
 } from '@weops/gdk-ai'
 import { PlannerAgent, type PlannerInput } from './planner-agent'
+import { processAgentOutput, PLAN_SCHEMA } from './output-reliability'
 import type { Plan } from '../coordinator/state'
 
 const VALID_PLAN: Plan = {
@@ -89,82 +90,76 @@ describe('PlannerAgent', () => {
     })
   })
 
-  describe('validation', () => {
-    it('rejects missing required fields', () => {
-      const { db } = createMockDb()
-      const agent = new PlannerAgent({ db, apiKey: 'test-key', dryRun: true })
-      const validate = (agent as any).validatePlan.bind(agent)
-
+  describe('validation (via ORL)', () => {
+    it('rejects missing required fields', async () => {
       // Missing approach
-      expect(() => validate({
+      const r1 = await processAgentOutput(JSON.stringify({
         atoms: [], executorRecommendation: 'gdk-agent', estimatedComplexity: 'low',
-      })).toThrow('missing required field "approach"')
+      }), PLAN_SCHEMA)
+      expect(r1.success).toBe(false)
+      expect(r1.failureMode).toBe('F3')
 
       // Missing atoms
-      expect(() => validate({
+      const r2 = await processAgentOutput(JSON.stringify({
         approach: 'test', executorRecommendation: 'gdk-agent', estimatedComplexity: 'low',
-      })).toThrow('missing required field "atoms"')
+      }), PLAN_SCHEMA)
+      expect(r2.success).toBe(false)
 
       // Missing executorRecommendation
-      expect(() => validate({
+      const r3 = await processAgentOutput(JSON.stringify({
         approach: 'test', atoms: [], estimatedComplexity: 'low',
-      })).toThrow('missing required field "executorRecommendation"')
+      }), PLAN_SCHEMA)
+      expect(r3.success).toBe(false)
 
       // Missing estimatedComplexity
-      expect(() => validate({
+      const r4 = await processAgentOutput(JSON.stringify({
         approach: 'test', atoms: [], executorRecommendation: 'gdk-agent',
-      })).toThrow('missing required field "estimatedComplexity"')
+      }), PLAN_SCHEMA)
+      expect(r4.success).toBe(false)
     })
 
-    it('coerces wrong types instead of rejecting', () => {
-      const { db } = createMockDb()
-      const agent = new PlannerAgent({ db, apiKey: 'test-key', dryRun: true })
-      const validate = (agent as any).validatePlan.bind(agent)
-
+    it('coerces wrong types instead of rejecting', async () => {
       // number approach coerced to string
-      const obj1 = {
+      const r1 = await processAgentOutput(JSON.stringify({
         approach: 123, atoms: [], executorRecommendation: 'gdk-agent', estimatedComplexity: 'low',
-      }
-      expect(() => validate(obj1)).not.toThrow()
-      expect(obj1.approach).toBe('123')
+      }), PLAN_SCHEMA)
+      expect(r1.success).toBe(true)
+      expect(r1.data!.approach).toBe('123')
 
       // string atoms coerced to array
-      const obj2 = {
+      const r2 = await processAgentOutput(JSON.stringify({
         approach: 'ok', atoms: 'not-array', executorRecommendation: 'gdk-agent', estimatedComplexity: 'low',
-      }
-      expect(() => validate(obj2)).not.toThrow()
-      expect(Array.isArray(obj2.atoms)).toBe(true)
+      }), PLAN_SCHEMA)
+      expect(r2.success).toBe(true)
+      expect(Array.isArray(r2.data!.atoms)).toBe(true)
 
       // number executorRecommendation coerced to string
-      const obj3 = {
+      const r3 = await processAgentOutput(JSON.stringify({
         approach: 'ok', atoms: [], executorRecommendation: 42, estimatedComplexity: 'low',
-      } as any
-      expect(() => validate(obj3)).not.toThrow()
-      expect(obj3.executorRecommendation).toBe('42')
+      }), PLAN_SCHEMA)
+      expect(r3.success).toBe(true)
+      expect(r3.data!.executorRecommendation).toBe('42')
 
       // number estimatedComplexity coerced to string
-      const obj4 = {
+      const r4 = await processAgentOutput(JSON.stringify({
         approach: 'ok', atoms: [], executorRecommendation: 'gdk-agent', estimatedComplexity: 99,
-      } as any
-      expect(() => validate(obj4)).not.toThrow()
-      expect(obj4.estimatedComplexity).toBe('99')
+      }), PLAN_SCHEMA)
+      expect(r4.success).toBe(true)
+      expect(r4.data!.estimatedComplexity).toBe('99')
     })
 
-    it('rejects non-objects', () => {
-      const { db } = createMockDb()
-      const agent = new PlannerAgent({ db, apiKey: 'test-key', dryRun: true })
-      const validate = (agent as any).validatePlan.bind(agent)
+    it('rejects non-objects (prose)', async () => {
+      const r1 = await processAgentOutput('just a string', PLAN_SCHEMA)
+      expect(r1.success).toBe(false)
 
-      expect(() => validate('string')).toThrow('not an object')
-      expect(() => validate(null)).toThrow('not an object')
+      const r2 = await processAgentOutput(null as any, PLAN_SCHEMA)
+      expect(r2.success).toBe(false)
+      expect(r2.failureMode).toBe('F7')
     })
 
-    it('accepts valid Plan', () => {
-      const { db } = createMockDb()
-      const agent = new PlannerAgent({ db, apiKey: 'test-key', dryRun: true })
-      const validate = (agent as any).validatePlan.bind(agent)
-
-      expect(() => validate(VALID_PLAN)).not.toThrow()
+    it('accepts valid Plan', async () => {
+      const result = await processAgentOutput(JSON.stringify(VALID_PLAN), PLAN_SCHEMA)
+      expect(result.success).toBe(true)
     })
   })
 

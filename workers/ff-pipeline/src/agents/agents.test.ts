@@ -8,6 +8,7 @@ import {
 } from '@weops/gdk-ai'
 import { ArchitectAgent } from './architect-agent.js'
 import { CriticAgent } from './critic-agent.js'
+import { processAgentOutput, SEMANTIC_REVIEW_SCHEMA, CRITIQUE_REPORT_SCHEMA } from './output-reliability.js'
 import type { SemanticReviewResult } from '../types.js'
 import type { CritiqueReport, Plan, CodeArtifact } from '../coordinator/state.js'
 
@@ -181,21 +182,19 @@ describe('CriticAgent.semanticReview', () => {
     })
   })
 
-  describe('validation', () => {
-    it('rejects non-objects', () => {
-      const { db } = makeMockDb()
-      const agent = new CriticAgent({ db, apiKey: 'test', dryRun: true })
-      const validate = (agent as any).validateSemanticReview.bind(agent)
-
-      expect(() => validate('string')).toThrow('not an object')
-      expect(() => validate(null)).toThrow('not an object')
+  describe('validation (via ORL)', () => {
+    it('rejects non-objects (pure prose)', async () => {
+      const result = await processAgentOutput('just a string', SEMANTIC_REVIEW_SCHEMA)
+      expect(result.success).toBe(false)
     })
 
-    it('coerces invalid alignment to "uncertain"', () => {
-      const { db } = makeMockDb()
-      const agent = new CriticAgent({ db, apiKey: 'test', dryRun: true })
-      const validate = (agent as any).validateSemanticReview.bind(agent)
+    it('rejects null response', async () => {
+      const result = await processAgentOutput(null as any, SEMANTIC_REVIEW_SCHEMA)
+      expect(result.success).toBe(false)
+      expect(result.failureMode).toBe('F7')
+    })
 
+    it('coerces invalid alignment to "uncertain"', async () => {
       const obj = {
         alignment: 'wrong',
         confidence: 0.5,
@@ -203,34 +202,28 @@ describe('CriticAgent.semanticReview', () => {
         rationale: 'test',
         timestamp: '2026-01-01',
       }
-      expect(() => validate(obj)).not.toThrow()
-      expect(obj.alignment).toBe('uncertain')
+      const result = await processAgentOutput(JSON.stringify(obj), SEMANTIC_REVIEW_SCHEMA)
+      expect(result.success).toBe(true)
+      expect(result.data!.alignment).toBe('uncertain')
     })
 
-    it('coerces missing fields to defaults', () => {
-      const { db } = makeMockDb()
-      const agent = new CriticAgent({ db, apiKey: 'test', dryRun: true })
-      const validate = (agent as any).validateSemanticReview.bind(agent)
-
-      const obj = { alignment: 'aligned' } as Record<string, unknown>
-      expect(() => validate(obj)).not.toThrow()
-      expect(obj.confidence).toBe(0)
-      expect(obj.citations).toEqual([])
-      expect(obj.rationale).toBe('')
+    it('coerces missing optional-like fields via coerce', async () => {
+      // alignment is present but other required fields are missing -> F3
+      const obj = { alignment: 'aligned' }
+      const result = await processAgentOutput(JSON.stringify(obj), SEMANTIC_REVIEW_SCHEMA)
+      expect(result.success).toBe(false)
+      expect(result.failureMode).toBe('F3')
     })
 
-    it('accepts valid SemanticReviewResult', () => {
-      const { db } = makeMockDb()
-      const agent = new CriticAgent({ db, apiKey: 'test', dryRun: true })
-      const validate = (agent as any).validateSemanticReview.bind(agent)
-
-      expect(() => validate({
+    it('accepts valid SemanticReviewResult', async () => {
+      const result = await processAgentOutput(JSON.stringify({
         alignment: 'aligned',
         confidence: 0.92,
         citations: ['spec section 3.2'],
         rationale: 'Good alignment',
         timestamp: '2026-04-26T10:00:00Z',
-      })).not.toThrow()
+      }), SEMANTIC_REVIEW_SCHEMA)
+      expect(result.success).toBe(true)
     })
   })
 })
@@ -375,62 +368,49 @@ describe('CriticAgent.codeReview', () => {
     })
   })
 
-  describe('validation', () => {
-    it('rejects non-objects', () => {
-      const { db } = makeMockDb()
-      const agent = new CriticAgent({ db, apiKey: 'test', dryRun: true })
-      const validate = (agent as any).validateCritiqueReport.bind(agent)
-
-      expect(() => validate('string')).toThrow('not an object')
-      expect(() => validate(null)).toThrow('not an object')
+  describe('validation (via ORL)', () => {
+    it('rejects non-objects (pure prose)', async () => {
+      const result = await processAgentOutput('just a string', CRITIQUE_REPORT_SCHEMA)
+      expect(result.success).toBe(false)
     })
 
-    it('coerces missing fields to defaults', () => {
-      const { db } = makeMockDb()
-      const agent = new CriticAgent({ db, apiKey: 'test', dryRun: true })
-      const validate = (agent as any).validateCritiqueReport.bind(agent)
-
-      const obj = { passed: true } as Record<string, unknown>
-      expect(() => validate(obj)).not.toThrow()
-      expect(obj.issues).toEqual([])
-      expect(obj.mentorRuleCompliance).toEqual([])
-      expect(obj.overallAssessment).toBe('')
+    it('rejects null response', async () => {
+      const result = await processAgentOutput(null as any, CRITIQUE_REPORT_SCHEMA)
+      expect(result.success).toBe(false)
+      expect(result.failureMode).toBe('F7')
     })
 
-    it('coerces invalid issue severity to "minor"', () => {
-      const { db } = makeMockDb()
-      const agent = new CriticAgent({ db, apiKey: 'test', dryRun: true })
-      const validate = (agent as any).validateCritiqueReport.bind(agent)
+    it('missing required fields -> failure', async () => {
+      const obj = { passed: true }
+      const result = await processAgentOutput(JSON.stringify(obj), CRITIQUE_REPORT_SCHEMA)
+      expect(result.success).toBe(false)
+      expect(result.failureMode).toBe('F3')
+    })
 
+    it('coerces invalid issue severity to "minor"', async () => {
       const obj = {
         passed: true,
         issues: [{ severity: 'invalid', description: 'test' }],
         mentorRuleCompliance: [],
         overallAssessment: 'test',
       }
-      expect(() => validate(obj)).not.toThrow()
-      expect((obj.issues[0] as any).severity).toBe('minor')
+      const result = await processAgentOutput(JSON.stringify(obj), CRITIQUE_REPORT_SCHEMA)
+      expect(result.success).toBe(true)
+      expect((result.data!.issues[0] as any).severity).toBe('minor')
     })
 
-    it('accepts valid CritiqueReport with zero issues', () => {
-      const { db } = makeMockDb()
-      const agent = new CriticAgent({ db, apiKey: 'test', dryRun: true })
-      const validate = (agent as any).validateCritiqueReport.bind(agent)
-
-      expect(() => validate({
+    it('accepts valid CritiqueReport with zero issues', async () => {
+      const result = await processAgentOutput(JSON.stringify({
         passed: true,
         issues: [],
         mentorRuleCompliance: [],
         overallAssessment: 'Clean pass',
-      })).not.toThrow()
+      }), CRITIQUE_REPORT_SCHEMA)
+      expect(result.success).toBe(true)
     })
 
-    it('accepts valid CritiqueReport with critical issues', () => {
-      const { db } = makeMockDb()
-      const agent = new CriticAgent({ db, apiKey: 'test', dryRun: true })
-      const validate = (agent as any).validateCritiqueReport.bind(agent)
-
-      expect(() => validate({
+    it('accepts valid CritiqueReport with critical issues', async () => {
+      const result = await processAgentOutput(JSON.stringify({
         passed: false,
         issues: [
           { severity: 'critical', description: 'SQL injection vulnerability', file: 'src/db.ts', line: 15 },
@@ -438,7 +418,8 @@ describe('CriticAgent.codeReview', () => {
         ],
         mentorRuleCompliance: [{ ruleId: 'MR-SEC-001', compliant: false }],
         overallAssessment: 'Critical security issues found',
-      })).not.toThrow()
+      }), CRITIQUE_REPORT_SCHEMA)
+      expect(result.success).toBe(true)
     })
   })
 })

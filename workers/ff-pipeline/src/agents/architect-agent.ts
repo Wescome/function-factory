@@ -11,8 +11,8 @@ import type { AgentTool } from '@weops/gdk-agent'
 import { Type, type Model, type AssistantMessage, type Message, type UserMessage } from '@weops/gdk-ai'
 import type { ArangoClient } from '@factory/arango-client'
 import { resolveAgentModel } from './resolve-model'
-import { coerceToString, coerceToArray } from './coerce'
 import { createWorkersAIStreamFn, type AIBinding } from './workers-ai-stream'
+import { processAgentOutput, BRIEFING_SCRIPT_SCHEMA } from './output-reliability'
 
 export interface BriefingScript {
   goal: string
@@ -70,10 +70,7 @@ When ready, respond with ONLY a JSON object (no markdown fences, no explanation)
   "validationLoop": "how to validate the outcome"
 }`
 
-const BRIEFING_REQUIRED_FIELDS: (keyof BriefingScript)[] = [
-  'goal', 'successCriteria', 'architecturalContext',
-  'strategicAdvice', 'knownGotchas', 'validationLoop',
-]
+// Required fields now defined in BRIEFING_SCRIPT_SCHEMA (output-reliability.ts)
 
 
 export function buildArangoTool(db: ArangoClient): AgentTool {
@@ -177,48 +174,10 @@ export class ArchitectAgent {
       throw new Error('ArchitectAgent: final response has no text content')
     }
 
-    const parsed = extractAndParseJSON(textBlock.text)
-    this.validateBriefingScript(parsed)
-    return parsed as BriefingScript
-  }
-
-  private validateBriefingScript(obj: unknown): asserts obj is BriefingScript {
-    if (typeof obj !== 'object' || obj === null) {
-      throw new Error('ArchitectAgent: model response is not an object')
+    const result = await processAgentOutput(textBlock.text, BRIEFING_SCRIPT_SCHEMA)
+    if (!result.success) {
+      throw new Error(`ArchitectAgent: ${result.failureMode}: could not produce valid BriefingScript`)
     }
-    const record = obj as Record<string, unknown>
-    for (const field of BRIEFING_REQUIRED_FIELDS) {
-      if (!(field in record)) {
-        throw new Error(`ArchitectAgent: missing required field "${field}"`)
-      }
-    }
-    record.goal = coerceToString(record.goal)
-    record.successCriteria = coerceToArray(record.successCriteria)
-    record.architecturalContext = coerceToString(record.architecturalContext)
-    record.strategicAdvice = coerceToString(record.strategicAdvice)
-    record.knownGotchas = coerceToArray(record.knownGotchas)
-    record.validationLoop = coerceToString(record.validationLoop)
+    return result.data!
   }
-}
-
-function extractAndParseJSON(text: string): unknown {
-  const trimmed = text.trim()
-
-  // Try direct parse first
-  try { return JSON.parse(trimmed) } catch { /* continue */ }
-
-  // Strip markdown fences
-  const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/)
-  if (fenceMatch) {
-    try { return JSON.parse(fenceMatch[1].trim()) } catch { /* continue */ }
-  }
-
-  // Find first { and last }
-  const start = trimmed.indexOf('{')
-  const end = trimmed.lastIndexOf('}')
-  if (start !== -1 && end > start) {
-    try { return JSON.parse(trimmed.slice(start, end + 1)) } catch { /* continue */ }
-  }
-
-  throw new Error(`ArchitectAgent: could not extract JSON from response: ${trimmed.slice(0, 200)}`)
 }

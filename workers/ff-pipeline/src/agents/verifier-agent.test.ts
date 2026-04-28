@@ -15,6 +15,7 @@ import {
   type FauxProviderRegistration,
 } from '@weops/gdk-ai'
 import { VerifierAgent, type VerifierInput } from './verifier-agent'
+import { processAgentOutput, VERDICT_SCHEMA } from './output-reliability'
 import type { Verdict } from '../coordinator/state'
 
 const VALID_VERDICT: Verdict = {
@@ -97,100 +98,89 @@ describe('VerifierAgent', () => {
     })
   })
 
-  describe('validation', () => {
-    it('rejects missing required fields', () => {
-      const { db } = createMockDb()
-      const agent = new VerifierAgent({ db, apiKey: 'test-key', dryRun: true })
-      const validate = (agent as any).validateVerdict.bind(agent)
-
-      expect(() => validate({
+  describe('validation (via ORL)', () => {
+    it('rejects missing required fields', async () => {
+      const r1 = await processAgentOutput(JSON.stringify({
         confidence: 0.9, reason: 'ok',
-      })).toThrow('missing required field "decision"')
+      }), VERDICT_SCHEMA)
+      expect(r1.success).toBe(false)
+      expect(r1.failureMode).toBe('F3')
 
-      expect(() => validate({
+      const r2 = await processAgentOutput(JSON.stringify({
         decision: 'pass', reason: 'ok',
-      })).toThrow('missing required field "confidence"')
+      }), VERDICT_SCHEMA)
+      expect(r2.success).toBe(false)
 
-      expect(() => validate({
+      const r3 = await processAgentOutput(JSON.stringify({
         decision: 'pass', confidence: 0.9,
-      })).toThrow('missing required field "reason"')
+      }), VERDICT_SCHEMA)
+      expect(r3.success).toBe(false)
     })
 
-    it('coerces invalid decision to "interrupt"', () => {
-      const { db } = createMockDb()
-      const agent = new VerifierAgent({ db, apiKey: 'test-key', dryRun: true })
-      const validate = (agent as any).validateVerdict.bind(agent)
-
-      const obj = { decision: 'approve', confidence: 0.9, reason: 'ok' }
-      expect(() => validate(obj)).not.toThrow()
-      expect(obj.decision).toBe('interrupt')
+    it('coerces invalid decision to "interrupt"', async () => {
+      const result = await processAgentOutput(JSON.stringify({
+        decision: 'approve', confidence: 0.9, reason: 'ok',
+      }), VERDICT_SCHEMA)
+      expect(result.success).toBe(true)
+      expect(result.data!.decision).toBe('interrupt')
     })
 
-    it('coerces non-numeric confidence to 0', () => {
-      const { db } = createMockDb()
-      const agent = new VerifierAgent({ db, apiKey: 'test-key', dryRun: true })
-      const validate = (agent as any).validateVerdict.bind(agent)
-
-      const obj = { decision: 'pass', confidence: 'high', reason: 'ok' } as any
-      expect(() => validate(obj)).not.toThrow()
+    it('coerces non-numeric confidence to 0', async () => {
+      const result = await processAgentOutput(JSON.stringify({
+        decision: 'pass', confidence: 'high', reason: 'ok',
+      }), VERDICT_SCHEMA)
+      expect(result.success).toBe(true)
       // 'high' -> NaN -> 0, which is in range [0,1]
-      expect(obj.confidence).toBe(0)
+      expect(result.data!.confidence).toBe(0)
     })
 
-    it('clamps confidence out of range to 0.5', () => {
-      const { db } = createMockDb()
-      const agent = new VerifierAgent({ db, apiKey: 'test-key', dryRun: true })
-      const validate = (agent as any).validateVerdict.bind(agent)
+    it('clamps confidence out of range to 0.5', async () => {
+      const r1 = await processAgentOutput(JSON.stringify({
+        decision: 'pass', confidence: 1.5, reason: 'ok',
+      }), VERDICT_SCHEMA)
+      expect(r1.success).toBe(true)
+      expect(r1.data!.confidence).toBe(0.5)
 
-      const obj1 = { decision: 'pass', confidence: 1.5, reason: 'ok' }
-      expect(() => validate(obj1)).not.toThrow()
-      expect(obj1.confidence).toBe(0.5)
-
-      const obj2 = { decision: 'pass', confidence: -0.1, reason: 'ok' }
-      expect(() => validate(obj2)).not.toThrow()
-      expect(obj2.confidence).toBe(0.5)
+      const r2 = await processAgentOutput(JSON.stringify({
+        decision: 'pass', confidence: -0.1, reason: 'ok',
+      }), VERDICT_SCHEMA)
+      expect(r2.success).toBe(true)
+      expect(r2.data!.confidence).toBe(0.5)
     })
 
-    it('coerces non-string reason to string', () => {
-      const { db } = createMockDb()
-      const agent = new VerifierAgent({ db, apiKey: 'test-key', dryRun: true })
-      const validate = (agent as any).validateVerdict.bind(agent)
-
-      const obj = { decision: 'pass', confidence: 0.9, reason: 42 } as any
-      expect(() => validate(obj)).not.toThrow()
-      expect(obj.reason).toBe('42')
+    it('coerces non-string reason to string', async () => {
+      const result = await processAgentOutput(JSON.stringify({
+        decision: 'pass', confidence: 0.9, reason: 42,
+      }), VERDICT_SCHEMA)
+      expect(result.success).toBe(true)
+      expect(result.data!.reason).toBe('42')
     })
 
-    it('rejects non-objects', () => {
-      const { db } = createMockDb()
-      const agent = new VerifierAgent({ db, apiKey: 'test-key', dryRun: true })
-      const validate = (agent as any).validateVerdict.bind(agent)
+    it('rejects non-objects (prose)', async () => {
+      const r1 = await processAgentOutput('just a string', VERDICT_SCHEMA)
+      expect(r1.success).toBe(false)
 
-      expect(() => validate('string')).toThrow('not an object')
-      expect(() => validate(null)).toThrow('not an object')
+      const r2 = await processAgentOutput(null as any, VERDICT_SCHEMA)
+      expect(r2.success).toBe(false)
+      expect(r2.failureMode).toBe('F7')
     })
 
-    it('accepts valid Verdict with all decisions', () => {
-      const { db } = createMockDb()
-      const agent = new VerifierAgent({ db, apiKey: 'test-key', dryRun: true })
-      const validate = (agent as any).validateVerdict.bind(agent)
-
+    it('accepts valid Verdict with all decisions', async () => {
       for (const decision of ['pass', 'fail', 'patch', 'resample', 'interrupt'] as const) {
-        expect(() => validate({
+        const result = await processAgentOutput(JSON.stringify({
           decision, confidence: 0.9, reason: `Testing ${decision}`,
-        })).not.toThrow()
+        }), VERDICT_SCHEMA)
+        expect(result.success).toBe(true)
       }
     })
 
-    it('accepts valid Verdict with optional notes', () => {
-      const { db } = createMockDb()
-      const agent = new VerifierAgent({ db, apiKey: 'test-key', dryRun: true })
-      const validate = (agent as any).validateVerdict.bind(agent)
-
-      expect(() => validate({
+    it('accepts valid Verdict with optional notes', async () => {
+      const result = await processAgentOutput(JSON.stringify({
         decision: 'patch', confidence: 0.7, reason: 'fixable',
         notes: 'Fix the error handling in auth.ts',
-      })).not.toThrow()
+      }), VERDICT_SCHEMA)
+      expect(result.success).toBe(true)
+      expect(result.data!.notes).toBe('Fix the error handling in auth.ts')
     })
   })
 

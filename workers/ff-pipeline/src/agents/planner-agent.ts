@@ -12,9 +12,9 @@ import type { Model, AssistantMessage, Message, UserMessage } from '@weops/gdk-a
 import type { ArangoClient } from '@factory/arango-client'
 import { buildArangoTool } from './architect-agent'
 import { resolveAgentModel } from './resolve-model'
-import { coerceToString, coerceToArray } from './coerce'
 import type { Plan } from '../coordinator/state'
 import { createWorkersAIStreamFn, type AIBinding } from './workers-ai-stream'
+import { processAgentOutput, PLAN_SCHEMA } from './output-reliability'
 
 export interface PlannerInput {
   workGraph: Record<string, unknown>
@@ -73,9 +73,7 @@ When ready, respond with ONLY a JSON object (no markdown fences, no explanation)
   "estimatedComplexity": "low | medium | high"
 }`
 
-const PLAN_REQUIRED_FIELDS: (keyof Plan)[] = [
-  'approach', 'atoms', 'executorRecommendation', 'estimatedComplexity',
-]
+// Required fields now defined in PLAN_SCHEMA (output-reliability.ts)
 
 
 export class PlannerAgent {
@@ -168,46 +166,10 @@ export class PlannerAgent {
       throw new Error('PlannerAgent: final response has no text content')
     }
 
-    const parsed = extractAndParseJSON(textBlock.text)
-    this.validatePlan(parsed)
-    return parsed as Plan
-  }
-
-  private validatePlan(obj: unknown): asserts obj is Plan {
-    if (typeof obj !== 'object' || obj === null) {
-      throw new Error('PlannerAgent: model response is not an object')
+    const result = await processAgentOutput(textBlock.text, PLAN_SCHEMA)
+    if (!result.success) {
+      throw new Error(`PlannerAgent: ${result.failureMode}: could not produce valid Plan`)
     }
-    const record = obj as Record<string, unknown>
-    for (const field of PLAN_REQUIRED_FIELDS) {
-      if (!(field in record)) {
-        throw new Error(`PlannerAgent: missing required field "${field}"`)
-      }
-    }
-    record.approach = coerceToString(record.approach)
-    record.atoms = coerceToArray(record.atoms)
-    record.executorRecommendation = coerceToString(record.executorRecommendation) || 'gdk-agent'
-    record.estimatedComplexity = coerceToString(record.estimatedComplexity) || 'medium'
+    return result.data!
   }
-}
-
-function extractAndParseJSON(text: string): unknown {
-  const trimmed = text.trim()
-
-  // Try direct parse first
-  try { return JSON.parse(trimmed) } catch { /* continue */ }
-
-  // Strip markdown fences
-  const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/)
-  if (fenceMatch) {
-    try { return JSON.parse(fenceMatch[1]!.trim()) } catch { /* continue */ }
-  }
-
-  // Find first { and last }
-  const start = trimmed.indexOf('{')
-  const end = trimmed.lastIndexOf('}')
-  if (start !== -1 && end > start) {
-    try { return JSON.parse(trimmed.slice(start, end + 1)) } catch { /* continue */ }
-  }
-
-  throw new Error(`PlannerAgent: could not extract JSON from response: ${trimmed.slice(0, 200)}`)
 }

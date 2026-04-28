@@ -16,6 +16,7 @@ import {
   type FauxProviderRegistration,
 } from '@weops/gdk-ai'
 import { ArchitectAgent, buildArangoTool, type BriefingScript } from './architect-agent'
+import { processAgentOutput, BRIEFING_SCRIPT_SCHEMA } from './output-reliability'
 
 const VALID_BRIEFING: BriefingScript = {
   goal: 'Implement the user authentication module',
@@ -72,55 +73,46 @@ describe('ArchitectAgent', () => {
     })
   })
 
-  describe('validation', () => {
-    it('rejects missing required fields', () => {
-      const { db } = createMockDb()
-      const agent = new ArchitectAgent({ db, apiKey: 'test-key', dryRun: true })
-      const validate = (agent as any).validateBriefingScript.bind(agent)
-
-      expect(() => validate({
+  describe('validation (via ORL)', () => {
+    it('rejects missing required fields', async () => {
+      const result = await processAgentOutput(JSON.stringify({
         successCriteria: [], architecturalContext: '', strategicAdvice: '',
         knownGotchas: [], validationLoop: '',
-      })).toThrow('missing required field "goal"')
+      }), BRIEFING_SCRIPT_SCHEMA)
+      expect(result.success).toBe(false)
+      expect(result.failureMode).toBe('F3')
     })
 
-    it('coerces wrong types instead of rejecting', () => {
-      const { db } = createMockDb()
-      const agent = new ArchitectAgent({ db, apiKey: 'test-key', dryRun: true })
-      const validate = (agent as any).validateBriefingScript.bind(agent)
-
+    it('coerces wrong types instead of rejecting', async () => {
       // number goal is coerced to string
-      const obj1 = {
+      const result1 = await processAgentOutput(JSON.stringify({
         goal: 123, successCriteria: [], architecturalContext: '', strategicAdvice: '',
         knownGotchas: [], validationLoop: '',
-      }
-      expect(() => validate(obj1)).not.toThrow()
-      expect(obj1.goal).toBe('123')
+      }), BRIEFING_SCRIPT_SCHEMA)
+      expect(result1.success).toBe(true)
+      expect(result1.data!.goal).toBe('123')
 
       // string successCriteria is coerced to array
-      const obj2 = {
+      const result2 = await processAgentOutput(JSON.stringify({
         goal: 'ok', successCriteria: 'not-array', architecturalContext: '',
         strategicAdvice: '', knownGotchas: [], validationLoop: '',
-      }
-      expect(() => validate(obj2)).not.toThrow()
-      expect(Array.isArray(obj2.successCriteria)).toBe(true)
+      }), BRIEFING_SCRIPT_SCHEMA)
+      expect(result2.success).toBe(true)
+      expect(Array.isArray(result2.data!.successCriteria)).toBe(true)
     })
 
-    it('rejects non-objects', () => {
-      const { db } = createMockDb()
-      const agent = new ArchitectAgent({ db, apiKey: 'test-key', dryRun: true })
-      const validate = (agent as any).validateBriefingScript.bind(agent)
+    it('rejects non-objects (prose)', async () => {
+      const result = await processAgentOutput('just a string', BRIEFING_SCRIPT_SCHEMA)
+      expect(result.success).toBe(false)
 
-      expect(() => validate('string')).toThrow('not an object')
-      expect(() => validate(null)).toThrow('not an object')
+      const result2 = await processAgentOutput(null as any, BRIEFING_SCRIPT_SCHEMA)
+      expect(result2.success).toBe(false)
+      expect(result2.failureMode).toBe('F7')
     })
 
-    it('accepts valid BriefingScript', () => {
-      const { db } = createMockDb()
-      const agent = new ArchitectAgent({ db, apiKey: 'test-key', dryRun: true })
-      const validate = (agent as any).validateBriefingScript.bind(agent)
-
-      expect(() => validate(VALID_BRIEFING)).not.toThrow()
+    it('accepts valid BriefingScript', async () => {
+      const result = await processAgentOutput(JSON.stringify(VALID_BRIEFING), BRIEFING_SCRIPT_SCHEMA)
+      expect(result.success).toBe(true)
     })
   })
 
