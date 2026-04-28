@@ -1,0 +1,590 @@
+@prefix ff:    <https://koales.ai/ontology/function-factory#> .
+@prefix sh:    <http://www.w3.org/ns/shacl#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl:   <http://www.w3.org/2002/07/owl#> .
+
+# ═══════════════════════════════════════════════════════════════════
+# Output Reliability Extension — Ontological Model
+#
+# Formalizes LLM output as a typed transformation pipeline.
+# Every model response passes through: Parse → Validate → Coerce → Repair.
+# Failure modes are classes. Repair strategies are typed operations.
+# SHACL shapes define "valid output" per agent role.
+#
+# Grounded in CEF evidence: 4 models, 7 failure modes, model-independent.
+# ═══════════════════════════════════════════════════════════════════
+
+
+# ─── DOMAIN 8: OUTPUT RELIABILITY ────────────────────────────────
+# Extension to the 7-domain Factory ontology
+
+# ── Response Types ───────────────────────────────────────────────
+
+ff:LLMResponse a owl:Class ;
+    rdfs:comment "Raw response from an LLM call. Unprocessed. May be structured, semi-structured, malformed, or null." .
+
+ff:StructuredResponse rdfs:subClassOf ff:LLMResponse ;
+    rdfs:comment "Valid JSON conforming to the expected schema. No parsing or coercion needed." .
+
+ff:SemiStructuredResponse rdfs:subClassOf ff:LLMResponse ;
+    rdfs:comment "Contains valid JSON but wrapped in prose, markdown fences, or mixed with explanation text. Extractable." .
+
+ff:MalformedResponse rdfs:subClassOf ff:LLMResponse ;
+    rdfs:comment "Contains JSON-like content but structurally invalid: truncated, wrong field names, wrong types, missing required fields." .
+
+ff:NullResponse rdfs:subClassOf ff:LLMResponse ;
+    rdfs:comment "Empty, undefined, or null response from the LLM. No content to parse." .
+
+ff:TextToolCallResponse rdfs:subClassOf ff:SemiStructuredResponse ;
+    rdfs:comment "Model expressed tool calls as text JSON objects instead of structured tool_calls format. Parseable but not native." .
+
+
+# ── Failure Mode Taxonomy ────────────────────────────────────────
+# Each failure mode maps to a CEF observation
+
+ff:OutputFailureMode a owl:Class ;
+    rdfs:comment "A classified way that LLM output can deviate from the expected contract. Model-independent." .
+
+ff:F1_ProseInsteadOfJSON a owl:Class ;
+    rdfs:subClassOf ff:OutputFailureMode ;
+    rdfs:comment "Response is natural language prose instead of JSON. Model ignored format instructions. Observed: llama-3.3-70b architect." ;
+    ff:cefModel "llama-3.3-70b" ;
+    ff:responseType ff:MalformedResponse ;
+    ff:repairStrategy ff:RePromptWithSchema .
+
+ff:F2_TruncatedJSON a owl:Class ;
+    rdfs:subClassOf ff:OutputFailureMode ;
+    rdfs:comment "Response is valid JSON prefix but cut off mid-string or mid-object. Model hit output token limit. Observed: llama-3.3-70b compiler (pre-delta fix)." ;
+    ff:cefModel "llama-3.3-70b" ;
+    ff:responseType ff:MalformedResponse ;
+    ff:repairStrategy ff:ReduceOutputSize .
+
+ff:F3_WrongFieldNames a owl:Class ;
+    rdfs:subClassOf ff:OutputFailureMode ;
+    rdfs:comment "JSON is valid but uses different field names than expected schema. E.g., 'name' instead of 'title', 'score' instead of 'birthGateScore'. Observed: Workers AI compiler." ;
+    ff:responseType ff:MalformedResponse ;
+    ff:repairStrategy ff:FieldNameMapping .
+
+ff:F4_WrongFieldTypes a owl:Class ;
+    rdfs:subClassOf ff:OutputFailureMode ;
+    rdfs:comment "Fields present with correct names but wrong types. E.g., strategicAdvice as array instead of string, confidence as string instead of number. Observed: all models." ;
+    ff:responseType ff:MalformedResponse ;
+    ff:repairStrategy ff:TypeCoercion .
+
+ff:F5_MarkdownFences a owl:Class ;
+    rdfs:subClassOf ff:OutputFailureMode ;
+    rdfs:comment "Valid JSON wrapped in markdown code fences (```json ... ```). Common across all models despite 'no markdown' instructions. Observed: Workers AI 70b compiler." ;
+    ff:responseType ff:SemiStructuredResponse ;
+    ff:repairStrategy ff:FenceExtraction .
+
+ff:F6_TextToolCalls a owl:Class ;
+    rdfs:subClassOf ff:OutputFailureMode ;
+    rdfs:comment "Model expressed tool calls as text JSON objects ({\"name\":\"tool\",\"arguments\":{...}}) instead of native tool_calls format. Observed: qwen2.5-coder-32b, llama-3.3-70b." ;
+    ff:responseType ff:TextToolCallResponse ;
+    ff:repairStrategy ff:TextToolCallParsing .
+
+ff:F7_NullResponse a owl:Class ;
+    rdfs:subClassOf ff:OutputFailureMode ;
+    rdfs:comment "Model returned null, undefined, or empty string. No content to parse. Observed: kimi-k2.6." ;
+    ff:cefModel "kimi-k2.6" ;
+    ff:responseType ff:NullResponse ;
+    ff:repairStrategy ff:RePromptFresh .
+
+
+# ── Repair Strategies ────────────────────────────────────────────
+# Typed operations in the reliability pipeline
+
+ff:RepairStrategy a owl:Class ;
+    rdfs:comment "A typed operation that attempts to recover valid output from a failed LLM response." .
+
+ff:FenceExtraction a ff:RepairStrategy ;
+    rdfs:comment "Extract JSON from markdown code fences. Tier 2 of extractJSON. Deterministic, always succeeds if fence is present." ;
+    ff:handles ff:F5_MarkdownFences ;
+    ff:cost "zero" ;
+    ff:successRate "0.99" .
+
+ff:BraceExtraction a ff:RepairStrategy ;
+    rdfs:comment "Find first { and last } in text, extract substring, parse as JSON. Tier 3 of extractJSON. Handles prose+JSON mix." ;
+    ff:handles ff:F1_ProseInsteadOfJSON ;
+    ff:cost "zero" ;
+    ff:successRate "0.85" .
+
+ff:TypeCoercion a ff:RepairStrategy ;
+    rdfs:comment "Convert values to expected types: array→string (join), string→array (split), string→number (parse), string→boolean. Deterministic." ;
+    ff:handles ff:F4_WrongFieldTypes ;
+    ff:cost "zero" ;
+    ff:successRate "0.95" .
+
+ff:FieldNameMapping a ff:RepairStrategy ;
+    rdfs:comment "Map common field name variants to expected names: name→title, score→birthGateScore, add→create. Configurable alias table." ;
+    ff:handles ff:F3_WrongFieldNames ;
+    ff:cost "zero" ;
+    ff:successRate "0.80" .
+
+ff:TextToolCallParsing a ff:RepairStrategy ;
+    rdfs:comment "Detect JSON objects in text that match tool call pattern ({name, arguments}). Conservative: only matches known tool names." ;
+    ff:handles ff:F6_TextToolCalls ;
+    ff:cost "zero" ;
+    ff:successRate "0.90" .
+
+ff:ReduceOutputSize a ff:RepairStrategy ;
+    rdfs:comment "Re-prompt with instruction to produce smaller output. Used when truncation is detected. Costs one LLM call." ;
+    ff:handles ff:F2_TruncatedJSON ;
+    ff:cost "one-llm-call" ;
+    ff:successRate "0.70" .
+
+ff:RePromptWithSchema a ff:RepairStrategy ;
+    rdfs:comment "Re-prompt with the exact JSON schema and the failed response as negative example. Costs one LLM call." ;
+    ff:handles ff:F1_ProseInsteadOfJSON, ff:F3_WrongFieldNames ;
+    ff:cost "one-llm-call" ;
+    ff:successRate "0.75" .
+
+ff:RePromptFresh a ff:RepairStrategy ;
+    rdfs:comment "Discard the failed response entirely and re-prompt from scratch. Last resort before failure. Costs one LLM call." ;
+    ff:handles ff:F7_NullResponse ;
+    ff:cost "one-llm-call" ;
+    ff:successRate "0.60" .
+
+
+# ── Reliability Pipeline ─────────────────────────────────────────
+# The transformation chain every LLM response passes through
+
+ff:ReliabilityStage a owl:Class ;
+    rdfs:comment "A stage in the output reliability pipeline. Stages are ordered and each transforms the response." .
+
+ff:ParseStage a ff:ReliabilityStage ;
+    rdfs:comment "Stage 1: Extract structured data from raw response. Applies: FenceExtraction, BraceExtraction, direct JSON.parse. Zero-cost. Always runs." ;
+    ff:order 1 ;
+    ff:strategies ff:FenceExtraction, ff:BraceExtraction ;
+    ff:cost "zero" .
+
+ff:DetectToolCallStage a ff:ReliabilityStage ;
+    rdfs:comment "Stage 2: Detect tool calls in text when native function calling is unavailable. Applies: TextToolCallParsing. Zero-cost. Runs when tools are in context." ;
+    ff:order 2 ;
+    ff:strategies ff:TextToolCallParsing ;
+    ff:cost "zero" .
+
+ff:ValidateStage a ff:ReliabilityStage ;
+    rdfs:comment "Stage 3: Check parsed output against expected schema. Identifies which fields are missing, wrong type, or unexpected." ;
+    ff:order 3 ;
+    ff:cost "zero" .
+
+ff:CoerceStage a ff:ReliabilityStage ;
+    rdfs:comment "Stage 4: Apply type coercion and field name mapping to fix known mismatch patterns. Deterministic. Zero-cost." ;
+    ff:order 4 ;
+    ff:strategies ff:TypeCoercion, ff:FieldNameMapping ;
+    ff:cost "zero" .
+
+ff:RepairStage a ff:ReliabilityStage ;
+    rdfs:comment "Stage 5: If validation still fails after coercion, re-prompt the LLM with schema + error. Costs one LLM call. Max 2 attempts." ;
+    ff:order 5 ;
+    ff:strategies ff:RePromptWithSchema, ff:ReduceOutputSize, ff:RePromptFresh ;
+    ff:cost "one-to-two-llm-calls" ;
+    ff:maxAttempts 2 .
+
+ff:FailStage a ff:ReliabilityStage ;
+    rdfs:comment "Stage 6: If repair exhausted, produce structured error with failure mode classification and the raw response for debugging." ;
+    ff:order 6 ;
+    ff:cost "zero" .
+
+
+# ── Properties ───────────────────────────────────────────────────
+
+ff:responseType a owl:ObjectProperty ;
+    rdfs:domain ff:OutputFailureMode ;
+    rdfs:range ff:LLMResponse ;
+    rdfs:comment "Which response type this failure mode produces." .
+
+ff:repairStrategy a owl:ObjectProperty ;
+    rdfs:domain ff:OutputFailureMode ;
+    rdfs:range ff:RepairStrategy ;
+    rdfs:comment "Which repair strategy handles this failure mode." .
+
+ff:handles a owl:ObjectProperty ;
+    rdfs:domain ff:RepairStrategy ;
+    rdfs:range ff:OutputFailureMode ;
+    rdfs:comment "Which failure modes this strategy can repair." .
+
+ff:strategies a owl:ObjectProperty ;
+    rdfs:domain ff:ReliabilityStage ;
+    rdfs:range ff:RepairStrategy ;
+    rdfs:comment "Which strategies are applied at this pipeline stage." .
+
+ff:cefModel a owl:DatatypeProperty ;
+    rdfs:domain ff:OutputFailureMode ;
+    rdfs:range xsd:string ;
+    rdfs:comment "Which model first exhibited this failure mode in CEF runs." .
+
+ff:cost a owl:DatatypeProperty ;
+    rdfs:domain ff:RepairStrategy ;
+    rdfs:range xsd:string ;
+    rdfs:comment "Cost classification: zero (deterministic), one-llm-call, one-to-two-llm-calls." .
+
+ff:successRate a owl:DatatypeProperty ;
+    rdfs:domain ff:RepairStrategy ;
+    rdfs:range xsd:decimal ;
+    rdfs:comment "Estimated success rate (0.0-1.0) based on CEF observations." .
+
+ff:order a owl:DatatypeProperty ;
+    rdfs:domain ff:ReliabilityStage ;
+    rdfs:range xsd:integer ;
+    rdfs:comment "Execution order in the reliability pipeline (1-6)." .
+
+ff:maxAttempts a owl:DatatypeProperty ;
+    rdfs:domain ff:ReliabilityStage ;
+    rdfs:range xsd:integer ;
+    rdfs:comment "Maximum repair attempts before moving to next stage." .
+
+ff:failureMode a owl:ObjectProperty ;
+    rdfs:domain ff:LLMResponse ;
+    rdfs:range ff:OutputFailureMode ;
+    rdfs:comment "Which failure mode was detected in this response." .
+
+ff:repairedBy a owl:ObjectProperty ;
+    rdfs:domain ff:LLMResponse ;
+    rdfs:range ff:RepairStrategy ;
+    rdfs:comment "Which strategy successfully repaired this response." .
+
+ff:repairAttempts a owl:DatatypeProperty ;
+    rdfs:domain ff:LLMResponse ;
+    rdfs:range xsd:integer ;
+    rdfs:comment "How many repair attempts were made before success or failure." .
+
+
+# ─── Model Capability Ontology ────────────────────────────────────
+# What each model can and cannot do — internal (Workers AI) and external (ofox.ai)
+
+ff:LLMModel a owl:Class ;
+    rdfs:comment "A specific LLM model available to the Factory. Tracks capabilities, costs, and observed reliability." .
+
+ff:InternalModel rdfs:subClassOf ff:LLMModel ;
+    rdfs:comment "Model available via CF Workers AI binding (env.AI.run). Zero marginal cost. Included in CF paid plan." .
+
+ff:ExternalModel rdfs:subClassOf ff:LLMModel ;
+    rdfs:comment "Model available via external API (ofox.ai, direct provider). Per-token cost. Requires API key." .
+
+ff:ModelCapability a owl:Class ;
+    rdfs:comment "A capability a model may or may not have. Used for routing decisions." .
+
+ff:JsonModeCapability a ff:ModelCapability ;
+    rdfs:comment "Model supports response_format: { type: 'json_object' }. Constrains output to valid JSON." .
+
+ff:FunctionCallingCapability a ff:ModelCapability ;
+    rdfs:comment "Model supports native function calling (structured tool_calls in response). Not text-based tool invocation." .
+
+ff:GrammarConstraintCapability a ff:ModelCapability ;
+    rdfs:comment "Model supports grammar-guided/constrained decoding. Prevents malformed output at the token level." .
+
+ff:LongContextCapability a ff:ModelCapability ;
+    rdfs:comment "Model handles 32K+ token contexts without quality degradation." .
+
+ff:CodeGenerationCapability a ff:ModelCapability ;
+    rdfs:comment "Model is specifically trained for code generation tasks." .
+
+ff:ReasoningCapability a ff:ModelCapability ;
+    rdfs:comment "Model supports extended thinking / chain-of-thought reasoning." .
+
+# ── Model capability properties ──
+
+ff:hasCapability a owl:ObjectProperty ;
+    rdfs:domain ff:LLMModel ;
+    rdfs:range ff:ModelCapability ;
+    rdfs:comment "This model has this capability." .
+
+ff:maxOutputTokens a owl:DatatypeProperty ;
+    rdfs:domain ff:LLMModel ;
+    rdfs:range xsd:integer ;
+    rdfs:comment "Maximum output tokens the model can produce in a single call." .
+
+ff:contextWindow a owl:DatatypeProperty ;
+    rdfs:domain ff:LLMModel ;
+    rdfs:range xsd:integer ;
+    rdfs:comment "Total context window size (input + output) in tokens." .
+
+ff:costPerMillionInput a owl:DatatypeProperty ;
+    rdfs:domain ff:LLMModel ;
+    rdfs:range xsd:decimal ;
+    rdfs:comment "Cost per million input tokens in USD. 0 for internal models." .
+
+ff:costPerMillionOutput a owl:DatatypeProperty ;
+    rdfs:domain ff:LLMModel ;
+    rdfs:range xsd:decimal ;
+    rdfs:comment "Cost per million output tokens in USD. 0 for internal models." .
+
+ff:reliabilityTier a owl:DatatypeProperty ;
+    rdfs:domain ff:LLMModel ;
+    rdfs:range xsd:string ;
+    rdfs:comment "Observed reliability: 'high' (rarely needs repair), 'medium' (needs coercion), 'low' (needs re-prompt)." .
+
+ff:observedFailureModes a owl:ObjectProperty ;
+    rdfs:domain ff:LLMModel ;
+    rdfs:range ff:OutputFailureMode ;
+    rdfs:comment "Which failure modes have been observed on this model in CEF runs." .
+
+ff:suitableFor a owl:ObjectProperty ;
+    rdfs:domain ff:LLMModel ;
+    rdfs:range ff:TaskKindClass ;
+    rdfs:comment "Which task kinds this model is suitable for based on CEF data." .
+
+ff:TaskKindClass a owl:Class ;
+    owl:oneOf ( ff:PlanningTask ff:StructuredTask ff:InterpretiveTask
+                ff:CriticTask ff:SynthesisTask ff:ValidationTask
+                ff:CoderTask ff:TesterTask ff:VerifierTask ) .
+
+# ─── LLM Input Reliability ───────────────────────────────────────
+# What goes INTO the model determines what comes OUT
+
+ff:LLMInput a owl:Class ;
+    rdfs:comment "The constructed input to an LLM call. Includes system prompt, user message, tools, context window usage." .
+
+ff:InputFailureMode a owl:Class ;
+    rdfs:comment "A way that input construction can cause output failure. Garbage in, garbage out." .
+
+ff:IF1_ContextOverflow a ff:InputFailureMode ;
+    rdfs:comment "Input exceeds model's context window. Response truncated or incoherent. Mitigation: check token count before calling." .
+
+ff:IF2_ConflictingInstructions a ff:InputFailureMode ;
+    rdfs:comment "System prompt says 'respond with JSON' but tool descriptions imply free-form. Model gets confused. Mitigation: unified prompt construction." .
+
+ff:IF3_SchemaNotInPrompt a ff:InputFailureMode ;
+    rdfs:comment "Expected output schema not included in the prompt. Model guesses field names/types. Mitigation: always include the exact schema." .
+
+ff:IF4_TooManyToolsInContext a ff:InputFailureMode ;
+    rdfs:comment "Too many tools dilute the model's attention. Tool descriptions consume context window. Mitigation: only include tools the agent actually uses." .
+
+ff:IF5_ContextDilution a ff:InputFailureMode ;
+    rdfs:comment "Too much context (full WorkGraph + upstream artifacts + history) overwhelms the model. Mitigation: scoped context per the DynTaskMAS SACMS pattern." .
+
+ff:IF6_MissingGroundTruth a ff:InputFailureMode ;
+    rdfs:comment "Agent prompted to verify against specification but specContent not included. Model hallucinates context. Mitigation: always thread specContent." .
+
+# ── Input construction properties ──
+
+ff:systemPrompt a owl:DatatypeProperty ;
+    rdfs:domain ff:LLMInput ;
+    rdfs:range xsd:string ;
+    rdfs:comment "The system prompt sent to the model." .
+
+ff:userMessage a owl:DatatypeProperty ;
+    rdfs:domain ff:LLMInput ;
+    rdfs:range xsd:string ;
+    rdfs:comment "The user message (task specification) sent to the model." .
+
+ff:toolCount a owl:DatatypeProperty ;
+    rdfs:domain ff:LLMInput ;
+    rdfs:range xsd:integer ;
+    rdfs:comment "Number of tools included in the context." .
+
+ff:estimatedTokens a owl:DatatypeProperty ;
+    rdfs:domain ff:LLMInput ;
+    rdfs:range xsd:integer ;
+    rdfs:comment "Estimated input token count." .
+
+ff:contextUtilization a owl:DatatypeProperty ;
+    rdfs:domain ff:LLMInput ;
+    rdfs:range xsd:decimal ;
+    rdfs:comment "Ratio of estimated tokens to model's context window (0.0-1.0). Above 0.8 risks truncation." .
+
+ff:includesSchema a owl:DatatypeProperty ;
+    rdfs:domain ff:LLMInput ;
+    rdfs:range xsd:boolean ;
+    rdfs:comment "Whether the expected output JSON schema is included in the prompt." .
+
+ff:includesSpecContent a owl:DatatypeProperty ;
+    rdfs:domain ff:LLMInput ;
+    rdfs:range xsd:boolean ;
+    rdfs:comment "Whether the original specContent (ground truth) is included." .
+
+# ── Input validation SHACL ──
+
+ff:InputReliabilityShape a sh:NodeShape ;
+    sh:targetClass ff:LLMInput ;
+    sh:property [
+        sh:path ff:contextUtilization ;
+        sh:maxInclusive 0.8 ;
+        sh:message "INPUT OVERFLOW: Context utilization above 80% risks truncated or incoherent output." ;
+        sh:severity sh:Warning ;
+    ] ;
+    sh:property [
+        sh:path ff:includesSchema ;
+        sh:hasValue true ;
+        sh:message "INPUT UNGROUNDED: Prompt must include the expected output JSON schema." ;
+        sh:severity sh:Warning ;
+    ] .
+
+
+# ── CEF-observed model instances ─────────────────────────────────
+# Internal models (Workers AI)
+
+ff:QwenCoder32b a ff:InternalModel ;
+    rdfs:label "qwen2.5-coder-32b-instruct" ;
+    ff:hasCapability ff:JsonModeCapability, ff:CodeGenerationCapability ;
+    ff:maxOutputTokens 2048 ;
+    ff:contextWindow 32768 ;
+    ff:costPerMillionInput 0 ;
+    ff:costPerMillionOutput 0 ;
+    ff:reliabilityTier "medium" ;
+    ff:observedFailureModes ff:F4_WrongFieldTypes, ff:F6_TextToolCalls ;
+    ff:suitableFor ff:PlanningTask, ff:StructuredTask, ff:ValidationTask ;
+    rdfs:comment "CEF: 3min, Gate1 6/6 (16 atoms), 15/15 atoms fail verification. Structurally correct, semantically weak." .
+
+ff:KimiK26 a ff:InternalModel ;
+    rdfs:label "kimi-k2.6" ;
+    ff:hasCapability ff:LongContextCapability ;
+    ff:maxOutputTokens 2048 ;
+    ff:contextWindow 131072 ;
+    ff:costPerMillionInput 0 ;
+    ff:costPerMillionOutput 0 ;
+    ff:reliabilityTier "low" ;
+    ff:observedFailureModes ff:F7_NullResponse ;
+    rdfs:comment "CEF: 9min, crash (null response). Slow, unreliable for structured output." .
+
+ff:DeepSeekR1Distill32b a ff:InternalModel ;
+    rdfs:label "deepseek-r1-distill-qwen-32b" ;
+    ff:hasCapability ff:ReasoningCapability ;
+    ff:maxOutputTokens 2048 ;
+    ff:contextWindow 32768 ;
+    ff:costPerMillionInput 0 ;
+    ff:costPerMillionOutput 0 ;
+    ff:reliabilityTier "medium" ;
+    ff:observedFailureModes ff:F4_WrongFieldTypes ;
+    ff:suitableFor ff:PlanningTask, ff:StructuredTask ;
+    rdfs:comment "CEF: 4min, Gate1 6/6 (6 atoms), 6/6 atoms fail. Conservative decomposition, same quality tier as qwen-coder." .
+
+ff:Llama70b a ff:InternalModel ;
+    rdfs:label "llama-3.3-70b-instruct-fp8-fast" ;
+    ff:hasCapability ff:JsonModeCapability ;
+    ff:maxOutputTokens 4096 ;
+    ff:contextWindow 131072 ;
+    ff:costPerMillionInput 0 ;
+    ff:costPerMillionOutput 0 ;
+    ff:reliabilityTier "medium" ;
+    ff:observedFailureModes ff:F1_ProseInsteadOfJSON, ff:F5_MarkdownFences, ff:F6_TextToolCalls ;
+    ff:suitableFor ff:PlanningTask, ff:StructuredTask, ff:InterpretiveTask ;
+    rdfs:comment "CEF: 3min, Gate1 6/6 (BEST: 8 invariants, 10 deps). Richest structural output but agents crash on prose responses." .
+
+# External models (ofox.ai) — CEF proven in earlier sessions
+
+ff:DeepSeekV4Pro a ff:ExternalModel ;
+    rdfs:label "deepseek-v4-pro" ;
+    ff:hasCapability ff:JsonModeCapability, ff:FunctionCallingCapability, ff:CodeGenerationCapability ;
+    ff:maxOutputTokens 8192 ;
+    ff:contextWindow 128000 ;
+    ff:costPerMillionInput 0.5 ;
+    ff:costPerMillionOutput 2.0 ;
+    ff:reliabilityTier "high" ;
+    ff:suitableFor ff:CoderTask, ff:PlanningTask, ff:StructuredTask, ff:SynthesisTask ;
+    rdfs:comment "Proven in live runs. High-quality structured output. Costs money." .
+
+ff:ClaudeOpus46 a ff:ExternalModel ;
+    rdfs:label "claude-opus-4.6" ;
+    ff:hasCapability ff:JsonModeCapability, ff:FunctionCallingCapability, ff:ReasoningCapability, ff:LongContextCapability ;
+    ff:maxOutputTokens 16384 ;
+    ff:contextWindow 1000000 ;
+    ff:costPerMillionInput 15.0 ;
+    ff:costPerMillionOutput 75.0 ;
+    ff:reliabilityTier "high" ;
+    ff:suitableFor ff:CriticTask, ff:VerifierTask ;
+    rdfs:comment "Highest quality for judgment tasks. Expensive. Production use only." .
+
+ff:GeminiPro a ff:ExternalModel ;
+    rdfs:label "gemini-3.1-pro-preview" ;
+    ff:hasCapability ff:JsonModeCapability, ff:FunctionCallingCapability, ff:LongContextCapability ;
+    ff:maxOutputTokens 8192 ;
+    ff:contextWindow 1000000 ;
+    ff:costPerMillionInput 1.25 ;
+    ff:costPerMillionOutput 5.0 ;
+    ff:reliabilityTier "high" ;
+    ff:suitableFor ff:InterpretiveTask, ff:VerifierTask, ff:PlanningTask ;
+    rdfs:comment "Good balance of quality and cost. Long context." .
+
+
+# ═══════════════════════════════════════════════════════════════════
+# SHACL SHAPES — Valid Agent Output Constraints
+# ═══════════════════════════════════════════════════════════════════
+
+# ─── C17: Every agent response must pass the reliability pipeline ──
+
+ff:AgentOutputReliabilityShape a sh:NodeShape ;
+    sh:targetClass ff:ExecutionArtifact ;
+    sh:property [
+        sh:path ff:failureMode ;
+        sh:maxCount 0 ;
+        sh:message "UNRELIABLE OUTPUT: Artifact persisted with unresolved failure mode. Must pass reliability pipeline." ;
+        sh:severity sh:Warning ;
+    ] .
+
+# ─── C18: BriefingScript must have all 6 fields as strings ──
+
+ff:BriefingScriptOutputShape a sh:NodeShape ;
+    sh:targetClass ff:BriefingScript ;
+    sh:property [
+        sh:path ff:goal ;
+        sh:minCount 1 ; sh:datatype xsd:string ; sh:minLength 10 ;
+        sh:message "BriefingScript goal must be a non-empty string (min 10 chars)." ;
+    ] ;
+    sh:property [
+        sh:path ff:successCriteria ;
+        sh:minCount 1 ;
+        sh:message "BriefingScript must have at least one success criterion." ;
+    ] ;
+    sh:property [
+        sh:path ff:architecturalContext ;
+        sh:minCount 1 ; sh:datatype xsd:string ; sh:minLength 20 ;
+        sh:message "BriefingScript architecturalContext must be a string (min 20 chars)." ;
+    ] ;
+    sh:property [
+        sh:path ff:strategicAdvice ;
+        sh:minCount 1 ; sh:datatype xsd:string ;
+        sh:message "BriefingScript strategicAdvice must be a string." ;
+    ] ;
+    sh:property [
+        sh:path ff:validationLoop ;
+        sh:minCount 1 ; sh:datatype xsd:string ;
+        sh:message "BriefingScript validationLoop must be a string." ;
+    ] .
+
+# ─── C19: Verdict must have valid decision enum ──
+
+ff:VerdictOutputShape a sh:NodeShape ;
+    sh:targetClass ff:Verdict ;
+    sh:property [
+        sh:path ff:decision ;
+        sh:minCount 1 ;
+        sh:in ( "pass" "fail" "patch" "resample" "interrupt" ) ;
+        sh:message "Verdict decision must be one of: pass, fail, patch, resample, interrupt." ;
+    ] ;
+    sh:property [
+        sh:path ff:confidence ;
+        sh:minCount 1 ; sh:datatype xsd:decimal ;
+        sh:minInclusive 0.0 ; sh:maxInclusive 1.0 ;
+        sh:message "Verdict confidence must be a decimal between 0.0 and 1.0." ;
+    ] ;
+    sh:property [
+        sh:path ff:reason ;
+        sh:minCount 1 ; sh:datatype xsd:string ;
+        sh:message "Verdict must have a reason string." ;
+    ] .
+
+# ─── C20: CodeArtifact must have files array with valid actions ──
+
+ff:CodeArtifactOutputShape a sh:NodeShape ;
+    sh:targetClass ff:CodeArtifact ;
+    sh:property [
+        sh:path ff:files ;
+        sh:minCount 1 ;
+        sh:message "CodeArtifact must have at least one file entry." ;
+    ] .
+
+# ─── C21: Repair attempts must be tracked ──
+
+ff:RepairTrackingShape a sh:NodeShape ;
+    sh:targetClass ff:LLMResponse ;
+    sh:property [
+        sh:path ff:repairAttempts ;
+        sh:maxCount 1 ; sh:datatype xsd:integer ;
+        sh:maxInclusive 3 ;
+        sh:message "LLM response must not exceed 3 repair attempts." ;
+        sh:severity sh:Warning ;
+    ] .
