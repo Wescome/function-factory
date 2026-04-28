@@ -72,26 +72,26 @@ export interface ResolvedRoute {
 
 // ── Workers AI models ──
 
-const CF_70B: RouteTarget = { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' }
+const CF_CODER: RouteTarget = { provider: 'cloudflare', model: '@cf/qwen/qwen2.5-coder-32b-instruct' }
 
 // ── Default config: Workers AI for everything ──
 
 export const DEFAULT_CONFIG: RoutingConfig = {
   routes: [
-    { kind: 'planning', primary: CF_70B },
-    { kind: 'structured', primary: CF_70B },
-    { kind: 'interpretive', primary: CF_70B },
-    { kind: 'synthesis', primary: CF_70B },
-    { kind: 'semantic_review', primary: CF_70B },
-    { kind: 'validation', primary: CF_70B },
-    { kind: 'runtime_check', primary: CF_70B },
-    { kind: 'planner', primary: CF_70B },
-    { kind: 'coder', primary: CF_70B },
-    { kind: 'critic', primary: CF_70B },
-    { kind: 'tester', primary: CF_70B },
-    { kind: 'verifier', primary: CF_70B },
+    { kind: 'planning', primary: CF_CODER },
+    { kind: 'structured', primary: CF_CODER },
+    { kind: 'interpretive', primary: CF_CODER },
+    { kind: 'synthesis', primary: CF_CODER },
+    { kind: 'semantic_review', primary: CF_CODER },
+    { kind: 'validation', primary: CF_CODER },
+    { kind: 'runtime_check', primary: CF_CODER },
+    { kind: 'planner', primary: CF_CODER },
+    { kind: 'coder', primary: CF_CODER },
+    { kind: 'critic', primary: CF_CODER },
+    { kind: 'tester', primary: CF_CODER },
+    { kind: 'verifier', primary: CF_CODER },
   ],
-  default: CF_70B,
+  default: CF_CODER,
 }
 
 // ── Resolution functions ──

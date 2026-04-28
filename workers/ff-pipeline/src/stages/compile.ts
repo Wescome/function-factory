@@ -27,21 +27,21 @@ const PASS_TASK_KINDS: Record<PassName, string> = {
 }
 
 const PASS_PROMPTS: Record<PassName, string> = {
-  decompose: `Decompose this PRD into requirement atoms — minimal, independently implementable units of work. Each atom MUST have: id (format "atom-001", "atom-002", sequential), type ("implementation" | "config" | "test"), title, description. Output JSON: { "atoms": [{ "id": "atom-001", "type": "implementation", "title": "...", "description": "..." }] }`,
+  decompose: `Decompose this PRD into requirement atoms — minimal, independently implementable units of work. Each atom MUST have: id (format "atom-001", "atom-002", sequential), type ("implementation" | "config" | "test"), title, description. Output ONLY the new atoms — do NOT repeat the PRD or any other state. Output JSON: { "atoms": [{ "id": "atom-001", "type": "implementation", "title": "...", "description": "..." }] }`,
 
-  dependency: `Given atoms, identify dependencies between them. Output JSON: { "dependencies": [{ "from": "atom-id", "to": "atom-id", "type": "requires | enables | conflicts" }] }`,
+  dependency: `Given atoms, identify dependencies between them. Output ONLY the new dependencies — do NOT repeat atoms or any other state. Output JSON: { "dependencies": [{ "from": "atom-id", "to": "atom-id", "type": "requires | enables | conflicts" }] }`,
 
-  invariant: `Extract invariants from the PRD + atoms. Each invariant is a property that must always hold. Include a detector spec (how to check it). Output JSON: { "invariants": [{ "id": "INV-*", "property": "...", "detector": { "type": "...", "check": "..." } }] }`,
+  invariant: `Extract invariants from the PRD + atoms. Each invariant is a property that must always hold. Include a detector spec (how to check it). Output ONLY the new invariants — do NOT repeat atoms, PRD, or any other state. Output JSON: { "invariants": [{ "id": "INV-*", "property": "...", "detector": { "type": "...", "check": "..." } }] }`,
 
-  interface: `Define typed interfaces between dependent atoms. Each interface specifies the data contract. Output JSON: { "interfaces": [{ "from": "atom-id", "to": "atom-id", "contract": { "input": {...}, "output": {...} } }] }`,
+  interface: `Define typed interfaces between dependent atoms. Each interface specifies the data contract. Output ONLY the new interfaces — do NOT repeat atoms, dependencies, or any other state. Output JSON: { "interfaces": [{ "from": "atom-id", "to": "atom-id", "contract": { "input": {...}, "output": {...} } }] }`,
 
-  binding: `Assign implementation bindings to each atom. A binding specifies HOW the atom will be implemented. Output JSON: { "bindings": [{ "atomId": "...", "binding": { "type": "code | config | doc", "language": "...", "target": "..." } }] }`,
+  binding: `Assign implementation bindings to each atom. A binding specifies HOW the atom will be implemented. Output ONLY the new bindings — do NOT repeat atoms or any other state. Output JSON: { "bindings": [{ "atomId": "...", "binding": { "type": "code | config | doc", "language": "...", "target": "..." } }] }`,
 
-  validation: `Generate Zod validation schemas for each atom's input/output contracts. Output JSON: { "validations": [{ "atomId": "...", "schema": "..." }] }`,
+  validation: `Generate Zod validation schemas for each atom's input/output contracts. Output ONLY the new validations — do NOT repeat atoms, interfaces, or any other state. Output JSON: { "validations": [{ "atomId": "...", "schema": "..." }] }`,
 
-  assembly: `Assemble atoms, dependencies, invariants, interfaces, bindings, and validations into a complete WorkGraph. This is a deterministic assembly — no new content, just structure. Output the full WorkGraph JSON.`,
+  assembly: `Deterministic assembly — no LLM call needed.`,
 
-  verification: `Verify the WorkGraph for completeness and consistency. Check: all atoms bound, all dependencies resolved, all invariants have detectors, all interfaces have both sides. Output JSON: { "verified": true/false, "issues": [...] }`,
+  verification: `Deterministic verification — no LLM call needed.`,
 }
 
 export async function compilePRD(
@@ -179,12 +179,31 @@ async function runLivePass(
     return runDryPass(passName, state, db)
   }
 
-  const context: Record<string, unknown> = { pass: passName, prd: state.prd }
-  if (state.atoms) context.atoms = state.atoms
-  if (state.dependencies) context.dependencies = state.dependencies
-  if (state.invariants) context.invariants = state.invariants
-  if (state.interfaces) context.interfaces = state.interfaces
-  if (state.bindings) context.bindings = state.bindings
+  // Minimal context per pass — send ONLY what the pass needs, not full state
+  const context: Record<string, unknown> = { pass: passName }
+  switch (passName) {
+    case 'decompose':
+      context.prd = state.prd
+      break
+    case 'dependency':
+      context.atoms = state.atoms
+      break
+    case 'invariant':
+      context.prd = state.prd
+      context.atoms = state.atoms
+      break
+    case 'interface':
+      context.atoms = state.atoms
+      context.dependencies = state.dependencies
+      break
+    case 'binding':
+      context.atoms = state.atoms
+      break
+    case 'validation':
+      context.atoms = state.atoms
+      context.interfaces = state.interfaces
+      break
+  }
   const userMessage = JSON.stringify(context)
 
   const result = await callModel(taskKind, systemPrompt, userMessage, env)

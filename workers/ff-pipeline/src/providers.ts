@@ -21,6 +21,7 @@ export async function callProvider(
         { role: 'system', content: system + '\n\nIMPORTANT: Respond ONLY with valid JSON. No prose, no markdown, no explanation.' },
         { role: 'user', content: user },
       ],
+      max_tokens: 2048,
       response_format: { type: 'json_object' },
     } as Record<string, unknown>)
     const resp = result.response
