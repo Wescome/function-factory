@@ -1,20 +1,13 @@
 # Current Workspace
 
 ## Status
-Session ended at 2026-04-28T20:15:33.608Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
+Session ended at 2026-04-28T20:30:37.113Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
 
 ## Last update
-2026-04-28T20:15:33.608Z
+2026-04-28T20:30:37.113Z
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
-- [19:29:24] Bash: pnpm --filter @factory/ff-pipeline test 2>&1 | tail -5
-- [19:29:32] Bash: git add -A && git diff --cached --stat
-- [19:29:45] Bash: git commit -m "$(cat <<'EOF'
-INFRA: ADR-006 — Workers AI stream adapter for gdk-agent agentLoop
-
-Custom StreamFn wraps e
-- [19:30:05] Bash: cd /Users/wes/Developer/function-factory/workers/ff-pipeline && npx wrangler deploy 2>&1 | tail -3 && echo "---" && INST
 - [19:37:19] Bash: pnpm --filter @factory/ff-pipeline test -- --run workers-ai-stream 2>&1 | tail -30
 - [19:37:25] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/workers-ai-stream.test.ts
 - [19:37:56] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/workers-ai-stream.test.ts
@@ -37,6 +30,11 @@ qwen2.5-c
 import sys,json
 models = json.loads(sys.stdin.read())
 text_gen = [m fo
+- [20:19:41] Edit: /Users/wes/Developer/function-factory/packages/task-routing/src/index.ts
+- [20:19:50] Edit: /Users/wes/Developer/function-factory/packages/task-routing/src/index.ts
+- [20:20:12] Bash: pnpm --filter @factory/ff-pipeline test 2>&1 | tail -3 && git add -A && git commit -m "$(cat <<'EOF'
+CEF: switch to kimi
+- [20:20:40] Bash: cd /Users/wes/Developer/function-factory/workers/ff-pipeline && npx wrangler deploy 2>&1 | tail -3 && echo "---" && INST
 
 ## Notes
 This file is auto-updated on session end. Manual edits will be overwritten.
