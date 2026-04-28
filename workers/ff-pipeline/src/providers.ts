@@ -18,10 +18,11 @@ export async function callProvider(
     if (!env.AI) throw new Error('Workers AI fallback unavailable — configure ai binding in wrangler.jsonc or remove cloudflare from task-routing fallbacks')
     const result = await env.AI.run(target.model, {
       messages: [
-        { role: 'system', content: system },
+        { role: 'system', content: system + '\n\nIMPORTANT: Respond ONLY with valid JSON. No prose, no markdown, no explanation.' },
         { role: 'user', content: user },
       ],
-    })
+      response_format: { type: 'json_object' },
+    } as Record<string, unknown>)
     const resp = result.response
     const raw = typeof resp === 'string' ? resp : JSON.stringify(resp)
     return extractJSON(raw)

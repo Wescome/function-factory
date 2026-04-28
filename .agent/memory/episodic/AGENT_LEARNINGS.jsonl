@@ -3102,3 +3102,6 @@
 {"timestamp":"2026-04-28T17:11:34.480Z","tool":"Bash","summary":"git add packages/task-routing/src/index.ts && git commit -m \"$(cat <<'EOF'\nINFRA: Workers AI primary for cost-sensitive ","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
 {"timestamp":"2026-04-28T17:13:14.982Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/task-routing/src/index.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
 {"timestamp":"2026-04-28T17:13:30.132Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test 2>&1 | tail -5","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T17:13:37.911Z","tool":"Bash","summary":"git add -A && git commit -m \"$(cat <<'EOF'\nINFRA: Workers AI is THE provider — ofox.ai reserved for production\n\nv4 routi","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T17:13:57.613Z","tool":"Bash","summary":"cd /Users/wes/Developer/function-factory/workers/ff-pipeline && npx wrangler deploy 2>&1 | tail -3 && echo \"---\" && INST","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T17:21:32.126Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/providers.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
