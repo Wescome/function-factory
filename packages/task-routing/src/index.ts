@@ -72,26 +72,26 @@ export interface ResolvedRoute {
 
 // ── Workers AI models ──
 
-const CF_CODER: RouteTarget = { provider: 'cloudflare', model: '@cf/qwen/qwen2.5-coder-32b-instruct' }
+const CF_PRIMARY: RouteTarget = { provider: 'cloudflare', model: '@cf/moonshotai/kimi-k2.6' }
 
 // ── Default config: Workers AI for everything ──
 
 export const DEFAULT_CONFIG: RoutingConfig = {
   routes: [
-    { kind: 'planning', primary: CF_CODER },
-    { kind: 'structured', primary: CF_CODER },
-    { kind: 'interpretive', primary: CF_CODER },
-    { kind: 'synthesis', primary: CF_CODER },
-    { kind: 'semantic_review', primary: CF_CODER },
-    { kind: 'validation', primary: CF_CODER },
-    { kind: 'runtime_check', primary: CF_CODER },
-    { kind: 'planner', primary: CF_CODER },
-    { kind: 'coder', primary: CF_CODER },
-    { kind: 'critic', primary: CF_CODER },
-    { kind: 'tester', primary: CF_CODER },
-    { kind: 'verifier', primary: CF_CODER },
+    { kind: 'planning', primary: CF_PRIMARY },
+    { kind: 'structured', primary: CF_PRIMARY },
+    { kind: 'interpretive', primary: CF_PRIMARY },
+    { kind: 'synthesis', primary: CF_PRIMARY },
+    { kind: 'semantic_review', primary: CF_PRIMARY },
+    { kind: 'validation', primary: CF_PRIMARY },
+    { kind: 'runtime_check', primary: CF_PRIMARY },
+    { kind: 'planner', primary: CF_PRIMARY },
+    { kind: 'coder', primary: CF_PRIMARY },
+    { kind: 'critic', primary: CF_PRIMARY },
+    { kind: 'tester', primary: CF_PRIMARY },
+    { kind: 'verifier', primary: CF_PRIMARY },
   ],
-  default: CF_CODER,
+  default: CF_PRIMARY,
 }
 
 // ── Resolution functions ──

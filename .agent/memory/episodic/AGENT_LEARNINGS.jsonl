@@ -3222,3 +3222,8 @@
 {"timestamp":"2026-04-28T19:39:29.912Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test -- --run 2>&1 | tail -10","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
 {"timestamp":"2026-04-28T19:39:47.694Z","tool":"Agent","summary":"Engineer: text-based tool call detection","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
 {"timestamp":"2026-04-28T19:40:02.612Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test 2>&1 | tail -5","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T19:40:16.526Z","tool":"Bash","summary":"git add -A && git commit -m \"$(cat <<'EOF'\nINFRA: text-based tool call detection for Workers AI (G1 fallback)\n\nqwen2.5-c","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T19:40:36.858Z","tool":"Bash","summary":"cd /Users/wes/Developer/function-factory/workers/ff-pipeline && npx wrangler deploy 2>&1 | tail -3 && echo \"---\" && INST","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T20:15:16.609Z","tool":"Bash","summary":"npx wrangler ai models --json 2>&1 | python3 -c \"\nimport sys,json\nmodels = json.loads(sys.stdin.read())\ntext_gen = [m fo","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T20:19:41.583Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/task-routing/src/index.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T20:19:50.511Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/task-routing/src/index.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
