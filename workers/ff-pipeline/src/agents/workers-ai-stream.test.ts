@@ -146,7 +146,7 @@ describe('createWorkersAIStreamFn', () => {
   })
 
   describe('I3: toolResult conversion', () => {
-    it('converts toolResult messages to { role: tool, tool_call_id } format', async () => {
+    it('converts toolResult messages to user messages for Workers AI compatibility', async () => {
       let capturedInput: Record<string, unknown> | null = null
       const mockAI: AIBinding = {
         run: vi.fn().mockImplementation(async (_model: string, input: Record<string, unknown>) => {
@@ -189,11 +189,10 @@ describe('createWorkersAIStreamFn', () => {
       expect(capturedInput).toBeTruthy()
       const messages = capturedInput!.messages as { role: string; tool_call_id?: string; content: string }[]
 
-      // Find the tool result message
-      const toolMsg = messages.find(m => m.role === 'tool')
+      // Tool result converted to user message (Workers AI doesn't support role: 'tool')
+      const toolMsg = messages.find(m => m.role === 'user' && m.content.includes('Tool "arango_query"'))
       expect(toolMsg).toBeTruthy()
-      expect(toolMsg!.tool_call_id).toBe('tc-42')
-      expect(toolMsg!.content).toBe('[{"x":1}]')
+      expect(toolMsg!.content).toContain('[{"x":1}]')
     })
   })
 
@@ -400,17 +399,14 @@ describe('createWorkersAIStreamFn', () => {
 
       const messages = capturedInput!.messages as any[]
 
-      // Assistant message with tool_calls
+      // Assistant message with tool calls as text (Workers AI doesn't support native tool_calls)
       const assistantMsg = messages.find((m: any) => m.role === 'assistant')
       expect(assistantMsg).toBeTruthy()
-      expect(assistantMsg.tool_calls).toBeTruthy()
-      expect(assistantMsg.tool_calls[0].id).toBe('tc-1')
-      expect(assistantMsg.tool_calls[0].function.name).toBe('arango_query')
+      expect(assistantMsg.content).toContain('arango_query')
 
-      // Tool result as { role: 'tool', tool_call_id }
-      const toolMsg = messages.find((m: any) => m.role === 'tool')
-      expect(toolMsg).toBeTruthy()
-      expect(toolMsg.tool_call_id).toBe('tc-1')
+      // Tool result as user message (Workers AI doesn't support role: 'tool')
+      const toolResultMsgs = messages.filter((m: any) => m.role === 'user' && m.content.includes('Tool "'))
+      expect(toolResultMsgs.length).toBeGreaterThan(0)
     })
   })
 

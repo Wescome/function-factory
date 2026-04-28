@@ -74,40 +74,30 @@ function convertMessages(context: Context): WorkersAIMessage[] {
       messages.push({ role: 'user', content })
 
     } else if (msg.role === 'assistant') {
-      // Check for tool calls in the assistant message
       const toolCalls = msg.content.filter(c => c.type === 'toolCall') as ToolCall[]
       const textParts = msg.content.filter(c => c.type === 'text') as TextContent[]
       const text = textParts.map(c => c.text).join('')
 
       if (toolCalls.length > 0) {
-        // Assistant message with tool_calls (OpenAI format)
-        const aiToolCalls: WorkersAIToolCall[] = toolCalls.map(tc => ({
-          id: tc.id,
-          type: 'function' as const,
-          function: {
-            name: tc.name,
-            arguments: JSON.stringify(tc.arguments),
-          },
-        }))
-        messages.push({
-          role: 'assistant',
-          content: text || '',
-          tool_calls: aiToolCalls,
-        })
+        // Workers AI doesn't support native tool_calls in conversation history.
+        // Represent tool calls as text so the model sees its own prior output.
+        const toolCallText = toolCalls.map(tc =>
+          JSON.stringify({ name: tc.name, arguments: tc.arguments })
+        ).join('\n')
+        messages.push({ role: 'assistant', content: text ? `${text}\n${toolCallText}` : toolCallText })
       } else {
         messages.push({ role: 'assistant', content: text })
       }
 
     } else if (msg.role === 'toolResult') {
-      // I3: Convert to OpenAI tool result format
+      // Workers AI doesn't support role: 'tool'. Convert to user message.
       const text = msg.content
         .filter(c => c.type === 'text')
         .map(c => (c as TextContent).text)
         .join('')
       messages.push({
-        role: 'tool',
-        tool_call_id: msg.toolCallId,
-        content: text,
+        role: 'user',
+        content: `Tool "${msg.toolName}" returned:\n${text}`,
       })
     }
   }
