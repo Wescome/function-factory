@@ -123,7 +123,7 @@ describe('callProvider', () => {
         'user',
         env,
       ),
-    ).rejects.toThrow('AI binding')
+    ).rejects.toThrow('Workers AI fallback unavailable')
   })
 
   it('strips code fences from ofox response', async () => {

@@ -3064,3 +3064,10 @@
 {"timestamp":"2026-04-28T15:30:50.106Z","tool":"Bash","summary":"grep -n \"cloudflare\\|Workers AI\\|env.AI\" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/providers.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
 {"timestamp":"2026-04-28T15:31:06.201Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/providers.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
 {"timestamp":"2026-04-28T15:31:28.589Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/wrangler.jsonc","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T15:31:45.996Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test 2>&1 | tail -3 && git add -A && git commit -m \"$(cat <<'EOF'\nINFRA: add Workers ","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T15:32:01.613Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test 2>&1 | grep \"FAIL\" | head -5","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T15:32:08.791Z","tool":"Bash","summary":"grep -n \"AI binding not available\" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/providers.test.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T15:32:17.145Z","tool":"Bash","summary":"grep -n \"cloudflare.*AI\\|no AI binding\\|Workers AI\" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/provid","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T15:32:34.918Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test -- src/providers.test.ts 2>&1 | tail -10","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T15:33:10.103Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test -- src/providers.test.ts 2>&1 | grep -A5 \"FAIL\"","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T15:33:18.955Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/providers.test.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
