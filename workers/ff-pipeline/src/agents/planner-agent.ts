@@ -20,6 +20,8 @@ export interface PlannerInput {
   repairNotes?: string
   previousPlan?: Plan
   resampleReason?: string
+  /** v4.1: when present, only plan for these atoms (others are unchanged) */
+  failedAtomIds?: string[]
 }
 
 export interface PlannerAgentOpts {

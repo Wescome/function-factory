@@ -129,7 +129,21 @@ The queue consumer awaits the DO response synchronously. CF Queues have a
 visibility timeout (~30 seconds) that the consumer cannot exceed. The DO
 synthesis takes minutes.
 
-### 3.2 Design: Fire-and-Forget + Callback
+### 3.2 Shipped Design: Fire-and-Forget + Queue Relay
+
+**Primary path (shipped):** The DO publishes synthesis results to a
+`SYNTHESIS_RESULTS` Queue. The Worker's queue consumer receives the message
+and forwards it to the Workflow via `sendEvent`. This avoids the self-fetch
+deadlock discovered during v5/v6 deployment: CF blocks DO-to-own-Worker
+self-fetch, causing a deadlock when the DO tries to POST back to the
+Worker's `/synthesis-callback` route.
+
+**Secondary path (manual intervention):** The `/synthesis-callback` route
+remains in the Worker fetch handler for external callers (admin tools,
+manual recovery) but is NOT the DO-to-Workflow notification path.
+
+**Retired design:** Direct fetch from DO to Worker (blocked by CF
+self-fetch restriction). See coordinator.ts `notifyCallback()` JSDoc.
 
 ```
                         (1) fire-and-forget
@@ -140,8 +154,8 @@ Queue consumer ─────────────────────�
   [message acked,                               |
    consumer exits]                              |
                                                 v
-                        (4) POST /synthesis-callback
-Worker fetch() handler <──────────────── DO.alarm() or DO.synthesize()
+                        (4) SYNTHESIS_RESULTS Queue.send()
+Worker queue() handler <──────────────── DO.notifyCallback()
      |
      | (5) workflow.sendEvent('synthesis-complete')
      v
@@ -158,21 +172,21 @@ await workflow.sendEvent(...)
 msg.ack()
 ```
 
-**Proposed (fire-and-forget):**
+**Shipped (fire-and-forget):**
 ```typescript
-// Send workflowId to the DO so it knows where to call back
+// Send workflowId to the DO so it knows where to publish results
 await stub.fetch(new Request('https://do/synthesize', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
     workGraph,
     dryRun,
-    callbackWorkflowId: workflowId,  // NEW: DO uses this for callback
+    workflowId,  // DO stores this for Queue relay
     ...(specContent ? { specContent } : {}),
   }),
 }))
 // DO accepted the request -- ack immediately
-// DO will call back to Worker /synthesis-callback on completion
+// DO will publish to SYNTHESIS_RESULTS Queue on completion
 msg.ack()
 ```
 
@@ -180,40 +194,41 @@ The queue consumer now completes in <1 second. No visibility timeout risk.
 
 ### 3.4 DO Changes (coordinator.ts)
 
-The `synthesize()` method stores `callbackWorkflowId` and, upon completion
-(or alarm), calls back to the Worker:
+The `synthesize()` method stores `workflowId` and, upon completion
+(or alarm), publishes to the `SYNTHESIS_RESULTS` Queue:
 
 ```typescript
 // After graph.run() completes (or on alarm/error):
-private async notifyCompletion(result: SynthesisResult): Promise<void> {
-  const callbackWorkflowId = await this.ctx.storage.get<string>('callbackWorkflowId')
-  if (!callbackWorkflowId) return
+private async notifyCallback(result: SynthesisResult): Promise<void> {
+  const workflowId = await this.ctx.storage.get<string>('__workflowId')
+  if (!workflowId) return
 
-  // Call back to Worker's /synthesis-callback route
-  // The Worker has access to FACTORY_PIPELINE binding; the DO does not
-  const callbackUrl = 'https://ff-pipeline.koales.workers.dev/synthesis-callback'
-  const response = await fetch(callbackUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      workflowId: callbackWorkflowId,
-      verdict: result.verdict,
-      tokenUsage: result.tokenUsage,
-      repairCount: result.repairCount,
-    }),
-  })
-
-  if (!response.ok) {
-    // Retry once after 5s via alarm
-    await this.ctx.storage.put('__callback_retry', true)
-    await this.ctx.storage.setAlarm(Date.now() + 5_000)
+  try {
+    if (this.env.SYNTHESIS_RESULTS) {
+      await this.env.SYNTHESIS_RESULTS.send({
+        workflowId,
+        verdict: result.verdict,
+        tokenUsage: result.tokenUsage,
+        repairCount: result.repairCount,
+      })
+    }
+  } catch (err) {
+    console.error(`[Stage 6] Result queue publish failed: ${err instanceof Error ? err.message : String(err)}`)
   }
 }
 ```
 
+**Why Queue relay instead of fetch callback:**
+- CF blocks DO-to-own-Worker self-fetch (deadlock discovered in v5/v6 runs)
+- Queue relay is non-blocking and CF-native
+- Queue has built-in retry semantics (visibility timeout, dead-letter)
+- No alarm-based retry needed for the notification path
+
 ### 3.5 Worker Callback Route (src/index.ts, fetch() handler)
 
-New route that receives DO completion and forwards to Workflow:
+The `/synthesis-callback` route remains as a **manual intervention fallback**
+for external callers (admin tools, debugging). It is NOT the primary
+DO-to-Workflow notification path:
 
 ```typescript
 if (url.pathname === '/synthesis-callback' && request.method === 'POST') {
@@ -241,32 +256,19 @@ if (url.pathname === '/synthesis-callback' && request.method === 'POST') {
 }
 ```
 
-### 3.6 Alarm Handler Fix (coordinator.ts)
+### 3.6 Alarm Handler (coordinator.ts)
 
-The current alarm handler writes interrupted state to DO storage but never
-notifies the Workflow. Fix: call `notifyCompletion()` from alarm:
+The alarm handler calls `notifyCallback()` (Queue relay) on timeout so the
+Workflow does not hang:
 
 ```typescript
 override async alarm(): Promise<void> {
   const completed = await this.ctx.storage.get<boolean>('__completed')
   if (completed) return
 
-  // Check if this is a callback retry
-  const callbackRetry = await this.ctx.storage.get<boolean>('__callback_retry')
-  if (callbackRetry) {
-    await this.ctx.storage.delete('__callback_retry')
-    const state = await this.ctx.storage.get<GraphState>('graphState')
-    if (state) {
-      await this.notifyCompletion(this.buildResult(
-        await this.ctx.storage.get<string>('workGraphId') ?? 'unknown',
-        state,
-      ))
-    }
-    return
-  }
-
-  // Original timeout logic
   const state = await this.ctx.storage.get<GraphState>('graphState')
+  const workGraphId = (state?.workGraphId ??
+    await this.ctx.storage.get<string>('workGraphId')) || 'unknown'
   const timedOutState: GraphState = {
     ...(state ?? createInitialState('unknown', {})),
     verdict: {
@@ -276,25 +278,23 @@ override async alarm(): Promise<void> {
     },
   }
   await this.ctx.storage.put('graphState', timedOutState)
+  await this.ctx.storage.put('__alarm_fired', true)
   await this.ctx.storage.put('__completed', true)
 
-  // NEW: notify the Workflow so it doesn't hang
-  await this.notifyCompletion(this.buildResult(
-    timedOutState.workGraphId,
-    timedOutState,
-  ))
+  // Notify the Workflow via Queue so it doesn't hang at waitForEvent
+  await this.notifyCallback(this.buildResult(workGraphId, timedOutState))
 }
 ```
 
 ### 3.7 Error Handling
 
-| Failure mode | Current behavior | Proposed behavior |
+| Failure mode | Current behavior | Shipped behavior |
 |---|---|---|
 | Queue visibility timeout | Consumer retried, duplicate DO work | Consumer acks immediately, no retry |
-| DO synthesis timeout | Alarm writes state, Workflow hangs | Alarm calls notifyCompletion, Workflow resumes |
-| Callback POST fails | N/A | DO sets alarm for 5s retry, re-attempts callback |
-| Callback retry fails | N/A | State persisted in DO storage; manual recovery possible via /synthesis-callback admin route |
-| Worker unreachable from DO | N/A | DO self-fetch works (same zone); if CF routes internally, no cold start |
+| DO synthesis timeout | Alarm writes state, Workflow hangs | Alarm calls notifyCallback (Queue relay), Workflow resumes |
+| Queue publish fails | N/A | Non-fatal: result in DO storage, Workflow has 30-min waitForEvent timeout as backstop |
+| Worker unreachable from DO | N/A | Not applicable: Queue relay decouples DO from Worker. No self-fetch needed. |
+| DO-to-Worker self-fetch | N/A (retired) | Blocked by CF. Queue relay replaces this pattern. |
 
 ### 3.8 Invariants
 
@@ -302,8 +302,8 @@ override async alarm(): Promise<void> {
   interrupt). No more hanging.
 - The queue consumer ALWAYS completes within seconds. No more visibility
   timeout failures.
-- The DO is the single source of truth for synthesis state. The callback is
-  a notification, not a state transfer.
+- The DO is the single source of truth for synthesis state. The Queue
+  message is a notification, not a state transfer.
 
 ---
 
@@ -411,6 +411,16 @@ class AtomExecutor extends Agent<CoordinatorEnv> {
   //
   // Input: AtomSliceSpec + resolved upstream CodeArtifacts
   // Output: AtomResult (CodeArtifact + AtomVerdict + TestReport)
+
+  // Idempotency: re-dispatching a completed atom returns cached result
+  // (required for VS-1 crash recovery mitigation)
+  override async fetch(request: Request): Promise<Response> {
+    // At start of execute-atom handler:
+    const cached = await this.ctx.storage.get<AtomResult>('atomResult')
+    if (cached) return new Response(JSON.stringify(cached))  // idempotent: already completed
+
+    // ... proceed with atom execution ...
+  }
 }
 ```
 
@@ -679,6 +689,37 @@ Updated after each atom completes. Persisted to DO storage after each layer
 completes. On Fiber recovery, the ledger tells the coordinator exactly where
 to resume.
 
+### 4.7 Missing Type Definitions
+
+The following types are referenced throughout this ADR but were not
+previously defined. They are required for implementation.
+
+```typescript
+interface AtomResult {
+  atomId: string
+  verdict: { decision: 'pass' | 'fail' | 'patch'; confidence: number; reason: string }
+  codeArtifact: CodeArtifact | null
+  testReport: TestReport | null
+  critiqueReport: CritiqueReport | null
+  retryCount: number
+}
+
+interface ResolvedAtomSpec {
+  atomId: string
+  spec: Record<string, unknown>  // the atom's own spec from the WorkGraph
+  upstreamArtifacts: Record<string, CodeArtifact>  // keyed by upstream atom ID
+  sharedContext: SharedContext
+}
+
+interface SharedContext {
+  workGraphId: string
+  workGraphTitle: string
+  specContent: string | null
+  briefingScript: BriefingScript | null
+  schemaContext: string[]  // shared schema definitions relevant to all atoms
+}
+```
+
 ---
 
 ## 5. Implementation Gradient
@@ -837,6 +878,7 @@ integration atoms.
 | VS-6 | DO-to-DO fetch latency overhead | Low | Low | Intra-zone DO communication is <1ms. The LLM calls within each atom (seconds) dominate. Network overhead is negligible. |
 | VS-7 | Non-decomposable atoms (genuinely intertwined) | Low | Medium | Treat as composite atom. The WorkGraph dependency edges should already capture this -- if two atoms have bidirectional dependencies, the planner should merge them into one slice. |
 | VS-8 | Callback from DO to Worker fails (bug fix) | Medium | High | Retry via DO alarm (5s). If retry fails, state is in DO storage -- manual recovery route. The Workflow has a 30-minute waitForEvent timeout as backstop. |
+| VS-R9 | Test regression during v5 refactor | Medium | Medium | Ship incrementally (v4.1→v5). Each step has own test suite. Run all 434 tests before each deploy. |
 
 ### 7.2 Risks Retired
 

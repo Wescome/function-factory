@@ -195,6 +195,8 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
           ...(state.verdict?.decision === 'resample' ? {
             resampleReason: state.verdict.reason,
           } : {}),
+          // v4.1: pass per-atom failure info so planner can scope its plan
+          ...(state.failedAtomIds ? { failedAtomIds: state.failedAtomIds } : {}),
         }
 
         const plan = await deps.plannerAgent!.producePlan(plannerInput)
@@ -291,6 +293,8 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
 
         const updated: Partial<GraphState> = {
           verdict,
+          // v4.1: propagate per-atom failure info from verdict to state
+          failedAtomIds: verdict.failedAtomIds ?? null,
           roleHistory: [
             ...state.roleHistory,
             { role: 'verifier', output: verdict, tokenUsage: 0, timestamp: new Date().toISOString() },
@@ -327,6 +331,12 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
           ...state.roleHistory,
           { role: roleName, output: parsed, tokenUsage: estimatedTokens, timestamp: new Date().toISOString() },
         ],
+      }
+
+      // v4.1: propagate per-atom failure info from verdict to state (callModel fallback)
+      if (roleName === 'verifier' && parsed && typeof parsed === 'object') {
+        const v = parsed as Verdict
+        updated.failedAtomIds = v.failedAtomIds ?? null
       }
 
       if (roleName === 'planner' && state.repairCount > 0 && state.verdict?.decision === 'resample') {
@@ -435,6 +445,8 @@ function buildRoleMessage(
           resampleReason: state.verdict.reason,
           previousApproach: state.plan?.approach,
         }),
+        // v4.1: scope repair to failing atoms when known
+        ...(state.failedAtomIds ? { failedAtomIds: state.failedAtomIds } : {}),
       })
     case 'coder':
       return JSON.stringify({

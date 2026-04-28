@@ -41,6 +41,8 @@ export interface Verdict {
   reason: string
   notes?: string
   artifacts?: CodeArtifact
+  /** v4.1: which atoms need retry when decision is 'patch' */
+  failedAtomIds?: string[]
 }
 
 export interface GraphState {
@@ -67,6 +69,9 @@ export interface GraphState {
   gate1Passed: boolean
   gate1Report: unknown | null
   compiledPrd: unknown | null
+
+  // v4.1: per-atom retry isolation — which atoms need retry (null = retry all)
+  failedAtomIds: string[] | null
 
   // Specification content threaded from the proposal through the Queue
   specContent: string | null
@@ -102,6 +107,9 @@ export function createInitialState(
     tokenUsage: 0,
     maxRepairs: opts?.maxRepairs ?? 5,
     maxTokens: opts?.maxTokens ?? 150_000,
+
+    // v4.1: per-atom retry isolation
+    failedAtomIds: null,
 
     // Specification content threaded from proposal
     specContent: opts?.specContent ?? null,

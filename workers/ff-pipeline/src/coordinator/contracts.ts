@@ -167,6 +167,8 @@ Respond ONLY with valid JSON.`,
         reason: (parsed.reason as string) ?? '',
       }
       if (typeof parsed.notes === 'string') result.notes = parsed.notes
+      // v4.1: per-atom retry isolation
+      if (Array.isArray(parsed.failedAtomIds)) result.failedAtomIds = parsed.failedAtomIds as string[]
       return result
     },
   },
