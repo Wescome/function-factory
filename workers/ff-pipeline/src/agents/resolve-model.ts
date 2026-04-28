@@ -13,12 +13,15 @@ export function resolveAgentModel(taskKind: TaskKind, apiKey: string, routingCon
   const { primary } = resolve(taskKind, { config: routingConfig })
 
   if (primary.provider === 'cloudflare') {
+    // Use Workers AI OpenAI-compatible REST API — supports proper tool calling
+    // unlike the env.AI.run() binding which doesn't handle multi-turn tool loops.
+    // Account ID from memory: cb56a846c70a38987f31cf6e2b85cb57
     return {
       id: primary.model,
-      name: `Workers AI ${primary.model}`,
+      name: `Workers AI ${primary.model} (REST)`,
       api: 'openai-completions' as any,
       provider: 'cloudflare',
-      baseUrl: 'https://api.cloudflare.com/client/v4/ai/run',
+      baseUrl: 'https://api.cloudflare.com/client/v4/accounts/cb56a846c70a38987f31cf6e2b85cb57/ai/v1',
       reasoning: false,
       input: ['text'] as any,
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },

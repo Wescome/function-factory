@@ -27,7 +27,9 @@ export interface CoordinatorEnv {
   ARANGO_USERNAME?: string
   ARANGO_PASSWORD?: string
   OFOX_API_KEY?: string
-  /** Workers AI binding — when present, agents use CF binding instead of HTTP (ADR-006) */
+  /** CF API token for Workers AI REST API — agents use this instead of the binding for multi-turn tool calling */
+  CF_API_TOKEN?: string
+  /** Workers AI binding — used by pipeline stages (callProvider). NOT passed to agents (binding doesn't support multi-turn tools). */
   AI?: { run(model: string, input: Record<string, unknown>): Promise<Record<string, unknown>> }
   /** @cloudflare/sandbox DurableObject namespace binding. Optional until sandbox container is deployed. */
   SANDBOX?: unknown
@@ -217,7 +219,9 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       const hotConfig = await this.getConfigLoader().get()
 
       // Resolve models centrally from hot-loaded routing config
-      const apiKey = this.env.OFOX_API_KEY ?? ''
+      // Agents use CF API token for Workers AI REST API (multi-turn tool calling)
+      // Falls back to OFOX_API_KEY for external providers
+      const apiKey = this.env.CF_API_TOKEN ?? this.env.OFOX_API_KEY ?? ''
       const architectModel = resolveAgentModel('planning', apiKey, hotConfig.routing)
       const plannerModel = resolveAgentModel('planner', apiKey, hotConfig.routing)
       const coderModel = resolveAgentModel('coder', apiKey, hotConfig.routing)
@@ -232,7 +236,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         db: this.getDb(),
         apiKey: apiKey,
         dryRun,
-        ai: this.env.AI,
+        // ai binding NOT passed — agents use REST API for multi-turn tool calling
         model: architectModel,
         aliasOverrides: hotConfig.aliases['BriefingScript'],
       })
@@ -240,7 +244,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         db: this.getDb(),
         apiKey: apiKey,
         dryRun,
-        ai: this.env.AI,
+        // ai binding NOT passed — agents use REST API for multi-turn tool calling
         model: coderModel,
         aliasOverrides: hotConfig.aliases['CodeArtifact'],
       })
@@ -248,7 +252,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         db: this.getDb(),
         apiKey: apiKey,
         dryRun,
-        ai: this.env.AI,
+        // ai binding NOT passed — agents use REST API for multi-turn tool calling
         model: plannerModel,
         aliasOverrides: hotConfig.aliases['Plan'],
       })
@@ -256,7 +260,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         db: this.getDb(),
         apiKey: apiKey,
         dryRun,
-        ai: this.env.AI,
+        // ai binding NOT passed — agents use REST API for multi-turn tool calling
         model: testerModel,
         aliasOverrides: hotConfig.aliases['TestReport'],
       })
@@ -264,7 +268,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         db: this.getDb(),
         apiKey: apiKey,
         dryRun,
-        ai: this.env.AI,
+        // ai binding NOT passed — agents use REST API for multi-turn tool calling
         model: verifierModel,
         aliasOverrides: hotConfig.aliases['Verdict'],
       })
@@ -272,7 +276,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         db: this.getDb(),
         apiKey: apiKey,
         dryRun,
-        ai: this.env.AI,
+        // ai binding NOT passed — agents use REST API for multi-turn tool calling
         model: criticModel,
         semanticReviewAliasOverrides: hotConfig.aliases['SemanticReview'],
         codeReviewAliasOverrides: hotConfig.aliases['CritiqueReport'],
