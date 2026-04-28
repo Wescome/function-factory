@@ -3105,3 +3105,10 @@
 {"timestamp":"2026-04-28T17:13:37.911Z","tool":"Bash","summary":"git add -A && git commit -m \"$(cat <<'EOF'\nINFRA: Workers AI is THE provider — ofox.ai reserved for production\n\nv4 routi","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
 {"timestamp":"2026-04-28T17:13:57.613Z","tool":"Bash","summary":"cd /Users/wes/Developer/function-factory/workers/ff-pipeline && npx wrangler deploy 2>&1 | tail -3 && echo \"---\" && INST","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
 {"timestamp":"2026-04-28T17:21:32.126Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/providers.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T17:21:53.231Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test 2>&1 | tail -3 && git add -A && git commit -m \"$(cat <<'EOF'\nINFRA: add response","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T17:22:24.238Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test 2>&1 | grep \"FAIL\" | head -5","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T17:22:36.582Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test -- src/providers.test.ts 2>&1 | grep -A5 \"FAIL\"","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T17:22:43.767Z","tool":"Bash","summary":"grep -n \"qwen\" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/providers.test.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T17:22:52.402Z","tool":"Bash","summary":"sed -i '' \"s|@cf/qwen/qwen3-30b-a3b|@cf/meta/llama-3.3-70b-instruct-fp8-fast|g\" /Users/wes/Developer/function-factory/wo","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T17:23:03.497Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/providers.test.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T17:23:19.040Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test 2>&1 | tail -5","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}

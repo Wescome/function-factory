@@ -77,7 +77,7 @@ describe('callProvider', () => {
     }
 
     const result = await callProvider(
-      { provider: 'cloudflare', model: '@cf/qwen/qwen3-30b-a3b' },
+      { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
       'You are a test.',
       'Say hello.',
       env,
@@ -85,15 +85,12 @@ describe('callProvider', () => {
 
     expect(result).toBe('workers ai response')
     expect(mockRun).toHaveBeenCalledOnce()
-    expect(mockRun).toHaveBeenCalledWith(
-      '@cf/qwen/qwen3-30b-a3b',
-      {
-        messages: [
-          { role: 'system', content: 'You are a test.' },
-          { role: 'user', content: 'Say hello.' },
-        ],
-      },
-    )
+    const [model, opts] = mockRun.mock.calls[0]!
+    expect(model).toBe('@cf/meta/llama-3.3-70b-instruct-fp8-fast')
+    expect(opts.messages[0].role).toBe('system')
+    expect(opts.messages[0].content).toContain('You are a test.')
+    expect(opts.messages[1]).toEqual({ role: 'user', content: 'Say hello.' })
+    expect(opts.response_format).toEqual({ type: 'json_object' })
   })
 
   it('does NOT require OFOX_API_KEY for cloudflare provider', async () => {
@@ -106,7 +103,7 @@ describe('callProvider', () => {
     }
 
     const result = await callProvider(
-      { provider: 'cloudflare', model: '@cf/qwen/qwen3-30b-a3b' },
+      { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
       'sys',
       'user',
       env,
@@ -118,7 +115,7 @@ describe('callProvider', () => {
     const env: ProviderEnv = {}
     await expect(
       callProvider(
-        { provider: 'cloudflare', model: '@cf/qwen/qwen3-30b-a3b' },
+        { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
         'sys',
         'user',
         env,
