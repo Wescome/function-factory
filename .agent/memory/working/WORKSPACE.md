@@ -1,16 +1,13 @@
 # Current Workspace
 
 ## Status
-Session ended at 2026-04-28T20:30:37.113Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
+Session ended at 2026-04-28T20:34:02.870Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
 
 ## Last update
-2026-04-28T20:30:37.113Z
+2026-04-28T20:34:02.870Z
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
-- [19:37:19] Bash: pnpm --filter @factory/ff-pipeline test -- --run workers-ai-stream 2>&1 | tail -30
-- [19:37:25] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/workers-ai-stream.test.ts
-- [19:37:56] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/workers-ai-stream.test.ts
 - [19:38:04] Bash: pnpm --filter @factory/ff-pipeline test -- --run workers-ai-stream 2>&1 | tail -40
 - [19:38:14] Bash: pnpm --filter @factory/ff-pipeline test -- --run workers-ai-stream 2>&1 | grep -E '(✓|✗|FAIL|PASS|passed|failed)'
 - [19:38:39] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/workers-ai-stream.ts
@@ -35,6 +32,9 @@ text_gen = [m fo
 - [20:20:12] Bash: pnpm --filter @factory/ff-pipeline test 2>&1 | tail -3 && git add -A && git commit -m "$(cat <<'EOF'
 CEF: switch to kimi
 - [20:20:40] Bash: cd /Users/wes/Developer/function-factory/workers/ff-pipeline && npx wrangler deploy 2>&1 | tail -3 && echo "---" && INST
+- [20:33:26] Edit: /Users/wes/Developer/function-factory/packages/task-routing/src/index.ts
+- [20:33:42] Bash: pnpm --filter @factory/ff-pipeline test 2>&1 | tail -3 && git add -A && git commit -m "CEF: deepseek-r1-distill-qwen-32b
+- [20:33:54] Bash: cd /Users/wes/Developer/function-factory/workers/ff-pipeline && npx wrangler deploy 2>&1 | tail -3 && echo "---" && INST
 
 ## Notes
 This file is auto-updated on session end. Manual edits will be overwritten.

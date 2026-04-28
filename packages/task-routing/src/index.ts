@@ -72,7 +72,7 @@ export interface ResolvedRoute {
 
 // ── Workers AI models ──
 
-const CF_PRIMARY: RouteTarget = { provider: 'cloudflare', model: '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b' }
+const CF_PRIMARY: RouteTarget = { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' }
 
 // ── Default config: Workers AI for everything ──
 
