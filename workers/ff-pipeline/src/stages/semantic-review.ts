@@ -115,7 +115,9 @@ export async function semanticReview(
   await db.save('specs_coverage_reports', {
     _key: `CR-SR-${proposal._key}`,
     type: 'semantic-review',
+    passed: review.alignment === 'aligned',
     proposalId: proposal._key,
+    sourceRefs: [`FP:${proposal._key}`],
     ...review,
   })
 

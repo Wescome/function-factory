@@ -109,11 +109,12 @@ async function runDryPass(
 
     case 'assembly': {
       const wgKey = `WG-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
+      const prdKey = (state.prd as Record<string, unknown>)?._key ?? 'unknown'
       const workGraph = {
         _key: wgKey,
         type: 'workgraph',
         title: prd?.title ?? 'Dry-run WorkGraph',
-        prdId: (state.prd as Record<string, unknown>)?._key ?? 'unknown',
+        prdId: prdKey,
         atoms: state.atoms ?? [],
         dependencies: state.dependencies ?? [],
         invariants: state.invariants ?? [],
@@ -122,6 +123,7 @@ async function runDryPass(
         repo: { url: 'https://github.com/Wescome/function-factory', ref: 'main' },
         fileScope: { include: ['src/**'], exclude: ['node_modules/**'] },
         commandPolicy: { allow: ['npm test', 'npm run build', 'npm run lint'] },
+        sourceRefs: [`PRD:${prdKey}`],
         compiledBy: 'dry-run',
         createdAt: new Date().toISOString(),
       }

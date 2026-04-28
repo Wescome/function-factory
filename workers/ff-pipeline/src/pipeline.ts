@@ -104,9 +104,11 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
         await db.save('specs_coverage_reports', {
           _key: `CR-REJECT-${signalKey}`,
           type: 'architect-rejection',
+          passed: false,
           signalId: signalKey,
           reason: approvalPayload?.reason ?? 'no reason given',
           rejectedBy: approvalPayload?.by ?? 'unknown',
+          sourceRefs: [`SIG:${signalKey}`],
           timestamp: new Date().toISOString(),
         })
         return { persisted: true }
@@ -196,6 +198,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
           passed: gate1.passed,
           summary: gate1.summary,
           checks: gate1.checks,
+          sourceRefs: [`WG:${wgKey}`],
           timestamp: gate1.timestamp,
         })
         await db.save('gate_status', {
@@ -227,6 +230,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
         passed: gate1.passed,
         summary: gate1.summary,
         checks: gate1.checks,
+        sourceRefs: [`WG:${wgKey}`],
         timestamp: gate1.timestamp,
       })
       return { persisted: true }
