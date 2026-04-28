@@ -147,7 +147,7 @@ export class CoderAgent {
         getApiKey: async () => this.apiKey,
         maxTokens: 4096,
       },
-      AbortSignal.timeout(120_000),
+      AbortSignal.timeout(300_000),
     )
 
     const messages = await stream.result()

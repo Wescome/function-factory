@@ -182,6 +182,10 @@ You have the arango_query tool. USE IT to ground your briefing in real Factory c
           'FOR l IN memory_semantic FILTER l.type == "lesson" RETURN { key: l._key, lesson: l.lesson }',
           'FOR r IN mentorscript_rules FILTER r.status == "active" RETURN { ruleId: r._key, rule: r.rule }',
         ],
+      }, {
+        name: 'ontology_query',
+        description: 'Query the Factory ontology for constraints, role specs, lifecycle states, and pending CRPs. Preferred over raw AQL for ontology questions.',
+        aqlExamples: [],
       }],
       memoryAccess: ['memory_semantic', 'mentorscript_rules', 'specs_signals', 'specs_functions', 'specs_workgraphs', 'execution_artifacts'],
       environment: 'v8-isolate',
@@ -279,6 +283,10 @@ Always query mentorscript_rules before producing a code review.`,
           'FOR i IN specs_invariants LIMIT 10 RETURN { key: i._key, description: i.description }',
           'FOR d IN memory_semantic FILTER d.type == "decision" RETURN { key: d._key, decision: d.decision }',
         ],
+      }, {
+        name: 'ontology_query',
+        description: 'Query the Factory ontology for constraints, role specs, lifecycle states, and pending CRPs. Preferred over raw AQL for ontology questions.',
+        aqlExamples: [],
       }],
       memoryAccess: ['memory_semantic', 'specs_functions', 'specs_invariants', 'specs_workgraphs'],
       environment: 'v8-isolate',
@@ -366,6 +374,10 @@ If this is a repair cycle (repairNotes/resampleReason provided), adjust your str
           'FOR r IN mentorscript_rules FILTER r.status == "active" RETURN { ruleId: r._key, rule: r.rule }',
           'FOR ea IN execution_artifacts FILTER ea.type == "code" LIMIT 3 RETURN { key: ea._key, functionRunId: ea.functionRunId }',
         ],
+      }, {
+        name: 'ontology_query',
+        description: 'Query the Factory ontology for constraints, role specs, lifecycle states, and pending CRPs. Preferred over raw AQL for ontology questions.',
+        aqlExamples: [],
       },
       // Phase C adds: file_read, file_write, bash_execute, grep_search, git
       ],
@@ -454,6 +466,10 @@ If this is a repair cycle (repairNotes provided), focus on fixing the specific i
           'FOR t IN execution_artifacts FILTER t.type == "test_report" LIMIT 5 RETURN { key: t._key, content: t.content }',
           'FOR l IN memory_semantic FILTER l.type == "lesson" AND CONTAINS(LOWER(l.lesson), "test") RETURN { key: l._key, lesson: l.lesson }',
         ],
+      }, {
+        name: 'ontology_query',
+        description: 'Query the Factory ontology for constraints, role specs, lifecycle states, and pending CRPs. Preferred over raw AQL for ontology questions.',
+        aqlExamples: [],
       },
       // Phase C adds: file_read, bash_execute (read-only gate blocks writes)
       ],
@@ -541,6 +557,10 @@ You have the arango_query tool. USE IT to query active invariants BEFORE produci
           'FOR ep IN memory_episodic FILTER ep.functionId == @id SORT ep.timestamp DESC LIMIT 5 RETURN ep',
           'FOR r IN mentorscript_rules FILTER r.status == "active" RETURN { ruleId: r._key, rule: r.rule }',
         ],
+      }, {
+        name: 'ontology_query',
+        description: 'Query the Factory ontology for constraints, role specs, lifecycle states, and pending CRPs. Preferred over raw AQL for ontology questions.',
+        aqlExamples: [],
       }],
       memoryAccess: ['memory_semantic', 'memory_episodic', 'mentorscript_rules', 'specs_functions', 'specs_invariants', 'gate_status'],
       environment: 'v8-isolate',
