@@ -27,13 +27,12 @@
   ],
 
   // Sandbox Container for Coder/Tester execution
-  "containers": [
-    {
-      "class_name": "Sandbox",
+  "containers": {
+    "Sandbox": {
       "image": "./Dockerfile",
       "max_instances": 5
     }
-  ],
+  },
 
   // Service Bindings
   "services": [
