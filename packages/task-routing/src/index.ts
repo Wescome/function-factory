@@ -3,9 +3,9 @@
  *
  * Maps task kinds to provider/model pairs.
  *
- * v3: Workers AI (cloudflare) as PRIMARY for cost-sensitive tiers.
- * ofox.ai as fallback for quality-critical tasks only.
- * CF Workers AI is included in the paid plan — essentially free.
+ * v4: Workers AI is THE provider. CF paid plan includes it.
+ * ofox.ai is production-only — not for dev/test/iteration.
+ * We proved ofox.ai works. Workers AI handles everything now.
  *
  * Resolution order:
  *   1. If passId provided -> check route.passOverrides[passId]
@@ -16,7 +16,6 @@
 // ── Types (plain TS, no Zod) ──
 
 export type TaskKind =
-  // Pipeline stage kinds (Stages 1-5)
   | 'planning'
   | 'structured'
   | 'interpretive'
@@ -24,7 +23,6 @@ export type TaskKind =
   | 'validation'
   | 'runtime_check'
   | 'semantic_review'
-  // Stage 6 synthesis role kinds
   | 'planner'
   | 'coder'
   | 'critic'
@@ -72,95 +70,26 @@ export interface ResolvedRoute {
   passId?: string | undefined
 }
 
-// ── Providers ──
+// ── Workers AI models ──
 
 const CF_70B: RouteTarget = { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' }
-const DEEPSEEK_FLASH: RouteTarget = { provider: 'deepseek', model: 'deepseek-v4-flash' }
-const DEEPSEEK_PRO: RouteTarget = { provider: 'deepseek', model: 'deepseek-v4-pro' }
-const GEMINI_PRO: RouteTarget = { provider: 'google', model: 'gemini-3.1-pro-preview' }
-const CLAUDE_OPUS: RouteTarget = { provider: 'anthropic', model: 'claude-opus-4.6' }
 
-// ── Default config ──
-// Workers AI is primary for cost-sensitive tiers (Stages 1-5, validation).
-// ofox.ai providers are fallback for quality-critical roles (critic, coder).
+// ── Default config: Workers AI for everything ──
 
 export const DEFAULT_CONFIG: RoutingConfig = {
   routes: [
-    // Planning tier: Workers AI primary (signal, pressure, capability, compiler passes)
-    {
-      kind: 'planning',
-      primary: CF_70B,
-      fallback: DEEPSEEK_FLASH,
-    },
-
-    // Structured tier: Workers AI primary (contracts, invariants, deps, validations)
-    {
-      kind: 'structured',
-      primary: CF_70B,
-      fallback: DEEPSEEK_FLASH,
-    },
-
-    // Interpretive tier: Workers AI primary (function proposal)
-    {
-      kind: 'interpretive',
-      primary: CF_70B,
-      fallback: GEMINI_PRO,
-    },
-
-    // Synthesis tier: Workers AI primary (assembly)
-    {
-      kind: 'synthesis',
-      primary: CF_70B,
-      fallback: DEEPSEEK_PRO,
-    },
-
-    // Semantic review: quality-critical — ofox.ai primary
-    {
-      kind: 'semantic_review',
-      primary: CLAUDE_OPUS,
-      fallback: GEMINI_PRO,
-    },
-
-    // Validation: Workers AI primary (high-volume, cost-sensitive)
-    {
-      kind: 'validation',
-      primary: CF_70B,
-      fallback: DEEPSEEK_FLASH,
-    },
-
-    // Runtime check: Workers AI primary
-    {
-      kind: 'runtime_check',
-      primary: CF_70B,
-      fallback: DEEPSEEK_FLASH,
-    },
-
-    // Stage 6 roles — quality-critical roles use ofox.ai, others use Workers AI
-    {
-      kind: 'planner',
-      primary: CF_70B,
-      fallback: GEMINI_PRO,
-    },
-    {
-      kind: 'coder',
-      primary: DEEPSEEK_PRO,
-      fallback: CF_70B,
-    },
-    {
-      kind: 'critic',
-      primary: CLAUDE_OPUS,
-      fallback: CF_70B,
-    },
-    {
-      kind: 'tester',
-      primary: CF_70B,
-      fallback: DEEPSEEK_PRO,
-    },
-    {
-      kind: 'verifier',
-      primary: GEMINI_PRO,
-      fallback: CF_70B,
-    },
+    { kind: 'planning', primary: CF_70B },
+    { kind: 'structured', primary: CF_70B },
+    { kind: 'interpretive', primary: CF_70B },
+    { kind: 'synthesis', primary: CF_70B },
+    { kind: 'semantic_review', primary: CF_70B },
+    { kind: 'validation', primary: CF_70B },
+    { kind: 'runtime_check', primary: CF_70B },
+    { kind: 'planner', primary: CF_70B },
+    { kind: 'coder', primary: CF_70B },
+    { kind: 'critic', primary: CF_70B },
+    { kind: 'tester', primary: CF_70B },
+    { kind: 'verifier', primary: CF_70B },
   ],
   default: CF_70B,
 }
