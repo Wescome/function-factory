@@ -58,6 +58,9 @@
     ]
   },
 
+  // Workers AI binding (fallback provider for task-routing)
+  "ai": { "binding": "AI" },
+
   // R2 bucket for workspace persistence
   "r2_buckets": [{ "binding": "WORKSPACE_BUCKET", "bucket_name": "ff-workspaces" }],
 

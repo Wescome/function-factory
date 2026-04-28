@@ -3057,3 +3057,10 @@
 {"timestamp":"2026-04-28T15:23:09.514Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test 2>&1 | tail -40","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
 {"timestamp":"2026-04-28T15:23:46.538Z","tool":"Agent","summary":"Engineer: two-step Workflow completion","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
 {"timestamp":"2026-04-28T15:24:01.524Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test 2>&1 | tail -5","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T15:24:08.471Z","tool":"Bash","summary":"git add -A && git diff --cached --stat","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T15:24:21.322Z","tool":"Bash","summary":"git commit -m \"$(cat <<'EOF'\nINFRA: two-step Workflow — wait for atoms-complete after dispatch\n\nWorkflow now waits for T","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T15:24:40.424Z","tool":"Bash","summary":"cd /Users/wes/Developer/function-factory/workers/ff-pipeline && npx wrangler deploy 2>&1 | tail -3 && echo \"---\" && INST","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T15:30:38.788Z","tool":"Bash","summary":"curl -s https://ff-gateway.koales.workers.dev/pipeline/00f8a69e-a2c7-4237-ab00-8a2acd40afea 2>&1","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T15:30:50.106Z","tool":"Bash","summary":"grep -n \"cloudflare\\|Workers AI\\|env.AI\" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/providers.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T15:31:06.201Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/providers.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-28T15:31:28.589Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/wrangler.jsonc","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}

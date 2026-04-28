@@ -15,7 +15,7 @@ export async function callProvider(
 ): Promise<string> {
   // Workers AI path: bypass ofox.ai entirely
   if (target.provider === 'cloudflare') {
-    if (!env.AI) throw new Error('AI binding not available for Workers AI')
+    if (!env.AI) throw new Error('Workers AI fallback unavailable — configure ai binding in wrangler.jsonc or remove cloudflare from task-routing fallbacks')
     const result = await env.AI.run(target.model, {
       messages: [
         { role: 'system', content: system },
