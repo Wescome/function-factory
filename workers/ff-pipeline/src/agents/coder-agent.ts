@@ -194,6 +194,9 @@ export class CoderAgent {
       if (typeof file.content !== 'string') {
         throw new Error('CoderAgent: file entry "content" must be a string')
       }
+      const ACTION_MAP: Record<string, string> = { add: 'create', new: 'create', write: 'create', update: 'modify', edit: 'modify', change: 'modify', patch: 'modify', remove: 'delete', del: 'delete' }
+      const rawAction = (file.action as string ?? '').toLowerCase()
+      file.action = ACTION_MAP[rawAction] ?? rawAction
       if (!['create', 'modify', 'delete'].includes(file.action as string)) {
         throw new Error('CoderAgent: file entry "action" must be "create", "modify", or "delete"')
       }
