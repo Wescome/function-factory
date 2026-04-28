@@ -270,11 +270,24 @@ export async function processAgentOutput<T>(
     availableTools?: string[]
     maxRepairAttempts?: number
     repairFn?: (error: string, schemaDescription: string) => Promise<string>
+    /** ADR-008: Hot-reloadable alias overrides from ArangoDB. Merged with schema defaults (overrides win). */
+    aliasOverrides?: Record<string, string[]>
   },
 ): Promise<ORLResult<T>> {
   const raw = rawResponse ?? ''
   const maxRepairAttempts = opts?.maxRepairAttempts ?? 2
   let repairAttempts = 0
+
+  // ADR-008: Merge hot-loaded alias overrides with schema defaults
+  const effectiveSchema: OutputSchema<T> = opts?.aliasOverrides
+    ? {
+        ...schema,
+        fieldAliases: {
+          ...schema.fieldAliases,
+          ...opts.aliasOverrides,  // DB overrides win
+        },
+      }
+    : schema
 
   // ── Stage 1: Guard (F7) ──────────────────────────────────
   if (!raw || !raw.trim()) {
@@ -283,7 +296,7 @@ export async function processAgentOutput<T>(
       // Attempt repair for empty response
       const repairResult = await attemptRepair(
         raw,
-        schema,
+        effectiveSchema,
         ['Response was null or empty'],
         opts.repairFn,
         maxRepairAttempts,
@@ -326,7 +339,7 @@ export async function processAgentOutput<T>(
     if (opts?.repairFn) {
       const repairResult = await attemptRepair(
         raw,
-        schema,
+        effectiveSchema,
         [`Could not extract JSON from response (${failureMode})`],
         opts.repairFn,
         maxRepairAttempts,
@@ -389,7 +402,7 @@ export async function processAgentOutput<T>(
     if (opts?.repairFn) {
       const repairResult = await attemptRepair(
         raw,
-        schema,
+        effectiveSchema,
         ['Parsed response is not a JSON object'],
         opts.repairFn,
         maxRepairAttempts,
@@ -416,7 +429,7 @@ export async function processAgentOutput<T>(
   }
 
   const data = { ...parsed } as Record<string, unknown>
-  return validateAndCoerce(data, schema, raw, opts)
+  return validateAndCoerce(data, effectiveSchema, raw, opts)
 }
 
 /**
