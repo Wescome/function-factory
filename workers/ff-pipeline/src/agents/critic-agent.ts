@@ -11,6 +11,7 @@ import type { AgentTool } from '@weops/gdk-agent'
 import { Type, type Model, type AssistantMessage, type Message, type UserMessage } from '@weops/gdk-ai'
 import type { ArangoClient } from '@factory/arango-client'
 import { buildArangoTool } from './architect-agent'
+import { coerceToString, coerceToArray, coerceToNumber, coerceToBoolean } from './coerce'
 
 import type { SemanticReviewResult } from '../types.js'
 import type { CritiqueReport, Plan, CodeArtifact } from '../coordinator/state.js'
@@ -285,21 +286,13 @@ export class CriticAgent {
 
     const r = obj as Record<string, unknown>
 
-    if (!['aligned', 'miscast', 'uncertain'].includes(r.alignment as string)) {
-      throw new Error('CriticAgent.semanticReview: "alignment" must be "aligned", "miscast", or "uncertain"')
-    }
-    if (typeof r.confidence !== 'number' || r.confidence < 0 || r.confidence > 1) {
-      throw new Error('CriticAgent.semanticReview: "confidence" must be a number between 0 and 1')
-    }
-    if (!Array.isArray(r.citations)) {
-      throw new Error('CriticAgent.semanticReview: "citations" must be an array')
-    }
-    if (typeof r.rationale !== 'string') {
-      throw new Error('CriticAgent.semanticReview: "rationale" must be a string')
-    }
-    if (typeof r.timestamp !== 'string') {
-      throw new Error('CriticAgent.semanticReview: "timestamp" must be a string')
-    }
+    r.alignment = coerceToString(r.alignment)
+    if (!['aligned', 'miscast', 'uncertain'].includes(r.alignment as string)) r.alignment = 'uncertain'
+    r.confidence = coerceToNumber(r.confidence)
+    if (r.confidence < 0 || r.confidence > 1) r.confidence = 0.5
+    r.citations = coerceToArray(r.citations)
+    r.rationale = coerceToString(r.rationale)
+    r.timestamp = coerceToString(r.timestamp) || new Date().toISOString()
   }
 
   private validateCritiqueReport(obj: unknown): asserts obj is CritiqueReport {
@@ -309,25 +302,14 @@ export class CriticAgent {
 
     const r = obj as Record<string, unknown>
 
-    if (typeof r.passed !== 'boolean') {
-      throw new Error('CriticAgent.codeReview: "passed" must be a boolean')
-    }
-    if (!Array.isArray(r.issues)) {
-      throw new Error('CriticAgent.codeReview: "issues" must be an array')
-    }
+    r.passed = coerceToBoolean(r.passed)
+    r.issues = coerceToArray(r.issues)
     for (const issue of r.issues as Record<string, unknown>[]) {
-      if (!['critical', 'major', 'minor'].includes(issue.severity as string)) {
-        throw new Error('CriticAgent.codeReview: issue "severity" must be "critical", "major", or "minor"')
-      }
-      if (typeof issue.description !== 'string') {
-        throw new Error('CriticAgent.codeReview: issue "description" must be a string')
-      }
+      issue.severity = coerceToString(issue.severity)
+      if (!['critical', 'major', 'minor'].includes(issue.severity as string)) issue.severity = 'minor'
+      issue.description = coerceToString(issue.description)
     }
-    if (!Array.isArray(r.mentorRuleCompliance)) {
-      throw new Error('CriticAgent.codeReview: "mentorRuleCompliance" must be an array')
-    }
-    if (typeof r.overallAssessment !== 'string') {
-      throw new Error('CriticAgent.codeReview: "overallAssessment" must be a string')
-    }
+    r.mentorRuleCompliance = coerceToArray(r.mentorRuleCompliance)
+    r.overallAssessment = coerceToString(r.overallAssessment)
   }
 }

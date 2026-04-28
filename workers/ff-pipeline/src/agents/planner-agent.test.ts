@@ -116,26 +116,38 @@ describe('PlannerAgent', () => {
       })).toThrow('missing required field "estimatedComplexity"')
     })
 
-    it('rejects wrong types', () => {
+    it('coerces wrong types instead of rejecting', () => {
       const { db } = createMockDb()
       const agent = new PlannerAgent({ db, apiKey: 'test-key', dryRun: true })
       const validate = (agent as any).validatePlan.bind(agent)
 
-      expect(() => validate({
+      // number approach coerced to string
+      const obj1 = {
         approach: 123, atoms: [], executorRecommendation: 'gdk-agent', estimatedComplexity: 'low',
-      })).toThrow('"approach" must be a string')
+      }
+      expect(() => validate(obj1)).not.toThrow()
+      expect(obj1.approach).toBe('123')
 
-      expect(() => validate({
+      // string atoms coerced to array
+      const obj2 = {
         approach: 'ok', atoms: 'not-array', executorRecommendation: 'gdk-agent', estimatedComplexity: 'low',
-      })).toThrow('"atoms" must be an array')
+      }
+      expect(() => validate(obj2)).not.toThrow()
+      expect(Array.isArray(obj2.atoms)).toBe(true)
 
-      expect(() => validate({
+      // number executorRecommendation coerced to string
+      const obj3 = {
         approach: 'ok', atoms: [], executorRecommendation: 42, estimatedComplexity: 'low',
-      })).toThrow('"executorRecommendation" must be a string')
+      } as any
+      expect(() => validate(obj3)).not.toThrow()
+      expect(obj3.executorRecommendation).toBe('42')
 
-      expect(() => validate({
+      // number estimatedComplexity coerced to string
+      const obj4 = {
         approach: 'ok', atoms: [], executorRecommendation: 'gdk-agent', estimatedComplexity: 99,
-      })).toThrow('"estimatedComplexity" must be a string')
+      } as any
+      expect(() => validate(obj4)).not.toThrow()
+      expect(obj4.estimatedComplexity).toBe('99')
     })
 
     it('rejects non-objects', () => {

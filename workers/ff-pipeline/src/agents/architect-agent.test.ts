@@ -84,20 +84,26 @@ describe('ArchitectAgent', () => {
       })).toThrow('missing required field "goal"')
     })
 
-    it('rejects wrong types', () => {
+    it('coerces wrong types instead of rejecting', () => {
       const { db } = createMockDb()
       const agent = new ArchitectAgent({ db, apiKey: 'test-key', dryRun: true })
       const validate = (agent as any).validateBriefingScript.bind(agent)
 
-      expect(() => validate({
+      // number goal is coerced to string
+      const obj1 = {
         goal: 123, successCriteria: [], architecturalContext: '', strategicAdvice: '',
         knownGotchas: [], validationLoop: '',
-      })).toThrow('"goal" must be a string')
+      }
+      expect(() => validate(obj1)).not.toThrow()
+      expect(obj1.goal).toBe('123')
 
-      expect(() => validate({
+      // string successCriteria is coerced to array
+      const obj2 = {
         goal: 'ok', successCriteria: 'not-array', architecturalContext: '',
         strategicAdvice: '', knownGotchas: [], validationLoop: '',
-      })).toThrow('"successCriteria" must be an array')
+      }
+      expect(() => validate(obj2)).not.toThrow()
+      expect(Array.isArray(obj2.successCriteria)).toBe(true)
     })
 
     it('rejects non-objects', () => {

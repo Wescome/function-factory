@@ -10,6 +10,7 @@ import { agentLoop } from '@weops/gdk-agent'
 import type { AgentTool } from '@weops/gdk-agent'
 import { Type, type Model, type AssistantMessage, type Message, type UserMessage } from '@weops/gdk-ai'
 import type { ArangoClient } from '@factory/arango-client'
+import { coerceToString, coerceToArray } from './coerce'
 
 export interface BriefingScript {
   goal: string
@@ -196,12 +197,12 @@ export class ArchitectAgent {
         throw new Error(`ArchitectAgent: missing required field "${field}"`)
       }
     }
-    if (typeof record.goal !== 'string') throw new Error('ArchitectAgent: "goal" must be a string')
-    if (!Array.isArray(record.successCriteria)) throw new Error('ArchitectAgent: "successCriteria" must be an array')
-    if (typeof record.architecturalContext !== 'string') throw new Error('ArchitectAgent: "architecturalContext" must be a string')
-    if (typeof record.strategicAdvice !== 'string') throw new Error('ArchitectAgent: "strategicAdvice" must be a string')
-    if (!Array.isArray(record.knownGotchas)) throw new Error('ArchitectAgent: "knownGotchas" must be an array')
-    if (typeof record.validationLoop !== 'string') throw new Error('ArchitectAgent: "validationLoop" must be a string')
+    record.goal = coerceToString(record.goal)
+    record.successCriteria = coerceToArray(record.successCriteria)
+    record.architecturalContext = coerceToString(record.architecturalContext)
+    record.strategicAdvice = coerceToString(record.strategicAdvice)
+    record.knownGotchas = coerceToArray(record.knownGotchas)
+    record.validationLoop = coerceToString(record.validationLoop)
   }
 }
 

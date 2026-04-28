@@ -11,6 +11,7 @@ import type { AgentTool } from '@weops/gdk-agent'
 import type { Model, AssistantMessage, Message, UserMessage } from '@weops/gdk-ai'
 import type { ArangoClient } from '@factory/arango-client'
 import { buildArangoTool } from './architect-agent'
+import { coerceToString, coerceToArray } from './coerce'
 import type { Plan } from '../coordinator/state'
 
 export interface PlannerInput {
@@ -187,10 +188,10 @@ export class PlannerAgent {
         throw new Error(`PlannerAgent: missing required field "${field}"`)
       }
     }
-    if (typeof record.approach !== 'string') throw new Error('PlannerAgent: "approach" must be a string')
-    if (!Array.isArray(record.atoms)) throw new Error('PlannerAgent: "atoms" must be an array')
-    if (typeof record.executorRecommendation !== 'string') throw new Error('PlannerAgent: "executorRecommendation" must be a string')
-    if (typeof record.estimatedComplexity !== 'string') throw new Error('PlannerAgent: "estimatedComplexity" must be a string')
+    record.approach = coerceToString(record.approach)
+    record.atoms = coerceToArray(record.atoms)
+    record.executorRecommendation = coerceToString(record.executorRecommendation) || 'gdk-agent'
+    record.estimatedComplexity = coerceToString(record.estimatedComplexity) || 'medium'
   }
 }
 

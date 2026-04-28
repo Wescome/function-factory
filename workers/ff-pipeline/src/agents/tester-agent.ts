@@ -14,6 +14,7 @@ import { Type, type Model, type AssistantMessage, type Message, type UserMessage
 import type { ArangoClient } from '@factory/arango-client'
 import type { CritiqueReport, Plan, CodeArtifact } from '../coordinator/state'
 import { buildArangoTool } from './architect-agent'
+import { coerceToString, coerceToArray, coerceToNumber, coerceToBoolean } from './coerce'
 
 // Re-export TestReport from state so consumers can import from tester-agent
 export type { TestReport } from '../coordinator/state'
@@ -170,24 +171,12 @@ export class TesterAgent {
     }
     const record = obj as Record<string, unknown>
 
-    if (typeof record.passed !== 'boolean') {
-      throw new Error('TesterAgent: "passed" must be a boolean')
-    }
-    if (typeof record.testsRun !== 'number') {
-      throw new Error('TesterAgent: "testsRun" must be a number')
-    }
-    if (typeof record.testsPassed !== 'number') {
-      throw new Error('TesterAgent: "testsPassed" must be a number')
-    }
-    if (typeof record.testsFailed !== 'number') {
-      throw new Error('TesterAgent: "testsFailed" must be a number')
-    }
-    if (!Array.isArray(record.failures)) {
-      throw new Error('TesterAgent: "failures" must be an array')
-    }
-    if (typeof record.summary !== 'string') {
-      throw new Error('TesterAgent: "summary" must be a string')
-    }
+    record.passed = coerceToBoolean(record.passed)
+    record.testsRun = coerceToNumber(record.testsRun)
+    record.testsPassed = coerceToNumber(record.testsPassed)
+    record.testsFailed = coerceToNumber(record.testsFailed)
+    record.failures = coerceToArray(record.failures)
+    record.summary = coerceToString(record.summary)
   }
 }
 

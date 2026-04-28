@@ -116,12 +116,16 @@ describe('CoderAgent', () => {
       expect(() => validate({ summary: 'ok', testsIncluded: false })).toThrow('missing required field "files"')
     })
 
-    it('rejects response with files as non-array', () => {
+    it('coerces non-array files to array', () => {
       const { db } = createMockDb()
       const agent = new CoderAgent({ db, apiKey: 'test-key', dryRun: true })
       const validate = (agent as any).validateCodeArtifact.bind(agent)
 
-      expect(() => validate({ files: 'not-array', summary: 'ok', testsIncluded: false })).toThrow('"files" must be an array')
+      // null coerces to empty array via coerceToArray
+      const obj = { files: null, summary: 'ok', testsIncluded: false } as any
+      expect(() => validate(obj)).not.toThrow()
+      expect(Array.isArray(obj.files)).toBe(true)
+      expect(obj.files).toHaveLength(0)
     })
 
     it('rejects response missing summary', () => {
@@ -149,16 +153,18 @@ describe('CoderAgent', () => {
       expect(() => validate(null)).toThrow('not an object')
     })
 
-    it('rejects file entry with invalid action', () => {
+    it('coerces invalid action to the raw string (fallback)', () => {
       const { db } = createMockDb()
       const agent = new CoderAgent({ db, apiKey: 'test-key', dryRun: true })
       const validate = (agent as any).validateCodeArtifact.bind(agent)
 
-      expect(() => validate({
+      const obj = {
         files: [{ path: 'x.ts', content: '//', action: 'invalid' }],
         summary: 'ok',
         testsIncluded: false,
-      })).toThrow('"action" must be')
+      }
+      expect(() => validate(obj)).not.toThrow()
+      expect(obj.files[0].action).toBe('invalid')
     })
 
     it('accepts valid CodeArtifact', () => {

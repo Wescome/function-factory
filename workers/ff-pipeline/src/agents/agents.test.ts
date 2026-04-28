@@ -191,26 +191,32 @@ describe('CriticAgent.semanticReview', () => {
       expect(() => validate(null)).toThrow('not an object')
     })
 
-    it('rejects invalid alignment', () => {
+    it('coerces invalid alignment to "uncertain"', () => {
       const { db } = makeMockDb()
       const agent = new CriticAgent({ db, apiKey: 'test', dryRun: true })
       const validate = (agent as any).validateSemanticReview.bind(agent)
 
-      expect(() => validate({
+      const obj = {
         alignment: 'wrong',
         confidence: 0.5,
         citations: [],
         rationale: 'test',
         timestamp: '2026-01-01',
-      })).toThrow('"alignment"')
+      }
+      expect(() => validate(obj)).not.toThrow()
+      expect(obj.alignment).toBe('uncertain')
     })
 
-    it('rejects missing required fields', () => {
+    it('coerces missing fields to defaults', () => {
       const { db } = makeMockDb()
       const agent = new CriticAgent({ db, apiKey: 'test', dryRun: true })
       const validate = (agent as any).validateSemanticReview.bind(agent)
 
-      expect(() => validate({ alignment: 'aligned' })).toThrow()
+      const obj = { alignment: 'aligned' } as Record<string, unknown>
+      expect(() => validate(obj)).not.toThrow()
+      expect(obj.confidence).toBe(0)
+      expect(obj.citations).toEqual([])
+      expect(obj.rationale).toBe('')
     })
 
     it('accepts valid SemanticReviewResult', () => {
@@ -379,25 +385,31 @@ describe('CriticAgent.codeReview', () => {
       expect(() => validate(null)).toThrow('not an object')
     })
 
-    it('rejects missing required fields', () => {
+    it('coerces missing fields to defaults', () => {
       const { db } = makeMockDb()
       const agent = new CriticAgent({ db, apiKey: 'test', dryRun: true })
       const validate = (agent as any).validateCritiqueReport.bind(agent)
 
-      expect(() => validate({ passed: true })).toThrow()
+      const obj = { passed: true } as Record<string, unknown>
+      expect(() => validate(obj)).not.toThrow()
+      expect(obj.issues).toEqual([])
+      expect(obj.mentorRuleCompliance).toEqual([])
+      expect(obj.overallAssessment).toBe('')
     })
 
-    it('rejects invalid issue severity', () => {
+    it('coerces invalid issue severity to "minor"', () => {
       const { db } = makeMockDb()
       const agent = new CriticAgent({ db, apiKey: 'test', dryRun: true })
       const validate = (agent as any).validateCritiqueReport.bind(agent)
 
-      expect(() => validate({
+      const obj = {
         passed: true,
         issues: [{ severity: 'invalid', description: 'test' }],
         mentorRuleCompliance: [],
         overallAssessment: 'test',
-      })).toThrow('severity')
+      }
+      expect(() => validate(obj)).not.toThrow()
+      expect((obj.issues[0] as any).severity).toBe('minor')
     })
 
     it('accepts valid CritiqueReport with zero issues', () => {

@@ -14,6 +14,7 @@ import { Type, type Model, type AssistantMessage, type Message, type UserMessage
 import type { ArangoClient } from '@factory/arango-client'
 import type { CodeArtifact, Plan, CritiqueReport } from '../coordinator/state'
 import { buildArangoTool } from './architect-agent'
+import { coerceToString, coerceToArray, coerceToBoolean } from './coerce'
 
 export interface CoderInput {
   workGraph: Record<string, unknown>
@@ -184,28 +185,17 @@ export class CoderAgent {
         throw new Error(`CoderAgent: missing required field "${field}"`)
       }
     }
-    if (!Array.isArray(record.files)) {
-      throw new Error('CoderAgent: "files" must be an array')
-    }
+    record.files = coerceToArray(record.files)
     for (const file of record.files as Record<string, unknown>[]) {
-      if (typeof file.path !== 'string') {
-        throw new Error('CoderAgent: file entry "path" must be a string')
-      }
-      if (typeof file.content !== 'string') {
-        throw new Error('CoderAgent: file entry "content" must be a string')
-      }
+      file.path = coerceToString(file.path)
+      file.content = coerceToString(file.content)
       const ACTION_MAP: Record<string, string> = { add: 'create', new: 'create', write: 'create', update: 'modify', edit: 'modify', change: 'modify', patch: 'modify', remove: 'delete', del: 'delete' }
-      const rawAction = (file.action as string ?? '').toLowerCase()
-      file.action = ACTION_MAP[rawAction] ?? rawAction
-      if (!['create', 'modify', 'delete'].includes(file.action as string)) {
-        throw new Error('CoderAgent: file entry "action" must be "create", "modify", or "delete"')
-      }
+      const rawAction = coerceToString(file.action).toLowerCase()
+      file.action = ACTION_MAP[rawAction] ?? (rawAction || 'create')
     }
-    if (typeof record.summary !== 'string') {
-      throw new Error('CoderAgent: "summary" must be a string')
-    }
+    record.summary = coerceToString(record.summary)
     if (typeof record.testsIncluded !== 'boolean') {
-      throw new Error('CoderAgent: "testsIncluded" must be a boolean')
+      record.testsIncluded = coerceToBoolean(record.testsIncluded)
     }
   }
 }

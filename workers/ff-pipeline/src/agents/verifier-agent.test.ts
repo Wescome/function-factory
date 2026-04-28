@@ -116,48 +116,49 @@ describe('VerifierAgent', () => {
       })).toThrow('missing required field "reason"')
     })
 
-    it('rejects invalid decision values', () => {
+    it('coerces invalid decision to "interrupt"', () => {
       const { db } = createMockDb()
       const agent = new VerifierAgent({ db, apiKey: 'test-key', dryRun: true })
       const validate = (agent as any).validateVerdict.bind(agent)
 
-      expect(() => validate({
-        decision: 'approve', confidence: 0.9, reason: 'ok',
-      })).toThrow('"decision" must be one of')
+      const obj = { decision: 'approve', confidence: 0.9, reason: 'ok' }
+      expect(() => validate(obj)).not.toThrow()
+      expect(obj.decision).toBe('interrupt')
     })
 
-    it('rejects non-numeric confidence', () => {
+    it('coerces non-numeric confidence to 0', () => {
       const { db } = createMockDb()
       const agent = new VerifierAgent({ db, apiKey: 'test-key', dryRun: true })
       const validate = (agent as any).validateVerdict.bind(agent)
 
-      expect(() => validate({
-        decision: 'pass', confidence: 'high', reason: 'ok',
-      })).toThrow('"confidence" must be a number between 0 and 1')
+      const obj = { decision: 'pass', confidence: 'high', reason: 'ok' } as any
+      expect(() => validate(obj)).not.toThrow()
+      // 'high' -> NaN -> 0, which is in range [0,1]
+      expect(obj.confidence).toBe(0)
     })
 
-    it('rejects confidence out of range', () => {
+    it('clamps confidence out of range to 0.5', () => {
       const { db } = createMockDb()
       const agent = new VerifierAgent({ db, apiKey: 'test-key', dryRun: true })
       const validate = (agent as any).validateVerdict.bind(agent)
 
-      expect(() => validate({
-        decision: 'pass', confidence: 1.5, reason: 'ok',
-      })).toThrow('"confidence" must be a number between 0 and 1')
+      const obj1 = { decision: 'pass', confidence: 1.5, reason: 'ok' }
+      expect(() => validate(obj1)).not.toThrow()
+      expect(obj1.confidence).toBe(0.5)
 
-      expect(() => validate({
-        decision: 'pass', confidence: -0.1, reason: 'ok',
-      })).toThrow('"confidence" must be a number between 0 and 1')
+      const obj2 = { decision: 'pass', confidence: -0.1, reason: 'ok' }
+      expect(() => validate(obj2)).not.toThrow()
+      expect(obj2.confidence).toBe(0.5)
     })
 
-    it('rejects non-string reason', () => {
+    it('coerces non-string reason to string', () => {
       const { db } = createMockDb()
       const agent = new VerifierAgent({ db, apiKey: 'test-key', dryRun: true })
       const validate = (agent as any).validateVerdict.bind(agent)
 
-      expect(() => validate({
-        decision: 'pass', confidence: 0.9, reason: 42,
-      })).toThrow('"reason" must be a string')
+      const obj = { decision: 'pass', confidence: 0.9, reason: 42 } as any
+      expect(() => validate(obj)).not.toThrow()
+      expect(obj.reason).toBe('42')
     })
 
     it('rejects non-objects', () => {

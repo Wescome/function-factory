@@ -12,6 +12,7 @@ import type { Model, AssistantMessage, Message, UserMessage } from '@weops/gdk-a
 import type { ArangoClient } from '@factory/arango-client'
 import type { Verdict, VerdictDecision, Plan, CodeArtifact, CritiqueReport, TestReport } from '../coordinator/state'
 import { buildArangoTool } from './architect-agent'
+import { coerceToString, coerceToNumber } from './coerce'
 
 export interface VerifierInput {
   workGraph: Record<string, unknown>
@@ -197,19 +198,14 @@ export class VerifierAgent {
       throw new Error('VerifierAgent: missing required field "reason"')
     }
 
+    record.decision = coerceToString(record.decision)
     if (!VALID_DECISIONS.includes(record.decision as VerdictDecision)) {
-      throw new Error(`VerifierAgent: "decision" must be one of: ${VALID_DECISIONS.join(', ')}`)
+      record.decision = 'interrupt'
     }
-    if (typeof record.confidence !== 'number' || record.confidence < 0 || record.confidence > 1) {
-      throw new Error('VerifierAgent: "confidence" must be a number between 0 and 1')
-    }
-    if (typeof record.reason !== 'string') {
-      throw new Error('VerifierAgent: "reason" must be a string')
-    }
-    // notes is optional, but if present must be a string
-    if ('notes' in record && record.notes !== undefined && typeof record.notes !== 'string') {
-      throw new Error('VerifierAgent: "notes" must be a string when present')
-    }
+    record.confidence = coerceToNumber(record.confidence)
+    if (record.confidence < 0 || record.confidence > 1) record.confidence = 0.5
+    record.reason = coerceToString(record.reason)
+    if ('notes' in record && record.notes !== undefined) record.notes = coerceToString(record.notes)
   }
 }
 

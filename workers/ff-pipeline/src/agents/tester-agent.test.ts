@@ -129,41 +129,55 @@ describe('TesterAgent', () => {
       expect(() => validate(null)).toThrow('not an object')
     })
 
-    it('rejects missing required field "passed"', () => {
+    it('coerces missing "passed" to false (default boolean)', () => {
       const { db } = createMockDb()
       const agent = new TesterAgent({ db, apiKey: 'test-key', dryRun: true })
       const validate = (agent as any).validateTestReport.bind(agent)
 
-      expect(() => validate({
+      const obj = {
         testsRun: 1, testsPassed: 1, testsFailed: 0,
         failures: [], summary: 'ok',
-      })).toThrow('"passed" must be a boolean')
+      } as Record<string, unknown>
+      expect(() => validate(obj)).not.toThrow()
+      expect(obj.passed).toBe(false)
     })
 
-    it('rejects wrong types', () => {
+    it('coerces wrong types instead of rejecting', () => {
       const { db } = createMockDb()
       const agent = new TesterAgent({ db, apiKey: 'test-key', dryRun: true })
       const validate = (agent as any).validateTestReport.bind(agent)
 
-      expect(() => validate({
+      // string 'yes' is not 'true', coerces to false
+      const obj1 = {
         passed: 'yes', testsRun: 1, testsPassed: 1, testsFailed: 0,
         failures: [], summary: 'ok',
-      })).toThrow('"passed" must be a boolean')
+      } as Record<string, unknown>
+      expect(() => validate(obj1)).not.toThrow()
+      expect(obj1.passed).toBe(false)
 
-      expect(() => validate({
+      // string testsRun coerced to number (NaN -> 0)
+      const obj2 = {
         passed: true, testsRun: 'one', testsPassed: 1, testsFailed: 0,
         failures: [], summary: 'ok',
-      })).toThrow('"testsRun" must be a number')
+      } as Record<string, unknown>
+      expect(() => validate(obj2)).not.toThrow()
+      expect(obj2.testsRun).toBe(0)
 
-      expect(() => validate({
+      // string failures coerced to array
+      const obj3 = {
         passed: true, testsRun: 1, testsPassed: 1, testsFailed: 0,
         failures: 'none', summary: 'ok',
-      })).toThrow('"failures" must be an array')
+      } as Record<string, unknown>
+      expect(() => validate(obj3)).not.toThrow()
+      expect(Array.isArray(obj3.failures)).toBe(true)
 
-      expect(() => validate({
+      // number summary coerced to string
+      const obj4 = {
         passed: true, testsRun: 1, testsPassed: 1, testsFailed: 0,
         failures: [], summary: 42,
-      })).toThrow('"summary" must be a string')
+      } as Record<string, unknown>
+      expect(() => validate(obj4)).not.toThrow()
+      expect(obj4.summary).toBe('42')
     })
 
     it('accepts valid passing TestReport', () => {
