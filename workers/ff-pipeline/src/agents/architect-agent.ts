@@ -176,7 +176,7 @@ export class ArchitectAgent {
 
     const result = await processAgentOutput(textBlock.text, BRIEFING_SCRIPT_SCHEMA)
     if (!result.success) {
-      throw new Error(`ArchitectAgent: ${result.failureMode}: could not produce valid BriefingScript`)
+      throw new Error(`ArchitectAgent: ${result.failureMode}: could not produce valid BriefingScript. Response: ${result.rawResponse.slice(0, 500)}`)
     }
     return result.data!
   }
