@@ -35,6 +35,8 @@ export interface PlannerAgentOpts {
   model?: Model<any>
   /** Workers AI binding — when present, uses CF binding instead of HTTP */
   ai?: AIBinding
+  /** ADR-008: Hot-reloadable alias overrides for Plan schema */
+  aliasOverrides?: Record<string, string[]>
 }
 
 const SYSTEM_PROMPT = `You are the Planner agent in the Function Factory synthesis pipeline.
@@ -82,6 +84,7 @@ export class PlannerAgent {
   private dryRun: boolean
   private modelOverride?: Model<any>
   private ai?: AIBinding
+  private aliasOverrides?: Record<string, string[]>
 
   constructor(opts: PlannerAgentOpts) {
     this.db = opts.db
@@ -89,6 +92,7 @@ export class PlannerAgent {
     this.dryRun = opts.dryRun ?? false
     this.modelOverride = opts.model
     this.ai = opts.ai
+    this.aliasOverrides = opts.aliasOverrides
   }
 
   async producePlan(input: PlannerInput): Promise<Plan> {
@@ -166,7 +170,9 @@ export class PlannerAgent {
       throw new Error('PlannerAgent: final response has no text content')
     }
 
-    const result = await processAgentOutput(textBlock.text, PLAN_SCHEMA)
+    const result = await processAgentOutput(textBlock.text, PLAN_SCHEMA, {
+      aliasOverrides: this.aliasOverrides,
+    })
     if (!result.success) {
       throw new Error(`PlannerAgent: ${result.failureMode}: could not produce valid Plan`)
     }

@@ -38,6 +38,10 @@ export interface CriticAgentOpts {
   model?: Model<any>
   /** Workers AI binding — when present, uses CF binding instead of HTTP */
   ai?: AIBinding
+  /** ADR-008: Hot-reloadable alias overrides for SemanticReview schema */
+  semanticReviewAliasOverrides?: Record<string, string[]>
+  /** ADR-008: Hot-reloadable alias overrides for CritiqueReport schema */
+  codeReviewAliasOverrides?: Record<string, string[]>
 }
 
 // ── System Prompts ──────────────────────────────────────────
@@ -110,6 +114,8 @@ export class CriticAgent {
   private dryRun: boolean
   private modelOverride?: Model<any>
   private ai?: AIBinding
+  private semanticReviewAliasOverrides?: Record<string, string[]>
+  private codeReviewAliasOverrides?: Record<string, string[]>
 
   constructor(opts: CriticAgentOpts) {
     this.db = opts.db
@@ -117,6 +123,8 @@ export class CriticAgent {
     this.dryRun = opts.dryRun ?? false
     this.modelOverride = opts.model
     this.ai = opts.ai
+    this.semanticReviewAliasOverrides = opts.semanticReviewAliasOverrides
+    this.codeReviewAliasOverrides = opts.codeReviewAliasOverrides
   }
 
   // ── Semantic Review ─────────────────────────────────────
@@ -179,7 +187,9 @@ export class CriticAgent {
       throw new Error('CriticAgent.semanticReview: final response has no text content')
     }
 
-    const result = await processAgentOutput(textBlock.text, SEMANTIC_REVIEW_SCHEMA)
+    const result = await processAgentOutput(textBlock.text, SEMANTIC_REVIEW_SCHEMA, {
+      aliasOverrides: this.semanticReviewAliasOverrides,
+    })
     if (!result.success) {
       throw new Error(`CriticAgent.semanticReview: ${result.failureMode}: could not produce valid SemanticReview`)
     }
@@ -250,7 +260,9 @@ export class CriticAgent {
       throw new Error('CriticAgent.codeReview: final response has no text content')
     }
 
-    const result = await processAgentOutput(textBlock.text, CRITIQUE_REPORT_SCHEMA)
+    const result = await processAgentOutput(textBlock.text, CRITIQUE_REPORT_SCHEMA, {
+      aliasOverrides: this.codeReviewAliasOverrides,
+    })
     if (!result.success) {
       throw new Error(`CriticAgent.codeReview: ${result.failureMode}: could not produce valid CritiqueReport`)
     }

@@ -37,6 +37,8 @@ export interface TesterAgentOpts {
   model?: Model<any>
   /** Workers AI binding — when present, uses CF binding instead of HTTP */
   ai?: AIBinding
+  /** ADR-008: Hot-reloadable alias overrides for TestReport schema */
+  aliasOverrides?: Record<string, string[]>
 }
 
 const SYSTEM_PROMPT = `You are the Tester agent in the Function Factory synthesis pipeline.
@@ -81,6 +83,7 @@ export class TesterAgent {
   private dryRun: boolean
   private modelOverride?: Model<any>
   private ai?: AIBinding
+  private aliasOverrides?: Record<string, string[]>
 
   constructor(opts: TesterAgentOpts) {
     this.db = opts.db
@@ -88,6 +91,7 @@ export class TesterAgent {
     this.dryRun = opts.dryRun ?? false
     this.modelOverride = opts.model
     this.ai = opts.ai
+    this.aliasOverrides = opts.aliasOverrides
   }
 
   async runTests(input: TesterInput): Promise<TestReport> {
@@ -155,7 +159,9 @@ export class TesterAgent {
       throw new Error('TesterAgent: final response has no text content')
     }
 
-    const result = await processAgentOutput(textBlock.text, TEST_REPORT_SCHEMA)
+    const result = await processAgentOutput(textBlock.text, TEST_REPORT_SCHEMA, {
+      aliasOverrides: this.aliasOverrides,
+    })
     if (!result.success) {
       throw new Error(`TesterAgent: ${result.failureMode}: could not produce valid TestReport`)
     }

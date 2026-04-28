@@ -7,10 +7,10 @@
  */
 
 import type { Model } from '@weops/gdk-ai'
-import { resolve, type TaskKind } from '@factory/task-routing'
+import { resolve, type TaskKind, type RoutingConfig } from '@factory/task-routing'
 
-export function resolveAgentModel(taskKind: TaskKind, apiKey: string): Model<any> {
-  const { primary } = resolve(taskKind)
+export function resolveAgentModel(taskKind: TaskKind, apiKey: string, routingConfig?: RoutingConfig): Model<any> {
+  const { primary } = resolve(taskKind, { config: routingConfig })
 
   if (primary.provider === 'cloudflare') {
     return {

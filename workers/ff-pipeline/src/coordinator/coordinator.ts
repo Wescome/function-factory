@@ -13,6 +13,8 @@ import { PlannerAgent } from '../agents/planner-agent'
 import { TesterAgent } from '../agents/tester-agent'
 import { VerifierAgent } from '../agents/verifier-agent'
 import { CriticAgent, type CodeReviewInput } from '../agents/critic-agent'
+import { resolveAgentModel } from '../agents/resolve-model'
+import { HotConfigLoader, seedHotConfig } from '../config/hot-config'
 import { createCRP } from '../crp'
 import { topologicalSort } from './layer-dispatch'
 import { createLedger } from './completion-ledger'
@@ -48,6 +50,8 @@ export interface SynthesisResult {
 export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
   private db: ArangoClient | null = null
   private currentWorkGraphId: string = 'unknown'
+  private configLoader: HotConfigLoader | null = null
+  private configSeeded = false
 
   private getDb(): ArangoClient {
     if (!this.db) {
@@ -55,6 +59,21 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       this.db.setValidator(validateArtifact)
     }
     return this.db
+  }
+
+  private getConfigLoader(): HotConfigLoader {
+    if (!this.configLoader) {
+      this.configLoader = new HotConfigLoader(this.getDb())
+    }
+    return this.configLoader
+  }
+
+  private async ensureConfigSeeded(): Promise<void> {
+    if (this.configSeeded) return
+    try {
+      await seedHotConfig(this.getDb())
+      this.configSeeded = true
+    } catch { /* non-fatal — config loading still works with defaults */ }
   }
 
   override async fetch(request: Request): Promise<Response> {
@@ -193,43 +212,70 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         }
       }
 
+      // ADR-008: Seed hot config on first synthesis, then load for this run
+      await this.ensureConfigSeeded()
+      const hotConfig = await this.getConfigLoader().get()
+
+      // Resolve models centrally from hot-loaded routing config
+      const apiKey = this.env.OFOX_API_KEY ?? ''
+      const architectModel = resolveAgentModel('planning', apiKey, hotConfig.routing)
+      const plannerModel = resolveAgentModel('planner', apiKey, hotConfig.routing)
+      const coderModel = resolveAgentModel('coder', apiKey, hotConfig.routing)
+      const criticModel = resolveAgentModel('critic', apiKey, hotConfig.routing)
+      const testerModel = resolveAgentModel('tester', apiKey, hotConfig.routing)
+      const verifierModel = resolveAgentModel('verifier', apiKey, hotConfig.routing)
+
       // Instantiate reasoning agents for 9-node topology
       // All roles converted to gdk-agent agentLoop sessions with arango_query tool
+      // ADR-008: models + alias overrides from hot-loaded config
       const architectAgent = new ArchitectAgent({
         db: this.getDb(),
-        apiKey: this.env.OFOX_API_KEY ?? '',
+        apiKey: apiKey,
         dryRun,
         ai: this.env.AI,
+        model: architectModel,
+        aliasOverrides: hotConfig.aliases['BriefingScript'],
       })
       const coderAgent = new CoderAgent({
         db: this.getDb(),
-        apiKey: this.env.OFOX_API_KEY ?? '',
+        apiKey: apiKey,
         dryRun,
         ai: this.env.AI,
+        model: coderModel,
+        aliasOverrides: hotConfig.aliases['CodeArtifact'],
       })
       const plannerAgent = new PlannerAgent({
         db: this.getDb(),
-        apiKey: this.env.OFOX_API_KEY ?? '',
+        apiKey: apiKey,
         dryRun,
         ai: this.env.AI,
+        model: plannerModel,
+        aliasOverrides: hotConfig.aliases['Plan'],
       })
       const testerAgent = new TesterAgent({
         db: this.getDb(),
-        apiKey: this.env.OFOX_API_KEY ?? '',
+        apiKey: apiKey,
         dryRun,
         ai: this.env.AI,
+        model: testerModel,
+        aliasOverrides: hotConfig.aliases['TestReport'],
       })
       const verifierAgent = new VerifierAgent({
         db: this.getDb(),
-        apiKey: this.env.OFOX_API_KEY ?? '',
+        apiKey: apiKey,
         dryRun,
         ai: this.env.AI,
+        model: verifierModel,
+        aliasOverrides: hotConfig.aliases['Verdict'],
       })
       const criticAgent = new CriticAgent({
         db: this.getDb(),
-        apiKey: this.env.OFOX_API_KEY ?? '',
+        apiKey: apiKey,
         dryRun,
         ai: this.env.AI,
+        model: criticModel,
+        semanticReviewAliasOverrides: hotConfig.aliases['SemanticReview'],
+        codeReviewAliasOverrides: hotConfig.aliases['CritiqueReport'],
       })
 
       const deps: GraphDeps = {

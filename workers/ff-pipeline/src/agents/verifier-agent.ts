@@ -36,6 +36,8 @@ export interface VerifierAgentOpts {
   model?: Model<any>
   /** Workers AI binding — when present, uses CF binding instead of HTTP */
   ai?: AIBinding
+  /** ADR-008: Hot-reloadable alias overrides for Verdict schema */
+  aliasOverrides?: Record<string, string[]>
 }
 
 // Decision enum validation now in VERDICT_SCHEMA (output-reliability.ts)
@@ -86,6 +88,7 @@ export class VerifierAgent {
   private dryRun: boolean
   private modelOverride?: Model<any>
   private ai?: AIBinding
+  private aliasOverrides?: Record<string, string[]>
 
   constructor(opts: VerifierAgentOpts) {
     this.db = opts.db
@@ -93,6 +96,7 @@ export class VerifierAgent {
     this.dryRun = opts.dryRun ?? false
     this.modelOverride = opts.model
     this.ai = opts.ai
+    this.aliasOverrides = opts.aliasOverrides
   }
 
   async verify(input: VerifierInput): Promise<Verdict> {
@@ -146,7 +150,9 @@ export class VerifierAgent {
       throw new Error('VerifierAgent: final response has no text content')
     }
 
-    const result = await processAgentOutput(textBlock.text, VERDICT_SCHEMA)
+    const result = await processAgentOutput(textBlock.text, VERDICT_SCHEMA, {
+      aliasOverrides: this.aliasOverrides,
+    })
     if (!result.success) {
       throw new Error(`VerifierAgent: ${result.failureMode}: could not produce valid Verdict`)
     }

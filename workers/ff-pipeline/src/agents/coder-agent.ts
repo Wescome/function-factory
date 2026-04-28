@@ -35,6 +35,8 @@ export interface CoderAgentOpts {
   model?: Model<any>
   /** Workers AI binding — when present, uses CF binding instead of HTTP */
   ai?: AIBinding
+  /** ADR-008: Hot-reloadable alias overrides for CodeArtifact schema */
+  aliasOverrides?: Record<string, string[]>
 }
 
 const SYSTEM_PROMPT = `You are the Coder agent in the Function Factory synthesis pipeline.
@@ -80,6 +82,7 @@ export class CoderAgent {
   private dryRun: boolean
   private modelOverride?: Model<any>
   private ai?: AIBinding
+  private aliasOverrides?: Record<string, string[]>
 
   constructor(opts: CoderAgentOpts) {
     this.db = opts.db
@@ -87,6 +90,7 @@ export class CoderAgent {
     this.dryRun = opts.dryRun ?? false
     this.modelOverride = opts.model
     this.ai = opts.ai
+    this.aliasOverrides = opts.aliasOverrides
   }
 
   async produceCode(input: CoderInput): Promise<CodeArtifact> {
@@ -163,7 +167,9 @@ export class CoderAgent {
       throw new Error('CoderAgent: final response has no text content')
     }
 
-    const result = await processAgentOutput(textBlock.text, CODE_ARTIFACT_SCHEMA)
+    const result = await processAgentOutput(textBlock.text, CODE_ARTIFACT_SCHEMA, {
+      aliasOverrides: this.aliasOverrides,
+    })
     if (!result.success) {
       throw new Error(`CoderAgent: ${result.failureMode}: could not produce valid CodeArtifact`)
     }
