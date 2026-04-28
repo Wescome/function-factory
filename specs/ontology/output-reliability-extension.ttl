@@ -588,3 +588,544 @@ ff:RepairTrackingShape a sh:NodeShape ;
         sh:message "LLM response must not exceed 3 repair attempts." ;
         sh:severity sh:Warning ;
     ] .
+
+
+# ═══════════════════════════════════════════════════════════════════
+# DOMAIN 9: LLM WORLD MODEL — Systems-Level Understanding
+#
+# Models LLMs as input/processing/output systems with known
+# behavioral characteristics. The capability ontology above tells
+# you WHAT a model can do. This section tells you WHY it fails.
+#
+# Three subsystems (Input, Processing, Output) decompose the
+# transformation pipeline. Seven Behavioral Laws formalize the
+# empirical patterns that predict failure. Causal mappings connect
+# each CEF failure mode to the laws that produce it. Design
+# implications encode the operational constraints the reliability
+# layer must enforce.
+#
+# Grounding: CEF evidence, vertical-slicing research corpus,
+# transformer architecture literature.
+# ═══════════════════════════════════════════════════════════════════
+
+
+# ─── LLM SYSTEM DECOMPOSITION ───────────────────────────────────
+# An LLM is not a black box. It is three subsystems in series.
+
+ff:LLMSubsystem a owl:Class ;
+    rdfs:comment """A functional subsystem of a large language model. LLMs are
+    decomposable into Input (tokenization + context construction),
+    Processing (attention + instruction following + mode selection),
+    and Output (autoregressive generation + stop conditions).
+    Each subsystem has its own failure characteristics.""" .
+
+# ── Input Subsystem ──────────────────────────────────────────────
+
+ff:InputSubsystem a owl:Class ;
+    rdfs:subClassOf ff:LLMSubsystem ;
+    rdfs:comment """Everything that happens BEFORE the transformer processes.
+    Converts text to tokens, manages the finite context buffer,
+    positions system instructions and tool definitions. Failures
+    here are deterministic and preventable — they are input
+    construction errors, not model errors.""" .
+
+ff:Tokenizer a owl:Class ;
+    rdfs:subClassOf ff:InputSubsystem ;
+    rdfs:comment """Converts text to tokens using a model-specific vocabulary
+    (BPE, SentencePiece, etc.). Token count != character count.
+    Different models tokenize the same text differently. A 4000-
+    character prompt may be 800 tokens on one model and 1200 on
+    another. Token counting must use the model's actual tokenizer.""" .
+
+ff:ContextWindow a owl:Class ;
+    rdfs:subClassOf ff:InputSubsystem ;
+    rdfs:comment """Finite buffer holding all tokens (system + user + tools +
+    history + output budget). Hard ceiling. Tokens beyond the
+    window are dropped or compressed. The POSITION within the
+    window matters — models attend more strongly to the beginning
+    (primacy) and end (recency) of the context. Information in
+    the middle receives less attention (lost-in-the-middle).""" .
+
+ff:SystemPromptRegion a owl:Class ;
+    rdfs:subClassOf ff:InputSubsystem ;
+    rdfs:comment """The system prompt occupies the first N tokens of the context
+    window. Longer system prompts reduce available capacity for
+    task content and history. System prompt tokens compete with
+    user content tokens for the same finite budget.""" .
+
+ff:ToolDefinitionRegion a owl:Class ;
+    rdfs:subClassOf ff:InputSubsystem ;
+    rdfs:comment """Each tool definition consumes tokens. 5 tools at ~200 tokens
+    each = 1000 tokens consumed before any task content. Tool
+    definitions also compete for attention with format instructions.
+    More tools = more dilution of non-tool instructions.""" .
+
+# ── Processing Subsystem ─────────────────────────────────────────
+
+ff:ProcessingSubsystem a owl:Class ;
+    rdfs:subClassOf ff:LLMSubsystem ;
+    rdfs:comment """The transformer's internal computation. Attention mechanism,
+    instruction following, mode selection, and sampling. Failures
+    here are probabilistic and model-dependent. They manifest as
+    degraded compliance, not hard errors.""" .
+
+ff:AttentionMechanism a owl:Class ;
+    rdfs:subClassOf ff:ProcessingSubsystem ;
+    rdfs:comment """Transformer attention is O(n^2) on sequence length. Quality
+    degrades non-linearly as context fills. The 'lost in the
+    middle' phenomenon: information positioned in the middle of
+    long contexts is attended to less than information at the
+    beginning or end. This is not a bug — it is an architectural
+    property of scaled dot-product attention with positional
+    encodings.""" .
+
+ff:InstructionFollowingBudget a owl:Class ;
+    rdfs:subClassOf ff:ProcessingSubsystem ;
+    rdfs:comment """Models have a finite instruction-following 'budget'. Complex
+    multi-constraint instructions (output JSON + use specific
+    field names + do not add fields + call tools + respond only
+    with JSON) compete for attention weight. Each additional
+    constraint reduces compliance with all other constraints.
+    This is not a capability gap — it is attention competition.""" .
+
+ff:ModeSelection a owl:Class ;
+    rdfs:subClassOf ff:ProcessingSubsystem ;
+    rdfs:comment """When response_format: json_object is set, the output
+    distribution is constrained to valid JSON tokens. When tools
+    are provided, the model can switch to a function-calling
+    output grammar. These modes conflict: JSON mode wants to
+    produce a JSON object as content; tool mode wants to produce
+    structured tool_calls. Mixing both forces the model to
+    choose, and the choice is model-dependent and unpredictable.""" .
+
+ff:SamplingConfiguration a owl:Class ;
+    rdfs:subClassOf ff:ProcessingSubsystem ;
+    rdfs:comment """Temperature and top-p control output variability. temp=0
+    (greedy decoding) reduces randomness but can get stuck in
+    repetitive patterns. Higher temperature increases creativity
+    but also increases schema violations. There is no temperature
+    that optimizes for both novelty and format compliance.""" .
+
+# ── Output Subsystem ─────────────────────────────────────────────
+
+ff:OutputSubsystem a owl:Class ;
+    rdfs:subClassOf ff:LLMSubsystem ;
+    rdfs:comment """Everything that happens DURING token generation. Output is
+    produced left-to-right, one token at a time. The model cannot
+    revise earlier tokens. Stop conditions are hard boundaries.
+    Failures here are structural and often unrecoverable without
+    retry.""" .
+
+ff:AutoregressiveGeneration a owl:Class ;
+    rdfs:subClassOf ff:OutputSubsystem ;
+    rdfs:comment """Each output token is conditioned on all previous output tokens
+    (plus the input). The model cannot 'go back' and fix token 50
+    after generating token 51. If the JSON structure is wrong at
+    token 50, tokens 51-2000 build on the error. Early tokens
+    have outsized influence on output structure. This is the
+    fundamental constraint of autoregressive generation.""" .
+
+ff:OutputTokenLimit a owl:Class ;
+    rdfs:subClassOf ff:OutputSubsystem ;
+    rdfs:comment """Hard ceiling on output length (max_tokens parameter or model
+    default). When reached, output is truncated mid-token or
+    mid-structure. This is the root cause of F2 (truncated JSON).
+    The model does not 'know' it is about to be cut off — it has
+    no awareness of remaining output budget.""" .
+
+ff:StopCondition a owl:Class ;
+    rdfs:subClassOf ff:OutputSubsystem ;
+    rdfs:comment """Model stops generating on: EOS token (natural end), max_tokens
+    hit (forced truncation), or tool_call completion (function
+    calling mode). Different stop conditions produce different
+    output shapes. EOS produces complete responses; max_tokens
+    produces truncated responses; tool_call produces structured
+    function invocations.""" .
+
+ff:TrainingDataBias a owl:Class ;
+    rdfs:subClassOf ff:OutputSubsystem ;
+    rdfs:comment """The model's output distribution reflects training data
+    patterns. Code in training data is overwhelmingly wrapped in
+    markdown fences. The model's 'default' code output mode
+    includes fences regardless of instructions to omit them.
+    This is a distributional property, not an instruction-
+    following failure — the fence pattern is simply higher
+    probability than the no-fence pattern.""" .
+
+
+# ─── BEHAVIORAL LAWS ─────────────────────────────────────────────
+# Empirical patterns observed across model families.
+# These are not capabilities — they are system dynamics.
+# Named as laws because they are predictive, not descriptive.
+
+ff:BehavioralLaw a owl:Class ;
+    rdfs:comment """An empirical behavioral pattern observed across multiple LLM
+    families that predicts output characteristics under specific
+    conditions. Laws are grounded in transformer architecture
+    properties, not individual model quirks. A law that applies
+    only to one model is a model characteristic, not a law.""" .
+
+ff:BL1_ContextPressureDegradation a ff:BehavioralLaw ;
+    rdfs:label "Law 1: Context Pressure -> Format Degradation" ;
+    rdfs:comment """As context utilization approaches 100%, the model's ability
+    to follow format instructions degrades non-linearly. JSON
+    compliance drops from ~95% at 50% context utilization to ~60%
+    at 90% context utilization. The degradation is not linear — it
+    accelerates past ~80% utilization. This is caused by attention
+    weight dilution: more input tokens mean each token gets less
+    attention, and format instructions (which are meta-instructions
+    about HOW to respond, not WHAT to respond) lose priority.""" ;
+    ff:subsystemCause ff:AttentionMechanism, ff:ContextWindow ;
+    ff:threshold "0.80"^^xsd:decimal ;
+    ff:degradationCurve "non-linear, accelerating past threshold" ;
+    ff:mitigation "Check context utilization before calling. If >80%, simplify the prompt or reduce context." .
+
+ff:BL2_InstructionCompetition a ff:BehavioralLaw ;
+    rdfs:label "Law 2: Instruction Competition" ;
+    rdfs:comment """Each additional constraint in the system prompt reduces
+    compliance with all other constraints. 'Output JSON' alone
+    achieves ~95% compliance. Adding 'use these field names'
+    drops each to ~90%. Adding 'do not add extra fields' drops
+    each to ~85%. Adding 'respond ONLY with JSON, no prose'
+    drops each to ~80%. The effect is multiplicative, not
+    additive — 4 constraints at 80% each yield ~41% chance of
+    all four being satisfied simultaneously.""" ;
+    ff:subsystemCause ff:InstructionFollowingBudget ;
+    ff:degradationCurve "multiplicative per-constraint" ;
+    ff:mitigation "Minimize instruction count. One clear format instruction, not four variations saying the same thing." .
+
+ff:BL3_ModeConflict a ff:BehavioralLaw ;
+    rdfs:label "Law 3: Mode Conflict" ;
+    rdfs:comment """When response_format: json_object is set AND tools are
+    provided, models must choose between producing JSON (format
+    mode) and producing tool calls (function calling mode). The
+    two modes require different output grammars. Some models
+    handle both by defaulting to one mode and ignoring the other.
+    Others oscillate unpredictably. The result is either: (a) tool
+    calls expressed as text JSON in the content field (F6), or
+    (b) JSON output ignoring available tools entirely. No model
+    reliably interleaves both modes in a single response.""" ;
+    ff:subsystemCause ff:ModeSelection ;
+    ff:mitigation "Choose one mode per call. If you need JSON output, do not provide tools. If you need tool calls, do not set response_format." .
+
+ff:BL4_PositionalAttentionDecay a ff:BehavioralLaw ;
+    rdfs:label "Law 4: Positional Attention Decay" ;
+    rdfs:comment """Information in the middle of the context window receives less
+    attention than information at the beginning or end. This is
+    the 'lost in the middle' phenomenon (Liu et al. 2023). For
+    the Factory, this means: critical instructions (output format,
+    schema definition) should appear at the system prompt
+    (beginning) AND be repeated at the end of the user message.
+    A schema definition only in the middle of a long prompt is
+    more likely to be ignored than one at the boundaries.""" ;
+    ff:subsystemCause ff:AttentionMechanism ;
+    ff:mitigation "Place critical instructions at context boundaries (beginning and end). Repeat schema at end of user message." .
+
+ff:BL5_AutoregressiveErrorPropagation a ff:BehavioralLaw ;
+    rdfs:label "Law 5: Autoregressive Error Propagation" ;
+    rdfs:comment """Once the model produces a wrong token (e.g., starting with
+    prose instead of '{'), all subsequent tokens condition on the
+    error. The first few tokens of the response have outsized
+    influence on output structure. If token 1 is 'I' (prose mode),
+    the probability of token 2 being '{' (JSON mode) drops to
+    near zero. This is not a 'mistake' — it is correct behavior
+    of an autoregressive model. The model is completing a sequence,
+    not satisfying a contract. Implication: validate the first
+    token of the response. If it is not '{', the entire response
+    is likely prose — retry immediately rather than waiting for
+    the full response.""" ;
+    ff:subsystemCause ff:AutoregressiveGeneration ;
+    ff:mitigation "Validate the first token of the response. If not '{', immediately retry. Do not wait for full generation." .
+
+ff:BL6_TrainingDistributionInertia a ff:BehavioralLaw ;
+    rdfs:label "Law 6: Training Distribution Inertia" ;
+    rdfs:comment """The model's output distribution reflects training data
+    patterns with high inertia. Markdown fences around code blocks
+    appear in the vast majority of training examples. Instructions
+    to 'not use markdown fences' compete against millions of
+    training examples where fences are present. The instruction
+    can overcome the inertia, but only when it has sufficient
+    attention weight (see BL2). Under instruction competition,
+    the training distribution reasserts itself. This explains F5
+    (markdown fences) — it is not an instruction-following failure,
+    it is the training distribution winning an attention competition.""" ;
+    ff:subsystemCause ff:TrainingDataBias, ff:InstructionFollowingBudget ;
+    ff:mitigation "Accept that fences will appear. Build fence extraction into the parsing pipeline (already done: ff:FenceExtraction). Do not waste instruction budget fighting the training distribution." .
+
+ff:BL7_OutputBudgetBlindness a ff:BehavioralLaw ;
+    rdfs:label "Law 7: Output Budget Blindness" ;
+    rdfs:comment """The model has no internal awareness of how many output tokens
+    remain before max_tokens truncation. It generates tokens based
+    on context probability, not remaining budget. A model producing
+    a 2000-token JSON object does not 'speed up' at token 1800 to
+    finish the structure. It generates at the same pace, and if
+    the structure requires 2100 tokens but max_tokens is 2048,
+    it is truncated mid-structure. This is the root cause of F2
+    (truncated JSON). The truncation is not a model failure — it
+    is a hard infrastructure limit that the model cannot see.""" ;
+    ff:subsystemCause ff:OutputTokenLimit, ff:AutoregressiveGeneration ;
+    ff:mitigation "Estimate output size before calling. If the expected output exceeds 70% of max_tokens, request smaller output or increase max_tokens." .
+
+
+# ─── BEHAVIORAL LAW PROPERTIES ───────────────────────────────────
+
+ff:subsystemCause a owl:ObjectProperty ;
+    rdfs:domain ff:BehavioralLaw ;
+    rdfs:range ff:LLMSubsystem ;
+    rdfs:comment "Which subsystem(s) produce this behavioral pattern." .
+
+ff:threshold a owl:DatatypeProperty ;
+    rdfs:domain ff:BehavioralLaw ;
+    rdfs:range xsd:decimal ;
+    rdfs:comment "The value beyond which this law's effects become pronounced." .
+
+ff:degradationCurve a owl:DatatypeProperty ;
+    rdfs:domain ff:BehavioralLaw ;
+    rdfs:range xsd:string ;
+    rdfs:comment "Shape of the degradation: linear, non-linear, multiplicative, step-function." .
+
+ff:mitigation a owl:DatatypeProperty ;
+    rdfs:domain ff:BehavioralLaw ;
+    rdfs:range xsd:string ;
+    rdfs:comment "Recommended operational mitigation for this law." .
+
+
+# ─── CEF FAILURE MODE → BEHAVIORAL LAW MAPPINGS ─────────────────
+# Each failure mode is now causally linked to one or more laws.
+# This is the bridge between "WHAT failed" and "WHY it failed."
+
+ff:causedByLaw a owl:ObjectProperty ;
+    rdfs:domain ff:OutputFailureMode ;
+    rdfs:range ff:BehavioralLaw ;
+    rdfs:comment """Which behavioral law(s) caused this failure mode. This is the
+    causal link the capability ontology was missing. Knowing that
+    F1 occurs is descriptive. Knowing that F1 is caused by BL2
+    (instruction competition) is predictive — you can prevent F1
+    by reducing instruction count.""" .
+
+# F1: Prose instead of JSON
+# Cause: too many constraints competed for attention; the model
+# defaulted to its highest-probability output mode (prose).
+ff:F1_ProseInsteadOfJSON ff:causedByLaw ff:BL2_InstructionCompetition, ff:BL5_AutoregressiveErrorPropagation .
+
+# F2: Truncated JSON
+# Cause: output exceeded max_tokens. The model had no awareness
+# of remaining budget and generated until hard-cut.
+ff:F2_TruncatedJSON ff:causedByLaw ff:BL7_OutputBudgetBlindness .
+
+# F3: Wrong field names
+# Cause: field name instructions had lower attention weight than
+# content generation instructions. The model used its training
+# distribution's field names instead.
+ff:F3_WrongFieldNames ff:causedByLaw ff:BL2_InstructionCompetition, ff:BL6_TrainingDistributionInertia .
+
+# F4: Wrong field types
+# Cause: type instructions competed with content instructions
+# and lost. The model's default type for a field (e.g., array
+# vs string) came from training distribution.
+ff:F4_WrongFieldTypes ff:causedByLaw ff:BL2_InstructionCompetition, ff:BL6_TrainingDistributionInertia .
+
+# F5: Markdown fences
+# Cause: training distribution inertia. Fences appear in the
+# vast majority of code examples in training data. The "no
+# fences" instruction lost the attention competition.
+ff:F5_MarkdownFences ff:causedByLaw ff:BL6_TrainingDistributionInertia .
+
+# F6: Text tool calls
+# Cause: mode conflict. JSON mode and tool mode fought; the
+# model expressed tool calls as text JSON rather than using
+# the native tool_calls format.
+ff:F6_TextToolCalls ff:causedByLaw ff:BL3_ModeConflict .
+
+# F7: Null response
+# Cause: context pressure at extreme levels can cause the model
+# to produce EOS immediately, or processing failure from
+# conflicting instructions producing an empty distribution.
+ff:F7_NullResponse ff:causedByLaw ff:BL1_ContextPressureDegradation .
+
+
+# ─── DESIGN IMPLICATIONS ────────────────────────────────────────
+# Operational constraints the reliability layer MUST enforce.
+# Each implication derives from one or more behavioral laws.
+# These are not suggestions — they are engineering constraints
+# as binding as the SHACL shapes above.
+
+ff:DesignImplication a owl:Class ;
+    rdfs:comment """An engineering constraint derived from one or more behavioral
+    laws. Design implications are prescriptive: they tell the
+    reliability layer what it MUST do to prevent predictable
+    failures. They bridge the gap between theoretical understanding
+    (laws) and operational enforcement (code).""" .
+
+ff:DI1_PreCallContextCheck a ff:DesignImplication ;
+    rdfs:label "DI-1: Pre-call context utilization check" ;
+    rdfs:comment """Before every LLM call, compute context utilization
+    (estimated_tokens / context_window). If > 0.80, apply
+    mitigation: reduce context (drop history, summarize upstream),
+    simplify prompt (fewer instructions), or select a model with
+    a larger context window. Never call a model at > 90% context
+    utilization for structured output tasks.""" ;
+    ff:derivedFromLaw ff:BL1_ContextPressureDegradation ;
+    ff:enforcementPoint "pre-call" ;
+    ff:threshold "0.80"^^xsd:decimal .
+
+ff:DI2_MinimalInstructionSet a ff:DesignImplication ;
+    rdfs:label "DI-2: Minimal instruction set" ;
+    rdfs:comment """Each prompt MUST use the minimum instruction count necessary.
+    One format instruction, not four. 'Respond with JSON matching
+    this schema: {...}' is sufficient. Do not add 'only JSON',
+    'no prose', 'no markdown', 'no extra fields' as separate
+    instructions — each additional instruction REDUCES compliance
+    with all others (BL2 multiplicative effect). The schema
+    itself is the constraint.""" ;
+    ff:derivedFromLaw ff:BL2_InstructionCompetition ;
+    ff:enforcementPoint "prompt-construction" .
+
+ff:DI3_SingleModePerCall a ff:DesignImplication ;
+    rdfs:label "DI-3: Single mode per LLM call" ;
+    rdfs:comment """Never combine response_format: json_object with tools in the
+    same call. Choose one: if you need structured JSON output,
+    omit tools and use response_format. If you need tool calls,
+    omit response_format and let the model use native function
+    calling. If you need both in a workflow, use two sequential
+    calls.""" ;
+    ff:derivedFromLaw ff:BL3_ModeConflict ;
+    ff:enforcementPoint "pre-call" .
+
+ff:DI4_BoundaryReinforcement a ff:DesignImplication ;
+    rdfs:label "DI-4: Positional boundary reinforcement" ;
+    rdfs:comment """Place the output schema at the beginning (in the system prompt)
+    AND repeat it at the end of the user message. This exploits
+    the primacy/recency attention bias (BL4) to maximize schema
+    compliance. For long prompts (> 2000 tokens of user content),
+    this is not optional — it is required.""" ;
+    ff:derivedFromLaw ff:BL4_PositionalAttentionDecay ;
+    ff:enforcementPoint "prompt-construction" .
+
+ff:DI5_FirstTokenValidation a ff:DesignImplication ;
+    rdfs:label "DI-5: First-token validation" ;
+    rdfs:comment """When expecting JSON output, validate the first token of the
+    response. If the first non-whitespace character is not '{' or
+    '[', the response is prose — abort and retry immediately.
+    Do not wait for the full response to stream. Due to BL5
+    (autoregressive error propagation), a prose-mode first token
+    means the entire response will be prose. Early abort saves
+    tokens and latency.""" ;
+    ff:derivedFromLaw ff:BL5_AutoregressiveErrorPropagation ;
+    ff:enforcementPoint "streaming-validation" .
+
+ff:DI6_AcceptTrainingDefaults a ff:DesignImplication ;
+    rdfs:label "DI-6: Accept and handle training distribution defaults" ;
+    rdfs:comment """Do not spend instruction budget fighting the training
+    distribution (BL6). Markdown fences, default field names,
+    and default type choices are high-probability outputs from
+    training data. Instead, build deterministic post-processing
+    to handle them: fence extraction, field name aliasing, type
+    coercion. These are zero-cost repairs. Instruction-based
+    prevention costs attention budget that could be spent on
+    content quality.""" ;
+    ff:derivedFromLaw ff:BL6_TrainingDistributionInertia ;
+    ff:enforcementPoint "pipeline-design" .
+
+ff:DI7_OutputBudgetEstimation a ff:DesignImplication ;
+    rdfs:label "DI-7: Output budget estimation" ;
+    rdfs:comment """Before calling, estimate the expected output size. If the
+    schema has N required fields with estimated content, compute
+    approximate token count. If estimated output > 70% of
+    max_tokens, either: (a) increase max_tokens, (b) request
+    smaller output (fewer fields, shorter values), or (c) split
+    the task into multiple calls. This prevents F2 (truncated
+    JSON) by respecting BL7 (output budget blindness).""" ;
+    ff:derivedFromLaw ff:BL7_OutputBudgetBlindness ;
+    ff:enforcementPoint "pre-call" ;
+    ff:threshold "0.70"^^xsd:decimal .
+
+ff:DI8_ScopedContextPerAtom a ff:DesignImplication ;
+    rdfs:label "DI-8: Scoped context per atom (vertical slicing)" ;
+    rdfs:comment """In multi-atom WorkGraphs, each atom's LLM calls receive ONLY
+    the context relevant to that atom: its own spec, upstream
+    dependency outputs, and shared schema definitions. NOT the
+    full WorkGraph, NOT other atoms' code, NOT the PRD narrative.
+    This keeps context utilization low (BL1), reduces instruction
+    competition (BL2), and improves positional attention (BL4)
+    by ensuring critical instructions remain near context
+    boundaries. Per DynTaskMAS SACMS pattern.""" ;
+    ff:derivedFromLaw ff:BL1_ContextPressureDegradation, ff:BL2_InstructionCompetition, ff:BL4_PositionalAttentionDecay ;
+    ff:enforcementPoint "context-construction" .
+
+
+# ── Design Implication Properties ────────────────────────────────
+
+ff:derivedFromLaw a owl:ObjectProperty ;
+    rdfs:domain ff:DesignImplication ;
+    rdfs:range ff:BehavioralLaw ;
+    rdfs:comment "Which behavioral law(s) this implication derives from." .
+
+ff:enforcementPoint a owl:DatatypeProperty ;
+    rdfs:domain ff:DesignImplication ;
+    rdfs:range xsd:string ;
+    rdfs:comment """Where in the pipeline this implication must be enforced:
+    pre-call, prompt-construction, streaming-validation,
+    pipeline-design, context-construction.""" .
+
+
+# ─── SHACL SHAPES — Behavioral Law Enforcement ──────────────────
+
+# ─── C22: Pre-call context check (BL1 / DI-1) ──
+
+ff:PreCallContextShape a sh:NodeShape ;
+    sh:targetClass ff:LLMInput ;
+    sh:property [
+        sh:path ff:contextUtilization ;
+        sh:maxInclusive 0.90 ;
+        sh:message "BEHAVIORAL LAW VIOLATION (BL1): Context utilization above 90% will produce degraded structured output. Hard limit." ;
+        sh:severity sh:Violation ;
+    ] .
+
+# ─── C23: Tool count limit (BL2 / DI-2) ──
+
+ff:ToolCountShape a sh:NodeShape ;
+    sh:targetClass ff:LLMInput ;
+    sh:property [
+        sh:path ff:toolCount ;
+        sh:maxInclusive 8 ;
+        sh:message "BEHAVIORAL LAW WARNING (BL2): More than 8 tools dilute instruction-following budget. Reduce to tools actually needed." ;
+        sh:severity sh:Warning ;
+    ] .
+
+# ─── C24: Output budget estimation (BL7 / DI-7) ──
+
+ff:OutputBudgetShape a sh:NodeShape ;
+    sh:targetClass ff:LLMInput ;
+    sh:property [
+        sh:path ff:estimatedOutputTokens ;
+        sh:maxInclusive 0.70 ;
+        sh:message "BEHAVIORAL LAW WARNING (BL7): Estimated output exceeds 70% of max_tokens. Risk of F2 truncation." ;
+        sh:severity sh:Warning ;
+    ] .
+
+ff:estimatedOutputTokens a owl:DatatypeProperty ;
+    rdfs:domain ff:LLMInput ;
+    rdfs:range xsd:decimal ;
+    rdfs:comment "Ratio of estimated output tokens to max_tokens (0.0-1.0). Above 0.7 risks truncation per BL7." .
+
+ff:usesResponseFormat a owl:DatatypeProperty ;
+    rdfs:domain ff:LLMInput ;
+    rdfs:range xsd:boolean ;
+    rdfs:comment "Whether response_format: json_object is set on this call." .
+
+ff:hasToolsAndFormat a owl:DatatypeProperty ;
+    rdfs:domain ff:LLMInput ;
+    rdfs:range xsd:boolean ;
+    rdfs:comment "Whether BOTH tools and response_format are set. Should always be false per DI-3." .
+
+# ─── C25: Mode conflict detection (BL3 / DI-3) ──
+
+ff:ModeConflictShape a sh:NodeShape ;
+    sh:targetClass ff:LLMInput ;
+    sh:property [
+        sh:path ff:hasToolsAndFormat ;
+        sh:hasValue false ;
+        sh:message "BEHAVIORAL LAW VIOLATION (BL3): Tools and response_format must not be combined. Choose one mode per call." ;
+        sh:severity sh:Violation ;
+    ] .
