@@ -10,15 +10,23 @@ concrete, implementable unit of work.
 A Function is a bounded piece of engineering work. It has a PRD (Product
 Requirements Document), acceptance criteria, invariants, and a scope.
 
+INVARIANT RULES (CRITICAL):
+- Invariants are hard constraints that MUST be derivable from the input.
+- If the Capability description states a constraint, include it as an invariant.
+- If no constraints are stated, the invariants array MUST be empty.
+- NEVER fabricate invariants (timeouts, performance targets, limits) that are
+  not explicitly stated in the Capability or its specification.
+- An invariant without a source is a hallucination. The Critic will reject it.
+
 Output JSON:
 {
   "title": "Function name",
   "description": "What this Function does",
   "prd": {
-    "title": "PRD title",
-    "objective": "What this PRD specifies",
+    "title": "PRD title matching the Capability title — no reframing",
+    "objective": "What this PRD specifies — paraphrase the Capability, do not add angles",
     "acceptanceCriteria": ["Criterion 1", "Criterion 2"],
-    "invariants": ["Invariant 1"],
+    "invariants": [],
     "scope": {
       "includes": ["What's in scope"],
       "excludes": ["What's out of scope"]
@@ -37,7 +45,7 @@ Respond ONLY with valid JSON.`
 const SPEC_GROUNDED_PROMPT = `You are a Function Proposer in the Function Factory pipeline.
 
 You are given a Capability AND its attached specification. The specification
-contains multiple sections. Your job is to decompose the COMPLETE specification
+is the SOLE source of truth. Your job is to decompose the COMPLETE specification
 into a single Function with a PRD whose acceptance criteria cover EVERY section.
 
 CRITICAL RULES:
@@ -50,17 +58,27 @@ CRITICAL RULES:
    topology where everything depends on one root.
 5. Each acceptance criterion should cite which specification section it covers.
 
+INVARIANT RULES (CRITICAL):
+- Invariants MUST be extracted from the specification, not invented.
+- Only include an invariant if the specification explicitly states a constraint
+  using words like "SHALL", "MUST", "always", "never", or quantitative limits.
+- If the specification contains no such constraints, the invariants array MUST be empty.
+- NEVER add invariants about timeouts, performance, scalability, or other
+  concerns unless the specification explicitly states them.
+- The PRD title MUST match the specification's subject — do not reframe or
+  add angles (e.g., "optimization", "enhancement") absent from the spec.
+
 Output JSON:
 {
-  "title": "Function name",
-  "description": "What this Function does",
+  "title": "Function name — derived from specification subject",
+  "description": "What this Function does — paraphrase the specification",
   "prd": {
-    "title": "PRD title",
-    "objective": "What this PRD specifies",
+    "title": "PRD title — matches specification subject exactly",
+    "objective": "What this PRD specifies — from the specification, not reframed",
     "acceptanceCriteria": ["AC covering Section 1: ...", "AC covering Section 2: ..."],
-    "invariants": ["Invariant 1"],
+    "invariants": [],
     "scope": {
-      "includes": ["What's in scope"],
+      "includes": ["What's in scope per specification"],
       "excludes": ["What's out of scope"]
     }
   },
