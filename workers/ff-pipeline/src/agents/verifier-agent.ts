@@ -97,7 +97,7 @@ export class VerifierAgent {
     const model = this.modelOverride ?? resolveAgentModel('verifier', this.apiKey)
 
     const userParts: string[] = [this.buildUserMessage(input)]
-    userParts.push('\nRespond with ONLY a JSON object matching the schema in the system prompt. No tool calls, no function calls, no explanation.')
+    userParts.push('\nProduce a Verdict. Start your response with {"decision":')
 
     const userMessage: UserMessage = {
       role: 'user',

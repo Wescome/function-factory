@@ -127,7 +127,7 @@ export class CriticAgent {
     }
     // Semantic review: skip pre-fetched context — only needs PRD + specContent for alignment check.
     // Full context would exceed context window and cause F2 truncation (BL1).
-    userParts.push('\nRespond with ONLY a JSON object: { "alignment", "confidence", "citations", "rationale", "timestamp" }. No tool calls.')
+    userParts.push('\nProduce a SemanticReview. Start your response with {"alignment":')
 
     const userMessage: UserMessage = {
       role: 'user',

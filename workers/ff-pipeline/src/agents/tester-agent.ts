@@ -107,7 +107,7 @@ export class TesterAgent {
       userParts.push(`\nCode critique (from Critic):\n${JSON.stringify(input.critique, null, 2)}`)
     }
 
-    userParts.push('\nRespond with ONLY a JSON object matching the schema in the system prompt. No tool calls, no function calls, no explanation.')
+    userParts.push('\nProduce a TestReport. Start your response with {"passed":')
 
     const userMessage: UserMessage = {
       role: 'user',

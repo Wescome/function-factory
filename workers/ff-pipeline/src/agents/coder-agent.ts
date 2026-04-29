@@ -112,7 +112,7 @@ export class CoderAgent {
       userParts.push(`\nCritique issues to address:\n${JSON.stringify(input.critiqueIssues, null, 2)}`)
     }
 
-    userParts.push('\nRespond with ONLY a JSON object matching the schema in the system prompt. No tool calls, no function calls, no explanation.')
+    userParts.push('\nProduce a CodeArtifact. Start your response with {"files":')
 
     const userMessage: UserMessage = {
       role: 'user',

@@ -129,7 +129,7 @@ export class ArchitectAgent {
     if (this.contextPrompt) {
       userParts.push(`\n${this.contextPrompt}`)
     }
-    userParts.push(`\nYour response MUST be a JSON object with these exact top-level keys: "goal", "successCriteria", "architecturalContext", "strategicAdvice", "knownGotchas", "validationLoop". Do NOT call functions. Start your response with {"goal":`)
+    userParts.push(`\nProduce a BriefingScript. Start your response with {"goal":`)
 
     const userMessage: UserMessage = {
       role: 'user',

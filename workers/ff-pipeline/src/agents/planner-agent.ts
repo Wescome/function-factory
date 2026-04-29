@@ -116,7 +116,7 @@ export class PlannerAgent {
       userParts.push(`You MUST choose a fundamentally different approach.`)
     }
 
-    userParts.push('\nYour response MUST be a JSON object with these exact top-level keys: "approach", "atoms", "executorRecommendation", "estimatedComplexity". Do NOT call functions. Do NOT produce tool calls. Start your response with {"approach":')
+    userParts.push('\nProduce a Plan. Start your response with {"approach":')
 
     const userMessage: UserMessage = {
       role: 'user',
