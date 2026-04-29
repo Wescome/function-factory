@@ -143,12 +143,10 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     }
 
     if (review.alignment === 'miscast') {
-      return {
-        status: 'semantic-miscast',
-        report: review,
-        signalId: signalKey,
-        proposalId: proposalKey,
-      }
+      // Log the miscast but continue — the semantic review is advisory during bootstrap.
+      // Gate 1 is the structural gate. The Critic catches drift from Stage 2-4 reframing.
+      // TODO: make this configurable via hot-config (strict mode vs advisory mode)
+      console.warn(`[Pipeline] Semantic review: miscast (${review.rationale?.slice(0, 100)}). Continuing to compilation.`)
     }
 
     // ── Stage 5: PRD compilation (8 passes) ──
