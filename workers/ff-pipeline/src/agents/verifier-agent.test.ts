@@ -11,7 +11,6 @@ import {
   registerFauxProvider,
   fauxAssistantMessage,
   fauxText,
-  fauxToolCall,
   type FauxProviderRegistration,
 } from '@weops/gdk-ai'
 import { VerifierAgent, type VerifierInput } from './verifier-agent'
@@ -190,14 +189,7 @@ describe('VerifierAgent', () => {
     beforeEach(() => {
       faux = registerFauxProvider()
       faux.setResponses([
-        // Turn 1: agent calls arango_query to check lineage
-        fauxAssistantMessage(
-          fauxToolCall('arango_query', {
-            query: 'FOR f IN specs_functions FILTER f._key == "WG-TEST-001" RETURN f',
-          }),
-          { stopReason: 'toolUse' },
-        ),
-        // Turn 2: agent returns final Verdict
+        // Single turn: agent returns final Verdict (no tools)
         fauxAssistantMessage(
           fauxText(JSON.stringify(VALID_VERDICT)),
           { stopReason: 'stop' },
@@ -209,8 +201,8 @@ describe('VerifierAgent', () => {
       faux?.unregister()
     })
 
-    it('runs agentLoop with faux model, calls tool, produces Verdict', async () => {
-      const { db, calls } = createMockDb()
+    it('runs agentLoop with faux model, produces Verdict (no tool calls)', async () => {
+      const { db } = createMockDb()
       const fauxModel = faux.getModel()
 
       const agent = new VerifierAgent({
@@ -221,10 +213,6 @@ describe('VerifierAgent', () => {
       })
 
       const result = await agent.verify(SAMPLE_VERIFIER_INPUT)
-
-      // Verify tool was called
-      expect(calls.length).toBeGreaterThanOrEqual(1)
-      expect(calls[0].query).toContain('specs_functions')
 
       // Verify Verdict shape
       expect(result.decision).toBe(VALID_VERDICT.decision)
@@ -241,12 +229,6 @@ describe('VerifierAgent', () => {
       }
 
       faux.setResponses([
-        fauxAssistantMessage(
-          fauxToolCall('arango_query', {
-            query: 'FOR f IN specs_functions RETURN f',
-          }),
-          { stopReason: 'toolUse' },
-        ),
         fauxAssistantMessage(
           fauxText(JSON.stringify(verdictWithNotes)),
           { stopReason: 'stop' },

@@ -11,7 +11,6 @@ import {
   registerFauxProvider,
   fauxAssistantMessage,
   fauxText,
-  fauxToolCall,
   type FauxProviderRegistration,
 } from '@weops/gdk-ai'
 import { PlannerAgent, type PlannerInput } from './planner-agent'
@@ -169,14 +168,7 @@ describe('PlannerAgent', () => {
     beforeEach(() => {
       faux = registerFauxProvider()
       faux.setResponses([
-        // Turn 1: agent calls arango_query to look up existing functions
-        fauxAssistantMessage(
-          fauxToolCall('arango_query', {
-            query: 'FOR f IN specs_functions LIMIT 5 RETURN { key: f._key, name: f.name }',
-          }),
-          { stopReason: 'toolUse' },
-        ),
-        // Turn 2: agent returns final Plan
+        // Single turn: agent returns final Plan (no tools)
         fauxAssistantMessage(
           fauxText(JSON.stringify(VALID_PLAN)),
           { stopReason: 'stop' },
@@ -188,8 +180,8 @@ describe('PlannerAgent', () => {
       faux?.unregister()
     })
 
-    it('runs agentLoop with faux model, calls tool, produces Plan', async () => {
-      const { db, calls } = createMockDb()
+    it('runs agentLoop with faux model, produces Plan (no tool calls)', async () => {
+      const { db } = createMockDb()
       const fauxModel = faux.getModel()
 
       const agent = new PlannerAgent({
@@ -205,10 +197,6 @@ describe('PlannerAgent', () => {
       }
 
       const result = await agent.producePlan(input)
-
-      // Verify tool was called
-      expect(calls.length).toBeGreaterThanOrEqual(1)
-      expect(calls[0]!.query).toContain('specs_functions')
 
       // Verify Plan shape
       expect(result.approach).toBe(VALID_PLAN.approach)
@@ -255,6 +243,27 @@ describe('PlannerAgent', () => {
         briefingScript: SAMPLE_BRIEFING_SCRIPT,
         repairNotes: 'Fix the token refresh logic',
         previousPlan: VALID_PLAN,
+      }
+
+      const result = await agent.producePlan(input)
+      expect(result.approach).toBe(VALID_PLAN.approach)
+    })
+
+    it('includes contextPrompt in user message when provided', async () => {
+      const { db } = createMockDb()
+      const fauxModel = faux.getModel()
+
+      const agent = new PlannerAgent({
+        db,
+        apiKey: 'faux-key',
+        dryRun: false,
+        model: fauxModel,
+        contextPrompt: '## Factory Context\n- [D-001] Use TypeScript',
+      })
+
+      const input: PlannerInput = {
+        workGraph: SAMPLE_WORKGRAPH,
+        briefingScript: SAMPLE_BRIEFING_SCRIPT,
       }
 
       const result = await agent.producePlan(input)

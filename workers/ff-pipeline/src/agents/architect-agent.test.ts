@@ -12,7 +12,6 @@ import {
   registerFauxProvider,
   fauxAssistantMessage,
   fauxText,
-  fauxToolCall,
   type FauxProviderRegistration,
 } from '@weops/gdk-ai'
 import { ArchitectAgent, buildArangoTool, type BriefingScript } from './architect-agent'
@@ -153,14 +152,7 @@ describe('ArchitectAgent', () => {
     beforeEach(() => {
       faux = registerFauxProvider()
       faux.setResponses([
-        // Turn 1: agent calls arango_query
-        fauxAssistantMessage(
-          fauxToolCall('arango_query', {
-            query: 'FOR d IN memory_semantic FILTER d.type == "decision" RETURN d',
-          }),
-          { stopReason: 'toolUse' },
-        ),
-        // Turn 2: agent returns final BriefingScript
+        // Single turn: agent returns final BriefingScript (no tools)
         fauxAssistantMessage(
           fauxText(JSON.stringify(VALID_BRIEFING)),
           { stopReason: 'stop' },
@@ -172,8 +164,8 @@ describe('ArchitectAgent', () => {
       faux?.unregister()
     })
 
-    it('runs agentLoop with faux model, calls tool, produces BriefingScript', async () => {
-      const { db, calls } = createMockDb()
+    it('runs agentLoop with faux model, produces BriefingScript (no tool calls)', async () => {
+      const { db } = createMockDb()
       const fauxModel = faux.getModel()
 
       const agent = new ArchitectAgent({
@@ -185,10 +177,6 @@ describe('ArchitectAgent', () => {
 
       const result = await agent.produceBriefingScript({ signal: SAMPLE_WORKGRAPH })
 
-      // Verify tool was called
-      expect(calls.length).toBeGreaterThanOrEqual(1)
-      expect(calls[0].query).toContain('memory_semantic')
-
       // Verify BriefingScript shape
       expect(result.goal).toBe(VALID_BRIEFING.goal)
       expect(result.successCriteria).toEqual(VALID_BRIEFING.successCriteria)
@@ -196,6 +184,24 @@ describe('ArchitectAgent', () => {
       expect(result.strategicAdvice).toBe(VALID_BRIEFING.strategicAdvice)
       expect(result.knownGotchas).toEqual(VALID_BRIEFING.knownGotchas)
       expect(result.validationLoop).toBe(VALID_BRIEFING.validationLoop)
+    })
+
+    it('includes contextPrompt in user message when provided', async () => {
+      const { db } = createMockDb()
+      const fauxModel = faux.getModel()
+
+      const agent = new ArchitectAgent({
+        db,
+        apiKey: 'faux-key',
+        dryRun: false,
+        model: fauxModel,
+        contextPrompt: '## Factory Knowledge Graph Context\n- [D-012] Use JWT',
+      })
+
+      const result = await agent.produceBriefingScript({ signal: SAMPLE_WORKGRAPH })
+
+      // Agent should still produce valid output with context injected
+      expect(result.goal).toBe(VALID_BRIEFING.goal)
     })
   })
 })

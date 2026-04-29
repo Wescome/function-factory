@@ -1,9 +1,8 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import {
   registerFauxProvider,
   fauxAssistantMessage,
   fauxText,
-  fauxToolCall,
   type FauxProviderRegistration,
 } from '@weops/gdk-ai'
 import { ArchitectAgent } from './architect-agent.js'
@@ -115,14 +114,7 @@ describe('CriticAgent.semanticReview', () => {
     beforeEach(() => {
       faux = registerFauxProvider()
       faux.setResponses([
-        // Turn 1: agent calls arango_query
-        fauxAssistantMessage(
-          fauxToolCall('arango_query', {
-            query: 'FOR d IN memory_semantic FILTER d.type == "decision" RETURN d',
-          }),
-          { stopReason: 'toolUse' },
-        ),
-        // Turn 2: agent returns final review
+        // Single turn: agent returns final review (no tools)
         fauxAssistantMessage(
           fauxText(JSON.stringify(validReview)),
           { stopReason: 'stop' },
@@ -134,8 +126,8 @@ describe('CriticAgent.semanticReview', () => {
       faux?.unregister()
     })
 
-    it('runs agentLoop with faux model, calls tool, produces SemanticReviewResult', async () => {
-      const { db, calls } = makeMockDb()
+    it('runs agentLoop with faux model, produces SemanticReviewResult (no tool calls)', async () => {
+      const { db } = makeMockDb()
       const fauxModel = faux.getModel()
 
       const agent = new CriticAgent({
@@ -148,10 +140,6 @@ describe('CriticAgent.semanticReview', () => {
       const result = await agent.semanticReview({
         prd: { id: 'PRD-002', title: 'Payment Processing' },
       })
-
-      // Verify tool was called
-      expect(calls.length).toBeGreaterThanOrEqual(1)
-      expect(calls[0].query).toContain('memory_semantic')
 
       // Verify SemanticReviewResult shape
       expect(result.alignment).toBe('aligned')
@@ -297,14 +285,7 @@ describe('CriticAgent.codeReview', () => {
     beforeEach(() => {
       faux = registerFauxProvider()
       faux.setResponses([
-        // Turn 1: agent calls arango_query for mentor rules
-        fauxAssistantMessage(
-          fauxToolCall('arango_query', {
-            query: 'FOR r IN mentorscript_rules FILTER r.status == "active" RETURN { ruleId: r._key, rule: r.rule }',
-          }),
-          { stopReason: 'toolUse' },
-        ),
-        // Turn 2: agent returns final critique
+        // Single turn: agent returns final critique (no tools)
         fauxAssistantMessage(
           fauxText(JSON.stringify(validCritique)),
           { stopReason: 'stop' },
@@ -316,8 +297,8 @@ describe('CriticAgent.codeReview', () => {
       faux?.unregister()
     })
 
-    it('runs agentLoop with faux model, calls tool, produces CritiqueReport', async () => {
-      const { db, calls } = makeMockDb()
+    it('runs agentLoop with faux model, produces CritiqueReport (no tool calls)', async () => {
+      const { db } = makeMockDb()
       const fauxModel = faux.getModel()
 
       const agent = new CriticAgent({
@@ -332,10 +313,6 @@ describe('CriticAgent.codeReview', () => {
         plan: samplePlan,
         workGraph: { id: 'WG-002' },
       })
-
-      // Verify tool was called
-      expect(calls.length).toBeGreaterThanOrEqual(1)
-      expect(calls[0].query).toContain('mentorscript_rules')
 
       // Verify CritiqueReport shape
       expect(result.passed).toBe(true)

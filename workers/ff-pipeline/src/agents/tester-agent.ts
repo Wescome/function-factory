@@ -10,12 +10,10 @@
 
 import { agentLoop } from '@weops/gdk-agent'
 import type { AgentTool } from '@weops/gdk-agent'
-import { Type, type Model, type AssistantMessage, type Message, type UserMessage } from '@weops/gdk-ai'
+import type { Model, AssistantMessage, Message, UserMessage } from '@weops/gdk-ai'
 import type { ArangoClient } from '@factory/arango-client'
 import type { CritiqueReport, Plan, CodeArtifact } from '../coordinator/state'
-import { buildArangoTool } from './architect-agent'
 import { resolveAgentModel } from './resolve-model'
-import { createWorkersAIStreamFn, createTextToolCallStreamFn, type AIBinding } from './workers-ai-stream'
 import { processAgentOutput, TEST_REPORT_SCHEMA } from './output-reliability'
 
 // Re-export TestReport from state so consumers can import from tester-agent
@@ -35,31 +33,22 @@ export interface TesterAgentOpts {
   dryRun?: boolean
   /** Override model for testing (e.g. faux provider) */
   model?: Model<any>
-  /** Workers AI binding — when present, uses CF binding instead of HTTP */
-  ai?: AIBinding
+  /** @deprecated Workers AI binding — no longer used (context is pre-fetched) */
+  ai?: unknown
   /** ADR-008: Hot-reloadable alias overrides for TestReport schema */
   aliasOverrides?: Record<string, string[]>
+  /** Pre-fetched Factory knowledge graph context (injected into user message) */
+  contextPrompt?: string
 }
 
 const SYSTEM_PROMPT = `You are the Tester agent in the Function Factory synthesis pipeline.
 
-Your job: evaluate the code produced by the Coder against the WorkGraph specification, the Plan, and any invariants stored in the knowledge graph. Produce a TestReport.
+Your job: evaluate the code produced by the Coder against the WorkGraph specification, the Plan, and any invariants from the Factory context. Produce a TestReport.
 
-You have the arango_query tool. USE IT to ground your testing in real Factory context:
-
-1. Query active invariants for this domain:
-   FOR inv IN specs_invariants FILTER inv.status == "active" RETURN { key: inv._key, rule: inv.rule, severity: inv.severity }
-
-2. Query test patterns from past synthesis runs:
-   FOR t IN execution_artifacts FILTER t.type == "test_report" LIMIT 5 RETURN { key: t._key, content: t.content }
-
-3. Query lessons about testing failures:
-   FOR l IN memory_semantic FILTER l.type == "lesson" AND CONTAINS(LOWER(l.lesson), "test") RETURN { key: l._key, lesson: l.lesson }
-
-Make at least one tool call to query invariants before producing your report. Do not hallucinate test results.
+Use the Factory Knowledge Graph context provided in the user message to ground your testing. Do not hallucinate test results — only reference invariants, lessons, and rules from the provided context.
 
 Evaluate:
-1. Does the code satisfy the invariants from the knowledge graph?
+1. Does the code satisfy the invariants from the provided context?
 2. Does the code implement what the WorkGraph specifies?
 3. Are edge cases handled (null inputs, timeouts, error paths)?
 4. If a Critique was provided, are the flagged issues addressed?
@@ -82,16 +71,16 @@ export class TesterAgent {
   private apiKey: string
   private dryRun: boolean
   private modelOverride?: Model<any>
-  private ai?: AIBinding
   private aliasOverrides?: Record<string, string[]>
+  private contextPrompt?: string
 
   constructor(opts: TesterAgentOpts) {
     this.db = opts.db
     this.apiKey = opts.apiKey
     this.dryRun = opts.dryRun ?? false
     this.modelOverride = opts.model
-    this.ai = opts.ai
     this.aliasOverrides = opts.aliasOverrides
+    this.contextPrompt = opts.contextPrompt
   }
 
   async runTests(input: TesterInput): Promise<TestReport> {
@@ -106,7 +95,7 @@ export class TesterAgent {
       }
     }
 
-    const tools: AgentTool[] = [buildArangoTool(this.db)]
+    const tools: AgentTool[] = []  // No tools — context is pre-fetched
     const model = this.modelOverride ?? resolveAgentModel('tester', this.apiKey)
 
     const userParts: string[] = [
@@ -119,13 +108,15 @@ export class TesterAgent {
       userParts.push(`\nCode critique (from Critic):\n${JSON.stringify(input.critique, null, 2)}`)
     }
 
+    if (this.contextPrompt) {
+      userParts.push(`\n${this.contextPrompt}`)
+    }
+
     const userMessage: UserMessage = {
       role: 'user',
       content: userParts.join('\n'),
       timestamp: Date.now(),
     }
-
-    const toolNames = tools.map(t => t.name); const streamFn = this.ai ? createWorkersAIStreamFn(this.ai) : createTextToolCallStreamFn(toolNames)
 
     const stream = agentLoop(
       [userMessage],
@@ -137,7 +128,6 @@ export class TesterAgent {
         maxTokens: 4096,
       },
       AbortSignal.timeout(600_000),
-      streamFn,
     )
 
     const messages = await stream.result()

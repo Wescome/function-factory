@@ -10,12 +10,10 @@
 
 import { agentLoop } from '@weops/gdk-agent'
 import type { AgentTool } from '@weops/gdk-agent'
-import { Type, type Model, type AssistantMessage, type Message, type UserMessage } from '@weops/gdk-ai'
+import type { Model, AssistantMessage, Message, UserMessage } from '@weops/gdk-ai'
 import type { ArangoClient } from '@factory/arango-client'
 import type { CodeArtifact, Plan, CritiqueReport } from '../coordinator/state'
-import { buildArangoTool } from './architect-agent'
 import { resolveAgentModel } from './resolve-model'
-import { createWorkersAIStreamFn, createTextToolCallStreamFn, type AIBinding } from './workers-ai-stream'
 import { processAgentOutput, CODE_ARTIFACT_SCHEMA } from './output-reliability'
 
 export interface CoderInput {
@@ -33,31 +31,19 @@ export interface CoderAgentOpts {
   dryRun?: boolean
   /** Override model for testing (e.g. faux provider) */
   model?: Model<any>
-  /** Workers AI binding — when present, uses CF binding instead of HTTP */
-  ai?: AIBinding
+  /** @deprecated Workers AI binding — no longer used (context is pre-fetched) */
+  ai?: unknown
   /** ADR-008: Hot-reloadable alias overrides for CodeArtifact schema */
   aliasOverrides?: Record<string, string[]>
+  /** Pre-fetched Factory knowledge graph context (injected into user message) */
+  contextPrompt?: string
 }
 
 const SYSTEM_PROMPT = `You are the Coder agent in the Function Factory synthesis pipeline.
 
 Your job: produce a CodeArtifact — a set of file changes that implement the Plan against the WorkGraph specification.
 
-You have the arango_query tool. USE IT to ground your implementation in real Factory context:
-
-1. Query existing implementations for patterns:
-   FOR f IN specs_functions LIMIT 5 RETURN { key: f._key, name: f.name, domain: f.domain }
-
-2. Query invariants that must be respected:
-   FOR inv IN specs_invariants FILTER inv.status == 'active' RETURN { id: inv._key, condition: inv.condition }
-
-3. Query execution artifacts for similar past code:
-   FOR ea IN execution_artifacts FILTER ea.type == 'code' LIMIT 3 RETURN { key: ea._key, functionRunId: ea.functionRunId }
-
-4. Query mentor rules for coding standards:
-   FOR r IN mentorscript_rules FILTER r.status == 'active' RETURN { ruleId: r._key, rule: r.rule }
-
-Make at least one tool call before producing your code. Do not hallucinate patterns or imports.
+Use the Factory Knowledge Graph context provided in the user message to ground your implementation. Do not hallucinate patterns or imports — only reference decisions, lessons, functions, and invariants from the provided context.
 
 If this is a repair cycle (repairNotes provided), focus on fixing the specific issues noted.
 Reuse existing patterns from the codebase. Follow the plan's atom ordering.
@@ -81,16 +67,16 @@ export class CoderAgent {
   private apiKey: string
   private dryRun: boolean
   private modelOverride?: Model<any>
-  private ai?: AIBinding
   private aliasOverrides?: Record<string, string[]>
+  private contextPrompt?: string
 
   constructor(opts: CoderAgentOpts) {
     this.db = opts.db
     this.apiKey = opts.apiKey
     this.dryRun = opts.dryRun ?? false
     this.modelOverride = opts.model
-    this.ai = opts.ai
     this.aliasOverrides = opts.aliasOverrides
+    this.contextPrompt = opts.contextPrompt
   }
 
   async produceCode(input: CoderInput): Promise<CodeArtifact> {
@@ -102,7 +88,7 @@ export class CoderAgent {
       }
     }
 
-    const tools: AgentTool[] = [buildArangoTool(this.db)]
+    const tools: AgentTool[] = []  // No tools — context is pre-fetched
     const model = this.modelOverride ?? resolveAgentModel('coder', this.apiKey)
 
     const userParts: string[] = [
@@ -127,13 +113,15 @@ export class CoderAgent {
       userParts.push(`\nCritique issues to address:\n${JSON.stringify(input.critiqueIssues, null, 2)}`)
     }
 
+    if (this.contextPrompt) {
+      userParts.push(`\n${this.contextPrompt}`)
+    }
+
     const userMessage: UserMessage = {
       role: 'user',
       content: userParts.join('\n'),
       timestamp: Date.now(),
     }
-
-    const toolNames = tools.map(t => t.name); const streamFn = this.ai ? createWorkersAIStreamFn(this.ai) : createTextToolCallStreamFn(toolNames)
 
     const stream = agentLoop(
       [userMessage],
@@ -145,7 +133,6 @@ export class CoderAgent {
         maxTokens: 4096,
       },
       AbortSignal.timeout(600_000),
-      streamFn,
     )
 
     const messages = await stream.result()

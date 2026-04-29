@@ -13,6 +13,7 @@ import { PlannerAgent } from '../agents/planner-agent'
 import { TesterAgent } from '../agents/tester-agent'
 import { VerifierAgent } from '../agents/verifier-agent'
 import { CriticAgent, type CodeReviewInput } from '../agents/critic-agent'
+import { prefetchAgentContext, formatContextForPrompt } from '../agents/context-prefetch'
 import { resolveAgentModel } from '../agents/resolve-model'
 import { HotConfigLoader, seedHotConfig } from '../config/hot-config'
 import { createCRP } from '../crp'
@@ -27,9 +28,9 @@ export interface CoordinatorEnv {
   ARANGO_USERNAME?: string
   ARANGO_PASSWORD?: string
   OFOX_API_KEY?: string
-  /** CF API token for Workers AI REST API — agents use this instead of the binding for multi-turn tool calling */
+  /** CF API token for Workers AI REST API */
   CF_API_TOKEN?: string
-  /** Workers AI binding — used by pipeline stages (callProvider). NOT passed to agents (binding doesn't support multi-turn tools). */
+  /** Workers AI binding — used by pipeline stages (callProvider). */
   AI?: { run(model: string, input: Record<string, unknown>): Promise<Record<string, unknown>> }
   /** @cloudflare/sandbox DurableObject namespace binding. Optional until sandbox container is deployed. */
   SANDBOX?: unknown
@@ -218,8 +219,12 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       await this.ensureConfigSeeded()
       const hotConfig = await this.getConfigLoader().get()
 
+      // Pre-fetch ArangoDB context ONCE for all agents (replaces multi-turn tool calling)
+      const agentContext = await prefetchAgentContext(this.getDb())
+      const contextPrompt = formatContextForPrompt(agentContext)
+
       // Resolve models centrally from hot-loaded routing config
-      // Agents use CF API token for Workers AI REST API (multi-turn tool calling)
+      // Agents use CF API token for Workers AI REST API
       // Falls back to OFOX_API_KEY for external providers
       const apiKey = this.env.CF_API_TOKEN ?? this.env.OFOX_API_KEY ?? ''
       const architectModel = resolveAgentModel('planning', apiKey, hotConfig.routing)
@@ -230,56 +235,56 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       const verifierModel = resolveAgentModel('verifier', apiKey, hotConfig.routing)
 
       // Instantiate reasoning agents for 9-node topology
-      // All roles converted to gdk-agent agentLoop sessions with arango_query tool
+      // All agents receive pre-fetched context instead of tools (single-turn, no tool calling)
       // ADR-008: models + alias overrides from hot-loaded config
       const architectAgent = new ArchitectAgent({
         db: this.getDb(),
         apiKey: apiKey,
         dryRun,
-        // ai binding NOT passed — agents use REST API for multi-turn tool calling
         model: architectModel,
         aliasOverrides: hotConfig.aliases['BriefingScript'],
+        contextPrompt,
       })
       const coderAgent = new CoderAgent({
         db: this.getDb(),
         apiKey: apiKey,
         dryRun,
-        // ai binding NOT passed — agents use REST API for multi-turn tool calling
         model: coderModel,
         aliasOverrides: hotConfig.aliases['CodeArtifact'],
+        contextPrompt,
       })
       const plannerAgent = new PlannerAgent({
         db: this.getDb(),
         apiKey: apiKey,
         dryRun,
-        // ai binding NOT passed — agents use REST API for multi-turn tool calling
         model: plannerModel,
         aliasOverrides: hotConfig.aliases['Plan'],
+        contextPrompt,
       })
       const testerAgent = new TesterAgent({
         db: this.getDb(),
         apiKey: apiKey,
         dryRun,
-        // ai binding NOT passed — agents use REST API for multi-turn tool calling
         model: testerModel,
         aliasOverrides: hotConfig.aliases['TestReport'],
+        contextPrompt,
       })
       const verifierAgent = new VerifierAgent({
         db: this.getDb(),
         apiKey: apiKey,
         dryRun,
-        // ai binding NOT passed — agents use REST API for multi-turn tool calling
         model: verifierModel,
         aliasOverrides: hotConfig.aliases['Verdict'],
+        contextPrompt,
       })
       const criticAgent = new CriticAgent({
         db: this.getDb(),
         apiKey: apiKey,
         dryRun,
-        // ai binding NOT passed — agents use REST API for multi-turn tool calling
         model: criticModel,
         semanticReviewAliasOverrides: hotConfig.aliases['SemanticReview'],
         codeReviewAliasOverrides: hotConfig.aliases['CritiqueReport'],
+        contextPrompt,
       })
 
       const deps: GraphDeps = {

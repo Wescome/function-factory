@@ -1,9 +1,11 @@
 /**
- * ArchitectAgent — real agent with tools that produces BriefingScripts.
+ * ArchitectAgent — produces BriefingScripts from WorkGraph specifications.
  *
- * Phase 0 spike: validates gdk-agent agentLoop in CF Workers V8 isolate.
- * Uses arango_query tool to read DECISIONS, LESSONS, MentorScript rules
- * from the knowledge graph before producing the briefing.
+ * Context is pre-fetched from ArangoDB and injected into the user message
+ * (see context-prefetch.ts). No tool calls — single-turn LLM invocation.
+ *
+ * buildArangoTool is still exported for use by AtomExecutor and other
+ * consumers that need direct AQL access.
  */
 
 import { agentLoop } from '@weops/gdk-agent'
@@ -11,7 +13,6 @@ import type { AgentTool } from '@weops/gdk-agent'
 import { Type, type Model, type AssistantMessage, type Message, type UserMessage } from '@weops/gdk-ai'
 import type { ArangoClient } from '@factory/arango-client'
 import { resolveAgentModel } from './resolve-model'
-import { createWorkersAIStreamFn, createTextToolCallStreamFn, type AIBinding } from './workers-ai-stream'
 import { processAgentOutput, BRIEFING_SCRIPT_SCHEMA } from './output-reliability'
 
 export interface BriefingScript {
@@ -36,31 +37,19 @@ export interface ArchitectAgentOpts {
   dryRun?: boolean
   /** Override model for testing (e.g. faux provider) */
   model?: Model<any>
-  /** Workers AI binding — when present, uses CF binding instead of HTTP */
-  ai?: AIBinding
+  /** @deprecated Workers AI binding — no longer used (context is pre-fetched) */
+  ai?: unknown
   /** ADR-008: Hot-reloadable alias overrides for BriefingScript schema */
   aliasOverrides?: Record<string, string[]>
+  /** Pre-fetched Factory knowledge graph context (injected into user message) */
+  contextPrompt?: string
 }
 
 const SYSTEM_PROMPT = `You are the Architect agent in the Function Factory synthesis pipeline.
 
 Your job: produce a BriefingScript that guides downstream agents (Planner, Coder, Tester, Verifier) through synthesizing a Function from a WorkGraph specification.
 
-You have the arango_query tool. USE IT to ground your briefing in real Factory context:
-
-1. Query architectural decisions:
-   FOR d IN memory_semantic FILTER d.type == 'decision' RETURN { key: d._key, decision: d.decision, rationale: d.rationale }
-
-2. Query lessons from past failures:
-   FOR l IN memory_semantic FILTER l.type == 'lesson' RETURN { key: l._key, lesson: l.lesson, pain: l.pain_score }
-
-3. Query active MentorScript rules:
-   FOR r IN mentorscript_rules FILTER r.status == 'active' RETURN { ruleId: r._key, rule: r.rule }
-
-4. Query existing functions for context:
-   FOR f IN specs_functions LIMIT 5 RETURN { key: f._key, name: f.name, domain: f.domain }
-
-Make at least one tool call before producing your briefing. Do not hallucinate context.
+Use the Factory Knowledge Graph context provided in the user message to ground your briefing. Do not hallucinate — only reference decisions, lessons, and rules from the provided context.
 
 When ready, respond with ONLY a JSON object (no markdown fences, no explanation):
 {
@@ -106,16 +95,16 @@ export class ArchitectAgent {
   private apiKey: string
   private dryRun: boolean
   private modelOverride?: Model<any>
-  private ai?: AIBinding
   private aliasOverrides?: Record<string, string[]>
+  private contextPrompt?: string
 
   constructor(opts: ArchitectAgentOpts) {
     this.db = opts.db
     this.apiKey = opts.apiKey
     this.dryRun = opts.dryRun ?? false
     this.modelOverride = opts.model
-    this.ai = opts.ai
     this.aliasOverrides = opts.aliasOverrides
+    this.contextPrompt = opts.contextPrompt
   }
 
   async produceBriefingScript(input: BriefingInput): Promise<BriefingScript> {
@@ -130,12 +119,15 @@ export class ArchitectAgent {
       }
     }
 
-    const tools: AgentTool[] = [buildArangoTool(this.db)]
+    const tools: AgentTool[] = []  // No tools — context is pre-fetched
     const model = this.modelOverride ?? resolveAgentModel('planning', this.apiKey)
 
     const userParts: string[] = [`WorkGraph specification:\n${JSON.stringify(input.signal, null, 2)}`]
     if (input.specContent) {
       userParts.push(`\nOriginal specification content:\n${input.specContent}`)
+    }
+    if (this.contextPrompt) {
+      userParts.push(`\n${this.contextPrompt}`)
     }
 
     const userMessage: UserMessage = {
@@ -143,11 +135,6 @@ export class ArchitectAgent {
       content: userParts.join('\n'),
       timestamp: Date.now(),
     }
-
-    const toolNames = tools.map(t => t.name)
-    const streamFn = this.ai
-      ? createWorkersAIStreamFn(this.ai)
-      : createTextToolCallStreamFn(toolNames)
 
     const stream = agentLoop(
       [userMessage],
@@ -159,7 +146,6 @@ export class ArchitectAgent {
         maxTokens: 4096,
       },
       AbortSignal.timeout(600_000),
-      streamFn,
     )
 
     const messages = await stream.result()

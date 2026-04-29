@@ -13,7 +13,6 @@ import {
   registerFauxProvider,
   fauxAssistantMessage,
   fauxText,
-  fauxToolCall,
   type FauxProviderRegistration,
 } from '@weops/gdk-ai'
 import { CoderAgent, type CoderInput } from './coder-agent'
@@ -181,14 +180,7 @@ describe('CoderAgent', () => {
     beforeEach(() => {
       faux = registerFauxProvider()
       faux.setResponses([
-        // Turn 1: agent calls arango_query to look up existing patterns
-        fauxAssistantMessage(
-          fauxToolCall('arango_query', {
-            query: 'FOR f IN specs_functions LIMIT 5 RETURN { key: f._key, name: f.name }',
-          }),
-          { stopReason: 'toolUse' },
-        ),
-        // Turn 2: agent produces CodeArtifact
+        // Single turn: agent produces CodeArtifact (no tools)
         fauxAssistantMessage(
           fauxText(JSON.stringify(VALID_CODE_ARTIFACT)),
           { stopReason: 'stop' },
@@ -200,8 +192,8 @@ describe('CoderAgent', () => {
       faux?.unregister()
     })
 
-    it('runs agentLoop with faux model, calls tool, produces CodeArtifact', async () => {
-      const { db, calls } = createMockDb()
+    it('runs agentLoop with faux model, produces CodeArtifact (no tool calls)', async () => {
+      const { db } = createMockDb()
       const fauxModel = faux.getModel()
 
       const agent = new CoderAgent({
@@ -215,10 +207,6 @@ describe('CoderAgent', () => {
         workGraph: SAMPLE_WORKGRAPH,
         plan: SAMPLE_PLAN,
       })
-
-      // Verify tool was called
-      expect(calls.length).toBeGreaterThanOrEqual(1)
-      expect(calls[0].query).toContain('specs_functions')
 
       // Verify CodeArtifact shape
       expect(result.files).toHaveLength(2)
@@ -270,6 +258,26 @@ describe('CoderAgent', () => {
 
       expect(result.files).toBeDefined()
     })
+
+    it('includes contextPrompt in user message when provided', async () => {
+      const { db } = createMockDb()
+      const fauxModel = faux.getModel()
+
+      const agent = new CoderAgent({
+        db,
+        apiKey: 'faux-key',
+        dryRun: false,
+        model: fauxModel,
+        contextPrompt: '## Factory Context\n- [FN-001] auth-module',
+      })
+
+      const result = await agent.produceCode({
+        workGraph: SAMPLE_WORKGRAPH,
+        plan: SAMPLE_PLAN,
+      })
+
+      expect(result.files).toBeDefined()
+    })
   })
 
   // ────────────────────────────────────────────────────────────
@@ -305,12 +313,7 @@ describe('CoderAgent', () => {
     it('throws when model returns invalid JSON as text', async () => {
       faux = registerFauxProvider()
       faux.setResponses([
-        // Turn 1: agent calls tool
-        fauxAssistantMessage(
-          fauxToolCall('arango_query', { query: 'FOR d IN x RETURN d' }),
-          { stopReason: 'toolUse' },
-        ),
-        // Turn 2: agent returns garbage text (not valid JSON)
+        // Single turn: agent returns garbage text (not valid JSON)
         fauxAssistantMessage(
           fauxText('This is not valid JSON at all'),
           { stopReason: 'stop' },

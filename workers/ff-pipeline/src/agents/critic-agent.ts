@@ -8,11 +8,9 @@
 
 import { agentLoop } from '@weops/gdk-agent'
 import type { AgentTool } from '@weops/gdk-agent'
-import { Type, type Model, type AssistantMessage, type Message, type UserMessage } from '@weops/gdk-ai'
+import type { Model, AssistantMessage, Message, UserMessage } from '@weops/gdk-ai'
 import type { ArangoClient } from '@factory/arango-client'
-import { buildArangoTool } from './architect-agent'
 import { resolveAgentModel } from './resolve-model'
-import { createWorkersAIStreamFn, createTextToolCallStreamFn, type AIBinding } from './workers-ai-stream'
 import { processAgentOutput, SEMANTIC_REVIEW_SCHEMA, CRITIQUE_REPORT_SCHEMA } from './output-reliability'
 
 import type { SemanticReviewResult } from '../types.js'
@@ -36,12 +34,14 @@ export interface CriticAgentOpts {
   dryRun?: boolean
   /** Override model for testing (e.g. faux provider) */
   model?: Model<any>
-  /** Workers AI binding — when present, uses CF binding instead of HTTP */
-  ai?: AIBinding
+  /** @deprecated Workers AI binding — no longer used (context is pre-fetched) */
+  ai?: unknown
   /** ADR-008: Hot-reloadable alias overrides for SemanticReview schema */
   semanticReviewAliasOverrides?: Record<string, string[]>
   /** ADR-008: Hot-reloadable alias overrides for CritiqueReport schema */
   codeReviewAliasOverrides?: Record<string, string[]>
+  /** Pre-fetched Factory knowledge graph context (injected into user message) */
+  contextPrompt?: string
 }
 
 // ── System Prompts ──────────────────────────────────────────
@@ -50,18 +50,7 @@ const SEMANTIC_REVIEW_SYSTEM = `You are the Semantic Review critic in the Functi
 
 Your job: compare a PRD against the original specification/signal and assess alignment.
 
-You have the arango_query tool. USE IT to ground your review in real Factory context:
-
-1. Query the original signal or spec that produced this PRD:
-   FOR s IN specs_functions LIMIT 5 RETURN { key: s._key, name: s.name, domain: s.domain }
-
-2. Query relevant decisions for context:
-   FOR d IN memory_semantic FILTER d.type == 'decision' RETURN { key: d._key, decision: d.decision }
-
-3. Query lessons about past misalignments:
-   FOR l IN memory_semantic FILTER l.type == 'lesson' RETURN { key: l._key, lesson: l.lesson }
-
-Make at least one tool call before producing your review. Do not hallucinate context.
+Use the Factory Knowledge Graph context provided in the user message to ground your review. Do not hallucinate context — only reference decisions, lessons, and functions from the provided context.
 
 When ready, respond with ONLY a JSON object (no markdown fences, no explanation):
 {
@@ -76,18 +65,7 @@ const CODE_REVIEW_SYSTEM = `You are the Code Review critic in the Function Facto
 
 Your job: review code against the plan, work graph, and mentor rules.
 
-You have the arango_query tool. USE IT to ground your review:
-
-1. Query active MentorScript rules:
-   FOR r IN mentorscript_rules FILTER r.status == 'active' RETURN { ruleId: r._key, rule: r.rule }
-
-2. Query architectural decisions relevant to the code:
-   FOR d IN memory_semantic FILTER d.type == 'decision' RETURN { key: d._key, decision: d.decision }
-
-3. Query lessons about past code issues:
-   FOR l IN memory_semantic FILTER l.type == 'lesson' RETURN { key: l._key, lesson: l.lesson, pain: l.pain_score }
-
-Make at least one tool call before producing your review. Do not hallucinate context.
+Use the Factory Knowledge Graph context provided in the user message to ground your review. Do not hallucinate context — only reference decisions, lessons, and rules from the provided context.
 
 When ready, respond with ONLY a JSON object (no markdown fences, no explanation):
 {
@@ -113,18 +91,18 @@ export class CriticAgent {
   private apiKey: string
   private dryRun: boolean
   private modelOverride?: Model<any>
-  private ai?: AIBinding
   private semanticReviewAliasOverrides?: Record<string, string[]>
   private codeReviewAliasOverrides?: Record<string, string[]>
+  private contextPrompt?: string
 
   constructor(opts: CriticAgentOpts) {
     this.db = opts.db
     this.apiKey = opts.apiKey
     this.dryRun = opts.dryRun ?? false
     this.modelOverride = opts.model
-    this.ai = opts.ai
     this.semanticReviewAliasOverrides = opts.semanticReviewAliasOverrides
     this.codeReviewAliasOverrides = opts.codeReviewAliasOverrides
+    this.contextPrompt = opts.contextPrompt
   }
 
   // ── Semantic Review ─────────────────────────────────────
@@ -140,12 +118,15 @@ export class CriticAgent {
       }
     }
 
-    const tools: AgentTool[] = [buildArangoTool(this.db)]
+    const tools: AgentTool[] = []  // No tools — context is pre-fetched
     const model = this.modelOverride ?? resolveAgentModel('semantic_review', this.apiKey)
 
     const userParts: string[] = [`PRD:\n${JSON.stringify(input.prd, null, 2)}`]
     if (input.specContent) {
       userParts.push(`\nSpecification:\n${input.specContent}`)
+    }
+    if (this.contextPrompt) {
+      userParts.push(`\n${this.contextPrompt}`)
     }
 
     const userMessage: UserMessage = {
@@ -153,8 +134,6 @@ export class CriticAgent {
       content: userParts.join('\n'),
       timestamp: Date.now(),
     }
-
-    const toolNames = tools.map(t => t.name); const streamFn = this.ai ? createWorkersAIStreamFn(this.ai) : createTextToolCallStreamFn(toolNames)
 
     const stream = agentLoop(
       [userMessage],
@@ -166,7 +145,6 @@ export class CriticAgent {
         maxTokens: 4096,
       },
       AbortSignal.timeout(600_000),
-      streamFn,
     )
 
     const messages = await stream.result()
@@ -208,7 +186,7 @@ export class CriticAgent {
       }
     }
 
-    const tools: AgentTool[] = [buildArangoTool(this.db)]
+    const tools: AgentTool[] = []  // No tools — context is pre-fetched
     const model = this.modelOverride ?? resolveAgentModel('critic', this.apiKey)
 
     const userParts: string[] = [
@@ -221,13 +199,15 @@ export class CriticAgent {
       userParts.push(`\nMentor rules:\n${input.mentorRules.map((r) => `- ${r}`).join('\n')}`)
     }
 
+    if (this.contextPrompt) {
+      userParts.push(`\n${this.contextPrompt}`)
+    }
+
     const userMessage: UserMessage = {
       role: 'user',
       content: userParts.join('\n'),
       timestamp: Date.now(),
     }
-
-    const toolNames = tools.map(t => t.name); const streamFn = this.ai ? createWorkersAIStreamFn(this.ai) : createTextToolCallStreamFn(toolNames)
 
     const stream = agentLoop(
       [userMessage],
@@ -239,7 +219,6 @@ export class CriticAgent {
         maxTokens: 4096,
       },
       AbortSignal.timeout(600_000),
-      streamFn,
     )
 
     const messages = await stream.result()

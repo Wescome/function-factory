@@ -13,7 +13,6 @@ import {
   registerFauxProvider,
   fauxAssistantMessage,
   fauxText,
-  fauxToolCall,
   type FauxProviderRegistration,
 } from '@weops/gdk-ai'
 import { TesterAgent, type TesterInput, type TestReport } from './tester-agent'
@@ -234,14 +233,7 @@ describe('TesterAgent', () => {
     beforeEach(() => {
       faux = registerFauxProvider()
       faux.setResponses([
-        // Turn 1: agent calls arango_query to look up invariants
-        fauxAssistantMessage(
-          fauxToolCall('arango_query', {
-            query: 'FOR inv IN specs_invariants FILTER inv.status == "active" RETURN inv',
-          }),
-          { stopReason: 'toolUse' },
-        ),
-        // Turn 2: agent returns final TestReport
+        // Single turn: agent returns final TestReport (no tools)
         fauxAssistantMessage(
           fauxText(JSON.stringify(VALID_TEST_REPORT)),
           { stopReason: 'stop' },
@@ -253,8 +245,8 @@ describe('TesterAgent', () => {
       faux?.unregister()
     })
 
-    it('runs agentLoop with faux model, calls tool, produces TestReport', async () => {
-      const { db, calls } = createMockDb()
+    it('runs agentLoop with faux model, produces TestReport (no tool calls)', async () => {
+      const { db } = createMockDb()
       const fauxModel = faux.getModel()
 
       const agent = new TesterAgent({
@@ -270,10 +262,6 @@ describe('TesterAgent', () => {
         code: SAMPLE_CODE,
       })
 
-      // Verify tool was called (queried invariants)
-      expect(calls.length).toBeGreaterThanOrEqual(1)
-      expect(calls[0].query).toContain('specs_invariants')
-
       // Verify TestReport shape
       expect(result.passed).toBe(VALID_TEST_REPORT.passed)
       expect(result.testsRun).toBe(VALID_TEST_REPORT.testsRun)
@@ -285,7 +273,6 @@ describe('TesterAgent', () => {
 
     it('handles failing test report from agentLoop', async () => {
       faux.setResponses([
-        // No tool call — agent goes straight to report
         fauxAssistantMessage(
           fauxText(JSON.stringify(FAILING_TEST_REPORT)),
           { stopReason: 'stop' },
