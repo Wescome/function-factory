@@ -49,7 +49,7 @@ A BriefingScript is a JSON object with exactly 6 fields. Here is an example:
 
 {"goal":"Implement user authentication","successCriteria":["Login endpoint returns JWT","Refresh token works"],"architecturalContext":"Uses existing Express middleware","strategicAdvice":"Start with the JWT library, then add routes","knownGotchas":["Token expiry edge case"],"validationLoop":"Run auth integration tests"}
 
-Produce a BriefingScript for the WorkGraph in the user message. Be concise — one sentence per field. Output ONLY the JSON object.`
+Produce a BriefingScript for the WorkGraph. Maximum 100 words total. One short sentence per field.`
 
 // Required fields now defined in BRIEFING_SCRIPT_SCHEMA (output-reliability.ts)
 
