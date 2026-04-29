@@ -15,7 +15,7 @@ import type { ArangoClient } from '@factory/arango-client'
 import type { CritiqueReport, Plan, CodeArtifact } from '../coordinator/state'
 import { buildArangoTool } from './architect-agent'
 import { resolveAgentModel } from './resolve-model'
-import { createWorkersAIStreamFn, type AIBinding } from './workers-ai-stream'
+import { createWorkersAIStreamFn, createTextToolCallStreamFn, type AIBinding } from './workers-ai-stream'
 import { processAgentOutput, TEST_REPORT_SCHEMA } from './output-reliability'
 
 // Re-export TestReport from state so consumers can import from tester-agent
@@ -125,7 +125,7 @@ export class TesterAgent {
       timestamp: Date.now(),
     }
 
-    const streamFn = this.ai ? createWorkersAIStreamFn(this.ai) : undefined
+    const toolNames = tools.map(t => t.name); const streamFn = this.ai ? createWorkersAIStreamFn(this.ai) : createTextToolCallStreamFn(toolNames)
 
     const stream = agentLoop(
       [userMessage],

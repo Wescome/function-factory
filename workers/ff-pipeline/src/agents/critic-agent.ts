@@ -12,7 +12,7 @@ import { Type, type Model, type AssistantMessage, type Message, type UserMessage
 import type { ArangoClient } from '@factory/arango-client'
 import { buildArangoTool } from './architect-agent'
 import { resolveAgentModel } from './resolve-model'
-import { createWorkersAIStreamFn, type AIBinding } from './workers-ai-stream'
+import { createWorkersAIStreamFn, createTextToolCallStreamFn, type AIBinding } from './workers-ai-stream'
 import { processAgentOutput, SEMANTIC_REVIEW_SCHEMA, CRITIQUE_REPORT_SCHEMA } from './output-reliability'
 
 import type { SemanticReviewResult } from '../types.js'
@@ -154,7 +154,7 @@ export class CriticAgent {
       timestamp: Date.now(),
     }
 
-    const streamFn = this.ai ? createWorkersAIStreamFn(this.ai) : undefined
+    const toolNames = tools.map(t => t.name); const streamFn = this.ai ? createWorkersAIStreamFn(this.ai) : createTextToolCallStreamFn(toolNames)
 
     const stream = agentLoop(
       [userMessage],
@@ -227,7 +227,7 @@ export class CriticAgent {
       timestamp: Date.now(),
     }
 
-    const streamFn = this.ai ? createWorkersAIStreamFn(this.ai) : undefined
+    const toolNames = tools.map(t => t.name); const streamFn = this.ai ? createWorkersAIStreamFn(this.ai) : createTextToolCallStreamFn(toolNames)
 
     const stream = agentLoop(
       [userMessage],

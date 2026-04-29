@@ -13,7 +13,7 @@ import type { ArangoClient } from '@factory/arango-client'
 import { buildArangoTool } from './architect-agent'
 import { resolveAgentModel } from './resolve-model'
 import type { Plan } from '../coordinator/state'
-import { createWorkersAIStreamFn, type AIBinding } from './workers-ai-stream'
+import { createWorkersAIStreamFn, createTextToolCallStreamFn, type AIBinding } from './workers-ai-stream'
 import { processAgentOutput, PLAN_SCHEMA } from './output-reliability'
 
 export interface PlannerInput {
@@ -137,7 +137,7 @@ export class PlannerAgent {
       timestamp: Date.now(),
     }
 
-    const streamFn = this.ai ? createWorkersAIStreamFn(this.ai) : undefined
+    const toolNames = tools.map(t => t.name); const streamFn = this.ai ? createWorkersAIStreamFn(this.ai) : createTextToolCallStreamFn(toolNames)
 
     const stream = agentLoop(
       [userMessage],

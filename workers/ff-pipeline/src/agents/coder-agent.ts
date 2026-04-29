@@ -15,7 +15,7 @@ import type { ArangoClient } from '@factory/arango-client'
 import type { CodeArtifact, Plan, CritiqueReport } from '../coordinator/state'
 import { buildArangoTool } from './architect-agent'
 import { resolveAgentModel } from './resolve-model'
-import { createWorkersAIStreamFn, type AIBinding } from './workers-ai-stream'
+import { createWorkersAIStreamFn, createTextToolCallStreamFn, type AIBinding } from './workers-ai-stream'
 import { processAgentOutput, CODE_ARTIFACT_SCHEMA } from './output-reliability'
 
 export interface CoderInput {
@@ -133,7 +133,7 @@ export class CoderAgent {
       timestamp: Date.now(),
     }
 
-    const streamFn = this.ai ? createWorkersAIStreamFn(this.ai) : undefined
+    const toolNames = tools.map(t => t.name); const streamFn = this.ai ? createWorkersAIStreamFn(this.ai) : createTextToolCallStreamFn(toolNames)
 
     const stream = agentLoop(
       [userMessage],

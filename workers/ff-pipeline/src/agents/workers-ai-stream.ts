@@ -385,3 +385,82 @@ export function createWorkersAIStreamFn(ai: AIBinding): StreamFn {
     return stream
   }
 }
+
+/**
+ * Create a StreamFn that wraps gdk-ai's streamSimple but adds text
+ * tool call detection on the response. For models that express tool
+ * calls as text JSON instead of structured tool_calls — even via REST API.
+ */
+export function createTextToolCallStreamFn(availableToolNames: string[]): StreamFn {
+  return async (model, context, options) => {
+    // Use gdk-ai's standard streamSimple for the HTTP call
+    const { streamSimple } = await import('@weops/gdk-ai')
+    const innerStream = streamSimple(model, context, options)
+    const outerStream = new AssistantMessageEventStream()
+
+    ;(async () => {
+      try {
+        let finalMessage: AssistantMessage | null = null
+
+        for await (const event of innerStream) {
+          if (event.type === 'done' || event.type === 'error') {
+            finalMessage = event.type === 'done' ? event.message : event.error
+            break
+          }
+          // Forward intermediate events
+          outerStream.push(event)
+        }
+
+        if (!finalMessage) {
+          finalMessage = await innerStream.result()
+        }
+
+        // Post-process: detect text tool calls in the final message
+        const textParts = finalMessage.content.filter(c => c.type === 'text') as TextContent[]
+        const text = textParts.map(c => c.text).join('')
+        const toolCalls = finalMessage.content.filter(c => c.type === 'toolCall')
+
+        if (toolCalls.length === 0 && text && availableToolNames.length > 0) {
+          const detected = detectTextToolCalls(text, availableToolNames)
+          if (detected && detected.length > 0) {
+            // Replace text content with detected tool calls
+            const newMessage: AssistantMessage = {
+              ...finalMessage,
+              content: detected,
+              stopReason: 'toolUse',
+            }
+            outerStream.push({ type: 'start', partial: newMessage })
+            outerStream.push({ type: 'done', reason: 'toolUse', message: newMessage })
+            outerStream.end(newMessage)
+            return
+          }
+        }
+
+        // No text tool calls — forward as-is
+        outerStream.push({ type: 'start', partial: finalMessage })
+        if (finalMessage.stopReason === 'error' || finalMessage.stopReason === 'aborted') {
+          outerStream.push({ type: 'error', reason: finalMessage.stopReason as any, error: finalMessage })
+        } else {
+          outerStream.push({ type: 'done', reason: finalMessage.stopReason as any, message: finalMessage })
+        }
+        outerStream.end(finalMessage)
+      } catch (error) {
+        const errorMsg: AssistantMessage = {
+          role: 'assistant',
+          content: [],
+          api: model.api,
+          provider: model.provider,
+          model: model.id,
+          usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
+          stopReason: 'error',
+          errorMessage: error instanceof Error ? error.message : String(error),
+          timestamp: Date.now(),
+        }
+        outerStream.push({ type: 'error', reason: 'error', error: errorMsg })
+        outerStream.end(errorMsg)
+      }
+    })()
+
+    return outerStream
+  }
+}

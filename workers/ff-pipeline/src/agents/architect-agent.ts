@@ -11,7 +11,7 @@ import type { AgentTool } from '@weops/gdk-agent'
 import { Type, type Model, type AssistantMessage, type Message, type UserMessage } from '@weops/gdk-ai'
 import type { ArangoClient } from '@factory/arango-client'
 import { resolveAgentModel } from './resolve-model'
-import { createWorkersAIStreamFn, type AIBinding } from './workers-ai-stream'
+import { createWorkersAIStreamFn, createTextToolCallStreamFn, type AIBinding } from './workers-ai-stream'
 import { processAgentOutput, BRIEFING_SCRIPT_SCHEMA } from './output-reliability'
 
 export interface BriefingScript {
@@ -144,7 +144,10 @@ export class ArchitectAgent {
       timestamp: Date.now(),
     }
 
-    const streamFn = this.ai ? createWorkersAIStreamFn(this.ai) : undefined
+    const toolNames = tools.map(t => t.name)
+    const streamFn = this.ai
+      ? createWorkersAIStreamFn(this.ai)
+      : createTextToolCallStreamFn(toolNames)
 
     const stream = agentLoop(
       [userMessage],
