@@ -89,8 +89,9 @@ export const DEFAULT_CONFIG: RoutingConfig = {
     { kind: 'synthesis', primary: CF_70B },
     { kind: 'validation', primary: CF_70B },
     { kind: 'runtime_check', primary: CF_70B },
+    // Semantic review — Workers AI (pipeline stage, not agent — same model as pipeline)
+    { kind: 'semantic_review', primary: CF_70B },
     // Agent roles — ofox.ai (quality-critical, reliable schema JSON)
-    { kind: 'semantic_review', primary: DEEPSEEK_PRO },
     { kind: 'planner', primary: DEEPSEEK_PRO },
     { kind: 'coder', primary: DEEPSEEK_PRO },
     { kind: 'critic', primary: DEEPSEEK_PRO },
