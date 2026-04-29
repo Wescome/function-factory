@@ -45,21 +45,13 @@ export interface ArchitectAgentOpts {
   contextPrompt?: string
 }
 
-const SYSTEM_PROMPT = `You are the Architect agent in the Function Factory synthesis pipeline.
+const SYSTEM_PROMPT = `You are the Architect agent. You produce BriefingScripts.
 
-Your job: produce a BriefingScript that guides downstream agents (Planner, Coder, Tester, Verifier) through synthesizing a Function from a WorkGraph specification.
+A BriefingScript is a JSON object with exactly 6 fields. Here is an example:
 
-Use the Factory Knowledge Graph context provided in the user message to ground your briefing. Do not hallucinate — only reference decisions, lessons, and rules from the provided context.
+{"goal":"Implement user authentication","successCriteria":["Login endpoint returns JWT","Refresh token works"],"architecturalContext":"Uses existing Express middleware","strategicAdvice":"Start with the JWT library, then add routes","knownGotchas":["Token expiry edge case"],"validationLoop":"Run auth integration tests"}
 
-When ready, respond with ONLY a JSON object (no markdown fences, no explanation):
-{
-  "goal": "the primary objective for this synthesis",
-  "successCriteria": ["measurable condition 1", "measurable condition 2"],
-  "architecturalContext": "relevant background from decisions and codebase",
-  "strategicAdvice": "high-level guidance for downstream agents",
-  "knownGotchas": ["pitfall from lessons learned"],
-  "validationLoop": "how to validate the outcome"
-}`
+Produce a BriefingScript for the WorkGraph in the user message. Use any Factory context provided. Output ONLY the JSON object.`
 
 // Required fields now defined in BRIEFING_SCRIPT_SCHEMA (output-reliability.ts)
 
@@ -129,7 +121,7 @@ export class ArchitectAgent {
     if (this.contextPrompt) {
       userParts.push(`\n${this.contextPrompt}`)
     }
-    userParts.push(`\nProduce a BriefingScript. Start your response with {"goal":`)
+    userParts.push(`\nProduce a BriefingScript for this WorkGraph.`)
 
     const userMessage: UserMessage = {
       role: 'user',

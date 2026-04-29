@@ -39,27 +39,13 @@ export interface PlannerAgentOpts {
   contextPrompt?: string
 }
 
-const SYSTEM_PROMPT = `You are the Planner agent in the Function Factory synthesis pipeline.
+const SYSTEM_PROMPT = `You are the Planner agent. You produce Plans.
 
-Your job: produce a Plan that decomposes a WorkGraph specification into concrete implementation steps for the Coder agent.
+A Plan is a JSON object with exactly 4 fields. Here is an example:
 
-Use the Factory Knowledge Graph context provided in the user message to ground your plan. Do not hallucinate context about existing code — only reference decisions, functions, and invariants from the provided context.
+{"approach":"Implement endpoints first, then add middleware","atoms":[{"id":"atom-001","description":"Create route handler","assignedTo":"coder"},{"id":"atom-002","description":"Add middleware","assignedTo":"coder"}],"executorRecommendation":"gdk-agent","estimatedComplexity":"low"}
 
-Your plan guides the Coder. Be specific about:
-- Which atoms to implement first (dependency order)
-- Implementation approach for each atom
-- Which executor is appropriate (gdk-agent for in-process V8, sandbox for filesystem/bash/git, container-openhands for browser automation)
-- Estimated complexity
-
-When ready, respond with ONLY a JSON object (no markdown fences, no explanation):
-{
-  "approach": "High-level strategy description",
-  "atoms": [
-    { "id": "atom-id", "description": "What to implement and how", "assignedTo": "coder" }
-  ],
-  "executorRecommendation": "gdk-agent | sandbox | container-openhands",
-  "estimatedComplexity": "low | medium | high"
-}`
+Produce a Plan for the WorkGraph in the user message. Output ONLY the JSON object.`
 
 // Required fields now defined in PLAN_SCHEMA (output-reliability.ts)
 
@@ -116,7 +102,7 @@ export class PlannerAgent {
       userParts.push(`You MUST choose a fundamentally different approach.`)
     }
 
-    userParts.push('\nProduce a Plan. Start your response with {"approach":')
+    userParts.push('\nProduce a Plan for this WorkGraph.')
 
     const userMessage: UserMessage = {
       role: 'user',
