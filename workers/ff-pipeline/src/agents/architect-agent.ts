@@ -129,6 +129,7 @@ export class ArchitectAgent {
     if (this.contextPrompt) {
       userParts.push(`\n${this.contextPrompt}`)
     }
+    userParts.push(`\nRespond with a JSON object containing exactly these fields: goal, successCriteria, architecturalContext, strategicAdvice, knownGotchas, validationLoop. Nothing else.`)
 
     const userMessage: UserMessage = {
       role: 'user',

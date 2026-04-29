@@ -127,7 +127,7 @@ export class CriticAgent {
     }
     if (this.contextPrompt) {
       userParts.push(`\n${this.contextPrompt}`)
-    }
+    userParts.push('\nRespond with ONLY a JSON object matching the schema in the system prompt. No tool calls, no function calls, no explanation.')    }
 
     const userMessage: UserMessage = {
       role: 'user',
@@ -201,7 +201,7 @@ export class CriticAgent {
 
     if (this.contextPrompt) {
       userParts.push(`\n${this.contextPrompt}`)
-    }
+    userParts.push('\nRespond with ONLY a JSON object matching the schema in the system prompt. No tool calls, no function calls, no explanation.')    }
 
     const userMessage: UserMessage = {
       role: 'user',

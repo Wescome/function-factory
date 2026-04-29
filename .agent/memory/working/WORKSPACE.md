@@ -1,41 +1,36 @@
 # Current Workspace
 
 ## Status
-Session ended at 2026-04-29T00:40:43.337Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
+Session ended at 2026-04-29T00:53:19.108Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
 
 ## Last update
-2026-04-29T00:40:43.337Z
+2026-04-29T00:53:19.108Z
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
-- [00:01:23] Bash: cd /Users/wes/Developer/function-factory/workers/ff-pipeline && npx wrangler deploy 2>&1 | tail -3 && echo "---" && INST
-- [00:10:32] Bash: grep -n "streamFn\|createWorkersAIStreamFn" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/archite
-- [00:10:49] Bash: grep -n "^export function" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/workers-ai-stream.ts
-- [00:11:19] Bash: cat >> /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/workers-ai-stream.ts << 'HEREDOC'
+- [00:50:01] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/agents.test.ts
+- [00:50:06] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/architect-agent.test.ts
+- [00:50:10] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/coder-agent.test.ts
+- [00:50:14] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/planner-agent.test.ts
+- [00:50:20] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/tester-agent.test.ts
+- [00:50:25] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/verifier-agent.test.ts
+- [00:50:29] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/agents.test.ts
+- [00:50:36] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/agents.test.ts
+- [00:50:45] Bash: grep -n 'ArchitectAgent' /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/agents.test.ts
+- [00:50:51] Bash: grep -n 'Type,' /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/architect-agent.ts /Users/wes/Devel
+- [00:50:56] Bash: grep -n 'Type\.' /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/architect-agent.ts /Users/wes/Deve
+- [00:51:01] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/coder-agent.ts
+- [00:51:05] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/tester-agent.ts
+- [00:51:08] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/critic-agent.ts
+- [00:51:21] Bash: pnpm --filter @factory/ff-pipeline test -- --run 2>&1
+- [00:51:34] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/architect-agent.ts
+- [00:51:47] Bash: pnpm --filter @factory/ff-pipeline test -- --run 2>&1 | tail -15
+- [00:52:35] Bash: pnpm --filter @factory/ff-pipeline test 2>&1 | tail -5
+- [00:52:51] Bash: git add -A && git commit -m "$(cat <<'EOF'
+INFRA: pre-fetch ArangoDB context, eliminate agent tool calls entirely
 
-/**
- * Cr
-- [00:11:28] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/architect-agent.ts
-- [00:11:39] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/architect-agent.ts
-- [00:11:48] Bash: for f in planner-agent coder-agent tester-agent verifier-agent; do
-  FILE="/Users/wes/Developer/function-factory/workers
-- [00:11:56] Bash: grep -n "streamFn = this.ai\|createWorkersAIStreamFn\|createTextToolCallStreamFn" /Users/wes/Developer/function-factory/
-- [00:12:23] Bash: sed -i '' "s|import { createWorkersAIStreamFn, type AIBinding }|import { createWorkersAIStreamFn, createTextToolCallStre
-- [00:12:39] Bash: pnpm --filter @factory/ff-pipeline test 2>&1 | tail -5
-- [00:12:51] Bash: git add -A && git commit -m "$(cat <<'EOF'
-INFRA: text tool call detection for REST API path (all 6 agents)
-
-Workers AI 
-- [00:13:13] Bash: cd /Users/wes/Developer/function-factory/workers/ff-pipeline && npx wrangler deploy 2>&1 | tail -3 && echo "---" && INST
-- [00:16:50] Bash: grep -E "complete|errored|Pipeline|Decision|Reason|Gate1|atom-|parseable|invariant|dependency|lineage|field" /private/tm
-- [00:17:00] Bash: grep -n '"arguments"' /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/workers-ai-stream.ts | grep -
-- [00:17:09] Bash: grep -n "arguments\|parameters" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/workers-ai-stream.t
-- [00:17:25] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/workers-ai-stream.ts
-- [00:17:43] Bash: pnpm --filter @factory/ff-pipeline test 2>&1 | tail -3 && git add -A && git commit -m "$(cat <<'EOF'
-INFRA: detect tool 
-- [00:17:57] Bash: cd /Users/wes/Developer/function-factory/workers/ff-pipeline && npx wrangler deploy 2>&1 | tail -3 && echo "---" && INST
-- [00:22:02] Bash: grep -E "complete|errored|Status:|Pipeline:|Decision:|Reason:|Gate1:" /private/tmp/claude-501/-Users-wes-Developer-funct
-- [00:40:33] Agent: Engineer: pre-fetch context, no tool calls
+Worke
+- [00:53:10] Bash: cd /Users/wes/Developer/function-factory/workers/ff-pipeline && npx wrangler deploy 2>&1 | tail -3 && echo "---" && INST
 
 ## Notes
 This file is auto-updated on session end. Manual edits will be overwritten.
