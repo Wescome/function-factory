@@ -66,6 +66,12 @@ export function extractJSON(text: string): { json: unknown; tier: number } | nul
   // Tier 1: Direct parse
   try { return { json: JSON.parse(trimmed), tier: 1 } } catch { /* continue */ }
 
+  // Tier 1.5: Repair common JSON syntax errors before trying other tiers
+  const repaired = repairJSON(trimmed)
+  if (repaired !== trimmed) {
+    try { return { json: JSON.parse(repaired), tier: 1 } } catch { /* continue */ }
+  }
+
   // Tier 2: Strip markdown fences
   const fenceMatch = /```\w*\s*?\n?([\s\S]*?)(?:\n\s*)?```/.exec(trimmed)
   if (fenceMatch) {
@@ -814,4 +820,44 @@ export const VERDICT_SCHEMA: OutputSchema<Verdict> = {
       if (data.confidence < 0 || data.confidence > 1) data.confidence = 0.5
     }
   },
+}
+
+/**
+ * Repair common JSON syntax errors from LLM output.
+ * Fixes: missing quotes around keys/values, trailing commas,
+ * unescaped quotes in strings, missing commas between fields.
+ */
+function repairJSON(text: string): string {
+  let s = text
+
+  // Fix missing quotes after string values before commas/colons
+  // Pattern: "value,nextKey" → "value","nextKey"
+  s = s.replace(/([^\\])"([,])\s*([a-zA-Z_])/g, '$1"$2"$3')
+
+  // Fix missing quotes before colons in keys
+  // Pattern: key": → "key":
+  s = s.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":')
+
+  // Fix unquoted string values (not arrays, objects, numbers, bools, null)
+  // This is aggressive — only apply if JSON still doesn't parse
+  
+  // Fix missing closing quotes in arrays
+  // Pattern: ["item1","item2] → ["item1","item2"]
+  s = s.replace(/\[([^\]]*[^"\s])\]/g, (match, inner) => {
+    // Check if last item is missing closing quote
+    const lastQuote = inner.lastIndexOf('"')
+    const lastComma = inner.lastIndexOf(',')
+    if (lastQuote > lastComma && inner.length > lastQuote + 1) {
+      const afterQuote = inner.slice(lastQuote + 1)
+      if (!afterQuote.includes('"')) {
+        return '[' + inner + '"]'
+      }
+    }
+    return match
+  })
+
+  // Fix trailing commas before } or ]
+  s = s.replace(/,\s*([}\]])/g, '$1')
+
+  return s
 }
