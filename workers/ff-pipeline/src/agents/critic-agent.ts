@@ -46,20 +46,16 @@ export interface CriticAgentOpts {
 
 // ── System Prompts ──────────────────────────────────────────
 
-const SEMANTIC_REVIEW_SYSTEM = `You are the Semantic Review critic in the Function Factory synthesis pipeline.
+const SEMANTIC_REVIEW_SYSTEM = `You are the Semantic Review critic. Assess whether a PRD covers the original specification.
 
-Your job: compare a PRD against the original specification/signal and assess alignment.
+Alignment criteria:
+- "aligned": the PRD's acceptance criteria cover ALL requirements from the specification. Title reframing is acceptable. Minor wording changes are acceptable. The substance must match.
+- "miscast": the PRD addresses a DIFFERENT topic than the specification, OR fabricates requirements not in the spec.
+- "uncertain": some requirements covered, others missing.
 
-Use the Factory Knowledge Graph context provided in the user message to ground your review. Do not hallucinate context — only reference decisions, lessons, and functions from the provided context.
+Bias toward "aligned" when acceptance criteria substantively cover the spec, even if the title or framing differs.
 
-When ready, respond with ONLY a JSON object (no markdown fences, no explanation):
-{
-  "alignment": "aligned" | "miscast" | "uncertain",
-  "confidence": 0.0 to 1.0,
-  "citations": ["spec section or reference"],
-  "rationale": "explanation of assessment",
-  "timestamp": "ISO 8601 timestamp"
-}`
+Example: {"alignment":"aligned","confidence":0.9,"citations":["Req 1 covered by AC1"],"rationale":"All requirements covered.","timestamp":"2026-04-29T00:00:00Z"}`
 
 const CODE_REVIEW_SYSTEM = `You are the Code Review critic in the Function Factory synthesis pipeline.
 
