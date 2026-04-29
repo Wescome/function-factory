@@ -127,7 +127,7 @@ export class ArchitectAgent {
     const stream = agentLoop(
       [{ role: 'user', content: userContent, timestamp: Date.now() } as UserMessage],
       { systemPrompt: SYSTEM_PROMPT, messages: [] },
-      { model, convertToLlm: (msgs) => msgs as Message[], getApiKey: async () => this.apiKey, maxTokens: 4096 },
+      { model, convertToLlm: (msgs) => msgs as Message[], getApiKey: async () => this.apiKey, maxTokens: 8192 },
       AbortSignal.timeout(600_000),
     )
     const messages = await stream.result()
