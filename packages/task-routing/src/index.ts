@@ -73,28 +73,29 @@ export interface ResolvedRoute {
 // ── Workers AI models ──
 
 const CF_70B: RouteTarget = { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' }
-const CF_CODER: RouteTarget = { provider: 'cloudflare', model: '@cf/qwen/qwen2.5-coder-32b-instruct' }
+const DEEPSEEK_PRO: RouteTarget = { provider: 'deepseek', model: 'deepseek-v4-pro' }
+const GEMINI_PRO: RouteTarget = { provider: 'google', model: 'gemini-3.1-pro-preview' }
 
 // ── Default config ──
-// Pipeline stages (1-5): llama-70b for richer structural output (invariants, deps)
-// Agent roles (Stage 6): qwen-coder-32b for reliable text tool calls + JSON output
+// Pipeline stages (1-5): Workers AI llama-70b (zero cost, best structural output)
+// Agent roles (Stage 6): ofox.ai providers (quality-critical, proven JSON output)
 
 export const DEFAULT_CONFIG: RoutingConfig = {
   routes: [
-    // Pipeline stages — llama-70b (best Gate 1 results: 12 atoms, 7 invariants)
+    // Pipeline stages — Workers AI (zero cost)
     { kind: 'planning', primary: CF_70B },
     { kind: 'structured', primary: CF_70B },
     { kind: 'interpretive', primary: CF_70B },
     { kind: 'synthesis', primary: CF_70B },
-    { kind: 'semantic_review', primary: CF_70B },
     { kind: 'validation', primary: CF_70B },
     { kind: 'runtime_check', primary: CF_70B },
-    // Agent roles — llama-70b for Architect/Critic/Planner (reasoning), qwen-coder for Coder/Tester/Verifier (code)
-    { kind: 'planner', primary: CF_70B },
-    { kind: 'coder', primary: CF_CODER },
-    { kind: 'critic', primary: CF_70B },
-    { kind: 'tester', primary: CF_CODER },
-    { kind: 'verifier', primary: CF_CODER },
+    // Agent roles — ofox.ai (quality-critical, reliable schema JSON)
+    { kind: 'semantic_review', primary: DEEPSEEK_PRO },
+    { kind: 'planner', primary: DEEPSEEK_PRO },
+    { kind: 'coder', primary: DEEPSEEK_PRO },
+    { kind: 'critic', primary: DEEPSEEK_PRO },
+    { kind: 'tester', primary: DEEPSEEK_PRO },
+    { kind: 'verifier', primary: GEMINI_PRO },
   ],
   default: CF_70B,
 }

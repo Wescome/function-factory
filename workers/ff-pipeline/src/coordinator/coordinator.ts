@@ -224,10 +224,10 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       const contextPrompt = formatContextForPrompt(agentContext)
 
       // Resolve models centrally from hot-loaded routing config
-      // Agents use CF API token for Workers AI REST API
-      // Falls back to OFOX_API_KEY for external providers
-      const apiKey = this.env.CF_API_TOKEN ?? this.env.OFOX_API_KEY ?? ''
-      const architectModel = resolveAgentModel('planning', apiKey, hotConfig.routing)
+      // ofox.ai agents use OFOX_API_KEY, Workers AI pipeline uses CF_API_TOKEN
+      const ofoxKey = this.env.OFOX_API_KEY ?? ''
+      const apiKey = ofoxKey || this.env.CF_API_TOKEN || ''
+      const architectModel = resolveAgentModel('semantic_review', ofoxKey, hotConfig.routing)
       const plannerModel = resolveAgentModel('planner', apiKey, hotConfig.routing)
       const coderModel = resolveAgentModel('coder', apiKey, hotConfig.routing)
       const criticModel = resolveAgentModel('critic', apiKey, hotConfig.routing)
@@ -239,7 +239,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       // ADR-008: models + alias overrides from hot-loaded config
       const architectAgent = new ArchitectAgent({
         db: this.getDb(),
-        apiKey: apiKey,
+        apiKey: ofoxKey,
         dryRun,
         ai: this.env.AI,
         model: architectModel,
@@ -248,7 +248,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       })
       const coderAgent = new CoderAgent({
         db: this.getDb(),
-        apiKey: apiKey,
+        apiKey: ofoxKey,
         dryRun,
         ai: this.env.AI,
         model: coderModel,
@@ -257,7 +257,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       })
       const plannerAgent = new PlannerAgent({
         db: this.getDb(),
-        apiKey: apiKey,
+        apiKey: ofoxKey,
         dryRun,
         ai: this.env.AI,
         model: plannerModel,
@@ -266,7 +266,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       })
       const testerAgent = new TesterAgent({
         db: this.getDb(),
-        apiKey: apiKey,
+        apiKey: ofoxKey,
         dryRun,
         ai: this.env.AI,
         model: testerModel,
@@ -275,7 +275,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       })
       const verifierAgent = new VerifierAgent({
         db: this.getDb(),
-        apiKey: apiKey,
+        apiKey: ofoxKey,
         dryRun,
         ai: this.env.AI,
         model: verifierModel,
@@ -284,7 +284,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       })
       const criticAgent = new CriticAgent({
         db: this.getDb(),
-        apiKey: apiKey,
+        apiKey: ofoxKey,
         dryRun,
         ai: this.env.AI,
         model: criticModel,

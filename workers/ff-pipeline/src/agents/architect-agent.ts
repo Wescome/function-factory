@@ -122,12 +122,12 @@ export class ArchitectAgent {
 
     const userContent = userParts.join('\n')
 
-    // Direct AI binding call (single-turn, no tools, no agentLoop overhead)
+    const model = this.modelOverride ?? resolveAgentModel('planning', this.apiKey)
     const ai = this.ai as { run(model: string, input: Record<string, unknown>): Promise<Record<string, unknown>> } | undefined
     let rawText: string
 
-    if (ai) {
-      const model = this.modelOverride ?? resolveAgentModel('planning', this.apiKey)
+    // Use AI binding only for Workers AI models. ofox.ai models use agentLoop HTTP.
+    if (ai && model.provider === 'cloudflare') {
       const aiResult = await ai.run(model.id, {
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
@@ -138,8 +138,7 @@ export class ArchitectAgent {
       const resp = aiResult.response
       rawText = typeof resp === 'string' ? resp : JSON.stringify(resp)
     } else {
-      // Fallback: use agentLoop for HTTP-based providers
-      const model = this.modelOverride ?? resolveAgentModel('planning', this.apiKey)
+      // HTTP-based providers (ofox.ai) via agentLoop
       const stream = agentLoop(
         [{ role: 'user', content: userContent, timestamp: Date.now() } as UserMessage],
         { systemPrompt: SYSTEM_PROMPT, messages: [], tools: [] },
