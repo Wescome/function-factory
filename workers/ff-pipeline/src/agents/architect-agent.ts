@@ -126,7 +126,7 @@ export class ArchitectAgent {
     // Workers AI REST and ofox.ai both use the same openai-completions protocol.
     const stream = agentLoop(
       [{ role: 'user', content: userContent, timestamp: Date.now() } as UserMessage],
-      { systemPrompt: SYSTEM_PROMPT, messages: [], tools: [] },
+      { systemPrompt: SYSTEM_PROMPT, messages: [] },
       { model, convertToLlm: (msgs) => msgs as Message[], getApiKey: async () => this.apiKey, maxTokens: 4096 },
       AbortSignal.timeout(600_000),
     )
