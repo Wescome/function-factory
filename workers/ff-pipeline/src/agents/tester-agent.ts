@@ -80,6 +80,7 @@ export class TesterAgent {
     this.dryRun = opts.dryRun ?? false
     this.modelOverride = opts.model
     this.aliasOverrides = opts.aliasOverrides
+    this.contextPrompt = opts.contextPrompt
   }
 
   async runTests(input: TesterInput): Promise<TestReport> {
@@ -95,7 +96,7 @@ export class TesterAgent {
     }
 
     const tools: AgentTool[] = []  // No tools — context is pre-fetched
-    const model = this.modelOverride ?? resolveAgentModel('tester', this.apiKey)
+    const model = this.modelOverride ?? resolveAgentModel('tester')
 
     const userParts: string[] = [
       `WorkGraph specification:\n${JSON.stringify(input.workGraph, null, 2)}`,
@@ -105,6 +106,10 @@ export class TesterAgent {
 
     if (input.critique) {
       userParts.push(`\nCode critique (from Critic):\n${JSON.stringify(input.critique, null, 2)}`)
+    }
+
+    if (this.contextPrompt) {
+      userParts.push(`\n${this.contextPrompt}`)
     }
 
     userParts.push('\nProduce a TestReport. Start your response with {"passed":')

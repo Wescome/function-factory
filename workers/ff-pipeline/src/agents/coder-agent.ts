@@ -31,8 +31,6 @@ export interface CoderAgentOpts {
   dryRun?: boolean
   /** Override model for testing (e.g. faux provider) */
   model?: Model<any>
-  /** @deprecated Workers AI binding — no longer used (context is pre-fetched) */
-  ai?: unknown
   /** ADR-008: Hot-reloadable alias overrides for CodeArtifact schema */
   aliasOverrides?: Record<string, string[]>
   /** Pre-fetched Factory knowledge graph context (injected into user message) */
@@ -76,6 +74,7 @@ export class CoderAgent {
     this.dryRun = opts.dryRun ?? false
     this.modelOverride = opts.model
     this.aliasOverrides = opts.aliasOverrides
+    this.contextPrompt = opts.contextPrompt
   }
 
   async produceCode(input: CoderInput): Promise<CodeArtifact> {
@@ -88,7 +87,7 @@ export class CoderAgent {
     }
 
     const tools: AgentTool[] = []  // No tools — context is pre-fetched
-    const model = this.modelOverride ?? resolveAgentModel('coder', this.apiKey)
+    const model = this.modelOverride ?? resolveAgentModel('coder')
 
     const userParts: string[] = [
       `Plan:\n${JSON.stringify(input.plan, null, 2)}`,
@@ -110,6 +109,10 @@ export class CoderAgent {
 
     if (input.critiqueIssues && input.critiqueIssues.length > 0) {
       userParts.push(`\nCritique issues to address:\n${JSON.stringify(input.critiqueIssues, null, 2)}`)
+    }
+
+    if (this.contextPrompt) {
+      userParts.push(`\n${this.contextPrompt}`)
     }
 
     userParts.push('\nProduce a CodeArtifact. Start your response with {"files":')

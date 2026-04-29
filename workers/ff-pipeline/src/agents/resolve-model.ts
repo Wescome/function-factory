@@ -4,12 +4,17 @@
  * Agents should NOT hardcode provider/model. They get their model
  * from the routing config, which determines whether to use Workers AI
  * (dev/test) or ofox.ai (production).
+ *
+ * API key routing:
+ *   - ofox.ai models: agents pass OFOX_API_KEY via getApiKey callback
+ *   - Workers AI models: agents pass CF_API_TOKEN via getApiKey callback
+ *   The model object itself never carries an API key.
  */
 
 import type { Model } from '@weops/gdk-ai'
 import { resolve, type TaskKind, type RoutingConfig } from '@factory/task-routing'
 
-export function resolveAgentModel(taskKind: TaskKind, apiKey: string, routingConfig?: RoutingConfig): Model<any> {
+export function resolveAgentModel(taskKind: TaskKind, routingConfig?: RoutingConfig): Model<any> {
   const { primary } = resolve(taskKind, { config: routingConfig })
 
   if (primary.provider === 'cloudflare') {

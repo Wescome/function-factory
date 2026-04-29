@@ -34,8 +34,6 @@ export interface CriticAgentOpts {
   dryRun?: boolean
   /** Override model for testing (e.g. faux provider) */
   model?: Model<any>
-  /** @deprecated Workers AI binding — no longer used (context is pre-fetched) */
-  ai?: unknown
   /** ADR-008: Hot-reloadable alias overrides for SemanticReview schema */
   semanticReviewAliasOverrides?: Record<string, string[]>
   /** ADR-008: Hot-reloadable alias overrides for CritiqueReport schema */
@@ -115,7 +113,7 @@ export class CriticAgent {
     }
 
     const tools: AgentTool[] = []  // No tools — context is pre-fetched
-    const model = this.modelOverride ?? resolveAgentModel('semantic_review', this.apiKey)
+    const model = this.modelOverride ?? resolveAgentModel('semantic_review')
 
     const userParts: string[] = [`PRD:\n${JSON.stringify(input.prd, null, 2)}`]
     if (input.specContent) {
@@ -183,7 +181,7 @@ export class CriticAgent {
     }
 
     const tools: AgentTool[] = []  // No tools — context is pre-fetched
-    const model = this.modelOverride ?? resolveAgentModel('critic', this.apiKey)
+    const model = this.modelOverride ?? resolveAgentModel('critic')
 
     const userParts: string[] = [
       `Code artifacts:\n${JSON.stringify(input.code, null, 2)}`,

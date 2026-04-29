@@ -32,8 +32,6 @@ export interface VerifierAgentOpts {
   dryRun?: boolean
   /** Override model for testing (e.g. faux provider) */
   model?: Model<any>
-  /** @deprecated Workers AI binding — no longer used (context is pre-fetched) */
-  ai?: unknown
   /** ADR-008: Hot-reloadable alias overrides for Verdict schema */
   aliasOverrides?: Record<string, string[]>
   /** Pre-fetched Factory knowledge graph context (injected into user message) */
@@ -82,6 +80,7 @@ export class VerifierAgent {
     this.dryRun = opts.dryRun ?? false
     this.modelOverride = opts.model
     this.aliasOverrides = opts.aliasOverrides
+    this.contextPrompt = opts.contextPrompt
   }
 
   async verify(input: VerifierInput): Promise<Verdict> {
@@ -94,9 +93,12 @@ export class VerifierAgent {
     }
 
     const tools: AgentTool[] = []  // No tools — context is pre-fetched
-    const model = this.modelOverride ?? resolveAgentModel('verifier', this.apiKey)
+    const model = this.modelOverride ?? resolveAgentModel('verifier')
 
     const userParts: string[] = [this.buildUserMessage(input)]
+    if (this.contextPrompt) {
+      userParts.push(`\n${this.contextPrompt}`)
+    }
     userParts.push('\nProduce a Verdict. Start your response with {"decision":')
 
     const userMessage: UserMessage = {

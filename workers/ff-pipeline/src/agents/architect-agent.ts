@@ -37,8 +37,6 @@ export interface ArchitectAgentOpts {
   dryRun?: boolean
   /** Override model for testing (e.g. faux provider) */
   model?: Model<any>
-  /** @deprecated Workers AI binding — no longer used (context is pre-fetched) */
-  ai?: unknown
   /** ADR-008: Hot-reloadable alias overrides for BriefingScript schema */
   aliasOverrides?: Record<string, string[]>
   /** Pre-fetched Factory knowledge graph context (injected into user message) */
@@ -122,38 +120,24 @@ export class ArchitectAgent {
 
     const userContent = userParts.join('\n')
 
-    const model = this.modelOverride ?? resolveAgentModel('planning', this.apiKey)
-    const ai = this.ai as { run(model: string, input: Record<string, unknown>): Promise<Record<string, unknown>> } | undefined
-    let rawText: string
+    const model = this.modelOverride ?? resolveAgentModel('planning')
 
-    // Use AI binding only for Workers AI models. ofox.ai models use agentLoop HTTP.
-    if (ai && model.provider === 'cloudflare') {
-      const aiResult = await ai.run(model.id, {
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: userContent },
-        ],
-        max_tokens: 4096,
-      } as Record<string, unknown>)
-      const resp = aiResult.response
-      rawText = typeof resp === 'string' ? resp : JSON.stringify(resp)
-    } else {
-      // HTTP-based providers (ofox.ai) via agentLoop
-      const stream = agentLoop(
-        [{ role: 'user', content: userContent, timestamp: Date.now() } as UserMessage],
-        { systemPrompt: SYSTEM_PROMPT, messages: [], tools: [] },
-        { model, convertToLlm: (msgs) => msgs as Message[], getApiKey: async () => this.apiKey, maxTokens: 4096 },
-        AbortSignal.timeout(600_000),
-      )
-      const messages = await stream.result()
-      const lastAssistant = [...messages].reverse().find((m): m is AssistantMessage => m.role === 'assistant')
-      if (!lastAssistant) throw new Error('ArchitectAgent: no assistant response')
-      if (lastAssistant.stopReason === 'error' || lastAssistant.stopReason === 'aborted') {
-        throw new Error(`ArchitectAgent: ${lastAssistant.errorMessage ?? 'unknown error'}`)
-      }
-      const textBlock = lastAssistant.content.find(c => c.type === 'text')
-      rawText = textBlock && textBlock.type === 'text' ? textBlock.text : ''
+    // All models go through agentLoop HTTP (OpenAI-compatible endpoint).
+    // Workers AI REST and ofox.ai both use the same openai-completions protocol.
+    const stream = agentLoop(
+      [{ role: 'user', content: userContent, timestamp: Date.now() } as UserMessage],
+      { systemPrompt: SYSTEM_PROMPT, messages: [], tools: [] },
+      { model, convertToLlm: (msgs) => msgs as Message[], getApiKey: async () => this.apiKey, maxTokens: 4096 },
+      AbortSignal.timeout(600_000),
+    )
+    const messages = await stream.result()
+    const lastAssistant = [...messages].reverse().find((m): m is AssistantMessage => m.role === 'assistant')
+    if (!lastAssistant) throw new Error('ArchitectAgent: no assistant response')
+    if (lastAssistant.stopReason === 'error' || lastAssistant.stopReason === 'aborted') {
+      throw new Error(`ArchitectAgent: ${lastAssistant.errorMessage ?? 'unknown error'}`)
     }
+    const textBlock = lastAssistant.content.find(c => c.type === 'text')
+    const rawText = textBlock && textBlock.type === 'text' ? textBlock.text : ''
 
     if (!rawText) throw new Error('ArchitectAgent: empty response from model')
 

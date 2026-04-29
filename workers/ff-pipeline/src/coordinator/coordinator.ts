@@ -224,69 +224,74 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       const contextPrompt = formatContextForPrompt(agentContext)
 
       // Resolve models centrally from hot-loaded routing config
-      // ofox.ai agents use OFOX_API_KEY, Workers AI pipeline uses CF_API_TOKEN
+      // ofox.ai agents use OFOX_API_KEY; Workers AI agents would use CF_API_TOKEN
       const ofoxKey = this.env.OFOX_API_KEY ?? ''
-      const apiKey = ofoxKey || this.env.CF_API_TOKEN || ''
-      const architectModel = resolveAgentModel('semantic_review', ofoxKey, hotConfig.routing)
-      const plannerModel = resolveAgentModel('planner', apiKey, hotConfig.routing)
-      const coderModel = resolveAgentModel('coder', apiKey, hotConfig.routing)
-      const criticModel = resolveAgentModel('critic', apiKey, hotConfig.routing)
-      const testerModel = resolveAgentModel('tester', apiKey, hotConfig.routing)
-      const verifierModel = resolveAgentModel('verifier', apiKey, hotConfig.routing)
+      const cfToken = this.env.CF_API_TOKEN ?? ''
+      const architectModel = resolveAgentModel('semantic_review', hotConfig.routing)
+      const plannerModel = resolveAgentModel('planner', hotConfig.routing)
+      const coderModel = resolveAgentModel('coder', hotConfig.routing)
+      const criticModel = resolveAgentModel('critic', hotConfig.routing)
+      const testerModel = resolveAgentModel('tester', hotConfig.routing)
+      const verifierModel = resolveAgentModel('verifier', hotConfig.routing)
+
+      // Pick the right API key per resolved model: ofox.ai key for external
+      // providers, CF_API_TOKEN for Cloudflare Workers AI REST API.
+      const keyForModel = (m: { provider: string }) => {
+        if (m.provider === 'cloudflare') {
+          if (!cfToken) console.warn('[Stage 6] CF_API_TOKEN not set — Workers AI REST calls will fail')
+          return cfToken
+        }
+        if (!ofoxKey) console.warn(`[Stage 6] OFOX_API_KEY not set — ${m.provider} calls will fail`)
+        return ofoxKey
+      }
 
       // Instantiate reasoning agents for 9-node topology
       // All agents receive pre-fetched context instead of tools (single-turn, no tool calling)
       // ADR-008: models + alias overrides from hot-loaded config
       const architectAgent = new ArchitectAgent({
         db: this.getDb(),
-        apiKey: ofoxKey,
+        apiKey: keyForModel(architectModel),
         dryRun,
-        ai: this.env.AI,
         model: architectModel,
         aliasOverrides: hotConfig.aliases['BriefingScript'],
         contextPrompt,
       })
       const coderAgent = new CoderAgent({
         db: this.getDb(),
-        apiKey: ofoxKey,
+        apiKey: keyForModel(coderModel),
         dryRun,
-        ai: this.env.AI,
         model: coderModel,
         aliasOverrides: hotConfig.aliases['CodeArtifact'],
         contextPrompt,
       })
       const plannerAgent = new PlannerAgent({
         db: this.getDb(),
-        apiKey: ofoxKey,
+        apiKey: keyForModel(plannerModel),
         dryRun,
-        ai: this.env.AI,
         model: plannerModel,
         aliasOverrides: hotConfig.aliases['Plan'],
         contextPrompt,
       })
       const testerAgent = new TesterAgent({
         db: this.getDb(),
-        apiKey: ofoxKey,
+        apiKey: keyForModel(testerModel),
         dryRun,
-        ai: this.env.AI,
         model: testerModel,
         aliasOverrides: hotConfig.aliases['TestReport'],
         contextPrompt,
       })
       const verifierAgent = new VerifierAgent({
         db: this.getDb(),
-        apiKey: ofoxKey,
+        apiKey: keyForModel(verifierModel),
         dryRun,
-        ai: this.env.AI,
         model: verifierModel,
         aliasOverrides: hotConfig.aliases['Verdict'],
         contextPrompt,
       })
       const criticAgent = new CriticAgent({
         db: this.getDb(),
-        apiKey: ofoxKey,
+        apiKey: keyForModel(criticModel),
         dryRun,
-        ai: this.env.AI,
         model: criticModel,
         semanticReviewAliasOverrides: hotConfig.aliases['SemanticReview'],
         codeReviewAliasOverrides: hotConfig.aliases['CritiqueReport'],
