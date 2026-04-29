@@ -89,10 +89,10 @@ export const DEFAULT_CONFIG: RoutingConfig = {
     { kind: 'semantic_review', primary: CF_70B },
     { kind: 'validation', primary: CF_70B },
     { kind: 'runtime_check', primary: CF_70B },
-    // Agent roles — qwen-coder-32b (reliable text tool calls, completed synthesis)
-    { kind: 'planner', primary: CF_CODER },
+    // Agent roles — llama-70b for Architect/Critic/Planner (reasoning), qwen-coder for Coder/Tester/Verifier (code)
+    { kind: 'planner', primary: CF_70B },
     { kind: 'coder', primary: CF_CODER },
-    { kind: 'critic', primary: CF_CODER },
+    { kind: 'critic', primary: CF_70B },
     { kind: 'tester', primary: CF_CODER },
     { kind: 'verifier', primary: CF_CODER },
   ],

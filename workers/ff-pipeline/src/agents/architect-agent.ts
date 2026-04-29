@@ -111,9 +111,6 @@ export class ArchitectAgent {
       }
     }
 
-    const tools: AgentTool[] = []  // No tools — context is pre-fetched
-    const model = this.modelOverride ?? resolveAgentModel('planning', this.apiKey)
-
     const userParts: string[] = [`WorkGraph specification:\n${JSON.stringify(input.signal, null, 2)}`]
     if (input.specContent) {
       userParts.push(`\nOriginal specification content:\n${input.specContent}`)
@@ -123,44 +120,45 @@ export class ArchitectAgent {
     }
     userParts.push(`\nProduce a BriefingScript for this WorkGraph.`)
 
-    const userMessage: UserMessage = {
-      role: 'user',
-      content: userParts.join('\n'),
-      timestamp: Date.now(),
+    const userContent = userParts.join('\n')
+
+    // Direct AI binding call (single-turn, no tools, no agentLoop overhead)
+    const ai = this.ai as { run(model: string, input: Record<string, unknown>): Promise<Record<string, unknown>> } | undefined
+    let rawText: string
+
+    if (ai) {
+      const model = this.modelOverride ?? resolveAgentModel('planning', this.apiKey)
+      const aiResult = await ai.run(model.id, {
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: userContent },
+        ],
+        max_tokens: 4096,
+      } as Record<string, unknown>)
+      const resp = aiResult.response
+      rawText = typeof resp === 'string' ? resp : JSON.stringify(resp)
+    } else {
+      // Fallback: use agentLoop for HTTP-based providers
+      const model = this.modelOverride ?? resolveAgentModel('planning', this.apiKey)
+      const stream = agentLoop(
+        [{ role: 'user', content: userContent, timestamp: Date.now() } as UserMessage],
+        { systemPrompt: SYSTEM_PROMPT, messages: [], tools: [] },
+        { model, convertToLlm: (msgs) => msgs as Message[], getApiKey: async () => this.apiKey, maxTokens: 4096 },
+        AbortSignal.timeout(600_000),
+      )
+      const messages = await stream.result()
+      const lastAssistant = [...messages].reverse().find((m): m is AssistantMessage => m.role === 'assistant')
+      if (!lastAssistant) throw new Error('ArchitectAgent: no assistant response')
+      if (lastAssistant.stopReason === 'error' || lastAssistant.stopReason === 'aborted') {
+        throw new Error(`ArchitectAgent: ${lastAssistant.errorMessage ?? 'unknown error'}`)
+      }
+      const textBlock = lastAssistant.content.find(c => c.type === 'text')
+      rawText = textBlock && textBlock.type === 'text' ? textBlock.text : ''
     }
 
-    const stream = agentLoop(
-      [userMessage],
-      { systemPrompt: SYSTEM_PROMPT, messages: [], tools },
-      {
-        model,
-        convertToLlm: (msgs) => msgs as Message[],
-        getApiKey: async () => this.apiKey,
-        maxTokens: 4096,
-      },
-      AbortSignal.timeout(600_000),
-    )
+    if (!rawText) throw new Error('ArchitectAgent: empty response from model')
 
-    const messages = await stream.result()
-
-    const lastAssistant = [...messages].reverse().find(
-      (m): m is AssistantMessage => m.role === 'assistant',
-    )
-    if (!lastAssistant) {
-      throw new Error('ArchitectAgent: no assistant response from agent loop')
-    }
-
-    // Check for error
-    if (lastAssistant.stopReason === 'error' || lastAssistant.stopReason === 'aborted') {
-      throw new Error(`ArchitectAgent: agent loop failed: ${lastAssistant.errorMessage ?? 'unknown error'}`)
-    }
-
-    const textBlock = lastAssistant.content.find(c => c.type === 'text')
-    if (!textBlock || textBlock.type !== 'text') {
-      throw new Error('ArchitectAgent: final response has no text content')
-    }
-
-    const result = await processAgentOutput(textBlock.text, BRIEFING_SCRIPT_SCHEMA, {
+    const result = await processAgentOutput(rawText, BRIEFING_SCRIPT_SCHEMA, {
       aliasOverrides: this.aliasOverrides,
     })
     if (!result.success) {
