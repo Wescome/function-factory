@@ -103,7 +103,7 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
       } catch (err) {
         console.warn(`[semantic-critic] Failed, auto-passing: ${err instanceof Error ? err.message : err}`)
         review = {
-          alignment: 'aligned',
+          alignment: 'uncertain',
           confidence: 0.5,
           citations: [],
           rationale: 'Auto-passed: semantic review agent could not produce valid output',

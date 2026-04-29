@@ -14,7 +14,7 @@ import type { Model, AssistantMessage, Message, UserMessage } from '@weops/gdk-a
 import type { ArangoClient } from '@factory/arango-client'
 import type { CritiqueReport, Plan, CodeArtifact } from '../coordinator/state'
 import { resolveAgentModel } from './resolve-model'
-import { processAgentOutput, TEST_REPORT_SCHEMA } from './output-reliability'
+import { processAgentOutput, extractAssistantText, TEST_REPORT_SCHEMA } from './output-reliability'
 
 // Re-export TestReport from state so consumers can import from tester-agent
 export type { TestReport } from '../coordinator/state'
@@ -128,6 +128,10 @@ export class TesterAgent {
         convertToLlm: (msgs) => msgs as Message[],
         getApiKey: async () => this.apiKey,
         maxTokens: 4096,
+        onPayload: (payload: unknown) => ({
+          ...(payload as Record<string, unknown>),
+          response_format: { type: 'json_object' },
+        }),
       },
       AbortSignal.timeout(600_000),
     )
@@ -146,12 +150,13 @@ export class TesterAgent {
       throw new Error(`TesterAgent: agent loop failed: ${lastAssistant.errorMessage ?? 'unknown error'}`)
     }
 
-    const textBlock = lastAssistant.content.find(c => c.type === 'text')
-    if (!textBlock || textBlock.type !== 'text') {
-      throw new Error('TesterAgent: final response has no text content')
+    const rawText = extractAssistantText(lastAssistant.content as any)
+    if (!rawText) {
+      const blockTypes = lastAssistant.content.map(c => c.type).join(',')
+      throw new Error(`TesterAgent: empty response (blocks: ${blockTypes || 'none'}, stopReason: ${lastAssistant.stopReason})`)
     }
 
-    const result = await processAgentOutput(textBlock.text, TEST_REPORT_SCHEMA, {
+    const result = await processAgentOutput(rawText, TEST_REPORT_SCHEMA, {
       aliasOverrides: this.aliasOverrides,
     })
     if (!result.success) {

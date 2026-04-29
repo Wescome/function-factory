@@ -259,7 +259,7 @@ export default {
             })
             const totalRetries = atomResults.reduce((sum: number, r: Record<string, unknown>) => sum + (r.retryCount as number ?? 0), 0)
 
-            const passRate = (atomResults.length - failedAtoms.length) / atomResults.length
+            const passRate = atomResults.length > 0 ? (atomResults.length - failedAtoms.length) / atomResults.length : 0
             const verdict = allPassed
               ? { decision: 'pass', confidence: 0.95, reason: `All ${atomResults.length} atoms passed` }
               : passRate >= 0.7

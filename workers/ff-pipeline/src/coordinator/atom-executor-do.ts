@@ -105,13 +105,45 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
       })
     }
 
+    // Pre-flight auth check: verify API key exists for resolved model provider
+    // before burning 600s of DO lifetime on a guaranteed failure
+    if (!payload.dryRun) {
+      const coderModel = resolveAgentModel('coder')
+      const ofoxKey = this.env.OFOX_API_KEY ?? ''
+      const cfToken = this.env.CF_API_TOKEN ?? ''
+      const key = coderModel.provider === 'cloudflare' ? cfToken : ofoxKey
+
+      if (!key) {
+        const failResult: AtomResult = {
+          atomId: payload.atomId,
+          verdict: {
+            decision: 'fail',
+            confidence: 1.0,
+            reason: `Pre-flight auth check failed: no API key for provider "${coderModel.provider}" (need ${coderModel.provider === 'cloudflare' ? 'CF_API_TOKEN' : 'OFOX_API_KEY'})`,
+          },
+          codeArtifact: null,
+          testReport: null,
+          critiqueReport: null,
+          retryCount: 0,
+        }
+
+        await this.ctx.storage.put('atomResult', failResult)
+        await this.ctx.storage.put('__completed', true)
+        await this.publishResult(payload.workGraphId, payload.atomId, failResult, payload.workflowId)
+
+        return new Response(JSON.stringify(failResult), {
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+    }
+
     // Store metadata for alarm handler
     await this.ctx.storage.put('__atomId', payload.atomId)
     await this.ctx.storage.put('__workGraphId', payload.workGraphId)
     await this.ctx.storage.put('__workflowId', payload.workflowId)
     await this.ctx.storage.put('__completed', false)
 
-    // Set 300s alarm
+    // Set 600s alarm
     await this.ctx.storage.setAlarm(Date.now() + 600_000)
 
     // Build the atom slice
