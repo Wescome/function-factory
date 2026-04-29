@@ -3566,3 +3566,4 @@
 {"timestamp":"2026-04-29T00:57:29.090Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/architect-agent.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
 {"timestamp":"2026-04-29T00:57:52.767Z","tool":"Bash","summary":"# Add schema reminder to each agent's user message construction\n# Each agent already has a contextPrompt push — add the ","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
 {"timestamp":"2026-04-29T00:58:08.287Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test 2>&1 | tail -5","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T00:58:28.987Z","tool":"Bash","summary":"git add -A && git commit -m \"$(cat <<'EOF'\nINFRA: add schema reminder at end of user message (BL4 positional attention)\n","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
