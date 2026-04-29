@@ -14,7 +14,7 @@ import type { Model, AssistantMessage, Message, UserMessage } from '@weops/gdk-a
 import type { ArangoClient } from '@factory/arango-client'
 import type { CodeArtifact, Plan, CritiqueReport } from '../coordinator/state'
 import { resolveAgentModel } from './resolve-model'
-import { processAgentOutput, CODE_ARTIFACT_SCHEMA } from './output-reliability'
+import { processAgentOutput, extractAssistantText, CODE_ARTIFACT_SCHEMA } from './output-reliability'
 
 export interface CoderInput {
   workGraph: Record<string, unknown>
@@ -131,6 +131,10 @@ export class CoderAgent {
         convertToLlm: (msgs) => msgs as Message[],
         getApiKey: async () => this.apiKey,
         maxTokens: 4096,
+        onPayload: (payload: unknown) => ({
+          ...(payload as Record<string, unknown>),
+          response_format: { type: 'json_object' },
+        }),
       },
       AbortSignal.timeout(600_000),
     )
@@ -149,12 +153,13 @@ export class CoderAgent {
       throw new Error(`CoderAgent: agent loop failed: ${lastAssistant.errorMessage ?? 'unknown error'}`)
     }
 
-    const textBlock = lastAssistant.content.find(c => c.type === 'text')
-    if (!textBlock || textBlock.type !== 'text') {
-      throw new Error('CoderAgent: final response has no text content')
+    const rawText = extractAssistantText(lastAssistant.content as any)
+    if (!rawText) {
+      const blockTypes = lastAssistant.content.map(c => c.type).join(',')
+      throw new Error(`CoderAgent: empty response (blocks: ${blockTypes || 'none'}, stopReason: ${lastAssistant.stopReason})`)
     }
 
-    const result = await processAgentOutput(textBlock.text, CODE_ARTIFACT_SCHEMA, {
+    const result = await processAgentOutput(rawText, CODE_ARTIFACT_SCHEMA, {
       aliasOverrides: this.aliasOverrides,
     })
     if (!result.success) {

@@ -19,6 +19,19 @@
 import { coerceToString, coerceToArray, coerceToNumber, coerceToBoolean } from './coerce'
 import { detectTextToolCalls } from './workers-ai-stream'
 
+/**
+ * Extract raw text from an assistant message's content blocks.
+ * Prefers text blocks; falls back to thinking blocks (kimi-k2.6 sometimes
+ * puts JSON inside reasoning output and emits no text blocks).
+ */
+export function extractAssistantText(content: Array<{ type: string; text?: string; thinking?: string }>): string {
+  const textBlock = content.find(c => c.type === 'text' && c.text)
+  if (textBlock && 'text' in textBlock) return textBlock.text!
+  const thinkingBlock = content.find(c => c.type === 'thinking' && c.thinking)
+  if (thinkingBlock && 'thinking' in thinkingBlock) return thinkingBlock.thinking!
+  return ''
+}
+
 // ── Types ──────────────────────────────────────────────────────
 
 export interface ORLResult<T> {
@@ -261,10 +274,8 @@ function applyDefaults(
   if (!schema.defaults) return
 
   for (const [field, defaultValue] of Object.entries(schema.defaults)) {
-    if (!(field in data)) continue
     const value = data[field]
-    // Apply default when value is empty string (common LLM output)
-    if (value === '' || value === undefined || value === null) {
+    if (!(field in data) || value === '' || value === undefined || value === null) {
       data[field] = defaultValue
     }
   }
@@ -830,21 +841,26 @@ export const VERDICT_SCHEMA: OutputSchema<Verdict> = {
 function repairJSON(text: string): string {
   let s = text
 
-  // Fix missing quotes after string values before commas/colons
-  // Pattern: "value,nextKey" → "value","nextKey"
+  // Fix dropped value-close + key-open quotes at field boundaries.
+  // Model produces: value,nextKey":  (both quotes dropped)
+  // Should be:      value","nextKey":
+  // Must run BEFORE the unquoted-key fixer to avoid double-quoting.
+  s = s.replace(/([a-zA-Z0-9_.!?)}\]])\s*,\s*([a-zA-Z_][a-zA-Z0-9_]*)"\s*:/g, '$1","$2":')
+
+  // Fix missing key-open quote only (value-close quote present).
+  // Model produces: "value",nextKey":
+  // Should be:      "value","nextKey":
   s = s.replace(/([^\\])"([,])\s*([a-zA-Z_])/g, '$1"$2"$3')
 
-  // Fix missing quotes before colons in keys
-  // Pattern: key": → "key":
+  // Fix missing quotes before colons in keys.
+  // Model produces: {key: or ,key:
+  // Should be:      {"key": or ,"key":
   s = s.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":')
 
-  // Fix unquoted string values (not arrays, objects, numbers, bools, null)
-  // This is aggressive — only apply if JSON still doesn't parse
-  
-  // Fix missing closing quotes in arrays
-  // Pattern: ["item1","item2] → ["item1","item2"]
+  // Fix missing closing quotes in arrays.
+  // Model produces: ["item1","item2]
+  // Should be:      ["item1","item2"]
   s = s.replace(/\[([^\]]*[^"\s])\]/g, (match, inner) => {
-    // Check if last item is missing closing quote
     const lastQuote = inner.lastIndexOf('"')
     const lastComma = inner.lastIndexOf(',')
     if (lastQuote > lastComma && inner.length > lastQuote + 1) {

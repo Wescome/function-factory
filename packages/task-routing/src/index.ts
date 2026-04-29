@@ -73,30 +73,31 @@ export interface ResolvedRoute {
 // ── Workers AI models ──
 
 const CF_70B: RouteTarget = { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' }
+const CF_KIMI_K26: RouteTarget = { provider: 'cloudflare', model: '@cf/moonshotai/kimi-k2.6' }
 const DEEPSEEK_PRO: RouteTarget = { provider: 'deepseek', model: 'deepseek-v4-pro' }
 const GEMINI_PRO: RouteTarget = { provider: 'google', model: 'gemini-3.1-pro-preview' }
 
 // ── Default config ──
-// Pipeline stages (1-5): Workers AI llama-70b (zero cost, best structural output)
-// Agent roles (Stage 6): ofox.ai providers (quality-critical, proven JSON output)
+// Pipeline stages (1-5): Workers AI llama-70b (zero cost)
+// Agent roles (Stage 6): Workers AI kimi-k2.6 (agent-first, single auth, CF billing)
+//   deepseek-v4-pro: BL6 training inertia — produces function-call JSON for every schema
 
 export const DEFAULT_CONFIG: RoutingConfig = {
   routes: [
-    // Pipeline stages — Workers AI (zero cost)
+    // Pipeline stages (1-5): llama-70b via env.AI.run() binding (zero cost, proven)
     { kind: 'planning', primary: CF_70B },
     { kind: 'structured', primary: CF_70B },
     { kind: 'interpretive', primary: CF_70B },
     { kind: 'synthesis', primary: CF_70B },
     { kind: 'validation', primary: CF_70B },
     { kind: 'runtime_check', primary: CF_70B },
-    // Semantic review — Workers AI (pipeline stage, not agent — same model as pipeline)
     { kind: 'semantic_review', primary: CF_70B },
-    // Agent roles — ofox.ai (quality-critical, reliable schema JSON)
-    { kind: 'planner', primary: DEEPSEEK_PRO },
-    { kind: 'coder', primary: DEEPSEEK_PRO },
-    { kind: 'critic', primary: DEEPSEEK_PRO },
-    { kind: 'tester', primary: DEEPSEEK_PRO },
-    { kind: 'verifier', primary: GEMINI_PRO },
+    // Agent roles (Stage 6): kimi-k2.6 via REST API (agent-first, proven 3/5 atoms)
+    { kind: 'planner', primary: CF_KIMI_K26 },
+    { kind: 'coder', primary: CF_KIMI_K26 },
+    { kind: 'critic', primary: CF_KIMI_K26 },
+    { kind: 'tester', primary: CF_KIMI_K26 },
+    { kind: 'verifier', primary: CF_KIMI_K26 },
   ],
   default: CF_70B,
 }

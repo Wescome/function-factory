@@ -13,7 +13,7 @@ import type { AgentTool } from '@weops/gdk-agent'
 import { Type, type Model, type AssistantMessage, type Message, type UserMessage } from '@weops/gdk-ai'
 import type { ArangoClient } from '@factory/arango-client'
 import { resolveAgentModel } from './resolve-model'
-import { processAgentOutput, BRIEFING_SCRIPT_SCHEMA } from './output-reliability'
+import { processAgentOutput, extractAssistantText, BRIEFING_SCRIPT_SCHEMA } from './output-reliability'
 
 export interface BriefingScript {
   goal: string
@@ -122,12 +122,19 @@ export class ArchitectAgent {
 
     const model = this.modelOverride ?? resolveAgentModel('planning')
 
-    // All models go through agentLoop HTTP (OpenAI-compatible endpoint).
-    // Workers AI REST and ofox.ai both use the same openai-completions protocol.
     const stream = agentLoop(
       [{ role: 'user', content: userContent, timestamp: Date.now() } as UserMessage],
       { systemPrompt: SYSTEM_PROMPT, messages: [] },
-      { model, convertToLlm: (msgs) => msgs as Message[], getApiKey: async () => this.apiKey, maxTokens: 8192 },
+      {
+        model,
+        convertToLlm: (msgs) => msgs as Message[],
+        getApiKey: async () => this.apiKey,
+        maxTokens: 8192,
+        onPayload: (payload: unknown) => ({
+          ...(payload as Record<string, unknown>),
+          response_format: { type: 'json_object' },
+        }),
+      },
       AbortSignal.timeout(600_000),
     )
     const messages = await stream.result()
@@ -136,10 +143,11 @@ export class ArchitectAgent {
     if (lastAssistant.stopReason === 'error' || lastAssistant.stopReason === 'aborted') {
       throw new Error(`ArchitectAgent: ${lastAssistant.errorMessage ?? 'unknown error'}`)
     }
-    const textBlock = lastAssistant.content.find(c => c.type === 'text')
-    const rawText = textBlock && textBlock.type === 'text' ? textBlock.text : ''
-
-    if (!rawText) throw new Error('ArchitectAgent: empty response from model')
+    const rawText = extractAssistantText(lastAssistant.content as any)
+    if (!rawText) {
+      const blockTypes = lastAssistant.content.map(c => c.type).join(',')
+      throw new Error(`ArchitectAgent: empty response (blocks: ${blockTypes || 'none'}, stopReason: ${lastAssistant.stopReason})`)
+    }
 
     const result = await processAgentOutput(rawText, BRIEFING_SCRIPT_SCHEMA, {
       aliasOverrides: this.aliasOverrides,

@@ -102,7 +102,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     if (approvalPayload?.decision !== 'approved') {
       await step.do('persist-rejection', async () => {
         await db.save('specs_coverage_reports', {
-          _key: `CR-REJECT-${signalKey}`,
+          _key: `CR-REJECT-${signalKey}-${Date.now().toString(36)}`,
           type: 'architect-rejection',
           passed: false,
           signalId: signalKey,
@@ -191,7 +191,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     if (!gate1.passed) {
       await step.do('persist-gate1-failure', async () => {
         await db.save('specs_coverage_reports', {
-          _key: `CR-G1-${wgKey}`,
+          _key: `CR-G1-${wgKey}-${Date.now().toString(36)}`,
           type: 'gate-1',
           passed: gate1.passed,
           summary: gate1.summary,
@@ -200,7 +200,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
           timestamp: gate1.timestamp,
         })
         await db.save('gate_status', {
-          _key: `gate:1:${wgKey}`,
+          _key: `gate:1:${wgKey}-${Date.now().toString(36)}`,
           passed: false,
           report: gate1,
           timestamp: new Date().toISOString(),
@@ -217,13 +217,13 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     // ── Persist gate pass ──
     await step.do('persist-gate1-pass', async () => {
       await db.save('gate_status', {
-        _key: `gate:1:${wgKey}`,
+        _key: `gate:1:${wgKey}-${Date.now().toString(36)}`,
         passed: true,
         report: gate1,
         timestamp: new Date().toISOString(),
       })
       await db.save('specs_coverage_reports', {
-        _key: `CR-G1-${wgKey}`,
+        _key: `CR-G1-${wgKey}-${Date.now().toString(36)}`,
         type: 'gate-1',
         passed: gate1.passed,
         summary: gate1.summary,

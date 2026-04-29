@@ -104,17 +104,19 @@ describe('PlannerAgent', () => {
       }), PLAN_SCHEMA)
       expect(r2.success).toBe(false)
 
-      // Missing executorRecommendation
+      // Missing executorRecommendation — defaults fill it
       const r3 = await processAgentOutput(JSON.stringify({
         approach: 'test', atoms: [], estimatedComplexity: 'low',
       }), PLAN_SCHEMA)
-      expect(r3.success).toBe(false)
+      expect(r3.success).toBe(true)
+      expect(r3.data!.executorRecommendation).toBe('gdk-agent')
 
-      // Missing estimatedComplexity
+      // Missing estimatedComplexity — defaults fill it
       const r4 = await processAgentOutput(JSON.stringify({
         approach: 'test', atoms: [], executorRecommendation: 'gdk-agent',
       }), PLAN_SCHEMA)
-      expect(r4.success).toBe(false)
+      expect(r4.success).toBe(true)
+      expect(r4.data!.estimatedComplexity).toBe('medium')
     })
 
     it('coerces wrong types instead of rejecting', async () => {

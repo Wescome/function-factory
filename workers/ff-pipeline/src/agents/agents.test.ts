@@ -135,6 +135,7 @@ describe('CriticAgent.semanticReview', () => {
         apiKey: 'faux-key',
         dryRun: false,
         model: fauxModel,
+        semanticReviewModel: fauxModel,
       })
 
       const result = await agent.semanticReview({
@@ -158,6 +159,7 @@ describe('CriticAgent.semanticReview', () => {
         apiKey: 'faux-key',
         dryRun: false,
         model: fauxModel,
+        semanticReviewModel: fauxModel,
       })
 
       // Just verify it doesn't throw -- specContent is included in the prompt

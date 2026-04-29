@@ -272,8 +272,8 @@ describe('v5.1: AtomExecutor DO', () => {
 
     expect(ctx.storage.setAlarm).toHaveBeenCalledOnce()
     const alarmTime = ctx.storage.setAlarm.mock.calls[0]![0] as number
-    // Should be approximately 300s from now
-    const expectedTime = Date.now() + 300_000
+    // Should be approximately 600s from now
+    const expectedTime = Date.now() + 600_000
     expect(Math.abs(alarmTime - expectedTime)).toBeLessThan(5_000)
   })
 

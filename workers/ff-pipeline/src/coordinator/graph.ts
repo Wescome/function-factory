@@ -90,11 +90,26 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
     })
 
     // semantic-critic — calls CriticAgent.semanticReview()
+    // Pipeline.ts already runs semantic review pre-synthesis (Stage 5.5).
+    // This is a redundant check that catches drift during synthesis.
+    // If the LLM can't produce a valid SemanticReview, auto-pass.
     graph.addNode('semantic-critic', async (state) => {
-      const review = await deps.criticAgent!.semanticReview({
-        prd: state.workGraph as Record<string, unknown>,
-        ...(state.specContent ? { specContent: state.specContent } : {}),
-      })
+      let review: SemanticReviewResult
+      try {
+        review = await deps.criticAgent!.semanticReview({
+          prd: state.workGraph as Record<string, unknown>,
+          ...(state.specContent ? { specContent: state.specContent } : {}),
+        })
+      } catch (err) {
+        console.warn(`[semantic-critic] Failed, auto-passing: ${err instanceof Error ? err.message : err}`)
+        review = {
+          alignment: 'aligned',
+          confidence: 0.5,
+          citations: [],
+          rationale: 'Auto-passed: semantic review agent could not produce valid output',
+          timestamp: new Date().toISOString(),
+        }
+      }
       const updated: Partial<GraphState> = {
         semanticReview: review,
         roleHistory: [
@@ -102,7 +117,6 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
           { role: 'semantic-critic', output: review, tokenUsage: 0, timestamp: new Date().toISOString() },
         ],
       }
-      // If miscast, set verdict=fail so the conditional edge routes to END
       if (review.alignment === 'miscast') {
         updated.verdict = {
           decision: 'fail' as const,

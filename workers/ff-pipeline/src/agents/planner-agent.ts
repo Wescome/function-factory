@@ -12,7 +12,7 @@ import type { Model, AssistantMessage, Message, UserMessage } from '@weops/gdk-a
 import type { ArangoClient } from '@factory/arango-client'
 import { resolveAgentModel } from './resolve-model'
 import type { Plan } from '../coordinator/state'
-import { processAgentOutput, PLAN_SCHEMA } from './output-reliability'
+import { processAgentOutput, extractAssistantText, PLAN_SCHEMA } from './output-reliability'
 
 export interface PlannerInput {
   workGraph: Record<string, unknown>
@@ -121,6 +121,10 @@ export class PlannerAgent {
         convertToLlm: (msgs) => msgs as Message[],
         getApiKey: async () => this.apiKey,
         maxTokens: 4096,
+        onPayload: (payload: unknown) => ({
+          ...(payload as Record<string, unknown>),
+          response_format: { type: 'json_object' },
+        }),
       },
       AbortSignal.timeout(600_000),
     )
@@ -138,12 +142,13 @@ export class PlannerAgent {
       throw new Error(`PlannerAgent: agent loop failed: ${lastAssistant.errorMessage ?? 'unknown error'}`)
     }
 
-    const textBlock = lastAssistant.content.find(c => c.type === 'text')
-    if (!textBlock || textBlock.type !== 'text') {
-      throw new Error('PlannerAgent: final response has no text content')
+    const rawText = extractAssistantText(lastAssistant.content as any)
+    if (!rawText) {
+      const blockTypes = lastAssistant.content.map(c => c.type).join(',')
+      throw new Error(`PlannerAgent: empty response (blocks: ${blockTypes || 'none'}, stopReason: ${lastAssistant.stopReason})`)
     }
 
-    const result = await processAgentOutput(textBlock.text, PLAN_SCHEMA, {
+    const result = await processAgentOutput(rawText, PLAN_SCHEMA, {
       aliasOverrides: this.aliasOverrides,
     })
     if (!result.success) {

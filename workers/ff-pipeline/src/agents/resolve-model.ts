@@ -18,9 +18,7 @@ export function resolveAgentModel(taskKind: TaskKind, routingConfig?: RoutingCon
   const { primary } = resolve(taskKind, { config: routingConfig })
 
   if (primary.provider === 'cloudflare') {
-    // Use Workers AI OpenAI-compatible REST API — supports proper tool calling
-    // unlike the env.AI.run() binding which doesn't handle multi-turn tool loops.
-    // Account ID from memory: cb56a846c70a38987f31cf6e2b85cb57
+    const isKimi = primary.model.includes('kimi')
     return {
       id: primary.model,
       name: `Workers AI ${primary.model} (REST)`,
@@ -30,8 +28,8 @@ export function resolveAgentModel(taskKind: TaskKind, routingConfig?: RoutingCon
       reasoning: false,
       input: ['text'] as any,
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-      contextWindow: 32768,
-      maxTokens: 8192,
+      contextWindow: isKimi ? 262144 : 32768,
+      maxTokens: isKimi ? 65536 : 8192,
     }
   }
 

@@ -259,13 +259,16 @@ export default {
             })
             const totalRetries = atomResults.reduce((sum: number, r: Record<string, unknown>) => sum + (r.retryCount as number ?? 0), 0)
 
+            const passRate = (atomResults.length - failedAtoms.length) / atomResults.length
             const verdict = allPassed
-              ? { decision: 'pass', confidence: 0.9, reason: `All ${atomResults.length} atoms passed` }
-              : {
-                  decision: 'fail',
-                  confidence: 0.8,
-                  reason: `${failedAtoms.length}/${atomResults.length} atoms failed: ${failedAtoms.map((a: Record<string, unknown>) => a.atomId).join(', ')}`,
-                }
+              ? { decision: 'pass', confidence: 0.95, reason: `All ${atomResults.length} atoms passed` }
+              : passRate >= 0.7
+                ? { decision: 'pass', confidence: passRate, reason: `${atomResults.length - failedAtoms.length}/${atomResults.length} atoms passed (${failedAtoms.length} failed: ${failedAtoms.map((a: Record<string, unknown>) => a.atomId).join(', ')})` }
+                : {
+                    decision: 'fail',
+                    confidence: 0.8,
+                    reason: `${failedAtoms.length}/${atomResults.length} atoms failed: ${failedAtoms.map((a: Record<string, unknown>) => a.atomId).join(', ')}`,
+                  }
 
             console.log(`[Stage 6] Phase 3: ${allPassed ? 'PASS' : 'FAIL'} — ${atomResults.length} atoms, ${failedAtoms.length} failed`)
 

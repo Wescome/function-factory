@@ -101,7 +101,7 @@ export async function semanticReview(
 
   const userMessage = JSON.stringify(userPayload)
 
-  const result = await callModel('critic', systemPrompt, userMessage, env)
+  const result = await callModel('semantic_review', systemPrompt, userMessage, env)
   const parsed = JSON.parse(result)
 
   const review: SemanticReviewResult = {
@@ -113,7 +113,7 @@ export async function semanticReview(
   }
 
   await db.save('specs_coverage_reports', {
-    _key: `CR-SR-${proposal._key}`,
+    _key: `CR-SR-${proposal._key}-${Date.now().toString(36)}`,
     type: 'semantic-review',
     passed: review.alignment === 'aligned',
     proposalId: proposal._key,

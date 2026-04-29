@@ -99,17 +99,20 @@ describe('VerifierAgent', () => {
 
   describe('validation (via ORL)', () => {
     it('rejects missing required fields', async () => {
+      // Missing decision — defaults fill it to 'interrupt'
       const r1 = await processAgentOutput(JSON.stringify({
         confidence: 0.9, reason: 'ok',
       }), VERDICT_SCHEMA)
-      expect(r1.success).toBe(false)
-      expect(r1.failureMode).toBe('F3')
+      expect(r1.success).toBe(true)
+      expect(r1.data!.decision).toBe('interrupt')
 
+      // Missing confidence — no default, fails
       const r2 = await processAgentOutput(JSON.stringify({
         decision: 'pass', reason: 'ok',
       }), VERDICT_SCHEMA)
       expect(r2.success).toBe(false)
 
+      // Missing reason — no default, fails
       const r3 = await processAgentOutput(JSON.stringify({
         decision: 'pass', confidence: 0.9,
       }), VERDICT_SCHEMA)

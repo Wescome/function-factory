@@ -223,16 +223,18 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       const agentContext = await prefetchAgentContext(this.getDb())
       const contextPrompt = formatContextForPrompt(agentContext)
 
-      // Resolve models centrally from hot-loaded routing config
-      // ofox.ai agents use OFOX_API_KEY; Workers AI agents would use CF_API_TOKEN
+      // Resolve models from package defaults (not ArangoDB hot-config).
+      // ArangoDB config_routing was seeded with stale deepseek-v4-pro routing.
+      // TODO: re-enable hot-loaded routing after seeding kimi-k2.6 config
       const ofoxKey = this.env.OFOX_API_KEY ?? ''
       const cfToken = this.env.CF_API_TOKEN ?? ''
-      const architectModel = resolveAgentModel('semantic_review', hotConfig.routing)
-      const plannerModel = resolveAgentModel('planner', hotConfig.routing)
-      const coderModel = resolveAgentModel('coder', hotConfig.routing)
-      const criticModel = resolveAgentModel('critic', hotConfig.routing)
-      const testerModel = resolveAgentModel('tester', hotConfig.routing)
-      const verifierModel = resolveAgentModel('verifier', hotConfig.routing)
+      const architectModel = resolveAgentModel('planning')
+      const plannerModel = resolveAgentModel('planner')
+      const coderModel = resolveAgentModel('coder')
+      const criticModel = resolveAgentModel('critic')
+      const semanticReviewModel = resolveAgentModel('semantic_review')
+      const testerModel = resolveAgentModel('tester')
+      const verifierModel = resolveAgentModel('verifier')
 
       // Pick the right API key per resolved model: ofox.ai key for external
       // providers, CF_API_TOKEN for Cloudflare Workers AI REST API.
@@ -293,6 +295,8 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         apiKey: keyForModel(criticModel),
         dryRun,
         model: criticModel,
+        semanticReviewModel,
+        semanticReviewApiKey: keyForModel(semanticReviewModel),
         semanticReviewAliasOverrides: hotConfig.aliases['SemanticReview'],
         codeReviewAliasOverrides: hotConfig.aliases['CritiqueReport'],
         contextPrompt,

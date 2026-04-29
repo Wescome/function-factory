@@ -107,10 +107,11 @@ describe('hot-config: synthesize() uses hot config', () => {
     expect(coordinatorSrc).toMatch(/this\.getConfigLoader\(\)\.get\(\)/)
   })
 
-  it('uses resolveAgentModel with hotConfig.routing', () => {
-    // The coordinator resolves models centrally with hot routing
+  it('uses resolveAgentModel for all agent roles', () => {
     expect(coordinatorSrc).toMatch(/resolveAgentModel\(/)
-    expect(coordinatorSrc).toMatch(/hotConfig\.routing/)
+    expect(coordinatorSrc).toMatch(/resolveAgentModel\('planner'\)/)
+    expect(coordinatorSrc).toMatch(/resolveAgentModel\('coder'\)/)
+    expect(coordinatorSrc).toMatch(/resolveAgentModel\('critic'\)/)
   })
 })
 

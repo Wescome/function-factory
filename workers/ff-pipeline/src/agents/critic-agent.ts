@@ -11,7 +11,7 @@ import type { AgentTool } from '@weops/gdk-agent'
 import type { Model, AssistantMessage, Message, UserMessage } from '@weops/gdk-ai'
 import type { ArangoClient } from '@factory/arango-client'
 import { resolveAgentModel } from './resolve-model'
-import { processAgentOutput, SEMANTIC_REVIEW_SCHEMA, CRITIQUE_REPORT_SCHEMA } from './output-reliability'
+import { processAgentOutput, extractAssistantText, SEMANTIC_REVIEW_SCHEMA, CRITIQUE_REPORT_SCHEMA } from './output-reliability'
 
 import type { SemanticReviewResult } from '../types.js'
 import type { CritiqueReport, Plan, CodeArtifact } from '../coordinator/state.js'
@@ -32,8 +32,11 @@ export interface CriticAgentOpts {
   db: ArangoClient
   apiKey: string
   dryRun?: boolean
-  /** Override model for testing (e.g. faux provider) */
+  /** Override model for code review (e.g. faux provider) */
   model?: Model<any>
+  /** Override model + key for semantic review (defaults to semantic_review route) */
+  semanticReviewModel?: Model<any>
+  semanticReviewApiKey?: string
   /** ADR-008: Hot-reloadable alias overrides for SemanticReview schema */
   semanticReviewAliasOverrides?: Record<string, string[]>
   /** ADR-008: Hot-reloadable alias overrides for CritiqueReport schema */
@@ -73,10 +76,20 @@ When ready, respond with ONLY a JSON object (no markdown fences, no explanation)
   "overallAssessment": "summary of the review"
 }`
 
-// ── Model factory ───────────────────────────────────────────
+// ── Helpers ─────────────────────────────────────────────────
 
-
-// JSON extraction + validation now handled by ORL (output-reliability.ts)
+function summarizePrdForReview(prd: Record<string, unknown>): string {
+  const parts: string[] = []
+  if (prd.title) parts.push(`Title: ${prd.title}`)
+  if (prd.description) parts.push(`Description: ${prd.description}`)
+  const ac = prd.acceptanceCriteria ?? prd.acceptance_criteria ?? prd.successCriteria
+  if (Array.isArray(ac)) parts.push(`Acceptance Criteria:\n${ac.map((c: unknown, i: number) => `  ${i + 1}. ${c}`).join('\n')}`)
+  if (prd.atoms && Array.isArray(prd.atoms)) {
+    const atomTitles = (prd.atoms as Record<string, unknown>[]).map((a) => a.title ?? a.id).filter(Boolean)
+    if (atomTitles.length > 0) parts.push(`Atoms: ${atomTitles.join(', ')}`)
+  }
+  return parts.length > 0 ? parts.join('\n') : JSON.stringify(prd).slice(0, 500)
+}
 
 // ── CriticAgent class ───────────────────────────────────────
 
@@ -85,6 +98,8 @@ export class CriticAgent {
   private apiKey: string
   private dryRun: boolean
   private modelOverride?: Model<any>
+  private semanticReviewModel?: Model<any>
+  private semanticReviewApiKey?: string
   private semanticReviewAliasOverrides?: Record<string, string[]>
   private codeReviewAliasOverrides?: Record<string, string[]>
   private contextPrompt?: string
@@ -94,6 +109,8 @@ export class CriticAgent {
     this.apiKey = opts.apiKey
     this.dryRun = opts.dryRun ?? false
     this.modelOverride = opts.model
+    this.semanticReviewModel = opts.semanticReviewModel
+    this.semanticReviewApiKey = opts.semanticReviewApiKey
     this.semanticReviewAliasOverrides = opts.semanticReviewAliasOverrides
     this.codeReviewAliasOverrides = opts.codeReviewAliasOverrides
     this.contextPrompt = opts.contextPrompt
@@ -113,15 +130,18 @@ export class CriticAgent {
     }
 
     const tools: AgentTool[] = []  // No tools — context is pre-fetched
-    const model = this.modelOverride ?? resolveAgentModel('semantic_review')
+    const model = this.semanticReviewModel ?? resolveAgentModel('semantic_review')
+    const apiKey = this.semanticReviewApiKey ?? this.apiKey
 
-    const userParts: string[] = [`PRD:\n${JSON.stringify(input.prd, null, 2)}`]
+    // BL1 mitigation: only send the fields the semantic reviewer needs.
+    // Sending the full PRD/WorkGraph causes the model to echo the input
+    // back as a function-call structure, exceeding the output token budget.
+    const prdSummary = summarizePrdForReview(input.prd)
+    const userParts: string[] = [`PRD summary:\n${prdSummary}`]
     if (input.specContent) {
       userParts.push(`\nSpecification:\n${input.specContent}`)
     }
-    // Semantic review: skip pre-fetched context — only needs PRD + specContent for alignment check.
-    // Full context would exceed context window and cause F2 truncation (BL1).
-    userParts.push('\nProduce a SemanticReview. Start your response with {"alignment":')
+    userParts.push('\nRespond with ONLY a JSON object. Do NOT wrap it in a function call.')
 
     const userMessage: UserMessage = {
       role: 'user',
@@ -135,8 +155,12 @@ export class CriticAgent {
       {
         model,
         convertToLlm: (msgs) => msgs as Message[],
-        getApiKey: async () => this.apiKey,
+        getApiKey: async () => apiKey,
         maxTokens: 4096,
+        onPayload: (payload: unknown) => ({
+          ...(payload as Record<string, unknown>),
+          response_format: { type: 'json_object' },
+        }),
       },
       AbortSignal.timeout(600_000),
     )
@@ -154,16 +178,17 @@ export class CriticAgent {
       throw new Error(`CriticAgent.semanticReview: agent loop failed: ${lastAssistant.errorMessage ?? 'unknown error'}`)
     }
 
-    const textBlock = lastAssistant.content.find(c => c.type === 'text')
-    if (!textBlock || textBlock.type !== 'text') {
-      throw new Error('CriticAgent.semanticReview: final response has no text content')
+    const rawText = extractAssistantText(lastAssistant.content as any)
+    if (!rawText) {
+      const blockTypes = lastAssistant.content.map(c => c.type).join(',')
+      throw new Error(`CriticAgent.semanticReview: empty response (blocks: ${blockTypes || 'none'}, stopReason: ${lastAssistant.stopReason})`)
     }
 
-    const result = await processAgentOutput(textBlock.text, SEMANTIC_REVIEW_SCHEMA, {
+    const result = await processAgentOutput(rawText, SEMANTIC_REVIEW_SCHEMA, {
       aliasOverrides: this.semanticReviewAliasOverrides,
     })
     if (!result.success) {
-      throw new Error(`CriticAgent.semanticReview: ${result.failureMode}: could not produce valid SemanticReview`)
+      throw new Error(`CriticAgent.semanticReview: ${result.failureMode}: could not produce valid SemanticReview. Response: ${result.rawResponse.slice(0, 500)}`)
     }
     return result.data!
   }
@@ -211,6 +236,10 @@ export class CriticAgent {
         convertToLlm: (msgs) => msgs as Message[],
         getApiKey: async () => this.apiKey,
         maxTokens: 4096,
+        onPayload: (payload: unknown) => ({
+          ...(payload as Record<string, unknown>),
+          response_format: { type: 'json_object' },
+        }),
       },
       AbortSignal.timeout(600_000),
     )
@@ -228,12 +257,13 @@ export class CriticAgent {
       throw new Error(`CriticAgent.codeReview: agent loop failed: ${lastAssistant.errorMessage ?? 'unknown error'}`)
     }
 
-    const textBlock = lastAssistant.content.find(c => c.type === 'text')
-    if (!textBlock || textBlock.type !== 'text') {
-      throw new Error('CriticAgent.codeReview: final response has no text content')
+    const rawText = extractAssistantText(lastAssistant.content as any)
+    if (!rawText) {
+      const blockTypes = lastAssistant.content.map(c => c.type).join(',')
+      throw new Error(`CriticAgent.codeReview: empty response (blocks: ${blockTypes || 'none'}, stopReason: ${lastAssistant.stopReason})`)
     }
 
-    const result = await processAgentOutput(textBlock.text, CRITIQUE_REPORT_SCHEMA, {
+    const result = await processAgentOutput(rawText, CRITIQUE_REPORT_SCHEMA, {
       aliasOverrides: this.codeReviewAliasOverrides,
     })
     if (!result.success) {

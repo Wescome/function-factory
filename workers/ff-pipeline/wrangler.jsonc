@@ -70,5 +70,5 @@
 
   // Secrets (set via `wrangler secret put`):
   //   ARANGO_URL, ARANGO_DATABASE, ARANGO_JWT
-  //   OFOX_API_KEY
+  //   OFOX_API_KEY, CF_API_TOKEN
 }

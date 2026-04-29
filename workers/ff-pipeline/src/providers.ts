@@ -13,18 +13,21 @@ export async function callProvider(
   user: string,
   env: ProviderEnv,
 ): Promise<string> {
-  // Workers AI path: bypass ofox.ai entirely
+  // Workers AI path: uses env.AI binding for pipeline stages (1-5)
   if (target.provider === 'cloudflare') {
-    if (!env.AI) throw new Error('Workers AI fallback unavailable — configure ai binding in wrangler.jsonc or remove cloudflare from task-routing fallbacks')
+    if (!env.AI) throw new Error('Workers AI binding unavailable — configure ai binding in wrangler.jsonc')
     const result = await env.AI.run(target.model, {
       messages: [
         { role: 'system', content: system + '\n\nIMPORTANT: Respond ONLY with valid JSON. No prose, no markdown, no explanation.' },
         { role: 'user', content: user },
       ],
-      max_tokens: 2048,
+      max_tokens: 4096,
       response_format: { type: 'json_object' },
     } as Record<string, unknown>)
-    const resp = result.response
+    const resp = (result as Record<string, unknown>)?.response
+    if (resp === undefined || resp === null) {
+      throw new Error(`Workers AI ${target.model}: empty response`)
+    }
     const raw = typeof resp === 'string' ? resp : JSON.stringify(resp)
     return extractJSON(raw)
   }

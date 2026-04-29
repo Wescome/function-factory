@@ -3,12 +3,12 @@
  *
  * Each atom gets its own DO instance, solving the coordinator eviction problem:
  * the coordinator exits after dispatching atoms to the queue, and each
- * AtomExecutor DO runs independently for up to 300s.
+ * AtomExecutor DO runs independently for up to 600s.
  *
  * The DO:
  * - Receives atom spec + sharedContext via POST /execute-atom
  * - Checks idempotency (cached result returned on re-call)
- * - Sets 300s alarm
+ * - Sets 600s alarm
  * - Runs executeAtomSlice() (reuses existing function)
  * - Stores result in DO storage
  * - Publishes to ATOM_RESULTS queue
@@ -18,6 +18,7 @@
 import { Agent } from 'agents'
 import { executeAtomSlice, type AtomSlice, type AtomResult } from './atom-executor.js'
 import { createClientFromEnv } from '@factory/arango-client'
+import { resolveAgentModel } from '../agents/resolve-model.js'
 
 // ────────────────────────────────────────────────────────────
 // Types
@@ -30,6 +31,7 @@ export interface AtomExecutorEnv {
   ARANGO_USERNAME?: string
   ARANGO_PASSWORD?: string
   OFOX_API_KEY?: string
+  CF_API_TOKEN?: string
   ATOM_RESULTS?: { send(body: unknown): Promise<void> }
 }
 
@@ -77,7 +79,7 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
       verdict: {
         decision: 'fail',
         confidence: 1.0,
-        reason: `AtomExecutor alarm: atom ${atomId} exceeded 300s wall-clock deadline`,
+        reason: `AtomExecutor alarm: atom ${atomId} exceeded 600s wall-clock deadline`,
       },
       codeArtifact: null,
       testReport: null,
@@ -110,7 +112,7 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
     await this.ctx.storage.put('__completed', false)
 
     // Set 300s alarm
-    await this.ctx.storage.setAlarm(Date.now() + 300_000)
+    await this.ctx.storage.setAlarm(Date.now() + 600_000)
 
     // Build the atom slice
     const slice: AtomSlice = {
@@ -179,9 +181,25 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
    * minimal deps that match the interface.
    */
   private buildAtomDeps(dryRun: boolean) {
-    // Import agent types lazily to avoid circular deps in the DO
-    // In production, agents are instantiated from env.OFOX_API_KEY
-    // For dry-run mode, return stubs
+    // Provider-aware API key selection — matches coordinator.ts pattern.
+    // Workers AI (cloudflare provider) needs CF_API_TOKEN; external providers need OFOX_API_KEY.
+    const ofoxKey = this.env.OFOX_API_KEY ?? ''
+    const cfToken = this.env.CF_API_TOKEN ?? ''
+    const keyForModel = (m: { provider: string }) => {
+      if (m.provider === 'cloudflare') {
+        if (!cfToken) console.warn('[AtomExecutor] CF_API_TOKEN not set — Workers AI REST calls will fail')
+        return cfToken
+      }
+      if (!ofoxKey) console.warn(`[AtomExecutor] OFOX_API_KEY not set — ${m.provider} calls will fail`)
+      return ofoxKey
+    }
+
+    // Resolve models from task-routing config (same source as coordinator)
+    const coderModel = resolveAgentModel('coder')
+    const criticModel = resolveAgentModel('critic')
+    const testerModel = resolveAgentModel('tester')
+    const verifierModel = resolveAgentModel('verifier')
+
     return {
       coderAgent: {
         produceCode: async (_input: Record<string, unknown>) => {
@@ -192,10 +210,10 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
               testsIncluded: false,
             }
           }
-          // Real agent: instantiate from env
+          // Real agent: instantiate with resolved model + provider-aware key
           const { CoderAgent } = await import('../agents/coder-agent.js')
           const db = createClientFromEnv(this.env)
-          const agent = new CoderAgent({ db, apiKey: this.env.OFOX_API_KEY ?? '', dryRun: false })
+          const agent = new CoderAgent({ db, apiKey: keyForModel(coderModel), model: coderModel, dryRun: false })
           return agent.produceCode(_input as never)
         },
       },
@@ -211,7 +229,7 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
           }
           const { CriticAgent } = await import('../agents/critic-agent.js')
           const db = createClientFromEnv(this.env)
-          const agent = new CriticAgent({ db, apiKey: this.env.OFOX_API_KEY ?? '', dryRun: false })
+          const agent = new CriticAgent({ db, apiKey: keyForModel(criticModel), model: criticModel, dryRun: false })
           return agent.codeReview(_input as never)
         },
       },
@@ -229,7 +247,7 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
           }
           const { TesterAgent } = await import('../agents/tester-agent.js')
           const db = createClientFromEnv(this.env)
-          const agent = new TesterAgent({ db, apiKey: this.env.OFOX_API_KEY ?? '', dryRun: false })
+          const agent = new TesterAgent({ db, apiKey: keyForModel(testerModel), model: testerModel, dryRun: false })
           return agent.runTests(_input as never)
         },
       },
@@ -244,7 +262,7 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
           }
           const { VerifierAgent } = await import('../agents/verifier-agent.js')
           const db = createClientFromEnv(this.env)
-          const agent = new VerifierAgent({ db, apiKey: this.env.OFOX_API_KEY ?? '', dryRun: false })
+          const agent = new VerifierAgent({ db, apiKey: keyForModel(verifierModel), model: verifierModel, dryRun: false })
           return agent.verify(_input as never)
         },
       },
