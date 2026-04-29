@@ -80,7 +80,6 @@ export class TesterAgent {
     this.dryRun = opts.dryRun ?? false
     this.modelOverride = opts.model
     this.aliasOverrides = opts.aliasOverrides
-    this.contextPrompt = opts.contextPrompt
   }
 
   async runTests(input: TesterInput): Promise<TestReport> {
@@ -108,9 +107,7 @@ export class TesterAgent {
       userParts.push(`\nCode critique (from Critic):\n${JSON.stringify(input.critique, null, 2)}`)
     }
 
-    if (this.contextPrompt) {
-      userParts.push(`\n${this.contextPrompt}`)
-    userParts.push('\nRespond with ONLY a JSON object matching the schema in the system prompt. No tool calls, no function calls, no explanation.')    }
+    userParts.push('\nRespond with ONLY a JSON object matching the schema in the system prompt. No tool calls, no function calls, no explanation.')
 
     const userMessage: UserMessage = {
       role: 'user',

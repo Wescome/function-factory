@@ -78,7 +78,6 @@ export class PlannerAgent {
     this.dryRun = opts.dryRun ?? false
     this.modelOverride = opts.model
     this.aliasOverrides = opts.aliasOverrides
-    this.contextPrompt = opts.contextPrompt
   }
 
   async producePlan(input: PlannerInput): Promise<Plan> {
@@ -117,9 +116,7 @@ export class PlannerAgent {
       userParts.push(`You MUST choose a fundamentally different approach.`)
     }
 
-    if (this.contextPrompt) {
-      userParts.push(`\n${this.contextPrompt}`)
-    userParts.push('\nRespond with ONLY a JSON object matching the schema in the system prompt. No tool calls, no function calls, no explanation.')    }
+    userParts.push('\nRespond with ONLY a JSON object matching the schema in the system prompt. No tool calls, no function calls, no explanation.')
 
     const userMessage: UserMessage = {
       role: 'user',
