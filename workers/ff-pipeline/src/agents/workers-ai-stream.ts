@@ -223,11 +223,12 @@ export function detectTextToolCalls(text: string, availableTools: string[]): Too
       if (
         typeof parsed.name === 'string' &&
         availableTools.includes(parsed.name) &&
-        parsed.arguments !== undefined
+        (parsed.arguments !== undefined || parsed.parameters !== undefined)
       ) {
-        const args = typeof parsed.arguments === 'string'
-          ? JSON.parse(parsed.arguments)
-          : parsed.arguments
+        const rawArgs = parsed.arguments ?? parsed.parameters
+        const args = typeof rawArgs === 'string'
+          ? JSON.parse(rawArgs)
+          : rawArgs
         toolCalls.push({
           type: 'toolCall',
           id: `tc-${Date.now()}-${toolCallCounter++}`,
