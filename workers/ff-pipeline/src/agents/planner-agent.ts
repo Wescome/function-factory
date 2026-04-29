@@ -158,7 +158,7 @@ export class PlannerAgent {
       aliasOverrides: this.aliasOverrides,
     })
     if (!result.success) {
-      throw new Error(`PlannerAgent: ${result.failureMode}: could not produce valid Plan`)
+      throw new Error(`PlannerAgent: ${result.failureMode}: could not produce valid Plan. Response: ${result.rawResponse.slice(0, 500)}`)
     }
     return result.data!
   }
