@@ -261,7 +261,7 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
     expect(msg.ack).toHaveBeenCalledOnce()
   })
 
-  it('sends atoms-complete with fail verdict when some atoms fail', async () => {
+  it('sends atoms-complete with fail verdict when critical atom fails', async () => {
     const { default: worker } = await import('./index')
 
     const ledger = {
@@ -288,7 +288,10 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
         },
       },
       layers: [],
-      allAtomSpecs: {},
+      allAtomSpecs: {
+        'atom-1': { id: 'atom-1', type: 'implementation', critical: true },
+        'atom-2': { id: 'atom-2', type: 'implementation', critical: true },
+      },
       sharedContext: { workGraphId: 'WG-FAIL', specContent: null, briefingScript: {} },
       pendingAtoms: [],
       phase: 'complete',
@@ -339,7 +342,231 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
         payload: expect.objectContaining({
           verdict: expect.objectContaining({
             decision: 'fail',
-            reason: expect.stringContaining('atom-2'),
+            confidence: 0.9,
+            reason: expect.stringContaining('critical atom(s) failed'),
+          }),
+        }),
+      }),
+    )
+  })
+
+  it('fails when critical atom fails even if >70% pass rate', async () => {
+    const { default: worker } = await import('./index')
+
+    // 4 atoms: 3 pass, 1 critical fails = 75% pass rate but should FAIL
+    const ledger = {
+      _key: 'WG-CRIT',
+      workflowId: 'wf-crit',
+      totalAtoms: 4,
+      completedAtoms: 4,
+      atomResults: {
+        'atom-1': {
+          atomId: 'atom-1',
+          verdict: { decision: 'pass', confidence: 0.9, reason: 'ok' },
+          codeArtifact: { files: [] },
+          testReport: null,
+          critiqueReport: null,
+          retryCount: 0,
+        },
+        'atom-2': {
+          atomId: 'atom-2',
+          verdict: { decision: 'pass', confidence: 0.9, reason: 'ok' },
+          codeArtifact: { files: [] },
+          testReport: null,
+          critiqueReport: null,
+          retryCount: 0,
+        },
+        'atom-3': {
+          atomId: 'atom-3',
+          verdict: { decision: 'pass', confidence: 0.9, reason: 'ok' },
+          codeArtifact: { files: [] },
+          testReport: null,
+          critiqueReport: null,
+          retryCount: 0,
+        },
+        'atom-4': {
+          atomId: 'atom-4',
+          verdict: { decision: 'fail', confidence: 0.5, reason: 'implementation broken' },
+          codeArtifact: null,
+          testReport: null,
+          critiqueReport: null,
+          retryCount: 3,
+        },
+      },
+      layers: [],
+      allAtomSpecs: {
+        'atom-1': { id: 'atom-1', type: 'config', critical: false },
+        'atom-2': { id: 'atom-2', type: 'config', critical: false },
+        'atom-3': { id: 'atom-3', type: 'test', critical: false },
+        'atom-4': { id: 'atom-4', type: 'implementation', critical: true },
+      },
+      sharedContext: { workGraphId: 'WG-CRIT', specContent: null, briefingScript: {} },
+      pendingAtoms: [],
+      phase: 'complete',
+    }
+
+    mockRecordAtomResult.mockResolvedValue(ledger)
+    mockIsComplete.mockReturnValue(true)
+
+    const mockSendEvent = vi.fn(async () => {})
+    const env = createEnv({
+      FACTORY_PIPELINE: {
+        create: vi.fn(),
+        get: vi.fn(async () => ({
+          id: 'wf-crit',
+          status: vi.fn(),
+          sendEvent: mockSendEvent,
+        })),
+      },
+    })
+
+    const msg = createMockMessage({
+      workGraphId: 'WG-CRIT',
+      atomId: 'atom-4',
+      result: {
+        atomId: 'atom-4',
+        verdict: { decision: 'fail', confidence: 0.5, reason: 'implementation broken' },
+        codeArtifact: null,
+        testReport: null,
+        critiqueReport: null,
+        retryCount: 3,
+      },
+      workflowId: 'wf-crit',
+    })
+
+    const batch = {
+      messages: [msg],
+      queue: 'atom-results',
+      metadata: { metrics: { backlogCount: 1, backlogBytes: 0 } },
+      retryAll: vi.fn(),
+      ackAll: vi.fn(),
+    }
+
+    await worker.queue(batch as never, env as never, createMockCtx() as never)
+
+    // 75% pass rate but critical atom failed — must be FAIL, not pass
+    expect(mockSendEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'atoms-complete',
+        payload: expect.objectContaining({
+          verdict: expect.objectContaining({
+            decision: 'fail',
+            confidence: 0.9,
+            reason: expect.stringContaining('critical atom(s) failed'),
+          }),
+        }),
+      }),
+    )
+
+    // Verify the reason mentions the specific critical atom
+    const sentPayload = mockSendEvent.mock.calls[0]![0] as Record<string, unknown>
+    const payload = sentPayload.payload as Record<string, unknown>
+    const v = payload.verdict as Record<string, unknown>
+    expect(v.reason).toContain('atom-4')
+  })
+
+  it('passes when only non-critical atoms fail and >70% pass rate', async () => {
+    const { default: worker } = await import('./index')
+
+    // 4 atoms: 3 pass, 1 non-critical fails = 75% pass rate, should PASS
+    const ledger = {
+      _key: 'WG-NONCRIT',
+      workflowId: 'wf-noncrit',
+      totalAtoms: 4,
+      completedAtoms: 4,
+      atomResults: {
+        'atom-1': {
+          atomId: 'atom-1',
+          verdict: { decision: 'pass', confidence: 0.9, reason: 'ok' },
+          codeArtifact: { files: [] },
+          testReport: null,
+          critiqueReport: null,
+          retryCount: 0,
+        },
+        'atom-2': {
+          atomId: 'atom-2',
+          verdict: { decision: 'pass', confidence: 0.9, reason: 'ok' },
+          codeArtifact: { files: [] },
+          testReport: null,
+          critiqueReport: null,
+          retryCount: 0,
+        },
+        'atom-3': {
+          atomId: 'atom-3',
+          verdict: { decision: 'pass', confidence: 0.9, reason: 'ok' },
+          codeArtifact: { files: [] },
+          testReport: null,
+          critiqueReport: null,
+          retryCount: 0,
+        },
+        'atom-4': {
+          atomId: 'atom-4',
+          verdict: { decision: 'fail', confidence: 0.5, reason: 'config lint warning' },
+          codeArtifact: null,
+          testReport: null,
+          critiqueReport: null,
+          retryCount: 1,
+        },
+      },
+      layers: [],
+      allAtomSpecs: {
+        'atom-1': { id: 'atom-1', type: 'implementation', critical: true },
+        'atom-2': { id: 'atom-2', type: 'implementation', critical: true },
+        'atom-3': { id: 'atom-3', type: 'implementation', critical: true },
+        'atom-4': { id: 'atom-4', type: 'config', critical: false },
+      },
+      sharedContext: { workGraphId: 'WG-NONCRIT', specContent: null, briefingScript: {} },
+      pendingAtoms: [],
+      phase: 'complete',
+    }
+
+    mockRecordAtomResult.mockResolvedValue(ledger)
+    mockIsComplete.mockReturnValue(true)
+
+    const mockSendEvent = vi.fn(async () => {})
+    const env = createEnv({
+      FACTORY_PIPELINE: {
+        create: vi.fn(),
+        get: vi.fn(async () => ({
+          id: 'wf-noncrit',
+          status: vi.fn(),
+          sendEvent: mockSendEvent,
+        })),
+      },
+    })
+
+    const msg = createMockMessage({
+      workGraphId: 'WG-NONCRIT',
+      atomId: 'atom-4',
+      result: {
+        atomId: 'atom-4',
+        verdict: { decision: 'fail', confidence: 0.5, reason: 'config lint warning' },
+        codeArtifact: null,
+        testReport: null,
+        critiqueReport: null,
+        retryCount: 1,
+      },
+      workflowId: 'wf-noncrit',
+    })
+
+    const batch = {
+      messages: [msg],
+      queue: 'atom-results',
+      metadata: { metrics: { backlogCount: 1, backlogBytes: 0 } },
+      retryAll: vi.fn(),
+      ackAll: vi.fn(),
+    }
+
+    await worker.queue(batch as never, env as never, createMockCtx() as never)
+
+    // 75% pass rate, only non-critical atom failed — should PASS
+    expect(mockSendEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'atoms-complete',
+        payload: expect.objectContaining({
+          verdict: expect.objectContaining({
+            decision: 'pass',
+            reason: expect.stringContaining('non-critical failed'),
           }),
         }),
       }),

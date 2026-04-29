@@ -259,16 +259,31 @@ export default {
             })
             const totalRetries = atomResults.reduce((sum: number, r: Record<string, unknown>) => sum + (r.retryCount as number ?? 0), 0)
 
-            const passRate = atomResults.length > 0 ? (atomResults.length - failedAtoms.length) / atomResults.length : 0
+            // Check if any CRITICAL atom failed
+            const criticalFailures = failedAtoms.filter((r: Record<string, unknown>) => {
+              const spec = ledger.allAtomSpecs[r.atomId as string]
+              return spec?.critical !== false  // default to critical if not specified
+            })
+
+            const passRate = atomResults.length > 0
+              ? (atomResults.length - failedAtoms.length) / atomResults.length
+              : 0
+
             const verdict = allPassed
               ? { decision: 'pass', confidence: 0.95, reason: `All ${atomResults.length} atoms passed` }
-              : passRate >= 0.7
-                ? { decision: 'pass', confidence: passRate, reason: `${atomResults.length - failedAtoms.length}/${atomResults.length} atoms passed (${failedAtoms.length} failed: ${failedAtoms.map((a: Record<string, unknown>) => a.atomId).join(', ')})` }
-                : {
+              : criticalFailures.length > 0
+                ? {
                     decision: 'fail',
-                    confidence: 0.8,
-                    reason: `${failedAtoms.length}/${atomResults.length} atoms failed: ${failedAtoms.map((a: Record<string, unknown>) => a.atomId).join(', ')}`,
+                    confidence: 0.9,
+                    reason: `${criticalFailures.length} critical atom(s) failed: ${criticalFailures.map((a: Record<string, unknown>) => a.atomId).join(', ')}`,
                   }
+                : passRate >= 0.7
+                  ? { decision: 'pass', confidence: passRate, reason: `${atomResults.length - failedAtoms.length}/${atomResults.length} atoms passed (${failedAtoms.length} non-critical failed: ${failedAtoms.map((a: Record<string, unknown>) => a.atomId).join(', ')})` }
+                  : {
+                      decision: 'fail',
+                      confidence: 0.8,
+                      reason: `${failedAtoms.length}/${atomResults.length} atoms failed: ${failedAtoms.map((a: Record<string, unknown>) => a.atomId).join(', ')}`,
+                    }
 
             console.log(`[Stage 6] Phase 3: ${allPassed ? 'PASS' : 'FAIL'} — ${atomResults.length} atoms, ${failedAtoms.length} failed`)
 

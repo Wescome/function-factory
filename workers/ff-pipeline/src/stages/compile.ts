@@ -74,6 +74,7 @@ async function runDryPass(
           title: `Implement ${prd?.title ?? 'TBD'}`,
           description: prd?.objective ?? 'Dry-run atom',
           binding: null,
+          critical: true, // implementation atoms are always critical
         }],
       }
 
@@ -115,7 +116,10 @@ async function runDryPass(
         type: 'workgraph',
         title: prd?.title ?? 'Dry-run WorkGraph',
         prdId: prdKey,
-        atoms: state.atoms ?? [],
+        atoms: ((state.atoms ?? []) as Record<string, unknown>[]).map(a => ({
+          ...a,
+          critical: a.critical ?? (a.type === 'config' || a.type === 'test' ? false : true),
+        })),
         dependencies: state.dependencies ?? [],
         invariants: state.invariants ?? [],
         interfaces: state.interfaces ?? [],
@@ -171,6 +175,7 @@ async function runLivePass(
       id: a.id ?? `atom-${String(i + 1).padStart(3, '0')}`,
       binding: a.binding ?? { type: 'code', language: 'typescript', target: 'TBD' },
       implementation: a.implementation ?? 'stub',
+      critical: a.critical ?? (a.type === 'config' || a.type === 'test' ? false : true),
     }))
     return runDryPass(passName, { ...state, atoms: boundAtoms }, db)
   }
