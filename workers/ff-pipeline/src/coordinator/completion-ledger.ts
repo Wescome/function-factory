@@ -50,6 +50,7 @@ interface ArangoDb {
   save(collection: string, doc: Record<string, unknown>): Promise<{ _key: string }>
   get(collection: string, key: string): Promise<Record<string, unknown> | null>
   update(collection: string, key: string, doc: Record<string, unknown>): Promise<{ _key: string }>
+  query<T = unknown>(aql: string, bindVars?: Record<string, unknown>): Promise<T[]>
   ensureCollection?(name: string): Promise<void>
 }
 
@@ -102,26 +103,31 @@ export async function recordAtomResult(
   atomId: string,
   result: AtomResult,
 ): Promise<CompletionLedger> {
-  const existing = await db.get('completion_ledgers', workGraphId) as CompletionLedger | null
-  if (!existing) {
+  // Atomic AQL update — eliminates the get-then-update race condition where
+  // two concurrent atom completions could both read the same completedAtoms
+  // value, both increment to the same number, and lose one count.
+  const aql = `
+    LET doc = DOCUMENT('completion_ledgers', @key)
+    UPDATE doc WITH {
+      completedAtoms: doc.completedAtoms + 1,
+      atomResults: MERGE(doc.atomResults, @newResult),
+      pendingAtoms: REMOVE_VALUE(doc.pendingAtoms, @atomId),
+      phase: (doc.completedAtoms + 1) >= doc.totalAtoms ? 'complete' : doc.phase
+    } IN completion_ledgers
+    RETURN NEW
+  `
+
+  const results = await db.query<CompletionLedger>(aql, {
+    key: workGraphId,
+    newResult: { [atomId]: result },
+    atomId,
+  })
+
+  if (!results.length || !results[0]) {
     throw new Error(`Completion ledger not found for workGraphId: ${workGraphId}`)
   }
 
-  const updatedResults = { ...existing.atomResults, [atomId]: result }
-  const completedAtoms = existing.completedAtoms + 1
-  const pendingAtoms = existing.pendingAtoms.filter(id => id !== atomId)
-  const phase = completedAtoms >= existing.totalAtoms ? 'complete' : existing.phase
-
-  const updates: Partial<CompletionLedger> = {
-    completedAtoms,
-    atomResults: updatedResults,
-    pendingAtoms,
-    phase,
-  }
-
-  await db.update('completion_ledgers', workGraphId, updates as Record<string, unknown>)
-
-  return { ...existing, ...updates } as CompletionLedger
+  return results[0]
 }
 
 /**

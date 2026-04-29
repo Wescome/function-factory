@@ -43,6 +43,26 @@ function makeMockDb() {
       }
       return { _key: key }
     }),
+    query: vi.fn(async (_aql: string, bindVars?: Record<string, unknown>) => {
+      // Simulate atomic AQL UPDATE ... RETURN NEW for completion_ledgers
+      const key = bindVars?.key as string
+      const doc = store.get(`completion_ledgers/${key}`) as Record<string, unknown> | undefined
+      if (!doc) return []
+      const newResult = bindVars?.newResult as Record<string, unknown>
+      const atomId = bindVars?.atomId as string
+      const completedAtoms = (doc.completedAtoms as number) + 1
+      const pendingAtoms = (doc.pendingAtoms as string[]).filter(id => id !== atomId)
+      const phase = completedAtoms >= (doc.totalAtoms as number) ? 'complete' : doc.phase
+      const updated = {
+        ...doc,
+        completedAtoms,
+        atomResults: { ...(doc.atomResults as Record<string, unknown>), ...newResult },
+        pendingAtoms,
+        phase,
+      }
+      store.set(`completion_ledgers/${key}`, updated)
+      return [updated]
+    }),
     _store: store,
   }
 }
@@ -137,7 +157,7 @@ describe('v5.1: completion-ledger', () => {
       const result = makeAtomResult('atom-1')
       const updated = await recordAtomResult(db as never, 'WG-001', 'atom-1', result)
 
-      expect(db.update).toHaveBeenCalledOnce()
+      expect(db.query).toHaveBeenCalledOnce()
       expect(updated.completedAtoms).toBe(1)
       expect(updated.atomResults['atom-1']).toBeDefined()
       expect(updated.atomResults['atom-1']!.verdict.decision).toBe('pass')

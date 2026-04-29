@@ -1,36 +1,33 @@
 # Current Workspace
 
 ## Status
-Session ended at 2026-04-29T22:52:42.103Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
+Session ended at 2026-04-29T23:40:10.924Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
 
 ## Last update
-2026-04-29T22:52:42.103Z
+2026-04-29T23:40:10.924Z
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
-- [22:10:23] Bash: until [ -s /private/tmp/claude-501/-Users-wes-Developer-function-factory/2c0291b3-73be-4851-ab4c-c4cef55cb4be/tasks/b4vp
-- [22:10:29] Bash: curl -s "https://ff-gateway.koales.workers.dev/pipeline/cdb485d3-d68a-4123-b65e-4bcd7d6edbf5" | jq '[.output.atomResults
-- [22:10:51] Bash: ID=$(curl -s -X POST https://ff-gateway.koales.workers.dev/pipeline -H "Content-Type: application/json" -d '{"signal":{"
-- [22:20:57] Bash: until grep -q "RESULT" /private/tmp/claude-501/-Users-wes-Developer-function-factory/2c0291b3-73be-4851-ab4c-c4cef55cb4b
-- [22:30:51] Bash: until grep -qE '"synthesis|errored' /private/tmp/claude-501/-Users-wes-Developer-function-factory/2c0291b3-73be-4851-ab4
-- [22:31:10] Bash: grep -n "phase.*3\|verdict.*fail\|atoms.*fail\|failedAtoms\|atomsFailed\|FAIL\|PASS\|passed.*atoms\|threshold" workers/f
-- [22:31:15] Bash: grep -n "Phase 3\|phase3\|atoms.*complete\|failedAtoms\|decision.*pass\|decision.*fail" workers/ff-pipeline/src/coordina
-- [22:31:30] Bash: grep -n "Phase 3\|atomResults\|failedAtoms\|atoms.*fail\|verdict.*atom" workers/ff-pipeline/src/index.ts | head -20
-- [22:31:48] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/index.ts
-- [22:32:15] Bash: pnpm --filter @factory/ff-pipeline test -- --run 2>&1 | tail -3 && pnpm --filter @factory/ff-pipeline run deploy 2>&1 | 
-- [22:32:26] Bash: ID=$(curl -s -X POST https://ff-gateway.koales.workers.dev/pipeline -H "Content-Type: application/json" -d '{"signal":{"
-- [22:41:34] Bash: until grep -q "RESULT" /private/tmp/claude-501/-Users-wes-Developer-function-factory/2c0291b3-73be-4851-ab4c-c4cef55cb4b
-- [22:41:54] Edit: /Users/wes/.claude/projects/-Users-wes-Developer-function-factory/memory/project_session_2026_04_29.md
-- [22:51:49] Bash: git status --short
-- [22:51:49] Bash: git log --oneline -3
-- [22:51:55] Bash: git diff --stat
-- [22:52:12] Bash: git add packages/task-routing/src/index.ts workers/ff-pipeline/src/agents/agents.test.ts workers/ff-pipeline/src/agents/
-- [22:52:25] Bash: git commit -m "$(cat <<'EOF'
-INFRA: synthesis-passed — first autonomous code synthesis
-
-Pipeline 376e064f: Signal → Pres
-- [22:52:29] Bash: git log --oneline -5
-- [22:52:34] Bash: git status --short
+- [23:23:41] Bash: grep -rn "atomSpec\|AtomSpec\|atom-001\|atom.*type.*impl" workers/ff-pipeline/src/coordinator/state.ts workers/ff-pipeli
+- [23:23:44] Bash: curl -s "https://ff-gateway.koales.workers.dev/pipeline/376e064f-f1bf-4792-84d3-0118e12492e9" | jq '.output.atomResults 
+- [23:23:49] Bash: grep -rn "atom.*type.*implementation\|atom.*type.*config\|atom.*type.*test\|critical" packages/compiler/src/ packages/sc
+- [23:23:54] Bash: curl -s "https://ff-gateway.koales.workers.dev/pipeline/376e064f-f1bf-4792-84d3-0118e12492e9" | jq '[.output.atomResults
+- [23:23:59] Bash: grep -n "type.*implementation\|type.*config\|type.*test\|atoms.*decompose" workers/ff-pipeline/src/stages/compile.ts | h
+- [23:25:03] Bash: find /Users/wes/Developer/function-factory/workers/ff-pipeline/src -name "*.test.*" -type f 2>/dev/null
+- [23:25:18] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/stages/compile.ts
+- [23:25:22] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/stages/compile.ts
+- [23:25:29] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/stages/compile.ts
+- [23:25:42] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/index.ts
+- [23:26:33] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/atoms-complete-wiring.test.ts
+- [23:26:49] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/stages/compile.test.ts
+- [23:27:02] Bash: pnpm --filter @factory/ff-pipeline test -- --run 2>&1
+- [23:27:23] Agent: Engineer: atom criticality R3 fix
+- [23:27:43] Bash: pnpm --filter @factory/ff-pipeline test -- --run 2>&1 | tail -5
+- [23:27:50] Bash: grep -n "critical" workers/ff-pipeline/src/stages/compile.ts | head -10
+- [23:27:50] Bash: grep -n "criticalFailures\|critical.*fail\|critical.*atom" workers/ff-pipeline/src/index.ts | head -10
+- [23:27:59] Bash: git add workers/ff-pipeline/src/stages/compile.ts workers/ff-pipeline/src/index.ts workers/ff-pipeline/src/atoms-complet
+- [23:28:07] Bash: git push origin main
+- [23:39:47] Bash: git log --oneline -5
 
 ## Notes
 This file is auto-updated on session end. Manual edits will be overwritten.

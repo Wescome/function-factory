@@ -3909,3 +3909,58 @@
 {"timestamp":"2026-04-29T23:08:50.884Z","tool":"Agent","summary":"Engineer: apply hardening fixes","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
 {"timestamp":"2026-04-29T23:09:05.575Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test -- --run 2>&1 | tail -3","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
 {"timestamp":"2026-04-29T23:09:10.546Z","tool":"Bash","summary":"git diff --stat","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:09:23.272Z","tool":"Bash","summary":"git add packages/task-routing/src/index.ts workers/ff-pipeline/src/agents/tester-agent.ts workers/ff-pipeline/src/coordi","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:09:31.761Z","tool":"Bash","summary":"git log --oneline -3","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:11:35.572Z","tool":"Bash","summary":"git status --short","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:11:36.215Z","tool":"Bash","summary":"git log --oneline main~6..main","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:11:40.006Z","tool":"Bash","summary":"git remote -v","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:11:45.382Z","tool":"Bash","summary":"git push origin main","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:11:53.692Z","tool":"Bash","summary":"gh pr list --state open 2>/dev/null; git branch -r 2>/dev/null | head -10","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:12:14.695Z","tool":"Bash","summary":"gh release create v0.1.0-synthesis --title \"v0.1.0-synthesis: First Autonomous Code Synthesis\" --notes \"$(cat <<'EOF'\n##","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:12:20.362Z","tool":"Bash","summary":"gh release view v0.1.0-synthesis --json tagName,name,url 2>/dev/null | jq '.'","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:23:39.494Z","tool":"Bash","summary":"grep -n \"critical\\|criticality\\|atom.*type\\|binding.*type\" workers/ff-pipeline/src/coordinator/atom-executor.ts | head -","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:23:41.275Z","tool":"Bash","summary":"grep -rn \"atomSpec\\|AtomSpec\\|atom-001\\|atom.*type.*impl\" workers/ff-pipeline/src/coordinator/state.ts workers/ff-pipeli","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:23:44.084Z","tool":"Bash","summary":"curl -s \"https://ff-gateway.koales.workers.dev/pipeline/376e064f-f1bf-4792-84d3-0118e12492e9\" | jq '.output.atomResults ","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:23:49.277Z","tool":"Bash","summary":"grep -rn \"atom.*type.*implementation\\|atom.*type.*config\\|atom.*type.*test\\|critical\" packages/compiler/src/ packages/sc","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:23:54.288Z","tool":"Bash","summary":"curl -s \"https://ff-gateway.koales.workers.dev/pipeline/376e064f-f1bf-4792-84d3-0118e12492e9\" | jq '[.output.atomResults","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:23:59.031Z","tool":"Bash","summary":"grep -n \"type.*implementation\\|type.*config\\|type.*test\\|atoms.*decompose\" workers/ff-pipeline/src/stages/compile.ts | h","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:25:03.703Z","tool":"Bash","summary":"find /Users/wes/Developer/function-factory/workers/ff-pipeline/src -name \"*.test.*\" -type f 2>/dev/null","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:25:18.518Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/stages/compile.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:25:22.650Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/stages/compile.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:25:29.609Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/stages/compile.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:25:42.641Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/index.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:26:33.943Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/atoms-complete-wiring.test.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:26:49.384Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/stages/compile.test.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:27:02.876Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test -- --run 2>&1","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:27:23.839Z","tool":"Agent","summary":"Engineer: atom criticality R3 fix","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:27:43.906Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test -- --run 2>&1 | tail -5","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:27:50.689Z","tool":"Bash","summary":"grep -n \"critical\" workers/ff-pipeline/src/stages/compile.ts | head -10","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:27:50.953Z","tool":"Bash","summary":"grep -n \"criticalFailures\\|critical.*fail\\|critical.*atom\" workers/ff-pipeline/src/index.ts | head -10","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:27:59.731Z","tool":"Bash","summary":"git add workers/ff-pipeline/src/stages/compile.ts workers/ff-pipeline/src/index.ts workers/ff-pipeline/src/atoms-complet","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:28:07.761Z","tool":"Bash","summary":"git push origin main","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:39:47.782Z","tool":"Bash","summary":"git log --oneline -5","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:43:33.574Z","tool":"Agent","summary":"Engineer: fix ledger race + seed config","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:43:51.627Z","tool":"Agent","summary":"Architect: feedback loop design","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:44:07.948Z","tool":"Bash","summary":"echo \"Engineer agent: $(wc -l < /private/tmp/claude-501/-Users-wes-Developer-function-factory/2c0291b3-73be-4851-ab4c-c4","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:44:15.791Z","tool":"Bash","summary":"until [ \"$(wc -l < /private/tmp/claude-501/-Users-wes-Developer-function-factory/2c0291b3-73be-4851-ab4c-c4cef55cb4be/ta","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:44:26.327Z","tool":"Bash","summary":"grep -n \"pipeline\\|approve\\|status\\|signal\" workers/ff-gateway/src/index.ts | head -20","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:44:41.616Z","tool":"Bash","summary":"grep -n \"SignalInput\" workers/ff-pipeline/src/types.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:45:08.156Z","tool":"Bash","summary":"find /Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator -type f -name \"*.ts\" | head -20","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:45:09.382Z","tool":"Bash","summary":"grep -rn \"signalType\" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/types.ts /Users/wes/Developer/functi","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:45:13.775Z","tool":"Bash","summary":"ls /Users/wes/Developer/function-factory/workers/ff-pipeline/src/stages/","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:45:19.134Z","tool":"Bash","summary":"cat /Users/wes/Developer/function-factory/workers/ff-pipeline/wrangler.jsonc 2>/dev/null || echo \"No wrangler.jsonc foun","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:45:22.469Z","tool":"Bash","summary":"grep -n \"config_routing\\|hot.config\\|routing\" /Users/wes/Developer/function-factory/infra/arangodb/seed.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:45:24.280Z","tool":"Bash","summary":"grep -rn \"feedback\\|FEEDBACK_QUEUE\\|feedback-queue\\|feedback_signal\" /Users/wes/Developer/function-factory/workers/ff-pi","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:45:25.840Z","tool":"Bash","summary":"grep -rn \"subtype\" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/stages/ingest-signal.ts /Users/wes/Deve","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:45:28.735Z","tool":"Bash","summary":"grep -rn \"config_routing\\|deepseek-v4-pro\\|kimi-k2\" /Users/wes/Developer/function-factory/infra/arangodb/seed.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:45:36.495Z","tool":"Bash","summary":"find /Users/wes/Developer/function-factory/workers/ff-pipeline/src -name \"*.test.*\" | grep -i \"ledger\\|completion\"","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:45:50.761Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/completion-ledger.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:46:02.617Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/completion-ledger.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:46:16.425Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/coordinator.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:46:23.925Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/coordinator-hot-config.test.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:46:37.508Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/completion-ledger.test.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:46:44.699Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/completion-ledger.test.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:46:58.598Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test -- --run 2>&1","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:55:03.731Z","tool":"Bash","summary":"until grep -q \"result\\|RESULT\\|completed\\|summary\" /private/tmp/claude-501/-Users-wes-Developer-function-factory/2c0291b","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:55:20.855Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test -- --run 2>&1 | tail -3","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:55:27.440Z","tool":"Bash","summary":"git diff --stat","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}

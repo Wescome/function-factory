@@ -299,6 +299,66 @@ describe('Stage 5 compiler passes', () => {
     })
   })
 
+  describe('atom criticality classification', () => {
+    const basePrd = { _key: 'PRD-001', title: 'Test PRD', objective: 'Build something', invariants: ['Must work'] }
+
+    it('dry-run decompose produces atoms with critical field', async () => {
+      const state = { prd: basePrd }
+      const result = await compilePRD('decompose', state, mockDb as unknown as ArangoClient, mockEnv as PipelineEnv, true)
+      const atoms = result.atoms as Record<string, unknown>[]
+      expect(atoms).toHaveLength(1)
+      expect(atoms[0]!.critical).toBe(true) // implementation type = critical
+    })
+
+    it('assembly marks implementation atoms as critical and config/test as non-critical', async () => {
+      const state = {
+        prd: basePrd,
+        atoms: [
+          { id: 'atom-001', type: 'implementation', title: 'A', description: 'Impl' },
+          { id: 'atom-002', type: 'config', title: 'B', description: 'Config' },
+          { id: 'atom-003', type: 'test', title: 'C', description: 'Test' },
+        ],
+        dependencies: [],
+        invariants: [],
+        interfaces: [],
+        bindings: [],
+        validations: [],
+      }
+
+      const result = await compilePRD('assembly', state, mockDb as unknown as ArangoClient, mockEnv as PipelineEnv, false)
+      const wg = result.workGraph as Record<string, unknown>
+      const atoms = wg.atoms as Record<string, unknown>[]
+
+      const impl = atoms.find(a => a.id === 'atom-001')
+      const config = atoms.find(a => a.id === 'atom-002')
+      const test = atoms.find(a => a.id === 'atom-003')
+
+      expect(impl?.critical).toBe(true)
+      expect(config?.critical).toBe(false)
+      expect(test?.critical).toBe(false)
+    })
+
+    it('assembly defaults unknown type atoms to critical (fail-safe)', async () => {
+      const state = {
+        prd: basePrd,
+        atoms: [
+          { id: 'atom-001', title: 'No type', description: 'Missing type field' },
+        ],
+        dependencies: [],
+        invariants: [],
+        interfaces: [],
+        bindings: [],
+        validations: [],
+      }
+
+      const result = await compilePRD('assembly', state, mockDb as unknown as ArangoClient, mockEnv as PipelineEnv, false)
+      const wg = result.workGraph as Record<string, unknown>
+      const atoms = wg.atoms as Record<string, unknown>[]
+
+      expect(atoms[0]?.critical).toBe(true) // fail-safe: unknown type is critical
+    })
+  })
+
   describe('pass prompts emphasize delta-only output', () => {
     const basePrd = { _key: 'PRD-001', title: 'Test PRD', objective: 'Build something', invariants: ['Must work'] }
 
