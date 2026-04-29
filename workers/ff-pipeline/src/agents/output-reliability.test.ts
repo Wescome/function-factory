@@ -53,10 +53,12 @@ describe('extractJSON', () => {
     expect(result).toEqual({ json: [{ id: 1 }, { id: 2 }], tier: 4 })
   })
 
-  it('returns null for truncated JSON (F2)', () => {
+  it('recovers truncated JSON via Tier 5 (close open braces)', () => {
     const input = '{"goal":"test","items":[1,2'
     const result = extractJSON(input)
-    expect(result).toBeNull()
+    expect(result).not.toBeNull()
+    expect(result!.tier).toBe(5)
+    expect((result!.json as any).goal).toBe('test')
   })
 
   it('returns null for pure prose with no JSON', () => {
@@ -144,10 +146,10 @@ describe('processAgentOutput — Parse', () => {
     expect(result.data).toEqual({ goal: 'test' })
   })
 
-  it('truncated JSON (F2) -> failure', async () => {
-    const result = await processAgentOutput('{"goal":"test', schema)
-    expect(result.success).toBe(false)
-    expect(result.failureMode).toBe('F2')
+  it('truncated JSON (F2) -> recovered via Tier 5', async () => {
+    const result = await processAgentOutput('{"goal":"test","successCriteria":["a"],"architecturalContext":"ctx","strategicAdvice":"adv","knownGotchas":["g"],"validationLoop":"val', schema)
+    expect(result.success).toBe(true)
+    expect((result.data as any).goal).toBe('test')
   })
 
   it('pure prose (F1 total) -> failure when no JSON found', async () => {

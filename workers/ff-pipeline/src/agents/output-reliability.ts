@@ -86,6 +86,33 @@ export function extractJSON(text: string): { json: unknown; tier: number } | nul
     try { return { json: JSON.parse(trimmed.slice(firstBracket, lastBracket + 1)), tier: 4 } } catch { /* continue */ }
   }
 
+  // Tier 5: Truncation recovery — try closing open braces/brackets
+  if (firstBrace !== -1) {
+    let candidate = trimmed.slice(firstBrace)
+    // Count open vs close braces
+    let openBraces = 0
+    for (const ch of candidate) {
+      if (ch === '{') openBraces++
+      if (ch === '}') openBraces--
+    }
+    // Close unclosed braces
+    if (openBraces > 0) {
+      // Trim to last complete value (find last comma or colon+value)
+      const lastComma = candidate.lastIndexOf(',')
+      const lastColon = candidate.lastIndexOf(':')
+      const lastQuote = candidate.lastIndexOf('"')
+      // If we're mid-string, close the string first
+      const quoteCount = (candidate.match(/"/g) || []).length
+      if (quoteCount % 2 !== 0) candidate += '"'
+      // Close any open arrays
+      const openBrackets = (candidate.match(/\[/g) || []).length - (candidate.match(/\]/g) || []).length
+      for (let i = 0; i < openBrackets; i++) candidate += ']'
+      // Close open braces
+      for (let i = 0; i < openBraces; i++) candidate += '}'
+      try { return { json: JSON.parse(candidate), tier: 5 } } catch { /* continue */ }
+    }
+  }
+
   return null
 }
 
