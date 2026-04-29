@@ -125,9 +125,9 @@ export class CriticAgent {
     if (input.specContent) {
       userParts.push(`\nSpecification:\n${input.specContent}`)
     }
-    if (this.contextPrompt) {
-      userParts.push(`\n${this.contextPrompt}`)
-    userParts.push('\nRespond with ONLY a JSON object matching the schema in the system prompt. No tool calls, no function calls, no explanation.')    }
+    // Semantic review: skip pre-fetched context — only needs PRD + specContent for alignment check.
+    // Full context would exceed context window and cause F2 truncation (BL1).
+    userParts.push('\nRespond with ONLY a JSON object: { "alignment", "confidence", "citations", "rationale", "timestamp" }. No tool calls.')
 
     const userMessage: UserMessage = {
       role: 'user',
