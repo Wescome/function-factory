@@ -84,6 +84,18 @@ importers:
         specifier: ^1.4.0
         version: 1.6.1(@types/node@24.12.2)
 
+  packages/autonomous-scheduler:
+    devDependencies:
+      '@types/node':
+        specifier: ^20.11.0
+        version: 20.19.39
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.4.0
+        version: 1.6.1(@types/node@20.19.39)
+
   packages/candidate-selection:
     dependencies:
       '@factory/schemas':

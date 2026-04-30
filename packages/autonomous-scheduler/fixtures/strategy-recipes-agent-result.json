@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "factory.agent-result.v0",
+  "id": "ARES-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW",
+  "requestId": "AR-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW",
+  "agentRunId": "RUN-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW-001",
+  "status": "completed",
+  "completedAt": "2026-04-30T15:00:00.000Z",
+  "branchName": "factory/strategy-recipes-first-product-view",
+  "prUrl": "https://github.com/Wescome/strategy-recipes/pull/1",
+  "summary": "Implemented the first Strategy.Recipes product view and attached evidence.",
+  "changedFiles": [
+    "docs/product/first-product-view.md",
+    "packages/strategy-objects/src/index.ts",
+    "tests/first-product-view.test.ts"
+  ],
+  "commands": [
+    {
+      "command": "pnpm test",
+      "exitCode": 0,
+      "outputRef": "artifacts/test-output.txt"
+    },
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 0,
+      "outputRef": "artifacts/typecheck-output.txt"
+    }
+  ],
+  "evidence": [
+    {
+      "kind": "git_diff",
+      "path": "artifacts/diff.patch",
+      "summary": "Patch for the Strategy.Recipes first product view."
+    },
+    {
+      "kind": "test_output",
+      "path": "artifacts/test-output.txt",
+      "summary": "Test output captured from the worker run."
+    },
+    {
+      "kind": "typecheck_output",
+      "path": "artifacts/typecheck-output.txt",
+      "summary": "Typecheck output captured from the worker run."
+    },
+    {
+      "kind": "pr_url",
+      "url": "https://github.com/Wescome/strategy-recipes/pull/1",
+      "summary": "PR opened by the Codex runner."
+    }
+  ]
+}

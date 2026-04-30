@@ -46,6 +46,9 @@
     "meta-governance:typecheck": "pnpm --filter @factory/meta-governance run typecheck",
     "policy-activation:test": "pnpm --filter @factory/policy-activation run test",
     "policy-activation:typecheck": "pnpm --filter @factory/policy-activation run typecheck",
+    "autonomous-scheduler:test": "pnpm --filter @factory/autonomous-scheduler run test",
+    "autonomous-scheduler:typecheck": "pnpm --filter @factory/autonomous-scheduler run typecheck",
+    "autonomous-scheduler:cli": "tsx packages/autonomous-scheduler/src/cli.ts",
     "dream": "tsx .agent/tools/dream.ts",
     "bootstrap": "tsx scripts/bootstrap.ts"
   },
