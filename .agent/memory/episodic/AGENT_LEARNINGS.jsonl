@@ -3964,3 +3964,22 @@
 {"timestamp":"2026-04-29T23:55:03.731Z","tool":"Bash","summary":"until grep -q \"result\\|RESULT\\|completed\\|summary\" /private/tmp/claude-501/-Users-wes-Developer-function-factory/2c0291b","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
 {"timestamp":"2026-04-29T23:55:20.855Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test -- --run 2>&1 | tail -3","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
 {"timestamp":"2026-04-29T23:55:27.440Z","tool":"Bash","summary":"git diff --stat","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-29T23:55:39.207Z","tool":"Bash","summary":"git add workers/ff-pipeline/src/coordinator/completion-ledger.ts workers/ff-pipeline/src/coordinator/completion-ledger.t","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-30T00:21:12.876Z","tool":"Bash","summary":"ls /Users/wes/Developer/function-factory/workers/ff-pipeline/src/stages/*.test.* 2>/dev/null; ls /Users/wes/Developer/fu","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-30T00:21:13.202Z","tool":"Bash","summary":"ls /Users/wes/Developer/function-factory/workers/ff-pipeline/src/stages/","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-30T00:21:23.823Z","tool":"Bash","summary":"grep -n 'queryOne\\|query(' /Users/wes/Developer/function-factory/packages/arango-client/src/index.ts | head -20","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-30T00:22:12.678Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/stages/generate-feedback.test.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-30T00:22:27.212Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test -- --run 2>&1 | tail -40","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-30T00:23:10.078Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/stages/generate-feedback.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-30T00:23:16.557Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test -- --run src/stages/generate-feedback.test.ts 2>&1","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-30T00:23:23.241Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/types.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-30T00:23:36.372Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/pipeline.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-30T00:23:45.133Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/pipeline.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-30T00:23:58.848Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/index.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-30T00:24:05.778Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/wrangler.jsonc","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-30T00:24:18.395Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test -- --run 2>&1","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-30T00:24:24.714Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/index.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-30T00:24:30.073Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/index.ts","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-30T00:24:43.185Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test -- --run 2>&1 | tail -15","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-30T00:25:00.142Z","tool":"Agent","summary":"Engineer: build feedback loop","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}
+{"timestamp":"2026-04-30T00:25:14.590Z","tool":"Bash","summary":"pnpm --filter @factory/ff-pipeline test -- --run 2>&1 | tail -3","session_id":"131c7385-01eb-4f81-9e56-1c8c17706977"}

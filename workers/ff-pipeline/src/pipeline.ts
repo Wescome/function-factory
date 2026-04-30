@@ -207,11 +207,25 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
         })
         return { persisted: true }
       })
-      return {
+
+      // ── Feedback loop: Gate 1 failure → new signal ──
+      const gate1FailResult: PipelineResult = {
         status: 'gate-1-failed',
         report: gate1,
         signalId: signalKey,
       }
+      await step.do('enqueue-feedback-gate1', async () => {
+        const feedbackDepth = typeof (signal as Rec).raw?.feedbackDepth === 'number'
+          ? (signal as Rec).raw.feedbackDepth as number : 0
+        await this.env.FEEDBACK_QUEUE?.send({
+          result: gate1FailResult,
+          parentSignal: signal,
+          parentFeedbackDepth: feedbackDepth,
+        })
+        return { enqueued: true }
+      })
+
+      return gate1FailResult
     }
 
     // ── Persist gate pass ──
@@ -359,7 +373,8 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       })
     }
 
-    return {
+    // ── Feedback loop: synthesis result → new signal ──
+    const finalResult: PipelineResult = {
       status: finalVerdict.decision === 'pass'
         ? 'synthesis-passed'
         : `synthesis-${finalVerdict.decision}`,
@@ -376,5 +391,18 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       },
       ...(atomResults ? { atomResults } : {}),
     }
+
+    await step.do('enqueue-feedback', async () => {
+      const feedbackDepth = typeof (signal as Rec).raw?.feedbackDepth === 'number'
+        ? (signal as Rec).raw.feedbackDepth as number : 0
+      await this.env.FEEDBACK_QUEUE?.send({
+        result: finalResult,
+        parentSignal: signal,
+        parentFeedbackDepth: feedbackDepth,
+      })
+      return { enqueued: true }
+    })
+
+    return finalResult
   }
 }

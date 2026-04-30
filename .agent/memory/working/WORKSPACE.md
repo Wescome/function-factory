@@ -1,33 +1,33 @@
 # Current Workspace
 
 ## Status
-Session ended at 2026-04-29T23:40:10.924Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
+Session ended at 2026-04-29T23:55:59.550Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
 
 ## Last update
-2026-04-29T23:40:10.924Z
+2026-04-29T23:55:59.550Z
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
-- [23:23:41] Bash: grep -rn "atomSpec\|AtomSpec\|atom-001\|atom.*type.*impl" workers/ff-pipeline/src/coordinator/state.ts workers/ff-pipeli
-- [23:23:44] Bash: curl -s "https://ff-gateway.koales.workers.dev/pipeline/376e064f-f1bf-4792-84d3-0118e12492e9" | jq '.output.atomResults 
-- [23:23:49] Bash: grep -rn "atom.*type.*implementation\|atom.*type.*config\|atom.*type.*test\|critical" packages/compiler/src/ packages/sc
-- [23:23:54] Bash: curl -s "https://ff-gateway.koales.workers.dev/pipeline/376e064f-f1bf-4792-84d3-0118e12492e9" | jq '[.output.atomResults
-- [23:23:59] Bash: grep -n "type.*implementation\|type.*config\|type.*test\|atoms.*decompose" workers/ff-pipeline/src/stages/compile.ts | h
-- [23:25:03] Bash: find /Users/wes/Developer/function-factory/workers/ff-pipeline/src -name "*.test.*" -type f 2>/dev/null
-- [23:25:18] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/stages/compile.ts
-- [23:25:22] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/stages/compile.ts
-- [23:25:29] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/stages/compile.ts
-- [23:25:42] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/index.ts
-- [23:26:33] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/atoms-complete-wiring.test.ts
-- [23:26:49] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/stages/compile.test.ts
-- [23:27:02] Bash: pnpm --filter @factory/ff-pipeline test -- --run 2>&1
-- [23:27:23] Agent: Engineer: atom criticality R3 fix
-- [23:27:43] Bash: pnpm --filter @factory/ff-pipeline test -- --run 2>&1 | tail -5
-- [23:27:50] Bash: grep -n "critical" workers/ff-pipeline/src/stages/compile.ts | head -10
-- [23:27:50] Bash: grep -n "criticalFailures\|critical.*fail\|critical.*atom" workers/ff-pipeline/src/index.ts | head -10
-- [23:27:59] Bash: git add workers/ff-pipeline/src/stages/compile.ts workers/ff-pipeline/src/index.ts workers/ff-pipeline/src/atoms-complet
-- [23:28:07] Bash: git push origin main
-- [23:39:47] Bash: git log --oneline -5
+- [23:45:08] Bash: find /Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator -type f -name "*.ts" | head -20
+- [23:45:09] Bash: grep -rn "signalType" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/types.ts /Users/wes/Developer/functi
+- [23:45:13] Bash: ls /Users/wes/Developer/function-factory/workers/ff-pipeline/src/stages/
+- [23:45:19] Bash: cat /Users/wes/Developer/function-factory/workers/ff-pipeline/wrangler.jsonc 2>/dev/null || echo "No wrangler.jsonc foun
+- [23:45:22] Bash: grep -n "config_routing\|hot.config\|routing" /Users/wes/Developer/function-factory/infra/arangodb/seed.ts
+- [23:45:24] Bash: grep -rn "feedback\|FEEDBACK_QUEUE\|feedback-queue\|feedback_signal" /Users/wes/Developer/function-factory/workers/ff-pi
+- [23:45:25] Bash: grep -rn "subtype" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/stages/ingest-signal.ts /Users/wes/Deve
+- [23:45:28] Bash: grep -rn "config_routing\|deepseek-v4-pro\|kimi-k2" /Users/wes/Developer/function-factory/infra/arangodb/seed.ts
+- [23:45:36] Bash: find /Users/wes/Developer/function-factory/workers/ff-pipeline/src -name "*.test.*" | grep -i "ledger\|completion"
+- [23:45:50] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/completion-ledger.ts
+- [23:46:02] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/completion-ledger.ts
+- [23:46:16] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/coordinator.ts
+- [23:46:23] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/coordinator-hot-config.test.ts
+- [23:46:37] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/completion-ledger.test.ts
+- [23:46:44] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/completion-ledger.test.ts
+- [23:46:58] Bash: pnpm --filter @factory/ff-pipeline test -- --run 2>&1
+- [23:55:03] Bash: until grep -q "result\|RESULT\|completed\|summary" /private/tmp/claude-501/-Users-wes-Developer-function-factory/2c0291b
+- [23:55:20] Bash: pnpm --filter @factory/ff-pipeline test -- --run 2>&1 | tail -3
+- [23:55:27] Bash: git diff --stat
+- [23:55:39] Bash: git add workers/ff-pipeline/src/coordinator/completion-ledger.ts workers/ff-pipeline/src/coordinator/completion-ledger.t
 
 ## Notes
 This file is auto-updated on session end. Manual edits will be overwritten.

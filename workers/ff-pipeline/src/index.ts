@@ -4,6 +4,7 @@ export { AtomExecutor } from './coordinator/atom-executor-do'
 export { Sandbox } from '@cloudflare/sandbox'
 
 export { ingestSignal } from './stages/ingest-signal'
+export { generateFeedbackSignals } from './stages/generate-feedback'
 export { synthesizePressure } from './stages/synthesize-pressure'
 export { mapCapability } from './stages/map-capability'
 export { proposeFunction } from './stages/propose-function'
@@ -20,6 +21,11 @@ export type {
   Gate1Report,
   SemanticReviewResult,
 } from './types'
+
+export type {
+  FeedbackContext,
+  FeedbackSignal,
+} from './stages/generate-feedback'
 
 import type { PipelineEnv } from './types'
 
@@ -325,6 +331,58 @@ export default {
           console.error(`[Stage 6] atom-results processing failed for atom ${atomId}: ${errorMessage}`)
           if (msg.attempts >= 4) {
             console.error(`[Stage 6] atom-results exhausted retries for atom ${atomId} in ${workGraphId}`)
+            msg.ack()
+          } else {
+            msg.retry()
+          }
+        }
+        continue
+      }
+
+      // ── feedback-signals queue: synthesis results → new signals ──
+      if (batch.queue === 'feedback-signals') {
+        try {
+          const { generateFeedbackSignals } = await import('./stages/generate-feedback.js')
+          const { ingestSignal } = await import('./stages/ingest-signal.js')
+          const { createClientFromEnv } = await import('@factory/arango-client')
+          const { validateArtifact } = await import('@factory/artifact-validator')
+
+          const db = createClientFromEnv(env)
+          db.setValidator(validateArtifact)
+
+          const ctx = msg.body as {
+            result: Record<string, unknown>
+            parentSignal: Record<string, unknown>
+            parentFeedbackDepth: number
+          }
+
+          const feedbackSignals = await generateFeedbackSignals(ctx, db as never)
+
+          for (const fs of feedbackSignals) {
+            // Ingest the feedback signal into the signals collection
+            const ingested = await ingestSignal(fs.signal, db)
+            console.log(`[Feedback] Ingested ${fs.signal.subtype} → ${ingested._key} (auto-approve: ${fs.autoApprove})`)
+
+            // For auto-approve signals, create a new pipeline run immediately
+            if (fs.autoApprove) {
+              try {
+                const created = await env.FACTORY_PIPELINE.create({
+                  params: { signal: fs.signal },
+                })
+                console.log(`[Feedback] Auto-approved pipeline ${created.id} for ${fs.signal.subtype}`)
+              } catch (createErr) {
+                const createErrMsg = createErr instanceof Error ? createErr.message : String(createErr)
+                console.error(`[Feedback] Failed to create pipeline for ${fs.signal.subtype}: ${createErrMsg}`)
+              }
+            }
+          }
+
+          msg.ack()
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : String(err)
+          console.error(`[Feedback] feedback-signals processing failed: ${errorMessage}`)
+          if (msg.attempts >= 3) {
+            console.error(`[Feedback] feedback-signals exhausted retries`)
             msg.ack()
           } else {
             msg.retry()

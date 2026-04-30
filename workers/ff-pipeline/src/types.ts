@@ -27,6 +27,9 @@ export interface PipelineEnv {
   /** v5.1: Queue for atom completion results from AtomExecutor DOs */
   ATOM_RESULTS: Queue
 
+  /** Feedback loop: synthesis results become new signals */
+  FEEDBACK_QUEUE?: Queue
+
   OFOX_API_KEY?: string
 
   AI?: {
