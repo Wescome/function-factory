@@ -317,24 +317,66 @@ describe('Codex runner planning', () => {
     }))
 
     const prPlan = planPullRequest(requestFixture, execution, { repoRoot: '/tmp/strategy-recipes' })
+    expect(prPlan.pushCommand).toEqual({
+      command: 'git',
+      args: ['push', '-u', 'origin', 'factory/strategy-recipes-first-product-view/ar-strategy-recipes-first-product-view'],
+      cwd: '/tmp/strategy-recipes',
+    })
     expect(prPlan.command.command).toBe('gh')
     expect(prPlan.command.args.slice(0, 3)).toEqual(['pr', 'create', '--base'])
     expect(prPlan.command.args).toContain('main')
     expect(prPlan.command.args).toContain('factory/strategy-recipes-first-product-view/ar-strategy-recipes-first-product-view')
     expect(prPlan.body).toContain('Factory request: AR-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW')
 
-    const pr = await executePullRequestPlan(prPlan, async (command) => ({
+    const executed: string[] = []
+    const pr = await executePullRequestPlan(prPlan, async (command) => {
+      executed.push(command.command)
+      return {
+        command: command.command,
+        args: command.args,
+        cwd: command.cwd,
+        exitCode: 0,
+        stdout: command.command === 'gh' ? 'https://github.com/Wescome/strategy-recipes/pull/4\n' : 'pushed\n',
+        stderr: '',
+        startedAt: '2026-04-30T14:36:00.000Z',
+        completedAt: '2026-04-30T14:36:01.000Z',
+      }
+    })
+
+    expect(executed).toEqual(['git', 'gh'])
+    expect(pr.commands).toHaveLength(2)
+    expect(pr.prUrl).toBe('https://github.com/Wescome/strategy-recipes/pull/4')
+  })
+
+  it('fails PR creation before gh when branch push fails', async () => {
+    const codexPlan = planCodexRunner(requestFixture, { repoRoot: '/tmp/strategy-recipes' })
+    const execution = await executeCodexRunnerPlan(codexPlan, async (command) => ({
       command: command.command,
       args: command.args,
       cwd: command.cwd,
       exitCode: 0,
-      stdout: 'https://github.com/Wescome/strategy-recipes/pull/4\n',
+      stdout: '',
       stderr: '',
-      startedAt: '2026-04-30T14:36:00.000Z',
-      completedAt: '2026-04-30T14:36:01.000Z',
+      startedAt: '2026-04-30T14:30:00.000Z',
+      completedAt: '2026-04-30T14:30:01.000Z',
     }))
+    const prPlan = planPullRequest(requestFixture, execution, { repoRoot: '/tmp/strategy-recipes' })
+    let calls = 0
 
-    expect(pr.prUrl).toBe('https://github.com/Wescome/strategy-recipes/pull/4')
+    await expect(executePullRequestPlan(prPlan, async (command) => {
+      calls += 1
+      return {
+        command: command.command,
+        args: command.args,
+        cwd: command.cwd,
+        exitCode: 1,
+        stdout: '',
+        stderr: 'push rejected',
+        startedAt: '2026-04-30T14:36:00.000Z',
+        completedAt: '2026-04-30T14:36:01.000Z',
+      }
+    })).rejects.toThrow('Pull request branch push failed for AR-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW: push rejected')
+    expect(calls).toBe(1)
   })
 
   it('does not plan PR creation for failed executions', async () => {
