@@ -5,6 +5,7 @@ export { Sandbox } from '@cloudflare/sandbox'
 
 export { ingestSignal } from './stages/ingest-signal'
 export { generateFeedbackSignals } from './stages/generate-feedback'
+export { generatePR } from './stages/generate-pr'
 export { synthesizePressure } from './stages/synthesize-pressure'
 export { mapCapability } from './stages/map-capability'
 export { proposeFunction } from './stages/propose-function'
@@ -411,6 +412,47 @@ export default {
               } catch (createErr) {
                 const createErrMsg = createErr instanceof Error ? createErr.message : String(createErr)
                 console.error(`[Feedback] Failed to create pipeline for ${fs.signal.subtype}: ${createErrMsg}`)
+              }
+            }
+          }
+
+          // PR generation for pr-candidate signals
+          for (const fs of feedbackSignals) {
+            if (fs.signal.subtype === 'synthesis:pr-candidate' && !fs.autoApprove && env.GITHUB_TOKEN) {
+              try {
+                const { generatePR } = await import('./stages/generate-pr.js')
+                const feedbackBody = ctx as {
+                  result: Record<string, unknown>
+                }
+                const result = await generatePR(
+                  {
+                    signalTitle: fs.signal.title,
+                    proposalId: feedbackBody.result.proposalId as string,
+                    workGraphId: feedbackBody.result.workGraphId as string,
+                    atomResults: feedbackBody.result.atomResults as Record<string, {
+                      atomId: string
+                      verdict: { decision: string }
+                      codeArtifact: {
+                        files: Array<{ path: string; content: string; action: 'create' | 'modify' | 'delete' }>
+                        summary: string
+                      } | null
+                    }>,
+                    sourceRefs: fs.signal.sourceRefs ?? [],
+                    confidence: (feedbackBody.result.synthesisResult as Record<string, unknown> | undefined)?.verdict
+                      ? ((feedbackBody.result.synthesisResult as Record<string, unknown>).verdict as { confidence: number }).confidence
+                      : 0,
+                  },
+                  env.GITHUB_TOKEN,
+                  'Wescome',
+                  'function-factory',
+                )
+                if (result.success) {
+                  console.log(`[Feedback] PR created: ${result.prUrl} (${result.filesWritten} files)`)
+                } else {
+                  console.error(`[Feedback] PR generation failed: ${result.error}`)
+                }
+              } catch (prErr) {
+                console.error(`[Feedback] PR generation error: ${prErr instanceof Error ? prErr.message : prErr}`)
               }
             }
           }

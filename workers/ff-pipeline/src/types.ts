@@ -41,6 +41,9 @@ export interface PipelineEnv {
   /** R2 bucket for workspace backups */
   WORKSPACE_BUCKET?: unknown
 
+  /** GitHub personal access token for PR creation */
+  GITHUB_TOKEN?: string
+
   ENVIRONMENT: string
 }
 
