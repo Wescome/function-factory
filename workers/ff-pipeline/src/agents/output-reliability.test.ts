@@ -1,8 +1,7 @@
 import { ORL_VERSION } from './output-reliability';
 
-describe('OutputReliability version control', () => {
-  it('should define ORL_VERSION to prevent module malfunctions and inconsistencies', () => {
-    expect(ORL_VERSION).toBeDefined();
+describe('output-reliability', () => {
+  it('should have ORL_VERSION set to 2', () => {
     expect(ORL_VERSION).toBe(2);
   });
 });
