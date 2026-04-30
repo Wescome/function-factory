@@ -40,3 +40,14 @@ also planned and executed through the same command seam using `gh pr create`.
 4. Create a PR if the runner succeeds.
 5. Build and persist a validated `AgentResult` bundle.
 6. Complete the queue item with pass/fail evidence.
+
+CLI entrypoint:
+
+```bash
+pnpm run autonomous-scheduler:cli -- validate-request packages/autonomous-scheduler/fixtures/strategy-recipes-agent-request.json
+pnpm run autonomous-scheduler:cli -- enqueue /tmp/factory-queue packages/autonomous-scheduler/fixtures/strategy-recipes-agent-request.json
+pnpm run autonomous-scheduler:cli -- status /tmp/factory-queue
+```
+
+`run-single` is intentionally explicit because it executes `git`, `codex`, and
+`gh` against the requested repo.

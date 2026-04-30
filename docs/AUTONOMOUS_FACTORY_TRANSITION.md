@@ -95,6 +95,8 @@ converts runner evidence into a validated `AgentResult`, and writes durable
 artifact bundles. Pull request creation is wired through the same command seam
 using `gh pr create`. The single-request Governor path is bootstrapped by
 `runSingleAgentRequest`, which enqueues, claims, runs, opens a PR, writes a
-bundle, and completes the queue item. The next production-alpha slice is the CLI
-or daemon entrypoint that invokes this path against a real Strategy.Recipes
-checkout.
+bundle, and completes the queue item. The CLI entrypoint is
+`pnpm run autonomous-scheduler:cli -- ...`; it can validate, enqueue, claim,
+status, plan, and explicitly run a single request against a real checkout. The
+next production-alpha slice is the daemon that invokes the same path repeatedly
+with leases, heartbeats, and stop controls.
