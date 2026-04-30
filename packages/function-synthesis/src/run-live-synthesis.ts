@@ -24,7 +24,7 @@ function parseSimpleYaml(text: string): Record<string, unknown> {
   const result: Record<string, unknown> = {}
   const lines = text.split("\n")
   let currentKey = ""
-  let currentArray: Record<string, unknown>[] = []
+  let currentArray: Array<Record<string, unknown> | string> = []
   let currentObj: Record<string, unknown> = {}
   let inArray = false
 

@@ -263,7 +263,7 @@ describe('seedOntology', () => {
     await seedOntology(db as any)
 
     const classeSaves = db.save.mock.calls.filter(
-      ([coll]: [string]) => coll === 'ontology_classes'
+      ([coll]) => coll === 'ontology_classes'
     )
     expect(classeSaves.length).toBe(ONTOLOGY_CLASSES.length)
   })
@@ -273,7 +273,7 @@ describe('seedOntology', () => {
     await seedOntology(db as any)
 
     const constraintSaves = db.save.mock.calls.filter(
-      ([coll]: [string]) => coll === 'ontology_constraints'
+      ([coll]) => coll === 'ontology_constraints'
     )
     expect(constraintSaves.length).toBe(ONTOLOGY_CONSTRAINTS.length)
   })
@@ -284,7 +284,7 @@ describe('seedOntology', () => {
     db.save = vi.fn(async () => {
       callCount++
       if (callCount === 3) throw new Error('unique constraint violated')
-      return { _key: 'test' }
+      return { _key: 'test', _id: 'mock/test' }
     })
 
     // Should not throw
