@@ -37,6 +37,7 @@ export const EVIDENCE_KINDS = [
   'git_diff',
   'test_output',
   'typecheck_output',
+  'verification_output',
   'artifact_paths',
   'pr_url',
   'review_report',
@@ -58,6 +59,7 @@ export type BranchMode = (typeof BRANCH_MODES)[number]
 export type ForbiddenAction = (typeof FORBIDDEN_ACTIONS)[number]
 export type EvidenceKind = (typeof EVIDENCE_KINDS)[number]
 export type QueueEventType = (typeof QUEUE_EVENT_TYPES)[number]
+export type CommandRunPhase = 'preflight' | 'codex' | 'commit' | 'verification' | 'pull_request'
 type NonEmptyReadonlyArray<T> = readonly [T, ...T[]]
 
 export interface WorkGraphHandle {
@@ -224,6 +226,7 @@ export interface CommandRunResult {
   completedAt: string
   timedOut?: boolean
   signal?: string
+  phase?: CommandRunPhase
 }
 
 export interface CodexRunnerExecution {
@@ -275,6 +278,7 @@ export interface AgentResultBundleManifest {
     manifest: string
     commands: string[]
     diff?: string
+    verification?: string
   }
 }
 
@@ -299,6 +303,12 @@ export interface PullRequestExecution {
   prUrl: string
   commands: CommandRunResult[]
   command: CommandRunResult
+}
+
+export interface RequiredCommandExecutionOptions {
+  repoRoot: string
+  executor?: CommandExecutor
+  shell?: string
 }
 
 interface WorkerCommitExecution {
@@ -768,6 +778,14 @@ export function buildAgentResultFromExecution(
     })
   }
 
+  if (execution.commands.some((command) => command.phase === 'verification')) {
+    evidence.push({
+      kind: 'verification_output',
+      path: join(options.artifactBasePath, 'verification-output.txt'),
+      summary: 'Parent scheduler verification output captured after commit and before PR publication.',
+    })
+  }
+
   if (execution.status === 'completed') {
     evidence.push({
       kind: 'git_diff',
@@ -869,6 +887,17 @@ export async function writeAgentResultBundle(
     await writeFile(diffPath, options.diff, 'utf8')
   }
 
+  let verificationPath: string | undefined
+  const verificationCommands = execution.commands.filter((command) => command.phase === 'verification')
+  if (verificationCommands.length > 0) {
+    verificationPath = join(options.bundleDir, 'verification-output.txt')
+    await writeFile(
+      verificationPath,
+      verificationCommands.map((command) => formatCommandOutput(command)).join('\n---\n'),
+      'utf8',
+    )
+  }
+
   const manifest: AgentResultBundleManifest = {
     schemaVersion: 'factory.agent-result-bundle.v0',
     requestId: request.id,
@@ -885,6 +914,10 @@ export async function writeAgentResultBundle(
 
   if (diffPath) {
     manifest.files.diff = diffPath
+  }
+
+  if (verificationPath) {
+    manifest.files.verification = verificationPath
   }
 
   await writeJsonFile(manifestPath, manifest)
@@ -1086,6 +1119,25 @@ export async function executePullRequestPlan(
   }
 }
 
+export async function executeRequiredCommands(
+  requestInput: unknown,
+  options: RequiredCommandExecutionOptions,
+): Promise<CommandRunResult[]> {
+  const request = validateAgentRequest(requestInput)
+  const executor = options.executor ?? createProcessCommandExecutor()
+  const commands: CommandRunResult[] = []
+
+  for (const requiredCommand of request.requiredCommands) {
+    const command = buildRequiredCommand(requiredCommand, options)
+    const result = await executor(command)
+    commands.push({ ...result, phase: 'verification' })
+
+    if (result.exitCode !== 0) break
+  }
+
+  return commands
+}
+
 export async function runSingleAgentRequest(
   requestInput: unknown,
   options: SingleAgentRunOptions,
@@ -1132,6 +1184,40 @@ export async function runClaimedAgentRequest(
       status: commit.status === 'committed' ? 'completed' : 'failed',
       commands: [...execution.commands, ...commit.commands],
       ...(commit.status === 'failed' ? { failedCommand: commit.failedCommand ?? 'worker commit' } : {}),
+    }
+
+    if (resultExecution.status !== 'completed') {
+      const resultOptions: AgentResultFromExecutionOptions = {
+        resultId: options.resultId,
+        agentRunId: options.agentRunId,
+        completedAt: options.completedAt,
+        artifactBasePath: options.bundleDir,
+      }
+      if (options.changedFiles) resultOptions.changedFiles = options.changedFiles
+
+      const result = buildAgentResultFromExecution(claimed, resultExecution, resultOptions)
+      const bundleOptions: AgentResultBundleOptions = {
+        bundleDir: options.bundleDir,
+      }
+      if (options.diff !== undefined) bundleOptions.diff = options.diff
+      const bundle = await writeAgentResultBundle(claimed, resultExecution, result, bundleOptions)
+      await options.queue.complete(result)
+      return { request: claimed, execution: resultExecution, result, bundle }
+    }
+
+    const verification = await executeRequiredCommands(claimed, {
+      repoRoot: options.repoRoot,
+      ...(options.pullRequestExecutor ? { executor: options.pullRequestExecutor } : {}),
+    })
+    const failedVerification = verification.find((command) => command.exitCode !== 0)
+    resultExecution = {
+      requestId: execution.requestId,
+      branchName: execution.branchName,
+      status: failedVerification ? 'failed' : 'completed',
+      commands: [...resultExecution.commands, ...verification],
+      ...(failedVerification
+        ? { failedCommand: `parent verification: ${stringifyCommand(failedVerification)}` }
+        : {}),
     }
 
     if (resultExecution.status !== 'completed') {
@@ -1878,6 +1964,32 @@ function buildBranchName(request: AgentRequest, suffix?: string): string {
 
 function stringifyCommand(command: RunnerCommand): string {
   return [command.command, ...redactCommandArgs(command)].join(' ')
+}
+
+function buildRequiredCommand(command: string, options: RequiredCommandExecutionOptions): RunnerCommand {
+  return {
+    command: options.shell ?? process.env.SHELL ?? 'sh',
+    args: ['-lc', command],
+    cwd: options.repoRoot,
+  }
+}
+
+function formatCommandOutput(command: CommandRunResult): string {
+  return [
+    `$ ${stringifyCommand(command)}`,
+    '',
+    `exitCode: ${command.exitCode}`,
+    `cwd: ${command.cwd}`,
+    `startedAt: ${command.startedAt}`,
+    `completedAt: ${command.completedAt}`,
+    '',
+    'stdout:',
+    command.stdout,
+    '',
+    'stderr:',
+    command.stderr,
+    '',
+  ].join('\n')
 }
 
 function redactCommandArgs(command: RunnerCommand): string[] {
