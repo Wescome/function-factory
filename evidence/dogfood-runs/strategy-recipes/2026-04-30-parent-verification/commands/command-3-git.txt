@@ -1,12 +1,21 @@
 $ git status --short
 
+phase: unknown
 exitCode: 0
 cwd: /Users/wes/Developer/strategy-recipes
 startedAt: 2026-04-30T22:31:22.649Z
 completedAt: 2026-04-30T22:31:22.720Z
+timedOut: false
+signal: none
 
-stdout:
+stdoutBytes: 0
+stdoutSha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+stdoutTruncated: false
+stdoutPreview:
 
 
-stderr:
+stderrBytes: 0
+stderrSha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+stderrTruncated: false
+stderrPreview:
 

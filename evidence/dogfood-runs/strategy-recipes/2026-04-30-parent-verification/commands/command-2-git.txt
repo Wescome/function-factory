@@ -1,14 +1,23 @@
 $ git switch -c factory/strategy-recipes-parent-verify-evidence/ar-strategy-recipes-parent-verify-evidence-parent-verification-20260430t2235 origin/main
 
+phase: unknown
 exitCode: 0
 cwd: /Users/wes/Developer/strategy-recipes
 startedAt: 2026-04-30T22:31:22.600Z
 completedAt: 2026-04-30T22:31:22.649Z
+timedOut: false
+signal: none
 
-stdout:
+stdoutBytes: 165
+stdoutSha256: 8707906fcdf2a50b268b40a5fb1ce8081e21caabdd9c60d5e6cac615c07115f8
+stdoutTruncated: false
+stdoutPreview:
 branch 'factory/strategy-recipes-parent-verify-evidence/ar-strategy-recipes-parent-verify-evidence-parent-verification-20260430t2235' set up to track 'origin/main'.
 
 
-stderr:
+stderrBytes: 152
+stderrSha256: 162746d8a7ee86995670f2c13741907327017ec2d216c34224754e2a65fe1ca6
+stderrTruncated: false
+stderrPreview:
 Switched to a new branch 'factory/strategy-recipes-parent-verify-evidence/ar-strategy-recipes-parent-verify-evidence-parent-verification-20260430t2235'
 

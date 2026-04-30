@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, unlinkSync } from 'node:fs'
+import { mkdtempSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -1072,6 +1072,7 @@ describe('Strategy.Recipes dogfood', () => {
 
     expect(manifest.schemaVersion).toBe('factory.scheduler-run-manifest.v0')
     expect(manifest.runId).toBe('strategy-recipes-dogfood-smoke')
+    expect(manifest.evidenceMode).toBe('compact')
     expect(manifest.requestId).toBe('AR-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW')
     expect(manifest.files.request.path).toBe('request.json')
     expect(manifest.files.commands[0]?.path).toContain('commands/')
@@ -1083,6 +1084,88 @@ describe('Strategy.Recipes dogfood', () => {
     expect(readFileSync(join(outputDir, 'manifest.json'), 'utf8')).toContain('factory.scheduler-run-manifest.v0')
     expect(trackedResult.commands.every((command) => !command.outputRef.startsWith('/tmp/'))).toBe(true)
     expect(trackedResult.evidence.every((entry) => !entry.path?.startsWith('/tmp/'))).toBe(true)
+  })
+
+  it('redacts and compacts repo-tracked command evidence by default', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'factory-dogfood-'))
+    const paths = createStrategyRecipesDogfoodRunPaths(home, fixedClock())
+    await runStrategyRecipesDogfood({
+      request: requestFixture,
+      repoRoot: '/tmp/strategy-recipes',
+      queueDir: paths.queueDir,
+      bundleDir: paths.bundleDir,
+      mode: 'dry-run',
+      mockPrUrl: 'https://github.com/Wescome/strategy-recipes/pull/dogfood',
+      now: fixedClock(),
+    })
+    const bundleManifest = JSON.parse(readFileSync(join(paths.bundleDir, 'manifest.json'), 'utf8')) as {
+      files: { execution: string; commands: string[] }
+    }
+    const execution = JSON.parse(readFileSync(bundleManifest.files.execution, 'utf8')) as {
+      commands: { phase?: string; stdout: string }[]
+    }
+    const commandIndex = 0
+    expect(execution.commands.length).toBeGreaterThan(0)
+    execution.commands[commandIndex]!.stdout = `TOKEN=SECRET_VALUE\n${'x'.repeat(7_000)}`
+    writeFileSync(bundleManifest.files.execution, `${JSON.stringify(execution, null, 2)}\n`, 'utf8')
+    writeFileSync(bundleManifest.files.commands[commandIndex]!, `TOKEN=SECRET_VALUE\n${'x'.repeat(7_000)}`, 'utf8')
+
+    const outputDir = join(home, 'tracked-run')
+    const manifest = await writeRepoTrackedRunManifest({
+      bundleDir: paths.bundleDir,
+      outputDir,
+      generatedAt: '2026-04-30T14:45:00.000Z',
+      runId: 'compact-evidence',
+    })
+
+    const trackedCommand = readFileSync(join(outputDir, manifest.files.commands[commandIndex]!.path), 'utf8')
+    const trackedExecution = readFileSync(join(outputDir, manifest.files.execution.path), 'utf8')
+
+    expect(manifest.evidenceMode).toBe('compact')
+    expect(trackedCommand).toContain('<redacted:secret>')
+    expect(trackedCommand).toContain('[truncated')
+    expect(trackedCommand).not.toContain('SECRET_VALUE')
+    expect(trackedExecution).toContain('<redacted:secret>')
+    expect(trackedExecution).toContain('"truncated": true')
+    expect(trackedExecution).not.toContain('SECRET_VALUE')
+  })
+
+  it('can record full repo-tracked command evidence when explicitly requested', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'factory-dogfood-'))
+    const paths = createStrategyRecipesDogfoodRunPaths(home, fixedClock())
+    await runStrategyRecipesDogfood({
+      request: requestFixture,
+      repoRoot: '/tmp/strategy-recipes',
+      queueDir: paths.queueDir,
+      bundleDir: paths.bundleDir,
+      mode: 'dry-run',
+      mockPrUrl: 'https://github.com/Wescome/strategy-recipes/pull/dogfood',
+      now: fixedClock(),
+    })
+    const bundleManifest = JSON.parse(readFileSync(join(paths.bundleDir, 'manifest.json'), 'utf8')) as {
+      files: { execution: string; commands: string[] }
+    }
+    const execution = JSON.parse(readFileSync(bundleManifest.files.execution, 'utf8')) as {
+      commands: { phase?: string; stdout: string }[]
+    }
+    const commandIndex = 0
+    expect(execution.commands.length).toBeGreaterThan(0)
+    execution.commands[commandIndex]!.stdout = 'FULL_SENTINEL'
+    writeFileSync(bundleManifest.files.execution, `${JSON.stringify(execution, null, 2)}\n`, 'utf8')
+    writeFileSync(bundleManifest.files.commands[commandIndex]!, 'FULL_SENTINEL', 'utf8')
+
+    const outputDir = join(home, 'tracked-run')
+    const manifest = await writeRepoTrackedRunManifest({
+      bundleDir: paths.bundleDir,
+      outputDir,
+      generatedAt: '2026-04-30T14:45:00.000Z',
+      runId: 'full-evidence',
+      evidenceMode: 'full',
+    })
+
+    expect(manifest.evidenceMode).toBe('full')
+    expect(readFileSync(join(outputDir, manifest.files.commands[commandIndex]!.path), 'utf8')).toBe('FULL_SENTINEL')
+    expect(readFileSync(join(outputDir, manifest.files.execution.path), 'utf8')).toContain('FULL_SENTINEL')
   })
 
   it('omits stale file evidence when promoting older incomplete bundles', async () => {

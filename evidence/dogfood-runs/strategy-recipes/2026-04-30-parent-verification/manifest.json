@@ -1,7 +1,8 @@
 {
   "schemaVersion": "factory.scheduler-run-manifest.v0",
   "runId": "strategy-recipes-2026-04-30-parent-verification",
-  "generatedAt": "2026-04-30T22:51:49.569Z",
+  "generatedAt": "2026-04-30T23:05:32.951Z",
+  "evidenceMode": "compact",
   "requestId": "AR-STRATEGY-RECIPES-PARENT-VERIFY-EVIDENCE",
   "resultId": "ARES-STRATEGY-RECIPES-PARENT-VERIFY-EVIDENCE-20260430T223122060Z",
   "status": "completed",
@@ -30,8 +31,8 @@
     },
     "execution": {
       "path": "execution.json",
-      "bytes": 135887,
-      "sha256": "f4a40e357d5220ca6888160c98aa62d235b0faec5c157d188b9e14891d02f8c6"
+      "bytes": 27882,
+      "sha256": "40e023a50e806d000e30f7bbb98756777fb8040591c85d6f77edba20c3352df5"
     },
     "result": {
       "path": "result.json",
@@ -41,53 +42,53 @@
     "commands": [
       {
         "path": "commands/command-1-git.txt",
-        "bytes": 269,
-        "sha256": "8d3c8d4e0dba50c44a05ad398270401a34b3dd47f51321242948b1101a2c7849"
+        "bytes": 562,
+        "sha256": "9d2d11dce35c9af0b94b08e3a8caac69edb6830372bd6f1b55c814dfbb09880e"
       },
       {
         "path": "commands/command-2-git.txt",
-        "bytes": 620,
-        "sha256": "807dcfb61719bb519ae2783256b4c73341d42d03e29deeff2b1a9600b2689e6a"
+        "bytes": 916,
+        "sha256": "00c85b996e6b9fb6b2af3734c0290aa9d252335e5321de9c984fe2567a820458"
       },
       {
         "path": "commands/command-3-git.txt",
-        "bytes": 171,
-        "sha256": "c23ac31f81e3f427f5b77604904d7aa46fe25fab8c53d9e4406e5768620e8621"
+        "bytes": 463,
+        "sha256": "b866744d48e3af61a6360b3048502611ca2a2de6b45349f3ff82947a2c75466c"
       },
       {
         "path": "commands/command-4-codex.txt",
-        "bytes": 114245,
-        "sha256": "fdb4204130bb1c892ba1d51865ed8e7d1fa16fed26ab085403abcedada1251b8"
+        "bytes": 12381,
+        "sha256": "37098676b0a23afb316fd2a8354f79e4d9299bbbbcb29c61ed03f15bfbe5c433"
       },
       {
         "path": "commands/command-5-git.txt",
-        "bytes": 228,
-        "sha256": "b277affc148a023b9e75033ce513769b2901266fefe4c2d902afca481ffec7f6"
+        "bytes": 521,
+        "sha256": "37eec3546bfa4dd6d05761d8698db9ef7d4d5b31ad94f4499a22d88e573fdc92"
       },
       {
         "path": "commands/command-6-git.txt",
-        "bytes": 213,
-        "sha256": "9555e53449f3e5d890b1c4da9872cd68d3cc55d6e1c84bcf6c5ef865aa66b17c"
+        "bytes": 505,
+        "sha256": "eec23106ed037da8e8d8ddd255307dae5a02f05b09dee12c1e0a922655bc67e0"
       },
       {
         "path": "commands/command-7-git.txt",
-        "bytes": 440,
-        "sha256": "6e4ba37d9ca58166e6b966edc33b9f570c38a75856c7bcc533246e98d12d8b69"
+        "bytes": 734,
+        "sha256": "4a5edebf656d736b84ded3a593953af1fbcbe7272b44de212363a91f2e2b2cd0"
       },
       {
         "path": "commands/command-8--bin-zsh.txt",
-        "bytes": 1383,
-        "sha256": "598c411032d9315ea344e85ecfbb4c022f17796f8d3808a70f668c9c5ef812d0"
+        "bytes": 1683,
+        "sha256": "d933d0390c2d9e05464c55352100b0cf1fab1acdf72f51b038fa4d80ae833b49"
       },
       {
         "path": "commands/command-9--bin-zsh.txt",
-        "bytes": 401,
-        "sha256": "f2a08f3bd4bcc5d0e0f8c51e391e26e68ee2c56cca8fb36bd274718fc5b11f9a"
+        "bytes": 700,
+        "sha256": "d622b8026cb470002ead2cb790f2a70d6f07d7b7a3e4c76554e456ddb8f87776"
       },
       {
         "path": "commands/command-10--bin-zsh.txt",
-        "bytes": 11580,
-        "sha256": "190596d16501d8e8003a283f66842787b79362a54c2345ccc0f5207973eed868"
+        "bytes": 6771,
+        "sha256": "7b85a8ed98dce293a602b0d35f52e877303bc5d4706bf67dba86c1e5ea24bfdd"
       }
     ],
     "verification": {

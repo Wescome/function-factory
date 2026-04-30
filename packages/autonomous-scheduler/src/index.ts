@@ -8,6 +8,9 @@ export const AGENT_RESULT_SCHEMA_VERSION = 'factory.agent-result.v0' as const
 export const QUEUE_EVENT_SCHEMA_VERSION = 'factory.queue-event.v0' as const
 export const SCHEDULER_RUN_MANIFEST_SCHEMA_VERSION = 'factory.scheduler-run-manifest.v0' as const
 export const DEFAULT_CODEX_TIMEOUT_MS = 30 * 60 * 1000
+export const DEFAULT_REPO_TRACKED_EVIDENCE_MODE = 'compact' as const
+export const COMPACT_COMMAND_OUTPUT_MAX_CHARS = 6_000
+export const COMPACT_EVIDENCE_OUTPUT_MAX_CHARS = 20_000
 
 export const AGENT_ROLES = [
   'architect',
@@ -129,6 +132,7 @@ export interface AgentRequest {
 }
 
 export type AgentResultStatus = 'completed' | 'failed' | 'refused'
+export type RepoTrackedEvidenceMode = 'compact' | 'full'
 
 export interface CommandEvidence {
   command: string
@@ -297,6 +301,7 @@ export interface SchedulerRunManifest {
   schemaVersion: typeof SCHEDULER_RUN_MANIFEST_SCHEMA_VERSION
   runId: string
   generatedAt: string
+  evidenceMode: RepoTrackedEvidenceMode
   requestId: string
   resultId: string
   status: AgentResultStatus
@@ -328,6 +333,7 @@ export interface RepoTrackedRunManifestOptions {
   outputDir: string
   generatedAt?: string
   runId?: string
+  evidenceMode?: RepoTrackedEvidenceMode
 }
 
 export interface PullRequestPlanOptions {
@@ -990,6 +996,7 @@ export async function writeAgentResultBundle(
 export async function writeRepoTrackedRunManifest(
   options: RepoTrackedRunManifestOptions,
 ): Promise<SchedulerRunManifest> {
+  const evidenceMode = options.evidenceMode ?? DEFAULT_REPO_TRACKED_EVIDENCE_MODE
   const bundleManifest = JSON.parse(
     await readFile(join(options.bundleDir, 'manifest.json'), 'utf8'),
   ) as AgentResultBundleManifest
@@ -1001,8 +1008,28 @@ export async function writeRepoTrackedRunManifest(
   await mkdir(join(options.outputDir, 'commands'), { recursive: true })
 
   const commandFiles: SchedulerRunManifestFile[] = []
-  for (const commandPath of bundleManifest.files.commands) {
-    commandFiles.push(await copyTrackedFile(commandPath, join(options.outputDir, 'commands', basename(commandPath)), `commands/${basename(commandPath)}`))
+  for (let index = 0; index < bundleManifest.files.commands.length; index += 1) {
+    const commandPath = bundleManifest.files.commands[index]
+    if (!commandPath) continue
+    const relativePath = `commands/${basename(commandPath)}`
+    const destinationPath = join(options.outputDir, relativePath)
+    const commandFileOptions: {
+      commandPath: string
+      command?: CommandRunResult
+      destinationPath: string
+      relativePath: string
+      evidenceMode: RepoTrackedEvidenceMode
+    } = {
+      commandPath,
+      destinationPath,
+      relativePath,
+      evidenceMode,
+    }
+    const command = execution.commands[index]
+    if (command) commandFileOptions.command = command
+    commandFiles.push(
+      await writeRepoTrackedCommandFile(commandFileOptions),
+    )
   }
 
   const pathMap = new Map<string, string>()
@@ -1013,10 +1040,25 @@ export async function writeRepoTrackedRunManifest(
     if (sourcePath && commandFile) pathMap.set(sourcePath, commandFile.path)
   }
 
-  const copiedDiff = await copyOptionalTrackedFile(bundleManifest.files.diff, options.outputDir, 'diff.patch')
-  const copiedTestOutput = await copyOptionalTrackedFile(bundleManifest.files.testOutput, options.outputDir, 'test-output.txt')
-  const copiedTypecheckOutput = await copyOptionalTrackedFile(bundleManifest.files.typecheckOutput, options.outputDir, 'typecheck-output.txt')
-  const copiedVerification = await copyOptionalTrackedFile(bundleManifest.files.verification, options.outputDir, 'verification-output.txt')
+  const copiedDiff = await copyOptionalRepoEvidenceFile(bundleManifest.files.diff, options.outputDir, 'diff.patch', evidenceMode)
+  const copiedTestOutput = await copyOptionalRepoEvidenceFile(
+    bundleManifest.files.testOutput,
+    options.outputDir,
+    'test-output.txt',
+    evidenceMode,
+  )
+  const copiedTypecheckOutput = await copyOptionalRepoEvidenceFile(
+    bundleManifest.files.typecheckOutput,
+    options.outputDir,
+    'typecheck-output.txt',
+    evidenceMode,
+  )
+  const copiedVerification = await copyOptionalRepoEvidenceFile(
+    bundleManifest.files.verification,
+    options.outputDir,
+    'verification-output.txt',
+    evidenceMode,
+  )
 
   if (bundleManifest.files.diff && copiedDiff) pathMap.set(bundleManifest.files.diff, copiedDiff.path)
   if (bundleManifest.files.testOutput && copiedTestOutput) pathMap.set(bundleManifest.files.testOutput, copiedTestOutput.path)
@@ -1029,7 +1071,11 @@ export async function writeRepoTrackedRunManifest(
 
   const normalizedResult = normalizeResultForRepoTracking(result, pathMap, commandFiles)
   const requestFile = await writeTrackedJsonFile(join(options.outputDir, 'request.json'), 'request.json', request)
-  const executionFile = await writeTrackedJsonFile(join(options.outputDir, 'execution.json'), 'execution.json', execution)
+  const executionFile = await writeTrackedJsonFile(
+    join(options.outputDir, 'execution.json'),
+    'execution.json',
+    evidenceMode === 'full' ? execution : compactExecutionForRepoTracking(execution),
+  )
   const resultFile = await writeTrackedJsonFile(join(options.outputDir, 'result.json'), 'result.json', normalizedResult)
   const generatedAt = options.generatedAt ?? new Date().toISOString()
 
@@ -1037,6 +1083,7 @@ export async function writeRepoTrackedRunManifest(
     schemaVersion: SCHEDULER_RUN_MANIFEST_SCHEMA_VERSION,
     runId: options.runId ?? sanitizeId(result.id),
     generatedAt,
+    evidenceMode,
     requestId: request.id,
     resultId: result.id,
     status: result.status,
@@ -2129,6 +2176,47 @@ async function copyOptionalTrackedFile(
   }
 }
 
+async function writeRepoTrackedCommandFile(options: {
+  commandPath: string
+  command?: CommandRunResult
+  destinationPath: string
+  relativePath: string
+  evidenceMode: RepoTrackedEvidenceMode
+}): Promise<SchedulerRunManifestFile> {
+  if (options.evidenceMode === 'full') {
+    return await copyTrackedFile(options.commandPath, options.destinationPath, options.relativePath)
+  }
+
+  const output = options.command
+    ? formatCompactCommandOutput(options.command)
+    : redactAndTruncateText(await readFile(options.commandPath, 'utf8'), COMPACT_COMMAND_OUTPUT_MAX_CHARS)
+  await writeFile(options.destinationPath, output, 'utf8')
+  return await describeTrackedFile(options.destinationPath, options.relativePath)
+}
+
+async function copyOptionalRepoEvidenceFile(
+  sourcePath: string | undefined,
+  outputDir: string,
+  relativePath: string,
+  evidenceMode: RepoTrackedEvidenceMode,
+): Promise<SchedulerRunManifestFile | undefined> {
+  if (!sourcePath) return undefined
+
+  if (evidenceMode === 'full') {
+    return await copyOptionalTrackedFile(sourcePath, outputDir, relativePath)
+  }
+
+  try {
+    const source = await readFile(sourcePath, 'utf8')
+    const destinationPath = join(outputDir, relativePath)
+    await writeFile(destinationPath, redactAndTruncateText(source, compactEvidenceLimit(relativePath)), 'utf8')
+    return await describeTrackedFile(destinationPath, relativePath)
+  } catch (error) {
+    if (isNotFound(error)) return undefined
+    throw error
+  }
+}
+
 async function describeTrackedFile(path: string, relativePath: string): Promise<SchedulerRunManifestFile> {
   const fileStats = await stat(path)
   return {
@@ -2163,6 +2251,107 @@ function normalizeResultForRepoTracking(
 
 function normalizeTrackedPath(path: string, pathMap: ReadonlyMap<string, string>): string {
   return pathMap.get(path) ?? (path.startsWith('/') ? basename(path) : path)
+}
+
+function compactExecutionForRepoTracking(execution: CodexRunnerExecution): Record<string, unknown> {
+  return {
+    requestId: execution.requestId,
+    branchName: execution.branchName,
+    status: execution.status,
+    failedCommand: execution.failedCommand,
+    refusalReason: execution.refusalReason,
+    commands: execution.commands.map((command) => compactCommandForRepoTracking(command)),
+  }
+}
+
+function compactCommandForRepoTracking(command: CommandRunResult): Record<string, unknown> {
+  return {
+    command: redactSensitiveText(stringifyCommand(command)),
+    cwd: command.cwd,
+    phase: command.phase,
+    exitCode: command.exitCode,
+    startedAt: command.startedAt,
+    completedAt: command.completedAt,
+    timedOut: command.timedOut,
+    signal: command.signal,
+    stdout: summarizeCommandText(command.stdout, COMPACT_COMMAND_OUTPUT_MAX_CHARS),
+    stderr: summarizeCommandText(command.stderr, COMPACT_COMMAND_OUTPUT_MAX_CHARS),
+  }
+}
+
+function formatCompactCommandOutput(command: CommandRunResult): string {
+  const stdout = summarizeCommandText(command.stdout, COMPACT_COMMAND_OUTPUT_MAX_CHARS)
+  const stderr = summarizeCommandText(command.stderr, COMPACT_COMMAND_OUTPUT_MAX_CHARS)
+
+  return [
+    `$ ${redactSensitiveText(stringifyCommand(command))}`,
+    '',
+    `phase: ${command.phase ?? 'unknown'}`,
+    `exitCode: ${command.exitCode}`,
+    `cwd: ${command.cwd}`,
+    `startedAt: ${command.startedAt}`,
+    `completedAt: ${command.completedAt}`,
+    `timedOut: ${command.timedOut === true ? 'true' : 'false'}`,
+    `signal: ${command.signal ?? 'none'}`,
+    '',
+    `stdoutBytes: ${stdout.bytes}`,
+    `stdoutSha256: ${stdout.sha256}`,
+    `stdoutTruncated: ${stdout.truncated}`,
+    'stdoutPreview:',
+    stdout.preview,
+    '',
+    `stderrBytes: ${stderr.bytes}`,
+    `stderrSha256: ${stderr.sha256}`,
+    `stderrTruncated: ${stderr.truncated}`,
+    'stderrPreview:',
+    stderr.preview,
+    '',
+  ].join('\n')
+}
+
+function summarizeCommandText(value: string, maxChars: number): Record<string, unknown> {
+  const redacted = redactSensitiveText(value)
+  return {
+    bytes: Buffer.byteLength(value, 'utf8'),
+    sha256: createHash('sha256').update(redacted).digest('hex'),
+    redactedBytes: Buffer.byteLength(redacted, 'utf8'),
+    truncated: redacted.length > maxChars,
+    preview: truncateText(redacted, maxChars),
+  }
+}
+
+function redactAndTruncateText(value: string, maxChars: number): string {
+  return truncateText(redactSensitiveText(value), maxChars)
+}
+
+function redactSensitiveText(value: string): string {
+  let output = value
+  output = output.replace(
+    /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g,
+    '<redacted:private-key>',
+  )
+  output = output.replace(/\bsk-[A-Za-z0-9_-]{20,}\b/g, '<redacted:openai-key>')
+  output = output.replace(/\bgh[pousr]_[A-Za-z0-9_]{20,}\b/g, '<redacted:github-token>')
+  output = output.replace(/\bxox[baprs]-[A-Za-z0-9-]{20,}\b/g, '<redacted:slack-token>')
+  output = output.replace(
+    /\b(authorization\s*[:=]\s*)(["']?)(bearer\s+)[A-Za-z0-9._~+/-]+=*/gi,
+    (_match, prefix: string, quote: string, scheme: string) => `${prefix}${quote}${scheme}<redacted:secret>${quote}`,
+  )
+  output = output.replace(
+    /\b(api[_-]?key|token|secret|password|cookie)(\s*[:=]\s*)(["']?)([^"'\s,}]{8,})(["']?)/gi,
+    (_match, key: string, separator: string, quote: string) => `${key}${separator}${quote}<redacted:secret>${quote}`,
+  )
+  return output
+}
+
+function truncateText(value: string, maxChars: number): string {
+  if (value.length <= maxChars) return value
+  return `${value.slice(0, maxChars)}\n[truncated ${value.length - maxChars} characters]`
+}
+
+function compactEvidenceLimit(relativePath: string): number {
+  if (relativePath === 'diff.patch') return 100_000
+  return COMPACT_EVIDENCE_OUTPUT_MAX_CHARS
 }
 
 async function readJsonLines(path: string): Promise<unknown[]> {

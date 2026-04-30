@@ -1,11 +1,17 @@
 $ /bin/zsh -lc pnpm --dir packages/strategy-objects test
 
+phase: verification
 exitCode: 0
 cwd: /Users/wes/Developer/strategy-recipes
 startedAt: 2026-04-30T22:34:28.533Z
 completedAt: 2026-04-30T22:34:29.763Z
+timedOut: false
+signal: none
 
-stdout:
+stdoutBytes: 1176
+stdoutSha256: d000879c1e7c5cda62d9a4fa1f265a1c728a6cef4b27f6ceaa7e87b2ca8ae5a6
+stdoutTruncated: false
+stdoutPreview:
 
 > @strategy-recipes/strategy-objects@0.1.0 test /Users/wes/Developer/strategy-recipes/packages/strategy-objects
 > node --experimental-strip-types --test ../../tests/first-product-view.test.ts
@@ -29,5 +35,8 @@ To eliminate this warning, add "type": "module" to /Users/wes/Developer/strategy
 ℹ duration_ms 329.733246
 
 
-stderr:
+stderrBytes: 0
+stderrSha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+stderrTruncated: false
+stderrPreview:
 
