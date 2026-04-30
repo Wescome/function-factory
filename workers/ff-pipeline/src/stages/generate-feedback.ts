@@ -121,6 +121,99 @@ async function checkCooldown(
   return existing !== null && existing !== undefined
 }
 
+// ── Lesson Extraction ────────────────────────────────────────────
+
+/**
+ * Analyze synthesis results and extract reusable lessons into ArangoDB.
+ *
+ * Pattern detection:
+ *   - F1 failures (prose instead of JSON) — context too large
+ *   - Timeout failures — atom scope too large
+ *   - F7 null response — model returned nothing
+ *   - Partial synthesis — some atoms pass, some fail (stochastic)
+ *
+ * Lessons are UPSERTed by pattern name so evidence accumulates
+ * rather than duplicating entries.
+ */
+export async function extractLessons(
+  ctx: FeedbackContext,
+  db: ArangoClient,
+): Promise<void> {
+  await db.ensureCollection('memory_semantic')
+
+  const { result } = ctx
+  const atomResults = extractAtomResults(result)
+  if (!atomResults) return
+
+  const lessons: Array<{ pattern: string; evidence: string; recommendation: string }> = []
+
+  // Pattern 1: F1 failures (prose instead of JSON) — context too large
+  const f1Atoms = Object.entries(atomResults).filter(([_, r]) => {
+    const reason = (r.verdict as any)?.reason ?? ''
+    return reason.includes('F1:')
+  })
+  if (f1Atoms.length > 0) {
+    lessons.push({
+      pattern: 'F1 prose output from agent',
+      evidence: `${f1Atoms.length} atoms produced prose instead of JSON: ${f1Atoms.map(([id]) => id).join(', ')}`,
+      recommendation: 'Reduce agent context size. Check if WorkGraph or Plan is too large for the model context window.',
+    })
+  }
+
+  // Pattern 2: Timeout failures — scope too large
+  const timeoutAtoms = Object.entries(atomResults).filter(([_, r]) => {
+    const reason = (r.verdict as any)?.reason ?? ''
+    return reason.includes('exceeded') && reason.includes('deadline')
+  })
+  if (timeoutAtoms.length > 0) {
+    lessons.push({
+      pattern: 'Atom execution timeout',
+      evidence: `${timeoutAtoms.length} atoms exceeded wall-clock deadline: ${timeoutAtoms.map(([id]) => id).join(', ')}`,
+      recommendation: 'Decompose into smaller atoms or increase timeout for complex implementation atoms.',
+    })
+  }
+
+  // Pattern 3: F7 null response — model returned nothing
+  const f7Atoms = Object.entries(atomResults).filter(([_, r]) => {
+    const reason = (r.verdict as any)?.reason ?? ''
+    return reason.includes('F7:') || reason.includes('empty response') || reason.includes('no text content')
+  })
+  if (f7Atoms.length > 0) {
+    lessons.push({
+      pattern: 'Empty/null model response',
+      evidence: `${f7Atoms.length} atoms got null responses: ${f7Atoms.map(([id]) => id).join(', ')}`,
+      recommendation: 'Model may be overloaded or prompt exceeds context window. Check token counts.',
+    })
+  }
+
+  // Pattern 4: High pass rate but still failing — close to success
+  const totalAtoms = Object.keys(atomResults).length
+  const passedAtoms = Object.entries(atomResults).filter(([_, r]) => (r.verdict as any)?.decision === 'pass').length
+  const passRate = totalAtoms > 0 ? passedAtoms / totalAtoms : 0
+  if (passRate >= 0.5 && passRate < 1.0) {
+    lessons.push({
+      pattern: 'Partial synthesis success',
+      evidence: `${passedAtoms}/${totalAtoms} atoms passed (${(passRate * 100).toFixed(0)}%). Failing atoms: ${Object.entries(atomResults).filter(([_, r]) => (r.verdict as any)?.decision !== 'pass').map(([id]) => id).join(', ')}`,
+      recommendation: 'Stochastic failures — retry may succeed. Consider increasing atom-level retries before declaring failure.',
+    })
+  }
+
+  // Write lessons to ArangoDB
+  for (const lesson of lessons) {
+    try {
+      await db.query(
+        `UPSERT { pattern: @pattern }
+         INSERT { pattern: @pattern, evidence: [@evidence], recommendation: @recommendation, count: 1, firstSeen: @now, lastSeen: @now, type: 'lesson' }
+         UPDATE { evidence: APPEND(OLD.evidence, @evidence, true), count: OLD.count + 1, lastSeen: @now }
+         IN memory_semantic`,
+        { pattern: lesson.pattern, evidence: lesson.evidence, recommendation: lesson.recommendation, now: new Date().toISOString() },
+      )
+    } catch (err) {
+      console.warn(`[Feedback] Failed to write lesson: ${err instanceof Error ? err.message : err}`)
+    }
+  }
+}
+
 // ── Main ─────────────────────────────────────────────────────────────
 
 /**
@@ -266,6 +359,13 @@ export async function generateFeedbackSignals(
     if (!suppressed) {
       approved.push(candidate)
     }
+  }
+
+  // ── Lesson extraction — fire-and-forget, never blocks feedback ──
+  try {
+    await extractLessons(ctx, db)
+  } catch (err) {
+    console.warn(`[Feedback] Lesson extraction failed: ${err instanceof Error ? err.message : err}`)
   }
 
   return approved

@@ -14,7 +14,7 @@ import type { Model, AssistantMessage, Message, UserMessage } from '@weops/gdk-a
 import type { ArangoClient } from '@factory/arango-client'
 import type { CritiqueReport, Plan, CodeArtifact } from '../coordinator/state'
 import { resolveAgentModel } from './resolve-model'
-import { processAgentOutput, extractAssistantText, TEST_REPORT_SCHEMA } from './output-reliability'
+import { processAgentOutput, extractAssistantText, buildTelemetryEntry, TEST_REPORT_SCHEMA } from './output-reliability'
 
 // Re-export TestReport from state so consumers can import from tester-agent
 export type { TestReport } from '../coordinator/state'
@@ -159,6 +159,13 @@ export class TesterAgent {
     const result = await processAgentOutput(rawText, TEST_REPORT_SCHEMA, {
       aliasOverrides: this.aliasOverrides,
     })
+
+    // ORL telemetry — fire-and-forget, never blocks agent response
+    try {
+      const telemetry = buildTelemetryEntry(result, 'TestReport')
+      await this.db.save('orl_telemetry', telemetry).catch(() => {})
+    } catch { /* telemetry is best-effort */ }
+
     if (!result.success) {
       throw new Error(`TesterAgent: ${result.failureMode}: could not produce valid TestReport`)
     }

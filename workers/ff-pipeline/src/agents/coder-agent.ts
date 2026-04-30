@@ -14,7 +14,7 @@ import type { Model, AssistantMessage, Message, UserMessage } from '@weops/gdk-a
 import type { ArangoClient } from '@factory/arango-client'
 import type { CodeArtifact, Plan, CritiqueReport } from '../coordinator/state'
 import { resolveAgentModel } from './resolve-model'
-import { processAgentOutput, extractAssistantText, CODE_ARTIFACT_SCHEMA } from './output-reliability'
+import { processAgentOutput, extractAssistantText, buildTelemetryEntry, CODE_ARTIFACT_SCHEMA } from './output-reliability'
 
 export interface CoderInput {
   workGraph: Record<string, unknown>
@@ -173,6 +173,13 @@ export class CoderAgent {
     const result = await processAgentOutput(rawText, CODE_ARTIFACT_SCHEMA, {
       aliasOverrides: this.aliasOverrides,
     })
+
+    // ORL telemetry — fire-and-forget, never blocks agent response
+    try {
+      const telemetry = buildTelemetryEntry(result, 'CodeArtifact')
+      await this.db.save('orl_telemetry', telemetry).catch(() => {})
+    } catch { /* telemetry is best-effort */ }
+
     if (!result.success) {
       throw new Error(`CoderAgent: ${result.failureMode}: could not produce valid CodeArtifact`)
     }

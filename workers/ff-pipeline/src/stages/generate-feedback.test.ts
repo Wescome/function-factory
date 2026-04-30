@@ -16,6 +16,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   generateFeedbackSignals,
+  extractLessons,
   type FeedbackContext,
   type FeedbackSignal,
 } from './generate-feedback'
@@ -36,6 +37,7 @@ function createMockDb(overrides?: {
     get: vi.fn(async () => null),
     update: vi.fn(async () => ({})),
     setValidator: vi.fn(),
+    ensureCollection: vi.fn(async () => {}),
   }
 }
 
@@ -293,5 +295,178 @@ describe('generateFeedbackSignals', () => {
         expect(s.signal.raw?.feedbackDepth).toBe(2)
       }
     })
+  })
+
+  describe('lesson extraction', () => {
+    it('calls extractLessons during generateFeedbackSignals (no crash)', async () => {
+      const db = createMockDb()
+      const ctx = makeCtx({
+        result: {
+          status: 'synthesis-fail',
+          signalId: 'SIG-010',
+          workGraphId: 'WG-010',
+          synthesisResult: {
+            verdict: { decision: 'fail', confidence: 0.9, reason: '2 atoms failed' },
+            tokenUsage: 8000,
+            repairCount: 1,
+          },
+          atomResults: {
+            'atom-1': { verdict: { decision: 'pass', confidence: 0.95, reason: 'ok' } },
+            'atom-2': { verdict: { decision: 'fail', confidence: 0.5, reason: 'F1: prose output' } },
+          },
+        },
+      })
+
+      const signals = await generateFeedbackSignals(ctx, db as never)
+
+      // Should still return feedback signals (lesson extraction does not block)
+      expect(signals.length).toBeGreaterThan(0)
+      // ensureCollection should have been called for memory_semantic
+      expect(db.ensureCollection).toHaveBeenCalledWith('memory_semantic')
+      // query should have been called for UPSERT (F1 lesson + partial success lesson)
+      expect(db.query).toHaveBeenCalled()
+    })
+  })
+})
+
+describe('extractLessons', () => {
+  it('writes F1 pattern lesson when atoms have F1 failures', async () => {
+    const db = createMockDb()
+    const ctx: FeedbackContext = {
+      result: {
+        atomResults: {
+          'atom-1': { verdict: { decision: 'fail', reason: 'F1: prose instead of JSON' } },
+          'atom-2': { verdict: { decision: 'pass', reason: 'ok' } },
+        },
+      },
+      parentSignal: {},
+      parentFeedbackDepth: 0,
+    }
+
+    await extractLessons(ctx, db as never)
+
+    expect(db.ensureCollection).toHaveBeenCalledWith('memory_semantic')
+    const queryCalls = db.query.mock.calls
+    const f1Call = queryCalls.find((c: any) => c[1]?.pattern === 'F1 prose output from agent')
+    expect(f1Call).toBeDefined()
+    expect(f1Call![1].evidence).toContain('atom-1')
+  })
+
+  it('writes timeout pattern lesson when atoms exceed deadline', async () => {
+    const db = createMockDb()
+    const ctx: FeedbackContext = {
+      result: {
+        atomResults: {
+          'atom-slow': { verdict: { decision: 'fail', reason: 'exceeded wall-clock deadline' } },
+        },
+      },
+      parentSignal: {},
+      parentFeedbackDepth: 0,
+    }
+
+    await extractLessons(ctx, db as never)
+
+    const queryCalls = db.query.mock.calls
+    const timeoutCall = queryCalls.find((c: any) => c[1]?.pattern === 'Atom execution timeout')
+    expect(timeoutCall).toBeDefined()
+    expect(timeoutCall![1].evidence).toContain('atom-slow')
+  })
+
+  it('writes F7 pattern lesson for empty/null responses', async () => {
+    const db = createMockDb()
+    const ctx: FeedbackContext = {
+      result: {
+        atomResults: {
+          'atom-null': { verdict: { decision: 'fail', reason: 'F7: empty response from model' } },
+        },
+      },
+      parentSignal: {},
+      parentFeedbackDepth: 0,
+    }
+
+    await extractLessons(ctx, db as never)
+
+    const queryCalls = db.query.mock.calls
+    const f7Call = queryCalls.find((c: any) => c[1]?.pattern === 'Empty/null model response')
+    expect(f7Call).toBeDefined()
+  })
+
+  it('writes partial success lesson when pass rate is 50-99%', async () => {
+    const db = createMockDb()
+    const ctx: FeedbackContext = {
+      result: {
+        atomResults: {
+          'atom-1': { verdict: { decision: 'pass', reason: 'ok' } },
+          'atom-2': { verdict: { decision: 'fail', reason: 'compile error' } },
+        },
+      },
+      parentSignal: {},
+      parentFeedbackDepth: 0,
+    }
+
+    await extractLessons(ctx, db as never)
+
+    const queryCalls = db.query.mock.calls
+    const partialCall = queryCalls.find((c: any) => c[1]?.pattern === 'Partial synthesis success')
+    expect(partialCall).toBeDefined()
+    expect(partialCall![1].evidence).toContain('1/2')
+  })
+
+  it('does not write lessons when no atomResults exist', async () => {
+    const db = createMockDb()
+    const ctx: FeedbackContext = {
+      result: { status: 'synthesis-passed' },
+      parentSignal: {},
+      parentFeedbackDepth: 0,
+    }
+
+    await extractLessons(ctx, db as never)
+
+    // ensureCollection is called, but no UPSERT queries
+    expect(db.ensureCollection).toHaveBeenCalledWith('memory_semantic')
+    // Only the cooldown queries should exist, no lesson UPSERT
+    const upsertCalls = db.query.mock.calls.filter((c: any) =>
+      typeof c[0] === 'string' && c[0].includes('UPSERT'),
+    )
+    expect(upsertCalls).toHaveLength(0)
+  })
+
+  it('does not write lessons when all atoms pass', async () => {
+    const db = createMockDb()
+    const ctx: FeedbackContext = {
+      result: {
+        atomResults: {
+          'atom-1': { verdict: { decision: 'pass', reason: 'ok' } },
+          'atom-2': { verdict: { decision: 'pass', reason: 'ok' } },
+        },
+      },
+      parentSignal: {},
+      parentFeedbackDepth: 0,
+    }
+
+    await extractLessons(ctx, db as never)
+
+    // No failure patterns detected, no UPSERT calls
+    const upsertCalls = db.query.mock.calls.filter((c: any) =>
+      typeof c[0] === 'string' && c[0].includes('UPSERT'),
+    )
+    expect(upsertCalls).toHaveLength(0)
+  })
+
+  it('swallows db.query errors without throwing', async () => {
+    const db = createMockDb()
+    db.query.mockRejectedValue(new Error('ArangoDB unreachable'))
+    const ctx: FeedbackContext = {
+      result: {
+        atomResults: {
+          'atom-1': { verdict: { decision: 'fail', reason: 'F1: prose' } },
+        },
+      },
+      parentSignal: {},
+      parentFeedbackDepth: 0,
+    }
+
+    // Should not throw
+    await expect(extractLessons(ctx, db as never)).resolves.toBeUndefined()
   })
 })

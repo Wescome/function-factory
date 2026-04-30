@@ -244,6 +244,7 @@ export async function seedHotConfig(
     db.ensureCollection('config_aliases'),
     db.ensureCollection('config_routing'),
     db.ensureCollection('config_model_capabilities'),
+    db.ensureCollection('orl_telemetry'),
   ])
 
   // TODO: TTL indexes for collection lifecycle (30-day retention)

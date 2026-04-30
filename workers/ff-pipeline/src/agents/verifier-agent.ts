@@ -12,7 +12,7 @@ import type { Model, AssistantMessage, Message, UserMessage } from '@weops/gdk-a
 import type { ArangoClient } from '@factory/arango-client'
 import type { Verdict, VerdictDecision, Plan, CodeArtifact, CritiqueReport, TestReport } from '../coordinator/state'
 import { resolveAgentModel } from './resolve-model'
-import { processAgentOutput, extractAssistantText, VERDICT_SCHEMA } from './output-reliability'
+import { processAgentOutput, extractAssistantText, buildTelemetryEntry, VERDICT_SCHEMA } from './output-reliability'
 
 export interface VerifierInput {
   workGraph: Record<string, unknown>
@@ -145,6 +145,13 @@ export class VerifierAgent {
     const result = await processAgentOutput(rawText, VERDICT_SCHEMA, {
       aliasOverrides: this.aliasOverrides,
     })
+
+    // ORL telemetry — fire-and-forget, never blocks agent response
+    try {
+      const telemetry = buildTelemetryEntry(result, 'Verdict')
+      await this.db.save('orl_telemetry', telemetry).catch(() => {})
+    } catch { /* telemetry is best-effort */ }
+
     if (!result.success) {
       throw new Error(`VerifierAgent: ${result.failureMode}: could not produce valid Verdict`)
     }

@@ -12,7 +12,7 @@ import type { Model, AssistantMessage, Message, UserMessage } from '@weops/gdk-a
 import type { ArangoClient } from '@factory/arango-client'
 import { resolveAgentModel } from './resolve-model'
 import type { Plan } from '../coordinator/state'
-import { processAgentOutput, extractAssistantText, PLAN_SCHEMA } from './output-reliability'
+import { processAgentOutput, extractAssistantText, buildTelemetryEntry, PLAN_SCHEMA } from './output-reliability'
 
 export interface PlannerInput {
   workGraph: Record<string, unknown>
@@ -151,6 +151,13 @@ export class PlannerAgent {
     const result = await processAgentOutput(rawText, PLAN_SCHEMA, {
       aliasOverrides: this.aliasOverrides,
     })
+
+    // ORL telemetry — fire-and-forget, never blocks agent response
+    try {
+      const telemetry = buildTelemetryEntry(result, 'Plan')
+      await this.db.save('orl_telemetry', telemetry).catch(() => {})
+    } catch { /* telemetry is best-effort */ }
+
     if (!result.success) {
       throw new Error(`PlannerAgent: ${result.failureMode}: could not produce valid Plan. Response: ${result.rawResponse.slice(0, 500)}`)
     }

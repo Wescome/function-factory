@@ -11,7 +11,7 @@ import type { AgentTool } from '@weops/gdk-agent'
 import type { Model, AssistantMessage, Message, UserMessage } from '@weops/gdk-ai'
 import type { ArangoClient } from '@factory/arango-client'
 import { resolveAgentModel } from './resolve-model'
-import { processAgentOutput, extractAssistantText, SEMANTIC_REVIEW_SCHEMA, CRITIQUE_REPORT_SCHEMA } from './output-reliability'
+import { processAgentOutput, extractAssistantText, buildTelemetryEntry, SEMANTIC_REVIEW_SCHEMA, CRITIQUE_REPORT_SCHEMA } from './output-reliability'
 
 import type { SemanticReviewResult } from '../types.js'
 import type { CritiqueReport, Plan, CodeArtifact } from '../coordinator/state.js'
@@ -187,6 +187,13 @@ export class CriticAgent {
     const result = await processAgentOutput(rawText, SEMANTIC_REVIEW_SCHEMA, {
       aliasOverrides: this.semanticReviewAliasOverrides,
     })
+
+    // ORL telemetry — fire-and-forget, never blocks agent response
+    try {
+      const telemetry = buildTelemetryEntry(result, 'SemanticReview')
+      await this.db.save('orl_telemetry', telemetry).catch(() => {})
+    } catch { /* telemetry is best-effort */ }
+
     if (!result.success) {
       throw new Error(`CriticAgent.semanticReview: ${result.failureMode}: could not produce valid SemanticReview. Response: ${result.rawResponse.slice(0, 500)}`)
     }
@@ -266,6 +273,13 @@ export class CriticAgent {
     const result = await processAgentOutput(rawText, CRITIQUE_REPORT_SCHEMA, {
       aliasOverrides: this.codeReviewAliasOverrides,
     })
+
+    // ORL telemetry — fire-and-forget, never blocks agent response
+    try {
+      const telemetry = buildTelemetryEntry(result, 'CritiqueReport')
+      await this.db.save('orl_telemetry', telemetry).catch(() => {})
+    } catch { /* telemetry is best-effort */ }
+
     if (!result.success) {
       throw new Error(`CriticAgent.codeReview: ${result.failureMode}: could not produce valid CritiqueReport`)
     }

@@ -13,7 +13,7 @@ import type { AgentTool } from '@weops/gdk-agent'
 import { Type, type Model, type AssistantMessage, type Message, type UserMessage } from '@weops/gdk-ai'
 import type { ArangoClient } from '@factory/arango-client'
 import { resolveAgentModel } from './resolve-model'
-import { processAgentOutput, extractAssistantText, BRIEFING_SCRIPT_SCHEMA } from './output-reliability'
+import { processAgentOutput, extractAssistantText, buildTelemetryEntry, BRIEFING_SCRIPT_SCHEMA } from './output-reliability'
 
 export interface BriefingScript {
   goal: string
@@ -152,6 +152,13 @@ export class ArchitectAgent {
     const result = await processAgentOutput(rawText, BRIEFING_SCRIPT_SCHEMA, {
       aliasOverrides: this.aliasOverrides,
     })
+
+    // ORL telemetry — fire-and-forget, never blocks agent response
+    try {
+      const telemetry = buildTelemetryEntry(result, 'BriefingScript')
+      await this.db.save('orl_telemetry', telemetry).catch(() => {})
+    } catch { /* telemetry is best-effort */ }
+
     if (!result.success) {
       throw new Error(`ArchitectAgent: ${result.failureMode}: could not produce valid BriefingScript. Response: ${result.rawResponse.slice(0, 500)}`)
     }
