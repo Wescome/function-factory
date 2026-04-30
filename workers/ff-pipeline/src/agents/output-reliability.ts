@@ -1,1 +1,1 @@
-export const ORL_VERSION = 2
+export const ORL_VERSION = 2;
