@@ -84,7 +84,10 @@ async function main(): Promise<void> {
     if (command === 'plan') {
       const request = await readJson(requiredArg(args, 0, 'request file'))
       const repoRoot = requiredOption(args, '--repo-root')
-      const plan = planCodexRunner(request, { repoRoot })
+      const codexTimeoutMs = numberOption(args, '--codex-timeout-ms')
+      const planOptions: Parameters<typeof planCodexRunner>[1] = { repoRoot }
+      if (codexTimeoutMs !== undefined) planOptions.codexTimeoutMs = codexTimeoutMs
+      const plan = planCodexRunner(request, planOptions)
       printJson({
         ok: true,
         requestId: plan.requestId,
@@ -92,8 +95,13 @@ async function main(): Promise<void> {
         preflightCommands: plan.preflightCommands,
         codexCommand: {
           command: plan.codexCommand.command,
-          args: [plan.codexCommand.args[0], '<prompt omitted>'],
+          args: [
+            plan.codexCommand.args[0],
+            ...plan.codexCommand.args.slice(1, -1),
+            '<prompt omitted>',
+          ],
           cwd: plan.codexCommand.cwd,
+          timeoutMs: plan.codexCommand.timeoutMs,
         },
         prompt: plan.prompt,
       })
@@ -127,6 +135,8 @@ async function main(): Promise<void> {
       }
       if (changedFiles) runOptions.changedFiles = changedFiles
       if (diff !== undefined) runOptions.diff = diff
+      const codexTimeoutMs = numberOption(args, '--codex-timeout-ms')
+      if (codexTimeoutMs !== undefined) runOptions.codexTimeoutMs = codexTimeoutMs
       if (dryRunExecutor) {
         runOptions.codexExecutor = dryRunExecutor
         runOptions.pullRequestExecutor = dryRunExecutor
@@ -156,6 +166,8 @@ async function main(): Promise<void> {
       }
       const maxIterations = numberOption(args, '--max-iterations')
       if (maxIterations !== undefined) daemonOptions.maxIterations = maxIterations
+      const codexTimeoutMs = numberOption(args, '--codex-timeout-ms')
+      if (codexTimeoutMs !== undefined) daemonOptions.codexTimeoutMs = codexTimeoutMs
       const dryRunExecutor = hasFlag(args, '--dry-run')
         ? createDryRunExecutorFromArgs(args)
         : undefined
@@ -192,6 +204,8 @@ async function main(): Promise<void> {
       if (changedFiles) dogfoodOptions.changedFiles = changedFiles
       if (mockPrUrl) dogfoodOptions.mockPrUrl = mockPrUrl
       if (branchNameSuffix) dogfoodOptions.branchNameSuffix = branchNameSuffix
+      const codexTimeoutMs = numberOption(args, '--codex-timeout-ms')
+      if (codexTimeoutMs !== undefined) dogfoodOptions.codexTimeoutMs = codexTimeoutMs
 
       const dogfood = await runStrategyRecipesDogfood(dogfoodOptions)
 
@@ -229,10 +243,10 @@ function printHelp(): void {
     '  claim <queue-dir> [--actor name] [--lease-ms n]',
     '  heartbeat <queue-dir> <request-id> [--actor name] [--lease-ms n]',
     '  status <queue-dir> [--actor name]',
-    '  plan <request.json> --repo-root <path>',
-    '  run-single <queue-dir> <request.json> --repo-root <path> --bundle-dir <path> [--changed-files a,b] [--diff-file path] [--dry-run]',
-    '  daemon <queue-dir> --repo-root <path> --bundle-root <path> [--poll-ms n] [--max-iterations n] [--dry-run]',
-    '  dogfood-strategy-recipes [--repo-root path] [--home path] [--request path] [--branch-suffix text] [--real]',
+    '  plan <request.json> --repo-root <path> [--codex-timeout-ms n]',
+    '  run-single <queue-dir> <request.json> --repo-root <path> --bundle-dir <path> [--changed-files a,b] [--diff-file path] [--codex-timeout-ms n] [--dry-run]',
+    '  daemon <queue-dir> --repo-root <path> --bundle-root <path> [--poll-ms n] [--max-iterations n] [--codex-timeout-ms n] [--dry-run]',
+    '  dogfood-strategy-recipes [--repo-root path] [--home path] [--request path] [--branch-suffix text] [--codex-timeout-ms n] [--real]',
     '',
     'run-single and daemon execute git, codex, and gh commands unless --dry-run is supplied.',
     'dogfood-strategy-recipes defaults to dry-run mode.',

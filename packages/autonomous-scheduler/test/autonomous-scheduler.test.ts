@@ -8,6 +8,7 @@ import {
   PullRequestExecutionError,
   buildAgentResultFromExecution,
   buildCodexWorkerPrompt,
+  createProcessCommandExecutor,
   createStrategyRecipesDogfoodRunPaths,
   createDryRunCommandExecutor,
   executeCodexRunnerPlan,
@@ -135,8 +136,18 @@ describe('Codex runner planning', () => {
       '/tmp/strategy-recipes',
       plan.prompt,
     ])
+    expect(plan.codexCommand.timeoutMs).toBe(30 * 60 * 1000)
     expect(plan.prompt).toContain('Allowed paths: README.md, docs/**, packages/**, apps/**, examples/**, tests/**')
     expect(plan.prompt).toContain('Do not merge, deploy, force-push, delete remote branches, edit secrets')
+  })
+
+  it('allows runner plans to bound child Codex execution time', () => {
+    const plan = planCodexRunner(requestFixture, {
+      repoRoot: '/tmp/strategy-recipes',
+      codexTimeoutMs: 1_000,
+    })
+
+    expect(plan.codexCommand.timeoutMs).toBe(1_000)
   })
 
   it('adds an optional branch suffix for retryable dogfood runs', () => {
@@ -215,6 +226,38 @@ describe('Codex runner planning', () => {
     expect(execution.failedCommand).toBe(
       'git switch -c factory/strategy-recipes-first-product-view/ar-strategy-recipes-first-product-view origin/main',
     )
+  })
+
+  it('marks timed-out process commands as failed command evidence', async () => {
+    const executor = createProcessCommandExecutor()
+    const result = await executor({
+      command: process.execPath,
+      args: ['-e', 'setTimeout(() => {}, 5000)'],
+      cwd: tmpdir(),
+      timeoutMs: 10,
+    })
+
+    expect(result.exitCode).toBe(124)
+    expect(result.timedOut).toBe(true)
+    expect(result.stderr).toContain('Command timed out after 10ms.')
+  })
+
+  it('redacts long Codex prompts from failed command summaries', async () => {
+    const plan = planCodexRunner(requestFixture, { repoRoot: '/tmp/strategy-recipes' })
+    const execution = await executeCodexRunnerPlan(plan, async (command) => ({
+      command: command.command,
+      args: command.args,
+      cwd: command.cwd,
+      exitCode: command.command === 'codex' ? 1 : 0,
+      stdout: '',
+      stderr: command.command === 'codex' ? 'worker failed' : '',
+      startedAt: '2026-04-30T14:30:00.000Z',
+      completedAt: '2026-04-30T14:30:01.000Z',
+    }))
+
+    expect(execution.status).toBe('failed')
+    expect(execution.failedCommand).toContain('<prompt omitted>')
+    expect(execution.failedCommand).not.toContain('You are a Function Factory Codex worker.')
   })
 
   it('classifies model-level Codex refusals as refused executions', async () => {

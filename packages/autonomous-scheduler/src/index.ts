@@ -5,6 +5,7 @@ import { join } from 'node:path'
 export const AGENT_REQUEST_SCHEMA_VERSION = 'factory.agent-request.v0' as const
 export const AGENT_RESULT_SCHEMA_VERSION = 'factory.agent-result.v0' as const
 export const QUEUE_EVENT_SCHEMA_VERSION = 'factory.queue-event.v0' as const
+export const DEFAULT_CODEX_TIMEOUT_MS = 30 * 60 * 1000
 
 export const AGENT_ROLES = [
   'architect',
@@ -193,12 +194,14 @@ export interface RunnerCommand {
   command: string
   args: string[]
   cwd: string
+  timeoutMs?: number
 }
 
 export interface CodexRunnerPlanOptions {
   repoRoot: string
   codexBinary?: string
   branchNameSuffix?: string
+  codexTimeoutMs?: number
 }
 
 export interface CodexRunnerPlan {
@@ -219,6 +222,8 @@ export interface CommandRunResult {
   stderr: string
   startedAt: string
   completedAt: string
+  timedOut?: boolean
+  signal?: string
 }
 
 export interface CodexRunnerExecution {
@@ -234,6 +239,7 @@ export type CommandExecutor = (command: RunnerCommand) => Promise<CommandRunResu
 
 export interface ProcessCommandExecutorOptions {
   now?: () => Date
+  timeoutMs?: number
 }
 
 export interface DryRunCommandExecutorOptions {
@@ -307,6 +313,7 @@ export interface SingleAgentRunOptions {
   diff?: string
   codexExecutor?: CommandExecutor
   pullRequestExecutor?: CommandExecutor
+  codexTimeoutMs?: number
 }
 
 export interface SingleAgentRunOutcome {
@@ -328,6 +335,7 @@ export interface QueueDaemonOptions {
   pullRequestExecutor?: CommandExecutor
   now?: () => Date
   branchNameSuffix?: string
+  codexTimeoutMs?: number
 }
 
 export interface QueueDaemonOutcome {
@@ -354,6 +362,7 @@ export interface StrategyRecipesDogfoodOptions {
   changedFiles?: string[]
   diff?: string
   now?: () => Date
+  codexTimeoutMs?: number
 }
 
 export interface StrategyRecipesDogfoodOutcome {
@@ -566,6 +575,7 @@ export function planCodexRunner(input: unknown, options: CodexRunnerPlanOptions)
       command: codexBinary,
       args: ['exec', '--sandbox', 'workspace-write', '--cd', options.repoRoot, prompt],
       cwd: options.repoRoot,
+      timeoutMs: options.codexTimeoutMs ?? DEFAULT_CODEX_TIMEOUT_MS,
     },
     prompt,
   }
@@ -630,7 +640,9 @@ export async function executeCodexRunnerPlan(
         branchName: plan.branchName,
         status: 'failed',
         commands,
-        failedCommand: stringifyCommand(command),
+        failedCommand: result.timedOut
+          ? `${stringifyCommand(command)} timed out`
+          : stringifyCommand(command),
       }
     }
 
@@ -662,10 +674,13 @@ export function createProcessCommandExecutor(options?: ProcessCommandExecutorOpt
 
   return async (command: RunnerCommand): Promise<CommandRunResult> => {
     const startedAt = now().toISOString()
-    const { exitCode, stdout, stderr } = await spawnCommand(command)
+    const timeoutMs = command.timeoutMs ?? options?.timeoutMs
+    const spawnOptions: SpawnCommandOptions = {}
+    if (timeoutMs !== undefined) spawnOptions.timeoutMs = timeoutMs
+    const { exitCode, stdout, stderr, timedOut, signal } = await spawnCommand(command, spawnOptions)
     const completedAt = now().toISOString()
 
-    return {
+    const result: CommandRunResult = {
       command: command.command,
       args: command.args,
       cwd: command.cwd,
@@ -675,6 +690,11 @@ export function createProcessCommandExecutor(options?: ProcessCommandExecutorOpt
       startedAt,
       completedAt,
     }
+
+    if (timedOut) result.timedOut = true
+    if (signal) result.signal = signal
+
+    return result
   }
 }
 
@@ -976,6 +996,7 @@ export async function runClaimedAgentRequest(
     repoRoot: options.repoRoot,
   }
   if (options.branchNameSuffix) codexPlanOptions.branchNameSuffix = options.branchNameSuffix
+  if (options.codexTimeoutMs !== undefined) codexPlanOptions.codexTimeoutMs = options.codexTimeoutMs
 
   const codexPlan = planCodexRunner(claimed, codexPlanOptions)
   const execution = await executeCodexRunnerPlan(codexPlan, options.codexExecutor)
@@ -1066,6 +1087,7 @@ export async function runQueueDaemon(options: QueueDaemonOptions): Promise<Queue
     }
     if (options.codexExecutor) runOptions.codexExecutor = options.codexExecutor
     if (options.pullRequestExecutor) runOptions.pullRequestExecutor = options.pullRequestExecutor
+    if (options.codexTimeoutMs !== undefined) runOptions.codexTimeoutMs = options.codexTimeoutMs
 
     await runClaimedAgentRequest(request, runOptions)
     completedRuns += 1
@@ -1112,6 +1134,7 @@ export async function runStrategyRecipesDogfood(
   }
 
   if (options.diff !== undefined) runOptions.diff = options.diff
+  if (options.codexTimeoutMs !== undefined) runOptions.codexTimeoutMs = options.codexTimeoutMs
   if (executor) {
     runOptions.codexExecutor = executor
     runOptions.pullRequestExecutor = executor
@@ -1705,7 +1728,16 @@ function buildBranchName(request: AgentRequest, suffix?: string): string {
 }
 
 function stringifyCommand(command: RunnerCommand): string {
-  return [command.command, ...command.args].join(' ')
+  return [command.command, ...redactCommandArgs(command)].join(' ')
+}
+
+function redactCommandArgs(command: RunnerCommand): string[] {
+  if (command.command !== 'codex') return command.args
+  const args = [...command.args]
+  if (args[0] === 'exec' && args.length > 1) {
+    args[args.length - 1] = '<prompt omitted>'
+  }
+  return args
 }
 
 function defaultExecutionSummary(request: AgentRequest, execution: CodexRunnerExecution): string {
@@ -1770,14 +1802,40 @@ function buildDryRunOptions(options: StrategyRecipesDogfoodOptions): DryRunComma
   return dryRunOptions
 }
 
-async function spawnCommand(command: RunnerCommand): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+interface SpawnCommandOptions {
+  timeoutMs?: number
+}
+
+interface SpawnCommandResult {
+  exitCode: number
+  stdout: string
+  stderr: string
+  timedOut?: boolean
+  signal?: string
+}
+
+async function spawnCommand(command: RunnerCommand, options?: SpawnCommandOptions): Promise<SpawnCommandResult> {
   return await new Promise((resolve, reject) => {
     const child = spawn(command.command, command.args, {
       cwd: command.cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
+      detached: process.platform !== 'win32',
     })
     const stdout: Buffer[] = []
     const stderr: Buffer[] = []
+    let timedOut = false
+    let timeout: ReturnType<typeof setTimeout> | undefined
+    let killTimeout: ReturnType<typeof setTimeout> | undefined
+
+    if (options?.timeoutMs !== undefined) {
+      timeout = setTimeout(() => {
+        timedOut = true
+        killChildProcess(child.pid, 'SIGTERM')
+        killTimeout = setTimeout(() => {
+          killChildProcess(child.pid, 'SIGKILL')
+        }, 2_000)
+      }, options.timeoutMs)
+    }
 
     child.stdout.on('data', (chunk: Buffer) => {
       stdout.push(chunk)
@@ -1786,14 +1844,40 @@ async function spawnCommand(command: RunnerCommand): Promise<{ exitCode: number;
       stderr.push(chunk)
     })
     child.on('error', reject)
-    child.on('close', (code) => {
+    child.on('close', (code, signal) => {
+      if (timeout) clearTimeout(timeout)
+      if (killTimeout) clearTimeout(killTimeout)
+      const stderrText = Buffer.concat(stderr).toString('utf8')
       resolve({
-        exitCode: code ?? 1,
+        exitCode: timedOut ? 124 : code ?? 1,
         stdout: Buffer.concat(stdout).toString('utf8'),
-        stderr: Buffer.concat(stderr).toString('utf8'),
+        stderr: timedOut
+          ? `${stderrText}${stderrText.endsWith('\n') || stderrText.length === 0 ? '' : '\n'}Command timed out after ${options?.timeoutMs}ms.`
+          : stderrText,
+        ...(timedOut ? { timedOut: true } : {}),
+        ...(signal ? { signal } : {}),
       })
     })
   })
+}
+
+function killChildProcess(pid: number | undefined, signal: NodeJS.Signals): void {
+  if (!pid) return
+
+  try {
+    if (process.platform === 'win32') {
+      process.kill(pid, signal)
+      return
+    }
+
+    process.kill(-pid, signal)
+  } catch (error) {
+    if (!isNoSuchProcess(error)) throw error
+  }
+}
+
+function isNoSuchProcess(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === 'ESRCH'
 }
 
 function isNotFound(error: unknown): boolean {
