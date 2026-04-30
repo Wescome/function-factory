@@ -3,12 +3,12 @@
  *
  * Each atom gets its own DO instance, solving the coordinator eviction problem:
  * the coordinator exits after dispatching atoms to the queue, and each
- * AtomExecutor DO runs independently for up to 600s.
+ * AtomExecutor DO runs independently for up to 900s.
  *
  * The DO:
  * - Receives atom spec + sharedContext via POST /execute-atom
  * - Checks idempotency (cached result returned on re-call)
- * - Sets 600s alarm
+ * - Sets 900s alarm
  * - Runs executeAtomSlice() (reuses existing function)
  * - Stores result in DO storage
  * - Publishes to ATOM_RESULTS queue
@@ -79,7 +79,7 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
       verdict: {
         decision: 'fail',
         confidence: 1.0,
-        reason: `AtomExecutor alarm: atom ${atomId} exceeded 600s wall-clock deadline`,
+        reason: `AtomExecutor alarm: atom ${atomId} exceeded 900s wall-clock deadline`,
       },
       codeArtifact: null,
       testReport: null,
@@ -106,7 +106,7 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
     }
 
     // Pre-flight auth check: verify API key exists for resolved model provider
-    // before burning 600s of DO lifetime on a guaranteed failure
+    // before burning 900s of DO lifetime on a guaranteed failure
     if (!payload.dryRun) {
       const preflightModel = resolveAgentModel('coder')
       const preflightEnv = { CF_API_TOKEN: this.env.CF_API_TOKEN, OFOX_API_KEY: this.env.OFOX_API_KEY }
@@ -142,8 +142,8 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
     await this.ctx.storage.put('__workflowId', payload.workflowId)
     await this.ctx.storage.put('__completed', false)
 
-    // Set 600s alarm
-    await this.ctx.storage.setAlarm(Date.now() + 600_000)
+    // Set 900s alarm
+    await this.ctx.storage.setAlarm(Date.now() + 900_000)
 
     // Build the atom slice
     const slice: AtomSlice = {
