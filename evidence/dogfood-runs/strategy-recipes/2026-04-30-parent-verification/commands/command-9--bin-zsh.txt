@@ -1,16 +1,25 @@
 $ /bin/zsh -lc pnpm --dir packages/strategy-objects typecheck
 
+phase: verification
 exitCode: 0
 cwd: /Users/wes/Developer/strategy-recipes
 startedAt: 2026-04-30T22:34:29.763Z
 completedAt: 2026-04-30T22:34:30.736Z
+timedOut: false
+signal: none
 
-stdout:
+stdoutBytes: 189
+stdoutSha256: 2bd512e74c67f37855c784e9b4587813c974fdd9116768039cec8192a8ae0c00
+stdoutTruncated: false
+stdoutPreview:
 
 > @strategy-recipes/strategy-objects@0.1.0 typecheck /Users/wes/Developer/strategy-recipes/packages/strategy-objects
 > node --experimental-strip-types -e "await import('./src/index.ts')"
 
 
 
-stderr:
+stderrBytes: 0
+stderrSha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+stderrTruncated: false
+stderrPreview:
 

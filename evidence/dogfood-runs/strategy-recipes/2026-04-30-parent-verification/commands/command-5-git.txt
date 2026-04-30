@@ -1,13 +1,22 @@
 $ git status --porcelain
 
+phase: unknown
 exitCode: 0
 cwd: /Users/wes/Developer/strategy-recipes
 startedAt: 2026-04-30T22:34:28.263Z
 completedAt: 2026-04-30T22:34:28.328Z
+timedOut: false
+signal: none
 
-stdout:
+stdoutBytes: 53
+stdoutSha256: d136d88f3c552318963f8071a66664be39263a73844adfd8d1b9eb28916d0d8a
+stdoutTruncated: false
+stdoutPreview:
  M docs/product/function-factory-dogfood-evidence.md
 
 
-stderr:
+stderrBytes: 0
+stderrSha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+stderrTruncated: false
+stderrPreview:
 

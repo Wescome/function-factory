@@ -228,9 +228,11 @@ async function main(): Promise<void> {
       const bundleDir = requiredArg(args, 0, 'bundle dir')
       const outputDir = requiredOption(args, '--output-dir')
       const runId = option(args, '--run-id')
+      const evidenceMode = parseEvidenceMode(args)
       const manifestOptions: Parameters<typeof writeRepoTrackedRunManifest>[0] = {
         bundleDir,
         outputDir,
+        evidenceMode,
       }
       if (runId) manifestOptions.runId = runId
 
@@ -263,7 +265,7 @@ function printHelp(): void {
     '  run-single <queue-dir> <request.json> --repo-root <path> --bundle-dir <path> [--changed-files a,b] [--diff-file path] [--codex-timeout-ms n] [--dry-run]',
     '  daemon <queue-dir> --repo-root <path> --bundle-root <path> [--poll-ms n] [--max-iterations n] [--codex-timeout-ms n] [--dry-run]',
     '  dogfood-strategy-recipes [--repo-root path] [--home path] [--request path] [--branch-suffix text] [--codex-timeout-ms n] [--real]',
-    '  record-run-manifest <bundle-dir> --output-dir <path> [--run-id id]',
+    '  record-run-manifest <bundle-dir> --output-dir <path> [--run-id id] [--evidence-mode compact|full] [--full-command-output]',
     '',
     'run-single and daemon execute git, codex, and gh commands unless --dry-run is supplied.',
     'dogfood-strategy-recipes defaults to dry-run mode.',
@@ -272,6 +274,14 @@ function printHelp(): void {
 
 async function readJson(path: string): Promise<unknown> {
   return JSON.parse(await readFile(path, 'utf8')) as unknown
+}
+
+function parseEvidenceMode(args: string[]): 'compact' | 'full' {
+  const mode = option(args, '--evidence-mode') ?? (hasFlag(args, '--full-command-output') ? 'full' : 'compact')
+  if (mode !== 'compact' && mode !== 'full') {
+    throw new Error('--evidence-mode must be compact or full')
+  }
+  return mode
 }
 
 function requiredArg(args: string[], index: number, label: string): string {

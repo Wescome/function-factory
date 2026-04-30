@@ -31,9 +31,11 @@ pnpm run autonomous-scheduler:cli -- record-run-manifest \
 ```
 
 The tracked run record contains `request.json`, `execution.json`, `result.json`,
-command outputs, aggregate evidence files, and `manifest.json` with relative
-paths plus file hashes. That manifest is the durable audit surface after `/tmp`
-or `$HOME/.factory` cleanup.
+compact/redacted command outputs, compact/redacted aggregate evidence files, and
+`manifest.json` with relative paths plus file hashes. That manifest is the
+durable audit surface after `/tmp` or `$HOME/.factory` cleanup. Use
+`--evidence-mode full` only when the raw command transcripts are approved for
+repo tracking.
 
 ## Real Mode
 

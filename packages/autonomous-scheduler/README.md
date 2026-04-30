@@ -98,10 +98,12 @@ pnpm run autonomous-scheduler:cli -- record-run-manifest /tmp/factory-bundle \
 ```
 
 The recorded manifest rewrites evidence references to repo-relative paths and
-copies `request.json`, `execution.json`, `result.json`, command outputs, and
-aggregate evidence files into the output directory. This makes production-alpha
-dogfood runs auditable after `/tmp` cleanup and provides a replay seed through
-the stored `request.json`.
+copies `request.json`, compact `execution.json`, compact/redacted command
+outputs, compact/redacted aggregate evidence files, and `result.json` into the
+output directory. This makes production-alpha dogfood runs auditable after
+`/tmp` cleanup without committing full Codex transcripts by default. Use
+`--evidence-mode full` only for an explicit forensic capture where the raw
+transcripts are safe to track.
 
 The `dogfood-strategy-recipes` command defaults to the current next-slice
 request:
