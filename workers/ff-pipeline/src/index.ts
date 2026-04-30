@@ -167,6 +167,39 @@ export default {
       }
     }
 
+    // ── Diagnostic: manually trigger PR from a pipeline result ──
+    if (url.pathname === '/debug/generate-pr' && request.method === 'POST') {
+      try {
+        const body = await request.json() as { pipelineId: string }
+        if (!body.pipelineId || !env.GITHUB_TOKEN) {
+          return new Response(JSON.stringify({ error: 'Need pipelineId and GITHUB_TOKEN' }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+        }
+        const workflow = await env.FACTORY_PIPELINE.get(body.pipelineId)
+        const status = await workflow.status()
+        const output = (status as any).output as Record<string, unknown> | null
+        if (!output?.atomResults) {
+          return new Response(JSON.stringify({ error: 'No atomResults in pipeline output', status: (status as any).status }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+        }
+        const { generatePR } = await import('./stages/generate-pr.js')
+        const result = await generatePR(
+          {
+            signalTitle: `PR from pipeline ${body.pipelineId}`,
+            proposalId: output.proposalId as string ?? 'unknown',
+            workGraphId: output.workGraphId as string ?? 'unknown',
+            atomResults: (output.atomResults ?? {}) as any,
+            sourceRefs: [],
+            confidence: (output.synthesisResult as any)?.verdict?.confidence ?? 0,
+          },
+          env.GITHUB_TOKEN,
+          'Wescome',
+          'function-factory',
+        )
+        return new Response(JSON.stringify(result), { headers: { 'Content-Type': 'application/json' } })
+      } catch (err) {
+        return new Response(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }), { status: 500, headers: { 'Content-Type': 'application/json' } })
+      }
+    }
+
     return new Response('ff-pipeline: POST /trigger-synthesis, POST /synthesis-callback, or use Queue consumer', { status: 404 })
   },
 
@@ -444,6 +477,23 @@ export default {
           }
 
           // PR generation for pr-candidate signals
+          // Audit trail: write to ArangoDB so we can observe without Worker logs
+          try {
+            await db.save('orl_telemetry', {
+              schemaName: '_feedback_audit',
+              success: true,
+              failureMode: null,
+              tier: 0,
+              repairAttempts: 0,
+              coercions: [],
+              timestamp: new Date().toISOString(),
+              feedbackSignalCount: feedbackSignals.length,
+              hasGithubToken: !!env.GITHUB_TOKEN,
+              subtypes: feedbackSignals.map(fs => fs.signal.subtype),
+              hasAtomResults: !!ctx.result?.atomResults,
+              atomResultKeys: ctx.result?.atomResults ? Object.keys(ctx.result.atomResults as object) : [],
+            }).catch(() => {})
+          } catch { /* audit is best-effort */ }
           console.log(`[Feedback] Checking ${feedbackSignals.length} signals for pr-candidate (GITHUB_TOKEN: ${!!env.GITHUB_TOKEN})`)
           for (const fs of feedbackSignals) {
             console.log(`[Feedback] Signal: ${fs.signal.subtype}, autoApprove: ${fs.autoApprove}`)
