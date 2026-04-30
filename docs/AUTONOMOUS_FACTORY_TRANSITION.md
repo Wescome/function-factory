@@ -93,5 +93,8 @@ slice. The Codex runner adapter is also bootstrapped: it validates an
 Codex worker prompt, executes the command plan through an injectable executor,
 converts runner evidence into a validated `AgentResult`, and writes durable
 artifact bundles. Pull request creation is wired through the same command seam
-using `gh pr create`. The next production-alpha slice is the Governor scheduler
-that emits and drives the Strategy.Recipes dogfood request end-to-end.
+using `gh pr create`. The single-request Governor path is bootstrapped by
+`runSingleAgentRequest`, which enqueues, claims, runs, opens a PR, writes a
+bundle, and completes the queue item. The next production-alpha slice is the CLI
+or daemon entrypoint that invokes this path against a real Strategy.Recipes
+checkout.

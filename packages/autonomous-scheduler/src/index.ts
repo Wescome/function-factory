@@ -282,6 +282,27 @@ export interface PullRequestExecution {
   command: CommandRunResult
 }
 
+export interface SingleAgentRunOptions {
+  queue: JsonlAgentQueue
+  repoRoot: string
+  bundleDir: string
+  resultId: string
+  agentRunId: string
+  completedAt: string
+  changedFiles?: string[]
+  diff?: string
+  codexExecutor?: CommandExecutor
+  pullRequestExecutor?: CommandExecutor
+}
+
+export interface SingleAgentRunOutcome {
+  request: AgentRequest
+  execution: CodexRunnerExecution
+  pullRequest?: PullRequestExecution
+  result: AgentResult
+  bundle: AgentResultBundleManifest
+}
+
 export class AutonomousSchedulerValidationError extends Error {
   public readonly issues: string[]
 
@@ -791,6 +812,60 @@ export async function executePullRequestPlan(
     prUrl,
     command,
   }
+}
+
+export async function runSingleAgentRequest(
+  requestInput: unknown,
+  options: SingleAgentRunOptions,
+): Promise<SingleAgentRunOutcome> {
+  const request = await options.queue.enqueue(requestInput)
+  const claimed = await options.queue.claimNext()
+
+  if (!claimed || claimed.id !== request.id) {
+    throw new Error(`Unable to claim enqueued AgentRequest: ${request.id}`)
+  }
+
+  const codexPlan = planCodexRunner(claimed, { repoRoot: options.repoRoot })
+  const execution = await executeCodexRunnerPlan(codexPlan, options.codexExecutor)
+  let pullRequest: PullRequestExecution | undefined
+
+  if (execution.status === 'completed') {
+    const prPlan = planPullRequest(claimed, execution, { repoRoot: options.repoRoot })
+    pullRequest = await executePullRequestPlan(prPlan, options.pullRequestExecutor)
+  }
+
+  const resultOptions: AgentResultFromExecutionOptions = {
+    resultId: options.resultId,
+    agentRunId: options.agentRunId,
+    completedAt: options.completedAt,
+    artifactBasePath: options.bundleDir,
+  }
+  if (pullRequest) resultOptions.prUrl = pullRequest.prUrl
+  if (options.changedFiles) resultOptions.changedFiles = options.changedFiles
+
+  const result = buildAgentResultFromExecution(claimed, execution, resultOptions)
+
+  const bundleOptions: AgentResultBundleOptions = {
+    bundleDir: options.bundleDir,
+  }
+  if (options.diff !== undefined) bundleOptions.diff = options.diff
+
+  const bundle = await writeAgentResultBundle(claimed, execution, result, bundleOptions)
+
+  await options.queue.complete(result)
+
+  const outcome: SingleAgentRunOutcome = {
+    request: claimed,
+    execution,
+    result,
+    bundle,
+  }
+
+  if (pullRequest) {
+    outcome.pullRequest = pullRequest
+  }
+
+  return outcome
 }
 
 export class JsonlAgentQueue {

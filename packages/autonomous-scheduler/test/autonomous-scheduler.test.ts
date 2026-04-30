@@ -11,6 +11,7 @@ import {
   executePullRequestPlan,
   planCodexRunner,
   planPullRequest,
+  runSingleAgentRequest,
   validateAgentRequest,
   validateAgentResult,
   validateQueueEvent,
@@ -393,6 +394,113 @@ describe('JsonlAgentQueue', () => {
     await expect(queue.enqueue(requestFixture)).rejects.toThrow(
       'AgentRequest already exists in queue: AR-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW',
     )
+  })
+})
+
+describe('single-request scheduler run', () => {
+  it('drives one request through queue, runner, PR creation, result, and bundle', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'factory-autonomous-'))
+    const queue = new JsonlAgentQueue({
+      queueDir: join(home, 'queue'),
+      actor: 'factory-governor',
+      now: fixedClock(),
+    })
+    const codexCommands: string[] = []
+
+    const outcome = await runSingleAgentRequest(requestFixture, {
+      queue,
+      repoRoot: '/tmp/strategy-recipes',
+      bundleDir: join(home, 'bundle'),
+      resultId: 'ARES-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW-RUN',
+      agentRunId: 'RUN-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW-005',
+      completedAt: '2026-04-30T14:40:00.000Z',
+      changedFiles: ['docs/product/first-product-view.md'],
+      diff: 'diff --git a/docs/product/first-product-view.md b/docs/product/first-product-view.md',
+      codexExecutor: async (command) => {
+        codexCommands.push(command.command)
+        return {
+          command: command.command,
+          args: command.args,
+          cwd: command.cwd,
+          exitCode: 0,
+          stdout: '',
+          stderr: '',
+          startedAt: '2026-04-30T14:30:00.000Z',
+          completedAt: '2026-04-30T14:30:01.000Z',
+        }
+      },
+      pullRequestExecutor: async (command) => ({
+        command: command.command,
+        args: command.args,
+        cwd: command.cwd,
+        exitCode: 0,
+        stdout: 'https://github.com/Wescome/strategy-recipes/pull/5\n',
+        stderr: '',
+        startedAt: '2026-04-30T14:36:00.000Z',
+        completedAt: '2026-04-30T14:36:01.000Z',
+      }),
+    })
+
+    expect(codexCommands).toEqual(['git', 'git', 'git', 'codex'])
+    expect(outcome.result.status).toBe('completed')
+    expect(outcome.pullRequest?.prUrl).toBe('https://github.com/Wescome/strategy-recipes/pull/5')
+    expect(readFileSync(outcome.bundle.files.manifest, 'utf8')).toContain('factory.agent-result-bundle.v0')
+    expect(await queue.status()).toMatchObject({
+      total: 1,
+      pending: 0,
+      claimed: 0,
+      completed: 1,
+    })
+  })
+
+  it('completes the queue with a failed result when Codex execution fails', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'factory-autonomous-'))
+    const queue = new JsonlAgentQueue({
+      queueDir: join(home, 'queue'),
+      actor: 'factory-governor',
+      now: fixedClock(),
+    })
+    let prCalls = 0
+
+    const outcome = await runSingleAgentRequest(requestFixture, {
+      queue,
+      repoRoot: '/tmp/strategy-recipes',
+      bundleDir: join(home, 'bundle'),
+      resultId: 'ARES-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW-FAILED-RUN',
+      agentRunId: 'RUN-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW-006',
+      completedAt: '2026-04-30T14:40:00.000Z',
+      codexExecutor: async (command) => ({
+        command: command.command,
+        args: command.args,
+        cwd: command.cwd,
+        exitCode: command.command === 'codex' ? 1 : 0,
+        stdout: '',
+        stderr: command.command === 'codex' ? 'worker failed' : '',
+        startedAt: '2026-04-30T14:30:00.000Z',
+        completedAt: '2026-04-30T14:30:01.000Z',
+      }),
+      pullRequestExecutor: async (command) => {
+        prCalls += 1
+        return {
+          command: command.command,
+          args: command.args,
+          cwd: command.cwd,
+          exitCode: 0,
+          stdout: 'https://github.com/Wescome/strategy-recipes/pull/6\n',
+          stderr: '',
+          startedAt: '2026-04-30T14:36:00.000Z',
+          completedAt: '2026-04-30T14:36:01.000Z',
+        }
+      },
+    })
+
+    expect(outcome.result.status).toBe('failed')
+    expect(outcome.pullRequest).toBeUndefined()
+    expect(prCalls).toBe(0)
+    expect(await queue.status()).toMatchObject({
+      total: 1,
+      failed: 1,
+    })
   })
 })
 

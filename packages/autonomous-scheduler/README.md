@@ -31,3 +31,12 @@ Production wiring can use the built-in process executor; tests should inject a
 deterministic executor. Runner command evidence can be converted into a
 validated `AgentResult` and durable artifact bundle. Pull request creation is
 also planned and executed through the same command seam using `gh pr create`.
+
+`runSingleAgentRequest` wires the production-alpha happy path:
+
+1. Enqueue an `AgentRequest`.
+2. Claim it from the JSONL queue.
+3. Execute the Codex runner plan.
+4. Create a PR if the runner succeeds.
+5. Build and persist a validated `AgentResult` bundle.
+6. Complete the queue item with pass/fail evidence.
