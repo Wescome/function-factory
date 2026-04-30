@@ -1,0 +1,95 @@
+{
+  "schemaVersion": "factory.agent-request.v0",
+  "id": "AR-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW",
+  "createdAt": "2026-04-30T14:00:00.000Z",
+  "workgraph": {
+    "id": "WG-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW",
+    "nodeId": "first-product-view",
+    "sourcePrdId": "PRD-STRATEGY-RECIPES-UX-V1-1",
+    "sourceRefs": [
+      "Strategy_Recipes_UX_Architecture_v1.1.md",
+      "ADR-0001-autonomous-scheduler-boundary.md"
+    ]
+  },
+  "role": "builder",
+  "objective": "Implement the first Strategy.Recipes product view as an external workload built by Function Factory.",
+  "prompt": "Build the first product view for Strategy.Recipes from the v1.1 UX architecture. Keep Strategy.Recipes separate from Function Factory. Produce a PR branch with docs, tests, and implementation evidence.",
+  "repo": {
+    "provider": "github",
+    "owner": "Wescome",
+    "name": "strategy-recipes",
+    "defaultBranch": "main",
+    "remoteUrl": "https://github.com/Wescome/strategy-recipes.git"
+  },
+  "branch": {
+    "mode": "new_pr_branch",
+    "base": "main",
+    "prefix": "factory/strategy-recipes-first-product-view"
+  },
+  "policy": {
+    "autonomyMode": "branch_pr",
+    "allowedPaths": [
+      "README.md",
+      "docs/**",
+      "packages/**",
+      "apps/**",
+      "examples/**",
+      "tests/**"
+    ],
+    "forbiddenActions": [
+      "merge_default_branch",
+      "deploy_production",
+      "force_push",
+      "delete_remote_branch",
+      "edit_secrets"
+    ],
+    "requiresHumanApprovalFor": [
+      "merge_default_branch",
+      "deploy_production",
+      "edit_secrets"
+    ],
+    "maxRuntimeMinutes": 90
+  },
+  "context": {
+    "summary": "Strategy.Recipes is a separate product/platform workload. Function Factory should schedule and verify the implementation rather than manually acting as the builder.",
+    "artifacts": [
+      {
+        "id": "STRATEGY-RECIPES-UX-V1-1",
+        "kind": "external-design",
+        "path": "/Users/wes/Downloads/Strategy_Recipes_UX_Architecture_v1.1.md"
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "The product view renders the typed object graph, view registry, coherence report, and recipe panel concepts from Strategy.Recipes UX v1.1.",
+    "The implementation is isolated to the Strategy.Recipes repo and does not mutate Function Factory.",
+    "The PR includes tests or smoke evidence for the first product view.",
+    "The PR description links implementation evidence and any follow-up work."
+  ],
+  "requiredCommands": [
+    "pnpm install --frozen-lockfile",
+    "pnpm test",
+    "pnpm typecheck"
+  ],
+  "expectedArtifacts": [
+    {
+      "path": "docs/product/first-product-view.md",
+      "kind": "product-doc"
+    },
+    {
+      "path": "packages/strategy-objects/src/index.ts",
+      "kind": "implementation"
+    },
+    {
+      "path": "tests/first-product-view.test.ts",
+      "kind": "test"
+    }
+  ],
+  "evidenceRequired": [
+    "git_diff",
+    "test_output",
+    "typecheck_output",
+    "artifact_paths",
+    "pr_url"
+  ]
+}
