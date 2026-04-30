@@ -12,6 +12,7 @@ import {
   validateAgentRequest,
   validateAgentResult,
   validateQueueEvent,
+  writeAgentResultBundle,
 } from '../src/index.js'
 
 const requestFixture = JSON.parse(
@@ -241,6 +242,42 @@ describe('Codex runner planning', () => {
         changedFiles: ['docs/product/first-product-view.md'],
       }),
     ).toThrow(AutonomousSchedulerValidationError)
+  })
+
+  it('writes a durable AgentResult artifact bundle', async () => {
+    const queueDir = mkdtempSync(join(tmpdir(), 'factory-autonomous-'))
+    const bundleDir = join(queueDir, 'bundle')
+    const plan = planCodexRunner(requestFixture, { repoRoot: '/tmp/strategy-recipes' })
+    const execution = await executeCodexRunnerPlan(plan, async (command) => ({
+      command: command.command,
+      args: command.args,
+      cwd: command.cwd,
+      exitCode: 0,
+      stdout: 'ok',
+      stderr: '',
+      startedAt: '2026-04-30T14:30:00.000Z',
+      completedAt: '2026-04-30T14:30:01.000Z',
+    }))
+    const result = buildAgentResultFromExecution(requestFixture, execution, {
+      resultId: 'ARES-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW-BUNDLE',
+      agentRunId: 'RUN-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW-004',
+      completedAt: '2026-04-30T14:35:00.000Z',
+      artifactBasePath: bundleDir,
+      prUrl: 'https://github.com/Wescome/strategy-recipes/pull/3',
+      changedFiles: ['docs/product/first-product-view.md'],
+    })
+
+    const manifest = await writeAgentResultBundle(requestFixture, execution, result, {
+      bundleDir,
+      diff: 'diff --git a/docs/product/first-product-view.md b/docs/product/first-product-view.md',
+    })
+
+    expect(manifest.schemaVersion).toBe('factory.agent-result-bundle.v0')
+    expect(manifest.files.commands).toHaveLength(4)
+    expect(readFileSync(manifest.files.request, 'utf8')).toContain('AR-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW')
+    expect(readFileSync(manifest.files.result, 'utf8')).toContain('ARES-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW-BUNDLE')
+    expect(readFileSync(manifest.files.commands[0] ?? '', 'utf8')).toContain('stdout:')
+    expect(readFileSync(manifest.files.diff ?? '', 'utf8')).toContain('diff --git')
   })
 })
 

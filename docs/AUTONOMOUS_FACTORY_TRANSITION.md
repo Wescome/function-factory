@@ -91,6 +91,5 @@ Steps 1 and 2 are bootstrapped by the initial autonomous scheduler contract
 slice. The Codex runner adapter is also bootstrapped: it validates an
 `AgentRequest`, derives the PR branch, emits git preflight commands, builds the
 Codex worker prompt, executes the command plan through an injectable executor,
-and converts runner evidence into a validated `AgentResult`. The next
-production-alpha slice is writing the artifact bundle contents to disk and
-wiring PR creation.
+converts runner evidence into a validated `AgentResult`, and writes durable
+artifact bundles. The next production-alpha slice is wiring PR creation.

@@ -241,6 +241,26 @@ export interface AgentResultFromExecutionOptions {
   summary?: string
 }
 
+export interface AgentResultBundleOptions {
+  bundleDir: string
+  diff?: string
+}
+
+export interface AgentResultBundleManifest {
+  schemaVersion: 'factory.agent-result-bundle.v0'
+  requestId: string
+  resultId: string
+  bundleDir: string
+  files: {
+    request: string
+    execution: string
+    result: string
+    manifest: string
+    commands: string[]
+    diff?: string
+  }
+}
+
 export class AutonomousSchedulerValidationError extends Error {
   public readonly issues: string[]
 
@@ -606,6 +626,85 @@ export function buildAgentResultFromExecution(
   }
 
   return validateAgentResult(result)
+}
+
+export async function writeAgentResultBundle(
+  requestInput: unknown,
+  execution: CodexRunnerExecution,
+  resultInput: unknown,
+  options: AgentResultBundleOptions,
+): Promise<AgentResultBundleManifest> {
+  const request = validateAgentRequest(requestInput)
+  const result = validateAgentResult(resultInput)
+
+  if (request.id !== execution.requestId || request.id !== result.requestId) {
+    throw new Error(`Bundle request mismatch: ${request.id}, ${execution.requestId}, ${result.requestId}`)
+  }
+
+  await mkdir(options.bundleDir, { recursive: true })
+
+  const requestPath = join(options.bundleDir, 'request.json')
+  const executionPath = join(options.bundleDir, 'execution.json')
+  const resultPath = join(options.bundleDir, 'result.json')
+  const manifestPath = join(options.bundleDir, 'manifest.json')
+  const commandPaths: string[] = []
+
+  await writeJsonFile(requestPath, request)
+  await writeJsonFile(executionPath, execution)
+  await writeJsonFile(resultPath, result)
+
+  for (let index = 0; index < execution.commands.length; index += 1) {
+    const command = execution.commands[index]
+    if (!command) continue
+    const outputPath = join(options.bundleDir, `command-${index + 1}-${sanitizeId(command.command)}.txt`)
+    commandPaths.push(outputPath)
+    await writeFile(
+      outputPath,
+      [
+        `$ ${stringifyCommand(command)}`,
+        '',
+        `exitCode: ${command.exitCode}`,
+        `cwd: ${command.cwd}`,
+        `startedAt: ${command.startedAt}`,
+        `completedAt: ${command.completedAt}`,
+        '',
+        'stdout:',
+        command.stdout,
+        '',
+        'stderr:',
+        command.stderr,
+        '',
+      ].join('\n'),
+      'utf8',
+    )
+  }
+
+  let diffPath: string | undefined
+  if (options.diff !== undefined) {
+    diffPath = join(options.bundleDir, 'diff.patch')
+    await writeFile(diffPath, options.diff, 'utf8')
+  }
+
+  const manifest: AgentResultBundleManifest = {
+    schemaVersion: 'factory.agent-result-bundle.v0',
+    requestId: request.id,
+    resultId: result.id,
+    bundleDir: options.bundleDir,
+    files: {
+      request: requestPath,
+      execution: executionPath,
+      result: resultPath,
+      manifest: manifestPath,
+      commands: commandPaths,
+    },
+  }
+
+  if (diffPath) {
+    manifest.files.diff = diffPath
+  }
+
+  await writeJsonFile(manifestPath, manifest)
+  return manifest
 }
 
 export class JsonlAgentQueue {
@@ -1085,6 +1184,10 @@ function throwIfIssues(message: string, issues: string[]): void {
 
 async function appendJsonLine(path: string, valueToWrite: unknown): Promise<void> {
   await appendFile(path, `${JSON.stringify(valueToWrite)}\n`, 'utf8')
+}
+
+async function writeJsonFile(path: string, valueToWrite: unknown): Promise<void> {
+  await writeFile(path, `${JSON.stringify(valueToWrite, null, 2)}\n`, 'utf8')
 }
 
 async function readJsonLines(path: string): Promise<unknown[]> {
