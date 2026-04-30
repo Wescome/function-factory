@@ -101,7 +101,7 @@ export function buildPRBody(input: PRGenerationInput): string {
   // Atom summaries
   sections.push(`### Atom Results`)
   sections.push('')
-  const entries = Object.entries(input.atomResults)
+  const entries = Object.entries(input.atomResults ?? {})
   if (entries.length === 0) {
     sections.push('_No atom results_')
   } else {
@@ -145,7 +145,21 @@ function apiHeaders(token: string): Record<string, string> {
     'Accept': 'application/vnd.github+json',
     'Content-Type': 'application/json',
     'X-GitHub-Api-Version': '2022-11-28',
+    'User-Agent': 'ff-pipeline',
   }
+}
+
+/**
+ * Base64-encode a string, handling UTF-8 correctly.
+ * btoa() only handles Latin-1; this uses TextEncoder for full Unicode support.
+ */
+function toBase64(str: string): string {
+  const bytes = new TextEncoder().encode(str)
+  let binary = ''
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte)
+  }
+  return btoa(binary)
 }
 
 function apiUrl(owner: string, repo: string, path: string): string {
@@ -222,7 +236,7 @@ export async function generatePR(
     const filesNotFound: string[] = []
     const warnings: string[] = []
 
-    for (const [, atomResult] of Object.entries(input.atomResults)) {
+    for (const [, atomResult] of Object.entries(input.atomResults ?? {})) {
       // Skip atoms that did not pass
       if (atomResult.verdict.decision !== 'pass') continue
       // Skip atoms without code artifacts
@@ -286,7 +300,7 @@ export async function generatePR(
             headers,
             body: JSON.stringify({
               message: `[Factory] ${file.action === 'create' ? 'Create' : 'Update'} ${file.path}`,
-              content: btoa(file.content),
+              content: toBase64(file.content),
               branch: branchName,
               ...(existingSha ? { sha: existingSha } : {}),
             }),

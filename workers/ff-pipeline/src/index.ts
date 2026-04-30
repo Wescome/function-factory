@@ -140,6 +140,33 @@ export default {
       }
     }
 
+    // ── Diagnostic: verify GITHUB_TOKEN from Worker's perspective ──
+    if (url.pathname === '/debug/github-token' && request.method === 'GET') {
+      const hasToken = !!env.GITHUB_TOKEN
+      const tokenLength = env.GITHUB_TOKEN?.length ?? 0
+      try {
+        const res = await fetch('https://api.github.com/repos/Wescome/function-factory', {
+          headers: {
+            'Authorization': `Bearer ${env.GITHUB_TOKEN}`,
+            'Accept': 'application/vnd.github+json',
+            'User-Agent': 'ff-pipeline',
+          },
+        })
+        return new Response(JSON.stringify({
+          hasToken,
+          tokenLength,
+          githubStatus: res.status,
+          githubOk: res.ok,
+        }), { headers: { 'Content-Type': 'application/json' } })
+      } catch (err) {
+        return new Response(JSON.stringify({
+          hasToken,
+          tokenLength,
+          error: err instanceof Error ? err.message : String(err),
+        }), { headers: { 'Content-Type': 'application/json' } })
+      }
+    }
+
     return new Response('ff-pipeline: POST /trigger-synthesis, POST /synthesis-callback, or use Queue consumer', { status: 404 })
   },
 
@@ -417,19 +444,24 @@ export default {
           }
 
           // PR generation for pr-candidate signals
+          console.log(`[Feedback] Checking ${feedbackSignals.length} signals for pr-candidate (GITHUB_TOKEN: ${!!env.GITHUB_TOKEN})`)
           for (const fs of feedbackSignals) {
+            console.log(`[Feedback] Signal: ${fs.signal.subtype}, autoApprove: ${fs.autoApprove}`)
             if (fs.signal.subtype === 'synthesis:pr-candidate' && !fs.autoApprove && env.GITHUB_TOKEN) {
+              const feedbackBody = ctx as {
+                result: Record<string, unknown>
+              }
+              const hasAtomResults = !!feedbackBody.result.atomResults
+              const atomCount = hasAtomResults ? Object.keys(feedbackBody.result.atomResults as object).length : 0
+              console.log(`[Feedback] PR generation triggered for ${fs.signal.title} (atomResults: ${hasAtomResults}, count: ${atomCount}, proposalId: ${feedbackBody.result.proposalId})`)
               try {
                 const { generatePR } = await import('./stages/generate-pr.js')
-                const feedbackBody = ctx as {
-                  result: Record<string, unknown>
-                }
                 const result = await generatePR(
                   {
                     signalTitle: fs.signal.title,
                     proposalId: feedbackBody.result.proposalId as string,
                     workGraphId: feedbackBody.result.workGraphId as string,
-                    atomResults: feedbackBody.result.atomResults as Record<string, {
+                    atomResults: (feedbackBody.result.atomResults ?? {}) as Record<string, {
                       atomId: string
                       verdict: { decision: string }
                       codeArtifact: {
