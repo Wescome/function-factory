@@ -39,6 +39,10 @@ merge, deploy, force-push, delete remote branches, or edit secrets.
 The scheduler pushes the worker branch before creating the pull request, so real
 mode is non-interactive at the GitHub PR boundary.
 
+Each dogfood run appends a run-specific branch suffix by default so retries do
+not collide with earlier scheduler-created branches. Use `--branch-suffix` to
+force a specific suffix.
+
 ## Source Request
 
 The default request is:

@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import {
   AutonomousSchedulerValidationError,
   JsonlAgentQueue,
+  PullRequestExecutionError,
   buildAgentResultFromExecution,
   buildCodexWorkerPrompt,
   createStrategyRecipesDogfoodRunPaths,
@@ -129,6 +130,17 @@ describe('Codex runner planning', () => {
     expect(plan.codexCommand.args[0]).toBe('exec')
     expect(plan.prompt).toContain('Allowed paths: README.md, docs/**, packages/**, apps/**, examples/**, tests/**')
     expect(plan.prompt).toContain('Do not merge, deploy, force-push, delete remote branches, edit secrets')
+  })
+
+  it('adds an optional branch suffix for retryable dogfood runs', () => {
+    const plan = planCodexRunner(requestFixture, {
+      repoRoot: '/tmp/strategy-recipes',
+      branchNameSuffix: '20260430T202400735Z',
+    })
+
+    expect(plan.branchName).toBe(
+      'factory/strategy-recipes-first-product-view/ar-strategy-recipes-first-product-view-20260430t202400735z',
+    )
   })
 
   it('builds a worker prompt with required commands and evidence', () => {
@@ -375,7 +387,7 @@ describe('Codex runner planning', () => {
         startedAt: '2026-04-30T14:36:00.000Z',
         completedAt: '2026-04-30T14:36:01.000Z',
       }
-    })).rejects.toThrow('Pull request branch push failed for AR-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW: push rejected')
+    })).rejects.toThrow(PullRequestExecutionError)
     expect(calls).toBe(1)
   })
 
@@ -608,6 +620,51 @@ describe('single-request scheduler run', () => {
       total: 1,
       failed: 1,
     })
+  })
+
+  it('completes the queue with failed evidence when PR creation fails', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'factory-autonomous-'))
+    const queue = new JsonlAgentQueue({
+      queueDir: join(home, 'queue'),
+      actor: 'factory-governor',
+      now: fixedClock(),
+    })
+
+    const outcome = await runSingleAgentRequest(requestFixture, {
+      queue,
+      repoRoot: '/tmp/strategy-recipes',
+      bundleDir: join(home, 'bundle'),
+      resultId: 'ARES-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW-PR-FAILED',
+      agentRunId: 'RUN-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW-007',
+      completedAt: '2026-04-30T14:40:00.000Z',
+      changedFiles: ['docs/product/first-product-view.md'],
+      codexExecutor: async (command) => ({
+        command: command.command,
+        args: command.args,
+        cwd: command.cwd,
+        exitCode: 0,
+        stdout: '',
+        stderr: '',
+        startedAt: '2026-04-30T14:30:00.000Z',
+        completedAt: '2026-04-30T14:30:01.000Z',
+      }),
+      pullRequestExecutor: async (command) => ({
+        command: command.command,
+        args: command.args,
+        cwd: command.cwd,
+        exitCode: command.command === 'gh' ? 1 : 0,
+        stdout: command.command === 'gh' ? '' : 'pushed',
+        stderr: command.command === 'gh' ? 'no commits' : '',
+        startedAt: '2026-04-30T14:36:00.000Z',
+        completedAt: '2026-04-30T14:36:01.000Z',
+      }),
+    })
+
+    expect(outcome.result.status).toBe('failed')
+    expect(outcome.execution.failedCommand).toBe('pull request creation')
+    expect(outcome.execution.commands.map((command) => command.command)).toEqual(['git', 'git', 'git', 'codex', 'git', 'gh'])
+    expect(readFileSync(outcome.bundle.files.result, 'utf8')).toContain('ARES-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW-PR-FAILED')
+    expect(await queue.status()).toMatchObject({ total: 1, failed: 1 })
   })
 })
 
