@@ -188,8 +188,10 @@ async function main(): Promise<void> {
       }
       const changedFiles = csvOption(args, '--changed-files')
       const mockPrUrl = option(args, '--mock-pr-url')
+      const branchNameSuffix = option(args, '--branch-suffix')
       if (changedFiles) dogfoodOptions.changedFiles = changedFiles
       if (mockPrUrl) dogfoodOptions.mockPrUrl = mockPrUrl
+      if (branchNameSuffix) dogfoodOptions.branchNameSuffix = branchNameSuffix
 
       const dogfood = await runStrategyRecipesDogfood(dogfoodOptions)
 
@@ -230,7 +232,7 @@ function printHelp(): void {
     '  plan <request.json> --repo-root <path>',
     '  run-single <queue-dir> <request.json> --repo-root <path> --bundle-dir <path> [--changed-files a,b] [--diff-file path] [--dry-run]',
     '  daemon <queue-dir> --repo-root <path> --bundle-root <path> [--poll-ms n] [--max-iterations n] [--dry-run]',
-    '  dogfood-strategy-recipes [--repo-root path] [--home path] [--request path] [--real]',
+    '  dogfood-strategy-recipes [--repo-root path] [--home path] [--request path] [--branch-suffix text] [--real]',
     '',
     'run-single and daemon execute git, codex, and gh commands unless --dry-run is supplied.',
     'dogfood-strategy-recipes defaults to dry-run mode.',

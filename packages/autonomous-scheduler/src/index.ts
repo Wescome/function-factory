@@ -198,6 +198,7 @@ export interface RunnerCommand {
 export interface CodexRunnerPlanOptions {
   repoRoot: string
   codexBinary?: string
+  branchNameSuffix?: string
 }
 
 export interface CodexRunnerPlan {
@@ -300,6 +301,7 @@ export interface SingleAgentRunOptions {
   resultId: string
   agentRunId: string
   completedAt: string
+  branchNameSuffix?: string
   changedFiles?: string[]
   diff?: string
   codexExecutor?: CommandExecutor
@@ -324,6 +326,7 @@ export interface QueueDaemonOptions {
   codexExecutor?: CommandExecutor
   pullRequestExecutor?: CommandExecutor
   now?: () => Date
+  branchNameSuffix?: string
 }
 
 export interface QueueDaemonOutcome {
@@ -346,6 +349,7 @@ export interface StrategyRecipesDogfoodOptions {
   bundleDir: string
   mode?: 'dry-run' | 'real'
   mockPrUrl?: string
+  branchNameSuffix?: string
   changedFiles?: string[]
   diff?: string
   now?: () => Date
@@ -366,6 +370,16 @@ export class AutonomousSchedulerValidationError extends Error {
     super(message)
     this.name = 'AutonomousSchedulerValidationError'
     this.issues = issues
+  }
+}
+
+export class PullRequestExecutionError extends Error {
+  public readonly commands: CommandRunResult[]
+
+  public constructor(message: string, commands: CommandRunResult[]) {
+    super(message)
+    this.name = 'PullRequestExecutionError'
+    this.commands = commands
   }
 }
 
@@ -522,7 +536,7 @@ export function planCodexRunner(input: unknown, options: CodexRunnerPlanOptions)
     throw new Error(`Codex runner cannot execute autonomyMode=${request.policy.autonomyMode}`)
   }
 
-  const branchName = buildBranchName(request)
+  const branchName = buildBranchName(request, options.branchNameSuffix)
   const codexBinary = options.codexBinary ?? 'codex'
   const prompt = buildCodexWorkerPrompt(request)
 
@@ -880,28 +894,40 @@ export async function executePullRequestPlan(
   plan: PullRequestPlan,
   executor: CommandExecutor = createProcessCommandExecutor(),
 ): Promise<PullRequestExecution> {
+  const commands: CommandRunResult[] = []
   const pushCommand = await executor(plan.pushCommand)
+  commands.push(pushCommand)
 
   if (pushCommand.exitCode !== 0) {
-    throw new Error(`Pull request branch push failed for ${plan.requestId}: ${pushCommand.stderr || pushCommand.stdout}`)
+    throw new PullRequestExecutionError(
+      `Pull request branch push failed for ${plan.requestId}: ${pushCommand.stderr || pushCommand.stdout}`,
+      commands,
+    )
   }
 
   const command = await executor(plan.command)
+  commands.push(command)
 
   if (command.exitCode !== 0) {
-    throw new Error(`Pull request creation failed for ${plan.requestId}: ${command.stderr || command.stdout}`)
+    throw new PullRequestExecutionError(
+      `Pull request creation failed for ${plan.requestId}: ${command.stderr || command.stdout}`,
+      commands,
+    )
   }
 
   const prUrl = command.stdout.trim().split('\n').find((line) => line.startsWith('https://'))
   if (!prUrl) {
-    throw new Error(`Pull request creation did not return a URL for ${plan.requestId}`)
+    throw new PullRequestExecutionError(
+      `Pull request creation did not return a URL for ${plan.requestId}`,
+      commands,
+    )
   }
 
   return {
     requestId: plan.requestId,
     branchName: plan.branchName,
     prUrl,
-    commands: [pushCommand, command],
+    commands,
     command,
   }
 }
@@ -927,13 +953,32 @@ export async function runClaimedAgentRequest(
   const claimed = validateAgentRequest(requestInput)
   await options.queue.heartbeat(claimed.id)
 
-  const codexPlan = planCodexRunner(claimed, { repoRoot: options.repoRoot })
+  const codexPlanOptions: CodexRunnerPlanOptions = {
+    repoRoot: options.repoRoot,
+  }
+  if (options.branchNameSuffix) codexPlanOptions.branchNameSuffix = options.branchNameSuffix
+
+  const codexPlan = planCodexRunner(claimed, codexPlanOptions)
   const execution = await executeCodexRunnerPlan(codexPlan, options.codexExecutor)
+  let resultExecution = execution
   let pullRequest: PullRequestExecution | undefined
 
   if (execution.status === 'completed') {
     const prPlan = planPullRequest(claimed, execution, { repoRoot: options.repoRoot })
-    pullRequest = await executePullRequestPlan(prPlan, options.pullRequestExecutor)
+    try {
+      pullRequest = await executePullRequestPlan(prPlan, options.pullRequestExecutor)
+    } catch (error) {
+      if (!(error instanceof PullRequestExecutionError)) {
+        throw error
+      }
+      resultExecution = {
+        requestId: execution.requestId,
+        branchName: execution.branchName,
+        status: 'failed',
+        commands: [...execution.commands, ...error.commands],
+        failedCommand: 'pull request creation',
+      }
+    }
   }
 
   const resultOptions: AgentResultFromExecutionOptions = {
@@ -945,20 +990,20 @@ export async function runClaimedAgentRequest(
   if (pullRequest) resultOptions.prUrl = pullRequest.prUrl
   if (options.changedFiles) resultOptions.changedFiles = options.changedFiles
 
-  const result = buildAgentResultFromExecution(claimed, execution, resultOptions)
+  const result = buildAgentResultFromExecution(claimed, resultExecution, resultOptions)
 
   const bundleOptions: AgentResultBundleOptions = {
     bundleDir: options.bundleDir,
   }
   if (options.diff !== undefined) bundleOptions.diff = options.diff
 
-  const bundle = await writeAgentResultBundle(claimed, execution, result, bundleOptions)
+  const bundle = await writeAgentResultBundle(claimed, resultExecution, result, bundleOptions)
 
   await options.queue.complete(result)
 
   const outcome: SingleAgentRunOutcome = {
     request: claimed,
-    execution,
+    execution: resultExecution,
     result,
     bundle,
   }
@@ -997,6 +1042,7 @@ export async function runQueueDaemon(options: QueueDaemonOptions): Promise<Queue
       resultId: `ARES-${request.id.slice(3)}-${stamp}`,
       agentRunId: `RUN-${request.id.slice(3)}-${stamp}`,
       completedAt: now().toISOString(),
+      branchNameSuffix: options.branchNameSuffix ?? stamp,
       changedFiles: request.expectedArtifacts.map((artifact) => artifact.path),
     }
     if (options.codexExecutor) runOptions.codexExecutor = options.codexExecutor
@@ -1042,6 +1088,7 @@ export async function runStrategyRecipesDogfood(
     resultId: `ARES-${request.id.slice(3)}-${stamp}`,
     agentRunId: `RUN-${request.id.slice(3)}-${stamp}`,
     completedAt,
+    branchNameSuffix: options.branchNameSuffix ?? stamp,
     changedFiles: options.changedFiles ?? request.expectedArtifacts.map((artifact) => artifact.path),
   }
 
@@ -1632,8 +1679,10 @@ function sanitizeId(id: string): string {
   return id.replace(/[^A-Za-z0-9_-]/g, '-')
 }
 
-function buildBranchName(request: AgentRequest): string {
-  return `${request.branch.prefix}/${sanitizeId(request.id).toLowerCase()}`
+function buildBranchName(request: AgentRequest, suffix?: string): string {
+  const baseName = `${request.branch.prefix}/${sanitizeId(request.id).toLowerCase()}`
+  if (!suffix) return baseName
+  return `${baseName}-${sanitizeId(suffix).toLowerCase()}`
 }
 
 function stringifyCommand(command: RunnerCommand): string {
