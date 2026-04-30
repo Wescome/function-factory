@@ -203,8 +203,27 @@ export default {
     return new Response('ff-pipeline: POST /trigger-synthesis, POST /synthesis-callback, or use Queue consumer', { status: 404 })
   },
 
+  async scheduled(event: ScheduledEvent, env: PipelineEnv, ctx: ExecutionContext): Promise<void> {
+    const { runGovernanceCycle } = await import('./agents/governor-agent.js')
+    ctx.waitUntil(runGovernanceCycle(env, 'cron'))
+  },
+
   async queue(batch: MessageBatch, env: PipelineEnv, _ctx: ExecutionContext): Promise<void> {
     for (const msg of batch.messages) {
+
+      // ── feedback-signals queue: governor-cycle messages ──
+      if (batch.queue === 'feedback-signals' && (msg.body as any).type === 'governor-cycle') {
+        try {
+          const { runGovernanceCycle } = await import('./agents/governor-agent.js')
+          await runGovernanceCycle(env, 'feedback-complete')
+          msg.ack()
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : String(err)
+          console.error(`[Governor] Cycle failed: ${errorMessage}`)
+          msg.ack() // Don't retry — next cron will handle it
+        }
+        continue
+      }
 
       // ── synthesis-results queue: DO -> Queue -> Workflow sendEvent ──
       // The DO publishes to SYNTHESIS_RESULTS queue after synthesis completes.

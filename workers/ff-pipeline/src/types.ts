@@ -31,6 +31,7 @@ export interface PipelineEnv {
   FEEDBACK_QUEUE?: Queue
 
   OFOX_API_KEY?: string
+  CF_API_TOKEN?: string
 
   AI?: {
     run(model: string, input: Record<string, unknown>): Promise<{ response: string }>
