@@ -224,9 +224,10 @@ export interface CommandRunResult {
 export interface CodexRunnerExecution {
   requestId: string
   branchName: string
-  status: 'completed' | 'failed'
+  status: AgentResultStatus
   commands: CommandRunResult[]
   failedCommand?: string
+  refusalReason?: string
 }
 
 export type CommandExecutor = (command: RunnerCommand) => Promise<CommandRunResult>
@@ -563,7 +564,7 @@ export function planCodexRunner(input: unknown, options: CodexRunnerPlanOptions)
     ],
     codexCommand: {
       command: codexBinary,
-      args: ['exec', prompt],
+      args: ['exec', '--sandbox', 'workspace-write', '--cd', options.repoRoot, prompt],
       cwd: options.repoRoot,
     },
     prompt,
@@ -630,6 +631,20 @@ export async function executeCodexRunnerPlan(
         status: 'failed',
         commands,
         failedCommand: stringifyCommand(command),
+      }
+    }
+
+    if (command === plan.codexCommand) {
+      const refusalReason = extractCodexRefusalReason(result)
+      if (refusalReason) {
+        return {
+          requestId: plan.requestId,
+          branchName: plan.branchName,
+          status: 'refused',
+          commands,
+          failedCommand: 'codex refused request',
+          refusalReason,
+        }
       }
     }
   }
@@ -759,6 +774,10 @@ export function buildAgentResultFromExecution(
 
   if (options.prUrl) {
     result.prUrl = options.prUrl
+  }
+
+  if (execution.status === 'refused') {
+    result.refusalReason = execution.refusalReason ?? 'Codex refused the AgentRequest.'
   }
 
   return validateAgentResult(result)
@@ -1694,7 +1713,39 @@ function defaultExecutionSummary(request: AgentRequest, execution: CodexRunnerEx
     return `Completed ${request.id} on branch ${execution.branchName}.`
   }
 
+  if (execution.status === 'refused') {
+    return `Refused ${request.id}: ${execution.refusalReason ?? 'Codex refused the AgentRequest.'}`
+  }
+
   return `Failed ${request.id} at ${execution.failedCommand ?? 'unknown command'}.`
+}
+
+function extractCodexRefusalReason(command: CommandRunResult): string | undefined {
+  const text = `${command.stdout}\n${command.stderr}`
+  const hasRefusedStatus =
+    /(^|\n)\s*status:\s*refused\b/.test(text) ||
+    /"status"\s*:\s*"refused"/.test(text)
+
+  if (!hasRefusedStatus) return undefined
+
+  const jsonReason = text.match(/"refusalReason"\s*:\s*"([^"]+)"/)?.[1]
+  if (jsonReason) return jsonReason.trim()
+
+  const foldedReason = text.match(/(^|\n)\s*refusalReason:\s*>\s*\n((?:[ \t]+.+(?:\n|$))+)/)?.[2]
+  if (foldedReason) {
+    const normalized = foldedReason
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .join(' ')
+      .trim()
+    if (normalized) return normalized
+  }
+
+  const inlineReason = text.match(/(^|\n)\s*refusalReason:\s*(.+)/)?.[2]?.trim()
+  if (inlineReason) return inlineReason
+
+  return 'Codex refused the AgentRequest.'
 }
 
 function buildPullRequestBody(request: AgentRequest, execution: CodexRunnerExecution): string {
