@@ -128,6 +128,13 @@ describe('Codex runner planning', () => {
     ])
     expect(plan.codexCommand.command).toBe('codex')
     expect(plan.codexCommand.args[0]).toBe('exec')
+    expect(plan.codexCommand.args.slice(1, 6)).toEqual([
+      '--sandbox',
+      'workspace-write',
+      '--cd',
+      '/tmp/strategy-recipes',
+      plan.prompt,
+    ])
     expect(plan.prompt).toContain('Allowed paths: README.md, docs/**, packages/**, apps/**, examples/**, tests/**')
     expect(plan.prompt).toContain('Do not merge, deploy, force-push, delete remote branches, edit secrets')
   })
@@ -210,6 +217,27 @@ describe('Codex runner planning', () => {
     )
   })
 
+  it('classifies model-level Codex refusals as refused executions', async () => {
+    const plan = planCodexRunner(requestFixture, { repoRoot: '/tmp/strategy-recipes' })
+    const execution = await executeCodexRunnerPlan(plan, async (command) => ({
+      command: command.command,
+      args: command.args,
+      cwd: command.cwd,
+      exitCode: 0,
+      stdout:
+        command.command === 'codex'
+          ? 'status: refused\nrefusalReason: >\n  Requested paths do not match this repository.\n'
+          : '',
+      stderr: '',
+      startedAt: '2026-04-30T14:30:00.000Z',
+      completedAt: '2026-04-30T14:30:01.000Z',
+    }))
+
+    expect(execution.status).toBe('refused')
+    expect(execution.failedCommand).toBe('codex refused request')
+    expect(execution.refusalReason).toBe('Requested paths do not match this repository.')
+  })
+
   it('supports dry-run command execution without invoking external tools', async () => {
     const plan = planCodexRunner(requestFixture, { repoRoot: '/tmp/strategy-recipes' })
     const executor = createDryRunCommandExecutor({
@@ -253,6 +281,35 @@ describe('Codex runner planning', () => {
     expect(result.branchName).toBe('factory/strategy-recipes-first-product-view/ar-strategy-recipes-first-product-view')
     expect(result.evidence.map((entry) => entry.kind)).toContain('pr_url')
     expect(result.evidence.map((entry) => entry.kind)).toContain('git_diff')
+  })
+
+  it('builds a validated refused AgentResult from runner execution', async () => {
+    const plan = planCodexRunner(requestFixture, { repoRoot: '/tmp/strategy-recipes' })
+    const execution = await executeCodexRunnerPlan(plan, async (command) => ({
+      command: command.command,
+      args: command.args,
+      cwd: command.cwd,
+      exitCode: 0,
+      stdout:
+        command.command === 'codex'
+          ? '{"status":"refused","refusalReason":"Repository shape is incompatible with the request."}'
+          : '',
+      stderr: '',
+      startedAt: '2026-04-30T14:30:00.000Z',
+      completedAt: '2026-04-30T14:30:01.000Z',
+    }))
+
+    const result = buildAgentResultFromExecution(requestFixture, execution, {
+      resultId: 'ARES-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW-REFUSED',
+      agentRunId: 'RUN-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW-REFUSED',
+      completedAt: '2026-04-30T14:35:00.000Z',
+      artifactBasePath: 'artifacts/AR-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW',
+    })
+
+    expect(result.status).toBe('refused')
+    expect(result.refusalReason).toBe('Repository shape is incompatible with the request.')
+    expect(result.prUrl).toBeUndefined()
+    expect(result.branchName).toBeUndefined()
   })
 
   it('requires PR evidence for completed runner results', async () => {
@@ -401,6 +458,23 @@ describe('Codex runner planning', () => {
           status: 'failed',
           commands: [],
           failedCommand: 'codex exec',
+        },
+        { repoRoot: '/tmp/strategy-recipes' },
+      ),
+    ).toThrow('Pull request plan requires completed execution for AR-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW')
+  })
+
+  it('does not plan PR creation for refused executions', async () => {
+    expect(() =>
+      planPullRequest(
+        requestFixture,
+        {
+          requestId: 'AR-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW',
+          branchName: 'factory/strategy-recipes-first-product-view/ar-strategy-recipes-first-product-view',
+          status: 'refused',
+          commands: [],
+          failedCommand: 'codex refused request',
+          refusalReason: 'Repository shape is incompatible with the request.',
         },
         { repoRoot: '/tmp/strategy-recipes' },
       ),
@@ -619,6 +693,60 @@ describe('single-request scheduler run', () => {
     expect(await queue.status()).toMatchObject({
       total: 1,
       failed: 1,
+    })
+  })
+
+  it('completes the queue with a refused result when Codex refuses the request', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'factory-autonomous-'))
+    const queue = new JsonlAgentQueue({
+      queueDir: join(home, 'queue'),
+      actor: 'factory-governor',
+      now: fixedClock(),
+    })
+    let prCalls = 0
+
+    const outcome = await runSingleAgentRequest(requestFixture, {
+      queue,
+      repoRoot: '/tmp/strategy-recipes',
+      bundleDir: join(home, 'bundle'),
+      resultId: 'ARES-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW-REFUSED-RUN',
+      agentRunId: 'RUN-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW-REFUSED-RUN',
+      completedAt: '2026-04-30T14:40:00.000Z',
+      codexExecutor: async (command) => ({
+        command: command.command,
+        args: command.args,
+        cwd: command.cwd,
+        exitCode: 0,
+        stdout:
+          command.command === 'codex'
+            ? 'status: refused\nrefusalReason: Repository shape is incompatible with the request.\n'
+            : '',
+        stderr: '',
+        startedAt: '2026-04-30T14:30:00.000Z',
+        completedAt: '2026-04-30T14:30:01.000Z',
+      }),
+      pullRequestExecutor: async (command) => {
+        prCalls += 1
+        return {
+          command: command.command,
+          args: command.args,
+          cwd: command.cwd,
+          exitCode: 0,
+          stdout: 'https://github.com/Wescome/strategy-recipes/pull/8\n',
+          stderr: '',
+          startedAt: '2026-04-30T14:36:00.000Z',
+          completedAt: '2026-04-30T14:36:01.000Z',
+        }
+      },
+    })
+
+    expect(outcome.result.status).toBe('refused')
+    expect(outcome.pullRequest).toBeUndefined()
+    expect(outcome.result.refusalReason).toBe('Repository shape is incompatible with the request.')
+    expect(prCalls).toBe(0)
+    expect(await queue.status()).toMatchObject({
+      total: 1,
+      refused: 1,
     })
   })
 
