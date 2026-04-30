@@ -267,20 +267,19 @@ export async function seedHotConfig(
     }
   }
 
-  // Seed default routing config
+  // Seed default routing config (upsert — always update to latest defaults)
   try {
-    await db.save('config_routing', {
-      _key: 'default',
-      config: DEFAULT_CONFIG,
-      seededAt: new Date().toISOString(),
-      source: 'hardcoded-defaults',
-    })
+    await db.query(
+      `UPSERT { _key: 'default' }
+       INSERT { _key: 'default', config: @config, seededAt: @now, source: 'hardcoded-defaults' }
+       UPDATE { config: @config, seededAt: @now, source: 'hardcoded-defaults' }
+       IN config_routing`,
+      { config: DEFAULT_CONFIG, now: new Date().toISOString() },
+    )
     seeded++
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    if (!msg.includes('unique constraint') && !msg.includes('conflict')) {
-      errors.push(`config_routing/default: ${msg}`)
-    }
+    errors.push(`config_routing/default: ${msg}`)
   }
 
   // Seed model capabilities

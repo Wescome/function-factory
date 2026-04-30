@@ -307,17 +307,15 @@ describe('seedHotConfig', () => {
     expect(savedKeys).toContain('SemanticReview')
   })
 
-  it('seeds default routing config', async () => {
+  it('seeds default routing config via upsert', async () => {
     await seedHotConfig(db as never)
 
-    const routingSaves = db.save.mock.calls.filter(
-      (c: unknown[]) => c[0] === 'config_routing',
+    const routingQueries = db.query.mock.calls.filter(
+      (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('config_routing'),
     )
-    expect(routingSaves.length).toBeGreaterThanOrEqual(1)
-
-    const routingDoc = routingSaves[0]![1] as { _key: string; config: RoutingConfig }
-    expect(routingDoc._key).toBe('default')
-    expect(routingDoc.config).toEqual(DEFAULT_CONFIG)
+    expect(routingQueries.length).toBeGreaterThanOrEqual(1)
+    const params = routingQueries[0]![1] as { config: RoutingConfig }
+    expect(params.config).toEqual(DEFAULT_CONFIG)
   })
 
   it('seeds model capabilities from known models', async () => {
