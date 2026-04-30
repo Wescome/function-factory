@@ -1,0 +1,33 @@
+$ /bin/zsh -lc pnpm --dir packages/strategy-objects test
+
+exitCode: 0
+cwd: /Users/wes/Developer/strategy-recipes
+startedAt: 2026-04-30T22:34:28.533Z
+completedAt: 2026-04-30T22:34:29.763Z
+
+stdout:
+
+> @strategy-recipes/strategy-objects@0.1.0 test /Users/wes/Developer/strategy-recipes/packages/strategy-objects
+> node --experimental-strip-types --test ../../tests/first-product-view.test.ts
+
+(node:92539) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/wes/Developer/strategy-recipes/tests/first-product-view.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/wes/Developer/strategy-recipes/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ typed object graph preserves the Strategy.Recipes deliberation type vocabulary (3.610481ms)
+✔ view registry exposes the first product view projections (0.286869ms)
+✔ coherence report blocks unsupported high-relevance decisions (0.755371ms)
+✔ first product view model renders the required product concepts (1.878416ms)
+✔ example snapshot stays aligned with the renderer output (2.03404ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 329.733246
+
+
+stderr:
+

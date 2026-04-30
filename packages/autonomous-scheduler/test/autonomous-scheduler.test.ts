@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, unlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -23,6 +23,7 @@ import {
   validateAgentResult,
   validateQueueEvent,
   writeAgentResultBundle,
+  writeRepoTrackedRunManifest,
 } from '../src/index.js'
 
 const requestFixture = JSON.parse(
@@ -1041,6 +1042,80 @@ describe('Strategy.Recipes dogfood', () => {
     expect(dogfood.outcome.result.status).toBe('completed')
     expect(dogfood.outcome.result.prUrl).toBe('https://github.com/Wescome/strategy-recipes/pull/dogfood')
     expect(readFileSync(dogfood.outcome.bundle.files.manifest, 'utf8')).toContain('factory.agent-result-bundle.v0')
+  })
+
+  it('records a repo-tracked run manifest from an ephemeral dogfood bundle', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'factory-dogfood-'))
+    const paths = createStrategyRecipesDogfoodRunPaths(home, fixedClock())
+    const dogfood = await runStrategyRecipesDogfood({
+      request: requestFixture,
+      repoRoot: '/tmp/strategy-recipes',
+      queueDir: paths.queueDir,
+      bundleDir: paths.bundleDir,
+      mode: 'dry-run',
+      mockPrUrl: 'https://github.com/Wescome/strategy-recipes/pull/dogfood',
+      now: fixedClock(),
+    })
+    const outputDir = join(home, 'tracked-run')
+
+    const manifest = await writeRepoTrackedRunManifest({
+      bundleDir: dogfood.bundleDir,
+      outputDir,
+      generatedAt: '2026-04-30T14:45:00.000Z',
+      runId: 'strategy-recipes-dogfood-smoke',
+    })
+
+    const trackedResult = JSON.parse(readFileSync(join(outputDir, 'result.json'), 'utf8')) as {
+      commands: { outputRef: string }[]
+      evidence: { path?: string }[]
+    }
+
+    expect(manifest.schemaVersion).toBe('factory.scheduler-run-manifest.v0')
+    expect(manifest.runId).toBe('strategy-recipes-dogfood-smoke')
+    expect(manifest.requestId).toBe('AR-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW')
+    expect(manifest.files.request.path).toBe('request.json')
+    expect(manifest.files.commands[0]?.path).toContain('commands/')
+    expect(manifest.files.verification?.path).toBe('verification-output.txt')
+    expect(readFileSync(join(outputDir, manifest.files.request.path), 'utf8')).toContain(
+      'AR-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW',
+    )
+    expect(readFileSync(join(outputDir, manifest.files.verification?.path ?? ''), 'utf8')).toContain('pnpm test')
+    expect(readFileSync(join(outputDir, 'manifest.json'), 'utf8')).toContain('factory.scheduler-run-manifest.v0')
+    expect(trackedResult.commands.every((command) => !command.outputRef.startsWith('/tmp/'))).toBe(true)
+    expect(trackedResult.evidence.every((entry) => !entry.path?.startsWith('/tmp/'))).toBe(true)
+  })
+
+  it('omits stale file evidence when promoting older incomplete bundles', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'factory-dogfood-'))
+    const paths = createStrategyRecipesDogfoodRunPaths(home, fixedClock())
+    await runStrategyRecipesDogfood({
+      request: requestFixture,
+      repoRoot: '/tmp/strategy-recipes',
+      queueDir: paths.queueDir,
+      bundleDir: paths.bundleDir,
+      mode: 'dry-run',
+      mockPrUrl: 'https://github.com/Wescome/strategy-recipes/pull/dogfood',
+      now: fixedClock(),
+    })
+    unlinkSync(join(paths.bundleDir, 'test-output.txt'))
+    unlinkSync(join(paths.bundleDir, 'typecheck-output.txt'))
+    unlinkSync(join(paths.bundleDir, 'diff.patch'))
+
+    await writeRepoTrackedRunManifest({
+      bundleDir: paths.bundleDir,
+      outputDir: join(home, 'tracked-run'),
+      runId: 'older-incomplete-bundle',
+    })
+
+    const trackedResult = JSON.parse(readFileSync(join(home, 'tracked-run', 'result.json'), 'utf8')) as {
+      evidence: { kind: string; path?: string }[]
+    }
+
+    expect(trackedResult.evidence.map((entry) => entry.kind)).toEqual([
+      'artifact_paths',
+      'verification_output',
+      'pr_url',
+    ])
   })
 })
 

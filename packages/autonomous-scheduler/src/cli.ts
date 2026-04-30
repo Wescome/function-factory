@@ -11,6 +11,7 @@ import {
   runSingleAgentRequest,
   runStrategyRecipesDogfood,
   validateAgentRequest,
+  writeRepoTrackedRunManifest,
 } from './index.js'
 
 async function main(): Promise<void> {
@@ -223,6 +224,21 @@ async function main(): Promise<void> {
       return
     }
 
+    if (command === 'record-run-manifest') {
+      const bundleDir = requiredArg(args, 0, 'bundle dir')
+      const outputDir = requiredOption(args, '--output-dir')
+      const runId = option(args, '--run-id')
+      const manifestOptions: Parameters<typeof writeRepoTrackedRunManifest>[0] = {
+        bundleDir,
+        outputDir,
+      }
+      if (runId) manifestOptions.runId = runId
+
+      const manifest = await writeRepoTrackedRunManifest(manifestOptions)
+      printJson({ ok: true, manifestPath: join(outputDir, 'manifest.json'), manifest })
+      return
+    }
+
     throw new Error(`Unknown command: ${command}`)
   } catch (error) {
     process.exitCode = 1
@@ -247,6 +263,7 @@ function printHelp(): void {
     '  run-single <queue-dir> <request.json> --repo-root <path> --bundle-dir <path> [--changed-files a,b] [--diff-file path] [--codex-timeout-ms n] [--dry-run]',
     '  daemon <queue-dir> --repo-root <path> --bundle-root <path> [--poll-ms n] [--max-iterations n] [--codex-timeout-ms n] [--dry-run]',
     '  dogfood-strategy-recipes [--repo-root path] [--home path] [--request path] [--branch-suffix text] [--codex-timeout-ms n] [--real]',
+    '  record-run-manifest <bundle-dir> --output-dir <path> [--run-id id]',
     '',
     'run-single and daemon execute git, codex, and gh commands unless --dry-run is supplied.',
     'dogfood-strategy-recipes defaults to dry-run mode.',

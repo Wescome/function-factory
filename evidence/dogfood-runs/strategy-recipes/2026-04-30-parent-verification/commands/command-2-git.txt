@@ -1,0 +1,14 @@
+$ git switch -c factory/strategy-recipes-parent-verify-evidence/ar-strategy-recipes-parent-verify-evidence-parent-verification-20260430t2235 origin/main
+
+exitCode: 0
+cwd: /Users/wes/Developer/strategy-recipes
+startedAt: 2026-04-30T22:31:22.600Z
+completedAt: 2026-04-30T22:31:22.649Z
+
+stdout:
+branch 'factory/strategy-recipes-parent-verify-evidence/ar-strategy-recipes-parent-verify-evidence-parent-verification-20260430t2235' set up to track 'origin/main'.
+
+
+stderr:
+Switched to a new branch 'factory/strategy-recipes-parent-verify-evidence/ar-strategy-recipes-parent-verify-evidence-parent-verification-20260430t2235'
+

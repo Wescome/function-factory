@@ -1,10 +1,12 @@
 import { spawn } from 'node:child_process'
-import { appendFile, mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { createHash } from 'node:crypto'
+import { appendFile, copyFile, mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises'
+import { basename, join } from 'node:path'
 
 export const AGENT_REQUEST_SCHEMA_VERSION = 'factory.agent-request.v0' as const
 export const AGENT_RESULT_SCHEMA_VERSION = 'factory.agent-result.v0' as const
 export const QUEUE_EVENT_SCHEMA_VERSION = 'factory.queue-event.v0' as const
+export const SCHEDULER_RUN_MANIFEST_SCHEMA_VERSION = 'factory.scheduler-run-manifest.v0' as const
 export const DEFAULT_CODEX_TIMEOUT_MS = 30 * 60 * 1000
 
 export const AGENT_ROLES = [
@@ -283,6 +285,49 @@ export interface AgentResultBundleManifest {
     typecheckOutput?: string
     verification?: string
   }
+}
+
+export interface SchedulerRunManifestFile {
+  path: string
+  bytes: number
+  sha256: string
+}
+
+export interface SchedulerRunManifest {
+  schemaVersion: typeof SCHEDULER_RUN_MANIFEST_SCHEMA_VERSION
+  runId: string
+  generatedAt: string
+  requestId: string
+  resultId: string
+  status: AgentResultStatus
+  repo: RepoTarget
+  workgraph: WorkGraphHandle
+  branchName?: string
+  prUrl?: string
+  files: {
+    request: SchedulerRunManifestFile
+    execution: SchedulerRunManifestFile
+    result: SchedulerRunManifestFile
+    commands: SchedulerRunManifestFile[]
+    diff?: SchedulerRunManifestFile
+    testOutput?: SchedulerRunManifestFile
+    typecheckOutput?: SchedulerRunManifestFile
+    verification?: SchedulerRunManifestFile
+  }
+  replay: {
+    requestFile: string
+    repo: RepoTarget
+    branchBase: string
+    requiredCommands: string[]
+    suggestedCommand: string
+  }
+}
+
+export interface RepoTrackedRunManifestOptions {
+  bundleDir: string
+  outputDir: string
+  generatedAt?: string
+  runId?: string
 }
 
 export interface PullRequestPlanOptions {
@@ -940,6 +985,92 @@ export async function writeAgentResultBundle(
 
   await writeJsonFile(manifestPath, manifest)
   return manifest
+}
+
+export async function writeRepoTrackedRunManifest(
+  options: RepoTrackedRunManifestOptions,
+): Promise<SchedulerRunManifest> {
+  const bundleManifest = JSON.parse(
+    await readFile(join(options.bundleDir, 'manifest.json'), 'utf8'),
+  ) as AgentResultBundleManifest
+  const request = validateAgentRequest(JSON.parse(await readFile(bundleManifest.files.request, 'utf8')) as unknown)
+  const execution = JSON.parse(await readFile(bundleManifest.files.execution, 'utf8')) as CodexRunnerExecution
+  const result = validateAgentResult(JSON.parse(await readFile(bundleManifest.files.result, 'utf8')) as unknown)
+
+  await mkdir(options.outputDir, { recursive: true })
+  await mkdir(join(options.outputDir, 'commands'), { recursive: true })
+
+  const commandFiles: SchedulerRunManifestFile[] = []
+  for (const commandPath of bundleManifest.files.commands) {
+    commandFiles.push(await copyTrackedFile(commandPath, join(options.outputDir, 'commands', basename(commandPath)), `commands/${basename(commandPath)}`))
+  }
+
+  const pathMap = new Map<string, string>()
+  pathMap.set(bundleManifest.files.manifest, 'manifest.json')
+  for (let index = 0; index < bundleManifest.files.commands.length; index += 1) {
+    const sourcePath = bundleManifest.files.commands[index]
+    const commandFile = commandFiles[index]
+    if (sourcePath && commandFile) pathMap.set(sourcePath, commandFile.path)
+  }
+
+  const copiedDiff = await copyOptionalTrackedFile(bundleManifest.files.diff, options.outputDir, 'diff.patch')
+  const copiedTestOutput = await copyOptionalTrackedFile(bundleManifest.files.testOutput, options.outputDir, 'test-output.txt')
+  const copiedTypecheckOutput = await copyOptionalTrackedFile(bundleManifest.files.typecheckOutput, options.outputDir, 'typecheck-output.txt')
+  const copiedVerification = await copyOptionalTrackedFile(bundleManifest.files.verification, options.outputDir, 'verification-output.txt')
+
+  if (bundleManifest.files.diff && copiedDiff) pathMap.set(bundleManifest.files.diff, copiedDiff.path)
+  if (bundleManifest.files.testOutput && copiedTestOutput) pathMap.set(bundleManifest.files.testOutput, copiedTestOutput.path)
+  if (bundleManifest.files.typecheckOutput && copiedTypecheckOutput) {
+    pathMap.set(bundleManifest.files.typecheckOutput, copiedTypecheckOutput.path)
+  }
+  if (bundleManifest.files.verification && copiedVerification) {
+    pathMap.set(bundleManifest.files.verification, copiedVerification.path)
+  }
+
+  const normalizedResult = normalizeResultForRepoTracking(result, pathMap, commandFiles)
+  const requestFile = await writeTrackedJsonFile(join(options.outputDir, 'request.json'), 'request.json', request)
+  const executionFile = await writeTrackedJsonFile(join(options.outputDir, 'execution.json'), 'execution.json', execution)
+  const resultFile = await writeTrackedJsonFile(join(options.outputDir, 'result.json'), 'result.json', normalizedResult)
+  const generatedAt = options.generatedAt ?? new Date().toISOString()
+
+  const runManifest: SchedulerRunManifest = {
+    schemaVersion: SCHEDULER_RUN_MANIFEST_SCHEMA_VERSION,
+    runId: options.runId ?? sanitizeId(result.id),
+    generatedAt,
+    requestId: request.id,
+    resultId: result.id,
+    status: result.status,
+    repo: request.repo,
+    workgraph: request.workgraph,
+    files: {
+      request: requestFile,
+      execution: executionFile,
+      result: resultFile,
+      commands: commandFiles,
+    },
+    replay: {
+      requestFile: requestFile.path,
+      repo: request.repo,
+      branchBase: request.branch.base,
+      requiredCommands: request.requiredCommands,
+      suggestedCommand: [
+        'pnpm run autonomous-scheduler:cli -- run-single <queue-dir>',
+        requestFile.path,
+        '--repo-root <repo-root>',
+        '--bundle-dir <bundle-dir>',
+      ].join(' '),
+    },
+  }
+
+  if (result.branchName) runManifest.branchName = result.branchName
+  if (result.prUrl) runManifest.prUrl = result.prUrl
+  if (copiedDiff) runManifest.files.diff = copiedDiff
+  if (copiedTestOutput) runManifest.files.testOutput = copiedTestOutput
+  if (copiedTypecheckOutput) runManifest.files.typecheckOutput = copiedTypecheckOutput
+  if (copiedVerification) runManifest.files.verification = copiedVerification
+
+  await writeJsonFile(join(options.outputDir, 'manifest.json'), runManifest)
+  return runManifest
 }
 
 async function executeWorkerCommit(
@@ -1963,6 +2094,75 @@ async function appendJsonLine(path: string, valueToWrite: unknown): Promise<void
 
 async function writeJsonFile(path: string, valueToWrite: unknown): Promise<void> {
   await writeFile(path, `${JSON.stringify(valueToWrite, null, 2)}\n`, 'utf8')
+}
+
+async function writeTrackedJsonFile(
+  path: string,
+  relativePath: string,
+  valueToWrite: unknown,
+): Promise<SchedulerRunManifestFile> {
+  await writeJsonFile(path, valueToWrite)
+  return await describeTrackedFile(path, relativePath)
+}
+
+async function copyTrackedFile(
+  sourcePath: string,
+  destinationPath: string,
+  relativePath: string,
+): Promise<SchedulerRunManifestFile> {
+  await copyFile(sourcePath, destinationPath)
+  return await describeTrackedFile(destinationPath, relativePath)
+}
+
+async function copyOptionalTrackedFile(
+  sourcePath: string | undefined,
+  outputDir: string,
+  relativePath: string,
+): Promise<SchedulerRunManifestFile | undefined> {
+  if (!sourcePath) return undefined
+
+  try {
+    return await copyTrackedFile(sourcePath, join(outputDir, relativePath), relativePath)
+  } catch (error) {
+    if (isNotFound(error)) return undefined
+    throw error
+  }
+}
+
+async function describeTrackedFile(path: string, relativePath: string): Promise<SchedulerRunManifestFile> {
+  const fileStats = await stat(path)
+  return {
+    path: relativePath,
+    bytes: fileStats.size,
+    sha256: createHash('sha256').update(await readFile(path)).digest('hex'),
+  }
+}
+
+function normalizeResultForRepoTracking(
+  result: AgentResult,
+  pathMap: ReadonlyMap<string, string>,
+  commandFiles: readonly SchedulerRunManifestFile[],
+): AgentResult {
+  return validateAgentResult({
+    ...result,
+    commands: result.commands.map((command, index) => ({
+      ...command,
+      outputRef: commandFiles[index]?.path ?? normalizeTrackedPath(command.outputRef, pathMap),
+    })),
+    evidence: result.evidence.flatMap((entry) => {
+      if (!entry.path) return [entry]
+      const normalizedPath = pathMap.get(entry.path)
+      if (!normalizedPath) return []
+      return {
+        ...entry,
+        path: normalizedPath,
+      }
+    }),
+  })
+}
+
+function normalizeTrackedPath(path: string, pathMap: ReadonlyMap<string, string>): string {
+  return pathMap.get(path) ?? (path.startsWith('/') ? basename(path) : path)
 }
 
 async function readJsonLines(path: string): Promise<unknown[]> {

@@ -89,6 +89,20 @@ pnpm run autonomous-scheduler:cli -- run-single /tmp/factory-queue \
 Queue claims include leases and heartbeats. Expired claims can be reclaimed by a
 later runner; active claims are excluded from pending queue counts.
 
+Use `record-run-manifest` to convert an ephemeral bundle into a repo-trackable
+run record:
+
+```bash
+pnpm run autonomous-scheduler:cli -- record-run-manifest /tmp/factory-bundle \
+  --output-dir evidence/dogfood-runs/strategy-recipes/<run-id>
+```
+
+The recorded manifest rewrites evidence references to repo-relative paths and
+copies `request.json`, `execution.json`, `result.json`, command outputs, and
+aggregate evidence files into the output directory. This makes production-alpha
+dogfood runs auditable after `/tmp` cleanup and provides a replay seed through
+the stored `request.json`.
+
 The `dogfood-strategy-recipes` command defaults to the current next-slice
 request:
 
