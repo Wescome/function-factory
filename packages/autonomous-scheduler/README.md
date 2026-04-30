@@ -39,13 +39,22 @@ also planned and executed through the same command seam using `gh pr create`.
 3. Execute the Codex runner plan.
 4. Validate changed paths against the request policy.
 5. Stage and commit worker changes from the parent scheduler process.
-6. Create a PR if the runner and commit succeed.
-7. Build and persist a validated `AgentResult` bundle.
-8. Complete the queue item with pass/fail evidence.
+6. Run every `requiredCommands` entry from the parent scheduler process.
+7. Create a PR only if the runner, commit, and parent verification succeed.
+8. Build and persist a validated `AgentResult` bundle.
+9. Complete the queue item with pass/fail evidence.
 
 The parent scheduler owns `git add` and `git commit` because child Codex
 workers run in a workspace-write sandbox that may edit files but should not
 depend on direct `.git` mutation.
+
+The parent scheduler also owns final verification. Child Codex workers still
+receive the required commands in their prompt, but the scheduler reruns those
+commands after the parent commit and before `git push` / `gh pr create`.
+Verification failures stop publication, complete the queue item as failed, and
+write `verification-output.txt` plus command-level output files into the result
+bundle. This makes parent-observed tests and typechecks first-class evidence
+rather than relying on child-session stdout.
 
 `runQueueDaemon` repeats the same path for queued work with bounded polling,
 claim leases, heartbeats, and stop predicates.

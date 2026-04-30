@@ -61,3 +61,45 @@ pnpm run autonomous-scheduler:cli -- dogfood-strategy-recipes \
   --request /path/to/request.json \
   --repo-root /path/to/strategy-recipes
 ```
+
+## 2026-04-30 Real Dogfood Proof
+
+The scheduler completed a real Strategy.Recipes dogfood run for:
+
+```text
+AR-STRATEGY-RECIPES-DOGFOOD-EVIDENCE
+```
+
+The run produced, pushed, and opened Strategy.Recipes PR #71:
+
+```text
+https://github.com/Wescome/strategy-recipes/pull/71
+```
+
+The PR was squash-merged after parent-environment verification and the local
+Strategy.Recipes checkout was fast-forwarded to `main`.
+
+Evidence bundle:
+
+```text
+/tmp/factory-dogfood-evidence/strategy-recipes/strategy-recipes-20260430T214225017Z/bundle
+```
+
+Parent verification completed successfully on the PR branch:
+
+```text
+pnpm --dir packages/strategy-objects test      # pass, 5/5
+pnpm --dir packages/strategy-objects typecheck # pass
+npm run test:strategy-recipes                  # pass, 127/127
+```
+
+The child Codex worker reported a sandbox limitation while attempting local
+network-backed tests (`listen EPERM 127.0.0.1`) and could not mutate `.git`
+directly from its sandbox. The parent scheduler still completed the intended
+production-alpha boundary: parent-owned commit, push, PR creation, and
+independent verification.
+
+Follow-up hardening from this proof: the scheduler now reruns
+`requiredCommands` from the parent process after committing worker changes and
+before pushing the PR branch. Those commands are captured as
+`verification_output` evidence in each result bundle.

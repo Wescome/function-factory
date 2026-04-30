@@ -13,6 +13,7 @@ import {
   createDryRunCommandExecutor,
   executeCodexRunnerPlan,
   executePullRequestPlan,
+  executeRequiredCommands,
   planCodexRunner,
   planPullRequest,
   runQueueDaemon,
@@ -308,6 +309,33 @@ describe('Codex runner planning', () => {
     expect(execution.status).toBe('completed')
     expect(execution.commands[0]?.stdout).toContain('dry-run: git fetch')
     expect(pr.prUrl).toBe('https://github.com/Wescome/strategy-recipes/pull/dry-run')
+  })
+
+  it('runs required commands as parent verification and stops on first failure', async () => {
+    const seen: string[] = []
+    const verification = await executeRequiredCommands(requestFixture, {
+      repoRoot: '/tmp/strategy-recipes',
+      shell: 'sh',
+      executor: async (command) => {
+        const requiredCommand = command.args.at(-1) ?? ''
+        seen.push(requiredCommand)
+        return {
+          command: command.command,
+          args: command.args,
+          cwd: command.cwd,
+          exitCode: requiredCommand === 'pnpm test' ? 1 : 0,
+          stdout: requiredCommand === 'pnpm test' ? '' : 'ok\n',
+          stderr: requiredCommand === 'pnpm test' ? 'tests failed\n' : '',
+          startedAt: '2026-04-30T14:30:00.000Z',
+          completedAt: '2026-04-30T14:30:01.000Z',
+        }
+      },
+    })
+
+    expect(seen).toEqual(['pnpm install --frozen-lockfile', 'pnpm test'])
+    expect(verification).toHaveLength(2)
+    expect(verification.map((command) => command.phase)).toEqual(['verification', 'verification'])
+    expect(verification[1]?.exitCode).toBe(1)
   })
 
   it('builds a validated completed AgentResult from runner execution', async () => {
@@ -684,6 +712,10 @@ describe('single-request scheduler run', () => {
     expect(codexCommands).toEqual(['git', 'git', 'git', 'codex'])
     expect(outcome.result.status).toBe('completed')
     expect(outcome.pullRequest?.prUrl).toBe('https://github.com/Wescome/strategy-recipes/pull/5')
+    expect(outcome.execution.commands.filter((command) => command.phase === 'verification')).toHaveLength(3)
+    expect(outcome.result.evidence.map((entry) => entry.kind)).toContain('verification_output')
+    expect(outcome.bundle.files.verification).toBeDefined()
+    expect(readFileSync(outcome.bundle.files.verification ?? '', 'utf8')).toContain('pnpm test')
     expect(readFileSync(outcome.bundle.files.manifest, 'utf8')).toContain('factory.agent-result-bundle.v0')
     expect(await queue.status()).toMatchObject({
       total: 1,
@@ -741,6 +773,60 @@ describe('single-request scheduler run', () => {
       total: 1,
       failed: 1,
     })
+  })
+
+  it('blocks PR creation when parent verification fails', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'factory-autonomous-'))
+    const queue = new JsonlAgentQueue({
+      queueDir: join(home, 'queue'),
+      actor: 'factory-governor',
+      now: fixedClock(),
+    })
+    const parentCommands: string[] = []
+
+    const outcome = await runSingleAgentRequest(requestFixture, {
+      queue,
+      repoRoot: '/tmp/strategy-recipes',
+      bundleDir: join(home, 'bundle'),
+      resultId: 'ARES-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW-VERIFY-FAILED',
+      agentRunId: 'RUN-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW-VERIFY-FAILED',
+      completedAt: '2026-04-30T14:40:00.000Z',
+      changedFiles: ['docs/product/first-product-view.md'],
+      codexExecutor: async (command) => ({
+        command: command.command,
+        args: command.args,
+        cwd: command.cwd,
+        exitCode: 0,
+        stdout: '',
+        stderr: '',
+        startedAt: '2026-04-30T14:30:00.000Z',
+        completedAt: '2026-04-30T14:30:01.000Z',
+      }),
+      pullRequestExecutor: async (command) => {
+        const commandText = [command.command, ...command.args].join(' ')
+        parentCommands.push(commandText)
+        const requiredCommand = command.args.at(-1) ?? ''
+        return {
+          command: command.command,
+          args: command.args,
+          cwd: command.cwd,
+          exitCode: requiredCommand === 'pnpm test' ? 1 : 0,
+          stdout: command.args.includes('--porcelain') ? 'M docs/product/first-product-view.md\n' : 'ok\n',
+          stderr: requiredCommand === 'pnpm test' ? 'tests failed\n' : '',
+          startedAt: '2026-04-30T14:36:00.000Z',
+          completedAt: '2026-04-30T14:36:01.000Z',
+        }
+      },
+    })
+
+    expect(outcome.result.status).toBe('failed')
+    expect(outcome.execution.failedCommand).toContain('parent verification:')
+    expect(outcome.execution.commands.filter((command) => command.phase === 'verification')).toHaveLength(2)
+    expect(outcome.pullRequest).toBeUndefined()
+    expect(parentCommands.some((command) => command.includes('gh pr create'))).toBe(false)
+    expect(parentCommands.some((command) => command.includes('git push'))).toBe(false)
+    expect(outcome.result.evidence.map((entry) => entry.kind)).toContain('verification_output')
+    expect(await queue.status()).toMatchObject({ total: 1, failed: 1 })
   })
 
   it('completes the queue with a refused result when Codex refuses the request', async () => {
@@ -841,7 +927,8 @@ describe('single-request scheduler run', () => {
 
     expect(outcome.result.status).toBe('failed')
     expect(outcome.execution.failedCommand).toBe('pull request creation')
-    expect(outcome.execution.commands.map((command) => command.command)).toEqual([
+    const executedCommands = outcome.execution.commands.map((command) => command.command)
+    expect(executedCommands.slice(0, 7)).toEqual([
       'git',
       'git',
       'git',
@@ -849,9 +936,9 @@ describe('single-request scheduler run', () => {
       'git',
       'git',
       'git',
-      'git',
-      'gh',
     ])
+    expect(outcome.execution.commands.filter((command) => command.phase === 'verification')).toHaveLength(3)
+    expect(executedCommands.slice(-2)).toEqual(['git', 'gh'])
     expect(readFileSync(outcome.bundle.files.result, 'utf8')).toContain('ARES-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW-PR-FAILED')
     expect(await queue.status()).toMatchObject({ total: 1, failed: 1 })
   })
