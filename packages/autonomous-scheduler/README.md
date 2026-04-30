@@ -55,5 +55,16 @@ pnpm run autonomous-scheduler:cli -- status /tmp/factory-queue
 `run-single` and `daemon` are intentionally explicit because they execute `git`,
 `codex`, and `gh` against the requested repo.
 
+Use `--dry-run` to exercise the queue, runner, PR, result, and bundle paths
+without invoking external commands:
+
+```bash
+pnpm run autonomous-scheduler:cli -- run-single /tmp/factory-queue \
+  packages/autonomous-scheduler/fixtures/strategy-recipes-agent-request.json \
+  --repo-root /tmp/strategy-recipes \
+  --bundle-dir /tmp/factory-bundle \
+  --dry-run
+```
+
 Queue claims include leases and heartbeats. Expired claims can be reclaimed by a
 later runner; active claims are excluded from pending queue counts.

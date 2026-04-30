@@ -234,6 +234,12 @@ export interface ProcessCommandExecutorOptions {
   now?: () => Date
 }
 
+export interface DryRunCommandExecutorOptions {
+  now?: () => Date
+  prUrl?: string
+  failCommandIncludes?: string
+}
+
 export interface AgentResultFromExecutionOptions {
   resultId: string
   agentRunId: string
@@ -610,6 +616,30 @@ export function createProcessCommandExecutor(options?: ProcessCommandExecutorOpt
       stderr,
       startedAt,
       completedAt,
+    }
+  }
+}
+
+export function createDryRunCommandExecutor(options?: DryRunCommandExecutorOptions): CommandExecutor {
+  const now = options?.now ?? (() => new Date())
+  const prUrl = options?.prUrl ?? 'https://github.com/Wescome/strategy-recipes/pull/dry-run'
+
+  return async (command: RunnerCommand): Promise<CommandRunResult> => {
+    const commandText = stringifyCommand(command)
+    const shouldFail = options?.failCommandIncludes ? commandText.includes(options.failCommandIncludes) : false
+    const stdout = command.command === 'gh'
+      ? `${prUrl}\n`
+      : `dry-run: ${commandText}\n`
+
+    return {
+      command: command.command,
+      args: command.args,
+      cwd: command.cwd,
+      exitCode: shouldFail ? 1 : 0,
+      stdout,
+      stderr: shouldFail ? `dry-run failure for ${commandText}` : '',
+      startedAt: now().toISOString(),
+      completedAt: now().toISOString(),
     }
   }
 }

@@ -101,3 +101,5 @@ status, plan, and explicitly run a single request against a real checkout. The
 daemon entrypoint repeats the same path over queued work with bounded polling,
 leases, heartbeats, and stop controls. Queue leases and heartbeats are part of
 the JSONL queue boundary, so the daemon can safely reclaim expired worker claims.
+The CLI supports `--dry-run` on `run-single` and `daemon` to exercise the full
+scheduler loop without invoking real `git`, `codex`, or `gh`.

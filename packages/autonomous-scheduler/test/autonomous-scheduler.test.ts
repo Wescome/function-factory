@@ -7,6 +7,7 @@ import {
   JsonlAgentQueue,
   buildAgentResultFromExecution,
   buildCodexWorkerPrompt,
+  createDryRunCommandExecutor,
   executeCodexRunnerPlan,
   executePullRequestPlan,
   planCodexRunner,
@@ -193,6 +194,22 @@ describe('Codex runner planning', () => {
     expect(execution.failedCommand).toBe(
       'git switch -c factory/strategy-recipes-first-product-view/ar-strategy-recipes-first-product-view origin/main',
     )
+  })
+
+  it('supports dry-run command execution without invoking external tools', async () => {
+    const plan = planCodexRunner(requestFixture, { repoRoot: '/tmp/strategy-recipes' })
+    const executor = createDryRunCommandExecutor({
+      prUrl: 'https://github.com/Wescome/strategy-recipes/pull/dry-run',
+      now: fixedClock(),
+    })
+    const execution = await executeCodexRunnerPlan(plan, executor)
+    const pr = await executePullRequestPlan(planPullRequest(requestFixture, execution, {
+      repoRoot: '/tmp/strategy-recipes',
+    }), executor)
+
+    expect(execution.status).toBe('completed')
+    expect(execution.commands[0]?.stdout).toContain('dry-run: git fetch')
+    expect(pr.prUrl).toBe('https://github.com/Wescome/strategy-recipes/pull/dry-run')
   })
 
   it('builds a validated completed AgentResult from runner execution', async () => {

@@ -2,6 +2,7 @@
 import { readFile } from 'node:fs/promises'
 import {
   JsonlAgentQueue,
+  createDryRunCommandExecutor,
   planCodexRunner,
   runQueueDaemon,
   runSingleAgentRequest,
@@ -108,6 +109,9 @@ async function main(): Promise<void> {
       const changedFiles = csvOption(args, '--changed-files')
       const diffFile = option(args, '--diff-file')
       const diff = diffFile ? await readFile(diffFile, 'utf8') : undefined
+      const dryRunExecutor = hasFlag(args, '--dry-run')
+        ? createDryRunExecutorFromArgs(args)
+        : undefined
 
       const runOptions: Parameters<typeof runSingleAgentRequest>[1] = {
         queue: new JsonlAgentQueue({ queueDir, actor: option(args, '--actor') ?? 'factory-governor' }),
@@ -119,6 +123,10 @@ async function main(): Promise<void> {
       }
       if (changedFiles) runOptions.changedFiles = changedFiles
       if (diff !== undefined) runOptions.diff = diff
+      if (dryRunExecutor) {
+        runOptions.codexExecutor = dryRunExecutor
+        runOptions.pullRequestExecutor = dryRunExecutor
+      }
 
       const outcome = await runSingleAgentRequest(request, runOptions)
 
@@ -144,6 +152,13 @@ async function main(): Promise<void> {
       }
       const maxIterations = numberOption(args, '--max-iterations')
       if (maxIterations !== undefined) daemonOptions.maxIterations = maxIterations
+      const dryRunExecutor = hasFlag(args, '--dry-run')
+        ? createDryRunExecutorFromArgs(args)
+        : undefined
+      if (dryRunExecutor) {
+        daemonOptions.codexExecutor = dryRunExecutor
+        daemonOptions.pullRequestExecutor = dryRunExecutor
+      }
 
       const outcome = await runQueueDaemon(daemonOptions)
 
@@ -172,10 +187,10 @@ function printHelp(): void {
     '  heartbeat <queue-dir> <request-id> [--actor name] [--lease-ms n]',
     '  status <queue-dir> [--actor name]',
     '  plan <request.json> --repo-root <path>',
-    '  run-single <queue-dir> <request.json> --repo-root <path> --bundle-dir <path> [--changed-files a,b] [--diff-file path]',
-    '  daemon <queue-dir> --repo-root <path> --bundle-root <path> [--poll-ms n] [--max-iterations n]',
+    '  run-single <queue-dir> <request.json> --repo-root <path> --bundle-dir <path> [--changed-files a,b] [--diff-file path] [--dry-run]',
+    '  daemon <queue-dir> --repo-root <path> --bundle-root <path> [--poll-ms n] [--max-iterations n] [--dry-run]',
     '',
-    'run-single and daemon execute git, codex, and gh commands through the production process executor.',
+    'run-single and daemon execute git, codex, and gh commands unless --dry-run is supplied.',
   ].join('\n'))
 }
 
@@ -223,6 +238,17 @@ function numberOption(args: string[], name: string): number | undefined {
     throw new Error(`${name} must be a positive number`)
   }
   return parsed
+}
+
+function hasFlag(args: string[], name: string): boolean {
+  return args.includes(name)
+}
+
+function createDryRunExecutorFromArgs(args: string[]): ReturnType<typeof createDryRunCommandExecutor> {
+  const options: Parameters<typeof createDryRunCommandExecutor>[0] = {}
+  const prUrl = option(args, '--mock-pr-url')
+  if (prUrl) options.prUrl = prUrl
+  return createDryRunCommandExecutor(options)
 }
 
 function printJson(value: unknown): void {
