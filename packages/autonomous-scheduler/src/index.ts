@@ -231,6 +231,16 @@ export interface ProcessCommandExecutorOptions {
   now?: () => Date
 }
 
+export interface AgentResultFromExecutionOptions {
+  resultId: string
+  agentRunId: string
+  completedAt: string
+  artifactBasePath: string
+  prUrl?: string
+  changedFiles?: string[]
+  summary?: string
+}
+
 export class AutonomousSchedulerValidationError extends Error {
   public readonly issues: string[]
 
@@ -519,6 +529,83 @@ export function createProcessCommandExecutor(options?: ProcessCommandExecutorOpt
       completedAt,
     }
   }
+}
+
+export function buildAgentResultFromExecution(
+  requestInput: unknown,
+  execution: CodexRunnerExecution,
+  options: AgentResultFromExecutionOptions,
+): AgentResult {
+  const request = validateAgentRequest(requestInput)
+  const changedFiles = options.changedFiles ?? []
+  const commandEvidence = execution.commands.map((command, index) => ({
+    command: stringifyCommand(command),
+    exitCode: command.exitCode,
+    outputRef: join(options.artifactBasePath, `command-${index + 1}-${sanitizeId(command.command)}.txt`),
+  }))
+
+  const evidence: EvidenceRef[] = [
+    {
+      kind: 'artifact_paths',
+      path: join(options.artifactBasePath, 'manifest.json'),
+      summary: 'Runner artifact manifest.',
+    },
+  ]
+
+  if (execution.commands.some((command) => stringifyCommand(command).includes('test'))) {
+    evidence.push({
+      kind: 'test_output',
+      path: join(options.artifactBasePath, 'test-output.txt'),
+      summary: 'Test command output captured by runner.',
+    })
+  }
+
+  if (execution.commands.some((command) => stringifyCommand(command).includes('typecheck'))) {
+    evidence.push({
+      kind: 'typecheck_output',
+      path: join(options.artifactBasePath, 'typecheck-output.txt'),
+      summary: 'Typecheck command output captured by runner.',
+    })
+  }
+
+  if (execution.status === 'completed') {
+    evidence.push({
+      kind: 'git_diff',
+      path: join(options.artifactBasePath, 'diff.patch'),
+      summary: 'Git diff captured after worker execution.',
+    })
+
+    if (options.prUrl) {
+      evidence.push({
+        kind: 'pr_url',
+        url: options.prUrl,
+        summary: 'Pull request opened for worker output.',
+      })
+    }
+  }
+
+  const result: AgentResult = {
+    schemaVersion: AGENT_RESULT_SCHEMA_VERSION,
+    id: options.resultId,
+    requestId: request.id,
+    agentRunId: options.agentRunId,
+    status: execution.status,
+    completedAt: options.completedAt,
+    summary: options.summary ?? defaultExecutionSummary(request, execution),
+    changedFiles,
+    commands: commandEvidence,
+    evidence,
+  }
+
+  if (execution.status === 'completed') {
+    result.branchName = execution.branchName
+  }
+
+  if (options.prUrl) {
+    result.prUrl = options.prUrl
+  }
+
+  return validateAgentResult(result)
 }
 
 export class JsonlAgentQueue {
@@ -1034,6 +1121,14 @@ function buildBranchName(request: AgentRequest): string {
 
 function stringifyCommand(command: RunnerCommand): string {
   return [command.command, ...command.args].join(' ')
+}
+
+function defaultExecutionSummary(request: AgentRequest, execution: CodexRunnerExecution): string {
+  if (execution.status === 'completed') {
+    return `Completed ${request.id} on branch ${execution.branchName}.`
+  }
+
+  return `Failed ${request.id} at ${execution.failedCommand ?? 'unknown command'}.`
 }
 
 async function spawnCommand(command: RunnerCommand): Promise<{ exitCode: number; stdout: string; stderr: string }> {

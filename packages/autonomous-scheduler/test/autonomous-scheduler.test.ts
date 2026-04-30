@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import {
   AutonomousSchedulerValidationError,
   JsonlAgentQueue,
+  buildAgentResultFromExecution,
   buildCodexWorkerPrompt,
   executeCodexRunnerPlan,
   planCodexRunner,
@@ -187,6 +188,59 @@ describe('Codex runner planning', () => {
     expect(execution.failedCommand).toBe(
       'git switch -c factory/strategy-recipes-first-product-view/ar-strategy-recipes-first-product-view origin/main',
     )
+  })
+
+  it('builds a validated completed AgentResult from runner execution', async () => {
+    const plan = planCodexRunner(requestFixture, { repoRoot: '/tmp/strategy-recipes' })
+    const execution = await executeCodexRunnerPlan(plan, async (command) => ({
+      command: command.command,
+      args: command.args,
+      cwd: command.cwd,
+      exitCode: 0,
+      stdout: '',
+      stderr: '',
+      startedAt: '2026-04-30T14:30:00.000Z',
+      completedAt: '2026-04-30T14:30:01.000Z',
+    }))
+
+    const result = buildAgentResultFromExecution(requestFixture, execution, {
+      resultId: 'ARES-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW-EXECUTION',
+      agentRunId: 'RUN-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW-002',
+      completedAt: '2026-04-30T14:35:00.000Z',
+      artifactBasePath: 'artifacts/AR-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW',
+      prUrl: 'https://github.com/Wescome/strategy-recipes/pull/2',
+      changedFiles: ['docs/product/first-product-view.md'],
+    })
+
+    expect(result.status).toBe('completed')
+    expect(result.prUrl).toBe('https://github.com/Wescome/strategy-recipes/pull/2')
+    expect(result.branchName).toBe('factory/strategy-recipes-first-product-view/ar-strategy-recipes-first-product-view')
+    expect(result.evidence.map((entry) => entry.kind)).toContain('pr_url')
+    expect(result.evidence.map((entry) => entry.kind)).toContain('git_diff')
+  })
+
+  it('requires PR evidence for completed runner results', async () => {
+    const plan = planCodexRunner(requestFixture, { repoRoot: '/tmp/strategy-recipes' })
+    const execution = await executeCodexRunnerPlan(plan, async (command) => ({
+      command: command.command,
+      args: command.args,
+      cwd: command.cwd,
+      exitCode: 0,
+      stdout: '',
+      stderr: '',
+      startedAt: '2026-04-30T14:30:00.000Z',
+      completedAt: '2026-04-30T14:30:01.000Z',
+    }))
+
+    expect(() =>
+      buildAgentResultFromExecution(requestFixture, execution, {
+        resultId: 'ARES-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW-MISSING-PR',
+        agentRunId: 'RUN-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW-003',
+        completedAt: '2026-04-30T14:35:00.000Z',
+        artifactBasePath: 'artifacts/AR-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW',
+        changedFiles: ['docs/product/first-product-view.md'],
+      }),
+    ).toThrow(AutonomousSchedulerValidationError)
   })
 })
 

@@ -28,5 +28,6 @@ injectable executor:
 5. Execute the plan sequentially, stopping on the first non-zero exit.
 
 Production wiring can use the built-in process executor; tests should inject a
-deterministic executor. The next integration slice is converting runner command
-evidence into a validated `AgentResult` and PR artifact bundle.
+deterministic executor. Runner command evidence can be converted into a
+validated `AgentResult`; the next integration slice is writing the artifact
+bundle contents to disk and wiring PR creation.
