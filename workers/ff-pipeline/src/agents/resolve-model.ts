@@ -14,6 +14,22 @@
 import type { Model } from '@weops/gdk-ai'
 import { resolve, type TaskKind, type RoutingConfig } from '@factory/task-routing'
 
+/**
+ * Pick the right API key per resolved model: ofox.ai key for external
+ * providers, CF_API_TOKEN for Cloudflare Workers AI REST API.
+ */
+export function keyForModel(
+  model: { provider: string },
+  env: { CF_API_TOKEN?: string; OFOX_API_KEY?: string },
+): string {
+  if (model.provider === 'cloudflare') {
+    if (!env.CF_API_TOKEN) console.warn('[keyForModel] CF_API_TOKEN not set')
+    return env.CF_API_TOKEN ?? ''
+  }
+  if (!env.OFOX_API_KEY) console.warn(`[keyForModel] OFOX_API_KEY not set for ${model.provider}`)
+  return env.OFOX_API_KEY ?? ''
+}
+
 export function resolveAgentModel(taskKind: TaskKind, routingConfig?: RoutingConfig): Model<any> {
   const { primary } = resolve(taskKind, { config: routingConfig })
 

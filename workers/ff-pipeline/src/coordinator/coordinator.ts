@@ -14,7 +14,7 @@ import { TesterAgent } from '../agents/tester-agent'
 import { VerifierAgent } from '../agents/verifier-agent'
 import { CriticAgent, type CodeReviewInput } from '../agents/critic-agent'
 import { prefetchAgentContext, formatContextForPrompt } from '../agents/context-prefetch'
-import { resolveAgentModel } from '../agents/resolve-model'
+import { resolveAgentModel, keyForModel } from '../agents/resolve-model'
 import { HotConfigLoader, seedHotConfig } from '../config/hot-config'
 import { createCRP } from '../crp'
 import { topologicalSort } from './layer-dispatch'
@@ -225,8 +225,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
 
       // Resolve models from hot-loaded ArangoDB routing config (kimi-k2.6 default).
       // Falls back to package DEFAULT_CONFIG if ArangoDB is unreachable.
-      const ofoxKey = this.env.OFOX_API_KEY ?? ''
-      const cfToken = this.env.CF_API_TOKEN ?? ''
+      const env = { CF_API_TOKEN: this.env.CF_API_TOKEN, OFOX_API_KEY: this.env.OFOX_API_KEY }
       const architectModel = resolveAgentModel('planning', hotConfig.routing)
       const plannerModel = resolveAgentModel('planner', hotConfig.routing)
       const coderModel = resolveAgentModel('coder', hotConfig.routing)
@@ -235,23 +234,12 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       const testerModel = resolveAgentModel('tester', hotConfig.routing)
       const verifierModel = resolveAgentModel('verifier', hotConfig.routing)
 
-      // Pick the right API key per resolved model: ofox.ai key for external
-      // providers, CF_API_TOKEN for Cloudflare Workers AI REST API.
-      const keyForModel = (m: { provider: string }) => {
-        if (m.provider === 'cloudflare') {
-          if (!cfToken) console.warn('[Stage 6] CF_API_TOKEN not set — Workers AI REST calls will fail')
-          return cfToken
-        }
-        if (!ofoxKey) console.warn(`[Stage 6] OFOX_API_KEY not set — ${m.provider} calls will fail`)
-        return ofoxKey
-      }
-
       // Instantiate reasoning agents for 9-node topology
       // All agents receive pre-fetched context instead of tools (single-turn, no tool calling)
       // ADR-008: models + alias overrides from hot-loaded config
       const architectAgent = new ArchitectAgent({
         db: this.getDb(),
-        apiKey: keyForModel(architectModel),
+        apiKey: keyForModel(architectModel, env),
         dryRun,
         model: architectModel,
         aliasOverrides: hotConfig.aliases['BriefingScript'],
@@ -259,7 +247,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       })
       const coderAgent = new CoderAgent({
         db: this.getDb(),
-        apiKey: keyForModel(coderModel),
+        apiKey: keyForModel(coderModel, env),
         dryRun,
         model: coderModel,
         aliasOverrides: hotConfig.aliases['CodeArtifact'],
@@ -267,7 +255,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       })
       const plannerAgent = new PlannerAgent({
         db: this.getDb(),
-        apiKey: keyForModel(plannerModel),
+        apiKey: keyForModel(plannerModel, env),
         dryRun,
         model: plannerModel,
         aliasOverrides: hotConfig.aliases['Plan'],
@@ -275,7 +263,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       })
       const testerAgent = new TesterAgent({
         db: this.getDb(),
-        apiKey: keyForModel(testerModel),
+        apiKey: keyForModel(testerModel, env),
         dryRun,
         model: testerModel,
         aliasOverrides: hotConfig.aliases['TestReport'],
@@ -283,7 +271,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       })
       const verifierAgent = new VerifierAgent({
         db: this.getDb(),
-        apiKey: keyForModel(verifierModel),
+        apiKey: keyForModel(verifierModel, env),
         dryRun,
         model: verifierModel,
         aliasOverrides: hotConfig.aliases['Verdict'],
@@ -291,11 +279,11 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       })
       const criticAgent = new CriticAgent({
         db: this.getDb(),
-        apiKey: keyForModel(criticModel),
+        apiKey: keyForModel(criticModel, env),
         dryRun,
         model: criticModel,
         semanticReviewModel,
-        semanticReviewApiKey: keyForModel(semanticReviewModel),
+        semanticReviewApiKey: keyForModel(semanticReviewModel, env),
         semanticReviewAliasOverrides: hotConfig.aliases['SemanticReview'],
         codeReviewAliasOverrides: hotConfig.aliases['CritiqueReport'],
         contextPrompt,

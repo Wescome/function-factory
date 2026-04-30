@@ -18,7 +18,7 @@
 import { Agent } from 'agents'
 import { executeAtomSlice, type AtomSlice, type AtomResult } from './atom-executor.js'
 import { createClientFromEnv } from '@factory/arango-client'
-import { resolveAgentModel } from '../agents/resolve-model.js'
+import { resolveAgentModel, keyForModel } from '../agents/resolve-model.js'
 
 // ────────────────────────────────────────────────────────────
 // Types
@@ -108,10 +108,9 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
     // Pre-flight auth check: verify API key exists for resolved model provider
     // before burning 600s of DO lifetime on a guaranteed failure
     if (!payload.dryRun) {
-      const coderModel = resolveAgentModel('coder')
-      const ofoxKey = this.env.OFOX_API_KEY ?? ''
-      const cfToken = this.env.CF_API_TOKEN ?? ''
-      const key = coderModel.provider === 'cloudflare' ? cfToken : ofoxKey
+      const preflightModel = resolveAgentModel('coder')
+      const preflightEnv = { CF_API_TOKEN: this.env.CF_API_TOKEN, OFOX_API_KEY: this.env.OFOX_API_KEY }
+      const key = keyForModel(preflightModel, preflightEnv)
 
       if (!key) {
         const failResult: AtomResult = {
@@ -119,7 +118,7 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
           verdict: {
             decision: 'fail',
             confidence: 1.0,
-            reason: `Pre-flight auth check failed: no API key for provider "${coderModel.provider}" (need ${coderModel.provider === 'cloudflare' ? 'CF_API_TOKEN' : 'OFOX_API_KEY'})`,
+            reason: `Pre-flight auth check failed: no API key for provider "${preflightModel.provider}" (need ${preflightModel.provider === 'cloudflare' ? 'CF_API_TOKEN' : 'OFOX_API_KEY'})`,
           },
           codeArtifact: null,
           testReport: null,
@@ -213,18 +212,8 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
    * minimal deps that match the interface.
    */
   private buildAtomDeps(dryRun: boolean) {
-    // Provider-aware API key selection — matches coordinator.ts pattern.
-    // Workers AI (cloudflare provider) needs CF_API_TOKEN; external providers need OFOX_API_KEY.
-    const ofoxKey = this.env.OFOX_API_KEY ?? ''
-    const cfToken = this.env.CF_API_TOKEN ?? ''
-    const keyForModel = (m: { provider: string }) => {
-      if (m.provider === 'cloudflare') {
-        if (!cfToken) console.warn('[AtomExecutor] CF_API_TOKEN not set — Workers AI REST calls will fail')
-        return cfToken
-      }
-      if (!ofoxKey) console.warn(`[AtomExecutor] OFOX_API_KEY not set — ${m.provider} calls will fail`)
-      return ofoxKey
-    }
+    // Provider-aware API key selection via shared keyForModel utility.
+    const env = { CF_API_TOKEN: this.env.CF_API_TOKEN, OFOX_API_KEY: this.env.OFOX_API_KEY }
 
     // Resolve models from task-routing config (same source as coordinator)
     const coderModel = resolveAgentModel('coder')
@@ -245,7 +234,7 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
           // Real agent: instantiate with resolved model + provider-aware key
           const { CoderAgent } = await import('../agents/coder-agent.js')
           const db = createClientFromEnv(this.env)
-          const agent = new CoderAgent({ db, apiKey: keyForModel(coderModel), model: coderModel, dryRun: false })
+          const agent = new CoderAgent({ db, apiKey: keyForModel(coderModel, env), model: coderModel, dryRun: false })
           return agent.produceCode(_input as never)
         },
       },
@@ -261,7 +250,7 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
           }
           const { CriticAgent } = await import('../agents/critic-agent.js')
           const db = createClientFromEnv(this.env)
-          const agent = new CriticAgent({ db, apiKey: keyForModel(criticModel), model: criticModel, dryRun: false })
+          const agent = new CriticAgent({ db, apiKey: keyForModel(criticModel, env), model: criticModel, dryRun: false })
           return agent.codeReview(_input as never)
         },
       },
@@ -279,7 +268,7 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
           }
           const { TesterAgent } = await import('../agents/tester-agent.js')
           const db = createClientFromEnv(this.env)
-          const agent = new TesterAgent({ db, apiKey: keyForModel(testerModel), model: testerModel, dryRun: false })
+          const agent = new TesterAgent({ db, apiKey: keyForModel(testerModel, env), model: testerModel, dryRun: false })
           return agent.runTests(_input as never)
         },
       },
@@ -294,7 +283,7 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
           }
           const { VerifierAgent } = await import('../agents/verifier-agent.js')
           const db = createClientFromEnv(this.env)
-          const agent = new VerifierAgent({ db, apiKey: keyForModel(verifierModel), model: verifierModel, dryRun: false })
+          const agent = new VerifierAgent({ db, apiKey: keyForModel(verifierModel, env), model: verifierModel, dryRun: false })
           return agent.verify(_input as never)
         },
       },

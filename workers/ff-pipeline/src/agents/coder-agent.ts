@@ -45,6 +45,7 @@ Use the Factory Knowledge Graph context provided in the user message to ground y
 
 If this is a repair cycle (repairNotes provided), focus on fixing the specific issues noted.
 Reuse existing patterns from the codebase. Follow the plan's atom ordering.
+Maximum 500 words per file.
 
 When ready, respond with ONLY a JSON object (no markdown fences, no explanation):
 {
@@ -89,9 +90,19 @@ export class CoderAgent {
     const tools: AgentTool[] = []  // No tools — context is pre-fetched
     const model = this.modelOverride ?? resolveAgentModel('coder')
 
+    // Extract only the current atom's spec + relevant interfaces to reduce BL1 context pressure.
+    // Sending the FULL workGraph causes models to produce prose instead of JSON (F1 failures).
+    const atoms = (input.workGraph.atoms as Record<string, unknown>[]) ?? []
+    const currentAtom = atoms.find((a: any) => a.id === input.plan?.atoms?.[0]?.id) ?? atoms[0]
+    const relevantContext = {
+      atom: currentAtom,
+      title: input.workGraph.title,
+      invariants: input.workGraph.invariants,
+    }
+
     const userParts: string[] = [
       `Plan:\n${JSON.stringify(input.plan, null, 2)}`,
-      `\nWorkGraph specification:\n${JSON.stringify(input.workGraph, null, 2)}`,
+      `\nWorkGraph atom specification:\n${JSON.stringify(relevantContext, null, 2)}`,
     ]
 
     if (input.specContent) {
@@ -130,7 +141,7 @@ export class CoderAgent {
         model,
         convertToLlm: (msgs) => msgs as Message[],
         getApiKey: async () => this.apiKey,
-        maxTokens: 4096,
+        maxTokens: 16384,
         onPayload: (payload: unknown) => ({
           ...(payload as Record<string, unknown>),
           response_format: { type: 'json_object' },

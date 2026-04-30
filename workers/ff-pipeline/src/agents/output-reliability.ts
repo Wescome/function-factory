@@ -43,6 +43,35 @@ export interface ORLResult<T> {
   coercions: string[]  // list of coerced field names
 }
 
+// ── ORL Telemetry (for ArangoDB persistence) ──────────────────
+
+export interface ORLTelemetryEntry {
+  schemaName: string
+  success: boolean
+  failureMode: string | null
+  tier: number
+  repairAttempts: number
+  coercions: string[]
+  timestamp: string
+}
+
+/**
+ * Build a telemetry entry from an ORLResult for later ArangoDB persistence.
+ * Agents call this after processAgentOutput to capture ORL metrics.
+ * The actual write to orl_telemetry collection happens when agents get a db reference.
+ */
+export function buildTelemetryEntry<T>(result: ORLResult<T>, schemaName: string): ORLTelemetryEntry {
+  return {
+    schemaName,
+    success: result.success,
+    failureMode: result.failureMode,
+    tier: 0, // tier info not currently in ORLResult — add later
+    repairAttempts: result.repairAttempts,
+    coercions: result.coercions,
+    timestamp: new Date().toISOString(),
+  }
+}
+
 export interface OutputSchema<T> {
   name: string  // e.g., 'BriefingScript', 'Verdict', 'Plan'
   requiredFields: string[]

@@ -70,6 +70,48 @@ describe('extractJSON', () => {
     const result = extractJSON('')
     expect(result).toBeNull()
   })
+
+  // ── Adversarial regression cases ────────────────────────────
+
+  it('handles valid JSON with commas in string values', () => {
+    const input = '{"desc": "Hello, World", "key": "value"}'
+    const result = extractJSON(input)
+    expect(result).not.toBeNull()
+    expect(result!.json).toEqual({ desc: 'Hello, World', key: 'value' })
+  })
+
+  it('handles valid JSON with colons in string values', () => {
+    const input = '{"desc": "Use key: value pairs", "n": 1}'
+    const result = extractJSON(input)
+    expect(result).not.toBeNull()
+    expect(result!.json).toEqual({ desc: 'Use key: value pairs', n: 1 })
+  })
+
+  it('extracts JSON from prose containing valid JSON', () => {
+    const input = 'Here is the result: {"a": 1, "b": 2}. That\'s all.'
+    const result = extractJSON(input)
+    expect(result).not.toBeNull()
+    expect(result!.json).toEqual({ a: 1, b: 2 })
+  })
+
+  it('handles JSON with nested objects containing commas', () => {
+    const input = '{"a": {"b": "c,d"}, "e": "f"}'
+    const result = extractJSON(input)
+    expect(result).not.toBeNull()
+    expect(result!.json).toEqual({ a: { b: 'c,d' }, e: 'f' })
+  })
+
+  it('passes already valid JSON through unmodified', () => {
+    const input = '{"files":[{"path":"src/index.ts","content":"export {}","action":"create"}],"summary":"init","testsIncluded":false}'
+    const result = extractJSON(input)
+    expect(result).not.toBeNull()
+    expect(result!.tier).toBe(1)
+    expect(result!.json).toEqual({
+      files: [{ path: 'src/index.ts', content: 'export {}', action: 'create' }],
+      summary: 'init',
+      testsIncluded: false,
+    })
+  })
 })
 
 // ── processAgentOutput: Guard Stage ────────────────────────────
