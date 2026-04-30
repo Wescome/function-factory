@@ -678,16 +678,7 @@ describe('single-request scheduler run', () => {
           completedAt: '2026-04-30T14:30:01.000Z',
         }
       },
-      pullRequestExecutor: async (command) => ({
-        command: command.command,
-        args: command.args,
-        cwd: command.cwd,
-        exitCode: 0,
-        stdout: 'https://github.com/Wescome/strategy-recipes/pull/5\n',
-        stderr: '',
-        startedAt: '2026-04-30T14:36:00.000Z',
-        completedAt: '2026-04-30T14:36:01.000Z',
-      }),
+      pullRequestExecutor: successfulGitHubExecutor('https://github.com/Wescome/strategy-recipes/pull/5\n'),
     })
 
     expect(codexCommands).toEqual(['git', 'git', 'git', 'codex'])
@@ -837,7 +828,11 @@ describe('single-request scheduler run', () => {
         args: command.args,
         cwd: command.cwd,
         exitCode: command.command === 'gh' ? 1 : 0,
-        stdout: command.command === 'gh' ? '' : 'pushed',
+        stdout: command.command === 'gh'
+          ? ''
+          : command.args.includes('--porcelain')
+            ? 'M docs/product/first-product-view.md\n'
+            : 'pushed',
         stderr: command.command === 'gh' ? 'no commits' : '',
         startedAt: '2026-04-30T14:36:00.000Z',
         completedAt: '2026-04-30T14:36:01.000Z',
@@ -846,7 +841,17 @@ describe('single-request scheduler run', () => {
 
     expect(outcome.result.status).toBe('failed')
     expect(outcome.execution.failedCommand).toBe('pull request creation')
-    expect(outcome.execution.commands.map((command) => command.command)).toEqual(['git', 'git', 'git', 'codex', 'git', 'gh'])
+    expect(outcome.execution.commands.map((command) => command.command)).toEqual([
+      'git',
+      'git',
+      'git',
+      'codex',
+      'git',
+      'git',
+      'git',
+      'git',
+      'gh',
+    ])
     expect(readFileSync(outcome.bundle.files.result, 'utf8')).toContain('ARES-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW-PR-FAILED')
     expect(await queue.status()).toMatchObject({ total: 1, failed: 1 })
   })
@@ -879,16 +884,7 @@ describe('queue daemon', () => {
         startedAt: '2026-04-30T14:30:00.000Z',
         completedAt: '2026-04-30T14:30:01.000Z',
       }),
-      pullRequestExecutor: async (command) => ({
-        command: command.command,
-        args: command.args,
-        cwd: command.cwd,
-        exitCode: 0,
-        stdout: 'https://github.com/Wescome/strategy-recipes/pull/7\n',
-        stderr: '',
-        startedAt: '2026-04-30T14:36:00.000Z',
-        completedAt: '2026-04-30T14:36:01.000Z',
-      }),
+      pullRequestExecutor: successfulGitHubExecutor('https://github.com/Wescome/strategy-recipes/pull/7\n'),
     })
 
     expect(outcome).toEqual({
@@ -971,4 +967,21 @@ function expectValidationIssues(action: () => unknown, expectedIssues: string[])
 
 function fixedClock(): () => Date {
   return () => new Date('2026-04-30T14:30:00.000Z')
+}
+
+function successfulGitHubExecutor(prUrl: string) {
+  return async (command: { command: string; args: string[]; cwd: string }) => ({
+    command: command.command,
+    args: command.args,
+    cwd: command.cwd,
+    exitCode: 0,
+    stdout: command.command === 'gh'
+      ? prUrl
+      : command.args.includes('--porcelain')
+        ? 'M docs/product/first-product-view.md\n'
+        : 'ok\n',
+    stderr: '',
+    startedAt: '2026-04-30T14:36:00.000Z',
+    completedAt: '2026-04-30T14:36:01.000Z',
+  })
 }

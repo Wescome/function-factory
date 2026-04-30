@@ -301,6 +301,15 @@ export interface PullRequestExecution {
   command: CommandRunResult
 }
 
+interface WorkerCommitExecution {
+  requestId: string
+  branchName: string
+  status: 'committed' | 'failed'
+  commands: CommandRunResult[]
+  changedPaths: string[]
+  failedCommand?: string
+}
+
 export interface SingleAgentRunOptions {
   queue: JsonlAgentQueue
   repoRoot: string
@@ -882,6 +891,109 @@ export async function writeAgentResultBundle(
   return manifest
 }
 
+async function executeWorkerCommit(
+  request: AgentRequest,
+  execution: CodexRunnerExecution,
+  options: {
+    repoRoot: string
+    executor?: CommandExecutor
+    fallbackChangedPaths: string[]
+  },
+): Promise<WorkerCommitExecution> {
+  const executor = options.executor ?? createProcessCommandExecutor()
+  const commands: CommandRunResult[] = []
+  const statusCommand: RunnerCommand = {
+    command: 'git',
+    args: ['status', '--porcelain'],
+    cwd: options.repoRoot,
+  }
+  const status = await executor(statusCommand)
+  commands.push(status)
+
+  if (status.exitCode !== 0) {
+    return {
+      requestId: request.id,
+      branchName: execution.branchName,
+      status: 'failed',
+      commands,
+      changedPaths: [],
+      failedCommand: stringifyCommand(statusCommand),
+    }
+  }
+
+  let changedPaths = parseGitStatusChangedPaths(status.stdout)
+  if (changedPaths.length === 0 && status.stdout.startsWith('dry-run:')) {
+    changedPaths = [...options.fallbackChangedPaths]
+  }
+
+  if (changedPaths.length === 0) {
+    return {
+      requestId: request.id,
+      branchName: execution.branchName,
+      status: 'failed',
+      commands,
+      changedPaths,
+      failedCommand: 'worker produced no git changes',
+    }
+  }
+
+  const blockedPaths = changedPaths.filter((path) => !isAllowedWorkerPath(path, request.policy.allowedPaths))
+  if (blockedPaths.length > 0) {
+    return {
+      requestId: request.id,
+      branchName: execution.branchName,
+      status: 'failed',
+      commands,
+      changedPaths,
+      failedCommand: `worker changed paths outside policy: ${blockedPaths.join(', ')}`,
+    }
+  }
+
+  const addCommand: RunnerCommand = {
+    command: 'git',
+    args: ['add', '--', ...changedPaths],
+    cwd: options.repoRoot,
+  }
+  const add = await executor(addCommand)
+  commands.push(add)
+  if (add.exitCode !== 0) {
+    return {
+      requestId: request.id,
+      branchName: execution.branchName,
+      status: 'failed',
+      commands,
+      changedPaths,
+      failedCommand: stringifyCommand(addCommand),
+    }
+  }
+
+  const commitCommand: RunnerCommand = {
+    command: 'git',
+    args: ['commit', '-m', `[Factory] ${request.id}`],
+    cwd: options.repoRoot,
+  }
+  const commit = await executor(commitCommand)
+  commands.push(commit)
+  if (commit.exitCode !== 0) {
+    return {
+      requestId: request.id,
+      branchName: execution.branchName,
+      status: 'failed',
+      commands,
+      changedPaths,
+      failedCommand: stringifyCommand(commitCommand),
+    }
+  }
+
+  return {
+    requestId: request.id,
+    branchName: execution.branchName,
+    status: 'committed',
+    commands,
+    changedPaths,
+  }
+}
+
 export function planPullRequest(
   requestInput: unknown,
   execution: CodexRunnerExecution,
@@ -1004,7 +1116,41 @@ export async function runClaimedAgentRequest(
   let pullRequest: PullRequestExecution | undefined
 
   if (execution.status === 'completed') {
-    const prPlan = planPullRequest(claimed, execution, { repoRoot: options.repoRoot })
+    const commitOptions: Parameters<typeof executeWorkerCommit>[2] = {
+      repoRoot: options.repoRoot,
+      fallbackChangedPaths: options.changedFiles ?? claimed.expectedArtifacts.map((artifact) => artifact.path),
+    }
+    if (options.pullRequestExecutor) commitOptions.executor = options.pullRequestExecutor
+    const commit = await executeWorkerCommit(claimed, execution, commitOptions)
+
+    resultExecution = {
+      requestId: execution.requestId,
+      branchName: execution.branchName,
+      status: commit.status === 'committed' ? 'completed' : 'failed',
+      commands: [...execution.commands, ...commit.commands],
+      ...(commit.status === 'failed' ? { failedCommand: commit.failedCommand ?? 'worker commit' } : {}),
+    }
+
+    if (resultExecution.status !== 'completed') {
+      const resultOptions: AgentResultFromExecutionOptions = {
+        resultId: options.resultId,
+        agentRunId: options.agentRunId,
+        completedAt: options.completedAt,
+        artifactBasePath: options.bundleDir,
+      }
+      if (options.changedFiles) resultOptions.changedFiles = options.changedFiles
+
+      const result = buildAgentResultFromExecution(claimed, resultExecution, resultOptions)
+      const bundleOptions: AgentResultBundleOptions = {
+        bundleDir: options.bundleDir,
+      }
+      if (options.diff !== undefined) bundleOptions.diff = options.diff
+      const bundle = await writeAgentResultBundle(claimed, resultExecution, result, bundleOptions)
+      await options.queue.complete(result)
+      return { request: claimed, execution: resultExecution, result, bundle }
+    }
+
+    const prPlan = planPullRequest(claimed, resultExecution, { repoRoot: options.repoRoot })
     try {
       pullRequest = await executePullRequestPlan(prPlan, options.pullRequestExecutor)
     } catch (error) {
@@ -1015,7 +1161,7 @@ export async function runClaimedAgentRequest(
         requestId: execution.requestId,
         branchName: execution.branchName,
         status: 'failed',
-        commands: [...execution.commands, ...error.commands],
+        commands: [...resultExecution.commands, ...error.commands],
         failedCommand: 'pull request creation',
       }
     }
@@ -1738,6 +1884,42 @@ function redactCommandArgs(command: RunnerCommand): string[] {
     args[args.length - 1] = '<prompt omitted>'
   }
   return args
+}
+
+function parseGitStatusChangedPaths(output: string): string[] {
+  const paths = new Set<string>()
+  for (const line of output.split('\n')) {
+    if (line.trim().length === 0 || line.startsWith('dry-run:')) continue
+    const pathspec = (line[2] === ' ' ? line.slice(3) : line.replace(/^.{1,2}\s+/, '')).trim()
+    if (!pathspec) continue
+
+    if (pathspec.includes(' -> ')) {
+      const [from, to] = pathspec.split(' -> ').map((entry) => entry.trim())
+      if (from) paths.add(from)
+      if (to) paths.add(to)
+      continue
+    }
+
+    paths.add(pathspec)
+  }
+
+  return [...paths].sort()
+}
+
+function isAllowedWorkerPath(path: string, allowedPaths: readonly string[]): boolean {
+  return allowedPaths.some((pattern) => {
+    if (pattern.endsWith('/**')) {
+      return path.startsWith(pattern.slice(0, -3))
+    }
+
+    if (pattern.endsWith('/*')) {
+      const prefix = pattern.slice(0, -1)
+      if (!path.startsWith(prefix)) return false
+      return !path.slice(prefix.length).includes('/')
+    }
+
+    return path === pattern
+  })
 }
 
 function defaultExecutionSummary(request: AgentRequest, execution: CodexRunnerExecution): string {

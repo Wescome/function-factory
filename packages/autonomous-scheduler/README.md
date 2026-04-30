@@ -37,9 +37,15 @@ also planned and executed through the same command seam using `gh pr create`.
 1. Enqueue an `AgentRequest`.
 2. Claim it from the JSONL queue.
 3. Execute the Codex runner plan.
-4. Create a PR if the runner succeeds.
-5. Build and persist a validated `AgentResult` bundle.
-6. Complete the queue item with pass/fail evidence.
+4. Validate changed paths against the request policy.
+5. Stage and commit worker changes from the parent scheduler process.
+6. Create a PR if the runner and commit succeed.
+7. Build and persist a validated `AgentResult` bundle.
+8. Complete the queue item with pass/fail evidence.
+
+The parent scheduler owns `git add` and `git commit` because child Codex
+workers run in a workspace-write sandbox that may edit files but should not
+depend on direct `.git` mutation.
 
 `runQueueDaemon` repeats the same path for queued work with bounded polling,
 claim leases, heartbeats, and stop predicates.
