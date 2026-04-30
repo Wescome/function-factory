@@ -1,11 +1,15 @@
 #!/usr/bin/env node
 import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import {
   JsonlAgentQueue,
+  createStrategyRecipesDogfoodRunPaths,
   createDryRunCommandExecutor,
   planCodexRunner,
   runQueueDaemon,
   runSingleAgentRequest,
+  runStrategyRecipesDogfood,
   validateAgentRequest,
 } from './index.js'
 
@@ -166,6 +170,43 @@ async function main(): Promise<void> {
       return
     }
 
+    if (command === 'dogfood-strategy-recipes') {
+      const requestPath = option(args, '--request') ?? fileURLToPath(
+        new URL('../fixtures/strategy-recipes-agent-request.json', import.meta.url),
+      )
+      const home = option(args, '--home') ?? join(process.env.HOME ?? process.cwd(), '.factory', 'dogfood')
+      const paths = createStrategyRecipesDogfoodRunPaths(join(home, 'strategy-recipes'))
+      const queueDir = option(args, '--queue-dir') ?? paths.queueDir
+      const bundleDir = option(args, '--bundle-dir') ?? paths.bundleDir
+      const repoRoot = option(args, '--repo-root') ?? process.env.STRATEGY_RECIPES_REPO ?? '/Users/wes/Developer/strategy-recipes'
+      const dogfoodOptions: Parameters<typeof runStrategyRecipesDogfood>[0] = {
+        request: await readJson(requestPath),
+        repoRoot,
+        queueDir,
+        bundleDir,
+        mode: hasFlag(args, '--real') ? 'real' : 'dry-run',
+      }
+      const changedFiles = csvOption(args, '--changed-files')
+      const mockPrUrl = option(args, '--mock-pr-url')
+      if (changedFiles) dogfoodOptions.changedFiles = changedFiles
+      if (mockPrUrl) dogfoodOptions.mockPrUrl = mockPrUrl
+
+      const dogfood = await runStrategyRecipesDogfood(dogfoodOptions)
+
+      printJson({
+        ok: true,
+        mode: dogfood.mode,
+        repoRoot: dogfood.repoRoot,
+        queueDir: dogfood.queueDir,
+        bundleDir: dogfood.bundleDir,
+        requestId: dogfood.outcome.request.id,
+        status: dogfood.outcome.result.status,
+        prUrl: dogfood.outcome.result.prUrl ?? null,
+        bundle: dogfood.outcome.bundle,
+      })
+      return
+    }
+
     throw new Error(`Unknown command: ${command}`)
   } catch (error) {
     process.exitCode = 1
@@ -189,8 +230,10 @@ function printHelp(): void {
     '  plan <request.json> --repo-root <path>',
     '  run-single <queue-dir> <request.json> --repo-root <path> --bundle-dir <path> [--changed-files a,b] [--diff-file path] [--dry-run]',
     '  daemon <queue-dir> --repo-root <path> --bundle-root <path> [--poll-ms n] [--max-iterations n] [--dry-run]',
+    '  dogfood-strategy-recipes [--repo-root path] [--home path] [--request path] [--real]',
     '',
     'run-single and daemon execute git, codex, and gh commands unless --dry-run is supplied.',
+    'dogfood-strategy-recipes defaults to dry-run mode.',
   ].join('\n'))
 }
 

@@ -7,6 +7,7 @@ import {
   JsonlAgentQueue,
   buildAgentResultFromExecution,
   buildCodexWorkerPrompt,
+  createStrategyRecipesDogfoodRunPaths,
   createDryRunCommandExecutor,
   executeCodexRunnerPlan,
   executePullRequestPlan,
@@ -14,6 +15,7 @@ import {
   planPullRequest,
   runQueueDaemon,
   runSingleAgentRequest,
+  runStrategyRecipesDogfood,
   validateAgentRequest,
   validateAgentResult,
   validateQueueEvent,
@@ -635,6 +637,35 @@ describe('queue daemon', () => {
       completedRuns: 0,
       stopReason: 'stop_requested',
     })
+  })
+})
+
+describe('Strategy.Recipes dogfood', () => {
+  it('creates deterministic dogfood run paths', () => {
+    const paths = createStrategyRecipesDogfoodRunPaths('/tmp/factory-dogfood', fixedClock())
+
+    expect(paths.runId).toBe('strategy-recipes-20260430T143000000Z')
+    expect(paths.queueDir).toBe('/tmp/factory-dogfood/strategy-recipes-20260430T143000000Z/queue')
+    expect(paths.bundleDir).toBe('/tmp/factory-dogfood/strategy-recipes-20260430T143000000Z/bundle')
+  })
+
+  it('runs Strategy.Recipes dogfood in dry-run mode', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'factory-dogfood-'))
+    const paths = createStrategyRecipesDogfoodRunPaths(home, fixedClock())
+    const dogfood = await runStrategyRecipesDogfood({
+      request: requestFixture,
+      repoRoot: '/tmp/strategy-recipes',
+      queueDir: paths.queueDir,
+      bundleDir: paths.bundleDir,
+      mode: 'dry-run',
+      mockPrUrl: 'https://github.com/Wescome/strategy-recipes/pull/dogfood',
+      now: fixedClock(),
+    })
+
+    expect(dogfood.mode).toBe('dry-run')
+    expect(dogfood.outcome.result.status).toBe('completed')
+    expect(dogfood.outcome.result.prUrl).toBe('https://github.com/Wescome/strategy-recipes/pull/dogfood')
+    expect(readFileSync(dogfood.outcome.bundle.files.manifest, 'utf8')).toContain('factory.agent-result-bundle.v0')
   })
 })
 
