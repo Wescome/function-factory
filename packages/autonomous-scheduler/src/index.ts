@@ -256,6 +256,7 @@ export interface AgentResultFromExecutionOptions {
   agentRunId: string
   completedAt: string
   artifactBasePath: string
+  diff?: string
   prUrl?: string
   changedFiles?: string[]
   summary?: string
@@ -278,6 +279,8 @@ export interface AgentResultBundleManifest {
     manifest: string
     commands: string[]
     diff?: string
+    testOutput?: string
+    typecheckOutput?: string
     verification?: string
   }
 }
@@ -317,6 +320,7 @@ interface WorkerCommitExecution {
   status: 'committed' | 'failed'
   commands: CommandRunResult[]
   changedPaths: string[]
+  diff?: string
   failedCommand?: string
 }
 
@@ -786,13 +790,15 @@ export function buildAgentResultFromExecution(
     })
   }
 
-  if (execution.status === 'completed') {
+  if (options.diff !== undefined) {
     evidence.push({
       kind: 'git_diff',
       path: join(options.artifactBasePath, 'diff.patch'),
       summary: 'Git diff captured after worker execution.',
     })
+  }
 
+  if (execution.status === 'completed') {
     if (options.prUrl) {
       evidence.push({
         kind: 'pr_url',
@@ -860,31 +866,35 @@ export async function writeAgentResultBundle(
     if (!command) continue
     const outputPath = join(options.bundleDir, `command-${index + 1}-${sanitizeId(command.command)}.txt`)
     commandPaths.push(outputPath)
-    await writeFile(
-      outputPath,
-      [
-        `$ ${stringifyCommand(command)}`,
-        '',
-        `exitCode: ${command.exitCode}`,
-        `cwd: ${command.cwd}`,
-        `startedAt: ${command.startedAt}`,
-        `completedAt: ${command.completedAt}`,
-        '',
-        'stdout:',
-        command.stdout,
-        '',
-        'stderr:',
-        command.stderr,
-        '',
-      ].join('\n'),
-      'utf8',
-    )
+    await writeFile(outputPath, formatCommandOutput(command), 'utf8')
   }
 
   let diffPath: string | undefined
   if (options.diff !== undefined) {
     diffPath = join(options.bundleDir, 'diff.patch')
     await writeFile(diffPath, options.diff, 'utf8')
+  }
+
+  let testOutputPath: string | undefined
+  const testCommands = execution.commands.filter((command) => stringifyCommand(command).includes('test'))
+  if (testCommands.length > 0) {
+    testOutputPath = join(options.bundleDir, 'test-output.txt')
+    await writeFile(
+      testOutputPath,
+      testCommands.map((command) => formatCommandOutput(command)).join('\n---\n'),
+      'utf8',
+    )
+  }
+
+  let typecheckOutputPath: string | undefined
+  const typecheckCommands = execution.commands.filter((command) => stringifyCommand(command).includes('typecheck'))
+  if (typecheckCommands.length > 0) {
+    typecheckOutputPath = join(options.bundleDir, 'typecheck-output.txt')
+    await writeFile(
+      typecheckOutputPath,
+      typecheckCommands.map((command) => formatCommandOutput(command)).join('\n---\n'),
+      'utf8',
+    )
   }
 
   let verificationPath: string | undefined
@@ -914,6 +924,14 @@ export async function writeAgentResultBundle(
 
   if (diffPath) {
     manifest.files.diff = diffPath
+  }
+
+  if (testOutputPath) {
+    manifest.files.testOutput = testOutputPath
+  }
+
+  if (typecheckOutputPath) {
+    manifest.files.typecheckOutput = typecheckOutputPath
   }
 
   if (verificationPath) {
@@ -1018,12 +1036,31 @@ async function executeWorkerCommit(
     }
   }
 
+  const diffCommand: RunnerCommand = {
+    command: 'git',
+    args: ['show', '--format=', '--patch', 'HEAD', '--'],
+    cwd: options.repoRoot,
+  }
+  const diff = await executor(diffCommand)
+  commands.push(diff)
+  if (diff.exitCode !== 0) {
+    return {
+      requestId: request.id,
+      branchName: execution.branchName,
+      status: 'failed',
+      commands,
+      changedPaths,
+      failedCommand: stringifyCommand(diffCommand),
+    }
+  }
+
   return {
     requestId: request.id,
     branchName: execution.branchName,
     status: 'committed',
     commands,
     changedPaths,
+    diff: diff.stdout,
   }
 }
 
@@ -1169,6 +1206,7 @@ export async function runClaimedAgentRequest(
   const execution = await executeCodexRunnerPlan(codexPlan, options.codexExecutor)
   let resultExecution = execution
   let pullRequest: PullRequestExecution | undefined
+  let resultDiff = options.diff
 
   if (execution.status === 'completed') {
     const commitOptions: Parameters<typeof executeWorkerCommit>[2] = {
@@ -1177,6 +1215,7 @@ export async function runClaimedAgentRequest(
     }
     if (options.pullRequestExecutor) commitOptions.executor = options.pullRequestExecutor
     const commit = await executeWorkerCommit(claimed, execution, commitOptions)
+    resultDiff = resultDiff ?? commit.diff
 
     resultExecution = {
       requestId: execution.requestId,
@@ -1193,13 +1232,14 @@ export async function runClaimedAgentRequest(
         completedAt: options.completedAt,
         artifactBasePath: options.bundleDir,
       }
+      if (resultDiff !== undefined) resultOptions.diff = resultDiff
       if (options.changedFiles) resultOptions.changedFiles = options.changedFiles
 
       const result = buildAgentResultFromExecution(claimed, resultExecution, resultOptions)
       const bundleOptions: AgentResultBundleOptions = {
         bundleDir: options.bundleDir,
       }
-      if (options.diff !== undefined) bundleOptions.diff = options.diff
+      if (resultDiff !== undefined) bundleOptions.diff = resultDiff
       const bundle = await writeAgentResultBundle(claimed, resultExecution, result, bundleOptions)
       await options.queue.complete(result)
       return { request: claimed, execution: resultExecution, result, bundle }
@@ -1227,13 +1267,14 @@ export async function runClaimedAgentRequest(
         completedAt: options.completedAt,
         artifactBasePath: options.bundleDir,
       }
+      if (resultDiff !== undefined) resultOptions.diff = resultDiff
       if (options.changedFiles) resultOptions.changedFiles = options.changedFiles
 
       const result = buildAgentResultFromExecution(claimed, resultExecution, resultOptions)
       const bundleOptions: AgentResultBundleOptions = {
         bundleDir: options.bundleDir,
       }
-      if (options.diff !== undefined) bundleOptions.diff = options.diff
+      if (resultDiff !== undefined) bundleOptions.diff = resultDiff
       const bundle = await writeAgentResultBundle(claimed, resultExecution, result, bundleOptions)
       await options.queue.complete(result)
       return { request: claimed, execution: resultExecution, result, bundle }
@@ -1263,6 +1304,7 @@ export async function runClaimedAgentRequest(
     artifactBasePath: options.bundleDir,
   }
   if (pullRequest) resultOptions.prUrl = pullRequest.prUrl
+  if (resultDiff !== undefined) resultOptions.diff = resultDiff
   if (options.changedFiles) resultOptions.changedFiles = options.changedFiles
 
   const result = buildAgentResultFromExecution(claimed, resultExecution, resultOptions)
@@ -1270,7 +1312,7 @@ export async function runClaimedAgentRequest(
   const bundleOptions: AgentResultBundleOptions = {
     bundleDir: options.bundleDir,
   }
-  if (options.diff !== undefined) bundleOptions.diff = options.diff
+  if (resultDiff !== undefined) bundleOptions.diff = resultDiff
 
   const bundle = await writeAgentResultBundle(claimed, resultExecution, result, bundleOptions)
 

@@ -56,6 +56,11 @@ write `verification-output.txt` plus command-level output files into the result
 bundle. This makes parent-observed tests and typechecks first-class evidence
 rather than relying on child-session stdout.
 
+Result bundles write every evidence path they advertise. Parent commits capture
+`diff.patch` from the committed worker change, test commands aggregate into
+`test-output.txt`, typecheck commands aggregate into `typecheck-output.txt`, and
+parent verification commands aggregate into `verification-output.txt`.
+
 `runQueueDaemon` repeats the same path for queued work with bounded polling,
 claim leases, heartbeats, and stop predicates.
 
