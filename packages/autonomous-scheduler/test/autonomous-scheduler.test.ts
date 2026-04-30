@@ -11,6 +11,7 @@ import {
   executePullRequestPlan,
   planCodexRunner,
   planPullRequest,
+  runQueueDaemon,
   runSingleAgentRequest,
   validateAgentRequest,
   validateAgentResult,
@@ -545,6 +546,77 @@ describe('single-request scheduler run', () => {
     expect(await queue.status()).toMatchObject({
       total: 1,
       failed: 1,
+    })
+  })
+})
+
+describe('queue daemon', () => {
+  it('claims and runs one queued request through the daemon loop', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'factory-autonomous-'))
+    const queue = new JsonlAgentQueue({
+      queueDir: join(home, 'queue'),
+      actor: 'factory-daemon',
+      now: fixedClock(),
+    })
+    await queue.enqueue(requestFixture)
+
+    const outcome = await runQueueDaemon({
+      queue,
+      repoRoot: '/tmp/strategy-recipes',
+      bundleRoot: join(home, 'bundles'),
+      pollIntervalMs: 0,
+      maxIterations: 1,
+      now: fixedClock(),
+      codexExecutor: async (command) => ({
+        command: command.command,
+        args: command.args,
+        cwd: command.cwd,
+        exitCode: 0,
+        stdout: '',
+        stderr: '',
+        startedAt: '2026-04-30T14:30:00.000Z',
+        completedAt: '2026-04-30T14:30:01.000Z',
+      }),
+      pullRequestExecutor: async (command) => ({
+        command: command.command,
+        args: command.args,
+        cwd: command.cwd,
+        exitCode: 0,
+        stdout: 'https://github.com/Wescome/strategy-recipes/pull/7\n',
+        stderr: '',
+        startedAt: '2026-04-30T14:36:00.000Z',
+        completedAt: '2026-04-30T14:36:01.000Z',
+      }),
+    })
+
+    expect(outcome).toEqual({
+      iterations: 1,
+      completedRuns: 1,
+      stopReason: 'max_iterations',
+    })
+    expect(await queue.status()).toMatchObject({ total: 1, completed: 1 })
+  })
+
+  it('stops daemon loop when stop predicate is set', async () => {
+    const queue = new JsonlAgentQueue({
+      queueDir: mkdtempSync(join(tmpdir(), 'factory-autonomous-')),
+      actor: 'factory-daemon',
+      now: fixedClock(),
+    })
+
+    await expect(
+      runQueueDaemon({
+        queue,
+        repoRoot: '/tmp/strategy-recipes',
+        bundleRoot: '/tmp/bundles',
+        pollIntervalMs: 0,
+        maxIterations: 10,
+        shouldStop: () => true,
+      }),
+    ).resolves.toEqual({
+      iterations: 0,
+      completedRuns: 0,
+      stopReason: 'stop_requested',
     })
   })
 })

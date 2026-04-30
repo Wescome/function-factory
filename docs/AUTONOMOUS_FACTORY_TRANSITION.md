@@ -98,6 +98,6 @@ using `gh pr create`. The single-request Governor path is bootstrapped by
 bundle, and completes the queue item. The CLI entrypoint is
 `pnpm run autonomous-scheduler:cli -- ...`; it can validate, enqueue, claim,
 status, plan, and explicitly run a single request against a real checkout. The
-next production-alpha slice is the daemon that invokes the same path repeatedly
-with stop controls. Queue leases and heartbeats are already part of the JSONL
-queue boundary, so a daemon can safely reclaim expired worker claims.
+daemon entrypoint repeats the same path over queued work with bounded polling,
+leases, heartbeats, and stop controls. Queue leases and heartbeats are part of
+the JSONL queue boundary, so the daemon can safely reclaim expired worker claims.

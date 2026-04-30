@@ -41,6 +41,9 @@ also planned and executed through the same command seam using `gh pr create`.
 5. Build and persist a validated `AgentResult` bundle.
 6. Complete the queue item with pass/fail evidence.
 
+`runQueueDaemon` repeats the same path for queued work with bounded polling,
+claim leases, heartbeats, and stop predicates.
+
 CLI entrypoint:
 
 ```bash
@@ -49,8 +52,8 @@ pnpm run autonomous-scheduler:cli -- enqueue /tmp/factory-queue packages/autonom
 pnpm run autonomous-scheduler:cli -- status /tmp/factory-queue
 ```
 
-`run-single` is intentionally explicit because it executes `git`, `codex`, and
-`gh` against the requested repo.
+`run-single` and `daemon` are intentionally explicit because they execute `git`,
+`codex`, and `gh` against the requested repo.
 
 Queue claims include leases and heartbeats. Expired claims can be reclaimed by a
 later runner; active claims are excluded from pending queue counts.

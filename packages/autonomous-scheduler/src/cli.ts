@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import {
   JsonlAgentQueue,
   planCodexRunner,
+  runQueueDaemon,
   runSingleAgentRequest,
   validateAgentRequest,
 } from './index.js'
@@ -131,6 +132,25 @@ async function main(): Promise<void> {
       return
     }
 
+    if (command === 'daemon') {
+      const queueDir = requiredArg(args, 0, 'queue dir')
+      const repoRoot = requiredOption(args, '--repo-root')
+      const bundleRoot = requiredOption(args, '--bundle-root')
+      const daemonOptions: Parameters<typeof runQueueDaemon>[0] = {
+        queue: new JsonlAgentQueue({ queueDir, actor: option(args, '--actor') ?? 'factory-daemon' }),
+        repoRoot,
+        bundleRoot,
+        pollIntervalMs: numberOption(args, '--poll-ms') ?? 5_000,
+      }
+      const maxIterations = numberOption(args, '--max-iterations')
+      if (maxIterations !== undefined) daemonOptions.maxIterations = maxIterations
+
+      const outcome = await runQueueDaemon(daemonOptions)
+
+      printJson({ ok: true, outcome })
+      return
+    }
+
     throw new Error(`Unknown command: ${command}`)
   } catch (error) {
     process.exitCode = 1
@@ -153,8 +173,9 @@ function printHelp(): void {
     '  status <queue-dir> [--actor name]',
     '  plan <request.json> --repo-root <path>',
     '  run-single <queue-dir> <request.json> --repo-root <path> --bundle-dir <path> [--changed-files a,b] [--diff-file path]',
+    '  daemon <queue-dir> --repo-root <path> --bundle-root <path> [--poll-ms n] [--max-iterations n]',
     '',
-    'run-single executes git, codex, and gh commands through the production process executor.',
+    'run-single and daemon execute git, codex, and gh commands through the production process executor.',
   ].join('\n'))
 }
 

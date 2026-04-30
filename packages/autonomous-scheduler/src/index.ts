@@ -306,6 +306,24 @@ export interface SingleAgentRunOutcome {
   bundle: AgentResultBundleManifest
 }
 
+export interface QueueDaemonOptions {
+  queue: JsonlAgentQueue
+  repoRoot: string
+  bundleRoot: string
+  pollIntervalMs?: number
+  maxIterations?: number
+  shouldStop?: () => boolean | Promise<boolean>
+  codexExecutor?: CommandExecutor
+  pullRequestExecutor?: CommandExecutor
+  now?: () => Date
+}
+
+export interface QueueDaemonOutcome {
+  iterations: number
+  completedRuns: number
+  stopReason: 'max_iterations' | 'stop_requested'
+}
+
 export class AutonomousSchedulerValidationError extends Error {
   public readonly issues: string[]
 
@@ -828,6 +846,16 @@ export async function runSingleAgentRequest(
     throw new Error(`Unable to claim enqueued AgentRequest: ${request.id}`)
   }
 
+  return await runClaimedAgentRequest(claimed, options)
+}
+
+export async function runClaimedAgentRequest(
+  requestInput: unknown,
+  options: SingleAgentRunOptions,
+): Promise<SingleAgentRunOutcome> {
+  const claimed = validateAgentRequest(requestInput)
+  await options.queue.heartbeat(claimed.id)
+
   const codexPlan = planCodexRunner(claimed, { repoRoot: options.repoRoot })
   const execution = await executeCodexRunnerPlan(codexPlan, options.codexExecutor)
   let pullRequest: PullRequestExecution | undefined
@@ -869,6 +897,45 @@ export async function runSingleAgentRequest(
   }
 
   return outcome
+}
+
+export async function runQueueDaemon(options: QueueDaemonOptions): Promise<QueueDaemonOutcome> {
+  const pollIntervalMs = options.pollIntervalMs ?? 5_000
+  const maxIterations = options.maxIterations ?? Number.POSITIVE_INFINITY
+  const now = options.now ?? (() => new Date())
+  let iterations = 0
+  let completedRuns = 0
+
+  while (iterations < maxIterations) {
+    if (await options.shouldStop?.()) {
+      return { iterations, completedRuns, stopReason: 'stop_requested' }
+    }
+
+    iterations += 1
+    const request = await options.queue.claimNext()
+    if (!request) {
+      await sleep(pollIntervalMs)
+      continue
+    }
+
+    const stamp = now().toISOString().replace(/[^0-9TZ]/g, '')
+    const runOptions: SingleAgentRunOptions = {
+      queue: options.queue,
+      repoRoot: options.repoRoot,
+      bundleDir: join(options.bundleRoot, sanitizeId(request.id)),
+      resultId: `ARES-${request.id.slice(3)}-${stamp}`,
+      agentRunId: `RUN-${request.id.slice(3)}-${stamp}`,
+      completedAt: now().toISOString(),
+      changedFiles: request.expectedArtifacts.map((artifact) => artifact.path),
+    }
+    if (options.codexExecutor) runOptions.codexExecutor = options.codexExecutor
+    if (options.pullRequestExecutor) runOptions.pullRequestExecutor = options.pullRequestExecutor
+
+    await runClaimedAgentRequest(request, runOptions)
+    completedRuns += 1
+  }
+
+  return { iterations, completedRuns, stopReason: 'max_iterations' }
 }
 
 export class JsonlAgentQueue {
@@ -1432,6 +1499,11 @@ async function readDirectoryOrEmpty(path: string): Promise<string[]> {
     if (isNotFound(error)) return []
     throw error
   }
+}
+
+async function sleep(ms: number): Promise<void> {
+  if (ms <= 0) return
+  await new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 function sanitizeId(id: string): string {
