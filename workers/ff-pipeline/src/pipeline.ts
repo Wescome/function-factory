@@ -93,12 +93,22 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     })
 
     // ── Architect approval ──
-    const approval = await step.waitForEvent<{ decision: string; reason?: string; by?: string }>(
-      'architect-approval',
-      { type: 'architect-approval', timeout: '7 days' },
-    )
+    // Feedback-generated retries (autoApprove in signal.raw) skip the human gate
+    const isAutoApproved = !!(params.signal as Record<string, unknown>).raw
+      && ((params.signal as Record<string, unknown>).raw as Record<string, unknown>)?.autoApprove === true
 
-    const approvalPayload = approval.payload as { decision?: string; reason?: string; by?: string } | undefined
+    let approvalPayload: { decision?: string; reason?: string; by?: string } | undefined
+
+    if (isAutoApproved) {
+      approvalPayload = { decision: 'approved', reason: 'auto-approved feedback retry', by: 'factory:feedback-loop' }
+    } else {
+      const approval = await step.waitForEvent<{ decision: string; reason?: string; by?: string }>(
+        'architect-approval',
+        { type: 'architect-approval', timeout: '7 days' },
+      )
+      approvalPayload = approval.payload as typeof approvalPayload
+    }
+
     if (approvalPayload?.decision !== 'approved') {
       await step.do('persist-rejection', async () => {
         await db.save('specs_coverage_reports', {

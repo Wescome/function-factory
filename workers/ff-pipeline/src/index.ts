@@ -364,10 +364,15 @@ export default {
             console.log(`[Feedback] Ingested ${fs.signal.subtype} → ${ingested._key} (auto-approve: ${fs.autoApprove})`)
 
             // For auto-approve signals, create a new pipeline run immediately
+            // Set autoApprove in signal.raw so pipeline skips architect-approval gate
             if (fs.autoApprove) {
               try {
+                const autoSignal = {
+                  ...fs.signal,
+                  raw: { ...(fs.signal.raw ?? {}), autoApprove: true },
+                }
                 const created = await env.FACTORY_PIPELINE.create({
-                  params: { signal: fs.signal },
+                  params: { signal: autoSignal },
                 })
                 console.log(`[Feedback] Auto-approved pipeline ${created.id} for ${fs.signal.subtype}`)
               } catch (createErr) {

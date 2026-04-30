@@ -1,33 +1,39 @@
 # Current Workspace
 
 ## Status
-Session ended at 2026-04-29T23:55:59.550Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
+Session ended at 2026-04-30T01:56:42.916Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
 
 ## Last update
-2026-04-29T23:55:59.550Z
+2026-04-30T01:56:42.916Z
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
-- [23:45:08] Bash: find /Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator -type f -name "*.ts" | head -20
-- [23:45:09] Bash: grep -rn "signalType" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/types.ts /Users/wes/Developer/functi
-- [23:45:13] Bash: ls /Users/wes/Developer/function-factory/workers/ff-pipeline/src/stages/
-- [23:45:19] Bash: cat /Users/wes/Developer/function-factory/workers/ff-pipeline/wrangler.jsonc 2>/dev/null || echo "No wrangler.jsonc foun
-- [23:45:22] Bash: grep -n "config_routing\|hot.config\|routing" /Users/wes/Developer/function-factory/infra/arangodb/seed.ts
-- [23:45:24] Bash: grep -rn "feedback\|FEEDBACK_QUEUE\|feedback-queue\|feedback_signal" /Users/wes/Developer/function-factory/workers/ff-pi
-- [23:45:25] Bash: grep -rn "subtype" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/stages/ingest-signal.ts /Users/wes/Deve
-- [23:45:28] Bash: grep -rn "config_routing\|deepseek-v4-pro\|kimi-k2" /Users/wes/Developer/function-factory/infra/arangodb/seed.ts
-- [23:45:36] Bash: find /Users/wes/Developer/function-factory/workers/ff-pipeline/src -name "*.test.*" | grep -i "ledger\|completion"
-- [23:45:50] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/completion-ledger.ts
-- [23:46:02] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/completion-ledger.ts
-- [23:46:16] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/coordinator.ts
-- [23:46:23] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/coordinator-hot-config.test.ts
-- [23:46:37] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/completion-ledger.test.ts
-- [23:46:44] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/completion-ledger.test.ts
-- [23:46:58] Bash: pnpm --filter @factory/ff-pipeline test -- --run 2>&1
-- [23:55:03] Bash: until grep -q "result\|RESULT\|completed\|summary" /private/tmp/claude-501/-Users-wes-Developer-function-factory/2c0291b
-- [23:55:20] Bash: pnpm --filter @factory/ff-pipeline test -- --run 2>&1 | tail -3
-- [23:55:27] Bash: git diff --stat
-- [23:55:39] Bash: git add workers/ff-pipeline/src/coordinator/completion-ledger.ts workers/ff-pipeline/src/coordinator/completion-ledger.t
+- [00:30:58] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/config/hot-config.ts
+- [00:31:22] Bash: pnpm --filter @factory/ff-pipeline test -- --run 2>&1 | tail -3 && pnpm --filter @factory/ff-pipeline run deploy 2>&1 | 
+- [00:31:36] Bash: pnpm --filter @factory/ff-pipeline test -- --run 2>&1 | grep "FAIL" | head -5
+- [00:31:40] Bash: grep -A15 "seeds default routing config" workers/ff-pipeline/src/config/hot-config.test.ts
+- [00:31:52] Bash: grep -n "makeMockDb\|mock.*save\|mock.*query" workers/ff-pipeline/src/config/hot-config.test.ts | head -10
+- [00:32:06] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/config/hot-config.test.ts
+- [00:32:28] Bash: pnpm --filter @factory/ff-pipeline test -- --run 2>&1 | tail -3 && pnpm --filter @factory/ff-pipeline run deploy 2>&1 | 
+- [00:32:43] Bash: # Fire + auto-approve in one shot
+for TITLE in "Extract shared keyForModel utility" "Add ORL telemetry writes to ArangoD
+- [00:32:54] Bash: sleep 15 && for ID in 9ce7906e-782c-4ae3-b771-35b483d34ef8 5988eb49-7598-4bbe-abac-3b6abc0809bc aa24cbe7-11e1-4825-802a-
+- [00:33:05] Bash: git add workers/ff-pipeline/src/config/hot-config.ts workers/ff-pipeline/src/config/hot-config.test.ts .agent/memory/epi
+- [00:43:11] Bash: until grep -c "===" /private/tmp/claude-501/-Users-wes-Developer-function-factory/2c0291b3-73be-4851-ab4c-c4cef55cb4be/t
+- [00:43:17] Bash: cat /private/tmp/claude-501/-Users-wes-Developer-function-factory/2c0291b3-73be-4851-ab4c-c4cef55cb4be/tasks/bl90tgt1e.o
+- [00:43:27] Bash: curl -s "https://ff-gateway.koales.workers.dev/specs/specs_signals" 2>/dev/null | jq '[.[] | select(.source == "factory:
+- [00:45:35] Bash: # Wait for remaining 2 pipelines
+until grep -c "===" /private/tmp/claude-501/-Users-wes-Developer-function-factory/2c029
+- [00:46:07] Edit: /Users/wes/.claude/projects/-Users-wes-Developer-function-factory/memory/project_session_2026_04_29.md
+- [01:56:09] Bash: git log --oneline main~5..main
+- [01:56:16] Bash: # Check CF Worker logs for feedback signal generation
+curl -s "https://ff-gateway.koales.workers.dev/pipeline/9ce7906e-7
+- [01:56:17] Bash: # Look for feedback-generated signals in ArangoDB via gateway
+curl -s "https://ff-gateway.koales.workers.dev/specs/specs
+- [01:56:23] Bash: # Try direct specs list
+curl -s "https://ff-gateway.koales.workers.dev/specs/specs_signals" 2>/dev/null | jq 'if type ==
+- [01:56:29] Bash: # The gateway doubles the prefix — try without specs_ prefix
+curl -s "https://ff-gateway.koales.workers.dev/specs/signal
 
 ## Notes
 This file is auto-updated on session end. Manual edits will be overwritten.
