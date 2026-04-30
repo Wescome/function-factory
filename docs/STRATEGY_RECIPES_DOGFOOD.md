@@ -47,6 +47,11 @@ force a specific suffix.
 
 The default request is:
 
+`packages/autonomous-scheduler/fixtures/strategy-recipes-package-readme-agent-request.json`
+
+The original first-product-view request remains available as a historical
+fixture:
+
 `packages/autonomous-scheduler/fixtures/strategy-recipes-agent-request.json`
 
 Override with:

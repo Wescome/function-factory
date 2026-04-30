@@ -184,7 +184,7 @@ async function main(): Promise<void> {
 
     if (command === 'dogfood-strategy-recipes') {
       const requestPath = option(args, '--request') ?? fileURLToPath(
-        new URL('../fixtures/strategy-recipes-agent-request.json', import.meta.url),
+        new URL('../fixtures/strategy-recipes-package-readme-agent-request.json', import.meta.url),
       )
       const home = option(args, '--home') ?? join(process.env.HOME ?? process.cwd(), '.factory', 'dogfood')
       const paths = createStrategyRecipesDogfoodRunPaths(join(home, 'strategy-recipes'))

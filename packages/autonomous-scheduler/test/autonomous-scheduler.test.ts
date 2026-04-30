@@ -28,6 +28,10 @@ const requestFixture = JSON.parse(
   readFileSync(new URL('../fixtures/strategy-recipes-agent-request.json', import.meta.url), 'utf8'),
 ) as unknown
 
+const packageReadmeRequestFixture = JSON.parse(
+  readFileSync(new URL('../fixtures/strategy-recipes-package-readme-agent-request.json', import.meta.url), 'utf8'),
+) as unknown
+
 const resultFixture = JSON.parse(
   readFileSync(new URL('../fixtures/strategy-recipes-agent-result.json', import.meta.url), 'utf8'),
 ) as unknown
@@ -42,6 +46,15 @@ describe('autonomous scheduler contracts', () => {
     expect(request.branch.mode).toBe('new_pr_branch')
     expect(request.policy.autonomyMode).toBe('branch_pr')
     expect(request.workgraph.sourceRefs).toContain('Strategy_Recipes_UX_Architecture_v1.1.md')
+  })
+
+  it('validates the current Strategy.Recipes dogfood next-slice request fixture', () => {
+    const request = validateAgentRequest(packageReadmeRequestFixture)
+
+    expect(request.id).toBe('AR-STRATEGY-RECIPES-PACKAGE-README')
+    expect(request.branch.prefix).toBe('factory/strategy-recipes-package-readme')
+    expect(request.requiredCommands).toContain('pnpm --dir packages/strategy-objects test')
+    expect(request.expectedArtifacts.map((artifact) => artifact.path)).toContain('packages/strategy-objects/README.md')
   })
 
   it('validates a completed AgentResult with PR evidence', () => {

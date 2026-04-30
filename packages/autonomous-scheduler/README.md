@@ -68,3 +68,12 @@ pnpm run autonomous-scheduler:cli -- run-single /tmp/factory-queue \
 
 Queue claims include leases and heartbeats. Expired claims can be reclaimed by a
 later runner; active claims are excluded from pending queue counts.
+
+The `dogfood-strategy-recipes` command defaults to the current next-slice
+request:
+
+```text
+packages/autonomous-scheduler/fixtures/strategy-recipes-package-readme-agent-request.json
+```
+
+Use `--request` to replay older fixtures or run a freshly generated request.

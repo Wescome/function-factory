@@ -1,0 +1,95 @@
+{
+  "schemaVersion": "factory.agent-request.v0",
+  "id": "AR-STRATEGY-RECIPES-PACKAGE-README",
+  "createdAt": "2026-04-30T20:55:00.000Z",
+  "workgraph": {
+    "id": "WG-STRATEGY-RECIPES-PACKAGE-README",
+    "nodeId": "package-readme",
+    "sourcePrdId": "PRD-STRATEGY-RECIPES-UX-V1-1",
+    "sourceRefs": [
+      "Strategy_Recipes_UX_Architecture_v1.1.md",
+      "PR-68-strategy-recipes-first-product-view",
+      "ADR-0001-autonomous-scheduler-boundary.md"
+    ]
+  },
+  "role": "builder",
+  "objective": "Add package-level documentation for the Strategy.Recipes first product view workload.",
+  "prompt": "Add a concise package README for the merged Strategy.Recipes object workload. Keep the package isolated from the live browser runtime. Document purpose, exported concepts, verification commands, and how it relates to the first product view. Link it from the existing product doc.",
+  "repo": {
+    "provider": "github",
+    "owner": "Wescome",
+    "name": "strategy-recipes",
+    "defaultBranch": "main",
+    "remoteUrl": "https://github.com/Wescome/strategy-recipes.git"
+  },
+  "branch": {
+    "mode": "new_pr_branch",
+    "base": "main",
+    "prefix": "factory/strategy-recipes-package-readme"
+  },
+  "policy": {
+    "autonomyMode": "branch_pr",
+    "allowedPaths": [
+      "docs/product/**",
+      "packages/strategy-objects/**",
+      "tests/first-product-view.test.ts",
+      "README.md"
+    ],
+    "forbiddenActions": [
+      "merge_default_branch",
+      "deploy_production",
+      "force_push",
+      "delete_remote_branch",
+      "edit_secrets"
+    ],
+    "requiresHumanApprovalFor": [
+      "merge_default_branch",
+      "deploy_production",
+      "edit_secrets"
+    ],
+    "maxRuntimeMinutes": 45
+  },
+  "context": {
+    "summary": "Strategy.Recipes PR #68 added the first external Function Factory workload. The next safe autonomous slice is package-level documentation and verification clarity.",
+    "artifacts": [
+      {
+        "id": "STRATEGY-RECIPES-UX-V1-1",
+        "kind": "external-design",
+        "path": "/Users/wes/Downloads/Strategy_Recipes_UX_Architecture_v1.1.md"
+      },
+      {
+        "id": "PR-68-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW",
+        "kind": "github-pr",
+        "path": "https://github.com/Wescome/strategy-recipes/pull/68"
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "packages/strategy-objects/README.md explains the package purpose, exported concepts, verification commands, and isolation boundary.",
+    "docs/product/first-product-view.md links or references the package README.",
+    "The change does not alter app/, server/, packaging/, or live Strategy.Recipes runtime behavior.",
+    "The PR includes package test and type-load check evidence."
+  ],
+  "requiredCommands": [
+    "pnpm --dir packages/strategy-objects test",
+    "pnpm --dir packages/strategy-objects typecheck",
+    "npm run test:strategy-recipes"
+  ],
+  "expectedArtifacts": [
+    {
+      "path": "packages/strategy-objects/README.md",
+      "kind": "product-doc"
+    },
+    {
+      "path": "docs/product/first-product-view.md",
+      "kind": "product-doc"
+    }
+  ],
+  "evidenceRequired": [
+    "git_diff",
+    "test_output",
+    "typecheck_output",
+    "artifact_paths",
+    "pr_url"
+  ]
+}
