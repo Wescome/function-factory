@@ -1,0 +1,6 @@
+{
+  "synthesis": {
+    "maintainSystemFeedback": true,
+    "allowCycleCompletion": true
+  }
+}
