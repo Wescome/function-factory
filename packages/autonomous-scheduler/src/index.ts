@@ -281,6 +281,7 @@ export interface PullRequestPlan {
   branchName: string
   title: string
   body: string
+  pushCommand: RunnerCommand
   command: RunnerCommand
 }
 
@@ -288,6 +289,7 @@ export interface PullRequestExecution {
   requestId: string
   branchName: string
   prUrl: string
+  commands: CommandRunResult[]
   command: CommandRunResult
 }
 
@@ -850,6 +852,11 @@ export function planPullRequest(
     branchName: execution.branchName,
     title,
     body,
+    pushCommand: {
+      command: 'git',
+      args: ['push', '-u', 'origin', execution.branchName],
+      cwd: options.repoRoot,
+    },
     command: {
       command: 'gh',
       args: [
@@ -873,6 +880,12 @@ export async function executePullRequestPlan(
   plan: PullRequestPlan,
   executor: CommandExecutor = createProcessCommandExecutor(),
 ): Promise<PullRequestExecution> {
+  const pushCommand = await executor(plan.pushCommand)
+
+  if (pushCommand.exitCode !== 0) {
+    throw new Error(`Pull request branch push failed for ${plan.requestId}: ${pushCommand.stderr || pushCommand.stdout}`)
+  }
+
   const command = await executor(plan.command)
 
   if (command.exitCode !== 0) {
@@ -888,6 +901,7 @@ export async function executePullRequestPlan(
     requestId: plan.requestId,
     branchName: plan.branchName,
     prUrl,
+    commands: [pushCommand, command],
     command,
   }
 }

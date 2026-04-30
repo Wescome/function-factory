@@ -36,6 +36,9 @@ Real mode runs the planned `git`, `codex`, and `gh pr create` commands against
 the Strategy.Recipes checkout. It still operates in PR/branch mode and does not
 merge, deploy, force-push, delete remote branches, or edit secrets.
 
+The scheduler pushes the worker branch before creating the pull request, so real
+mode is non-interactive at the GitHub PR boundary.
+
 ## Source Request
 
 The default request is:
