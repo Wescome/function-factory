@@ -1,0 +1,118 @@
+{
+  "schemaVersion": "factory.scheduler-run-manifest.v0",
+  "runId": "strategy-recipes-2026-04-30-parent-verification",
+  "generatedAt": "2026-04-30T22:51:49.569Z",
+  "requestId": "AR-STRATEGY-RECIPES-PARENT-VERIFY-EVIDENCE",
+  "resultId": "ARES-STRATEGY-RECIPES-PARENT-VERIFY-EVIDENCE-20260430T223122060Z",
+  "status": "completed",
+  "repo": {
+    "provider": "github",
+    "name": "strategy-recipes",
+    "defaultBranch": "main",
+    "owner": "Wescome",
+    "remoteUrl": "https://github.com/Wescome/strategy-recipes.git"
+  },
+  "workgraph": {
+    "id": "WG-STRATEGY-RECIPES-PARENT-VERIFY-EVIDENCE",
+    "nodeId": "record-parent-verification-evidence",
+    "sourceRefs": [
+      "Strategy_Recipes_UX_Architecture_v1.1.md",
+      "PR-71-strategy-recipes-dogfood-evidence",
+      "PR-44-function-factory-parent-verification-evidence"
+    ],
+    "sourcePrdId": "PRD-STRATEGY-RECIPES-UX-V1-1"
+  },
+  "files": {
+    "request": {
+      "path": "request.json",
+      "bytes": 3486,
+      "sha256": "452901a16001ad08ca7c57bc79743548a0655086b16269cb20c819a35631a906"
+    },
+    "execution": {
+      "path": "execution.json",
+      "bytes": 135887,
+      "sha256": "f4a40e357d5220ca6888160c98aa62d235b0faec5c157d188b9e14891d02f8c6"
+    },
+    "result": {
+      "path": "result.json",
+      "bytes": 2991,
+      "sha256": "77db25a76708d4cacdddf49657f220f06b60310b3238c803bb353d69f8fc1a2d"
+    },
+    "commands": [
+      {
+        "path": "commands/command-1-git.txt",
+        "bytes": 269,
+        "sha256": "8d3c8d4e0dba50c44a05ad398270401a34b3dd47f51321242948b1101a2c7849"
+      },
+      {
+        "path": "commands/command-2-git.txt",
+        "bytes": 620,
+        "sha256": "807dcfb61719bb519ae2783256b4c73341d42d03e29deeff2b1a9600b2689e6a"
+      },
+      {
+        "path": "commands/command-3-git.txt",
+        "bytes": 171,
+        "sha256": "c23ac31f81e3f427f5b77604904d7aa46fe25fab8c53d9e4406e5768620e8621"
+      },
+      {
+        "path": "commands/command-4-codex.txt",
+        "bytes": 114245,
+        "sha256": "fdb4204130bb1c892ba1d51865ed8e7d1fa16fed26ab085403abcedada1251b8"
+      },
+      {
+        "path": "commands/command-5-git.txt",
+        "bytes": 228,
+        "sha256": "b277affc148a023b9e75033ce513769b2901266fefe4c2d902afca481ffec7f6"
+      },
+      {
+        "path": "commands/command-6-git.txt",
+        "bytes": 213,
+        "sha256": "9555e53449f3e5d890b1c4da9872cd68d3cc55d6e1c84bcf6c5ef865aa66b17c"
+      },
+      {
+        "path": "commands/command-7-git.txt",
+        "bytes": 440,
+        "sha256": "6e4ba37d9ca58166e6b966edc33b9f570c38a75856c7bcc533246e98d12d8b69"
+      },
+      {
+        "path": "commands/command-8--bin-zsh.txt",
+        "bytes": 1383,
+        "sha256": "598c411032d9315ea344e85ecfbb4c022f17796f8d3808a70f668c9c5ef812d0"
+      },
+      {
+        "path": "commands/command-9--bin-zsh.txt",
+        "bytes": 401,
+        "sha256": "f2a08f3bd4bcc5d0e0f8c51e391e26e68ee2c56cca8fb36bd274718fc5b11f9a"
+      },
+      {
+        "path": "commands/command-10--bin-zsh.txt",
+        "bytes": 11580,
+        "sha256": "190596d16501d8e8003a283f66842787b79362a54c2345ccc0f5207973eed868"
+      }
+    ],
+    "verification": {
+      "path": "verification-output.txt",
+      "bytes": 13374,
+      "sha256": "5ef02a73031301fc83908b5041a82e80c654b8f6ae4f8699d851ec60dde762bb"
+    }
+  },
+  "replay": {
+    "requestFile": "request.json",
+    "repo": {
+      "provider": "github",
+      "name": "strategy-recipes",
+      "defaultBranch": "main",
+      "owner": "Wescome",
+      "remoteUrl": "https://github.com/Wescome/strategy-recipes.git"
+    },
+    "branchBase": "main",
+    "requiredCommands": [
+      "pnpm --dir packages/strategy-objects test",
+      "pnpm --dir packages/strategy-objects typecheck",
+      "npm run test:strategy-recipes"
+    ],
+    "suggestedCommand": "pnpm run autonomous-scheduler:cli -- run-single <queue-dir> request.json --repo-root <repo-root> --bundle-dir <bundle-dir>"
+  },
+  "branchName": "factory/strategy-recipes-parent-verify-evidence/ar-strategy-recipes-parent-verify-evidence-parent-verification-20260430t2235",
+  "prUrl": "https://github.com/Wescome/strategy-recipes/pull/72"
+}

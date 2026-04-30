@@ -1,0 +1,205 @@
+$ /bin/zsh -lc pnpm --dir packages/strategy-objects test
+
+exitCode: 0
+cwd: /Users/wes/Developer/strategy-recipes
+startedAt: 2026-04-30T22:34:28.533Z
+completedAt: 2026-04-30T22:34:29.763Z
+
+stdout:
+
+> @strategy-recipes/strategy-objects@0.1.0 test /Users/wes/Developer/strategy-recipes/packages/strategy-objects
+> node --experimental-strip-types --test ../../tests/first-product-view.test.ts
+
+(node:92539) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/wes/Developer/strategy-recipes/tests/first-product-view.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/wes/Developer/strategy-recipes/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ typed object graph preserves the Strategy.Recipes deliberation type vocabulary (3.610481ms)
+✔ view registry exposes the first product view projections (0.286869ms)
+✔ coherence report blocks unsupported high-relevance decisions (0.755371ms)
+✔ first product view model renders the required product concepts (1.878416ms)
+✔ example snapshot stays aligned with the renderer output (2.03404ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 329.733246
+
+
+stderr:
+
+
+---
+$ /bin/zsh -lc pnpm --dir packages/strategy-objects typecheck
+
+exitCode: 0
+cwd: /Users/wes/Developer/strategy-recipes
+startedAt: 2026-04-30T22:34:29.763Z
+completedAt: 2026-04-30T22:34:30.736Z
+
+stdout:
+
+> @strategy-recipes/strategy-objects@0.1.0 typecheck /Users/wes/Developer/strategy-recipes/packages/strategy-objects
+> node --experimental-strip-types -e "await import('./src/index.ts')"
+
+
+
+stderr:
+
+
+---
+$ /bin/zsh -lc npm run test:strategy-recipes
+
+exitCode: 0
+cwd: /Users/wes/Developer/strategy-recipes
+startedAt: 2026-04-30T22:34:30.736Z
+completedAt: 2026-04-30T22:34:34.794Z
+
+stdout:
+
+> strategy-recipes@0.36.0 test:strategy-recipes
+> node --test tests/strategy_recipes_*.mjs
+
+✔ Strategy.Recipes route initializes in a real browser with mocked app-file persistence (1981.836095ms)
+✔ coherence module is report-only and checks are enabled (2.336306ms)
+✔ generateCoherenceReport returns pass when graph is connected and supported (14.048678ms)
+✔ generateCoherenceReport fails unsupported high-relevance decisions and critical claims (0.563945ms)
+✔ generateCoherenceReport warns on unhandled risks, orphan metrics, and unanswered questions (0.542205ms)
+✔ generateCoherenceReport is deterministic and does not mutate graph input (1.813663ms)
+✔ Strategy.Recipes operator loop doc captures schema, migration, and smoke path (4.679301ms)
+✔ Strategy.Recipes operator cockpit ConOps captures multi-surface UX contracts (1.230342ms)
+✔ Strategy.Recipes governance lifecycle doc captures proposal transition contract (1.61063ms)
+✔ documentation skill indexes the Strategy.Recipes operator loop doc (0.5443ms)
+✔ Strategy.Recipes module contract keeps inline cockpit non-mutating (0.989776ms)
+✔ createGovernanceProposal normalizes deterministic agent proposals (3.386024ms)
+✔ normalizeGovernanceProposalQueue validates and sorts persisted proposals (54.110994ms)
+✔ addGovernanceProposalToQueue prepends or replaces proposals without mutating the graph (4.281714ms)
+✔ proposal queue app-file helpers load missing queues and save deterministic content (2.786392ms)
+✔ enqueueGovernanceProposal persists a new proposal into the local queue (1.522124ms)
+✔ proposal queue app-file helpers wrap read and write failures (1.563214ms)
+✔ reviewGovernanceProposalInQueue persists approved and rejected statuses without mutating actions (1.899657ms)
+✔ reviewGovernanceProposalInQueue rejects missing proposals, apply targets, and invalid transitions (0.646242ms)
+✔ applyGovernanceProposalInQueue marks only approved proposals applied (2.495491ms)
+✔ reviewGovernanceProposal loads, reviews, and saves the local proposal queue (0.800556ms)
+✔ validateGovernanceProposal accepts reviewed proposal statuses without applying them (0.376094ms)
+✔ governance proposal status transitions allow only the reviewed lifecycle path (0.353903ms)
+✔ governance proposal status transitions reject terminal and skipped transitions (0.781279ms)
+✔ createGovernanceProposalApplicationPlan reports ready for approved sequential proposal actions (2.301075ms)
+✔ createGovernanceProposalApplicationPlan blocks unapproved proposals and failed graph preconditions (0.825571ms)
+✔ applyGovernanceProposalToGraph applies approved proposals purely and marks returned proposal applied (2.016353ms)
+✔ applyGovernanceProposalToGraph refuses blocked preflight plans (0.349919ms)
+✔ governance proposal application journal entries capture durable application provenance (0.994462ms)
+✔ governance proposals reject unsupported schemas, sources, actions, and empty patches (0.494093ms)
+✔ relationship delete proposals validate relationship type without requiring graph mutation (0.195068ms)
+✔ direct governance proposal application guard remains disabled outside coordinated apply (0.257528ms)
+✔ governance proposal action catalog is explicit (0.110543ms)
+✔ instrument agent metadata keeps governance-mediated proposal boundary (2.229003ms)
+✔ createCoherenceReviewProposal emits non-mutating governance actions for a finding (3.096661ms)
+✔ createCoherenceReviewProposalFromReport uses the first coherence finding (0.553234ms)
+✔ createCoherenceReviewProposalFromReport rejects empty reports (0.563317ms)
+✔ M0 object graph owns canonical product state (2.899372ms)
+✔ M0 views are projections rather than graph owners (62.507522ms)
+✔ M0 governance prevents agent mutation bypass (3.127564ms)
+✔ compiler and coherence remain pure product functions (0.529372ms)
+✔ M0 disables inherited onscreen agent router mount (3.905118ms)
+✔ M0 disables inherited spaces dashboard launchers (2.373392ms)
+✔ M0 disables inherited first-login Big Bang space onboarding (53.64659ms)
+✔ M0 hides inherited spaces skills behind an unavailable legacy tag (2.206962ms)
+✔ stableStringify recursively sorts object keys (14.300413ms)
+✔ serializeObjectGraph emits deterministic graph JSON (49.970709ms)
+✔ parseObjectGraph hydrates through graph validation (1.020331ms)
+✔ creates a normalized deliberation object (3.253049ms)
+✔ rejects unsupported object types and invalid confidence values (0.58979ms)
+✔ creates every supported deliberation object type through core validation (0.357371ms)
+✔ creates deterministic graph ordering and rejects duplicate ids (78.988958ms)
+✔ rejects dangling graph connections (0.369272ms)
+✔ upserts objects and connects without mutating the original graph (0.666614ms)
+✔ connectObjects replaces duplicate source-target-type relationships (1.487891ms)
+✔ updateObject preserves identity, type, connections, and createdAt (0.59914ms)
+✔ removeConnection removes one relationship without deleting endpoint objects (0.560615ms)
+✔ removeObject only removes isolated objects (0.617171ms)
+✔ product view assets expose route, panel, and menu entry (9.066407ms)
+✔ loadStrategyRecipesGraph returns empty graph on missing app file (2.084229ms)
+✔ loadStrategyRecipesGraph hydrates saved graph content (2.356208ms)
+✔ saveStrategyRecipesGraph writes deterministic JSON to the product graph path (0.506748ms)
+✔ loadMutationJournal returns empty journal on missing app file (0.686356ms)
+✔ loadMutationJournal hydrates append-only JSONL entries (73.654398ms)
+✔ loadMutationJournal windows newest entries and reports omitted totals (0.736117ms)
+✔ loadMutationJournal reports malformed JSONL with a line number (0.913789ms)
+✔ createStrategyRecipesMutation rejects non-user or non-route writers (0.855611ms)
+✔ saveStrategyRecipesGraphWithMutation writes graph and appends journal entry (46.669856ms)
+✔ loadRecipeManifest returns an empty manifest on missing app file (1.871116ms)
+✔ loadRecipeManifest normalizes sparse legacy manifest entries (0.687902ms)
+✔ loadRecipeManifest fails closed on unsupported manifest schema versions (0.317836ms)
+✔ loadRecipeManifest rejects non-object manifest payloads (0.214097ms)
+✔ loadRecipeManifest coerces malformed legacy manifest counts to zero (0.381885ms)
+✔ createRecipeArtifactRetentionPlan keeps newest entries and deletes only historical artifacts (0.909464ms)
+✔ createRecipeArtifactRetentionPlan preserves the manifest latest pointer (0.534554ms)
+✔ createRecipeArtifactRetentionPlan prunes repeated graph-stable recipe ids by artifact entry (0.357232ms)
+✔ loadRecipeArtifact reads only Strategy.Recipes recipe paths (2.524233ms)
+✔ saveRecipeArtifact writes historical, latest, and manifest files (1.854558ms)
+✔ pruneRecipeArtifacts compacts manifest and deletes pruned historical files (0.805915ms)
+✔ compiler metadata marks compilation enabled and deterministic (126.278546ms)
+✔ compileRecipe emits deterministic recipe artifacts from coherent graph input (44.417696ms)
+✔ compileRecipe carries supplied filtered projection compile context (1.56374ms)
+✔ renderRecipeMarkdown emits deterministic human-readable artifacts (3.34277ms)
+✔ validateRecipeArtifact rejects malformed recipe artifacts (1.253998ms)
+✔ compileRecipe refuses failed coherence reports (0.384607ms)
+✔ compileRecipe does not mutate graph input (1.144658ms)
+✔ mutation journal readout exposes recent structural entries (10.438628ms)
+✔ mutation trace filters narrow journal metadata without replaying state (7.293862ms)
+✔ mutation trace pagination bounds rendered journal entries (6.670852ms)
+✔ mutation trace reports windowed journal metadata (1.047488ms)
+✔ governance proposal queue readout loads review context without mutating graph (2.429737ms)
+✔ governance proposal queue review controls persist approval without mutating graph (43.473412ms)
+✔ governance proposal preflight readout checks approved proposals without mutating graph (23.518103ms)
+✔ governance proposal apply refuses approved proposals without ready preflight (0.969062ms)
+✔ graph mutations invalidate ready proposal preflight plans (5.185183ms)
+✔ governance proposal apply persists graph, queue, mutation journal, and application journal together (5.439552ms)
+✔ governance proposal apply failure leaves in-memory graph and queue unchanged (3.448734ms)
+✔ governance proposal apply refuses proposals reviewed against a stale graph digest (1.030159ms)
+✔ governance proposal queue readout reports load errors without mutating graph (0.635568ms)
+✔ coherence proposal drafting enqueues review proposals without mutating graph (1.093855ms)
+✔ inline AI cockpit briefs explain context without direct graph mutation (3.080173ms)
+✔ graph mutation commits preserve the bounded mutation journal window (3.009452ms)
+✔ view projection controls expose only implemented projections (0.415868ms)
+✔ spatial projection derives deterministic read-only layout over filtered graph state (1.29311ms)
+✔ timeline projection orders filtered objects by object timestamps without mutating graph state (0.72229ms)
+✔ sequence projection derives dependency-aware steps without mutating graph state (0.958787ms)
+✔ sequence projection reports unresolved dependency cycles without resolving them (0.362469ms)
+✔ decision board projection groups filtered objects by relevance without mutating graph state (1.089708ms)
+✔ chat context projection renders deterministic non-mutating cockpit messages (0.868957ms)
+✔ projection filters narrow graph objects without mutating graph state (0.427037ms)
+✔ safe next action prompts setup, coherence recovery, and filtered compile (0.830897ms)
+✔ compileRecipePreview can compile the filtered projection graph (0.584228ms)
+✔ compileRecipePreview rejects empty filtered projection graphs (0.242089ms)
+✔ loadSavedRecipe opens manifest recipe artifacts without mutating graph state (0.44693ms)
+✔ pruneSavedRecipeArtifacts applies local retention without mutating graph state (1.366064ms)
+✔ operator smoke path runs local graph to filtered recipe artifact loop (9.398643ms)
+✔ addObject creates typed user-sourced graph objects through core validation (1.170604ms)
+✔ addObject de-conflicts rapid same-type object ids (1.556217ms)
+✔ addObject rejects unsupported route drafts without mutating graph state (0.350776ms)
+✔ addObject does not mutate in-memory graph when persistence fails (1.008671ms)
+✔ addRelationship connects existing graph objects and persists the graph (1.012686ms)
+✔ addRelationship rejects self-edges before persistence (0.355791ms)
+✔ addRelationship does not mutate in-memory graph when persistence fails (1.078853ms)
+✔ saveSelectedObjectEdits preserves object identity and rolls back on persistence failure (1.757135ms)
+✔ removeRelationship removes one edge and rolls back on persistence failure (2.834128ms)
+✔ confirmRemoveSelectedObject removes only isolated objects after confirmation (1.624685ms)
+✔ confirmRemoveSelectedObject does not mutate graph when persistence fails (0.8346ms)
+ℹ tests 127
+ℹ suites 0
+ℹ pass 127
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3268.759864
+
+
+stderr:
+npm warn Unknown env config "_weops-registry". This will stop working in the next major version of npm.
+

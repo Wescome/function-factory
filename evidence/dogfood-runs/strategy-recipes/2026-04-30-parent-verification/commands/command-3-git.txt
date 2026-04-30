@@ -1,0 +1,12 @@
+$ git status --short
+
+exitCode: 0
+cwd: /Users/wes/Developer/strategy-recipes
+startedAt: 2026-04-30T22:31:22.649Z
+completedAt: 2026-04-30T22:31:22.720Z
+
+stdout:
+
+
+stderr:
+

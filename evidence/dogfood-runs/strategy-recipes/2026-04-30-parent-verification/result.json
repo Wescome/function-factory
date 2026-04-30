@@ -1,0 +1,83 @@
+{
+  "schemaVersion": "factory.agent-result.v0",
+  "id": "ARES-STRATEGY-RECIPES-PARENT-VERIFY-EVIDENCE-20260430T223122060Z",
+  "requestId": "AR-STRATEGY-RECIPES-PARENT-VERIFY-EVIDENCE",
+  "agentRunId": "RUN-STRATEGY-RECIPES-PARENT-VERIFY-EVIDENCE-20260430T223122060Z",
+  "status": "completed",
+  "completedAt": "2026-04-30T22:31:22.060Z",
+  "summary": "Completed AR-STRATEGY-RECIPES-PARENT-VERIFY-EVIDENCE on branch factory/strategy-recipes-parent-verify-evidence/ar-strategy-recipes-parent-verify-evidence-parent-verification-20260430t2235.",
+  "changedFiles": [
+    "docs/product/function-factory-dogfood-evidence.md"
+  ],
+  "commands": [
+    {
+      "command": "git fetch origin main",
+      "exitCode": 0,
+      "outputRef": "commands/command-1-git.txt"
+    },
+    {
+      "command": "git switch -c factory/strategy-recipes-parent-verify-evidence/ar-strategy-recipes-parent-verify-evidence-parent-verification-20260430t2235 origin/main",
+      "exitCode": 0,
+      "outputRef": "commands/command-2-git.txt"
+    },
+    {
+      "command": "git status --short",
+      "exitCode": 0,
+      "outputRef": "commands/command-3-git.txt"
+    },
+    {
+      "command": "codex exec --sandbox workspace-write --cd /Users/wes/Developer/strategy-recipes <prompt omitted>",
+      "exitCode": 0,
+      "outputRef": "commands/command-4-codex.txt"
+    },
+    {
+      "command": "git status --porcelain",
+      "exitCode": 0,
+      "outputRef": "commands/command-5-git.txt"
+    },
+    {
+      "command": "git add -- docs/product/function-factory-dogfood-evidence.md",
+      "exitCode": 0,
+      "outputRef": "commands/command-6-git.txt"
+    },
+    {
+      "command": "git commit -m [Factory] AR-STRATEGY-RECIPES-PARENT-VERIFY-EVIDENCE",
+      "exitCode": 0,
+      "outputRef": "commands/command-7-git.txt"
+    },
+    {
+      "command": "/bin/zsh -lc pnpm --dir packages/strategy-objects test",
+      "exitCode": 0,
+      "outputRef": "commands/command-8--bin-zsh.txt"
+    },
+    {
+      "command": "/bin/zsh -lc pnpm --dir packages/strategy-objects typecheck",
+      "exitCode": 0,
+      "outputRef": "commands/command-9--bin-zsh.txt"
+    },
+    {
+      "command": "/bin/zsh -lc npm run test:strategy-recipes",
+      "exitCode": 0,
+      "outputRef": "commands/command-10--bin-zsh.txt"
+    }
+  ],
+  "evidence": [
+    {
+      "kind": "artifact_paths",
+      "summary": "Runner artifact manifest.",
+      "path": "manifest.json"
+    },
+    {
+      "kind": "verification_output",
+      "summary": "Parent scheduler verification output captured after commit and before PR publication.",
+      "path": "verification-output.txt"
+    },
+    {
+      "kind": "pr_url",
+      "summary": "Pull request opened for worker output.",
+      "url": "https://github.com/Wescome/strategy-recipes/pull/72"
+    }
+  ],
+  "branchName": "factory/strategy-recipes-parent-verify-evidence/ar-strategy-recipes-parent-verify-evidence-parent-verification-20260430t2235",
+  "prUrl": "https://github.com/Wescome/strategy-recipes/pull/72"
+}

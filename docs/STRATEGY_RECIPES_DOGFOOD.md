@@ -22,6 +22,19 @@ $HOME/.factory/dogfood/strategy-recipes/<run-id>/
 └── bundle/
 ```
 
+Ephemeral bundles can be promoted into repo-tracked evidence:
+
+```bash
+pnpm run autonomous-scheduler:cli -- record-run-manifest \
+  $HOME/.factory/dogfood/strategy-recipes/<run-id>/bundle \
+  --output-dir evidence/dogfood-runs/strategy-recipes/<run-id>
+```
+
+The tracked run record contains `request.json`, `execution.json`, `result.json`,
+command outputs, aggregate evidence files, and `manifest.json` with relative
+paths plus file hashes. That manifest is the durable audit surface after `/tmp`
+or `$HOME/.factory` cleanup.
+
 ## Real Mode
 
 Real mode is intentionally explicit:
@@ -137,3 +150,9 @@ bundle hardening issue: every evidence path advertised by `AgentResult` must be
 physically written into the bundle. The scheduler now writes `diff.patch`,
 `test-output.txt`, `typecheck-output.txt`, and `verification-output.txt` when
 those evidence kinds are present.
+
+The PR #72 run has also been promoted into a repo-tracked evidence record:
+
+```text
+evidence/dogfood-runs/strategy-recipes/2026-04-30-parent-verification/
+```

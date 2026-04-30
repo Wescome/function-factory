@@ -1,0 +1,90 @@
+{
+  "schemaVersion": "factory.agent-request.v0",
+  "id": "AR-STRATEGY-RECIPES-PARENT-VERIFY-EVIDENCE",
+  "createdAt": "2026-04-30T22:35:00.000Z",
+  "workgraph": {
+    "id": "WG-STRATEGY-RECIPES-PARENT-VERIFY-EVIDENCE",
+    "nodeId": "record-parent-verification-evidence",
+    "sourceRefs": [
+      "Strategy_Recipes_UX_Architecture_v1.1.md",
+      "PR-71-strategy-recipes-dogfood-evidence",
+      "PR-44-function-factory-parent-verification-evidence"
+    ],
+    "sourcePrdId": "PRD-STRATEGY-RECIPES-UX-V1-1"
+  },
+  "role": "builder",
+  "objective": "Record the Function Factory parent-verification dogfood proof in Strategy.Recipes.",
+  "prompt": "Update docs/product/function-factory-dogfood-evidence.md to add a concise section for Strategy.Recipes PR #71 and the Function Factory PR #44 parent-verification hardening. Mention that PR #71 was merged after parent-environment verification and that Function Factory now reruns requiredCommands after parent commit and before PR publication. Keep the change documentation-only and do not alter app/, server/, packaging/, package implementation, tests, or generated assets. If README.md already points to this evidence doc, do not edit it unless a small clarification is necessary.",
+  "repo": {
+    "provider": "github",
+    "name": "strategy-recipes",
+    "defaultBranch": "main",
+    "owner": "Wescome",
+    "remoteUrl": "https://github.com/Wescome/strategy-recipes.git"
+  },
+  "branch": {
+    "mode": "new_pr_branch",
+    "base": "main",
+    "prefix": "factory/strategy-recipes-parent-verify-evidence"
+  },
+  "policy": {
+    "autonomyMode": "branch_pr",
+    "allowedPaths": [
+      "docs/product/function-factory-dogfood-evidence.md",
+      "README.md"
+    ],
+    "forbiddenActions": [
+      "merge_default_branch",
+      "deploy_production",
+      "force_push",
+      "delete_remote_branch",
+      "edit_secrets"
+    ],
+    "requiresHumanApprovalFor": [
+      "merge_default_branch",
+      "deploy_production",
+      "edit_secrets"
+    ],
+    "maxRuntimeMinutes": 30
+  },
+  "context": {
+    "summary": "Function Factory PR #44 hardened the scheduler so parent-observed requiredCommands become first-class result evidence. Strategy.Recipes PR #71 is the latest external workload proof.",
+    "artifacts": [
+      {
+        "id": "PR-71-STRATEGY-RECIPES-DOGFOOD-EVIDENCE",
+        "kind": "github-pr",
+        "path": "https://github.com/Wescome/strategy-recipes/pull/71"
+      },
+      {
+        "id": "PR-44-FUNCTION-FACTORY-PARENT-VERIFY",
+        "kind": "github-pr",
+        "path": "https://github.com/Wescome/function-factory/pull/44"
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "docs/product/function-factory-dogfood-evidence.md records PR #71 as a merged Function Factory dogfood proof.",
+    "The evidence doc records the parent-verification hardening from Function Factory PR #44.",
+    "The change is documentation-only and stays within the allowed paths.",
+    "The scheduler result bundle includes parent verification evidence for the required commands."
+  ],
+  "requiredCommands": [
+    "pnpm --dir packages/strategy-objects test",
+    "pnpm --dir packages/strategy-objects typecheck",
+    "npm run test:strategy-recipes"
+  ],
+  "expectedArtifacts": [
+    {
+      "path": "docs/product/function-factory-dogfood-evidence.md",
+      "kind": "product-doc"
+    }
+  ],
+  "evidenceRequired": [
+    "git_diff",
+    "test_output",
+    "typecheck_output",
+    "verification_output",
+    "artifact_paths",
+    "pr_url"
+  ]
+}
