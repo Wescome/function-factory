@@ -6,6 +6,7 @@ import {
   AutonomousSchedulerValidationError,
   JsonlAgentQueue,
   buildCodexWorkerPrompt,
+  executeCodexRunnerPlan,
   planCodexRunner,
   validateAgentRequest,
   validateAgentResult,
@@ -139,6 +140,52 @@ describe('Codex runner planning', () => {
 
     expect(() => planCodexRunner(invalid, { repoRoot: '/tmp/strategy-recipes' })).toThrow(
       'Codex runner cannot execute autonomyMode=enqueue_only',
+    )
+  })
+
+  it('executes planned commands sequentially through an injected executor', async () => {
+    const plan = planCodexRunner(requestFixture, { repoRoot: '/tmp/strategy-recipes' })
+    const seen: string[] = []
+    const execution = await executeCodexRunnerPlan(plan, async (command) => {
+      seen.push(command.command)
+      return {
+        command: command.command,
+        args: command.args,
+        cwd: command.cwd,
+        exitCode: 0,
+        stdout: '',
+        stderr: '',
+        startedAt: '2026-04-30T14:30:00.000Z',
+        completedAt: '2026-04-30T14:30:01.000Z',
+      }
+    })
+
+    expect(seen).toEqual(['git', 'git', 'git', 'codex'])
+    expect(execution.status).toBe('completed')
+    expect(execution.commands).toHaveLength(4)
+  })
+
+  it('stops runner execution on first failing command', async () => {
+    const plan = planCodexRunner(requestFixture, { repoRoot: '/tmp/strategy-recipes' })
+    let count = 0
+    const execution = await executeCodexRunnerPlan(plan, async (command) => {
+      count += 1
+      return {
+        command: command.command,
+        args: command.args,
+        cwd: command.cwd,
+        exitCode: count === 2 ? 1 : 0,
+        stdout: '',
+        stderr: count === 2 ? 'branch exists' : '',
+        startedAt: '2026-04-30T14:30:00.000Z',
+        completedAt: '2026-04-30T14:30:01.000Z',
+      }
+    })
+
+    expect(execution.status).toBe('failed')
+    expect(execution.commands).toHaveLength(2)
+    expect(execution.failedCommand).toBe(
+      'git switch -c factory/strategy-recipes-first-product-view/ar-strategy-recipes-first-product-view origin/main',
     )
   })
 })

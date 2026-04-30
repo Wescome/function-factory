@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process'
 import { appendFile, mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
@@ -203,6 +204,31 @@ export interface CodexRunnerPlan {
   preflightCommands: RunnerCommand[]
   codexCommand: RunnerCommand
   prompt: string
+}
+
+export interface CommandRunResult {
+  command: string
+  args: string[]
+  cwd: string
+  exitCode: number
+  stdout: string
+  stderr: string
+  startedAt: string
+  completedAt: string
+}
+
+export interface CodexRunnerExecution {
+  requestId: string
+  branchName: string
+  status: 'completed' | 'failed'
+  commands: CommandRunResult[]
+  failedCommand?: string
+}
+
+export type CommandExecutor = (command: RunnerCommand) => Promise<CommandRunResult>
+
+export interface ProcessCommandExecutorOptions {
+  now?: () => Date
 }
 
 export class AutonomousSchedulerValidationError extends Error {
@@ -443,6 +469,56 @@ export function buildCodexWorkerPrompt(input: unknown): string {
     'Return an AgentResult-compatible summary with changed files, command evidence, PR URL, and refusalReason if refused.',
     'Do not merge, deploy, force-push, delete remote branches, edit secrets, or write outside allowed paths.',
   ].join('\n')
+}
+
+export async function executeCodexRunnerPlan(
+  plan: CodexRunnerPlan,
+  executor: CommandExecutor = createProcessCommandExecutor(),
+): Promise<CodexRunnerExecution> {
+  const commands: CommandRunResult[] = []
+
+  for (const command of [...plan.preflightCommands, plan.codexCommand]) {
+    const result = await executor(command)
+    commands.push(result)
+
+    if (result.exitCode !== 0) {
+      return {
+        requestId: plan.requestId,
+        branchName: plan.branchName,
+        status: 'failed',
+        commands,
+        failedCommand: stringifyCommand(command),
+      }
+    }
+  }
+
+  return {
+    requestId: plan.requestId,
+    branchName: plan.branchName,
+    status: 'completed',
+    commands,
+  }
+}
+
+export function createProcessCommandExecutor(options?: ProcessCommandExecutorOptions): CommandExecutor {
+  const now = options?.now ?? (() => new Date())
+
+  return async (command: RunnerCommand): Promise<CommandRunResult> => {
+    const startedAt = now().toISOString()
+    const { exitCode, stdout, stderr } = await spawnCommand(command)
+    const completedAt = now().toISOString()
+
+    return {
+      command: command.command,
+      args: command.args,
+      cwd: command.cwd,
+      exitCode,
+      stdout,
+      stderr,
+      startedAt,
+      completedAt,
+    }
+  }
 }
 
 export class JsonlAgentQueue {
@@ -954,6 +1030,36 @@ function sanitizeId(id: string): string {
 
 function buildBranchName(request: AgentRequest): string {
   return `${request.branch.prefix}/${sanitizeId(request.id).toLowerCase()}`
+}
+
+function stringifyCommand(command: RunnerCommand): string {
+  return [command.command, ...command.args].join(' ')
+}
+
+async function spawnCommand(command: RunnerCommand): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+  return await new Promise((resolve, reject) => {
+    const child = spawn(command.command, command.args, {
+      cwd: command.cwd,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    const stdout: Buffer[] = []
+    const stderr: Buffer[] = []
+
+    child.stdout.on('data', (chunk: Buffer) => {
+      stdout.push(chunk)
+    })
+    child.stderr.on('data', (chunk: Buffer) => {
+      stderr.push(chunk)
+    })
+    child.on('error', reject)
+    child.on('close', (code) => {
+      resolve({
+        exitCode: code ?? 1,
+        stdout: Buffer.concat(stdout).toString('utf8'),
+        stderr: Buffer.concat(stderr).toString('utf8'),
+      })
+    })
+  })
 }
 
 function isNotFound(error: unknown): boolean {

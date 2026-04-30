@@ -88,7 +88,8 @@ Function Factory reaches production alpha autonomy when:
 6. Cockpit views over queue state and evidence.
 
 Steps 1 and 2 are bootstrapped by the initial autonomous scheduler contract
-slice. The Codex runner planning adapter is also bootstrapped: it validates an
-`AgentRequest`, derives the PR branch, emits git preflight commands, and builds
-the Codex worker prompt. The next production-alpha slice is the process-spawning
-runner that executes this plan and writes a validated `AgentResult`.
+slice. The Codex runner adapter is also bootstrapped: it validates an
+`AgentRequest`, derives the PR branch, emits git preflight commands, builds the
+Codex worker prompt, and executes the command plan through an injectable executor.
+The next production-alpha slice is converting runner command evidence into a
+validated `AgentResult` and PR artifact bundle.

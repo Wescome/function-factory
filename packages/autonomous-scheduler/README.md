@@ -18,11 +18,15 @@ The initial operational posture is PR/branch mode. Direct default-branch
 mutation, production deploys, force-pushes, and secret edits are explicitly
 outside the permitted contract.
 
-The Codex runner adapter currently plans execution instead of spawning a process:
+The Codex runner adapter currently plans and can execute commands through an
+injectable executor:
 
 1. Validate the `AgentRequest`.
 2. Derive the PR branch name.
 3. Produce git preflight commands.
 4. Build the Codex worker prompt with policy, context, commands, and evidence requirements.
+5. Execute the plan sequentially, stopping on the first non-zero exit.
 
-The process-spawning runner is the next integration slice.
+Production wiring can use the built-in process executor; tests should inject a
+deterministic executor. The next integration slice is converting runner command
+evidence into a validated `AgentResult` and PR artifact bundle.
