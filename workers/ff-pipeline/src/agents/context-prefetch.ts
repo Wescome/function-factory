@@ -16,6 +16,7 @@ export interface PrefetchedContext {
   mentorRules: { ruleId: string; rule: string }[]
   existingFunctions: { key: string; name: string; domain?: string }[]
   invariants: { key: string; description: string }[]
+  curatedLessons: { key: string; pattern: string; confidence: number; severity: string; recommendation: string; affects_agents: string[] }[]
 }
 
 /**
@@ -27,7 +28,7 @@ export interface PrefetchedContext {
  * grounding data).
  */
 export async function prefetchAgentContext(db: ArangoClient): Promise<PrefetchedContext> {
-  const [decisions, lessons, mentorRules, existingFunctions, invariants] = await Promise.all([
+  const [decisions, lessons, mentorRules, existingFunctions, invariants, curatedLessons] = await Promise.all([
     db.query<{ key: string; decision: string; rationale?: string }>(
       'FOR d IN memory_semantic FILTER d.type == "decision" LIMIT 10 RETURN { key: d._key, decision: d.decision, rationale: d.rationale }',
     ).catch(() => [] as { key: string; decision: string; rationale?: string }[]),
@@ -47,9 +48,19 @@ export async function prefetchAgentContext(db: ArangoClient): Promise<Prefetched
     db.query<{ key: string; description: string }>(
       'FOR i IN specs_invariants LIMIT 10 RETURN { key: i._key, description: i.description }',
     ).catch(() => [] as { key: string; description: string }[]),
+
+    db.query<{ key: string; pattern: string; confidence: number; severity: string; recommendation: string; affects_agents: string[] }>(
+      `FOR l IN memory_curated
+         FILTER l.type == 'curated_lesson'
+         FILTER l.decay_status == 'active'
+         FILTER l.confidence >= 0.5
+         SORT l.confidence DESC
+         LIMIT 10
+         RETURN { key: l._key, pattern: l.pattern, confidence: l.confidence, severity: l.severity, recommendation: l.recommendation, affects_agents: l.affects_agents }`,
+    ).catch(() => [] as { key: string; pattern: string; confidence: number; severity: string; recommendation: string; affects_agents: string[] }[]),
   ])
 
-  return { decisions, lessons, mentorRules, existingFunctions, invariants }
+  return { decisions, lessons, mentorRules, existingFunctions, invariants, curatedLessons }
 }
 
 /**
@@ -78,6 +89,10 @@ export function formatContextForPrompt(ctx: PrefetchedContext): string {
   if (ctx.invariants.length > 0) {
     parts.push('\n### Active Invariants')
     for (const i of ctx.invariants) parts.push(`- [${i.key}] ${i.description}`)
+  }
+  if (ctx.curatedLessons.length > 0) {
+    parts.push('\n### Curated Lessons (orientation-verified)')
+    for (const l of ctx.curatedLessons) parts.push(`- [${l.key}] ${l.pattern} (confidence: ${l.confidence}, severity: ${l.severity}) — ${l.recommendation}`)
   }
 
   if (parts.length === 1) parts.push('(No context available in knowledge graph)')

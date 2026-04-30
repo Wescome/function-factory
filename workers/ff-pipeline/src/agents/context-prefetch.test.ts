@@ -45,6 +45,9 @@ function createMockDb(overrides?: { failCollections?: string[] }) {
         if (query.includes('specs_invariants')) {
           return [{ key: 'INV-001', description: 'All tokens must expire within 24h' }]
         }
+        if (query.includes('memory_curated')) {
+          return [{ key: 'CL-001', pattern: 'F1 prose output', confidence: 0.85, severity: 'high', recommendation: 'Reduce context', affects_agents: ['coder'] }]
+        }
         return []
       },
     } as any,
@@ -77,8 +80,11 @@ describe('prefetchAgentContext', () => {
     expect(ctx.invariants).toHaveLength(1)
     expect(ctx.invariants[0].description).toBe('All tokens must expire within 24h')
 
-    // All 5 queries should have been issued in parallel
-    expect(calls).toHaveLength(5)
+    expect(ctx.curatedLessons).toHaveLength(1)
+    expect(ctx.curatedLessons[0].pattern).toBe('F1 prose output')
+
+    // All 6 queries should have been issued in parallel
+    expect(calls).toHaveLength(6)
   })
 
   it('returns empty arrays when all queries fail', async () => {
@@ -93,6 +99,7 @@ describe('prefetchAgentContext', () => {
     expect(ctx.mentorRules).toEqual([])
     expect(ctx.existingFunctions).toEqual([])
     expect(ctx.invariants).toEqual([])
+    expect(ctx.curatedLessons).toEqual([])
   })
 
   it('returns partial results when some queries fail', async () => {
@@ -105,6 +112,7 @@ describe('prefetchAgentContext', () => {
     expect(ctx.mentorRules).toEqual([])
     expect(ctx.existingFunctions).toHaveLength(1)
     expect(ctx.invariants).toEqual([])
+    expect(ctx.curatedLessons).toHaveLength(1)
   })
 })
 
@@ -116,6 +124,7 @@ describe('formatContextForPrompt', () => {
       mentorRules: [{ ruleId: 'MR-001', rule: 'No global state in handlers' }],
       existingFunctions: [{ key: 'FN-001', name: 'auth-module', domain: 'identity' }],
       invariants: [{ key: 'INV-001', description: 'All tokens must expire within 24h' }],
+      curatedLessons: [{ key: 'CL-001', pattern: 'F1 prose output', confidence: 0.85, severity: 'high', recommendation: 'Reduce context', affects_agents: ['coder'] }],
     }
 
     const text = formatContextForPrompt(ctx)
@@ -131,6 +140,8 @@ describe('formatContextForPrompt', () => {
     expect(text).toContain('[FN-001] auth-module (identity)')
     expect(text).toContain('### Active Invariants')
     expect(text).toContain('[INV-001] All tokens must expire within 24h')
+    expect(text).toContain('### Curated Lessons (orientation-verified)')
+    expect(text).toContain('[CL-001] F1 prose output')
   })
 
   it('handles empty context gracefully', () => {
@@ -140,6 +151,7 @@ describe('formatContextForPrompt', () => {
       mentorRules: [],
       existingFunctions: [],
       invariants: [],
+      curatedLessons: [],
     }
 
     const text = formatContextForPrompt(ctx)
@@ -156,6 +168,7 @@ describe('formatContextForPrompt', () => {
       mentorRules: [],
       existingFunctions: [{ key: 'FN-002', name: 'orphan-fn' }],
       invariants: [],
+      curatedLessons: [],
     }
 
     const text = formatContextForPrompt(ctx)
@@ -170,6 +183,7 @@ describe('formatContextForPrompt', () => {
       mentorRules: [],
       existingFunctions: [],
       invariants: [{ key: 'INV-001', description: 'No Python' }],
+      curatedLessons: [],
     }
 
     const text = formatContextForPrompt(ctx)

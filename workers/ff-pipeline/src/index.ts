@@ -339,6 +339,39 @@ export default {
         continue
       }
 
+      // ── feedback-signals queue: memory-curation messages ──
+      if (batch.queue === 'feedback-signals' && (msg.body as any).type === 'memory-curation') {
+        try {
+          const { MemoryCuratorAgent } = await import('./agents/memory-curator-agent.js')
+          const { keyForModel, resolveAgentModel } = await import('./agents/resolve-model.js')
+          const { createClientFromEnv } = await import('@factory/arango-client')
+          const { validateArtifact } = await import('@factory/artifact-validator')
+
+          const db = createClientFromEnv(env)
+          db.setValidator(validateArtifact)
+
+          const model = resolveAgentModel('planning')
+          const curator = new MemoryCuratorAgent({
+            db,
+            apiKey: keyForModel(model, env),
+          })
+          const curation = await curator.curate()
+          const { written, errors } = await curator.persist(curation)
+          console.log(`[MemoryCurator] Curated: ${curation.curated_lessons.length} lessons, ${curation.pattern_library_entries.length} patterns, ${written} written, ${errors.length} errors`)
+          msg.ack()
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : String(err)
+          console.error(`[MemoryCurator] Curation failed: ${errorMessage}`)
+          if (msg.attempts >= 3) {
+            console.error(`[MemoryCurator] Exhausted retries`)
+            msg.ack()
+          } else {
+            msg.retry()
+          }
+        }
+        continue
+      }
+
       // ── feedback-signals queue: synthesis results → new signals ──
       if (batch.queue === 'feedback-signals') {
         try {
@@ -381,6 +414,9 @@ export default {
               }
             }
           }
+
+          // After all feedback signals processed, trigger memory curation
+          await (env.FEEDBACK_QUEUE as any)?.send({ type: 'memory-curation', timestamp: new Date().toISOString() }).catch(() => {})
 
           msg.ack()
         } catch (err) {
