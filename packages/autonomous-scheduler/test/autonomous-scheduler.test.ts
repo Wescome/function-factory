@@ -448,7 +448,7 @@ describe('Codex runner planning', () => {
       cwd: '/tmp/strategy-recipes',
     })
     expect(prPlan.command.command).toBe('gh')
-    expect(prPlan.command.args.slice(0, 3)).toEqual(['pr', 'create', '--base'])
+    expect(prPlan.command.args.slice(0, 4)).toEqual(['pr', 'create', '--repo', 'Wescome/strategy-recipes'])
     expect(prPlan.command.args).toContain('main')
     expect(prPlan.command.args).toContain('factory/strategy-recipes-first-product-view/ar-strategy-recipes-first-product-view')
     expect(prPlan.body).toContain('Factory request: AR-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW')

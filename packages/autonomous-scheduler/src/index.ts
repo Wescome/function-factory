@@ -1011,6 +1011,7 @@ export function planPullRequest(
 
   const title = options.title ?? `[Factory] ${request.objective}`
   const body = options.body ?? buildPullRequestBody(request, execution)
+  const repoSpecifier = request.repo.owner ? `${request.repo.owner}/${request.repo.name}` : request.repo.name
 
   return {
     requestId: request.id,
@@ -1027,6 +1028,8 @@ export function planPullRequest(
       args: [
         'pr',
         'create',
+        '--repo',
+        repoSpecifier,
         '--base',
         request.branch.base,
         '--head',
