@@ -167,6 +167,7 @@ export interface QueueEvent {
 export interface JsonlAgentQueueOptions {
   queueDir: string
   actor: string
+  leaseMs?: number
   now?: () => Date
 }
 
@@ -174,6 +175,8 @@ export interface QueueClaim {
   requestId: string
   actor: string
   claimedAt: string
+  heartbeatAt: string
+  leaseExpiresAt: string
 }
 
 export interface JsonlQueueStatus {
@@ -871,11 +874,13 @@ export async function runSingleAgentRequest(
 export class JsonlAgentQueue {
   private readonly queueDir: string
   private readonly actor: string
+  private readonly leaseMs: number
   private readonly now: () => Date
 
   public constructor(options: JsonlAgentQueueOptions) {
     this.queueDir = options.queueDir
     this.actor = options.actor
+    this.leaseMs = options.leaseMs ?? 15 * 60 * 1000
     this.now = options.now ?? (() => new Date())
   }
 
@@ -924,26 +929,55 @@ export class JsonlAgentQueue {
       if (completed.has(request.id)) continue
 
       const claimPath = this.claimPath(request.id)
-      const claim: QueueClaim = {
-        requestId: request.id,
-        actor: this.actor,
-        claimedAt: this.now().toISOString(),
-      }
+      const claim = this.createClaim(request.id)
 
       try {
         await writeFile(claimPath, `${JSON.stringify(claim, null, 2)}\n`, { encoding: 'utf8', flag: 'wx' })
         await this.appendEvent('request.claimed', request.id, {
           actor: this.actor,
           claimPath,
+          reclaimed: false,
         })
         return request
       } catch (error) {
-        if (isAlreadyExists(error)) continue
-        throw error
+        if (!isAlreadyExists(error)) throw error
+        const existingClaim = await this.readClaim(request.id)
+        if (existingClaim && this.isClaimActive(existingClaim)) continue
+        await writeFile(claimPath, `${JSON.stringify(claim, null, 2)}\n`, 'utf8')
+        await this.appendEvent('request.claimed', request.id, {
+          actor: this.actor,
+          claimPath,
+          reclaimed: true,
+        })
+        return request
       }
     }
 
     return null
+  }
+
+  public async heartbeat(requestId: string): Promise<QueueClaim> {
+    await this.init()
+    const existing = await this.readClaim(requestId)
+    if (!existing) {
+      throw new Error(`Cannot heartbeat unclaimed request: ${requestId}`)
+    }
+
+    const now = this.now()
+    const updated: QueueClaim = {
+      ...existing,
+      actor: this.actor,
+      heartbeatAt: now.toISOString(),
+      leaseExpiresAt: new Date(now.getTime() + this.leaseMs).toISOString(),
+    }
+
+    await writeFile(this.claimPath(requestId), `${JSON.stringify(updated, null, 2)}\n`, 'utf8')
+    await this.appendEvent('request.heartbeat', requestId, {
+      actor: this.actor,
+      leaseExpiresAt: updated.leaseExpiresAt,
+    })
+
+    return updated
   }
 
   public async complete(input: unknown): Promise<AgentResult> {
@@ -979,8 +1013,9 @@ export class JsonlAgentQueue {
     const completed = results.filter((result) => result.status === 'completed').length
     const failed = results.filter((result) => result.status === 'failed').length
     const refused = results.filter((result) => result.status === 'refused').length
-    const claimed = requests.filter((request) => claimedRequestIds.has(request.id) && !resultRequestIds.has(request.id)).length
-    const pending = requests.filter((request) => !claimedRequestIds.has(request.id) && !resultRequestIds.has(request.id)).length
+    const activeClaimIds = new Set(claims.filter((claim) => this.isClaimActive(claim)).map((claim) => claim.requestId))
+    const claimed = requests.filter((request) => activeClaimIds.has(request.id) && !resultRequestIds.has(request.id)).length
+    const pending = requests.filter((request) => !activeClaimIds.has(request.id) && !resultRequestIds.has(request.id)).length
 
     return {
       queueDir: this.queueDir,
@@ -1002,6 +1037,15 @@ export class JsonlAgentQueue {
       claims.push(parsed)
     }
     return claims
+  }
+
+  private async readClaim(requestId: string): Promise<QueueClaim | null> {
+    try {
+      return JSON.parse(await readFile(this.claimPath(requestId), 'utf8')) as QueueClaim
+    } catch (error) {
+      if (isNotFound(error)) return null
+      throw error
+    }
   }
 
   private async listResults(): Promise<AgentResult[]> {
@@ -1027,6 +1071,21 @@ export class JsonlAgentQueue {
     })
 
     await appendJsonLine(this.eventsPath, event)
+  }
+
+  private createClaim(requestId: string): QueueClaim {
+    const now = this.now()
+    return {
+      requestId,
+      actor: this.actor,
+      claimedAt: now.toISOString(),
+      heartbeatAt: now.toISOString(),
+      leaseExpiresAt: new Date(now.getTime() + this.leaseMs).toISOString(),
+    }
+  }
+
+  private isClaimActive(claim: QueueClaim): boolean {
+    return Date.parse(claim.leaseExpiresAt) > this.now().getTime()
   }
 
   private get requestsPath(): string {

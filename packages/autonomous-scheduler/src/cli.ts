@@ -41,12 +41,28 @@ async function main(): Promise<void> {
     }
 
     if (command === 'claim') {
-      const queue = new JsonlAgentQueue({
+      const queueOptions: ConstructorParameters<typeof JsonlAgentQueue>[0] = {
         queueDir: requiredArg(args, 0, 'queue dir'),
         actor: option(args, '--actor') ?? 'factory-runner',
-      })
+      }
+      const leaseMs = numberOption(args, '--lease-ms')
+      if (leaseMs !== undefined) queueOptions.leaseMs = leaseMs
+      const queue = new JsonlAgentQueue(queueOptions)
       const request = await queue.claimNext()
       printJson({ ok: true, claimed: request?.id ?? null })
+      return
+    }
+
+    if (command === 'heartbeat') {
+      const queueOptions: ConstructorParameters<typeof JsonlAgentQueue>[0] = {
+        queueDir: requiredArg(args, 0, 'queue dir'),
+        actor: option(args, '--actor') ?? 'factory-runner',
+      }
+      const leaseMs = numberOption(args, '--lease-ms')
+      if (leaseMs !== undefined) queueOptions.leaseMs = leaseMs
+      const queue = new JsonlAgentQueue(queueOptions)
+      const claim = await queue.heartbeat(requiredArg(args, 1, 'request id'))
+      printJson({ ok: true, claim })
       return
     }
 
@@ -132,7 +148,8 @@ function printHelp(): void {
     'Commands:',
     '  validate-request <request.json>',
     '  enqueue <queue-dir> <request.json> [--actor name]',
-    '  claim <queue-dir> [--actor name]',
+    '  claim <queue-dir> [--actor name] [--lease-ms n]',
+    '  heartbeat <queue-dir> <request-id> [--actor name] [--lease-ms n]',
     '  status <queue-dir> [--actor name]',
     '  plan <request.json> --repo-root <path>',
     '  run-single <queue-dir> <request.json> --repo-root <path> --bundle-dir <path> [--changed-files a,b] [--diff-file path]',
@@ -175,6 +192,16 @@ function csvOption(args: string[], name: string): string[] | undefined {
   const value = option(args, name)
   if (!value) return undefined
   return value.split(',').map((entry) => entry.trim()).filter(Boolean)
+}
+
+function numberOption(args: string[], name: string): number | undefined {
+  const value = option(args, name)
+  if (!value) return undefined
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`${name} must be a positive number`)
+  }
+  return parsed
 }
 
 function printJson(value: unknown): void {

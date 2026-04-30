@@ -51,3 +51,6 @@ pnpm run autonomous-scheduler:cli -- status /tmp/factory-queue
 
 `run-single` is intentionally explicit because it executes `git`, `codex`, and
 `gh` against the requested repo.
+
+Queue claims include leases and heartbeats. Expired claims can be reclaimed by a
+later runner; active claims are excluded from pending queue counts.

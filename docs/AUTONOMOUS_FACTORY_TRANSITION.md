@@ -99,4 +99,5 @@ bundle, and completes the queue item. The CLI entrypoint is
 `pnpm run autonomous-scheduler:cli -- ...`; it can validate, enqueue, claim,
 status, plan, and explicitly run a single request against a real checkout. The
 next production-alpha slice is the daemon that invokes the same path repeatedly
-with leases, heartbeats, and stop controls.
+with stop controls. Queue leases and heartbeats are already part of the JSONL
+queue boundary, so a daemon can safely reclaim expired worker claims.

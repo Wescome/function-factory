@@ -395,6 +395,51 @@ describe('JsonlAgentQueue', () => {
       'AgentRequest already exists in queue: AR-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW',
     )
   })
+
+  it('heartbeats active claims and records heartbeat events', async () => {
+    const queue = new JsonlAgentQueue({
+      queueDir: mkdtempSync(join(tmpdir(), 'factory-autonomous-')),
+      actor: 'factory-runner',
+      leaseMs: 60_000,
+      now: fixedClock(),
+    })
+
+    await queue.enqueue(requestFixture)
+    await queue.claimNext()
+    const claim = await queue.heartbeat('AR-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW')
+
+    expect(claim.heartbeatAt).toBe('2026-04-30T14:30:00.000Z')
+    expect(claim.leaseExpiresAt).toBe('2026-04-30T14:31:00.000Z')
+    expect((await queue.listEvents()).map((event) => event.type)).toContain('request.heartbeat')
+  })
+
+  it('reclaims expired claims', async () => {
+    let current = new Date('2026-04-30T14:30:00.000Z')
+    const queueDir = mkdtempSync(join(tmpdir(), 'factory-autonomous-'))
+    const queue = new JsonlAgentQueue({
+      queueDir,
+      actor: 'factory-runner-1',
+      leaseMs: 1_000,
+      now: () => current,
+    })
+
+    await queue.enqueue(requestFixture)
+    expect((await queue.claimNext())?.id).toBe('AR-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW')
+    expect(await queue.status()).toMatchObject({ pending: 0, claimed: 1 })
+
+    current = new Date('2026-04-30T14:30:02.000Z')
+    const reclaimingQueue = new JsonlAgentQueue({
+      queueDir,
+      actor: 'factory-runner-2',
+      leaseMs: 1_000,
+      now: () => current,
+    })
+
+    expect(await reclaimingQueue.status()).toMatchObject({ pending: 1, claimed: 0 })
+    expect((await reclaimingQueue.claimNext())?.id).toBe('AR-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW')
+    expect(await reclaimingQueue.status()).toMatchObject({ pending: 0, claimed: 1 })
+    expect((await reclaimingQueue.listEvents()).filter((event) => event.type === 'request.claimed')).toHaveLength(2)
+  })
 })
 
 describe('single-request scheduler run', () => {
