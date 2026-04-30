@@ -103,3 +103,37 @@ Follow-up hardening from this proof: the scheduler now reruns
 `requiredCommands` from the parent process after committing worker changes and
 before pushing the PR branch. Those commands are captured as
 `verification_output` evidence in each result bundle.
+
+## 2026-04-30 Parent Verification Run
+
+After PR #44 landed, the scheduler ran a real follow-up dogfood request:
+
+```text
+AR-STRATEGY-RECIPES-PARENT-VERIFY-EVIDENCE
+```
+
+It opened Strategy.Recipes PR #72:
+
+```text
+https://github.com/Wescome/strategy-recipes/pull/72
+```
+
+Evidence bundle:
+
+```text
+/tmp/factory-dogfood-parent-verification/strategy-recipes/strategy-recipes-20260430T223122053Z/bundle
+```
+
+Parent verification passed on the published branch:
+
+```text
+pnpm --dir packages/strategy-objects test      # pass, 5/5
+pnpm --dir packages/strategy-objects typecheck # pass
+npm run test:strategy-recipes                  # pass, 127/127
+```
+
+That run verified the parent gate behavior end-to-end and exposed one remaining
+bundle hardening issue: every evidence path advertised by `AgentResult` must be
+physically written into the bundle. The scheduler now writes `diff.patch`,
+`test-output.txt`, `typecheck-output.txt`, and `verification-output.txt` when
+those evidence kinds are present.

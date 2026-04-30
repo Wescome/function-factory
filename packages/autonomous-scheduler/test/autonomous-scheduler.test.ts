@@ -356,6 +356,7 @@ describe('Codex runner planning', () => {
       agentRunId: 'RUN-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW-002',
       completedAt: '2026-04-30T14:35:00.000Z',
       artifactBasePath: 'artifacts/AR-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW',
+      diff: 'diff --git a/docs/product/first-product-view.md b/docs/product/first-product-view.md',
       prUrl: 'https://github.com/Wescome/strategy-recipes/pull/2',
       changedFiles: ['docs/product/first-product-view.md'],
     })
@@ -714,7 +715,14 @@ describe('single-request scheduler run', () => {
     expect(outcome.pullRequest?.prUrl).toBe('https://github.com/Wescome/strategy-recipes/pull/5')
     expect(outcome.execution.commands.filter((command) => command.phase === 'verification')).toHaveLength(3)
     expect(outcome.result.evidence.map((entry) => entry.kind)).toContain('verification_output')
+    expect(outcome.result.evidence.map((entry) => entry.kind)).toContain('git_diff')
+    expect(outcome.bundle.files.diff).toBeDefined()
+    expect(outcome.bundle.files.testOutput).toBeDefined()
+    expect(outcome.bundle.files.typecheckOutput).toBeDefined()
     expect(outcome.bundle.files.verification).toBeDefined()
+    expect(readFileSync(outcome.bundle.files.diff ?? '', 'utf8')).toContain('diff --git')
+    expect(readFileSync(outcome.bundle.files.testOutput ?? '', 'utf8')).toContain('pnpm test')
+    expect(readFileSync(outcome.bundle.files.typecheckOutput ?? '', 'utf8')).toContain('pnpm typecheck')
     expect(readFileSync(outcome.bundle.files.verification ?? '', 'utf8')).toContain('pnpm test')
     expect(readFileSync(outcome.bundle.files.manifest, 'utf8')).toContain('factory.agent-result-bundle.v0')
     expect(await queue.status()).toMatchObject({
@@ -928,11 +936,12 @@ describe('single-request scheduler run', () => {
     expect(outcome.result.status).toBe('failed')
     expect(outcome.execution.failedCommand).toBe('pull request creation')
     const executedCommands = outcome.execution.commands.map((command) => command.command)
-    expect(executedCommands.slice(0, 7)).toEqual([
+    expect(executedCommands.slice(0, 8)).toEqual([
       'git',
       'git',
       'git',
       'codex',
+      'git',
       'git',
       'git',
       'git',
@@ -1066,7 +1075,9 @@ function successfulGitHubExecutor(prUrl: string) {
       ? prUrl
       : command.args.includes('--porcelain')
         ? 'M docs/product/first-product-view.md\n'
-        : 'ok\n',
+        : command.args[0] === 'show'
+          ? 'diff --git a/docs/product/first-product-view.md b/docs/product/first-product-view.md\n'
+          : 'ok\n',
     stderr: '',
     startedAt: '2026-04-30T14:36:00.000Z',
     completedAt: '2026-04-30T14:36:01.000Z',
