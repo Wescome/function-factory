@@ -29,5 +29,5 @@ injectable executor:
 
 Production wiring can use the built-in process executor; tests should inject a
 deterministic executor. Runner command evidence can be converted into a
-validated `AgentResult` and durable artifact bundle. The next integration slice
-is wiring PR creation.
+validated `AgentResult` and durable artifact bundle. Pull request creation is
+also planned and executed through the same command seam using `gh pr create`.

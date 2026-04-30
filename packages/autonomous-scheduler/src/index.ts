@@ -261,6 +261,27 @@ export interface AgentResultBundleManifest {
   }
 }
 
+export interface PullRequestPlanOptions {
+  repoRoot: string
+  title?: string
+  body?: string
+}
+
+export interface PullRequestPlan {
+  requestId: string
+  branchName: string
+  title: string
+  body: string
+  command: RunnerCommand
+}
+
+export interface PullRequestExecution {
+  requestId: string
+  branchName: string
+  prUrl: string
+  command: CommandRunResult
+}
+
 export class AutonomousSchedulerValidationError extends Error {
   public readonly issues: string[]
 
@@ -705,6 +726,71 @@ export async function writeAgentResultBundle(
 
   await writeJsonFile(manifestPath, manifest)
   return manifest
+}
+
+export function planPullRequest(
+  requestInput: unknown,
+  execution: CodexRunnerExecution,
+  options: PullRequestPlanOptions,
+): PullRequestPlan {
+  const request = validateAgentRequest(requestInput)
+
+  if (execution.requestId !== request.id) {
+    throw new Error(`Pull request plan request mismatch: ${request.id}, ${execution.requestId}`)
+  }
+
+  if (execution.status !== 'completed') {
+    throw new Error(`Pull request plan requires completed execution for ${request.id}`)
+  }
+
+  const title = options.title ?? `[Factory] ${request.objective}`
+  const body = options.body ?? buildPullRequestBody(request, execution)
+
+  return {
+    requestId: request.id,
+    branchName: execution.branchName,
+    title,
+    body,
+    command: {
+      command: 'gh',
+      args: [
+        'pr',
+        'create',
+        '--base',
+        request.branch.base,
+        '--head',
+        execution.branchName,
+        '--title',
+        title,
+        '--body',
+        body,
+      ],
+      cwd: options.repoRoot,
+    },
+  }
+}
+
+export async function executePullRequestPlan(
+  plan: PullRequestPlan,
+  executor: CommandExecutor = createProcessCommandExecutor(),
+): Promise<PullRequestExecution> {
+  const command = await executor(plan.command)
+
+  if (command.exitCode !== 0) {
+    throw new Error(`Pull request creation failed for ${plan.requestId}: ${command.stderr || command.stdout}`)
+  }
+
+  const prUrl = command.stdout.trim().split('\n').find((line) => line.startsWith('https://'))
+  if (!prUrl) {
+    throw new Error(`Pull request creation did not return a URL for ${plan.requestId}`)
+  }
+
+  return {
+    requestId: plan.requestId,
+    branchName: plan.branchName,
+    prUrl,
+    command,
+  }
 }
 
 export class JsonlAgentQueue {
@@ -1232,6 +1318,21 @@ function defaultExecutionSummary(request: AgentRequest, execution: CodexRunnerEx
   }
 
   return `Failed ${request.id} at ${execution.failedCommand ?? 'unknown command'}.`
+}
+
+function buildPullRequestBody(request: AgentRequest, execution: CodexRunnerExecution): string {
+  return [
+    `Factory request: ${request.id}`,
+    `WorkGraph: ${request.workgraph.id} / ${request.workgraph.nodeId}`,
+    `Role: ${request.role}`,
+    `Branch: ${execution.branchName}`,
+    '',
+    'Acceptance criteria:',
+    ...request.acceptanceCriteria.map((criterion, index) => `${index + 1}. ${criterion}`),
+    '',
+    'Required evidence:',
+    ...request.evidenceRequired.map((kind) => `- ${kind}`),
+  ].join('\n')
 }
 
 async function spawnCommand(command: RunnerCommand): Promise<{ exitCode: number; stdout: string; stderr: string }> {

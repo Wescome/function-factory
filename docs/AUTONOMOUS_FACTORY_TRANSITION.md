@@ -92,4 +92,6 @@ slice. The Codex runner adapter is also bootstrapped: it validates an
 `AgentRequest`, derives the PR branch, emits git preflight commands, builds the
 Codex worker prompt, executes the command plan through an injectable executor,
 converts runner evidence into a validated `AgentResult`, and writes durable
-artifact bundles. The next production-alpha slice is wiring PR creation.
+artifact bundles. Pull request creation is wired through the same command seam
+using `gh pr create`. The next production-alpha slice is the Governor scheduler
+that emits and drives the Strategy.Recipes dogfood request end-to-end.

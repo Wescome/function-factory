@@ -8,7 +8,9 @@ import {
   buildAgentResultFromExecution,
   buildCodexWorkerPrompt,
   executeCodexRunnerPlan,
+  executePullRequestPlan,
   planCodexRunner,
+  planPullRequest,
   validateAgentRequest,
   validateAgentResult,
   validateQueueEvent,
@@ -278,6 +280,56 @@ describe('Codex runner planning', () => {
     expect(readFileSync(manifest.files.result, 'utf8')).toContain('ARES-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW-BUNDLE')
     expect(readFileSync(manifest.files.commands[0] ?? '', 'utf8')).toContain('stdout:')
     expect(readFileSync(manifest.files.diff ?? '', 'utf8')).toContain('diff --git')
+  })
+
+  it('plans and executes pull request creation through the command seam', async () => {
+    const codexPlan = planCodexRunner(requestFixture, { repoRoot: '/tmp/strategy-recipes' })
+    const execution = await executeCodexRunnerPlan(codexPlan, async (command) => ({
+      command: command.command,
+      args: command.args,
+      cwd: command.cwd,
+      exitCode: 0,
+      stdout: '',
+      stderr: '',
+      startedAt: '2026-04-30T14:30:00.000Z',
+      completedAt: '2026-04-30T14:30:01.000Z',
+    }))
+
+    const prPlan = planPullRequest(requestFixture, execution, { repoRoot: '/tmp/strategy-recipes' })
+    expect(prPlan.command.command).toBe('gh')
+    expect(prPlan.command.args.slice(0, 3)).toEqual(['pr', 'create', '--base'])
+    expect(prPlan.command.args).toContain('main')
+    expect(prPlan.command.args).toContain('factory/strategy-recipes-first-product-view/ar-strategy-recipes-first-product-view')
+    expect(prPlan.body).toContain('Factory request: AR-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW')
+
+    const pr = await executePullRequestPlan(prPlan, async (command) => ({
+      command: command.command,
+      args: command.args,
+      cwd: command.cwd,
+      exitCode: 0,
+      stdout: 'https://github.com/Wescome/strategy-recipes/pull/4\n',
+      stderr: '',
+      startedAt: '2026-04-30T14:36:00.000Z',
+      completedAt: '2026-04-30T14:36:01.000Z',
+    }))
+
+    expect(pr.prUrl).toBe('https://github.com/Wescome/strategy-recipes/pull/4')
+  })
+
+  it('does not plan PR creation for failed executions', async () => {
+    expect(() =>
+      planPullRequest(
+        requestFixture,
+        {
+          requestId: 'AR-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW',
+          branchName: 'factory/strategy-recipes-first-product-view/ar-strategy-recipes-first-product-view',
+          status: 'failed',
+          commands: [],
+          failedCommand: 'codex exec',
+        },
+        { repoRoot: '/tmp/strategy-recipes' },
+      ),
+    ).toThrow('Pull request plan requires completed execution for AR-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW')
   })
 })
 
