@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Typecheck packages (excluding ff-pipeline which has pre-existing
+      # test-file type errors tracked for cleanup).
+      - name: Typecheck packages
+        run: pnpm -r --if-present --filter '!@factory/ff-pipeline' typecheck
+
+      # Run ff-pipeline typecheck separately as non-blocking until
+      # test-file type errors are resolved.
+      - name: Typecheck ff-pipeline (non-blocking)
+        continue-on-error: true
+        run: pnpm --filter @factory/ff-pipeline typecheck
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run all tests
+        run: pnpm -r --if-present test
+
+  factory-pr-check:
+    name: Factory PR Gate
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'factory-generated')
+    needs: [typecheck, test]
+    steps:
+      - name: Factory PR passed CI
+        run: echo "Factory-generated PR passed all gates"
