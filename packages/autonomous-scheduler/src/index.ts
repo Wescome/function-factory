@@ -330,6 +330,33 @@ export interface QueueDaemonOutcome {
   stopReason: 'max_iterations' | 'stop_requested'
 }
 
+export interface StrategyRecipesDogfoodRunPaths {
+  runId: string
+  runRoot: string
+  queueDir: string
+  bundleDir: string
+}
+
+export interface StrategyRecipesDogfoodOptions {
+  request: unknown
+  repoRoot: string
+  queueDir: string
+  bundleDir: string
+  mode?: 'dry-run' | 'real'
+  mockPrUrl?: string
+  changedFiles?: string[]
+  diff?: string
+  now?: () => Date
+}
+
+export interface StrategyRecipesDogfoodOutcome {
+  mode: 'dry-run' | 'real'
+  repoRoot: string
+  queueDir: string
+  bundleDir: string
+  outcome: SingleAgentRunOutcome
+}
+
 export class AutonomousSchedulerValidationError extends Error {
   public readonly issues: string[]
 
@@ -968,6 +995,57 @@ export async function runQueueDaemon(options: QueueDaemonOptions): Promise<Queue
   return { iterations, completedRuns, stopReason: 'max_iterations' }
 }
 
+export function createStrategyRecipesDogfoodRunPaths(
+  rootDir: string,
+  now: () => Date = () => new Date(),
+): StrategyRecipesDogfoodRunPaths {
+  const runId = `strategy-recipes-${now().toISOString().replace(/[^0-9TZ]/g, '')}`
+  const runRoot = join(rootDir, runId)
+
+  return {
+    runId,
+    runRoot,
+    queueDir: join(runRoot, 'queue'),
+    bundleDir: join(runRoot, 'bundle'),
+  }
+}
+
+export async function runStrategyRecipesDogfood(
+  options: StrategyRecipesDogfoodOptions,
+): Promise<StrategyRecipesDogfoodOutcome> {
+  const now = options.now ?? (() => new Date())
+  const request = validateAgentRequest(options.request)
+  const mode = options.mode ?? 'dry-run'
+  const completedAt = now().toISOString()
+  const stamp = completedAt.replace(/[^0-9TZ]/g, '')
+  const executor = mode === 'dry-run'
+    ? createDryRunCommandExecutor(buildDryRunOptions(options))
+    : undefined
+  const runOptions: SingleAgentRunOptions = {
+    queue: new JsonlAgentQueue({ queueDir: options.queueDir, actor: 'factory-dogfood', now }),
+    repoRoot: options.repoRoot,
+    bundleDir: options.bundleDir,
+    resultId: `ARES-${request.id.slice(3)}-${stamp}`,
+    agentRunId: `RUN-${request.id.slice(3)}-${stamp}`,
+    completedAt,
+    changedFiles: options.changedFiles ?? request.expectedArtifacts.map((artifact) => artifact.path),
+  }
+
+  if (options.diff !== undefined) runOptions.diff = options.diff
+  if (executor) {
+    runOptions.codexExecutor = executor
+    runOptions.pullRequestExecutor = executor
+  }
+
+  return {
+    mode,
+    repoRoot: options.repoRoot,
+    queueDir: options.queueDir,
+    bundleDir: options.bundleDir,
+    outcome: await runSingleAgentRequest(request, runOptions),
+  }
+}
+
 export class JsonlAgentQueue {
   private readonly queueDir: string
   private readonly actor: string
@@ -1569,6 +1647,13 @@ function buildPullRequestBody(request: AgentRequest, execution: CodexRunnerExecu
     'Required evidence:',
     ...request.evidenceRequired.map((kind) => `- ${kind}`),
   ].join('\n')
+}
+
+function buildDryRunOptions(options: StrategyRecipesDogfoodOptions): DryRunCommandExecutorOptions {
+  const dryRunOptions: DryRunCommandExecutorOptions = {}
+  if (options.now) dryRunOptions.now = options.now
+  if (options.mockPrUrl) dryRunOptions.prUrl = options.mockPrUrl
+  return dryRunOptions
 }
 
 async function spawnCommand(command: RunnerCommand): Promise<{ exitCode: number; stdout: string; stderr: string }> {

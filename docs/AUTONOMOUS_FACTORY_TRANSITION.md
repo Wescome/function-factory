@@ -66,6 +66,9 @@ The initial request fixture is:
 It asks a builder worker to implement the first Strategy.Recipes product view
 from `Strategy_Recipes_UX_Architecture_v1.1.md` in a separate repo and PR branch.
 
+Operational dry-run instructions live in
+[`STRATEGY_RECIPES_DOGFOOD.md`](STRATEGY_RECIPES_DOGFOOD.md).
+
 ## Production Alpha Exit Criteria
 
 Function Factory reaches production alpha autonomy when:
