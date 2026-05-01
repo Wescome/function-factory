@@ -68,7 +68,34 @@ export async function prefetchAgentContext(db: ArangoClient): Promise<Prefetched
  * suitable for injection into an agent's user message.
  */
 export function formatContextForPrompt(ctx: PrefetchedContext): string {
-  const parts: string[] = ['## Factory Knowledge Graph Context (pre-fetched)\n']
+  // Context Contract Header — provides attention-guiding counts for all agents
+  const counts = {
+    decisions: ctx.decisions.length,
+    lessons: ctx.lessons.length,
+    mentorRules: ctx.mentorRules.length,
+    functions: ctx.existingFunctions.length,
+    invariants: ctx.invariants.length,
+    curatedLessons: ctx.curatedLessons.length,
+  }
+
+  const warnings: string[] = []
+  if (counts.decisions === 0) warnings.push('decisions')
+  if (counts.lessons === 0) warnings.push('lessons')
+  if (counts.mentorRules === 0) warnings.push('mentor rules')
+  if (counts.functions === 0) warnings.push('functions')
+  if (counts.invariants === 0) warnings.push('invariants')
+  if (counts.curatedLessons === 0) warnings.push('curated lessons')
+
+  const parts: string[] = [
+    '## Context Contract',
+    `Provided: ${counts.decisions} decisions, ${counts.lessons} lessons, ${counts.mentorRules} mentor rules, ${counts.functions} functions, ${counts.invariants} invariants, ${counts.curatedLessons} curated lessons`,
+  ]
+
+  if (warnings.length > 0) {
+    parts.push(`Warning: No ${warnings.join(', ')} available — proceed without grounding for ${warnings.length === 1 ? 'this dimension' : 'these dimensions'}`)
+  }
+
+  parts.push('\n## Factory Knowledge Graph Context (pre-fetched)\n')
 
   if (ctx.decisions.length > 0) {
     parts.push('### Architectural Decisions')
@@ -95,7 +122,9 @@ export function formatContextForPrompt(ctx: PrefetchedContext): string {
     for (const l of ctx.curatedLessons) parts.push(`- [${l.key}] ${l.pattern} (confidence: ${l.confidence}, severity: ${l.severity}) — ${l.recommendation}`)
   }
 
-  if (parts.length === 1) parts.push('(No context available in knowledge graph)')
+  if (counts.decisions + counts.lessons + counts.mentorRules + counts.functions + counts.invariants + counts.curatedLessons === 0) {
+    parts.push('(No context available in knowledge graph)')
+  }
 
   return parts.join('\n')
 }

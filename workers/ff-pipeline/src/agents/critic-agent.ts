@@ -47,7 +47,15 @@ export interface CriticAgentOpts {
 
 // ── System Prompts ──────────────────────────────────────────
 
-const SEMANTIC_REVIEW_SYSTEM = `You are the Semantic Review critic. Assess whether a PRD covers the original specification.
+const SEMANTIC_REVIEW_SYSTEM = `You are the SemanticReviewer in the Function Factory synthesis pipeline.
+
+Your purpose: assess whether a PRD covers the original specification.
+
+Process this request in order:
+1. Read the PRD summary — understand the title, acceptance criteria, and atoms
+2. Read the specification — understand the original requirements
+3. Compare coverage — map each spec requirement to PRD acceptance criteria
+4. Produce the SemanticReview JSON
 
 Alignment criteria:
 - "aligned": the PRD's acceptance criteria cover ALL requirements from the specification. Title reframing is acceptable. Minor wording changes are acceptable. The substance must match.
@@ -56,22 +64,27 @@ Alignment criteria:
 
 Bias toward "aligned" when acceptance criteria substantively cover the spec, even if the title or framing differs.
 
-Example: {"alignment":"aligned","confidence":0.9,"citations":["Req 1 covered by AC1"],"rationale":"All requirements covered.","timestamp":"2026-04-29T00:00:00Z"}`
+Your response is a JSON object:
+{"alignment":"aligned","confidence":0.9,"citations":["Req 1 covered by AC1"],"rationale":"All requirements covered.","timestamp":"2026-04-29T00:00:00Z"}`
 
-const CODE_REVIEW_SYSTEM = `You are the Code Review critic in the Function Factory synthesis pipeline.
+const CODE_REVIEW_SYSTEM = `You are the CodeReviewer in the Function Factory synthesis pipeline.
 
-Your job: review code against the plan, work graph, and mentor rules.
+Your purpose: review code against the plan, work graph, and mentor rules. Reference only decisions, lessons, and rules from the provided Factory Knowledge Graph context.
 
-Use the Factory Knowledge Graph context provided in the user message to ground your review. Do not hallucinate context — only reference decisions, lessons, and rules from the provided context.
+Process this request in order:
+1. Read the code artifacts — understand what was produced
+2. Check against plan and workGraph — verify the code implements the specification
+3. Check mentor rules — verify compliance with active rules
+4. Produce the CritiqueReport JSON
 
-When ready, respond with ONLY a JSON object (no markdown fences, no explanation):
+Your response is a JSON object:
 {
-  "passed": true/false,
+  "passed": true,
   "issues": [
-    { "severity": "critical" | "major" | "minor", "description": "...", "file": "optional", "line": 0 }
+    { "severity": "critical", "description": "...", "file": "optional", "line": 0 }
   ],
   "mentorRuleCompliance": [
-    { "ruleId": "...", "compliant": true/false }
+    { "ruleId": "...", "compliant": true }
   ],
   "overallAssessment": "summary of the review"
 }`
@@ -141,7 +154,7 @@ export class CriticAgent {
     if (input.specContent) {
       userParts.push(`\nSpecification:\n${input.specContent}`)
     }
-    userParts.push('\nRespond with ONLY a JSON object. Do NOT wrap it in a function call.')
+    userParts.push('\nProduce a SemanticReview. Start your response with {"alignment":')
 
     const userMessage: UserMessage = {
       role: 'user',
@@ -227,7 +240,9 @@ export class CriticAgent {
 
     if (this.contextPrompt) {
       userParts.push(`\n${this.contextPrompt}`)
-    userParts.push('\nRespond with ONLY a JSON object matching the schema in the system prompt. No tool calls, no function calls, no explanation.')    }
+    }
+
+    userParts.push('\nProduce a CritiqueReport. Start your response with {"passed":')
 
     const userMessage: UserMessage = {
       role: 'user',

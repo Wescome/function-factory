@@ -37,13 +37,19 @@ export interface PlannerAgentOpts {
   contextPrompt?: string
 }
 
-const SYSTEM_PROMPT = `You are the Planner agent. You produce Plans.
+const SYSTEM_PROMPT = `You are the PlanProducer in the Function Factory synthesis pipeline.
 
-A Plan is a JSON object with exactly 4 fields. Here is an example:
+Your purpose: produce a Plan that decomposes a WorkGraph into executable atoms.
 
-{"approach":"Implement endpoints first, then add middleware","atoms":[{"id":"atom-001","description":"Create route handler","assignedTo":"coder"},{"id":"atom-002","description":"Add middleware","assignedTo":"coder"}],"executorRecommendation":"gdk-agent","estimatedComplexity":"low"}
+Process this request in order:
+1. Read the WorkGraph specification — understand the scope, atoms, and invariants
+2. Check the Factory Knowledge Graph context — ground your plan in existing decisions, lessons, and functions
+3. Decompose the WorkGraph into ordered atoms with clear assignments and an approach narrative
+4. Produce the output JSON
 
-Produce a Plan for the WorkGraph in the user message. Output ONLY the JSON object.`
+Your response is a JSON object:
+
+{"approach":"Implement endpoints first, then add middleware","atoms":[{"id":"atom-001","description":"Create route handler","assignedTo":"coder"},{"id":"atom-002","description":"Add middleware","assignedTo":"coder"}],"executorRecommendation":"gdk-agent","estimatedComplexity":"low"}`
 
 // Required fields now defined in PLAN_SCHEMA (output-reliability.ts)
 
@@ -105,7 +111,7 @@ export class PlannerAgent {
       userParts.push(`\n${this.contextPrompt}`)
     }
 
-    userParts.push('\nProduce a Plan for this WorkGraph.')
+    userParts.push('\nProduce a Plan for this WorkGraph. Start your response with {"approach":')
 
     const userMessage: UserMessage = {
       role: 'user',

@@ -170,21 +170,27 @@ export function formatCuratorContextForPrompt(ctx: CuratorContext): string {
 
 // ── System Prompt ─────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are the Memory Curator agent — the first Orientation Agent in the Function Factory.
+const SYSTEM_PROMPT = `You are the MemoryCurator — the first Orientation role in the Function Factory.
 
-Your job: curate raw telemetry, lessons, and episodic memory into ranked, cross-referenced knowledge that all agents can use.
+Your purpose: curate raw telemetry, lessons, and episodic memory into ranked, cross-referenced knowledge that all Factory roles can use.
+
+Process this request in order:
+1. Read the ORL telemetry, semantic memory, episodic memory, and feedback signals
+2. Consolidate duplicate or near-duplicate lessons — merge with accumulated evidence counts
+3. Apply the 8 curation rules below to rank, decay, cross-reference, and classify
+4. Produce the MemoryCuration JSON
 
 CURATION RULES:
-1. CONSOLIDATE — merge duplicate or near-duplicate lessons into single entries with accumulated evidence counts
+1. CONSOLIDATE — merge duplicates into single entries with accumulated evidence counts
 2. RANK — assign confidence (0.0-1.0) based on evidence frequency and recency
 3. DECAY — mark lessons with no recent evidence (>14 days) as "decaying"; >30 days as "archived"
-4. CROSS-REFERENCE — link lessons to the agents they affect (coder, tester, planner, architect, verifier, critic)
-5. LINEAGE — every curated lesson must trace back to specific ORL telemetry or episodic events
+4. CROSS-REFERENCE — link lessons to the roles they affect (CodeProducer, PlanProducer, Architect, Verifier, CriticReviewer)
+5. LINEAGE — every curated lesson traces back to specific ORL telemetry or episodic events
 6. SEVERITY — classify as critical/high/medium/low based on impact on synthesis success rate
-7. PATTERN DETECTION — identify recurring failure modes across agents and consolidate into named patterns
+7. PATTERN DETECTION — identify recurring failure modes across roles and consolidate into named patterns
 8. GOVERNANCE — recommend process changes when patterns indicate systemic issues
 
-Respond with ONLY a JSON object:
+Your response is a JSON object:
 {
   "curated_lessons": [
     {
@@ -194,7 +200,7 @@ Respond with ONLY a JSON object:
       "recommendation": "actionable recommendation",
       "evidence_count": 5,
       "last_seen": "ISO 8601",
-      "affects_agents": ["coder", "tester"],
+      "affects_agents": ["CodeProducer", "Verifier"],
       "decay_status": "active"
     }
   ],
@@ -258,7 +264,7 @@ export class MemoryCuratorAgent {
     const ctx = await prefetchCuratorContext(this.db)
     const contextPrompt = formatCuratorContextForPrompt(ctx)
 
-    const userContent = `${contextPrompt}\n\nCurate the above context into consolidated, ranked knowledge. Apply all 8 curation rules.`
+    const userContent = `${contextPrompt}\n\nCurate the above context into consolidated, ranked knowledge. Apply all 8 curation rules. Start your response with {"curated_lessons":`
 
     const model = this.modelOverride ?? resolveAgentModel('planning')
 

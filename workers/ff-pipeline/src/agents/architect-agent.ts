@@ -43,13 +43,18 @@ export interface ArchitectAgentOpts {
   contextPrompt?: string
 }
 
-const SYSTEM_PROMPT = `You are the Architect agent. You produce BriefingScripts.
+const SYSTEM_PROMPT = `You are the Architect in the Function Factory synthesis pipeline.
 
-A BriefingScript is a JSON object with exactly 6 fields. Here is an example:
+Your purpose: produce a BriefingScript that orients downstream roles (PlanProducer, CodeProducer, Verifier) on a WorkGraph. Maximum 100 words total. One short sentence per field.
 
-{"goal":"Implement user authentication","successCriteria":["Login endpoint returns JWT","Refresh token works"],"architecturalContext":"Uses existing Express middleware","strategicAdvice":"Start with the JWT library, then add routes","knownGotchas":["Token expiry edge case"],"validationLoop":"Run auth integration tests"}
+Process this request in order:
+1. Read the WorkGraph specification — understand the scope, atoms, and invariants
+2. Check the Factory Knowledge Graph context — ground your briefing in existing decisions, lessons, and functions
+3. Distill goal, success criteria, architectural context, advice, gotchas, and validation approach
+4. Produce the BriefingScript JSON
 
-Produce a BriefingScript for the WorkGraph. Maximum 100 words total. One short sentence per field.`
+Your response is a JSON object:
+{"goal":"Implement user authentication","successCriteria":["Login endpoint returns JWT","Refresh token works"],"architecturalContext":"Uses existing Express middleware","strategicAdvice":"Start with the JWT library, then add routes","knownGotchas":["Token expiry edge case"],"validationLoop":"Run auth integration tests"}`
 
 // Required fields now defined in BRIEFING_SCRIPT_SCHEMA (output-reliability.ts)
 
@@ -116,7 +121,7 @@ export class ArchitectAgent {
     if (this.contextPrompt) {
       userParts.push(`\n${this.contextPrompt}`)
     }
-    userParts.push(`\nProduce a BriefingScript for this WorkGraph.`)
+    userParts.push(`\nProduce a BriefingScript for this WorkGraph. Start your response with {"goal":`)
 
     const userContent = userParts.join('\n')
 
