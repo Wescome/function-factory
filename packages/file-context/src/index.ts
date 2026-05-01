@@ -1,3 +1,54 @@
+export interface ImportResolution {
+  specifier: string;
+  resolvedPath: string;
+  kind: 'relative' | 'workspace';
+}
+
+const WORKSPACE_SCOPES = ['@factory/', '@weops/'];
+
+export function resolveImportPaths(
+  imports: string[],
+  fromFile: string,
+): ImportResolution[] {
+  const results: ImportResolution[] = [];
+  const fromDir = fromFile.slice(0, fromFile.lastIndexOf('/'));
+
+  for (const specifier of imports) {
+    if (specifier.startsWith('./') || specifier.startsWith('../')) {
+      const cleaned = specifier.replace(/\.js$/, '');
+      const resolved = normalizePath(fromDir + '/' + cleaned) + '.ts';
+      results.push({ specifier, resolvedPath: resolved, kind: 'relative' });
+      continue;
+    }
+
+    const scope = WORKSPACE_SCOPES.find(s => specifier.startsWith(s));
+    if (scope) {
+      const packageName = specifier.slice(scope.length);
+      results.push({
+        specifier,
+        resolvedPath: `packages/${packageName}/src/index.ts`,
+        kind: 'workspace',
+      });
+      continue;
+    }
+  }
+  return results;
+}
+
+function normalizePath(path: string): string {
+  const parts = path.split('/');
+  const normalized: string[] = [];
+  for (const part of parts) {
+    if (part === '.' || part === '') continue;
+    if (part === '..' && normalized.length > 0 && normalized[normalized.length - 1] !== '..') {
+      normalized.pop();
+    } else {
+      normalized.push(part);
+    }
+  }
+  return normalized.join('/');
+}
+
 export interface FunctionSig {
   name: string;
   params: string;

@@ -19,7 +19,7 @@ import { Agent } from 'agents'
 import { executeAtomSlice, type AtomSlice, type AtomResult } from './atom-executor.js'
 import { createClientFromEnv } from '@factory/arango-client'
 import { resolveAgentModel, keyForModel } from '../agents/resolve-model.js'
-import { extractContext, type FileContext } from '@factory/file-context'
+import { extractContext, resolveImportPaths, type FileContext } from '@factory/file-context'
 
 // ────────────────────────────────────────────────────────────
 // Types
@@ -315,6 +315,7 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
     if (targetFiles.length === 0) return []
 
     const contexts: FileContext[] = []
+    const fetched = new Set<string>()
     const headers = {
       'Authorization': `Bearer ${this.env.GITHUB_TOKEN}`,
       'Accept': 'application/vnd.github+json',
@@ -322,16 +323,19 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
       'User-Agent': 'ff-pipeline',
     }
 
-    for (const filePath of targetFiles) {
+    const fetchFile = async (filePath: string): Promise<FileContext | null> => {
+      if (fetched.has(filePath)) return null
+      fetched.add(filePath)
+
       try {
         const res = await fetch(
           `https://api.github.com/repos/Wescome/function-factory/contents/${filePath}?ref=main`,
           { method: 'GET', headers },
         )
-        if (!res.ok) continue
+        if (!res.ok) return null
 
         const data = await res.json() as { content: string; encoding: string }
-        if (data.encoding !== 'base64') continue
+        if (data.encoding !== 'base64') return null
 
         const rawContent = decodeBase64(data.content)
         const language = filePath.endsWith('.ts') || filePath.endsWith('.tsx')
@@ -339,14 +343,38 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
           : filePath.endsWith('.json') ? 'json' : 'markdown'
 
         const ctx = extractContext(rawContent, language)
-        contexts.push({ ...ctx, path: filePath })
-
-        // Cache in DO storage for the duration of this atom
         await this.ctx.storage.put(`file:${filePath}`, rawContent)
+        return { ...ctx, path: filePath }
       } catch {
-        // File fetch failure is non-fatal — atom runs without context
+        return null
       }
     }
+
+    // Fetch target files
+    for (const filePath of targetFiles) {
+      const ctx = await fetchFile(filePath)
+      if (ctx) contexts.push(ctx)
+    }
+
+    // Cross-file resolution: follow imports one level deep
+    const importPaths: string[] = []
+    for (const ctx of contexts) {
+      if (ctx.structure.imports.length > 0) {
+        const resolved = resolveImportPaths(ctx.structure.imports, ctx.path)
+        for (const r of resolved) {
+          if (!fetched.has(r.resolvedPath)) {
+            importPaths.push(r.resolvedPath)
+          }
+        }
+      }
+    }
+
+    // Fetch imported files (limit to 10 to avoid API rate limits)
+    for (const importPath of importPaths.slice(0, 10)) {
+      const ctx = await fetchFile(importPath)
+      if (ctx) contexts.push(ctx)
+    }
+
     return contexts
   }
 
