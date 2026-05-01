@@ -1377,7 +1377,7 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
         upstreamArtifacts: {},
         maxRetries: 3,
         dryRun: false,
-      }, 3) // max retries exhausted
+      }, 6) // max retries exhausted (max_retries: 5 = 6 total attempts)
 
       const batch = createMockBatch([msg])
       const ctx = createMockCtx()

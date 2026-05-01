@@ -53,7 +53,7 @@
       { "binding": "FEEDBACK_QUEUE", "queue": "feedback-signals" }
     ],
     "consumers": [
-      { "queue": "synthesis-queue", "max_batch_size": 1, "max_retries": 2 },
+      { "queue": "synthesis-queue", "max_batch_size": 1, "max_retries": 5 },
       { "queue": "synthesis-results", "max_batch_size": 1, "max_retries": 3 },
       { "queue": "atom-results", "max_batch_size": 1, "max_retries": 3 },
       { "queue": "feedback-signals", "max_batch_size": 1, "max_retries": 2 }

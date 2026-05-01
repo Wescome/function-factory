@@ -624,40 +624,58 @@ export default {
         try {
           const doId = env.ATOM_EXECUTOR.idFromName(`atom-${workGraphId}-${atomId}`)
           const stub = env.ATOM_EXECUTOR.get(doId)
-          await stub.fetch(new Request('https://do/execute-atom', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              atomId,
-              atomSpec,
-              sharedContext,
-              upstreamArtifacts,
-              workflowId,
-              workGraphId,
-              maxRetries: maxRetries ?? 3,
-              dryRun: dryRun ?? false,
-            }),
-          }))
+          const doPayload = JSON.stringify({
+            atomId, atomSpec, sharedContext, upstreamArtifacts,
+            workflowId, workGraphId, maxRetries: maxRetries ?? 3, dryRun: dryRun ?? false,
+          })
+
+          // In-process retry: absorb transient DO connectivity blips before burning a queue retry
+          let lastDispatchErr: Error | null = null
+          for (let attempt = 0; attempt < 2; attempt++) {
+            try {
+              await stub.fetch(new Request('https://do/execute-atom', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: doPayload,
+              }))
+              lastDispatchErr = null
+              break
+            } catch (fetchErr) {
+              lastDispatchErr = fetchErr instanceof Error ? fetchErr : new Error(String(fetchErr))
+              if (attempt < 1) await new Promise(r => setTimeout(r, 3000))
+            }
+          }
+          if (lastDispatchErr) throw lastDispatchErr
+
           msg.ack()
         } catch (err) {
           const errorMessage = err instanceof Error ? err.message : String(err)
           console.error(`[Stage 6] atom-execute dispatch failed for atom ${atomId}: ${errorMessage}`)
-          if (msg.attempts >= 3) {
-            // Tier 1 signal: infra:queue-retry-exhausted — atom-execute dispatch dead letter
+          if (msg.attempts >= 6) {
             console.error(`[INFRA SIGNAL] infra:queue-retry-exhausted: atom-execute dispatch for atom ${atomId} in ${workGraphId} exhausted ${msg.attempts} attempts`)
+            // Structured signal to ArangoDB so Governor can see dispatch failures
+            try {
+              const { ingestSignal } = await import('./stages/ingest-signal.js')
+              const { createClientFromEnv } = await import('@factory/arango-client')
+              const db = createClientFromEnv(env)
+              await ingestSignal({
+                signalType: 'internal',
+                source: 'factory:infrastructure',
+                subtype: 'infra:atom-dispatch-failure',
+                title: `Atom ${atomId} dispatch failed after ${msg.attempts} attempts`,
+                description: `Queue consumer could not reach AtomExecutor DO for atom ${atomId} in WorkGraph ${workGraphId}: ${errorMessage}`,
+                sourceRefs: [workGraphId],
+              }, db).catch(() => {})
+            } catch { /* best-effort */ }
             // Publish failure result to atom-results queue so ledger is updated
             try {
               if (env.ATOM_RESULTS) {
                 await (env.ATOM_RESULTS as unknown as { send(body: unknown): Promise<void> }).send({
-                  workGraphId,
-                  atomId,
+                  workGraphId, atomId,
                   result: {
                     atomId,
                     verdict: { decision: 'fail', confidence: 1.0, reason: `Atom dispatch failed after ${msg.attempts} attempts: ${errorMessage}` },
-                    codeArtifact: null,
-                    testReport: null,
-                    critiqueReport: null,
-                    retryCount: 0,
+                    codeArtifact: null, testReport: null, critiqueReport: null, retryCount: 0,
                   },
                   workflowId,
                 })
