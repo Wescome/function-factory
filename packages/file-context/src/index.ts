@@ -81,6 +81,11 @@ const EMPTY_STRUCTURE: FileStructure = {
   classes: [],
 };
 
+import { parse, type ParserPlugin } from '@babel/parser';
+
+const BABEL_PLUGINS: ParserPlugin[] = ['typescript', 'decorators'];
+const BABEL_OPTS = { sourceType: 'module' as const, plugins: BABEL_PLUGINS, errorRecovery: true };
+
 export function extractContext(content: string, language: string, target?: string): FileContext {
   if (language !== 'typescript' && language !== 'ts') {
     return {
@@ -105,177 +110,190 @@ export function extractContext(content: string, language: string, target?: strin
 }
 
 function extractTypeScriptStructure(content: string): FileStructure {
-  const imports = extractImports(content);
-  const exports = extractExports(content);
-  const functions = extractFunctions(content);
-  const types = extractTypes(content);
-  const classes = extractClasses(content);
+  let ast: ReturnType<typeof parse>;
+  try {
+    ast = parse(content, BABEL_OPTS);
+  } catch {
+    return { ...EMPTY_STRUCTURE };
+  }
+
+  const imports: string[] = [];
+  const exports: string[] = [];
+  const functions: FunctionSig[] = [];
+  const types: string[] = [];
+  const classes: string[] = [];
+  const lines = content.split('\n');
+
+  for (const node of ast.program.body) {
+    // import ... from '...'
+    if (node.type === 'ImportDeclaration') {
+      imports.push(node.source.value);
+      continue;
+    }
+
+    // export function foo() {}
+    if (node.type === 'ExportNamedDeclaration') {
+      if (node.declaration) {
+        const decl = node.declaration;
+
+        if (decl.type === 'FunctionDeclaration' && decl.id) {
+          const name = decl.id.name;
+          addUnique(exports, name);
+          functions.push(buildFunctionSig(name, decl, content));
+        }
+
+        if (decl.type === 'VariableDeclaration') {
+          for (const declarator of decl.declarations) {
+            if (declarator.id.type === 'Identifier') {
+              const name = declarator.id.name;
+              addUnique(exports, name);
+              if (isArrowOrFunctionExpr(declarator.init)) {
+                functions.push(buildArrowSig(name, declarator, content));
+              }
+            }
+          }
+        }
+
+        if (decl.type === 'ClassDeclaration' && decl.id) {
+          addUnique(exports, decl.id.name);
+          addUnique(classes, decl.id.name);
+        }
+
+        if (decl.type === 'TSInterfaceDeclaration') {
+          addUnique(exports, decl.id.name);
+          addUnique(types, decl.id.name);
+        }
+
+        if (decl.type === 'TSTypeAliasDeclaration') {
+          addUnique(exports, decl.id.name);
+          addUnique(types, decl.id.name);
+        }
+
+        if (decl.type === 'TSEnumDeclaration') {
+          addUnique(exports, decl.id.name);
+        }
+      }
+
+      // export { foo, bar } or export { foo } from './mod'
+      if (node.specifiers) {
+        for (const spec of node.specifiers) {
+          if (spec.type === 'ExportSpecifier') {
+            const exported = spec.exported;
+            const name = exported.type === 'Identifier' ? exported.name : exported.value;
+            addUnique(exports, name);
+          }
+        }
+      }
+
+      // export type { Foo } from './mod'
+      // Already handled by specifiers above
+      continue;
+    }
+
+    // export default class Foo {}
+    if (node.type === 'ExportDefaultDeclaration') {
+      const decl = node.declaration;
+      if (decl.type === 'ClassDeclaration' && decl.id) {
+        addUnique(classes, decl.id.name);
+      }
+      if (decl.type === 'FunctionDeclaration' && decl.id) {
+        functions.push(buildFunctionSig(decl.id.name, decl, content));
+      }
+      continue;
+    }
+
+    // Non-exported declarations
+    if (node.type === 'FunctionDeclaration' && node.id) {
+      functions.push(buildFunctionSig(node.id.name, node, content));
+    }
+
+    if (node.type === 'VariableDeclaration') {
+      for (const declarator of node.declarations) {
+        if (declarator.id.type === 'Identifier' && isArrowOrFunctionExpr(declarator.init)) {
+          functions.push(buildArrowSig(declarator.id.name, declarator, content));
+        }
+      }
+    }
+
+    if (node.type === 'ClassDeclaration' && node.id) {
+      addUnique(classes, node.id.name);
+    }
+
+    if (node.type === 'TSInterfaceDeclaration') {
+      addUnique(types, node.id.name);
+    }
+
+    if (node.type === 'TSTypeAliasDeclaration') {
+      addUnique(types, node.id.name);
+    }
+
+    if (node.type === 'TSEnumDeclaration') {
+      // non-exported enum — don't add to exports, but it exists
+    }
+  }
 
   return { exports, imports, functions, types, classes };
 }
 
-function extractImports(content: string): string[] {
-  const results: string[] = [];
-  const regex = /^import\s+.*from\s+['"]([^'"]+)['"]/gm;
-  let match: RegExpExecArray | null;
-  while ((match = regex.exec(content)) !== null) {
-    const path = match[1];
-    if (path) results.push(path);
-  }
-  return results;
+function isArrowOrFunctionExpr(init: any): boolean {
+  if (!init) return false;
+  return init.type === 'ArrowFunctionExpression' || init.type === 'FunctionExpression';
 }
 
-function extractExports(content: string): string[] {
-  const results: string[] = [];
-  const patterns = [
-    /export\s+(?:async\s+)?function\s+(\w+)/g,
-    /export\s+class\s+(\w+)/g,
-    /export\s+(?:const|let|var)\s+(\w+)/g,
-    /export\s+type\s+(\w+)/g,
-    /export\s+interface\s+(\w+)/g,
-  ];
-
-  for (const regex of patterns) {
-    let match: RegExpExecArray | null;
-    while ((match = regex.exec(content)) !== null) {
-      const name = match[1];
-      if (name && !results.includes(name)) {
-        results.push(name);
-      }
-    }
-  }
-  return results;
+function buildFunctionSig(name: string, decl: any, content: string): FunctionSig {
+  const params = decl.params
+    ?.map((p: any) => content.slice(p.start, p.end))
+    .join(', ') ?? '';
+  const returnType = decl.returnType
+    ? content.slice(decl.returnType.start + 1, decl.returnType.end).trim()
+    : undefined;
+  return {
+    name,
+    params,
+    returnType,
+    startLine: decl.loc?.start?.line ?? 1,
+    endLine: decl.loc?.end?.line ?? 1,
+  };
 }
 
-function extractFunctions(content: string): FunctionSig[] {
-  const results: FunctionSig[] = [];
-  const regex = /(?:export\s+)?(?:async\s+)?function\s+(\w+)\s*\(([^)]*)\)(?:\s*:\s*([^{]+))?\s*\{/g;
-  const lines = content.split('\n');
-
-  let match: RegExpExecArray | null;
-  while ((match = regex.exec(content)) !== null) {
-    const name = match[1];
-    const params = match[2];
-    if (!name || params === undefined) continue;
-    const returnType = match[3]?.trim();
-    const startLine = content.slice(0, match.index).split('\n').length;
-    const endLine = findEndLine(content, match.index, lines);
-
-    results.push({ name, params: params.trim(), returnType, startLine, endLine });
-  }
-  return results;
+function buildArrowSig(name: string, declarator: any, content: string): FunctionSig {
+  const init = declarator.init;
+  const params = init?.params
+    ?.map((p: any) => content.slice(p.start, p.end))
+    .join(', ') ?? '';
+  const returnType = init?.returnType
+    ? content.slice(init.returnType.start + 1, init.returnType.end).trim()
+    : undefined;
+  const startLine = declarator.loc?.start?.line ?? 1;
+  const endLine = init?.loc?.end?.line ?? declarator.loc?.end?.line ?? 1;
+  return { name, params, returnType, startLine, endLine };
 }
 
-function extractTypes(content: string): string[] {
-  const results: string[] = [];
-  const patterns = [
-    /(?:export\s+)?interface\s+(\w+)/g,
-    /(?:export\s+)?type\s+(\w+)/g,
-  ];
-
-  for (const regex of patterns) {
-    let match: RegExpExecArray | null;
-    while ((match = regex.exec(content)) !== null) {
-      const name = match[1];
-      if (name && !results.includes(name)) {
-        results.push(name);
-      }
-    }
-  }
-  return results;
-}
-
-function extractClasses(content: string): string[] {
-  const results: string[] = [];
-  const regex = /(?:export\s+)?class\s+(\w+)/g;
-  let match: RegExpExecArray | null;
-  while ((match = regex.exec(content)) !== null) {
-    const name = match[1];
-    if (name) results.push(name);
-  }
-  return results;
-}
-
-function findEndLine(content: string, fromIndex: number, lines: string[]): number {
-  let depth = 0;
-  let inString = false;
-  let stringChar = '';
-  let escaped = false;
-
-  for (let i = fromIndex; i < content.length; i++) {
-    const ch = content[i];
-
-    if (escaped) { escaped = false; continue; }
-    if (ch === '\\') { escaped = true; continue; }
-    if (inString) {
-      if (ch === stringChar) inString = false;
-      continue;
-    }
-    if (ch === '"' || ch === "'" || ch === '`') {
-      inString = true;
-      stringChar = ch;
-      continue;
-    }
-    if (ch === '{') depth++;
-    if (ch === '}') {
-      depth--;
-      if (depth === 0) {
-        return content.slice(0, i + 1).split('\n').length;
-      }
-    }
-  }
-  return content.split('\n').length;
+function addUnique(arr: string[], value: string): void {
+  if (!arr.includes(value)) arr.push(value);
 }
 
 function extractSlice(content: string, target: string): string | undefined {
-  const patterns = [
-    new RegExp(`(?:export\\s+)?class\\s+${escapeRegex(target)}[^{]*\\{`, 'g'),
-    new RegExp(`(?:export\\s+)?(?:async\\s+)?function\\s+${escapeRegex(target)}\\s*\\([^)]*\\)[^{]*\\{`, 'g'),
-    new RegExp(`(?:export\\s+)?interface\\s+${escapeRegex(target)}[^{]*\\{`, 'g'),
-  ];
+  let ast: ReturnType<typeof parse>;
+  try {
+    ast = parse(content, BABEL_OPTS);
+  } catch {
+    return undefined;
+  }
 
-  for (const regex of patterns) {
-    const match = regex.exec(content);
-    if (match) {
-      const start = match.index;
-      const end = findClosingBraceIndex(content, start);
-      if (end !== -1) {
-        return content.slice(start, end);
-      }
+  for (const node of ast.program.body) {
+    const decl = node.type === 'ExportNamedDeclaration' || node.type === 'ExportDefaultDeclaration'
+      ? (node as any).declaration
+      : node;
+    if (!decl) continue;
+
+    if (
+      (decl.type === 'ClassDeclaration' || decl.type === 'TSInterfaceDeclaration' ||
+       decl.type === 'FunctionDeclaration') &&
+      decl.id?.name === target
+    ) {
+      return content.slice(decl.start, decl.end);
     }
   }
   return undefined;
-}
-
-function findClosingBraceIndex(content: string, fromIndex: number): number {
-  let depth = 0;
-  let inString = false;
-  let stringChar = '';
-  let escaped = false;
-
-  for (let i = fromIndex; i < content.length; i++) {
-    const ch = content[i];
-
-    if (escaped) { escaped = false; continue; }
-    if (ch === '\\') { escaped = true; continue; }
-    if (inString) {
-      if (ch === stringChar) inString = false;
-      continue;
-    }
-    if (ch === '"' || ch === "'" || ch === '`') {
-      inString = true;
-      stringChar = ch;
-      continue;
-    }
-    if (ch === '{') depth++;
-    if (ch === '}') {
-      depth--;
-      if (depth === 0) return i + 1;
-    }
-  }
-  return -1;
-}
-
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
