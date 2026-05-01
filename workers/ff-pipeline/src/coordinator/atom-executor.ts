@@ -29,7 +29,14 @@ export interface AtomSlice {
 
 export interface AtomResult {
   atomId: string
-  verdict: { decision: 'pass' | 'fail' | 'patch'; confidence: number; reason: string }
+  verdict: {
+    decision: 'pass' | 'fail' | 'patch'
+    confidence: number
+    reason: string
+    disagreement_class?: string | null
+    requires_human_approval?: boolean
+    escalation_score?: number
+  }
   codeArtifact: CodeArtifact | null
   testReport: TestReport | null
   critiqueReport: CritiqueReport | null
@@ -199,6 +206,9 @@ export async function executeAtomSlice(
         : 'fail',
       confidence: verdict?.confidence ?? 0,
       reason: verdict?.reason ?? 'No verdict',
+      ...(verdict?.disagreement_class ? { disagreement_class: verdict.disagreement_class } : {}),
+      ...(verdict?.requires_human_approval !== undefined ? { requires_human_approval: verdict.requires_human_approval } : {}),
+      ...(verdict?.escalation_score !== undefined ? { escalation_score: verdict.escalation_score } : {}),
     },
     codeArtifact: code,
     testReport: tests,

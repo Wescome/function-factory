@@ -274,14 +274,14 @@ export type WorkGraph = z.infer<typeof WorkGraph>
 // ─── Stage 7 — Trust, Trajectory, Regression ──────────────────────────
 
 export const FunctionLifecycle = z.enum([
+  "proposed",
   "designed",
   "planned",
   "in_progress",
-  "implemented",
-  "verified",
+  "produced",
+  "accepted",
   "monitored",
   "regressed",
-  "assurance_regressed",
   "retired",
 ])
 export type FunctionLifecycle = z.infer<typeof FunctionLifecycle>

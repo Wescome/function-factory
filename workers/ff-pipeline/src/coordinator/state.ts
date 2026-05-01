@@ -111,6 +111,19 @@ export interface TestReport {
 
 export type VerdictDecision = 'pass' | 'patch' | 'resample' | 'interrupt' | 'fail'
 
+export type DisagreementClass =
+  | 'repairable_local'
+  | 'architectural'
+  | 'governance'
+
+export interface HumanApprovalPayload {
+  reason: string
+  scope_violation: boolean
+  hard_constraint_violation: boolean
+  requested_action: 'approve' | 'reject' | 'amend'
+  notes?: string
+}
+
 export interface Verdict {
   decision: VerdictDecision
   confidence: number
@@ -119,6 +132,12 @@ export interface Verdict {
   artifacts?: CodeArtifact
   /** v4.1: which atoms need retry when decision is 'patch' */
   failedAtomIds?: string[]
+
+  // Canonical escalation fields (from TerminalDecision in literate reference)
+  requires_human_approval?: boolean
+  human_approval_payload?: HumanApprovalPayload | null
+  disagreement_class?: DisagreementClass | null
+  escalation_score?: number
 }
 
 export interface GraphState {
