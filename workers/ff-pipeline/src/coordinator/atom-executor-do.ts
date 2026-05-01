@@ -20,6 +20,7 @@ import { executeAtomSlice, type AtomSlice, type AtomResult } from './atom-execut
 import { createClientFromEnv } from '@factory/arango-client'
 import { resolveAgentModel, keyForModel } from '../agents/resolve-model.js'
 import { extractContext, resolveImportPaths, type FileContext } from '@factory/file-context'
+import { ingestSignal } from '../stages/ingest-signal.js'
 
 // ────────────────────────────────────────────────────────────
 // Types
@@ -92,6 +93,17 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
     await this.ctx.storage.put('atomResult', interruptResult)
     await this.ctx.storage.put('__completed', true)
 
+    // Tier 1 signal: pipeline:synthesis-timeout — atom exceeded 900s deadline
+    const db = createClientFromEnv(this.env)
+    await ingestSignal({
+      signalType: 'internal',
+      source: 'factory:infrastructure',
+      subtype: 'pipeline:synthesis-timeout',
+      title: `Atom ${atomId} exceeded 900s deadline`,
+      description: `AtomExecutor alarm fired: atom ${atomId} in WorkGraph ${workGraphId} exceeded the 900s wall-clock deadline. The atom was interrupted and marked as failed.`,
+      sourceRefs: [workGraphId],
+    }, db).catch(() => {}) // best-effort, never block
+
     // Publish interrupt result to queue
     await this.publishResult(workGraphId, atomId, interruptResult, workflowId)
   }
@@ -131,6 +143,17 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
         await this.ctx.storage.put('atomResult', failResult)
         await this.ctx.storage.put('__completed', true)
         await this.publishResult(payload.workGraphId, payload.atomId, failResult, payload.workflowId)
+
+        // Tier 1 signal: infra:llm-api-401 — API key missing for provider
+        const db = createClientFromEnv(this.env)
+        await ingestSignal({
+          signalType: 'internal',
+          source: 'factory:infrastructure',
+          subtype: 'infra:llm-api-401',
+          title: `API key missing for provider "${preflightModel.provider}"`,
+          description: `Pre-flight auth check failed: no API key for provider "${preflightModel.provider}" (model: ${preflightModel.id ?? 'unknown'}). Atom ${payload.atomId} in WorkGraph ${payload.workGraphId} cannot execute.`,
+          sourceRefs: [],
+        }, db).catch(() => {}) // best-effort, never block
 
         return new Response(JSON.stringify(failResult), {
           headers: { 'Content-Type': 'application/json' },

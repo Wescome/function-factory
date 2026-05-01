@@ -176,7 +176,7 @@ export default {
           `FOR a IN orientation_assessments SORT a.generated_at DESC LIMIT 5 RETURN { id: a._key, type: a.assessment_type, generated_at: a.generated_at, decisions: LENGTH(a.decisions || []), actions_taken: a.actions_taken }`,
         ).catch(() => [])
         const telemetry = await db.query<Record<string, unknown>>(
-          `FOR t IN orl_telemetry FILTER t.schemaName IN ['GovernorAssessment', '_governance_cycle'] SORT t.timestamp DESC LIMIT 5 RETURN { timestamp: t.timestamp, success: t.success, failureMode: t.failureMode, schema: t.schemaName, error: t.error }`,
+          `FOR t IN orl_telemetry FILTER t.schemaName IN ['GovernorAssessment', 'GovernanceCycleResult', '_governance_cycle'] SORT t.timestamp DESC LIMIT 5 RETURN { timestamp: t.timestamp, success: t.success, failureMode: t.failureMode, schema: t.schemaName, verdict: t.verdict, operationalHealth: t.operationalHealth, trend: t.trend, error: t.error }`,
         ).catch(() => [])
         return new Response(JSON.stringify({ assessments, telemetry, cycleCount: assessments.length }, null, 2), { headers: { 'Content-Type': 'application/json' } })
       } catch (err) {
@@ -274,6 +274,8 @@ export default {
           if (msg.attempts >= 4) {
             // max_retries: 3 = 4 total attempts. Give up and ack to prevent infinite retry.
             console.error(`[Stage 6] synthesis-results exhausted retries for workflow ${workflowId}`)
+            // Tier 1 signal: infra:queue-retry-exhausted — synthesis-results dead letter
+            console.error(`[INFRA SIGNAL] infra:queue-retry-exhausted: synthesis-results message for workflow ${workflowId} exhausted ${msg.attempts} attempts`)
             msg.ack()
           } else {
             msg.retry()
@@ -426,8 +428,12 @@ export default {
         } catch (err) {
           const errorMessage = err instanceof Error ? err.message : String(err)
           console.error(`[Stage 6] atom-results processing failed for atom ${atomId}: ${errorMessage}`)
+          // Tier 1 signal: infra:arango-connection-failure (console-only — DB may be down)
+          console.error(`[INFRA SIGNAL] infra:arango-connection-failure: atom-results processing failed for atom ${atomId} in ${workGraphId}: ${errorMessage}`)
           if (msg.attempts >= 4) {
             console.error(`[Stage 6] atom-results exhausted retries for atom ${atomId} in ${workGraphId}`)
+            // Tier 1 signal: infra:queue-retry-exhausted — atom-results dead letter
+            console.error(`[INFRA SIGNAL] infra:queue-retry-exhausted: atom-results message for atom ${atomId} in ${workGraphId} exhausted ${msg.attempts} attempts`)
             msg.ack()
           } else {
             msg.retry()
@@ -582,8 +588,12 @@ export default {
         } catch (err) {
           const errorMessage = err instanceof Error ? err.message : String(err)
           console.error(`[Feedback] feedback-signals processing failed: ${errorMessage}`)
+          // Tier 1 signal: infra:arango-connection-failure (console-only — DB may be down)
+          console.error(`[INFRA SIGNAL] infra:arango-connection-failure: feedback-signals processing failed: ${errorMessage}`)
           if (msg.attempts >= 3) {
             console.error(`[Feedback] feedback-signals exhausted retries`)
+            // Tier 1 signal: infra:queue-retry-exhausted — feedback-signals dead letter
+            console.error(`[INFRA SIGNAL] infra:queue-retry-exhausted: feedback-signals message exhausted ${msg.attempts} attempts`)
             msg.ack()
           } else {
             msg.retry()
@@ -630,6 +640,8 @@ export default {
           const errorMessage = err instanceof Error ? err.message : String(err)
           console.error(`[Stage 6] atom-execute dispatch failed for atom ${atomId}: ${errorMessage}`)
           if (msg.attempts >= 3) {
+            // Tier 1 signal: infra:queue-retry-exhausted — atom-execute dispatch dead letter
+            console.error(`[INFRA SIGNAL] infra:queue-retry-exhausted: atom-execute dispatch for atom ${atomId} in ${workGraphId} exhausted ${msg.attempts} attempts`)
             // Publish failure result to atom-results queue so ledger is updated
             try {
               if (env.ATOM_RESULTS) {
@@ -708,6 +720,8 @@ export default {
             const sendErrMsg = sendErr instanceof Error ? sendErr.message : String(sendErr)
             console.error(`Failed to send failure event for workflow ${workflowId}: sendEvent error: ${sendErrMsg} (original error: ${errorMessage})`)
           }
+          // Tier 1 signal: infra:queue-retry-exhausted — synthesis-queue coordinator dispatch dead letter
+          console.error(`[INFRA SIGNAL] infra:queue-retry-exhausted: synthesis-queue dispatch for workflow ${workflowId} (workGraph ${workGraphId}) exhausted ${msg.attempts} attempts: ${errorMessage}`)
           msg.ack() // Remove from queue even though dispatch failed
         } else {
           msg.retry()
