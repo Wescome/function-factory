@@ -3,14 +3,29 @@
  *
  * Phase D — Function lifecycle state tracking (ontology constraint C14).
  *
- * Implements the lifecycle state machine defined in factory-ontology.ttl:
- *   Proposed -> Designed -> InProgress -> Implemented -> Verified -> Monitored -> Retired
+ * Implements the lifecycle state machine aligned to the canonical literate
+ * reference (packages/literate-tools/tangled/types/index.ts):
+ *   Proposed -> Designed -> InProgress -> Produced -> Accepted -> Monitored -> Retired
+ *                                                                    |-> Regressed -> InProgress
  *
- * Gate requirements (from factory-shapes.ttl C14):
- *   Implemented -> Verified requires Gate 2 pass
- *   Verified -> Monitored requires Gate 3 active
+ * State renames from prior implementation:
+ *   implemented → produced
+ *   verified → accepted
+ *
+ * Gate requirements (from factory-shapes.ttl C14, updated):
+ *   Produced -> Accepted requires Gate 2 pass
+ *   Accepted -> Monitored requires Gate 3 active
  *
  * Transitions are IDEMPOTENT: transitioning to the current state is a no-op.
+ *
+ * NOTE: Existing ArangoDB documents may contain old state names ('implemented',
+ * 'verified'). A migration query is needed for existing data:
+ *   FOR f IN specs_functions
+ *     FILTER f.lifecycleState == 'implemented'
+ *     UPDATE f WITH { lifecycleState: 'produced' } IN specs_functions
+ *   FOR f IN specs_functions
+ *     FILTER f.lifecycleState == 'verified'
+ *     UPDATE f WITH { lifecycleState: 'accepted' } IN specs_functions
  *
  * Ontology reference:
  *   ff:FunctionLifecycleState (factory-ontology.ttl)
@@ -24,29 +39,36 @@ import type { ArangoClient } from '@factory/arango-client'
 
 export type LifecycleState =
   | 'proposed' | 'designed' | 'in_progress'
-  | 'implemented' | 'verified' | 'monitored' | 'retired'
+  | 'produced' | 'accepted' | 'monitored'
+  | 'regressed' | 'retired'
 
 export interface LifecycleTransition {
   from: LifecycleState
   to: LifecycleState
-  triggeredBy: string
+  trigger: string              // canonical field name (was `triggeredBy`)
+  guard?: string               // named precondition from canonical transition table
+  responsible_context?: string // which subsystem owns this transition
   timestamp: string
-  gateReport?: string  // _key of the gate report that authorized this transition
+  gateReport?: string          // _key of the gate report that authorized this transition
 }
 
 // ── Constants ──────────────────────────────────────────────────────
 
 /**
- * Allowed lifecycle transitions per factory-ontology.ttl.
+ * Allowed lifecycle transitions per canonical literate reference.
  * Transitions not in this graph are forbidden.
+ *
+ * `proposed` is a pipeline-specific initial state (not in canonical
+ * but functionally needed as the entry point for new function proposals).
  */
 export const ALLOWED_TRANSITIONS: Record<LifecycleState, LifecycleState[]> = {
-  proposed: ['designed'],
-  designed: ['in_progress'],
-  in_progress: ['implemented'],
-  implemented: ['verified'],       // requires Gate 2
-  verified: ['monitored'],         // requires Gate 3
-  monitored: ['retired'],
+  proposed: ['designed', 'retired'],
+  designed: ['in_progress', 'retired'],
+  in_progress: ['produced'],
+  produced: ['accepted', 'retired'],
+  accepted: ['monitored', 'retired'],
+  monitored: ['regressed', 'retired'],
+  regressed: ['in_progress', 'retired'],
   retired: [],
 }
 
@@ -55,7 +77,7 @@ export const ALLOWED_TRANSITIONS: Record<LifecycleState, LifecycleState[]> = {
  * If a target state is in this map, the named gate must have passed.
  */
 export const GATE_REQUIREMENTS: Partial<Record<LifecycleState, string>> = {
-  verified: 'gate-2',
+  accepted: 'gate-2',
   monitored: 'gate-3',
 }
 
@@ -111,7 +133,12 @@ export async function transitionLifecycle(
   db: ArangoClient,
   functionKey: string,
   to: LifecycleState,
-  opts: { triggeredBy: string; gateReport?: string },
+  opts: {
+    trigger: string
+    guard?: string
+    responsible_context?: string
+    gateReport?: string
+  },
 ): Promise<void> {
   // 1. Fetch current state
   const doc = await db.get<{ _key: string; lifecycleState?: string }>(
@@ -171,8 +198,10 @@ export async function transitionLifecycle(
   const transition: LifecycleTransition = {
     from,
     to,
-    triggeredBy: opts.triggeredBy,
+    trigger: opts.trigger,
     timestamp: new Date().toISOString(),
+    ...(opts.guard ? { guard: opts.guard } : {}),
+    ...(opts.responsible_context ? { responsible_context: opts.responsible_context } : {}),
     ...(opts.gateReport ? { gateReport: opts.gateReport } : {}),
   }
 

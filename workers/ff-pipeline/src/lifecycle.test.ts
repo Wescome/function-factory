@@ -1,8 +1,14 @@
 /**
- * Phase D — Lifecycle state tracking tests (TDD RED phase).
+ * Phase D — Lifecycle state tracking tests (aligned to canonical literate reference).
  *
- * Verifies lifecycle state transitions per ontology constraint C14
- * and the allowedTransition graph in factory-ontology.ttl.
+ * Verifies lifecycle state transitions per the canonical transition table
+ * in packages/literate-tools/tangled/types/index.ts.
+ *
+ * State renames vs. prior implementation:
+ *   implemented → produced
+ *   verified → accepted
+ *
+ * New state: regressed (between monitored and in_progress/retired)
  *
  * Uses mock ArangoClient — same pattern as other pipeline tests.
  */
@@ -39,26 +45,51 @@ describe('validateTransition', () => {
     expect(result.error).toBeUndefined()
   })
 
+  it('allows proposed -> retired', () => {
+    const result = validateTransition('proposed', 'retired')
+    expect(result.valid).toBe(true)
+  })
+
   it('allows designed -> in_progress', () => {
     const result = validateTransition('designed', 'in_progress')
     expect(result.valid).toBe(true)
   })
 
-  it('allows in_progress -> implemented', () => {
-    const result = validateTransition('in_progress', 'implemented')
+  it('allows designed -> retired', () => {
+    const result = validateTransition('designed', 'retired')
     expect(result.valid).toBe(true)
   })
 
-  it('allows implemented -> verified and returns gateRequired', () => {
-    const result = validateTransition('implemented', 'verified')
+  it('allows in_progress -> produced', () => {
+    const result = validateTransition('in_progress', 'produced')
+    expect(result.valid).toBe(true)
+  })
+
+  it('allows produced -> accepted and returns gateRequired', () => {
+    const result = validateTransition('produced', 'accepted')
     expect(result.valid).toBe(true)
     expect(result.gateRequired).toBe('gate-2')
   })
 
-  it('allows verified -> monitored and returns gateRequired', () => {
-    const result = validateTransition('verified', 'monitored')
+  it('allows produced -> retired', () => {
+    const result = validateTransition('produced', 'retired')
+    expect(result.valid).toBe(true)
+  })
+
+  it('allows accepted -> monitored and returns gateRequired', () => {
+    const result = validateTransition('accepted', 'monitored')
     expect(result.valid).toBe(true)
     expect(result.gateRequired).toBe('gate-3')
+  })
+
+  it('allows accepted -> retired', () => {
+    const result = validateTransition('accepted', 'retired')
+    expect(result.valid).toBe(true)
+  })
+
+  it('allows monitored -> regressed', () => {
+    const result = validateTransition('monitored', 'regressed')
+    expect(result.valid).toBe(true)
   })
 
   it('allows monitored -> retired', () => {
@@ -66,8 +97,18 @@ describe('validateTransition', () => {
     expect(result.valid).toBe(true)
   })
 
-  it('rejects proposed -> verified (skipping states)', () => {
-    const result = validateTransition('proposed', 'verified')
+  it('allows regressed -> in_progress', () => {
+    const result = validateTransition('regressed', 'in_progress')
+    expect(result.valid).toBe(true)
+  })
+
+  it('allows regressed -> retired', () => {
+    const result = validateTransition('regressed', 'retired')
+    expect(result.valid).toBe(true)
+  })
+
+  it('rejects proposed -> accepted (skipping states)', () => {
+    const result = validateTransition('proposed', 'accepted')
     expect(result.valid).toBe(false)
     expect(result.error).toBeTruthy()
   })
@@ -100,10 +141,10 @@ describe('validateTransition', () => {
 // ────────────────────────────────────────────────────────────
 
 describe('ALLOWED_TRANSITIONS', () => {
-  it('defines all 7 lifecycle states', () => {
+  it('defines all 8 lifecycle states', () => {
     const states: LifecycleState[] = [
       'proposed', 'designed', 'in_progress',
-      'implemented', 'verified', 'monitored', 'retired',
+      'produced', 'accepted', 'monitored', 'regressed', 'retired',
     ]
     for (const s of states) {
       expect(ALLOWED_TRANSITIONS).toHaveProperty(s)
@@ -113,6 +154,19 @@ describe('ALLOWED_TRANSITIONS', () => {
   it('retired has no outgoing transitions', () => {
     expect(ALLOWED_TRANSITIONS.retired).toEqual([])
   })
+
+  it('every non-retired state can transition to retired', () => {
+    const nonRetired: LifecycleState[] = [
+      'proposed', 'designed', 'produced', 'accepted', 'monitored', 'regressed',
+    ]
+    for (const s of nonRetired) {
+      expect(ALLOWED_TRANSITIONS[s]).toContain('retired')
+    }
+  })
+
+  it('regressed can go back to in_progress', () => {
+    expect(ALLOWED_TRANSITIONS.regressed).toContain('in_progress')
+  })
 })
 
 // ────────────────────────────────────────────────────────────
@@ -120,8 +174,8 @@ describe('ALLOWED_TRANSITIONS', () => {
 // ────────────────────────────────────────────────────────────
 
 describe('GATE_REQUIREMENTS', () => {
-  it('verified requires gate-2', () => {
-    expect(GATE_REQUIREMENTS.verified).toBe('gate-2')
+  it('accepted requires gate-2', () => {
+    expect(GATE_REQUIREMENTS.accepted).toBe('gate-2')
   })
 
   it('monitored requires gate-3', () => {
@@ -151,7 +205,7 @@ describe('transitionLifecycle', () => {
 
   it('updates the function document lifecycleState field', async () => {
     await transitionLifecycle(db as any, 'FP-001', 'designed', {
-      triggeredBy: 'pipeline-compile',
+      trigger: 'pipeline-compile',
     })
 
     expect(db.update).toHaveBeenCalledWith(
@@ -165,7 +219,7 @@ describe('transitionLifecycle', () => {
 
   it('records the transition in lifecycle_transitions edge collection', async () => {
     await transitionLifecycle(db as any, 'FP-001', 'designed', {
-      triggeredBy: 'pipeline-compile',
+      trigger: 'pipeline-compile',
     })
 
     expect(db.saveEdge).toHaveBeenCalledWith(
@@ -175,22 +229,22 @@ describe('transitionLifecycle', () => {
       expect.objectContaining({
         from: 'proposed',
         to: 'designed',
-        triggeredBy: 'pipeline-compile',
+        trigger: 'pipeline-compile',
       }),
     )
   })
 
   it('throws for invalid transition', async () => {
     await expect(
-      transitionLifecycle(db as any, 'FP-001', 'verified', {
-        triggeredBy: 'test',
+      transitionLifecycle(db as any, 'FP-001', 'accepted', {
+        trigger: 'test',
       }),
     ).rejects.toThrow()
   })
 
   it('is idempotent — transitioning to current state is a no-op', async () => {
     await transitionLifecycle(db as any, 'FP-001', 'proposed', {
-      triggeredBy: 'idempotent-check',
+      trigger: 'idempotent-check',
     })
 
     // No update, no edge written
@@ -198,39 +252,39 @@ describe('transitionLifecycle', () => {
     expect(db.saveEdge).not.toHaveBeenCalled()
   })
 
-  it('checks gate requirement for verified transition', async () => {
+  it('checks gate requirement for accepted transition', async () => {
     db.get.mockResolvedValue({
       _key: 'FP-002',
-      lifecycleState: 'implemented',
+      lifecycleState: 'produced',
     })
 
     // No gate report — should require one
     await expect(
-      transitionLifecycle(db as any, 'FP-002', 'verified', {
-        triggeredBy: 'test',
+      transitionLifecycle(db as any, 'FP-002', 'accepted', {
+        trigger: 'test',
         // no gateReport provided
       }),
     ).rejects.toThrow(/gate/i)
   })
 
-  it('allows verified transition when gateReport is provided', async () => {
+  it('allows accepted transition when gateReport is provided', async () => {
     db.get.mockResolvedValue({
       _key: 'FP-002',
-      lifecycleState: 'implemented',
+      lifecycleState: 'produced',
     })
 
     // Gate status exists and passed
     db.queryOne.mockResolvedValue({ passed: true })
 
-    await transitionLifecycle(db as any, 'FP-002', 'verified', {
-      triggeredBy: 'gate-2-pass',
+    await transitionLifecycle(db as any, 'FP-002', 'accepted', {
+      trigger: 'gate-2-pass',
       gateReport: 'CR-G2-WG-002',
     })
 
     expect(db.update).toHaveBeenCalledWith(
       'specs_functions',
       'FP-002',
-      expect.objectContaining({ lifecycleState: 'verified' }),
+      expect.objectContaining({ lifecycleState: 'accepted' }),
     )
   })
 
@@ -239,14 +293,14 @@ describe('transitionLifecycle', () => {
 
     await expect(
       transitionLifecycle(db as any, 'FP-MISSING', 'designed', {
-        triggeredBy: 'test',
+        trigger: 'test',
       }),
     ).rejects.toThrow(/not found/i)
   })
 
   it('includes timestamp in the transition edge', async () => {
     await transitionLifecycle(db as any, 'FP-001', 'designed', {
-      triggeredBy: 'test',
+      trigger: 'test',
     })
 
     expect(db.saveEdge).toHaveBeenCalledWith(
@@ -262,12 +316,12 @@ describe('transitionLifecycle', () => {
   it('includes gateReport in transition edge when provided', async () => {
     db.get.mockResolvedValue({
       _key: 'FP-002',
-      lifecycleState: 'implemented',
+      lifecycleState: 'produced',
     })
     db.queryOne.mockResolvedValue({ passed: true })
 
-    await transitionLifecycle(db as any, 'FP-002', 'verified', {
-      triggeredBy: 'gate-2-pass',
+    await transitionLifecycle(db as any, 'FP-002', 'accepted', {
+      trigger: 'gate-2-pass',
       gateReport: 'CR-G2-WG-002',
     })
 
@@ -278,6 +332,58 @@ describe('transitionLifecycle', () => {
       expect.objectContaining({
         gateReport: 'CR-G2-WG-002',
       }),
+    )
+  })
+
+  it('supports guard and responsible_context in transition options', async () => {
+    await transitionLifecycle(db as any, 'FP-001', 'designed', {
+      trigger: 'architect_approves_function',
+      guard: 'function_proposal_has_valid_invariants_and_contracts',
+      responsible_context: 'Governance',
+    })
+
+    expect(db.saveEdge).toHaveBeenCalledWith(
+      'lifecycle_transitions',
+      expect.any(String),
+      expect.any(String),
+      expect.objectContaining({
+        guard: 'function_proposal_has_valid_invariants_and_contracts',
+        responsible_context: 'Governance',
+      }),
+    )
+  })
+
+  it('allows regressed -> in_progress transition', async () => {
+    db.get.mockResolvedValue({
+      _key: 'FP-003',
+      lifecycleState: 'regressed',
+    })
+
+    await transitionLifecycle(db as any, 'FP-003', 'in_progress', {
+      trigger: 'remediation_initiated',
+    })
+
+    expect(db.update).toHaveBeenCalledWith(
+      'specs_functions',
+      'FP-003',
+      expect.objectContaining({ lifecycleState: 'in_progress' }),
+    )
+  })
+
+  it('allows monitored -> regressed transition', async () => {
+    db.get.mockResolvedValue({
+      _key: 'FP-004',
+      lifecycleState: 'monitored',
+    })
+
+    await transitionLifecycle(db as any, 'FP-004', 'regressed', {
+      trigger: 'trusted_evidence_invalidated',
+    })
+
+    expect(db.update).toHaveBeenCalledWith(
+      'specs_functions',
+      'FP-004',
+      expect.objectContaining({ lifecycleState: 'regressed' }),
     )
   })
 })

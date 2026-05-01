@@ -1015,7 +1015,7 @@ describe('Stage 6: Event-driven synthesis handoff', () => {
       expect(result.status).toBe('synthesis-interrupt')
     })
 
-    it('lifecycle transitions to implemented only when final verdict is pass (atoms path)', async () => {
+    it('lifecycle transitions to produced only when final verdict is pass (atoms path)', async () => {
       const { FactoryPipeline } = await import('./pipeline')
 
       const env = createMockEnv()
@@ -1063,10 +1063,10 @@ describe('Stage 6: Event-driven synthesis handoff', () => {
         mockStep.step,
       )
 
-      expect(stepDoNames).toContain('lifecycle-implemented')
+      expect(stepDoNames).toContain('lifecycle-produced')
     })
 
-    it('does NOT transition lifecycle to implemented when atoms fail', async () => {
+    it('does NOT transition lifecycle to produced when atoms fail', async () => {
       const { FactoryPipeline } = await import('./pipeline')
 
       const env = createMockEnv()
@@ -1114,7 +1114,7 @@ describe('Stage 6: Event-driven synthesis handoff', () => {
         mockStep.step,
       )
 
-      expect(stepDoNames).not.toContain('lifecycle-implemented')
+      expect(stepDoNames).not.toContain('lifecycle-produced')
     })
   })
 

@@ -85,7 +85,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     // ── Phase D: Lifecycle → proposed ──
     await step.do('lifecycle-proposed', async () => {
       await transitionLifecycle(db, proposalKey, 'proposed', {
-        triggeredBy: 'pipeline-propose-function',
+        trigger: 'pipeline-propose-function',
       }).catch((err: unknown) => {
         console.warn(`[lifecycle] Failed to set proposed: ${err instanceof Error ? err.message : err}`)
       })
@@ -177,7 +177,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     // ── Phase D: Lifecycle → designed (after compilation) ──
     await step.do('lifecycle-designed', async () => {
       await transitionLifecycle(db, proposalKey, 'designed', {
-        triggeredBy: 'pipeline-compile',
+        trigger: 'pipeline-compile',
       }).catch((err: unknown) => {
         console.warn(`[lifecycle] Failed to set designed: ${err instanceof Error ? err.message : err}`)
       })
@@ -292,7 +292,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     // ── Phase D: Lifecycle → in_progress (synthesis enqueued) ──
     await step.do('lifecycle-in-progress', async () => {
       await transitionLifecycle(db, proposalKey, 'in_progress', {
-        triggeredBy: 'pipeline-enqueue-synthesis',
+        trigger: 'pipeline-enqueue-synthesis',
       }).catch((err: unknown) => {
         console.warn(`[lifecycle] Failed to set in_progress: ${err instanceof Error ? err.message : err}`)
       })
@@ -371,13 +371,13 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       return { ok: true }
     })
 
-    // ── Phase D: Lifecycle → implemented (if synthesis passed) ──
+    // ── Phase D: Lifecycle → produced (if synthesis passed) ──
     if (finalVerdict.decision === 'pass') {
-      await step.do('lifecycle-implemented', async () => {
-        await transitionLifecycle(db, proposalKey, 'implemented', {
-          triggeredBy: 'pipeline-synthesis-pass',
+      await step.do('lifecycle-produced', async () => {
+        await transitionLifecycle(db, proposalKey, 'produced', {
+          trigger: 'pipeline-synthesis-pass',
         }).catch((err: unknown) => {
-          console.warn(`[lifecycle] Failed to set implemented: ${err instanceof Error ? err.message : err}`)
+          console.warn(`[lifecycle] Failed to set produced: ${err instanceof Error ? err.message : err}`)
         })
         return { ok: true }
       })
