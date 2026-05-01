@@ -5,8 +5,21 @@ export interface Plan {
   estimatedComplexity: 'low' | 'medium' | 'high'
 }
 
+export interface CodeArtifactEdit {
+  search: string
+  replace: string
+  scope?: string
+}
+
+export interface CodeArtifactFile {
+  path: string
+  action: 'create' | 'modify' | 'delete'
+  content?: string
+  edits?: CodeArtifactEdit[]
+}
+
 export interface CodeArtifact {
-  files: { path: string; content: string; action: 'create' | 'modify' | 'delete' }[]
+  files: CodeArtifactFile[]
   summary: string
   testsIncluded: boolean
 

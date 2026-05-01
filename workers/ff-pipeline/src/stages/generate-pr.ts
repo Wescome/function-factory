@@ -16,7 +16,18 @@
  *   5. POST /repos/{owner}/{repo}/pulls               — create PR
  */
 
+import { applyEdits, type Edit } from '@factory/diff-engine'
+
 // ── Types ────────────────────────────────────────────────────────────
+
+export interface FileChangeV2 {
+  path: string
+  action: 'create' | 'modify' | 'delete'
+  /** Full file content — used for action='create', or legacy action='modify' */
+  content?: string
+  /** Search/replace edits — used for action='modify' (v2 format) */
+  edits?: Edit[]
+}
 
 export interface PRGenerationInput {
   signalTitle: string
@@ -26,7 +37,7 @@ export interface PRGenerationInput {
     atomId: string
     verdict: { decision: string }
     codeArtifact: {
-      files: Array<{ path: string; content: string; action: 'create' | 'modify' | 'delete' }>
+      files: Array<FileChangeV2>
       summary: string
     } | null
   }>
@@ -150,6 +161,20 @@ function apiHeaders(token: string): Record<string, string> {
 }
 
 /**
+ * Decode a base64 string (from GitHub API) to UTF-8 text.
+ * GitHub returns file content as base64 with possible newlines.
+ */
+function fromBase64(encoded: string): string {
+  const cleaned = encoded.replace(/\n/g, '')
+  const binary = atob(cleaned)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  return new TextDecoder().decode(bytes)
+}
+
+/**
  * Base64-encode a string, handling UTF-8 correctly.
  * btoa() only handles Latin-1; this uses TextEncoder for full Unicode support.
  */
@@ -232,26 +257,31 @@ export async function generatePR(
     }
 
     // ── Step 3: Write files from passing atoms ──
-    const filesToWrite: Array<{ path: string; content: string; action: 'create' | 'modify' | 'delete' }> = []
+    // Group files by path across atoms (Architect condition #8: serialize per path)
+    const filesByPath = new Map<string, FileChangeV2[]>()
     const filesNotFound: string[] = []
     const warnings: string[] = []
 
     for (const [, atomResult] of Object.entries(input.atomResults ?? {})) {
-      // Skip atoms that did not pass
       if (atomResult.verdict.decision !== 'pass') continue
-      // Skip atoms without code artifacts
       if (!atomResult.codeArtifact?.files) continue
 
       for (const file of atomResult.codeArtifact.files) {
-        filesToWrite.push(file)
+        const existing = filesByPath.get(file.path)
+        if (existing) {
+          existing.push(file)
+        } else {
+          filesByPath.set(file.path, [file])
+        }
       }
     }
 
-    for (const file of filesToWrite) {
-      if (file.action === 'delete') {
-        // For delete, we need to get the file SHA first
+    for (const [filePath, fileChanges] of filesByPath) {
+      const primaryAction = fileChanges[fileChanges.length - 1]!.action
+
+      if (primaryAction === 'delete') {
         const getFileRes = await fetch(
-          apiUrl(repoOwner, repoName, `/contents/${file.path}?ref=${branchName}`),
+          apiUrl(repoOwner, repoName, `/contents/${filePath}?ref=${branchName}`),
           { method: 'GET', headers },
         )
 
@@ -260,54 +290,103 @@ export async function generatePR(
           const fileData = await getFileRes.json() as { sha: string }
           fileSha = fileData.sha
         } else {
-          filesNotFound.push(file.path)
-          warnings.push(`Delete target not found: ${file.path}`)
+          filesNotFound.push(filePath)
+          warnings.push(`Delete target not found: ${filePath}`)
         }
 
         await fetch(
-          apiUrl(repoOwner, repoName, `/contents/${file.path}`),
+          apiUrl(repoOwner, repoName, `/contents/${filePath}`),
           {
             method: 'DELETE',
             headers,
             body: JSON.stringify({
-              message: `[Factory] Delete ${file.path}`,
+              message: `[Factory] Delete ${filePath}`,
               branch: branchName,
               sha: fileSha ?? '',
             }),
           },
         )
-      } else {
-        // create or modify — always check if file exists on this branch
-        const getFileRes = await fetch(
-          apiUrl(repoOwner, repoName, `/contents/${file.path}?ref=${branchName}`),
-          { method: 'GET', headers },
-        ).catch(() => null)
-
-        let existingSha: string | undefined
-        if (getFileRes?.ok) {
-          const fileData = await getFileRes.json() as { sha: string }
-          existingSha = fileData.sha
-        } else if (file.action === 'modify') {
-          // File expected to exist for modify but doesn't — track as conflict
-          filesNotFound.push(file.path)
-          warnings.push(`Modify target not found on branch, treating as create: ${file.path}`)
-        }
-
-        await fetch(
-          apiUrl(repoOwner, repoName, `/contents/${file.path}`),
-          {
-            method: 'PUT',
-            headers,
-            body: JSON.stringify({
-              message: `[Factory] ${file.action === 'create' ? 'Create' : 'Update'} ${file.path}`,
-              content: toBase64(file.content),
-              branch: branchName,
-              ...(existingSha ? { sha: existingSha } : {}),
-            }),
-          },
-        )
+        filesWritten++
+        continue
       }
 
+      // create or modify — fetch existing file state
+      const getFileRes = await fetch(
+        apiUrl(repoOwner, repoName, `/contents/${filePath}?ref=${branchName}`),
+        { method: 'GET', headers },
+      ).catch(() => null)
+
+      let existingSha: string | undefined
+      let existingContent: string | undefined
+
+      if (getFileRes?.ok) {
+        const fileData = await getFileRes.json() as { sha: string; content: string }
+        existingSha = fileData.sha
+        existingContent = fromBase64(fileData.content)
+      } else if (primaryAction === 'modify') {
+        filesNotFound.push(filePath)
+        warnings.push(`Modify target not found on branch, treating as create: ${filePath}`)
+      }
+
+      // Resolve final content — diff-based edits or legacy full content
+      let finalContent: string | undefined
+
+      // Merge edits from all atoms targeting this file
+      const allEdits: Edit[] = []
+      let hasLegacyContent = false
+      let legacyContent = ''
+
+      for (const change of fileChanges) {
+        if (change.edits && change.edits.length > 0) {
+          allEdits.push(...change.edits)
+        } else if (change.content !== undefined) {
+          hasLegacyContent = true
+          legacyContent = change.content
+          warnings.push(`Legacy full-content format used for: ${filePath}`)
+        }
+      }
+
+      if (allEdits.length > 0 && existingContent !== undefined) {
+        // v2 path: apply search/replace edits to existing content
+        const result = applyEdits(existingContent, allEdits)
+        if (result.success) {
+          finalContent = result.content
+        } else {
+          const failureDetails = result.failedEdits
+            .map(f => `${f.reason}: "${f.edit.search.slice(0, 60)}..."`)
+            .join('; ')
+          warnings.push(`Edit application partial failure on ${filePath}: ${failureDetails}`)
+          if (result.appliedEdits > 0) {
+            finalContent = result.content
+          } else {
+            warnings.push(`All edits failed for ${filePath}, skipping file`)
+            continue
+          }
+        }
+      } else if (allEdits.length > 0 && existingContent === undefined) {
+        warnings.push(`Edits provided but no existing file to patch: ${filePath}`)
+        continue
+      } else if (hasLegacyContent) {
+        // Fallback: legacy full-content replacement
+        finalContent = legacyContent
+      } else {
+        warnings.push(`No content or edits for ${filePath}, skipping`)
+        continue
+      }
+
+      await fetch(
+        apiUrl(repoOwner, repoName, `/contents/${filePath}`),
+        {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify({
+            message: `[Factory] ${primaryAction === 'create' ? 'Create' : 'Update'} ${filePath}`,
+            content: toBase64(finalContent),
+            branch: branchName,
+            ...(existingSha ? { sha: existingSha } : {}),
+          }),
+        },
+      )
       filesWritten++
     }
 

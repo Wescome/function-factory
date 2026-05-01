@@ -9,6 +9,7 @@
  */
 
 import type { CodeArtifact, CritiqueReport, TestReport, Verdict } from './state'
+import type { FileContext } from '@factory/file-context'
 
 // ────────────────────────────────────────────────────────────
 // Types
@@ -23,6 +24,7 @@ export interface AtomSlice {
     specContent: string | null
     briefingScript: unknown
   }
+  fileContexts?: FileContext[]
 }
 
 export interface AtomResult {
@@ -47,6 +49,7 @@ export interface AtomExecutorDeps {
       repairNotes?: string
       previousCode?: CodeArtifact
       critiqueIssues?: CritiqueReport['issues']
+      fileContexts?: FileContext[]
     }) => Promise<CodeArtifact>
   }
   criticAgent: {
@@ -128,6 +131,7 @@ export async function executeAtomSlice(
       ...(repairNotes ? { repairNotes } : {}),
       ...(previousCode ? { previousCode } : {}),
       ...(critique?.issues?.length ? { critiqueIssues: critique.issues } : {}),
+      ...(slice.fileContexts?.length ? { fileContexts: slice.fileContexts } : {}),
     })
 
     // Node 2: Code-critic

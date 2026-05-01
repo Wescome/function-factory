@@ -13,6 +13,7 @@ import type { AgentTool } from '@weops/gdk-agent'
 import type { Model, AssistantMessage, Message, UserMessage } from '@weops/gdk-ai'
 import type { ArangoClient } from '@factory/arango-client'
 import type { CodeArtifact, Plan, CritiqueReport } from '../coordinator/state'
+import type { FileContext } from '@factory/file-context'
 import { resolveAgentModel } from './resolve-model'
 import { processAgentOutput, extractAssistantText, buildTelemetryEntry, CODE_ARTIFACT_SCHEMA } from './output-reliability'
 
@@ -23,6 +24,7 @@ export interface CoderInput {
   repairNotes?: string
   previousCode?: CodeArtifact
   critiqueIssues?: CritiqueReport['issues']
+  fileContexts?: FileContext[]
 }
 
 export interface CoderAgentOpts {
@@ -45,18 +47,24 @@ Use the Factory Knowledge Graph context provided in the user message to ground y
 
 If this is a repair cycle (repairNotes provided), focus on fixing the specific issues noted.
 Reuse existing patterns from the codebase. Follow the plan's atom ordering.
-Maximum 500 words per file.
+
+IMPORTANT — FILE MODIFICATION RULES:
+- For NEW files (action: "create"): provide full "content" string.
+- For EXISTING files (action: "modify"): you MUST use "edits" — an array of search/replace pairs. NEVER replace the entire file.
+  Each edit has: "search" (exact substring from the current file, min 10 chars), "replace" (what it becomes).
+  Edits are applied sequentially. Include enough context in "search" to be unique in the file.
+- For DELETIONS (action: "delete"): just the path, no content or edits needed.
 
 When ready, respond with ONLY a JSON object (no markdown fences, no explanation):
 {
   "files": [
-    { "path": "src/example.ts", "content": "file content here", "action": "create | modify | delete" }
+    { "path": "src/new-file.ts", "content": "full file content", "action": "create" },
+    { "path": "src/existing.ts", "edits": [{"search": "old code here...", "replace": "new code here..."}], "action": "modify" },
+    { "path": "src/removed.ts", "action": "delete" }
   ],
   "summary": "What was implemented and why",
   "testsIncluded": true | false
-}
-
-Each file entry must have: path (string), content (string), action ("create" | "modify" | "delete").`
+}`
 
 // Required fields now defined in CODE_ARTIFACT_SCHEMA (output-reliability.ts)
 
@@ -120,6 +128,22 @@ export class CoderAgent {
 
     if (input.critiqueIssues && input.critiqueIssues.length > 0) {
       userParts.push(`\nCritique issues to address:\n${JSON.stringify(input.critiqueIssues, null, 2)}`)
+    }
+
+    if (input.fileContexts && input.fileContexts.length > 0) {
+      userParts.push(`\n--- EXISTING FILES (use edits for modifications, NOT full replacement) ---`)
+      for (const ctx of input.fileContexts) {
+        userParts.push(`\n## File: ${ctx.path}`)
+        if (ctx.structure.exports.length > 0) {
+          userParts.push(`Exports: ${ctx.structure.exports.join(', ')}`)
+        }
+        if (ctx.structure.functions.length > 0) {
+          userParts.push(`Functions: ${ctx.structure.functions.map(f => `${f.name}(${f.params})`).join(', ')}`)
+        }
+        userParts.push('```')
+        userParts.push(ctx.targetSlice ?? ctx.rawContent)
+        userParts.push('```')
+      }
     }
 
     if (this.contextPrompt) {

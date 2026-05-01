@@ -19,6 +19,7 @@ import { Agent } from 'agents'
 import { executeAtomSlice, type AtomSlice, type AtomResult } from './atom-executor.js'
 import { createClientFromEnv } from '@factory/arango-client'
 import { resolveAgentModel, keyForModel } from '../agents/resolve-model.js'
+import { extractContext, type FileContext } from '@factory/file-context'
 
 // ────────────────────────────────────────────────────────────
 // Types
@@ -32,6 +33,7 @@ export interface AtomExecutorEnv {
   ARANGO_PASSWORD?: string
   OFOX_API_KEY?: string
   CF_API_TOKEN?: string
+  GITHUB_TOKEN?: string
   ATOM_RESULTS?: { send(body: unknown): Promise<void> }
 }
 
@@ -145,12 +147,16 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
     // Set 900s alarm
     await this.ctx.storage.setAlarm(Date.now() + 900_000)
 
+    // Fetch file contexts for target files (Phase 4: file-aware atoms)
+    const fileContexts = await this.fetchFileContexts(payload)
+
     // Build the atom slice
     const slice: AtomSlice = {
       atomId: payload.atomId,
       atomSpec: payload.atomSpec,
       upstreamArtifacts: payload.upstreamArtifacts,
       sharedContext: payload.sharedContext,
+      fileContexts,
     }
 
     // Build deps from environment — agents are created fresh per atom
@@ -301,4 +307,72 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
       },
     }
   }
+
+  private async fetchFileContexts(payload: ExecuteAtomPayload): Promise<FileContext[]> {
+    if (!this.env.GITHUB_TOKEN) return []
+
+    const targetFiles = this.resolveTargetFiles(payload.atomSpec)
+    if (targetFiles.length === 0) return []
+
+    const contexts: FileContext[] = []
+    const headers = {
+      'Authorization': `Bearer ${this.env.GITHUB_TOKEN}`,
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      'User-Agent': 'ff-pipeline',
+    }
+
+    for (const filePath of targetFiles) {
+      try {
+        const res = await fetch(
+          `https://api.github.com/repos/Wescome/function-factory/contents/${filePath}?ref=main`,
+          { method: 'GET', headers },
+        )
+        if (!res.ok) continue
+
+        const data = await res.json() as { content: string; encoding: string }
+        if (data.encoding !== 'base64') continue
+
+        const rawContent = decodeBase64(data.content)
+        const language = filePath.endsWith('.ts') || filePath.endsWith('.tsx')
+          ? 'typescript'
+          : filePath.endsWith('.json') ? 'json' : 'markdown'
+
+        const ctx = extractContext(rawContent, language)
+        contexts.push({ ...ctx, path: filePath })
+
+        // Cache in DO storage for the duration of this atom
+        await this.ctx.storage.put(`file:${filePath}`, rawContent)
+      } catch {
+        // File fetch failure is non-fatal — atom runs without context
+      }
+    }
+    return contexts
+  }
+
+  private resolveTargetFiles(atomSpec: Record<string, unknown>): string[] {
+    // Atom specs may declare target files explicitly
+    if (Array.isArray(atomSpec.targetFiles)) {
+      return atomSpec.targetFiles.filter((f): f is string => typeof f === 'string')
+    }
+    // Or infer from suggestedFiles in the plan
+    if (Array.isArray(atomSpec.suggestedFiles)) {
+      return atomSpec.suggestedFiles.filter((f): f is string => typeof f === 'string')
+    }
+    // Check assignedTo field for file path hints
+    if (typeof atomSpec.file === 'string') {
+      return [atomSpec.file]
+    }
+    return []
+  }
+}
+
+function decodeBase64(encoded: string): string {
+  const cleaned = encoded.replace(/\n/g, '')
+  const binary = atob(cleaned)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  return new TextDecoder().decode(bytes)
 }

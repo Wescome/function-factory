@@ -551,7 +551,7 @@ export default {
                       atomId: string
                       verdict: { decision: string }
                       codeArtifact: {
-                        files: Array<{ path: string; content: string; action: 'create' | 'modify' | 'delete' }>
+                        files: Array<{ path: string; action: 'create' | 'modify' | 'delete'; content?: string; edits?: Array<{ search: string; replace: string; scope?: string }> }>
                         summary: string
                       } | null
                     }>,
