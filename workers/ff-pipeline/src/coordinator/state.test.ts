@@ -96,7 +96,7 @@ describe('GraphState type', () => {
   })
 
   it('preserves index signature for arbitrary keys', () => {
-    const state = createInitialState('WG-003', {})
+    const state = createInitialState('WG-003', { id: 'WG-003' })
     state.customField = 'anything'
     expect(state.customField).toBe('anything')
   })

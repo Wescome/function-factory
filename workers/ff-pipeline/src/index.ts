@@ -39,7 +39,7 @@ export default {
       const body = await request.json() as {
         workflowId?: string
         workGraphId?: string
-        workGraph?: Record<string, unknown>
+        workGraph?: import('./coordinator/state').PipelineWorkGraph
         dryRun?: boolean
       }
 

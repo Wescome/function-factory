@@ -8,7 +8,7 @@
  * Promise.all for concurrent I/O on LLM calls.
  */
 
-import type { CodeArtifact, CritiqueReport, TestReport, Verdict } from './state'
+import type { CodeArtifact, CritiqueReport, TestReport, Verdict, PipelineWorkGraph } from './state'
 import type { FileContext } from '@factory/file-context'
 
 // ────────────────────────────────────────────────────────────
@@ -43,7 +43,7 @@ export interface AtomResult {
 export interface AtomExecutorDeps {
   coderAgent: {
     produceCode: (input: {
-      workGraph: Record<string, unknown>
+      workGraph: PipelineWorkGraph
       plan: Record<string, unknown>
       specContent?: string
       repairNotes?: string
@@ -56,13 +56,13 @@ export interface AtomExecutorDeps {
     codeReview: (input: {
       code: unknown
       plan: unknown
-      workGraph: Record<string, unknown>
+      workGraph: PipelineWorkGraph
       mentorRules?: string[]
     }) => Promise<CritiqueReport>
   }
   testerAgent: {
     runTests: (input: {
-      workGraph: Record<string, unknown>
+      workGraph: PipelineWorkGraph
       plan: Record<string, unknown>
       code: Record<string, unknown>
       critique?: CritiqueReport | Record<string, unknown>
@@ -70,7 +70,7 @@ export interface AtomExecutorDeps {
   }
   verifierAgent: {
     verify: (input: {
-      workGraph: Record<string, unknown>
+      workGraph: PipelineWorkGraph
       plan: Record<string, unknown> | null
       code: CodeArtifact | null
       critique: CritiqueReport | null
@@ -102,7 +102,7 @@ export async function executeAtomSlice(
   let previousCode: CodeArtifact | undefined
 
   // Build a minimal workGraph-like object for the atom
-  const atomWorkGraph: Record<string, unknown> = {
+  const atomWorkGraph: PipelineWorkGraph = {
     _key: slice.sharedContext.workGraphId,
     id: slice.sharedContext.workGraphId,
     title: `Atom: ${slice.atomId}`,

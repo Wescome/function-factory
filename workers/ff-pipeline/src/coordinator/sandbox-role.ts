@@ -70,9 +70,9 @@ export function sandboxRole(
     // ── 1. Workspace preparation (coder only, when not ready) ──
     if (role === 'coder' && !state.workspaceReady) {
       await deps.prepareWorkspace({
-        repoUrl: (state.workGraph.repoUrl as string) ?? '',
-        ref: (state.workGraph.ref as string) ?? 'HEAD',
-        branch: (state.workGraph.branch as string) ?? 'main',
+        repoUrl: state.workGraph.repoUrl ?? '',
+        ref: state.workGraph.ref ?? 'HEAD',
+        branch: state.workGraph.branch ?? 'main',
       })
     }
 

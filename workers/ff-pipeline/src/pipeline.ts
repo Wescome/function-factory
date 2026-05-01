@@ -172,7 +172,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       }) as unknown as Record<string, unknown>
     }
 
-    const wgKey = (compState.workGraph as Record<string, unknown>)?._key as string ?? 'unknown'
+    const wgKey = (compState.workGraph as { _key?: string })?._key ?? 'unknown'
 
     // ── Phase D: Lifecycle → designed (after compilation) ──
     await step.do('lifecycle-designed', async () => {
@@ -270,7 +270,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       }
     }
 
-    const wg = compState.workGraph as Record<string, unknown>
+    const wg = compState.workGraph as { _key?: string; [k: string]: unknown }
 
     // Enqueue synthesis request to CF Queue.
     // The queue consumer (queue() handler) will call the DO and send

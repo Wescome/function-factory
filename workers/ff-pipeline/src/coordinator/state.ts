@@ -1,3 +1,66 @@
+// ────────────────────────────────────────────────────────────
+// PipelineWorkGraph — typed WorkGraph as it flows through synthesis
+// ────────────────────────────────────────────────────────────
+
+/**
+ * WorkGraph as it flows through the synthesis pipeline.
+ * Extends the canonical Zod-validated shape (packages/schemas WorkGraph)
+ * with ArangoDB document fields and pipeline-specific execution fields.
+ *
+ * The index signature preserves forward compatibility — the pipeline
+ * dynamically adds fields, but known fields are now typed.
+ */
+export interface PipelineWorkGraph {
+  // Canonical fields (from @factory/schemas WorkGraph)
+  id: string
+  functionId?: string
+  nodes?: WorkGraphNodeShape[]
+  edges?: WorkGraphEdgeShape[]
+  source_refs?: string[]
+  explicitness?: string
+  rationale?: string
+
+  // ArangoDB document fields
+  _key?: string
+  _id?: string
+  _rev?: string
+
+  // Pipeline execution fields
+  title?: string
+  atoms?: Record<string, unknown>[]
+  invariants?: Record<string, unknown>[]
+  dependencies?: Record<string, unknown>[]
+  prdId?: string
+
+  // Sandbox execution fields
+  repoUrl?: string
+  ref?: string
+  branch?: string
+
+  // Index signature for forward compatibility
+  [key: string]: unknown
+}
+
+export interface WorkGraphNodeShape {
+  id: string
+  type: string
+  title?: string
+  label?: string
+  implements?: string
+}
+
+export interface WorkGraphEdgeShape {
+  from: string
+  to: string
+  condition?: string
+  label?: string
+  dependencyType?: string
+}
+
+// ────────────────────────────────────────────────────────────
+// Pipeline state types
+// ────────────────────────────────────────────────────────────
+
 export interface Plan {
   approach: string
   atoms: { id: string; description: string; assignedTo: string }[]
@@ -61,7 +124,7 @@ export interface Verdict {
 export interface GraphState {
   [key: string]: unknown
   workGraphId: string
-  workGraph: Record<string, unknown>
+  workGraph: PipelineWorkGraph
 
   plan: Plan | null
   code: CodeArtifact | null
@@ -104,7 +167,7 @@ export interface GraphState {
 
 export function createInitialState(
   workGraphId: string,
-  workGraph: Record<string, unknown>,
+  workGraph: PipelineWorkGraph,
   opts?: { maxRepairs?: number; maxTokens?: number; specContent?: string | null },
 ): GraphState {
   return {

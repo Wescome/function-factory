@@ -1,7 +1,7 @@
 import { StateGraph, END } from './graph-runner'
 import { ROLE_CONTRACTS } from './contracts'
 import type { RoleName } from './contracts'
-import type { GraphState, Plan, Verdict, CritiqueReport, TestReport, CodeArtifact } from './state'
+import type { GraphState, Plan, Verdict, CritiqueReport, TestReport, CodeArtifact, PipelineWorkGraph } from './state'
 import type { BriefingScript } from '../agents/architect-agent'
 import type { CoderInput } from '../agents/coder-agent'
 import type { PlannerInput } from '../agents/planner-agent'
@@ -17,7 +17,7 @@ export interface GraphDeps {
 
   // ── 9-node extensions (SS8) ──
   /** When provided, enables the architect pipeline (architect → semantic-critic → compile → gate-1). */
-  architectAgent?: { produceBriefingScript: (input: { signal: Record<string, unknown>; specContent?: string }) => Promise<BriefingScript> }
+  architectAgent?: { produceBriefingScript: (input: { signal: PipelineWorkGraph; specContent?: string }) => Promise<BriefingScript> }
   /** When provided, the planner node calls PlannerAgent instead of callModel. */
   plannerAgent?: { producePlan: (input: PlannerInput) => Promise<Plan> }
   /** When provided, the coder node calls CoderAgent instead of callModel. Priority: executionRole > coderAgent > callModel. */
@@ -25,8 +25,8 @@ export interface GraphDeps {
 
   /** When provided, enables semantic-critic and code-critic nodes. */
   criticAgent?: {
-    semanticReview: (input: { prd: Record<string, unknown>; specContent?: string }) => Promise<SemanticReviewResult>
-    codeReview: (input: { code: unknown; plan: unknown; workGraph: Record<string, unknown>; mentorRules?: string[] }) => Promise<CritiqueReport>
+    semanticReview: (input: { prd: PipelineWorkGraph; specContent?: string }) => Promise<SemanticReviewResult>
+    codeReview: (input: { code: unknown; plan: unknown; workGraph: PipelineWorkGraph; mentorRules?: string[] }) => Promise<CritiqueReport>
   }
   /** When provided, the tester node uses the real TesterAgent (gdk-agent agentLoop) instead of callModel. */
   testerAgent?: { runTests: (input: TesterInput) => Promise<TestReport> }
@@ -75,7 +75,7 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
     // architect — calls ArchitectAgent.produceBriefingScript()
     graph.addNode('architect', async (state) => {
       const briefingScript = await deps.architectAgent!.produceBriefingScript({
-        signal: state.workGraph as Record<string, unknown>,
+        signal: state.workGraph,
         ...(state.specContent ? { specContent: state.specContent } : {}),
       })
       const updated: Partial<GraphState> = {
@@ -97,7 +97,7 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
       let review: SemanticReviewResult
       try {
         review = await deps.criticAgent!.semanticReview({
-          prd: state.workGraph as Record<string, unknown>,
+          prd: state.workGraph,
           ...(state.specContent ? { specContent: state.specContent } : {}),
         })
       } catch (err) {
@@ -176,7 +176,7 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
         const critique = await deps.criticAgent!.codeReview({
           code: state.code,
           plan: state.plan,
-          workGraph: state.workGraph as Record<string, unknown>,
+          workGraph: state.workGraph,
           mentorRules: mentorRules.map(r => `${r.ruleId}: ${r.rule}`),
         })
         const updated: Partial<GraphState> = {

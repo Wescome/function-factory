@@ -4,7 +4,7 @@ import { validateArtifact } from '@factory/artifact-validator'
 import { buildSynthesisGraph } from './graph'
 import type { GraphDeps } from './graph'
 import { createModelBridge } from './model-bridge-do'
-import { createInitialState, type GraphState, type Verdict } from './state'
+import { createInitialState, type GraphState, type Verdict, type PipelineWorkGraph } from './state'
 import { makeExecutionRole, type SandboxDeps } from './sandbox-role'
 import { buildSandboxDeps as buildRealSandboxDeps } from './sandbox-deps-factory'
 import { ArchitectAgent } from '../agents/architect-agent'
@@ -83,7 +83,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
     const url = new URL(request.url)
     if (url.pathname === '/synthesize' && request.method === 'POST') {
       const body = await request.json() as {
-        workGraph: Record<string, unknown>
+        workGraph: PipelineWorkGraph
         dryRun?: boolean
         specContent?: string
         workflowId?: string
@@ -120,7 +120,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
     const state = await this.ctx.storage.get<GraphState>('graphState')
     const workGraphId = (state?.workGraphId ?? await this.ctx.storage.get<string>('workGraphId')) || 'unknown'
     const timedOutState: GraphState = {
-      ...(state ?? createInitialState('unknown', {})),
+      ...(state ?? createInitialState('unknown', { id: 'unknown' })),
       verdict: {
         decision: 'interrupt',
         confidence: 1.0,
@@ -168,7 +168,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
 
   @callable()
   async synthesize(
-    workGraph: Record<string, unknown>,
+    workGraph: PipelineWorkGraph,
     opts?: { dryRun?: boolean; specContent?: string },
   ): Promise<SynthesisResult> {
     const workGraphId = (workGraph._key ?? workGraph.id ?? 'unknown') as string
@@ -374,8 +374,8 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
 
       // ── Phase 2: dispatch atoms to queue (event-driven, coordinator exits) ──
       try {
-        const wgAtoms = (finalState.workGraph as Record<string, unknown>).atoms as Record<string, unknown>[] ?? []
-        const wgDeps = (finalState.workGraph as Record<string, unknown>).dependencies as Record<string, unknown>[] ?? []
+        const wgAtoms = finalState.workGraph.atoms ?? []
+        const wgDeps = finalState.workGraph.dependencies ?? []
         const layers = topologicalSort(wgAtoms, wgDeps)
 
         console.log(`[Stage 6] Phase 2 dispatch: ${wgAtoms.length} atoms in ${layers.length} layers`)
