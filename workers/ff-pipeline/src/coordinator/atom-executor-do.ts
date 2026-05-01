@@ -370,9 +370,10 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
     }
 
     // Fetch imported files (limit to 10 to avoid API rate limits)
+    // Cross-file resolved contexts are 'inferred' — we followed an import path
     for (const importPath of importPaths.slice(0, 10)) {
       const ctx = await fetchFile(importPath)
-      if (ctx) contexts.push(ctx)
+      if (ctx) contexts.push({ ...ctx, confidence: 'inferred' })
     }
 
     return contexts

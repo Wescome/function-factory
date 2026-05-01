@@ -65,11 +65,14 @@ export interface FileStructure {
   classes: string[];
 }
 
+export type ExtractionConfidence = 'extracted' | 'inferred' | 'ambiguous';
+
 export interface FileContext {
   path: string;
   language: string;
   rawContent: string;
   structure: FileStructure;
+  confidence: ExtractionConfidence;
   targetSlice?: string | undefined;
 }
 
@@ -93,11 +96,12 @@ export function extractContext(content: string, language: string, target?: strin
       language,
       rawContent: content,
       structure: { ...EMPTY_STRUCTURE },
+      confidence: 'ambiguous',
       targetSlice: undefined,
     };
   }
 
-  const structure = extractTypeScriptStructure(content);
+  const { structure, confidence } = extractTypeScriptStructure(content);
   const targetSlice = target ? extractSlice(content, target) : undefined;
 
   return {
@@ -105,17 +109,21 @@ export function extractContext(content: string, language: string, target?: strin
     language,
     rawContent: content,
     structure,
+    confidence,
     targetSlice,
   };
 }
 
-function extractTypeScriptStructure(content: string): FileStructure {
+function extractTypeScriptStructure(content: string): { structure: FileStructure; confidence: ExtractionConfidence } {
   let ast: ReturnType<typeof parse>;
   try {
     ast = parse(content, BABEL_OPTS);
   } catch {
-    return { ...EMPTY_STRUCTURE };
+    return { structure: { ...EMPTY_STRUCTURE }, confidence: 'ambiguous' };
   }
+
+  const hasErrors = ast.errors && ast.errors.length > 0;
+  const confidence: ExtractionConfidence = hasErrors ? 'inferred' : 'extracted';
 
   const imports: string[] = [];
   const exports: string[] = [];
@@ -232,7 +240,7 @@ function extractTypeScriptStructure(content: string): FileStructure {
     }
   }
 
-  return { exports, imports, functions, types, classes };
+  return { structure: { exports, imports, functions, types, classes }, confidence };
 }
 
 function isArrowOrFunctionExpr(init: any): boolean {

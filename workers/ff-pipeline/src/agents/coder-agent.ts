@@ -133,7 +133,10 @@ export class CoderAgent {
     if (input.fileContexts && input.fileContexts.length > 0) {
       userParts.push(`\n--- EXISTING FILES (use edits for modifications, NOT full replacement) ---`)
       for (const ctx of input.fileContexts) {
-        userParts.push(`\n## File: ${ctx.path}`)
+        const badge = ctx.confidence === 'extracted' ? '[AST-verified]'
+          : ctx.confidence === 'inferred' ? '[inferred from import]'
+          : '[ambiguous]'
+        userParts.push(`\n## File: ${ctx.path} ${badge}`)
         if (ctx.structure.exports.length > 0) {
           userParts.push(`Exports: ${ctx.structure.exports.join(', ')}`)
         }
