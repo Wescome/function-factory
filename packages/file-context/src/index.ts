@@ -5,6 +5,7 @@ export interface ImportResolution {
 }
 
 const WORKSPACE_SCOPES = ['@factory/', '@weops/'];
+const WORKERS_PACKAGES = new Set(['ff-pipeline', 'ff-gateway', 'ff-gates']);
 
 export function resolveImportPaths(
   imports: string[],
@@ -24,9 +25,10 @@ export function resolveImportPaths(
     const scope = WORKSPACE_SCOPES.find(s => specifier.startsWith(s));
     if (scope) {
       const packageName = specifier.slice(scope.length);
+      const prefix = WORKERS_PACKAGES.has(packageName) ? 'workers' : 'packages';
       results.push({
         specifier,
-        resolvedPath: `packages/${packageName}/src/index.ts`,
+        resolvedPath: `${prefix}/${packageName}/src/index.ts`,
         kind: 'workspace',
       });
       continue;

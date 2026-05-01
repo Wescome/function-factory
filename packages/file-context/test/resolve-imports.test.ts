@@ -65,6 +65,30 @@ describe('resolveImportPaths', () => {
       );
       expect(result[0]!.resolvedPath).toBe('packages/diff-engine/src/index.ts');
     });
+
+    it('resolves @factory/ff-pipeline to workers/ not packages/', () => {
+      const result = resolveImportPaths(
+        ['@factory/ff-pipeline'],
+        'packages/some-consumer/src/index.ts',
+      );
+      expect(result[0]!.resolvedPath).toBe('workers/ff-pipeline/src/index.ts');
+    });
+
+    it('resolves @factory/ff-gateway to workers/', () => {
+      const result = resolveImportPaths(
+        ['@factory/ff-gateway'],
+        'packages/some-consumer/src/index.ts',
+      );
+      expect(result[0]!.resolvedPath).toBe('workers/ff-gateway/src/index.ts');
+    });
+
+    it('resolves @factory/ff-gates to workers/', () => {
+      const result = resolveImportPaths(
+        ['@factory/ff-gates'],
+        'packages/some-consumer/src/index.ts',
+      );
+      expect(result[0]!.resolvedPath).toBe('workers/ff-gates/src/index.ts');
+    });
   });
 
   describe('external packages', () => {

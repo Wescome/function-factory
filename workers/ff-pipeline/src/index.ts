@@ -537,6 +537,9 @@ export default {
             }).catch(() => {})
           } catch { /* audit is best-effort */ }
           console.log(`[Feedback] Checking ${feedbackSignals.length} signals for pr-candidate (GITHUB_TOKEN: ${!!env.GITHUB_TOKEN})`)
+          if (!env.GITHUB_TOKEN) {
+            console.error(`[INFRA SIGNAL] infra:missing-github-token: PR generation skipped — GITHUB_TOKEN not set`)
+          }
           for (const fs of feedbackSignals) {
             console.log(`[Feedback] Signal: ${fs.signal.subtype}, autoApprove: ${fs.autoApprove}`)
             if (fs.signal.subtype === 'synthesis:pr-candidate' && !fs.autoApprove && env.GITHUB_TOKEN) {

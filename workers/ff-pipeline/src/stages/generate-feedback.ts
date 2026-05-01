@@ -351,12 +351,18 @@ export async function generateFeedbackSignals(
   // ── Layer 3: cooldown check per candidate ──
   const approved: FeedbackSignal[] = []
   for (const candidate of candidates) {
-    const suppressed = await checkCooldown(
-      db,
-      workGraphId,
-      candidate.signal.subtype!,
-    )
-    if (!suppressed) {
+    try {
+      const suppressed = await checkCooldown(
+        db,
+        workGraphId,
+        candidate.signal.subtype!,
+      )
+      if (!suppressed) {
+        approved.push(candidate)
+      }
+    } catch (err) {
+      // Fail-open: if cooldown check errors (e.g. ArangoDB timeout), assume NOT suppressed
+      console.warn(`[Feedback] Cooldown check failed for ${candidate.signal.subtype}, approving anyway: ${err instanceof Error ? err.message : err}`)
       approved.push(candidate)
     }
   }
