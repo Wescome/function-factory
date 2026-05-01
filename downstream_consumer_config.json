@@ -1,0 +1,62 @@
+{
+  "downstreamConsumers": [
+    {
+      "name": "extraction-confidence-validation-consumer",
+      "description": "Validates that downstream consumers can process exports with ExtractionConfidence type without errors",
+      "enabled": true,
+      "sourceExportTypes": ["ExtractionConfidence"],
+      "processingConfig": {
+        "schemaValidation": true,
+        "errorOnUnknownFields": false,
+        "allowPartialProcessing": true,
+        "strictTypeChecking": true
+      },
+      "testAssertions": {
+        "expectZeroErrors": true,
+        "expectSuccessfulProcessing": true,
+        "expectedFields": [
+          "confidenceScore",
+          "extractionType",
+          "sourceId",
+          "timestamp"
+        ]
+      },
+      "retryPolicy": {
+        "maxRetries": 0,
+        "strategy": "fail-fast"
+      }
+    }
+  ],
+  "exportTypeRegistry": {
+    "ExtractionConfidence": {
+      "version": "1.0.0",
+      "contentType": "application/json",
+      "requiredFields": [
+        "confidenceScore",
+        "extractionType",
+        "sourceId"
+      ],
+      "optionalFields": [
+        "timestamp",
+        "metadata"
+      ],
+      "validationRules": {
+        "confidenceScore": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "extractionType": {
+          "type": "string",
+          "enum": ["high", "medium", "low", "unknown"]
+        }
+      }
+    }
+  },
+  "testHarness": {
+    "mode": "validation",
+    "mockExternalDependencies": true,
+    "assertionLevel": "strict",
+    "captureProcessingMetrics": true
+  }
+}
