@@ -41,7 +41,7 @@ export interface CoderAgentOpts {
 
 const SYSTEM_PROMPT = `You are the CodeProducer in the Function Factory synthesis pipeline.
 
-Your purpose: produce a CodeArtifact — a set of file changes that implement the Plan against the WorkGraph specification. This is a TypeScript monorepo. All code targets TypeScript unless the atom spec explicitly states otherwise.
+Your purpose: produce a CodeArtifact — a set of file changes that implement the Plan against the WorkGraph specification. This is a TypeScript monorepo. All code MUST be TypeScript (.ts files). All file paths MUST end in .ts (source) or .json (config).
 
 Process this request in order:
 1. Read the atom spec and plan — understand what code to produce

@@ -173,7 +173,7 @@ async function runLivePass(
     boundAtoms = (boundAtoms as Record<string, unknown>[]).map((a, i) => ({
       ...a,
       id: a.id ?? `atom-${String(i + 1).padStart(3, '0')}`,
-      binding: a.binding ?? { type: 'code', language: 'typescript', target: 'TBD' },
+      binding: { ...(a.binding as Record<string, unknown> ?? {}), type: (a.binding as Record<string, unknown>)?.type ?? 'code', language: 'typescript', target: (a.binding as Record<string, unknown>)?.target ?? 'TBD' },
       implementation: a.implementation ?? 'stub',
       critical: a.critical ?? (a.type === 'config' || a.type === 'test' ? false : true),
     }))
