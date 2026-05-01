@@ -35,17 +35,18 @@ export function resolveAgentModel(taskKind: TaskKind, routingConfig?: RoutingCon
 
   if (primary.provider === 'cloudflare') {
     const isKimi = primary.model.includes('kimi')
+    const isGptOss = primary.model.includes('gpt-oss')
     return {
       id: primary.model,
       name: `Workers AI ${primary.model} (REST)`,
       api: 'openai-completions' as any,
       provider: 'cloudflare',
       baseUrl: 'https://api.cloudflare.com/client/v4/accounts/cb56a846c70a38987f31cf6e2b85cb57/ai/v1',
-      reasoning: false,
+      reasoning: isGptOss,
       input: ['text'] as any,
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-      contextWindow: isKimi ? 262144 : 32768,
-      maxTokens: isKimi ? 65536 : 8192,
+      contextWindow: isKimi ? 262144 : isGptOss ? 128000 : 32768,
+      maxTokens: isKimi ? 65536 : isGptOss ? 32768 : 8192,
     }
   }
 

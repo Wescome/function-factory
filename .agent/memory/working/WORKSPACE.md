@@ -1,38 +1,37 @@
 # Current Workspace
 
 ## Status
-Session ended at 2026-04-30T23:35:10.496Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
+Session ended at 2026-05-01T00:24:54.659Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
 
 ## Last update
-2026-04-30T23:35:10.496Z
+2026-05-01T00:24:54.659Z
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
-- [23:06:28] Bash: grep -rn "GovernanceAction\|GovernanceDecisionType\|governanceAction\|decision.*type" /Users/wes/Developer/function-fact
-- [23:06:33] Bash: grep -rn "type.*signal\|subtype.*signal\|signalType\|signal.*type" /Users/wes/Developer/function-factory/workers/ff-pipe
-- [23:06:34] Bash: grep -rn "transitionLifecycle\|lifecycle" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/lifecycle.ts 2>/
-- [23:06:35] Bash: cat /Users/wes/Developer/function-factory/workers/ff-pipeline/src/lifecycle.ts 2>/dev/null | head -60
-- [23:06:47] Bash: pnpm --filter @factory/ff-pipeline test -- --run 2>&1 | tail -50
-- [23:07:03] Bash: pnpm --filter @factory/ff-pipeline test -- --run --reporter=verbose 2>&1 | grep -E "(governor|Governor)" | head -30
-- [23:07:18] Bash: pnpm --filter @factory/ff-pipeline test -- --run 2>&1 | grep -E "Test Files|Tests|Duration"
-- [23:07:46] Bash: grep "crons" workers/ff-pipeline/wrangler.jsonc
-- [23:08:10] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/wrangler.jsonc
-- [23:08:27] Bash: pnpm --filter @factory/ff-pipeline test -- --run 2>&1 | tail -3
-- [23:32:05] Bash: # Other agents switched branches. Let me get back to main and cherry-pick
-git stash && git checkout main && git cherry-p
-- [23:32:13] Bash: # CI should be running now — this push to main triggers it
-gh run list --repo Wescome/function-factory --limit 3 2>&1
-- [23:32:21] Bash: # Wait for CI to complete and show result
-until gh run list --repo Wescome/function-factory --limit 1 --json status --jq
-- [23:32:27] Bash: until grep -q "success\|failure" /private/tmp/claude-501/-Users-wes-Developer-function-factory/2c0291b3-73be-4851-ab4c-c
-- [23:32:40] Bash: gh run view 25194548301 --repo Wescome/function-factory --json jobs --jq '.jobs[] | "\(.name): \(.conclusion)"' 2>&1
-- [23:32:46] Bash: gh run view 25194548301 --repo Wescome/function-factory --log-failed 2>&1 | tail -40
-- [23:33:12] Edit: /Users/wes/Developer/function-factory/.github/workflows/ci.yml
-- [23:33:28] Bash: git add .github/workflows/ci.yml && git commit -m "$(cat <<'EOF'
-INFRA: fix CI — remove pnpm version (packageManager in 
-- [23:33:47] Bash: # Wait for new CI run
-sleep 10 && gh run list --repo Wescome/function-factory --limit 1 --json status,conclusion,databas
-- [23:34:58] Bash: until gh run view 25194591131 --repo Wescome/function-factory --json conclusion --jq '.conclusion' 2>/dev/null | grep -q
+- [23:58:20] Bash: until curl -s "https://ff-pipeline.koales.workers.dev/debug/governor" 2>/dev/null | jq -e '.telemetry[0].timestamp > "20
+- [23:58:36] Bash: grep -n "maxTokens" workers/ff-pipeline/src/agents/governor-agent.ts | head -5
+- [23:58:44] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/governor-agent.ts
+- [23:59:29] Bash: pnpm --filter @factory/ff-pipeline run deploy 2>&1 | tail -3
+- [00:04:22] Bash: until curl -s "https://ff-pipeline.koales.workers.dev/debug/governor" 2>/dev/null | jq -e '.telemetry[0].success == true
+- [00:04:34] Bash: # Wait for one more cycle to confirm consistency, then check
+sleep 75 && curl -s "https://ff-pipeline.koales.workers.dev
+- [00:05:51] Bash: until grep -q "cycleCount" /private/tmp/claude-501/-Users-wes-Developer-function-factory/2c0291b3-73be-4851-ab4c-c4cef55
+- [00:06:03] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/wrangler.jsonc
+- [00:06:30] Bash: git add -A && git commit -m "$(cat <<'EOF'
+INFRA: GovernorAgent live — verified, ramping to 5min cron
+
+Governor verified
+- [00:10:12] Bash: echo "=== CURRENT ROUTING ===" && grep -A2 "kind:" packages/task-routing/src/index.ts | grep -E "kind|primary" | paste -
+- [00:14:42] Write: /Users/wes/.claude/projects/-Users-wes-Developer-function-factory/memory/feedback_schema_compliance_trumps_reasoning.md
+- [00:15:02] Edit: /Users/wes/.claude/projects/-Users-wes-Developer-function-factory/memory/MEMORY.md
+- [00:20:13] Bash: grep -r "reasoningFields\|reasoning_content\|reasoning_text\|reasoning" /Users/wes/Developer/function-factory --include=
+- [00:22:40] Bash: find /Users/wes/Developer/function-factory/packages/gdk-ai -name "models*" -type f 2>/dev/null | head -10
+- [00:22:47] Bash: grep -n "reasoning\|thinking\|kimi\|deepseek\|qwen\|gpt-oss" /Users/wes/Developer/function-factory/packages/gdk-ai/src/m
+- [00:22:51] Bash: grep -B2 "reasoning: true" /Users/wes/Developer/function-factory/packages/gdk-ai/src/models.generated.ts | grep "id:" | 
+- [00:22:54] Bash: grep -B5 "reasoning: true" /Users/wes/Developer/function-factory/packages/gdk-ai/src/models.generated.ts | grep 'id:' | 
+- [00:22:57] Bash: grep -B5 "reasoning: true" /Users/wes/Developer/function-factory/packages/gdk-ai/src/models.generated.ts | grep 'id:' | 
+- [00:23:02] Bash: grep -B5 "reasoning: true" /Users/wes/Developer/function-factory/packages/gdk-ai/src/models.generated.ts | grep 'id:' | 
+- [00:24:33] Agent: Research: reasoning models with schema compliance
 
 ## Notes
 This file is auto-updated on session end. Manual edits will be overwritten.

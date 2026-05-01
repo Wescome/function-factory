@@ -28,6 +28,7 @@ export type TaskKind =
   | 'critic'
   | 'tester'
   | 'verifier'
+  | 'governor'
 
 export type Provider =
   | 'deepseek'
@@ -74,6 +75,7 @@ export interface ResolvedRoute {
 
 const CF_70B: RouteTarget = { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' }
 const CF_KIMI_K26: RouteTarget = { provider: 'cloudflare', model: '@cf/moonshotai/kimi-k2.6' }
+const CF_GPT_OSS: RouteTarget = { provider: 'cloudflare', model: '@cf/openai/gpt-oss-120b' }
 const DEEPSEEK_PRO: RouteTarget = { provider: 'deepseek', model: 'deepseek-v4-pro' }
 const GEMINI_PRO: RouteTarget = { provider: 'google', model: 'gemini-3.1-pro-preview' }
 
@@ -98,6 +100,8 @@ export const DEFAULT_CONFIG: RoutingConfig = {
     { kind: 'critic', primary: CF_KIMI_K26, fallback: CF_70B },
     { kind: 'tester', primary: CF_KIMI_K26, fallback: CF_70B },
     { kind: 'verifier', primary: CF_KIMI_K26, fallback: CF_70B },
+    // Governor: gpt-oss-120b (reasoning separation + schema compliance)
+    { kind: 'governor', primary: CF_GPT_OSS, fallback: CF_KIMI_K26 },
   ],
   default: CF_70B,
 }

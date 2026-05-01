@@ -591,7 +591,7 @@ export class GovernorAgent {
 
     const userContent = `${contextPrompt}\n\nPerform a governance cycle. Follow the reasoning process steps 1-8. Output only the final JSON.`
 
-    const model = this.modelOverride ?? resolveAgentModel('planner')
+    const model = this.modelOverride ?? resolveAgentModel('governor')
 
     const stream = agentLoop(
       [{ role: 'user', content: userContent, timestamp: Date.now() } as UserMessage],
