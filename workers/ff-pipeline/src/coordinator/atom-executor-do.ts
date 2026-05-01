@@ -323,18 +323,33 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
       'User-Agent': 'ff-pipeline',
     }
 
+    const db = createClientFromEnv(this.env)
+    const CACHE_TTL_MS = 3_600_000 // 1 hour
+
     const fetchFile = async (filePath: string): Promise<FileContext | null> => {
       if (fetched.has(filePath)) return null
       fetched.add(filePath)
 
       try {
+        // Check ArangoDB cache first (content-hash keyed)
+        const cached = await db.queryOne<{ ctx: FileContext; cached_at: string }>(
+          `FOR c IN file_context_cache
+             FILTER c.path == @path AND c.cached_at > @ttl
+             RETURN { ctx: c.ctx, cached_at: c.cached_at }`,
+          { path: filePath, ttl: new Date(Date.now() - CACHE_TTL_MS).toISOString() },
+        ).catch(() => null)
+
+        if (cached) {
+          return cached.ctx
+        }
+
         const res = await fetch(
           `https://api.github.com/repos/Wescome/function-factory/contents/${filePath}?ref=main`,
           { method: 'GET', headers },
         )
         if (!res.ok) return null
 
-        const data = await res.json() as { content: string; encoding: string }
+        const data = await res.json() as { content: string; encoding: string; sha: string }
         if (data.encoding !== 'base64') return null
 
         const rawContent = decodeBase64(data.content)
@@ -343,8 +358,18 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
           : filePath.endsWith('.json') ? 'json' : 'markdown'
 
         const ctx = extractContext(rawContent, language)
+        const result = { ...ctx, path: filePath }
+
+        // Write to ArangoDB cache (keyed by git SHA for content dedup)
+        await db.save('file_context_cache', {
+          _key: data.sha,
+          path: filePath,
+          ctx: result,
+          cached_at: new Date().toISOString(),
+        }).catch(() => {})
+
         await this.ctx.storage.put(`file:${filePath}`, rawContent)
-        return { ...ctx, path: filePath }
+        return result
       } catch {
         return null
       }
