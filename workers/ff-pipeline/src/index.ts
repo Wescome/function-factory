@@ -167,6 +167,23 @@ export default {
       }
     }
 
+    // ── Diagnostic: Governor cycle status ──
+    if (url.pathname === '/debug/governor' && request.method === 'GET') {
+      try {
+        const { createClientFromEnv } = await import('@factory/arango-client')
+        const db = createClientFromEnv(env)
+        const assessments = await db.query<Record<string, unknown>>(
+          `FOR a IN orientation_assessments SORT a.generated_at DESC LIMIT 5 RETURN { id: a._key, type: a.assessment_type, generated_at: a.generated_at, decisions: LENGTH(a.decisions || []), actions_taken: a.actions_taken }`,
+        ).catch(() => [])
+        const telemetry = await db.query<Record<string, unknown>>(
+          `FOR t IN orl_telemetry FILTER t.schemaName IN ['GovernorAssessment', '_governance_cycle'] SORT t.timestamp DESC LIMIT 5 RETURN { timestamp: t.timestamp, success: t.success, failureMode: t.failureMode, schema: t.schemaName, error: t.error }`,
+        ).catch(() => [])
+        return new Response(JSON.stringify({ assessments, telemetry, cycleCount: assessments.length }, null, 2), { headers: { 'Content-Type': 'application/json' } })
+      } catch (err) {
+        return new Response(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }), { status: 500, headers: { 'Content-Type': 'application/json' } })
+      }
+    }
+
     // ── Diagnostic: manually trigger PR from a pipeline result ──
     if (url.pathname === '/debug/generate-pr' && request.method === 'POST') {
       try {

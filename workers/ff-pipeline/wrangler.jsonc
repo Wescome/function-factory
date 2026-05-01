@@ -66,9 +66,10 @@
   // R2 bucket for workspace persistence
   "r2_buckets": [{ "binding": "WORKSPACE_BUCKET", "bucket_name": "ff-workspaces" }],
 
-  // Governor: event-driven primary (FEEDBACK_QUEUE), cron fallback for drift detection
+  // Governor: Phase 2 — verified working, ramp to 5min
+  // Phase 1: */1 ✓ (verified 2026-04-30) → Phase 2: */5 → Phase 3: event-driven + 6h drift
   "triggers": {
-    "crons": ["0 */6 * * *"]
+    "crons": ["*/5 * * * *"]
   },
 
   "vars": {

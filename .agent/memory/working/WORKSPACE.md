@@ -1,53 +1,38 @@
 # Current Workspace
 
 ## Status
-Session ended at 2026-04-30T23:06:10.445Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
+Session ended at 2026-04-30T23:35:10.496Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
 
 ## Last update
-2026-04-30T23:06:10.445Z
+2026-04-30T23:35:10.496Z
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
-- [22:50:05] Bash: ls -lh /Users/wes/Downloads/Prompt-Engineering-for-Generative-AI.pdf
-- [22:50:14] Bash: # Extract text from PDF using python
-python3 -c "
-import subprocess
-result = subprocess.run(['python3', '-c', '''
-try:
- 
-- [22:50:22] Bash: # Extract table of contents and key chapters using PyMuPDF
-python3 << 'PYEOF'
-import fitz
-
-doc = fitz.open("/Users/wes/D
-- [22:50:28] Bash: # Get the full TOC to find most relevant chapters
-python3 << 'PYEOF'
-import fitz
-doc = fitz.open("/Users/wes/Downloads/P
-- [22:50:44] Bash: # Extract the most relevant pages for GovernorAgent design
-python3 << 'PYEOF'
-import fitz
-
-doc = fitz.open("/Users/wes/D
-- [22:51:07] Agent: Architect+SE: review book for GovernorAgent
-- [22:55:21] Write: /Users/wes/Developer/function-factory/specs/reference/GOVERNOR-PROMPT-ENGINEERING-REVIEW.md
-- [22:55:56] Bash: wc -l specs/reference/GOVERNOR-PROMPT-ENGINEERING-REVIEW.md && echo "---" && grep -E "^## |^### |Improvement [0-9]|PHASE
-- [22:56:04] Bash: grep -A3 "Improvement [0-9]" specs/reference/GOVERNOR-PROMPT-ENGINEERING-REVIEW.md | head -50
-- [22:56:08] Bash: sed -n '/Summary of Improvements/,/What the Book Does NOT/p' specs/reference/GOVERNOR-PROMPT-ENGINEERING-REVIEW.md | hea
-- [22:56:21] Bash: git add specs/reference/GOVERNOR-PROMPT-ENGINEERING-REVIEW.md && git commit -m "$(cat <<'EOF'
-META: GovernorAgent prompt
-- [23:00:55] Agent: Engineer: build GovernorAgent
-- [23:01:20] Bash: ls /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/*.test.* 2>/dev/null || echo "no agent tests fou
-- [23:01:21] Bash: ls /Users/wes/Developer/function-factory/workers/ff-pipeline/*.config.* /Users/wes/Developer/function-factory/workers/ff
-- [23:01:25] Bash: cat /Users/wes/Developer/function-factory/workers/ff-pipeline/package.json | grep -A5 '"test"'
-- [23:02:10] Bash: # Check if the Engineer has started writing the cron config yet
-python3 -c "
-import json
-with open('/private/tmp/claude-
-- [23:03:06] Write: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/governor-agent.test.ts
-- [23:03:20] Bash: pnpm --filter @factory/ff-pipeline test -- --run 2>&1 | tail -20
-- [23:05:57] Agent: Architect: closed-world signal taxonomy
-- [23:06:04] Write: /Users/wes/Developer/function-factory/workers/ff-pipeline/src/agents/governor-agent.ts
+- [23:06:28] Bash: grep -rn "GovernanceAction\|GovernanceDecisionType\|governanceAction\|decision.*type" /Users/wes/Developer/function-fact
+- [23:06:33] Bash: grep -rn "type.*signal\|subtype.*signal\|signalType\|signal.*type" /Users/wes/Developer/function-factory/workers/ff-pipe
+- [23:06:34] Bash: grep -rn "transitionLifecycle\|lifecycle" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/lifecycle.ts 2>/
+- [23:06:35] Bash: cat /Users/wes/Developer/function-factory/workers/ff-pipeline/src/lifecycle.ts 2>/dev/null | head -60
+- [23:06:47] Bash: pnpm --filter @factory/ff-pipeline test -- --run 2>&1 | tail -50
+- [23:07:03] Bash: pnpm --filter @factory/ff-pipeline test -- --run --reporter=verbose 2>&1 | grep -E "(governor|Governor)" | head -30
+- [23:07:18] Bash: pnpm --filter @factory/ff-pipeline test -- --run 2>&1 | grep -E "Test Files|Tests|Duration"
+- [23:07:46] Bash: grep "crons" workers/ff-pipeline/wrangler.jsonc
+- [23:08:10] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/wrangler.jsonc
+- [23:08:27] Bash: pnpm --filter @factory/ff-pipeline test -- --run 2>&1 | tail -3
+- [23:32:05] Bash: # Other agents switched branches. Let me get back to main and cherry-pick
+git stash && git checkout main && git cherry-p
+- [23:32:13] Bash: # CI should be running now — this push to main triggers it
+gh run list --repo Wescome/function-factory --limit 3 2>&1
+- [23:32:21] Bash: # Wait for CI to complete and show result
+until gh run list --repo Wescome/function-factory --limit 1 --json status --jq
+- [23:32:27] Bash: until grep -q "success\|failure" /private/tmp/claude-501/-Users-wes-Developer-function-factory/2c0291b3-73be-4851-ab4c-c
+- [23:32:40] Bash: gh run view 25194548301 --repo Wescome/function-factory --json jobs --jq '.jobs[] | "\(.name): \(.conclusion)"' 2>&1
+- [23:32:46] Bash: gh run view 25194548301 --repo Wescome/function-factory --log-failed 2>&1 | tail -40
+- [23:33:12] Edit: /Users/wes/Developer/function-factory/.github/workflows/ci.yml
+- [23:33:28] Bash: git add .github/workflows/ci.yml && git commit -m "$(cat <<'EOF'
+INFRA: fix CI — remove pnpm version (packageManager in 
+- [23:33:47] Bash: # Wait for new CI run
+sleep 10 && gh run list --repo Wescome/function-factory --limit 1 --json status,conclusion,databas
+- [23:34:58] Bash: until gh run view 25194591131 --repo Wescome/function-factory --json conclusion --jq '.conclusion' 2>/dev/null | grep -q
 
 ## Notes
 This file is auto-updated on session end. Manual edits will be overwritten.

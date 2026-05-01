@@ -513,7 +513,7 @@ Signal SIG-3021, subtype "architecture:drift", source "factory:orientation-agent
 
 ---
 
-OUTPUT: Respond with ONLY a valid JSON object. No markdown fencing. No commentary. No reasoning text.
+CRITICAL: Your reasoning is INTERNAL. Do NOT output your thinking steps. Your ONLY output is one JSON object. No markdown fences. No commentary. No "Let me analyze..." text. Start your response with {"cycle_id":
 
 Required fields:
 - cycle_id: "gov-{ISO8601}"
@@ -591,7 +591,7 @@ export class GovernorAgent {
 
     const userContent = `${contextPrompt}\n\nPerform a governance cycle. Follow the reasoning process steps 1-8. Output only the final JSON.`
 
-    const model = this.modelOverride ?? resolveAgentModel('planning')
+    const model = this.modelOverride ?? resolveAgentModel('planner')
 
     const stream = agentLoop(
       [{ role: 'user', content: userContent, timestamp: Date.now() } as UserMessage],
@@ -600,7 +600,7 @@ export class GovernorAgent {
         model,
         convertToLlm: (msgs) => msgs as Message[],
         getApiKey: async () => this.apiKey,
-        maxTokens: 8192,
+        maxTokens: 32768,
         onPayload: (payload: unknown) => ({
           ...(payload as Record<string, unknown>),
           response_format: { type: 'json_object' },
