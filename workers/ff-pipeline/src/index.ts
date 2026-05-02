@@ -184,6 +184,37 @@ export default {
       }
     }
 
+    // ── Diagnostic: Crystallizer observability — anchors, probes, drift ──
+    if (url.pathname === '/debug/crystallizer' && request.method === 'GET') {
+      try {
+        const { createClientFromEnv } = await import('@factory/arango-client')
+        const db = createClientFromEnv(env)
+        const signalId = url.searchParams.get('signal') ?? undefined
+
+        const anchorsQuery = signalId
+          ? `FOR a IN intent_anchors FILTER a.signal_id == @signalId RETURN a`
+          : `FOR a IN intent_anchors SORT a._key DESC LIMIT 20 RETURN a`
+        const anchors = await db.query<Record<string, unknown>>(
+          anchorsQuery, signalId ? { signalId } : undefined,
+        ).catch(() => [])
+
+        const driftQuery = signalId
+          ? `FOR d IN compilation_drift_ledger FILTER d.signal_id == @signalId SORT d.timestamp DESC RETURN { pass: d.pass_name, verdict: d.gate_verdict, remediations: d.remediation_count, violations: LENGTH(FOR r IN d.probe_results FILTER r.is_violation RETURN 1), anchors_probed: LENGTH(d.anchors_probed), latency_ms: d.latency_ms, timestamp: d.timestamp, probe_results: d.probe_results }`
+          : `FOR d IN compilation_drift_ledger SORT d.timestamp DESC LIMIT 20 RETURN { signal: d.signal_id, pass: d.pass_name, verdict: d.gate_verdict, remediations: d.remediation_count, violations: LENGTH(FOR r IN d.probe_results FILTER r.is_violation RETURN 1), timestamp: d.timestamp }`
+        const drift = await db.query<Record<string, unknown>>(
+          driftQuery, signalId ? { signalId } : undefined,
+        ).catch(() => [])
+
+        return new Response(JSON.stringify({ anchors, drift, query: { signalId } }, null, 2), {
+          headers: { 'Content-Type': 'application/json' },
+        })
+      } catch (err) {
+        return new Response(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }), {
+          status: 500, headers: { 'Content-Type': 'application/json' },
+        })
+      }
+    }
+
     // ── Diagnostic: manually trigger PR from a pipeline result ──
     if (url.pathname === '/debug/generate-pr' && request.method === 'POST') {
       try {
