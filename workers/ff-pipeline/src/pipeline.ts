@@ -163,6 +163,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     // ── Crystallize signal intent into binary anchors ──
     // Hot-config flag: crystallizer.enabled (default false for Phase 1)
     // When disabled or on error, returns empty anchors — zero behavior change
+    const crystallizerEnabled = false // TODO: read from hot-config when HotConfigLoader is wired into pipeline
     const crystallization = await step.do('crystallize-intent', async () => {
       const result = await crystallizeIntent(
         {
@@ -175,12 +176,22 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
         },
         this.env,
         dryRun,
-        false, // crystallizer.enabled — default false, flip via hot-config when ready
+        crystallizerEnabled,
       )
       return toStep(result as unknown as Record<string, unknown>)
     })
 
     const intentAnchors = (crystallization.anchors ?? []) as IntentAnchor[]
+
+    // Persist anchors to ArangoDB for drift ledger analysis (Phase 3)
+    if (intentAnchors.length > 0) {
+      await step.do('persist-intent-anchors', async () => {
+        for (const anchor of intentAnchors) {
+          await db.save('intent_anchors', anchor as unknown as Record<string, unknown>).catch(() => {})
+        }
+        return { persisted: intentAnchors.length }
+      })
+    }
 
     // ── Stage 5: PRD compilation (8 passes) ──
     let compState: Record<string, unknown> = {

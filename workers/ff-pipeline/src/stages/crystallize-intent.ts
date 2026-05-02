@@ -189,7 +189,8 @@ function parseAnchors(rawResponse: string, signalId: string): IntentAnchor[] {
 
     const claim = typeof raw.claim === 'string' ? raw.claim : ''
     const probeQuestion = typeof raw.probe_question === 'string' ? raw.probe_question : ''
-    const violationSignal = raw.violation_signal === 'yes' ? 'yes' as const : 'no' as const
+    if (raw.violation_signal !== 'yes' && raw.violation_signal !== 'no') continue
+    const violationSignal = raw.violation_signal as 'yes' | 'no'
     const severity = validateSeverity(raw.severity)
 
     if (!claim || !probeQuestion) continue
