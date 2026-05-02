@@ -209,6 +209,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     // Persist anchors to ArangoDB for drift ledger analysis (Phase 3)
     if (intentAnchors.length > 0) {
       await step.do('persist-intent-anchors', async () => {
+        await db.ensureCollection('intent_anchors').catch(() => {})
         for (const anchor of intentAnchors) {
           await db.save('intent_anchors', anchor as unknown as Record<string, unknown>).catch(() => {})
         }

@@ -61,11 +61,13 @@ function makeDriftEntry(overrides: Partial<DriftEntry> = {}): DriftEntry {
 describe('Drift Ledger', () => {
   let mockDb: {
     save: ReturnType<typeof vi.fn>
+    ensureCollection: ReturnType<typeof vi.fn>
   }
 
   beforeEach(() => {
     mockDb = {
       save: vi.fn(async () => ({ _key: 'mock-drift-key' })),
+      ensureCollection: vi.fn(async () => {}),
     }
     vi.clearAllMocks()
   })

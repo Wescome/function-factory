@@ -63,6 +63,7 @@ export async function appendDriftEntry(
   db: ArangoClient,
 ): Promise<void> {
   try {
+    await db.ensureCollection('compilation_drift_ledger').catch(() => {})
     await db.save('compilation_drift_ledger', entry as unknown as Record<string, unknown>)
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)

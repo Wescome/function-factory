@@ -72,6 +72,7 @@ const mockDb = {
   saveEdge: vi.fn(async () => ({ _key: 'mock-edge' })),
   query: vi.fn(async () => []),
   setValidator: vi.fn(),
+  ensureCollection: vi.fn(async () => {}),
 }
 
 vi.mock('@factory/arango-client', () => ({
