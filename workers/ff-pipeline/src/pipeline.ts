@@ -12,6 +12,8 @@ import { proposeFunction } from './stages/propose-function'
 import { semanticReview } from './stages/semantic-review'
 import { compilePRD, PASS_NAMES } from './stages/compile'
 import { crystallizeIntent, type IntentAnchor } from './stages/crystallize-intent'
+import { probeAnchors } from './stages/intent-probe'
+import { reconcile } from './stages/reconciliation-gate'
 import { createCRP } from './crp'
 import { transitionLifecycle } from './lifecycle'
 import type { PipelineEnv, PipelineParams, PipelineResult, SemanticReviewResult, Gate1Report } from './types'
@@ -21,6 +23,26 @@ type Rec = Record<string, any>
 
 function toStep(obj: Record<string, unknown>): Rec {
   return JSON.parse(JSON.stringify(obj)) as Rec
+}
+
+/**
+ * C2 resolution: extract only the fields added by the current pass.
+ * The probe receives the delta, not the full accumulated state.
+ */
+function computeDelta(
+  prevState: Record<string, unknown>,
+  newState: Record<string, unknown>,
+): Record<string, unknown> {
+  const delta: Record<string, unknown> = {}
+  for (const key of Object.keys(newState)) {
+    // Skip internal sentinel fields
+    if (key.startsWith('_')) continue
+    // Include fields that are new or changed
+    if (!(key in prevState) || JSON.stringify(prevState[key]) !== JSON.stringify(newState[key])) {
+      delta[key] = newState[key]
+    }
+  }
+  return delta
 }
 
 export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelineParams> {
@@ -193,18 +215,84 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       })
     }
 
-    // ── Stage 5: PRD compilation (8 passes) ──
+    // ── Stage 5: PRD compilation (8 passes) with inter-pass probing ──
+    //
+    // C1+SE-1 resolution: probed passes (decompose, dependency, invariant) run
+    // a compile-verify loop with distinct step names per remediation attempt.
+    // CF Workflows deduplicates by step name, so replayed steps return cached results.
+    //
+    // Non-probed passes (interface, binding, validation, assembly, verification)
+    // use the existing simple pattern.
+    const PROBED_PASSES = ['decompose', 'dependency', 'invariant']
+    const MAX_REMEDIATION = 2
+
     let compState: Record<string, unknown> = {
       prd: proposal.prd,
       intentAnchors,
       workGraph: null,
     }
 
+    let intentViolation = false
+
     for (const passName of PASS_NAMES) {
-      const prevState = compState
-      compState = await step.do(`compile-${passName}`, async () => {
-        return toStep(await compilePRD(passName, prevState, db, this.env, dryRun))
-      }) as unknown as Record<string, unknown>
+      if (PROBED_PASSES.includes(passName) && intentAnchors.length > 0) {
+        // ── Probed pass: compile -> compute delta -> probe -> gate ──
+        for (let r = 0; r <= MAX_REMEDIATION; r++) {
+          const prevState = compState
+          compState = await step.do(`compile-verify-${passName}-r${r}`, async () => {
+            // Compile the pass
+            const newState = toStep(await compilePRD(passName, prevState, db, this.env, dryRun))
+
+            // Compute delta: only the fields added by this pass (C2)
+            const delta = computeDelta(prevState, newState)
+            const deltaStr = JSON.stringify(delta)
+
+            // Probe the delta against intent anchors (isolated LLM call)
+            const probeResults = await probeAnchors(deltaStr, intentAnchors, this.env, dryRun)
+
+            // Gate: pure deterministic decision
+            const gate = reconcile(probeResults, intentAnchors, r, MAX_REMEDIATION)
+
+            if (gate.verdict === 'pass' || gate.verdict === 'warn') {
+              return { ...newState, _gateVerdict: gate.verdict }
+            }
+            if (gate.verdict === 'escalate') {
+              return {
+                ...newState,
+                _gateVerdict: 'escalate',
+                _violatedAnchors: gate.violated_anchors,
+              }
+            }
+            // verdict === 'remediate': return with remediate flag
+            // Next iteration of the r-loop will run with r+1
+            return { ...newState, _gateVerdict: 'remediate' }
+          }) as unknown as Record<string, unknown>
+
+          // Break out of remediation loop if not remediating
+          if ((compState as Rec)._gateVerdict !== 'remediate') break
+        }
+
+        // Check for escalation -> break out of pass loop
+        if ((compState as Rec)._gateVerdict === 'escalate') {
+          intentViolation = true
+          break
+        }
+      } else {
+        // ── Non-probed pass: simple compile ──
+        const prevState = compState
+        compState = await step.do(`compile-${passName}`, async () => {
+          return toStep(await compilePRD(passName, prevState, db, this.env, dryRun))
+        }) as unknown as Record<string, unknown>
+      }
+    }
+
+    // SE-2: Handle intent-violation escalation
+    if (intentViolation) {
+      return {
+        status: 'synthesis:intent-violation',
+        signalId: signalKey,
+        reason: `Block-severity intent anchors violated after ${MAX_REMEDIATION} remediation attempts. Violated anchors: ${((compState as Rec)._violatedAnchors ?? []).join(', ')}`,
+      }
     }
 
     const wgKey = (compState.workGraph as { _key?: string })?._key ?? 'unknown'
