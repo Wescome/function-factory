@@ -14,6 +14,7 @@ import { compilePRD, PASS_NAMES } from './stages/compile'
 import { crystallizeIntent, type IntentAnchor } from './stages/crystallize-intent'
 import { probeAnchors } from './stages/intent-probe'
 import { reconcile } from './stages/reconciliation-gate'
+import { appendDriftEntry } from './stages/drift-ledger'
 import { createCRP } from './crp'
 import { transitionLifecycle } from './lifecycle'
 import type { PipelineEnv, PipelineParams, PipelineResult, SemanticReviewResult, Gate1Report } from './types'
@@ -248,10 +249,26 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
             const deltaStr = JSON.stringify(delta)
 
             // Probe the delta against intent anchors (isolated LLM call)
+            const probeStart = Date.now()
             const probeResults = await probeAnchors(deltaStr, intentAnchors, this.env, dryRun)
+            const probeLatency = Date.now() - probeStart
 
             // Gate: pure deterministic decision
             const gate = reconcile(probeResults, intentAnchors, r, MAX_REMEDIATION)
+
+            // Phase 3: Drift ledger — best-effort, never blocks
+            await appendDriftEntry({
+              pipeline_id: event.instanceId,
+              signal_id: signalKey,
+              pass_name: passName,
+              anchors_probed: intentAnchors.map(a => a.id),
+              probe_results: probeResults,
+              gate_verdict: gate.verdict,
+              remediation_count: r,
+              probe_model: 'llama-70b',
+              latency_ms: probeLatency,
+              timestamp: new Date().toISOString(),
+            }, db).catch(() => {})
 
             if (gate.verdict === 'pass' || gate.verdict === 'warn') {
               return { ...newState, _gateVerdict: gate.verdict }

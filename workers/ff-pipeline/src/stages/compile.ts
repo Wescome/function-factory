@@ -27,7 +27,16 @@ const PASS_TASK_KINDS: Record<PassName, string> = {
 }
 
 const PASS_PROMPTS: Record<PassName, string> = {
-  decompose: `Decompose this PRD into requirement atoms — minimal, independently implementable units of work. Each atom MUST have: id (format "atom-001", "atom-002", sequential), type ("implementation" | "config" | "test"), title, description. Output ONLY the new atoms — do NOT repeat the PRD or any other state. Output JSON: { "atoms": [{ "id": "atom-001", "type": "implementation", "title": "...", "description": "..." }] }`,
+  decompose: `Decompose this PRD into requirement atoms. Each atom is a verifiable claim about what the system must do — it must be truth-apt (can be checked as true or false) and independently implementable.
+
+Each atom MUST carry:
+- id (format "atom-001")
+- type ("implementation" | "config" | "test")
+- title: the verifiable claim in one sentence
+- description: implementation details
+- verifies: what specific aspect of the signal's intent this atom fulfills
+
+Output ONLY the new atoms — do NOT repeat the PRD or any other state. Output JSON: { "atoms": [{ "id": "atom-001", "type": "implementation", "title": "...", "description": "...", "verifies": "..." }] }`,
 
   dependency: `Given atoms, identify dependencies between them. Output ONLY the new dependencies — do NOT repeat atoms or any other state. Output JSON: { "dependencies": [{ "from": "atom-id", "to": "atom-id", "type": "requires | enables | conflicts" }] }`,
 
