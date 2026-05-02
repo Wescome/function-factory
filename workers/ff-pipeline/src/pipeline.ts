@@ -186,7 +186,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     // ── Crystallize signal intent into binary anchors ──
     // Hot-config flag: crystallizer.enabled (default false for Phase 1)
     // When disabled or on error, returns empty anchors — zero behavior change
-    const crystallizerEnabled = false // TODO: read from hot-config when HotConfigLoader is wired into pipeline
+    const crystallizerEnabled = true // Flag ON for testing — read from hot-config when HotConfigLoader is wired
     const crystallization = await step.do('crystallize-intent', async () => {
       const result = await crystallizeIntent(
         {
