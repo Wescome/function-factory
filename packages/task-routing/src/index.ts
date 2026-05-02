@@ -23,6 +23,8 @@ export type TaskKind =
   | 'validation'
   | 'runtime_check'
   | 'semantic_review'
+  | 'crystallizer'
+  | 'probe'
   | 'planner'
   | 'coder'
   | 'critic'
@@ -94,6 +96,9 @@ export const DEFAULT_CONFIG: RoutingConfig = {
     { kind: 'validation', primary: CF_70B },
     { kind: 'runtime_check', primary: CF_70B },
     { kind: 'semantic_review', primary: CF_70B },
+    // Crystallizer + Probe (intent fidelity): llama-70b via Workers AI (zero cost, isolated model)
+    { kind: 'crystallizer', primary: CF_70B },
+    { kind: 'probe', primary: CF_70B },
     // Agent roles (Stage 6): kimi-k2.6 via REST API (agent-first, proven 3/5 atoms)
     { kind: 'planner', primary: CF_KIMI_K26, fallback: CF_70B },
     { kind: 'coder', primary: CF_KIMI_K26, fallback: CF_70B },

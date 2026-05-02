@@ -280,13 +280,14 @@ describe('seedHotConfig', () => {
     db = makeMockDb()
   })
 
-  it('ensures all three config collections exist', async () => {
+  it('ensures all config collections exist (including intent_anchors)', async () => {
     await seedHotConfig(db as never)
 
     const collectionNames = db.ensureCollection.mock.calls.map((c: unknown[]) => c[0])
     expect(collectionNames).toContain('config_aliases')
     expect(collectionNames).toContain('config_routing')
     expect(collectionNames).toContain('config_model_capabilities')
+    expect(collectionNames).toContain('intent_anchors')
   })
 
   it('seeds alias config for all ORL schemas', async () => {

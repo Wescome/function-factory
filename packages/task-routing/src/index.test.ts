@@ -7,7 +7,7 @@ const CF_KIMI = '@cf/moonshotai/kimi-k2.6'
 
 describe('resolve', () => {
   it('routes pipeline task kinds to Workers AI llama 70B by default', () => {
-    for (const kind of ['planning', 'structured', 'interpretive', 'synthesis', 'validation', 'runtime_check', 'semantic_review'] as const) {
+    for (const kind of ['planning', 'structured', 'interpretive', 'synthesis', 'validation', 'runtime_check', 'semantic_review', 'crystallizer', 'probe'] as const) {
       const route = resolve(kind)
       expect(route.primary).toEqual({ provider: 'cloudflare', model: CF_70B })
       expect(route.fallback).toBeUndefined()

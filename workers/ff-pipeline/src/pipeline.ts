@@ -11,6 +11,7 @@ import { mapCapability } from './stages/map-capability'
 import { proposeFunction } from './stages/propose-function'
 import { semanticReview } from './stages/semantic-review'
 import { compilePRD, PASS_NAMES } from './stages/compile'
+import { crystallizeIntent, type IntentAnchor } from './stages/crystallize-intent'
 import { createCRP } from './crp'
 import { transitionLifecycle } from './lifecycle'
 import type { PipelineEnv, PipelineParams, PipelineResult, SemanticReviewResult, Gate1Report } from './types'
@@ -159,9 +160,32 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       console.warn(`[Pipeline] Semantic review: miscast (${review.rationale?.slice(0, 100)}). Continuing to compilation.`)
     }
 
+    // ── Crystallize signal intent into binary anchors ──
+    // Hot-config flag: crystallizer.enabled (default false for Phase 1)
+    // When disabled or on error, returns empty anchors — zero behavior change
+    const crystallization = await step.do('crystallize-intent', async () => {
+      const result = await crystallizeIntent(
+        {
+          signalId: signalKey,
+          title: signal.title as string,
+          description: signal.description as string,
+          specContent: typeof params.signal.specContent === 'string'
+            ? params.signal.specContent
+            : undefined,
+        },
+        this.env,
+        dryRun,
+        false, // crystallizer.enabled — default false, flip via hot-config when ready
+      )
+      return toStep(result as unknown as Record<string, unknown>)
+    })
+
+    const intentAnchors = (crystallization.anchors ?? []) as IntentAnchor[]
+
     // ── Stage 5: PRD compilation (8 passes) ──
     let compState: Record<string, unknown> = {
       prd: proposal.prd,
+      intentAnchors,
       workGraph: null,
     }
 
