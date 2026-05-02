@@ -349,7 +349,7 @@ describe('extractLessons', () => {
     const queryCalls = db.query.mock.calls
     const f1Call = queryCalls.find((c: any) => c[1]?.pattern === 'F1 prose output from agent')
     expect(f1Call).toBeDefined()
-    expect(f1Call![1].evidence).toContain('atom-1')
+    expect((f1Call as unknown as [unknown, Record<string, unknown>])[1]!.evidence).toContain('atom-1')
   })
 
   it('writes timeout pattern lesson when atoms exceed deadline', async () => {
@@ -369,7 +369,7 @@ describe('extractLessons', () => {
     const queryCalls = db.query.mock.calls
     const timeoutCall = queryCalls.find((c: any) => c[1]?.pattern === 'Atom execution timeout')
     expect(timeoutCall).toBeDefined()
-    expect(timeoutCall![1].evidence).toContain('atom-slow')
+    expect((timeoutCall as unknown as [unknown, Record<string, unknown>])[1]!.evidence).toContain('atom-slow')
   })
 
   it('writes F7 pattern lesson for empty/null responses', async () => {
@@ -409,7 +409,7 @@ describe('extractLessons', () => {
     const queryCalls = db.query.mock.calls
     const partialCall = queryCalls.find((c: any) => c[1]?.pattern === 'Partial synthesis success')
     expect(partialCall).toBeDefined()
-    expect(partialCall![1].evidence).toContain('1/2')
+    expect((partialCall as unknown as [unknown, Record<string, unknown>])[1]!.evidence).toContain('1/2')
   })
 
   it('does not write lessons when no atomResults exist', async () => {

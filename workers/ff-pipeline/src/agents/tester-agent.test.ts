@@ -298,7 +298,7 @@ describe('TesterAgent', () => {
       expect(result.passed).toBe(false)
       expect(result.testsFailed).toBe(2)
       expect(result.failures).toHaveLength(2)
-      expect(result.failures[0].name).toBe('validates input schema')
+      expect(result.failures[0]!.name).toBe('validates input schema')
     })
 
     it('throws when agentLoop returns no assistant message', async () => {

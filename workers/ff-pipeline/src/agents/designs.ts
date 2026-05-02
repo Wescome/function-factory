@@ -655,13 +655,13 @@ export async function seedAgentDesigns(db: ArangoClient): Promise<{ seeded: numb
 
   for (const design of AGENT_DESIGNS) {
     try {
-      await db.save('agent_designs', design)
+      await db.save('agent_designs', design as unknown as Record<string, unknown>)
       seeded++
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       if (msg.includes('unique constraint') || msg.includes('conflict')) {
         try {
-          await db.save('agent_designs', design)
+          await db.save('agent_designs', design as unknown as Record<string, unknown>)
           seeded++
         } catch {
           errors.push(`${design._key}: ${msg}`)

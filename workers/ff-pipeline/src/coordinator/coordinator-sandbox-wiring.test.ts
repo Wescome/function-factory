@@ -231,6 +231,7 @@ describe('T12-wiring: throwing stubs trigger callModel fallback (integration)', 
 
     const state: GraphState = {
       ...createInitialState('WG-fallback', {
+        id: 'WG-fallback',
         title: 'Fallback test',
         atoms: [{ id: 'a1', description: 'test', assignedTo: 'coder' }],
         invariants: [],
@@ -270,6 +271,7 @@ describe('T12-wiring: throwing stubs trigger callModel fallback (integration)', 
 
     const state: GraphState = {
       ...createInitialState('WG-fallback-t', {
+        id: 'WG-fallback-t',
         title: 'Tester fallback',
         atoms: [],
         invariants: [],

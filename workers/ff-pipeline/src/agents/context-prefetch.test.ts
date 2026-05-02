@@ -64,24 +64,24 @@ describe('prefetchAgentContext', () => {
     const ctx = await prefetchAgentContext(db)
 
     expect(ctx.decisions).toHaveLength(1)
-    expect(ctx.decisions[0].key).toBe('D-012')
-    expect(ctx.decisions[0].decision).toBe('Use JWT with refresh tokens')
+    expect(ctx.decisions[0]!.key).toBe('D-012')
+    expect(ctx.decisions[0]!.decision).toBe('Use JWT with refresh tokens')
 
     expect(ctx.lessons).toHaveLength(1)
-    expect(ctx.lessons[0].key).toBe('L-003')
-    expect(ctx.lessons[0].lesson).toBe('Always validate token expiry')
+    expect(ctx.lessons[0]!.key).toBe('L-003')
+    expect(ctx.lessons[0]!.lesson).toBe('Always validate token expiry')
 
     expect(ctx.mentorRules).toHaveLength(1)
-    expect(ctx.mentorRules[0].ruleId).toBe('MR-001')
+    expect(ctx.mentorRules[0]!.ruleId).toBe('MR-001')
 
     expect(ctx.existingFunctions).toHaveLength(1)
-    expect(ctx.existingFunctions[0].name).toBe('auth-module')
+    expect(ctx.existingFunctions[0]!.name).toBe('auth-module')
 
     expect(ctx.invariants).toHaveLength(1)
-    expect(ctx.invariants[0].description).toBe('All tokens must expire within 24h')
+    expect(ctx.invariants[0]!.description).toBe('All tokens must expire within 24h')
 
     expect(ctx.curatedLessons).toHaveLength(1)
-    expect(ctx.curatedLessons[0].pattern).toBe('F1 prose output')
+    expect(ctx.curatedLessons[0]!.pattern).toBe('F1 prose output')
 
     // All 6 queries should have been issued in parallel
     expect(calls).toHaveLength(6)

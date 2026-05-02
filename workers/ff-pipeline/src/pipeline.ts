@@ -94,8 +94,8 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
 
     // ── Architect approval ──
     // Feedback-generated retries (autoApprove in signal.raw) skip the human gate
-    const isAutoApproved = !!(params.signal as Record<string, unknown>).raw
-      && ((params.signal as Record<string, unknown>).raw as Record<string, unknown>)?.autoApprove === true
+    const isAutoApproved = !!(params.signal as unknown as Record<string, unknown>).raw
+      && ((params.signal as unknown as Record<string, unknown>).raw as Record<string, unknown>)?.autoApprove === true
 
     let approvalPayload: { decision?: string; reason?: string; by?: string } | undefined
 
@@ -323,12 +323,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
 
     if (synthPayload.verdict.decision === 'dispatched') {
       try {
-        const atomsEvent = await step.waitForEvent<{
-          verdict: { decision: string; confidence: number; reason: string }
-          tokenUsage: number
-          repairCount: number
-          atomResults?: Record<string, unknown>
-        }>('atoms-complete', { type: 'atoms-complete', timeout: '30 minutes' })
+        const atomsEvent = await step.waitForEvent('atoms-complete', { type: 'atoms-complete', timeout: '30 minutes' })
 
         const atomsPayload = atomsEvent.payload as {
           verdict: { decision: string; confidence: number; reason: string }

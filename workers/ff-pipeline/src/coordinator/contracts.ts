@@ -1,4 +1,4 @@
-import type { Plan, CodeArtifact, CritiqueReport, TestReport, Verdict } from './state'
+import type { Plan, CodeArtifact, CritiqueReport, TestReport, Verdict, HumanApprovalPayload, DisagreementClass } from './state'
 
 export type RoleName = 'planner' | 'coder' | 'critic' | 'tester' | 'verifier'
 
@@ -170,9 +170,9 @@ Respond ONLY with valid JSON.`,
       if (Array.isArray(parsed.failedAtomIds)) result.failedAtomIds = parsed.failedAtomIds as string[]
       if (typeof parsed.requires_human_approval === 'boolean') result.requires_human_approval = parsed.requires_human_approval
       if (parsed.human_approval_payload && typeof parsed.human_approval_payload === 'object') {
-        result.human_approval_payload = parsed.human_approval_payload as Verdict['human_approval_payload']
+        result.human_approval_payload = parsed.human_approval_payload as HumanApprovalPayload | null
       }
-      if (typeof parsed.disagreement_class === 'string') result.disagreement_class = parsed.disagreement_class as Verdict['disagreement_class']
+      if (typeof parsed.disagreement_class === 'string') result.disagreement_class = parsed.disagreement_class as DisagreementClass | null
       if (typeof parsed.escalation_score === 'number') result.escalation_score = parsed.escalation_score
       return result
     },

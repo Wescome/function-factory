@@ -195,30 +195,30 @@ describe('hot-config: coordinator passes overrides to agents', () => {
   })
 
   it('passes aliasOverrides to PlannerAgent (Plan schema)', () => {
-    expect(coordinatorSrc).toMatch(/new\s+PlannerAgent\(\s*\{[^}]*aliasOverrides/)
+    expect(coordinatorSrc).toMatch(/new\s+PlannerAgent\(\s*\{[\s\S]*?aliasOverrides/)
   })
 
   it('passes aliasOverrides to TesterAgent (TestReport schema)', () => {
-    expect(coordinatorSrc).toMatch(/new\s+TesterAgent\(\s*\{[^}]*aliasOverrides/)
+    expect(coordinatorSrc).toMatch(/new\s+TesterAgent\(\s*\{[\s\S]*?aliasOverrides/)
   })
 
   it('passes aliasOverrides to VerifierAgent (Verdict schema)', () => {
-    expect(coordinatorSrc).toMatch(/new\s+VerifierAgent\(\s*\{[^}]*aliasOverrides/)
+    expect(coordinatorSrc).toMatch(/new\s+VerifierAgent\(\s*\{[\s\S]*?aliasOverrides/)
   })
 
   it('passes both aliasOverrides to CriticAgent', () => {
-    expect(coordinatorSrc).toMatch(/new\s+CriticAgent\(\s*\{[^}]*semanticReviewAliasOverrides/)
-    expect(coordinatorSrc).toMatch(/new\s+CriticAgent\(\s*\{[^}]*codeReviewAliasOverrides/)
+    expect(coordinatorSrc).toMatch(/new\s+CriticAgent\(\s*\{[\s\S]*?semanticReviewAliasOverrides/)
+    expect(coordinatorSrc).toMatch(/new\s+CriticAgent\(\s*\{[\s\S]*?codeReviewAliasOverrides/)
   })
 
   it('passes model override to each agent', () => {
     // Coordinator resolves models centrally and passes as overrides
-    expect(coordinatorSrc).toMatch(/new\s+ArchitectAgent\(\s*\{[^}]*model:/)
-    expect(coordinatorSrc).toMatch(/new\s+CoderAgent\(\s*\{[^}]*model:/)
-    expect(coordinatorSrc).toMatch(/new\s+PlannerAgent\(\s*\{[^}]*model:/)
-    expect(coordinatorSrc).toMatch(/new\s+TesterAgent\(\s*\{[^}]*model:/)
-    expect(coordinatorSrc).toMatch(/new\s+VerifierAgent\(\s*\{[^}]*model:/)
-    expect(coordinatorSrc).toMatch(/new\s+CriticAgent\(\s*\{[^}]*model:/)
+    expect(coordinatorSrc).toMatch(/new\s+ArchitectAgent\(\s*\{[\s\S]*?model:/)
+    expect(coordinatorSrc).toMatch(/new\s+CoderAgent\(\s*\{[\s\S]*?model:/)
+    expect(coordinatorSrc).toMatch(/new\s+PlannerAgent\(\s*\{[\s\S]*?model:/)
+    expect(coordinatorSrc).toMatch(/new\s+TesterAgent\(\s*\{[\s\S]*?model:/)
+    expect(coordinatorSrc).toMatch(/new\s+VerifierAgent\(\s*\{[\s\S]*?model:/)
+    expect(coordinatorSrc).toMatch(/new\s+CriticAgent\(\s*\{[\s\S]*?model:/)
   })
 })
 

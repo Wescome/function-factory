@@ -238,7 +238,7 @@ export class MemoryCuratorAgent {
   private db: ArangoClient
   private apiKey: string
   private dryRun: boolean
-  private modelOverride?: Model<any>
+  private modelOverride: Model<any> | undefined
 
   constructor(opts: MemoryCuratorAgentOpts) {
     this.db = opts.db
@@ -302,7 +302,7 @@ export class MemoryCuratorAgent {
     // ORL telemetry — fire-and-forget
     try {
       const telemetry = buildTelemetryEntry(result, 'MemoryCuration')
-      await this.db.save('orl_telemetry', telemetry).catch(() => {})
+      await this.db.save('orl_telemetry', telemetry as unknown as Record<string, unknown>).catch(() => {})
     } catch { /* telemetry is best-effort */ }
 
     if (!result.success) {

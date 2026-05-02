@@ -60,15 +60,15 @@ describe('createWorkersAIStreamFn', () => {
 
       // Should have start + done events
       expect(events.length).toBe(2)
-      expect(events[0].type).toBe('start')
-      expect(events[1].type).toBe('done')
+      expect(events[0]!.type).toBe('start')
+      expect(events[1]!.type).toBe('done')
 
       // Final message should have text content
       const finalMsg = await stream.result()
       expect(finalMsg.role).toBe('assistant')
       expect(finalMsg.stopReason).toBe('stop')
       expect(finalMsg.content.length).toBe(1)
-      expect(finalMsg.content[0].type).toBe('text')
+      expect(finalMsg.content[0]!.type).toBe('text')
       expect((finalMsg.content[0] as TextContent).text).toBe('{"goal":"test","status":"ok"}')
     })
   })
@@ -105,13 +105,13 @@ describe('createWorkersAIStreamFn', () => {
       const events = await collectEvents(stream)
 
       expect(events.length).toBe(2)
-      expect(events[0].type).toBe('start')
-      expect(events[1].type).toBe('done')
+      expect(events[0]!.type).toBe('start')
+      expect(events[1]!.type).toBe('done')
 
       const finalMsg = await stream.result()
       expect(finalMsg.stopReason).toBe('toolUse')
       expect(finalMsg.content.length).toBe(1)
-      expect(finalMsg.content[0].type).toBe('toolCall')
+      expect(finalMsg.content[0]!.type).toBe('toolCall')
 
       const tc = finalMsg.content[0] as ToolCall
       expect(tc.id).toBe('tc1')
@@ -137,7 +137,7 @@ describe('createWorkersAIStreamFn', () => {
       const events = await collectEvents(stream)
 
       expect(events.length).toBe(1)
-      expect(events[0].type).toBe('error')
+      expect(events[0]!.type).toBe('error')
 
       const finalMsg = await stream.result()
       expect(finalMsg.stopReason).toBe('error')
@@ -286,7 +286,7 @@ describe('createWorkersAIStreamFn', () => {
 
       const finalMsg = await stream.result()
       expect(finalMsg.stopReason).toBe('stop')
-      expect(finalMsg.content[0].type).toBe('text')
+      expect(finalMsg.content[0]!.type).toBe('text')
       expect((finalMsg.content[0] as TextContent).text).toContain('fallback result')
     })
 
@@ -308,7 +308,7 @@ describe('createWorkersAIStreamFn', () => {
 
       // Should fail with error, no retry
       expect(mockAI.run).toHaveBeenCalledTimes(1)
-      expect(events[0].type).toBe('error')
+      expect(events[0]!.type).toBe('error')
     })
   })
 
@@ -346,14 +346,14 @@ describe('createWorkersAIStreamFn', () => {
       await collectEvents(stream)
 
       const messages = capturedInput!.messages as { role: string; content: string }[]
-      expect(messages[0].role).toBe('system')
-      expect(messages[0].content).toContain('Be helpful.')
-      expect(messages[1].role).toBe('user')
-      expect(messages[1].content).toBe('Hello')
-      expect(messages[2].role).toBe('assistant')
-      expect(messages[2].content).toBe('Hi there')
-      expect(messages[3].role).toBe('user')
-      expect(messages[3].content).toBe('Thanks')
+      expect(messages[0]!.role).toBe('system')
+      expect(messages[0]!.content).toContain('Be helpful.')
+      expect(messages[1]!.role).toBe('user')
+      expect(messages[1]!.content).toBe('Hello')
+      expect(messages[2]!.role).toBe('assistant')
+      expect(messages[2]!.content).toBe('Hi there')
+      expect(messages[3]!.role).toBe('user')
+      expect(messages[3]!.content).toBe('Thanks')
     })
 
     it('handles assistant messages with tool_calls for Workers AI format', async () => {
@@ -417,10 +417,10 @@ describe('createWorkersAIStreamFn', () => {
         const result = detectTextToolCalls(text, ['arango_query'])
         expect(result).not.toBeNull()
         expect(result!.length).toBe(1)
-        expect(result![0].type).toBe('toolCall')
-        expect(result![0].name).toBe('arango_query')
-        expect(result![0].arguments).toEqual({ query: 'FOR d IN memory_semantic RETURN d' })
-        expect(result![0].id).toMatch(/^tc-/)
+        expect(result![0]!.type).toBe('toolCall')
+        expect(result![0]!.name).toBe('arango_query')
+        expect(result![0]!.arguments).toEqual({ query: 'FOR d IN memory_semantic RETURN d' })
+        expect(result![0]!.id).toMatch(/^tc-/)
       })
 
       it('detects multiple tool calls separated by newlines', () => {
@@ -431,10 +431,10 @@ describe('createWorkersAIStreamFn', () => {
         const result = detectTextToolCalls(text, ['arango_query'])
         expect(result).not.toBeNull()
         expect(result!.length).toBe(2)
-        expect(result![0].arguments).toEqual({ query: 'FOR d IN col1 RETURN d' })
-        expect(result![1].arguments).toEqual({ query: 'FOR d IN col2 RETURN d' })
+        expect(result![0]!.arguments).toEqual({ query: 'FOR d IN col1 RETURN d' })
+        expect(result![1]!.arguments).toEqual({ query: 'FOR d IN col2 RETURN d' })
         // IDs must be unique
-        expect(result![0].id).not.toBe(result![1].id)
+        expect(result![0]!.id).not.toBe(result![1]!.id)
       })
 
       it('returns null when tool name is not in available tools', () => {
@@ -460,7 +460,7 @@ describe('createWorkersAIStreamFn', () => {
         const result = detectTextToolCalls(text, ['arango_query'])
         expect(result).not.toBeNull()
         expect(result!.length).toBe(1)
-        expect(result![0].name).toBe('arango_query')
+        expect(result![0]!.name).toBe('arango_query')
       })
     })
 
@@ -502,7 +502,7 @@ describe('createWorkersAIStreamFn', () => {
         const finalMsg = await stream.result()
         expect(finalMsg.stopReason).toBe('toolUse')
         expect(finalMsg.content.length).toBe(1)
-        expect(finalMsg.content[0].type).toBe('toolCall')
+        expect(finalMsg.content[0]!.type).toBe('toolCall')
 
         const tc = finalMsg.content[0] as ToolCall
         expect(tc.name).toBe('arango_query')
@@ -532,7 +532,7 @@ describe('createWorkersAIStreamFn', () => {
         const finalMsg = await stream.result()
 
         expect(finalMsg.stopReason).toBe('stop')
-        expect(finalMsg.content[0].type).toBe('text')
+        expect(finalMsg.content[0]!.type).toBe('text')
       })
 
       it('detects text tool call even when native tool calling succeeds (model returns text)', async () => {
@@ -559,7 +559,7 @@ describe('createWorkersAIStreamFn', () => {
         const finalMsg = await stream.result()
 
         expect(finalMsg.stopReason).toBe('toolUse')
-        expect(finalMsg.content[0].type).toBe('toolCall')
+        expect(finalMsg.content[0]!.type).toBe('toolCall')
         expect((finalMsg.content[0] as ToolCall).name).toBe('arango_query')
       })
 
@@ -583,7 +583,7 @@ describe('createWorkersAIStreamFn', () => {
         const finalMsg = await stream.result()
 
         expect(finalMsg.stopReason).toBe('stop')
-        expect(finalMsg.content[0].type).toBe('text')
+        expect(finalMsg.content[0]!.type).toBe('text')
       })
     })
   })

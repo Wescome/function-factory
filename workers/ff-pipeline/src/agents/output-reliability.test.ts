@@ -517,7 +517,7 @@ describe('processAgentOutput — CODE_ARTIFACT_SCHEMA', () => {
     }
     const result = await processAgentOutput(JSON.stringify(aliased), CODE_ARTIFACT_SCHEMA)
     expect(result.success).toBe(true)
-    expect(result.data!.files[0].action).toBe('create')
+    expect(result.data!.files[0]!.action).toBe('create')
   })
 })
 

@@ -92,6 +92,49 @@ export interface AtomExecutorDeps {
 }
 
 // ────────────────────────────────────────────────────────────
+// Language validation — post-generation, pre-critic gate
+// ────────────────────────────────────────────────────────────
+
+const ALLOWED_EXTENSIONS = ['.ts', '.json', '.md']
+
+const NON_TS_MARKERS: Array<{ pattern: RegExp; label: string }> = [
+  { pattern: /^#!\//m, label: 'shebang' },
+  { pattern: /^from\s+\w+\s+import/m, label: 'Python import' },
+  { pattern: /^import\s+java\./m, label: 'Java import' },
+  { pattern: /^#include\s/m, label: 'C/C++ include' },
+  { pattern: /^def\s+\w+\s*\(/m, label: 'Python def' },
+  { pattern: /^class\s+\w+\(\w+\)\s*:/m, label: 'Python class' },
+]
+
+/**
+ * Validate that a CodeArtifact contains only TypeScript/JSON/Markdown files
+ * and no foreign language markers. Runs after CoderAgent.produceCode()
+ * and before the CriticAgent — prevents non-TS code from reaching PR generation.
+ */
+export function validateCodeLanguage(code: CodeArtifact): { valid: boolean; violations: string[] } {
+  const violations: string[] = []
+  for (const file of code.files) {
+    if (file.action === 'delete') continue
+
+    // Check file extension
+    const hasAllowedExt = ALLOWED_EXTENSIONS.some(ext => file.path.endsWith(ext))
+    if (!hasAllowedExt) {
+      violations.push(`${file.path}: non-TypeScript file extension`)
+    }
+
+    // Check content for non-TS markers
+    const content = file.content ?? ''
+    for (const { pattern, label } of NON_TS_MARKERS) {
+      if (pattern.test(content)) {
+        violations.push(`${file.path}: contains ${label} marker`)
+        break // one violation per file is sufficient
+      }
+    }
+  }
+  return { valid: violations.length === 0, violations }
+}
+
+// ────────────────────────────────────────────────────────────
 // Execute one atom through the 4-node pipeline with retry
 // ────────────────────────────────────────────────────────────
 
@@ -140,6 +183,17 @@ export async function executeAtomSlice(
       ...(critique?.issues?.length ? { critiqueIssues: critique.issues } : {}),
       ...(slice.fileContexts?.length ? { fileContexts: slice.fileContexts } : {}),
     })
+
+    // Language gate: enforce TypeScript-only before proceeding to critic
+    const langCheck = validateCodeLanguage(code)
+    if (!langCheck.valid) {
+      verdict = {
+        decision: 'fail',
+        confidence: 1.0,
+        reason: `synthesis:language-violation: ${langCheck.violations.join('; ')}`,
+      }
+      break
+    }
 
     // Node 2: Code-critic
     const mentorRules = await deps.fetchMentorRules()

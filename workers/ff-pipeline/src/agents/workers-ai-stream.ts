@@ -14,9 +14,10 @@
  */
 
 import type { StreamFn } from '@weops/gdk-agent'  // I1: correct import
-import { AssistantMessageEventStream } from '@weops/gdk-ai'
+import { createAssistantMessageEventStream } from '@weops/gdk-ai'
 import type {
   AssistantMessage,
+  AssistantMessageEventStream,
   Context,
   SimpleStreamOptions,
   Model,
@@ -323,7 +324,7 @@ function parseResponse(resp: unknown, availableToolNames: string[]): {
  */
 export function createWorkersAIStreamFn(ai: AIBinding): StreamFn {
   return (model: Model<any>, context: Context, options?: SimpleStreamOptions) => {
-    const stream = new AssistantMessageEventStream()
+    const stream = createAssistantMessageEventStream()
     const hasTools = !!(context.tools && context.tools.length > 0)
 
     queueMicrotask(async () => {
@@ -397,7 +398,7 @@ export function createTextToolCallStreamFn(availableToolNames: string[]): Stream
     // Use gdk-ai's standard streamSimple for the HTTP call
     const { streamSimple } = await import('@weops/gdk-ai')
     const innerStream = streamSimple(model, context, options)
-    const outerStream = new AssistantMessageEventStream()
+    const outerStream = createAssistantMessageEventStream()
 
     ;(async () => {
       try {

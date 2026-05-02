@@ -89,9 +89,9 @@ export class ArchitectAgent {
   private db: ArangoClient
   private apiKey: string
   private dryRun: boolean
-  private modelOverride?: Model<any>
-  private aliasOverrides?: Record<string, string[]>
-  private contextPrompt?: string
+  private modelOverride: Model<any> | undefined
+  private aliasOverrides: Record<string, string[]> | undefined
+  private contextPrompt: string | undefined
 
   constructor(opts: ArchitectAgentOpts) {
     this.db = opts.db
@@ -155,13 +155,13 @@ export class ArchitectAgent {
     }
 
     const result = await processAgentOutput(rawText, BRIEFING_SCRIPT_SCHEMA, {
-      aliasOverrides: this.aliasOverrides,
+      ...(this.aliasOverrides ? { aliasOverrides: this.aliasOverrides } : {}),
     })
 
     // ORL telemetry — fire-and-forget, never blocks agent response
     try {
       const telemetry = buildTelemetryEntry(result, 'BriefingScript')
-      await this.db.save('orl_telemetry', telemetry).catch(() => {})
+      await this.db.save('orl_telemetry', telemetry as unknown as Record<string, unknown>).catch(() => {})
     } catch { /* telemetry is best-effort */ }
 
     if (!result.success) {

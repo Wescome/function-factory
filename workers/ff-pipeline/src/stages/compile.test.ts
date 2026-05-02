@@ -90,7 +90,7 @@ describe('Stage 5 compiler passes', () => {
 
     it('decompose pass sends only PRD to LLM', async () => {
       const state = { prd: basePrd }
-      await compilePRD('decompose', state, mockDb as unknown as ArangoClient, mockEnv as PipelineEnv, false)
+      await compilePRD('decompose', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
 
       expect(modelCalls).toHaveLength(1)
       const context = JSON.parse(modelCalls[0]!.user)
@@ -109,7 +109,7 @@ describe('Stage 5 compiler passes', () => {
         prd: basePrd,
         atoms: [{ id: 'atom-001', type: 'implementation', title: 'A', description: 'B' }],
       }
-      await compilePRD('dependency', state, mockDb as unknown as ArangoClient, mockEnv as PipelineEnv, false)
+      await compilePRD('dependency', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
 
       expect(modelCalls).toHaveLength(1)
       const context = JSON.parse(modelCalls[0]!.user)
@@ -128,7 +128,7 @@ describe('Stage 5 compiler passes', () => {
         atoms: [{ id: 'atom-001', type: 'implementation', title: 'A', description: 'B' }],
         dependencies: [{ from: 'atom-001', to: 'atom-002', type: 'requires' }],
       }
-      await compilePRD('invariant', state, mockDb as unknown as ArangoClient, mockEnv as PipelineEnv, false)
+      await compilePRD('invariant', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
 
       expect(modelCalls).toHaveLength(1)
       const context = JSON.parse(modelCalls[0]!.user)
@@ -148,7 +148,7 @@ describe('Stage 5 compiler passes', () => {
         dependencies: [{ from: 'atom-001', to: 'atom-002', type: 'requires' }],
         invariants: [{ id: 'INV-001' }],
       }
-      await compilePRD('interface', state, mockDb as unknown as ArangoClient, mockEnv as PipelineEnv, false)
+      await compilePRD('interface', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
 
       expect(modelCalls).toHaveLength(1)
       const context = JSON.parse(modelCalls[0]!.user)
@@ -169,7 +169,7 @@ describe('Stage 5 compiler passes', () => {
         invariants: [{ id: 'INV-001' }],
         interfaces: [{ from: 'atom-001', to: 'atom-002' }],
       }
-      await compilePRD('binding', state, mockDb as unknown as ArangoClient, mockEnv as PipelineEnv, false)
+      await compilePRD('binding', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
 
       expect(modelCalls).toHaveLength(1)
       const context = JSON.parse(modelCalls[0]!.user)
@@ -191,7 +191,7 @@ describe('Stage 5 compiler passes', () => {
         interfaces: [{ from: 'atom-001', to: 'atom-002', contract: { input: {}, output: {} } }],
         bindings: [{ atomId: 'atom-001', binding: { type: 'code' } }],
       }
-      await compilePRD('validation', state, mockDb as unknown as ArangoClient, mockEnv as PipelineEnv, false)
+      await compilePRD('validation', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
 
       expect(modelCalls).toHaveLength(1)
       const context = JSON.parse(modelCalls[0]!.user)
@@ -220,7 +220,7 @@ describe('Stage 5 compiler passes', () => {
         validations: [],
       }
 
-      await compilePRD('assembly', state, mockDb as unknown as ArangoClient, mockEnv as PipelineEnv, false)
+      await compilePRD('assembly', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
       expect(modelCalls).toHaveLength(0)
     })
 
@@ -238,7 +238,7 @@ describe('Stage 5 compiler passes', () => {
         validations: [{ atomId: 'atom-001', schema: 'z.object({})' }],
       }
 
-      const result = await compilePRD('assembly', state, mockDb as unknown as ArangoClient, mockEnv as PipelineEnv, false)
+      const result = await compilePRD('assembly', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
       const wg = result.workGraph as Record<string, unknown>
 
       expect(wg).toBeDefined()
@@ -269,7 +269,7 @@ describe('Stage 5 compiler passes', () => {
         validations: [],
       }
 
-      await compilePRD('assembly', state, mockDb as unknown as ArangoClient, mockEnv as PipelineEnv, false)
+      await compilePRD('assembly', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
       expect(mockDb.save).toHaveBeenCalledWith('specs_workgraphs', expect.objectContaining({
         type: 'workgraph',
         prdId: 'PRD-001',
@@ -283,7 +283,7 @@ describe('Stage 5 compiler passes', () => {
         workGraph: { _key: 'WG-001', atoms: [{ id: 'atom-001', binding: { type: 'code' } }] },
       }
 
-      await compilePRD('verification', state, mockDb as unknown as ArangoClient, mockEnv as PipelineEnv, false)
+      await compilePRD('verification', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
       expect(modelCalls).toHaveLength(0)
     })
 
@@ -293,7 +293,7 @@ describe('Stage 5 compiler passes', () => {
         workGraph: { _key: 'WG-001', atoms: [{ id: 'atom-001', binding: { type: 'code' } }] },
       }
 
-      const result = await compilePRD('verification', state, mockDb as unknown as ArangoClient, mockEnv as PipelineEnv, true)
+      const result = await compilePRD('verification', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, true)
       expect(result.verified).toBe(true)
       expect(result.verificationIssues).toEqual([])
     })
@@ -304,7 +304,7 @@ describe('Stage 5 compiler passes', () => {
 
     it('dry-run decompose produces atoms with critical field', async () => {
       const state = { prd: basePrd }
-      const result = await compilePRD('decompose', state, mockDb as unknown as ArangoClient, mockEnv as PipelineEnv, true)
+      const result = await compilePRD('decompose', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, true)
       const atoms = result.atoms as Record<string, unknown>[]
       expect(atoms).toHaveLength(1)
       expect(atoms[0]!.critical).toBe(true) // implementation type = critical
@@ -325,7 +325,7 @@ describe('Stage 5 compiler passes', () => {
         validations: [],
       }
 
-      const result = await compilePRD('assembly', state, mockDb as unknown as ArangoClient, mockEnv as PipelineEnv, false)
+      const result = await compilePRD('assembly', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
       const wg = result.workGraph as Record<string, unknown>
       const atoms = wg.atoms as Record<string, unknown>[]
 
@@ -351,7 +351,7 @@ describe('Stage 5 compiler passes', () => {
         validations: [],
       }
 
-      const result = await compilePRD('assembly', state, mockDb as unknown as ArangoClient, mockEnv as PipelineEnv, false)
+      const result = await compilePRD('assembly', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
       const wg = result.workGraph as Record<string, unknown>
       const atoms = wg.atoms as Record<string, unknown>[]
 
@@ -373,7 +373,7 @@ describe('Stage 5 compiler passes', () => {
         if (pass === 'interface' || pass === 'validation') state.dependencies = []
         if (pass === 'validation') state.interfaces = []
 
-        await compilePRD(pass, state, mockDb as unknown as ArangoClient, mockEnv as PipelineEnv, false)
+        await compilePRD(pass, state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
 
         expect(modelCalls).toHaveLength(1)
         const system = modelCalls[0]!.system
@@ -389,7 +389,7 @@ describe('Stage 5 compiler passes', () => {
       }
 
       for (const passName of PASS_NAMES) {
-        state = await compilePRD(passName, state, mockDb as unknown as ArangoClient, mockEnv as PipelineEnv, false)
+        state = await compilePRD(passName, state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
       }
 
       // After all passes, state should have workGraph

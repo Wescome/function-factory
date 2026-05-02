@@ -74,9 +74,9 @@ export class VerifierAgent {
   private db: ArangoClient
   private apiKey: string
   private dryRun: boolean
-  private modelOverride?: Model<any>
-  private aliasOverrides?: Record<string, string[]>
-  private contextPrompt?: string
+  private modelOverride: Model<any> | undefined
+  private aliasOverrides: Record<string, string[]> | undefined
+  private contextPrompt: string | undefined
 
   constructor(opts: VerifierAgentOpts) {
     this.db = opts.db
@@ -147,13 +147,13 @@ export class VerifierAgent {
     }
 
     const result = await processAgentOutput(rawText, VERDICT_SCHEMA, {
-      aliasOverrides: this.aliasOverrides,
+      ...(this.aliasOverrides ? { aliasOverrides: this.aliasOverrides } : {}),
     })
 
     // ORL telemetry — fire-and-forget, never blocks agent response
     try {
       const telemetry = buildTelemetryEntry(result, 'Verdict')
-      await this.db.save('orl_telemetry', telemetry).catch(() => {})
+      await this.db.save('orl_telemetry', telemetry as unknown as Record<string, unknown>).catch(() => {})
     } catch { /* telemetry is best-effort */ }
 
     if (!result.success) {
@@ -161,7 +161,7 @@ export class VerifierAgent {
     }
 
     // Build clean Verdict, preserving optional notes
-    const data = result.data! as Record<string, unknown>
+    const data = result.data! as unknown as Record<string, unknown>
     const verdict: Verdict = {
       decision: data.decision as VerdictDecision,
       confidence: data.confidence as number,

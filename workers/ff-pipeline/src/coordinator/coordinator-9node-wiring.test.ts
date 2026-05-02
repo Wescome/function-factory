@@ -168,7 +168,7 @@ describe('T12: agent shape satisfies GraphDeps', () => {
       produceBriefingScript: (input) => architectAgent.produceBriefingScript(input),
     }
 
-    const result = await depsShape!.produceBriefingScript({ signal: { test: true } })
+    const result = await depsShape!.produceBriefingScript({ signal: { id: 'test-wg', test: true } })
     expect(result.goal).toBe('Dry-run goal')
     expect(result.successCriteria).toEqual(['Dry-run criterion'])
   })
@@ -181,7 +181,7 @@ describe('T12: agent shape satisfies GraphDeps', () => {
       codeReview: (input) => criticAgent.codeReview(input as CodeReviewInput),
     }
 
-    const result = await depsShape!.semanticReview({ prd: { test: true } })
+    const result = await depsShape!.semanticReview({ prd: { id: 'test-wg', test: true } })
     expect(result.alignment).toBe('aligned')
     expect(result.confidence).toBe(1.0)
   })
@@ -214,7 +214,7 @@ describe('T12: agent shape satisfies GraphDeps', () => {
     const result = await depsShape!.codeReview({
       code: { files: [], summary: 'test', testsIncluded: false },
       plan: { approach: 'test', atoms: [], executorRecommendation: 'gdk-agent', estimatedComplexity: 'low' },
-      workGraph: { test: true },
+      workGraph: { id: 'test-wg', test: true },
       mentorRules: [],
     })
     expect(result.passed).toBe(true)
@@ -386,11 +386,11 @@ describe('T12: integration — real agent instances drive 9-node graph', () => {
     // Code must come from CoderAgent dry-run (not callModel)
     expect(finalState.code).toBeDefined()
     expect(finalState.code!.summary).toBe('Dry-run code output')
-    expect(finalState.code!.files[0].path).toBe('src/stub.ts')
+    expect(finalState.code!.files[0]!.path).toBe('src/stub.ts')
 
     // callModel should NOT have been called with taskKind 'coder'
     const coderCalls = (callModel as ReturnType<typeof vi.fn>).mock.calls.filter(
-      ([taskKind]: [string]) => taskKind === 'coder',
+      (args: unknown[]) => args[0] === 'coder',
     )
     expect(coderCalls).toHaveLength(0)
   })

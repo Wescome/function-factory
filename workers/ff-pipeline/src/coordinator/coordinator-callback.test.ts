@@ -257,7 +257,7 @@ describe('ADR-005 v4.1 (Queue fallback): Coordinator callback flow (unit)', () =
     storage.set('__workflowId', 'wf-no-binding')
 
     const queueMessages: unknown[] = []
-    const mockQueue: { send(body: unknown): Promise<void> } | undefined = undefined
+    const mockQueue = undefined as { send(body: unknown): Promise<void> } | undefined
 
     const workflowId = storage.get('__workflowId') as string | undefined
 

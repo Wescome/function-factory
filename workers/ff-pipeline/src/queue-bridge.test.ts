@@ -1387,7 +1387,7 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
       expect(msg.ack).toHaveBeenCalledOnce()
       expect(mockAtomResultsSend).toHaveBeenCalledOnce()
 
-      const sentMsg = mockAtomResultsSend.mock.calls[0]![0] as Record<string, unknown>
+      const sentMsg = (mockAtomResultsSend.mock.calls[0] as unknown as [Record<string, unknown>])[0]
       expect(sentMsg.atomId).toBe('atom-dead')
       expect(sentMsg.workGraphId).toBe('WG-MAXRETRY')
       const result = sentMsg.result as Record<string, unknown>

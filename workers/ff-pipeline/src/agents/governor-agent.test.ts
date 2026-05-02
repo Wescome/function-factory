@@ -78,7 +78,7 @@ const VALID_CYCLE_RESULT: GovernanceCycleResult = {
 // ── Mock DB ──────────────────────────────────────────────────────
 
 function createMockDb(overrides?: { failCollections?: string[] }) {
-  const calls: { query: string; params?: Record<string, unknown> }[] = []
+  const calls: { query: string; params: Record<string, unknown> | undefined }[] = []
   const saves: { collection: string; data: Record<string, unknown> }[] = []
   const failSet = new Set(overrides?.failCollections ?? [])
 
@@ -498,8 +498,8 @@ describe('execute', () => {
 
     const executed = await governor.execute(result)
 
-    expect(executed.decisions[0].executed).toBe(true)
-    expect(executed.decisions[0].execution_result).toContain('Pipeline')
+    expect(executed.decisions[0]!.executed).toBe(true)
+    expect(executed.decisions[0]!.execution_result).toContain('Pipeline')
     expect(createdPipelines).toHaveLength(1)
   })
 
@@ -530,8 +530,8 @@ describe('execute', () => {
 
     const executed = await governor.execute(result)
 
-    expect(executed.decisions[0].executed).toBe(false)
-    expect(executed.decisions[0].execution_result).toContain('Does not meet auto-trigger criteria')
+    expect(executed.decisions[0]!.executed).toBe(false)
+    expect(executed.decisions[0]!.execution_result).toContain('Does not meet auto-trigger criteria')
     expect(createdPipelines).toHaveLength(0)
   })
 
@@ -597,8 +597,8 @@ describe('execute', () => {
 
     const executed = await governor.execute(result)
 
-    expect(executed.decisions[0].executed).toBe(true)
-    expect(executed.decisions[0].execution_result).toContain('Escalation')
+    expect(executed.decisions[0]!.executed).toBe(true)
+    expect(executed.decisions[0]!.execution_result).toContain('Escalation')
     // Should have written to escalations collection
     const escalationSaves = saves.filter(s => s.collection === 'escalations')
     expect(escalationSaves).toHaveLength(1)
@@ -631,8 +631,8 @@ describe('execute', () => {
 
     const executed = await governor.execute(result)
 
-    expect(executed.decisions[0].executed).toBe(true)
-    expect(executed.decisions[0].execution_result).toBe('No action required')
+    expect(executed.decisions[0]!.executed).toBe(true)
+    expect(executed.decisions[0]!.execution_result).toBe('No action required')
     // No pipelines created, no saves to collections
     expect(createdPipelines).toHaveLength(0)
   })
@@ -664,8 +664,8 @@ describe('execute', () => {
 
     const executed = await governor.execute(result)
 
-    expect(executed.decisions[0].executed).toBe(false)
-    expect(executed.decisions[0].execution_result).toBe('Signal not found')
+    expect(executed.decisions[0]!.executed).toBe(false)
+    expect(executed.decisions[0]!.execution_result).toBe('Signal not found')
   })
 })
 
@@ -702,11 +702,11 @@ describe('persist', () => {
     // Should have saved to orientation_assessments
     const assessmentSaves = saves.filter(s => s.collection === 'orientation_assessments')
     expect(assessmentSaves).toHaveLength(1)
-    expect(assessmentSaves[0].data.type).toBe('governance_cycle')
+    expect(assessmentSaves[0]!.data.type).toBe('governance_cycle')
 
     // Should have saved to orl_telemetry
     const telemetrySaves = saves.filter(s => s.collection === 'orl_telemetry')
     expect(telemetrySaves).toHaveLength(1)
-    expect(telemetrySaves[0].data.schemaName).toBe('_governance_cycle')
+    expect(telemetrySaves[0]!.data.schemaName).toBe('_governance_cycle')
   })
 })

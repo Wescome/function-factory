@@ -31,7 +31,7 @@ export function keyForModel(
 }
 
 export function resolveAgentModel(taskKind: TaskKind, routingConfig?: RoutingConfig): Model<any> {
-  const { primary } = resolve(taskKind, { config: routingConfig })
+  const { primary } = resolve(taskKind, { ...(routingConfig ? { config: routingConfig } : {}) })
 
   if (primary.provider === 'cloudflare') {
     const isKimi = primary.model.includes('kimi')

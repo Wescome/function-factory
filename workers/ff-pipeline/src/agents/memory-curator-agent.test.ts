@@ -65,7 +65,7 @@ const VALID_CURATION: MemoryCurationResult = {
 // ── Mock DB ─────────────────────────────────────────────────────
 
 function createMockDb(overrides?: { failCollections?: string[] }) {
-  const calls: { query: string; params?: Record<string, unknown> }[] = []
+  const calls: { query: string; params: Record<string, unknown> | undefined }[] = []
   const saves: { collection: string; data: Record<string, unknown> }[] = []
   const failSet = new Set(overrides?.failCollections ?? [])
 
@@ -156,7 +156,7 @@ describe('MemoryCuratorAgent', () => {
       const result = await curator.curate()
 
       expect(result.curated_lessons).toHaveLength(1)
-      expect(result.curated_lessons[0].pattern).toBe('F1 prose output from agent')
+      expect(result.curated_lessons[0]!.pattern).toBe('F1 prose output from agent')
       expect(result.pattern_library_entries).toHaveLength(1)
       expect(result.governance_recommendations).toHaveLength(1)
       expect(result.curation_summary).toContain('Curated')

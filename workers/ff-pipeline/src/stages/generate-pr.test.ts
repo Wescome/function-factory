@@ -222,15 +222,15 @@ describe('generatePR', () => {
 
     const createBranch = calls.find(c => c.url.includes('/git/refs') && c.method === 'POST')
     expect(createBranch).toBeDefined()
-    expect(createBranch!.body.ref).toBe('refs/heads/factory/fp-001')
+    expect((createBranch!.body as Record<string, unknown>).ref).toBe('refs/heads/factory/fp-001')
 
     const fileWrites = calls.filter(c => c.url.includes('/contents/') && c.method === 'PUT')
     expect(fileWrites.length).toBe(2)
 
     const createPR = calls.find(c => c.url.includes('/pulls') && c.method === 'POST')
     expect(createPR).toBeDefined()
-    expect(createPR!.body.title).toContain('[Factory]')
-    expect(createPR!.body.base).toBe('main')
+    expect((createPR!.body as Record<string, unknown>).title).toContain('[Factory]')
+    expect((createPR!.body as Record<string, unknown>).base).toBe('main')
   })
 
   it('skips atoms with verdict != pass', async () => {

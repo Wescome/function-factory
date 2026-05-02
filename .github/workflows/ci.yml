@@ -27,16 +27,23 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Typecheck packages (excluding ff-pipeline which has pre-existing
-      # test-file type errors tracked for cleanup).
-      - name: Typecheck packages
+      # Typecheck all packages. ff-pipeline has strict settings and its own
+      # code is clean; dependency package errors (gdk-agent, gdk-ai, etc.)
+      # are excluded from the ff-pipeline pass via grep filter.
+      - name: Typecheck packages (excluding ff-pipeline)
         run: pnpm -r --if-present --filter '!@factory/ff-pipeline' typecheck
 
-      # Run ff-pipeline typecheck separately as non-blocking until
-      # test-file type errors are resolved.
-      - name: Typecheck ff-pipeline (non-blocking)
-        continue-on-error: true
-        run: pnpm --filter @factory/ff-pipeline typecheck
+      - name: Typecheck ff-pipeline (own code only)
+        run: |
+          output=$(pnpm --filter @factory/ff-pipeline typecheck 2>&1 || true)
+          own_errors=$(echo "$output" | grep "error TS" | grep -v "gdk-agent\|gdk-ai\|artifact-validator\|ontology-loader" | wc -l)
+          if [ "$own_errors" -gt 0 ]; then
+            echo "$output" | grep "error TS" | grep -v "gdk-agent\|gdk-ai\|artifact-validator\|ontology-loader"
+            echo ""
+            echo "FAIL: $own_errors type error(s) in ff-pipeline's own code"
+            exit 1
+          fi
+          echo "OK: 0 type errors in ff-pipeline's own code (dependency package errors excluded)"
 
   test:
     name: Test

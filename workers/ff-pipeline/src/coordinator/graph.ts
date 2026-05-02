@@ -218,7 +218,7 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
           ...(state.specContent ? { specContent: state.specContent } : {}),
           ...(state.verdict?.decision === 'patch' && state.verdict.notes ? {
             repairNotes: state.verdict.notes,
-            previousPlan: state.plan ?? undefined,
+            ...(state.plan != null ? { previousPlan: state.plan } : {}),
           } : {}),
           ...(state.verdict?.decision === 'resample' ? {
             resampleReason: state.verdict.reason,
@@ -257,8 +257,8 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
           ...(state.specContent ? { specContent: state.specContent } : {}),
           ...(state.verdict?.decision === 'patch' && state.verdict.notes ? {
             repairNotes: state.verdict.notes,
-            previousCode: state.code ?? undefined,
-            critiqueIssues: state.critique?.issues,
+            ...(state.code != null ? { previousCode: state.code } : {}),
+            ...(state.critique?.issues ? { critiqueIssues: state.critique.issues } : {}),
           } : {}),
         }
 

@@ -110,12 +110,12 @@ export class CriticAgent {
   private db: ArangoClient
   private apiKey: string
   private dryRun: boolean
-  private modelOverride?: Model<any>
-  private semanticReviewModel?: Model<any>
-  private semanticReviewApiKey?: string
-  private semanticReviewAliasOverrides?: Record<string, string[]>
-  private codeReviewAliasOverrides?: Record<string, string[]>
-  private contextPrompt?: string
+  private modelOverride: Model<any> | undefined
+  private semanticReviewModel: Model<any> | undefined
+  private semanticReviewApiKey: string | undefined
+  private semanticReviewAliasOverrides: Record<string, string[]> | undefined
+  private codeReviewAliasOverrides: Record<string, string[]> | undefined
+  private contextPrompt: string | undefined
 
   constructor(opts: CriticAgentOpts) {
     this.db = opts.db
@@ -198,13 +198,13 @@ export class CriticAgent {
     }
 
     const result = await processAgentOutput(rawText, SEMANTIC_REVIEW_SCHEMA, {
-      aliasOverrides: this.semanticReviewAliasOverrides,
+      ...(this.semanticReviewAliasOverrides ? { aliasOverrides: this.semanticReviewAliasOverrides } : {}),
     })
 
     // ORL telemetry — fire-and-forget, never blocks agent response
     try {
       const telemetry = buildTelemetryEntry(result, 'SemanticReview')
-      await this.db.save('orl_telemetry', telemetry).catch(() => {})
+      await this.db.save('orl_telemetry', telemetry as unknown as Record<string, unknown>).catch(() => {})
     } catch { /* telemetry is best-effort */ }
 
     if (!result.success) {
@@ -286,13 +286,13 @@ export class CriticAgent {
     }
 
     const result = await processAgentOutput(rawText, CRITIQUE_REPORT_SCHEMA, {
-      aliasOverrides: this.codeReviewAliasOverrides,
+      ...(this.codeReviewAliasOverrides ? { aliasOverrides: this.codeReviewAliasOverrides } : {}),
     })
 
     // ORL telemetry — fire-and-forget, never blocks agent response
     try {
       const telemetry = buildTelemetryEntry(result, 'CritiqueReport')
-      await this.db.save('orl_telemetry', telemetry).catch(() => {})
+      await this.db.save('orl_telemetry', telemetry as unknown as Record<string, unknown>).catch(() => {})
     } catch { /* telemetry is best-effort */ }
 
     if (!result.success) {

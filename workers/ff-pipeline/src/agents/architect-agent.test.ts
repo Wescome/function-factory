@@ -125,7 +125,7 @@ describe('ArchitectAgent', () => {
         { query: 'FOR d IN memory_semantic RETURN d' },
       )
 
-      expect(result.content[0].type).toBe('text')
+      expect(result.content[0]!.type).toBe('text')
       const parsed = JSON.parse((result.content[0] as any).text)
       expect(parsed).toHaveLength(1)
       expect(parsed[0]._key).toBe('D-012')
@@ -140,7 +140,7 @@ describe('ArchitectAgent', () => {
 
       const result = await tool.execute('call-2', { query: 'INVALID' })
 
-      expect(result.content[0].type).toBe('text')
+      expect(result.content[0]!.type).toBe('text')
       expect((result.content[0] as any).text).toContain('AQL error')
       expect((result.content[0] as any).text).toContain('collection not found')
     })

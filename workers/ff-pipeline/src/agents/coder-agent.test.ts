@@ -161,7 +161,7 @@ describe('CoderAgent', () => {
         testsIncluded: false,
       }), CODE_ARTIFACT_SCHEMA)
       expect(result.success).toBe(true)
-      expect(result.data!.files[0].action).toBe('invalid')
+      expect(result.data!.files[0]!.action).toBe('invalid')
     })
 
     it('accepts valid CodeArtifact', async () => {
@@ -210,8 +210,8 @@ describe('CoderAgent', () => {
 
       // Verify CodeArtifact shape
       expect(result.files).toHaveLength(2)
-      expect(result.files[0].path).toBe('src/auth/middleware.ts')
-      expect(result.files[0].action).toBe('create')
+      expect(result.files[0]!.path).toBe('src/auth/middleware.ts')
+      expect(result.files[0]!.action).toBe('create')
       expect(result.summary).toBe(VALID_CODE_ARTIFACT.summary)
       expect(result.testsIncluded).toBe(false)
     })

@@ -348,25 +348,19 @@ export default {
             console.log(`[Stage 6] All ${ledger.totalAtoms} atoms complete — running Phase 3`)
 
             const atomResults = Object.values(ledger.atomResults)
-            const allPassed = atomResults.every((r: Record<string, unknown>) => {
-              const v = r.verdict as Record<string, unknown>
-              return v.decision === 'pass'
-            })
-            const failedAtoms = atomResults.filter((r: Record<string, unknown>) => {
-              const v = r.verdict as Record<string, unknown>
-              return v.decision !== 'pass'
-            })
+            const allPassed = atomResults.every((r) => r.verdict.decision === 'pass')
+            const failedAtoms = atomResults.filter((r) => r.verdict.decision !== 'pass')
 
             // Merge code artifacts
-            const mergedFiles = atomResults.flatMap((r: Record<string, unknown>) => {
-              const ca = r.codeArtifact as Record<string, unknown> | null
-              return (ca?.files as unknown[] ?? [])
+            const mergedFiles = atomResults.flatMap((r) => {
+              const ca = r.codeArtifact
+              return ca?.files ?? []
             })
-            const totalRetries = atomResults.reduce((sum: number, r: Record<string, unknown>) => sum + (r.retryCount as number ?? 0), 0)
+            const totalRetries = atomResults.reduce((sum, r) => sum + (r.retryCount ?? 0), 0)
 
             // Check if any CRITICAL atom failed
-            const criticalFailures = failedAtoms.filter((r: Record<string, unknown>) => {
-              const spec = ledger.allAtomSpecs[r.atomId as string]
+            const criticalFailures = failedAtoms.filter((r) => {
+              const spec = ledger.allAtomSpecs[r.atomId]
               return spec?.critical !== false  // default to critical if not specified
             })
 
@@ -380,14 +374,14 @@ export default {
                 ? {
                     decision: 'fail',
                     confidence: 0.9,
-                    reason: `${criticalFailures.length} critical atom(s) failed: ${criticalFailures.map((a: Record<string, unknown>) => a.atomId).join(', ')}`,
+                    reason: `${criticalFailures.length} critical atom(s) failed: ${criticalFailures.map((a) => a.atomId).join(', ')}`,
                   }
                 : passRate >= 0.7
-                  ? { decision: 'pass', confidence: passRate, reason: `${atomResults.length - failedAtoms.length}/${atomResults.length} atoms passed (${failedAtoms.length} non-critical failed: ${failedAtoms.map((a: Record<string, unknown>) => a.atomId).join(', ')})` }
+                  ? { decision: 'pass', confidence: passRate, reason: `${atomResults.length - failedAtoms.length}/${atomResults.length} atoms passed (${failedAtoms.length} non-critical failed: ${failedAtoms.map((a) => a.atomId).join(', ')})` }
                   : {
                       decision: 'fail',
                       confidence: 0.8,
-                      reason: `${failedAtoms.length}/${atomResults.length} atoms failed: ${failedAtoms.map((a: Record<string, unknown>) => a.atomId).join(', ')}`,
+                      reason: `${failedAtoms.length}/${atomResults.length} atoms failed: ${failedAtoms.map((a) => a.atomId).join(', ')}`,
                     }
 
             console.log(`[Stage 6] Phase 3: ${allPassed ? 'PASS' : 'FAIL'} — ${atomResults.length} atoms, ${failedAtoms.length} failed`)

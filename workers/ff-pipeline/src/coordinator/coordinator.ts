@@ -194,7 +194,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
     return this.runFiber(`synth-${workGraphId}`, async (fiberCtx: FiberContext) => {
       const callModel = dryRun
         ? this.dryRunModelBridge()
-        : createModelBridge(this.env)
+        : createModelBridge(this.env as unknown as import('../providers').ProviderEnv)
 
       const persistState = async (state: GraphState, _role?: string) => {
         await this.ctx.storage.put('graphState', state)
@@ -225,7 +225,10 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
 
       // Resolve models from hot-loaded ArangoDB routing config (kimi-k2.6 default).
       // Falls back to package DEFAULT_CONFIG if ArangoDB is unreachable.
-      const env = { CF_API_TOKEN: this.env.CF_API_TOKEN, OFOX_API_KEY: this.env.OFOX_API_KEY }
+      const env: { CF_API_TOKEN?: string; OFOX_API_KEY?: string } = {
+        ...(this.env.CF_API_TOKEN ? { CF_API_TOKEN: this.env.CF_API_TOKEN } : {}),
+        ...(this.env.OFOX_API_KEY ? { OFOX_API_KEY: this.env.OFOX_API_KEY } : {}),
+      }
       const architectModel = resolveAgentModel('planning', hotConfig.routing)
       const plannerModel = resolveAgentModel('planner', hotConfig.routing)
       const coderModel = resolveAgentModel('coder', hotConfig.routing)
@@ -242,7 +245,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         apiKey: keyForModel(architectModel, env),
         dryRun,
         model: architectModel,
-        aliasOverrides: hotConfig.aliases['BriefingScript'],
+        ...(hotConfig.aliases['BriefingScript'] ? { aliasOverrides: hotConfig.aliases['BriefingScript'] } : {}),
         contextPrompt,
       })
       const coderAgent = new CoderAgent({
@@ -250,7 +253,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         apiKey: keyForModel(coderModel, env),
         dryRun,
         model: coderModel,
-        aliasOverrides: hotConfig.aliases['CodeArtifact'],
+        ...(hotConfig.aliases['CodeArtifact'] ? { aliasOverrides: hotConfig.aliases['CodeArtifact'] } : {}),
         contextPrompt,
       })
       const plannerAgent = new PlannerAgent({
@@ -258,7 +261,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         apiKey: keyForModel(plannerModel, env),
         dryRun,
         model: plannerModel,
-        aliasOverrides: hotConfig.aliases['Plan'],
+        ...(hotConfig.aliases['Plan'] ? { aliasOverrides: hotConfig.aliases['Plan'] } : {}),
         contextPrompt,
       })
       const testerAgent = new TesterAgent({
@@ -266,7 +269,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         apiKey: keyForModel(testerModel, env),
         dryRun,
         model: testerModel,
-        aliasOverrides: hotConfig.aliases['TestReport'],
+        ...(hotConfig.aliases['TestReport'] ? { aliasOverrides: hotConfig.aliases['TestReport'] } : {}),
         contextPrompt,
       })
       const verifierAgent = new VerifierAgent({
@@ -274,7 +277,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         apiKey: keyForModel(verifierModel, env),
         dryRun,
         model: verifierModel,
-        aliasOverrides: hotConfig.aliases['Verdict'],
+        ...(hotConfig.aliases['Verdict'] ? { aliasOverrides: hotConfig.aliases['Verdict'] } : {}),
         contextPrompt,
       })
       const criticAgent = new CriticAgent({
@@ -284,8 +287,8 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         model: criticModel,
         semanticReviewModel,
         semanticReviewApiKey: keyForModel(semanticReviewModel, env),
-        semanticReviewAliasOverrides: hotConfig.aliases['SemanticReview'],
-        codeReviewAliasOverrides: hotConfig.aliases['CritiqueReport'],
+        ...(hotConfig.aliases['SemanticReview'] ? { semanticReviewAliasOverrides: hotConfig.aliases['SemanticReview'] } : {}),
+        ...(hotConfig.aliases['CritiqueReport'] ? { codeReviewAliasOverrides: hotConfig.aliases['CritiqueReport'] } : {}),
         contextPrompt,
       })
 
@@ -467,9 +470,9 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
             tokenUsage: r.tokenUsage,
             timestamp: r.timestamp,
           })),
-          briefingScript: finalState.briefingScript ?? undefined,
-          semanticReview: finalState.semanticReview ?? undefined,
-        } as SynthesisResult
+          ...(finalState.briefingScript != null ? { briefingScript: finalState.briefingScript } : {}),
+          ...(finalState.semanticReview != null ? { semanticReview: finalState.semanticReview } : {}),
+        } as unknown as SynthesisResult
       } catch (err) {
         const reason = err instanceof Error ? err.message : 'Phase 2 dispatch failed'
         finalState = {

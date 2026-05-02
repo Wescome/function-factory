@@ -84,8 +84,8 @@ vi.mock('@factory/artifact-validator', () => ({
 // and vitest will resolve it against this mock.
 
 const mockRecordAtomResult = vi.fn()
-const mockGetReadyAtoms = vi.fn(() => [])
-const mockIsComplete = vi.fn(() => false)
+const mockGetReadyAtoms = vi.fn((..._args: unknown[]) => [] as string[])
+const mockIsComplete = vi.fn((..._args: unknown[]) => false)
 
 vi.mock('./coordinator/completion-ledger.js', () => ({
   recordAtomResult: (...args: unknown[]) => mockRecordAtomResult(...args),
@@ -459,7 +459,7 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
     )
 
     // Verify the reason mentions the specific critical atom
-    const sentPayload = mockSendEvent.mock.calls[0]![0] as Record<string, unknown>
+    const sentPayload = (mockSendEvent.mock.calls[0] as unknown as [Record<string, unknown>])[0]
     const payload = sentPayload.payload as Record<string, unknown>
     const v = payload.verdict as Record<string, unknown>
     expect(v.reason).toContain('atom-4')
@@ -646,7 +646,7 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
     expect(mockQueueSend).toHaveBeenCalledOnce()
 
     // Queue fallback should include verdict
-    const queueMsg = mockQueueSend.mock.calls[0]![0] as Record<string, unknown>
+    const queueMsg = (mockQueueSend.mock.calls[0] as unknown as [Record<string, unknown>])[0]
     expect(queueMsg.workflowId).toBe('wf-fallback')
     expect(queueMsg.verdict).toBeDefined()
 

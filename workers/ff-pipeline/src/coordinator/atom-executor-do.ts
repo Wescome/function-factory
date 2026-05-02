@@ -123,7 +123,10 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
     // before burning 900s of DO lifetime on a guaranteed failure
     if (!payload.dryRun) {
       const preflightModel = resolveAgentModel('coder')
-      const preflightEnv = { CF_API_TOKEN: this.env.CF_API_TOKEN, OFOX_API_KEY: this.env.OFOX_API_KEY }
+      const preflightEnv: { CF_API_TOKEN?: string; OFOX_API_KEY?: string } = {
+        ...(this.env.CF_API_TOKEN ? { CF_API_TOKEN: this.env.CF_API_TOKEN } : {}),
+        ...(this.env.OFOX_API_KEY ? { OFOX_API_KEY: this.env.OFOX_API_KEY } : {}),
+      }
       const key = keyForModel(preflightModel, preflightEnv)
 
       if (!key) {
@@ -242,7 +245,10 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
    */
   private buildAtomDeps(dryRun: boolean) {
     // Provider-aware API key selection via shared keyForModel utility.
-    const env = { CF_API_TOKEN: this.env.CF_API_TOKEN, OFOX_API_KEY: this.env.OFOX_API_KEY }
+    const env: { CF_API_TOKEN?: string; OFOX_API_KEY?: string } = {
+      ...(this.env.CF_API_TOKEN ? { CF_API_TOKEN: this.env.CF_API_TOKEN } : {}),
+      ...(this.env.OFOX_API_KEY ? { OFOX_API_KEY: this.env.OFOX_API_KEY } : {}),
+    }
 
     // Resolve models from task-routing config (same source as coordinator)
     const coderModel = resolveAgentModel('coder')
