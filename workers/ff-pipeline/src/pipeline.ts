@@ -225,7 +225,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     //
     // Non-probed passes (interface, binding, validation, assembly, verification)
     // use the existing simple pattern.
-    const PROBED_PASSES = ['decompose', 'dependency', 'invariant']
+    const PROBED_PASSES = ['decompose']
     const MAX_REMEDIATION = 2
 
     let compState: Record<string, unknown> = {
