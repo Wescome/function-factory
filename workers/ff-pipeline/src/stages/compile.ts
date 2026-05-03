@@ -30,17 +30,22 @@ const PASS_TASK_KINDS: Record<PassName, string> = {
 const PASS_PROMPTS: Record<PassName, string> = {
   decompose: `Decompose this PRD into requirement atoms. Each atom is a verifiable claim about what the system must do — it must be truth-apt (can be checked as true or false) and independently implementable.
 
+Produce ONLY implementation atoms. Do NOT produce test atoms — testing is handled by the Tester role downstream.
+
 Each atom MUST carry:
 - id (format "atom-001")
-- type ("implementation" | "config" | "test")
+- type ("implementation" | "config")
 - title: the verifiable claim in one sentence
-- description: implementation details
+- description: implementation details including the exact file path to modify
 - verifies: what specific aspect of the signal's intent this atom fulfills
+- targetFiles: array of file paths this atom modifies (e.g. ["workers/ff-pipeline/src/config/crystallizer-config.ts"])
+
+Prefer fewer atoms. One atom per file is ideal. Each atom should make ONE focused change.
 
 If violationFeedback is provided, your previous attempt missed key concepts.
 Address each violated claim in at least one atom's title or verifies field.
 
-Output ONLY the new atoms — do NOT repeat the PRD or any other state. Output JSON: { "atoms": [{ "id": "atom-001", "type": "implementation", "title": "...", "description": "...", "verifies": "..." }] }`,
+Output ONLY the new atoms — do NOT repeat the PRD or any other state. Output JSON: { "atoms": [{ "id": "atom-001", "type": "implementation", "title": "...", "description": "...", "verifies": "...", "targetFiles": ["path/to/file.ts"] }] }`,
 
   dependency: `Given atoms, identify dependencies between them. Output ONLY the new dependencies — do NOT repeat atoms or any other state. Output JSON: { "dependencies": [{ "from": "atom-id", "to": "atom-id", "type": "requires | enables | conflicts" }] }`,
 
@@ -267,6 +272,8 @@ async function runLivePass(
         implementation: bindingMap.has(a.id as string) ? 'bound' : (a.implementation ?? null),
       }))
     }
+    // Strip test atoms — implementation-only synthesis for mergeable PRs
+    boundAtoms = (boundAtoms as Record<string, unknown>[]).filter(a => a.type !== 'test')
     // Safety net: ensure every atom has binding + implementation for Gate 1
     boundAtoms = (boundAtoms as Record<string, unknown>[]).map((a, i) => ({
       ...a,

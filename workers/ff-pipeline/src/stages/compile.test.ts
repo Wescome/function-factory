@@ -229,7 +229,7 @@ describe('Stage 5 compiler passes', () => {
         prd: basePrd,
         atoms: [
           { id: 'atom-001', type: 'implementation', title: 'A', description: 'B' },
-          { id: 'atom-002', type: 'test', title: 'C', description: 'D' },
+          { id: 'atom-002', type: 'config', title: 'C', description: 'D' },
         ],
         dependencies: [{ from: 'atom-001', to: 'atom-002', type: 'requires' }],
         invariants: [{ id: 'INV-001', property: 'Must work', detector: { type: 'test', check: 'pass' } }],
@@ -310,7 +310,7 @@ describe('Stage 5 compiler passes', () => {
       expect(atoms[0]!.critical).toBe(true) // implementation type = critical
     })
 
-    it('assembly marks implementation atoms as critical and config/test as non-critical', async () => {
+    it('assembly marks implementation atoms as critical and config as non-critical (test atoms stripped)', async () => {
       const state = {
         prd: basePrd,
         atoms: [
@@ -329,13 +329,13 @@ describe('Stage 5 compiler passes', () => {
       const wg = result.workGraph as Record<string, unknown>
       const atoms = wg.atoms as Record<string, unknown>[]
 
+      // Test atoms are stripped in assembly — only impl and config remain
+      expect(atoms).toHaveLength(2)
       const impl = atoms.find(a => a.id === 'atom-001')
       const config = atoms.find(a => a.id === 'atom-002')
-      const test = atoms.find(a => a.id === 'atom-003')
 
       expect(impl?.critical).toBe(true)
       expect(config?.critical).toBe(false)
-      expect(test?.critical).toBe(false)
     })
 
     it('assembly defaults unknown type atoms to critical (fail-safe)', async () => {
