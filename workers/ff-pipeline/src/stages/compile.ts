@@ -1,6 +1,7 @@
 import type { ArangoClient } from '@factory/arango-client'
 import type { PipelineEnv } from '../types'
 import { callModel } from '../model-bridge'
+import { extractContext, type FileContext } from '@factory/file-context'
 
 export const PASS_NAMES = [
   'decompose',
@@ -68,6 +69,76 @@ function extractTargetFiles(atom: Record<string, unknown>): string[] {
     .split(',')
     .map(t => t.trim())
     .filter(t => t.length > 0 && t !== 'TBD')
+}
+
+/**
+ * Extract .ts/.tsx file paths from spec content text.
+ * Filters out node_modules paths and deduplicates.
+ */
+export function extractFilePathsFromSpec(specContent: string): string[] {
+  if (!specContent) return []
+  const regex = /(?<![/\w])(?:[\w@-]+\/)+[\w-]+\.tsx?/g
+  const matches = specContent.match(regex)
+  if (!matches) return []
+  return [...new Set(
+    matches.filter(p => !p.includes('node_modules')),
+  )]
+}
+
+/**
+ * Fetch files from GitHub Contents API and run extractContext on each.
+ * Fail-open: returns empty array on missing token, empty paths, or errors.
+ */
+export async function fetchCompileFileContexts(
+  filePaths: string[],
+  env: PipelineEnv,
+): Promise<FileContext[]> {
+  if (!env.GITHUB_TOKEN || filePaths.length === 0) return []
+
+  const headers = {
+    'Authorization': `Bearer ${env.GITHUB_TOKEN}`,
+    'Accept': 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+    'User-Agent': 'ff-pipeline',
+  }
+
+  const contexts: FileContext[] = []
+
+  for (const filePath of filePaths) {
+    try {
+      const res = await fetch(
+        `https://api.github.com/repos/Wescome/function-factory/contents/${filePath}?ref=main`,
+        { method: 'GET', headers },
+      )
+      if (!res.ok) continue
+
+      const data = await res.json() as { content: string; encoding: string; sha: string }
+      if (data.encoding !== 'base64') continue
+
+      const rawContent = decodeBase64(data.content)
+      const language = filePath.endsWith('.ts') || filePath.endsWith('.tsx')
+        ? 'typescript'
+        : filePath.endsWith('.json') ? 'json' : 'markdown'
+
+      const ctx = extractContext(rawContent, language)
+      contexts.push({ ...ctx, path: filePath })
+    } catch {
+      // Fail-open: skip files that error
+      continue
+    }
+  }
+
+  return contexts
+}
+
+function decodeBase64(encoded: string): string {
+  const cleaned = encoded.replace(/\n/g, '')
+  const binary = atob(cleaned)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  return new TextDecoder().decode(bytes)
 }
 
 export async function compilePRD(
@@ -219,6 +290,10 @@ async function runLivePass(
       if (state.signalContext) context.signalContext = state.signalContext
       // C3: Inject violation feedback from prior remediation attempt
       if (state._violationFeedback) context.violationFeedback = state._violationFeedback
+      // Phase E: forward file contexts to decompose pass when present
+      if (Array.isArray(state.fileContexts) && state.fileContexts.length > 0) {
+        context.fileContexts = state.fileContexts
+      }
       break
     case 'dependency':
       context.atoms = state.atoms

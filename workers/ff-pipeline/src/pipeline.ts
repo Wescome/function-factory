@@ -233,14 +233,28 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     const PROBED_PASSES = ['decompose', 'dependency', 'invariant']
     const MAX_REMEDIATION = 2
 
+    // ── Fetch file contexts for compile-stage grounding ──
+    const signalSpecContent = typeof params.signal.specContent === 'string' ? params.signal.specContent : undefined
+    const compileFileContexts = await step.do('fetch-compile-context', async () => {
+      if (!signalSpecContent) return { fileContexts: [] }
+      try {
+        const { extractFilePathsFromSpec, fetchCompileFileContexts } = await import('./stages/compile.js')
+        const filePaths = extractFilePathsFromSpec(signalSpecContent)
+        if (filePaths.length === 0) return { fileContexts: [] }
+        const contexts = await fetchCompileFileContexts(filePaths, this.env)
+        return { fileContexts: contexts.map((c: { path: string; structure: { exports: string[]; functions: Array<{ name: string; params: string }> }; rawContent: string }) => ({ path: c.path, exports: c.structure.exports, functions: c.structure.functions.map(f => `${f.name}(${f.params})`), rawContent: c.rawContent.slice(0, 2000) })) }
+      } catch { return { fileContexts: [] } }
+    })
+
     let compState: Record<string, unknown> = {
       prd: proposal.prd,
       intentAnchors,
       signalContext: {
         title: signal.title,
         description: signal.description,
-        specContent: typeof params.signal.specContent === 'string' ? params.signal.specContent : undefined,
+        specContent: signalSpecContent,
       },
+      fileContexts: compileFileContexts.fileContexts ?? [],
       workGraph: null,
     }
 
