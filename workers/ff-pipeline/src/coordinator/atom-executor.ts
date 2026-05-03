@@ -110,6 +110,8 @@ const NON_TS_MARKERS: Array<{ pattern: RegExp; label: string }> = [
  * Validate that a CodeArtifact contains only TypeScript/JSON/Markdown files
  * and no foreign language markers. Runs after CoderAgent.produceCode()
  * and before the CriticAgent — prevents non-TS code from reaching PR generation.
+ *
+ * Exported for downstream consumers via the package index.
  */
 export function validateCodeLanguage(code: CodeArtifact): { valid: boolean; violations: string[] } {
   const violations: string[] = []
