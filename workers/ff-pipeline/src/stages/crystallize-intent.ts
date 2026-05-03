@@ -43,31 +43,41 @@ export interface CrystallizeInput {
 
 // ── System Prompt ──────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are a specification fidelity analyst. Your job is to decompose a software
-change request into a set of binary yes/no checkpoint questions.
+const SYSTEM_PROMPT = `You are a specification fidelity analyst for a software compilation pipeline.
+
+The pipeline decomposes a change request into JSON "atoms" — structured work units.
+Each atom is a JSON object with fields: id, type, title, description, verifies.
+
+Your job: produce binary yes/no checkpoint questions that verify whether the atoms
+preserve the signal's original intent. The questions will be evaluated against the
+JSON atoms output, NOT against source code.
 
 Each checkpoint must:
-1. Be answerable by reading a compilation stage's output alone
-2. Have a clear yes/no answer (no ambiguity)
-3. Detect whether the original signal's intent was preserved
-4. Be phrased so that ONE answer (yes or no) indicates a violation
+1. Be answerable by reading the JSON atoms array alone
+2. Reference specific names, types, or concepts from the signal
+3. Ask whether an atom's title, description, or verifies field mentions the key concept
+4. Have a clear yes/no answer
+
+Example: if the signal says "export LifecycleState", a good probe is:
+"Does any atom's title or description mention LifecycleState?"
+NOT: "Does the output contain export type { LifecycleState }?" (that's code, not atoms)
 
 Your response is a JSON array:
 [
   {
     "claim": "The original intent being checked",
-    "probe_question": "Does this output [specific preservation/violation pattern]?",
-    "violation_signal": "yes" or "no",
-    "severity": "block" or "warn" or "log"
+    "probe_question": "Does any atom's title, description, or verifies field mention [specific concept from the signal]?",
+    "violation_signal": "no",
+    "severity": "block"
   }
 ]
 
 Severity:
-- "block": The output fundamentally misses the signal's core intent
-- "warn": The output partially addresses the intent but with drift
-- "log": Minor deviation worth tracking
+- "block": The atoms completely miss a key concept from the signal
+- "warn": The atoms partially address the intent but drift from specifics
+- "log": Minor naming deviation worth tracking
 
-Generate 3-6 anchors. Fewer is better — each must be genuinely discriminating.`
+Generate 3-6 anchors. Each must check for a SPECIFIC concept from the signal.`
 
 // ── Constants ──────────────────────────────────────────────────
 
