@@ -330,6 +330,10 @@ export async function generatePR(
         const fileData = await getFileRes.json() as { sha: string; content: string }
         existingSha = fileData.sha
         existingContent = fromBase64(fileData.content)
+        // Discrepancy #3: warn when action='create' but file already exists on branch
+        if (primaryAction === 'create') {
+          warnings.push(`create action on existing file, forcing modify: ${filePath}`)
+        }
       } else if (primaryAction === 'modify') {
         filesNotFound.push(filePath)
         warnings.push(`Modify target not found on branch, treating as create: ${filePath}`)

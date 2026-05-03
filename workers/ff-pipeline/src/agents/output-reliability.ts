@@ -748,7 +748,10 @@ export const CODE_ARTIFACT_SCHEMA: OutputSchema<CodeArtifact> = {
         if (typeof file.path !== 'string') file.path = coerceToString(file.path)
         if (typeof file.content !== 'string') file.content = coerceToString(file.content)
         const rawAction = coerceToString(file.action).toLowerCase()
-        file.action = CODE_ACTION_MAP[rawAction] ?? (rawAction || 'create')
+        const hasEdits = Array.isArray(file.edits) && file.edits.length > 0
+        // Discrepancy #8: if file has edits[] but action is empty/undefined, default to 'modify'
+        const defaultAction = hasEdits ? 'modify' : 'create'
+        file.action = CODE_ACTION_MAP[rawAction] ?? (rawAction || defaultAction)
       }
     }
   },

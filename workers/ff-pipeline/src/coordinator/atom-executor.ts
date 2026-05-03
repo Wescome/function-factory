@@ -135,6 +135,31 @@ export function validateCodeLanguage(code: CodeArtifact): { valid: boolean; viol
 }
 
 // ────────────────────────────────────────────────────────────
+// File action validation — post-generation gate (discrepancy #6)
+// ────────────────────────────────────────────────────────────
+
+/**
+ * Validate file actions against available file contexts.
+ * If a file exists in fileContexts but the code says action='create',
+ * force action to 'modify' (the file already exists, cannot create).
+ *
+ * Mutates code.files in place. Returns list of corrected file paths.
+ */
+export function validateFileActions(code: CodeArtifact, fileContexts: FileContext[]): string[] {
+  const corrected: string[] = []
+  const existingPaths = new Set(fileContexts.map(fc => fc.path))
+
+  for (const file of code.files) {
+    if (file.action === 'create' && existingPaths.has(file.path)) {
+      file.action = 'modify'
+      corrected.push(file.path)
+    }
+  }
+
+  return corrected
+}
+
+// ────────────────────────────────────────────────────────────
 // Execute one atom through the 4-node pipeline with retry
 // ────────────────────────────────────────────────────────────
 
@@ -193,6 +218,11 @@ export async function executeAtomSlice(
         reason: `synthesis:language-violation: ${langCheck.violations.join('; ')}`,
       }
       break
+    }
+
+    // File action validation gate: force create→modify when file exists in context
+    if (slice.fileContexts && slice.fileContexts.length > 0) {
+      validateFileActions(code, slice.fileContexts)
     }
 
     // Node 2: Code-critic

@@ -56,6 +56,20 @@ Output ONLY the new atoms — do NOT repeat the PRD or any other state. Output J
   verification: `Deterministic verification — no LLM call needed.`,
 }
 
+/**
+ * Extract targetFiles from an atom's binding.target.
+ * Handles comma-separated targets and filters out 'TBD'.
+ * Discrepancy #1: ensures atoms carry targetFiles from binding.target.
+ */
+function extractTargetFiles(atom: Record<string, unknown>): string[] {
+  const binding = atom.binding as Record<string, unknown> | undefined
+  if (!binding || typeof binding.target !== 'string') return []
+  return binding.target
+    .split(',')
+    .map(t => t.trim())
+    .filter(t => t.length > 0 && t !== 'TBD')
+}
+
 export async function compilePRD(
   passName: PassName,
   state: Record<string, unknown>,
@@ -131,6 +145,7 @@ async function runDryPass(
         atoms: ((state.atoms ?? []) as Record<string, unknown>[]).map(a => ({
           ...a,
           critical: a.critical ?? (a.type === 'config' || a.type === 'test' ? false : true),
+          targetFiles: extractTargetFiles(a),
         })),
         dependencies: state.dependencies ?? [],
         invariants: state.invariants ?? [],

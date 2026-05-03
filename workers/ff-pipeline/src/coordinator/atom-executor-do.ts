@@ -434,20 +434,38 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
   }
 
   private resolveTargetFiles(atomSpec: Record<string, unknown>): string[] {
-    // Atom specs may declare target files explicitly
-    if (Array.isArray(atomSpec.targetFiles)) {
-      return atomSpec.targetFiles.filter((f): f is string => typeof f === 'string')
-    }
-    // Or infer from suggestedFiles in the plan
-    if (Array.isArray(atomSpec.suggestedFiles)) {
-      return atomSpec.suggestedFiles.filter((f): f is string => typeof f === 'string')
-    }
-    // Check assignedTo field for file path hints
-    if (typeof atomSpec.file === 'string') {
-      return [atomSpec.file]
-    }
-    return []
+    // Delegate to the exported standalone function
+    return resolveTargetFiles(atomSpec)
   }
+}
+
+/**
+ * Resolve target files from an atom spec.
+ * Exported as a standalone function for testability (discrepancy #5).
+ *
+ * Priority: targetFiles > suggestedFiles > file > binding.target
+ * Filters out 'TBD' entries.
+ */
+export function resolveTargetFiles(atomSpec: Record<string, unknown>): string[] {
+  // Atom specs may declare target files explicitly
+  if (Array.isArray(atomSpec.targetFiles)) {
+    return atomSpec.targetFiles.filter((f): f is string => typeof f === 'string' && f !== 'TBD')
+  }
+  // Or infer from suggestedFiles in the plan
+  if (Array.isArray(atomSpec.suggestedFiles)) {
+    return atomSpec.suggestedFiles.filter((f): f is string => typeof f === 'string' && f !== 'TBD')
+  }
+  // Check assignedTo field for file path hints
+  if (typeof atomSpec.file === 'string' && atomSpec.file !== 'TBD') {
+    return [atomSpec.file]
+  }
+  // Discrepancy #5: Fall back to binding.target
+  const binding = atomSpec.binding as Record<string, unknown> | undefined
+  if (binding && typeof binding.target === 'string' && binding.target !== 'TBD') {
+    // Handle comma-separated targets
+    return binding.target.split(',').map(t => t.trim()).filter(t => t.length > 0 && t !== 'TBD')
+  }
+  return []
 }
 
 function decodeBase64(encoded: string): string {
