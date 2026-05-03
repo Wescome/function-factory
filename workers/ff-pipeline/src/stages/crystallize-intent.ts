@@ -58,9 +58,11 @@ Each checkpoint must:
 3. Ask whether an atom's title, description, or verifies field mentions the key concept
 4. Have a clear yes/no answer
 
-Example: if the signal says "export LifecycleState", a good probe is:
-"Does any atom's title or description mention LifecycleState?"
-NOT: "Does the output contain export type { LifecycleState }?" (that's code, not atoms)
+Example: if the signal says "export LifecycleState from index.ts", good probes are:
+"Does any atom's title or description mention LifecycleState?" (checks the concept)
+"Does any atom's description mention index.ts or entry point?" (checks the target — use short filenames, not full paths)
+BAD probe: "Does the output contain export type { LifecycleState }?" (that's code, not atoms)
+BAD probe: "Does any atom mention workers/ff-pipeline/src/index.ts?" (too literal — atoms use short names)
 
 Your response is a JSON array:
 [
