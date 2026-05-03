@@ -126,7 +126,7 @@ export class PlannerAgent {
         model,
         convertToLlm: (msgs) => msgs as Message[],
         getApiKey: async () => this.apiKey,
-        maxTokens: 4096,
+        maxTokens: 8192,
         onPayload: (payload: unknown) => ({
           ...(payload as Record<string, unknown>),
           response_format: { type: 'json_object' },
