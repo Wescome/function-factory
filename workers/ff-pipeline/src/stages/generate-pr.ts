@@ -401,6 +401,25 @@ export async function generatePR(
       filesWritten++
     }
 
+    // ── Phantom synthesis guard ──
+    // If atoms declared files but none were written, all edits failed — this is a phantom PR.
+    // Clean up the orphan branch and return failure.
+    if (filesWritten === 0 && filesByPath.size > 0) {
+      // Delete the orphan branch (best-effort)
+      await fetch(
+        apiUrl(repoOwner, repoName, `/git/refs/heads/${branchName}`),
+        { method: 'DELETE', headers },
+      ).catch(() => {})
+
+      return {
+        success: false,
+        error: 'Phantom synthesis: zero files written — all edits failed or no content provided',
+        filesWritten: 0,
+        branchName,
+        warnings: warnings.length > 0 ? warnings : undefined,
+      }
+    }
+
     // ── Step 4: Create draft PR ──
     // Append file-not-found warnings to PR body if any
     let prBody = buildPRBody(input)

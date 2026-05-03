@@ -746,7 +746,9 @@ export const CODE_ARTIFACT_SCHEMA: OutputSchema<CodeArtifact> = {
       for (const file of files as Record<string, unknown>[]) {
         if (typeof file !== 'object' || file === null) continue
         if (typeof file.path !== 'string') file.path = coerceToString(file.path)
-        if (typeof file.content !== 'string') file.content = coerceToString(file.content)
+        if (typeof file.content !== 'string' && !(Array.isArray(file.edits) && file.edits.length > 0)) {
+          file.content = coerceToString(file.content)
+        }
         const rawAction = coerceToString(file.action).toLowerCase()
         const hasEdits = Array.isArray(file.edits) && file.edits.length > 0
         // Discrepancy #8: if file has edits[] but action is empty/undefined, default to 'modify'

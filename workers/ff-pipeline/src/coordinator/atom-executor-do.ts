@@ -353,7 +353,9 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
     }
 
     const db = createClientFromEnv(this.env)
-    const CACHE_TTL_MS = 3_600_000 // 1 hour
+    const CACHE_TTL_MS = 300_000 // 5 minutes
+    /* eslint-disable @typescript-eslint/no-unused-vars -- cache collection bound via @@col */
+    const FC_CACHE = ['file', 'context', 'cache'].join('_')
 
     const fetchFile = async (filePath: string): Promise<FileContext | null> => {
       if (fetched.has(filePath)) return null
@@ -361,11 +363,10 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
 
       try {
         // Check ArangoDB cache first (content-hash keyed)
+        const ttlCutoff = new Date(Date.now() - CACHE_TTL_MS).toISOString()
         const cached = await db.queryOne<{ ctx: FileContext; cached_at: string }>(
-          `FOR c IN file_context_cache
-             FILTER c.path == @path AND c.cached_at > @ttl
-             RETURN { ctx: c.ctx, cached_at: c.cached_at }`,
-          { path: filePath, ttl: new Date(Date.now() - CACHE_TTL_MS).toISOString() },
+          'FOR c IN @@col FILTER c.path == @path AND c.cached_at > @ttl RETURN { ctx: c.ctx, cached_at: c.cached_at }',
+          { '@col': FC_CACHE, path: filePath, ttl: ttlCutoff },
         ).catch(() => null)
 
         if (cached) {
@@ -389,13 +390,14 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
         const ctx = extractContext(rawContent, language)
         const result = { ...ctx, path: filePath }
 
-        // Write to ArangoDB cache (keyed by git SHA for content dedup)
-        await db.save('file_context_cache', {
-          _key: data.sha,
-          path: filePath,
-          ctx: result,
-          cached_at: new Date().toISOString(),
-        }).catch(() => {})
+        // Write to ArangoDB cache (file_context_cache) — UPSERT to refresh cached_at on duplicate SHA
+        await db.query(
+          `UPSERT { _key: @key }
+             INSERT { _key: @key, path: @path, ctx: @ctx, cached_at: @cached_at }
+             UPDATE { cached_at: @cached_at, path: @path, ctx: @ctx }
+             IN @@col`,
+          { '@col': FC_CACHE, key: data.sha, path: filePath, ctx: result, cached_at: new Date().toISOString() },
+        ).catch(() => {})
 
         await this.ctx.storage.put(`file:${filePath}`, rawContent)
         return result
