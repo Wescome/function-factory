@@ -88,15 +88,16 @@ const GEMINI_PRO: RouteTarget = { provider: 'google', model: 'gemini-3.1-pro-pre
 
 export const DEFAULT_CONFIG: RoutingConfig = {
   routes: [
-    // Pipeline stages (1-5): kimi-k2.6 (262K context, schema compliance, ~$0.054/synthesis)
-    // Switched from llama-70b: 8K context caused over-decomposition, hallucinated deps, malformed JSON
-    { kind: 'planning', primary: CF_KIMI_K26, fallback: CF_70B },
-    { kind: 'structured', primary: CF_KIMI_K26, fallback: CF_70B },
-    { kind: 'interpretive', primary: CF_KIMI_K26, fallback: CF_70B },
-    { kind: 'synthesis', primary: CF_KIMI_K26, fallback: CF_70B },
-    { kind: 'validation', primary: CF_KIMI_K26, fallback: CF_70B },
-    { kind: 'runtime_check', primary: CF_KIMI_K26, fallback: CF_70B },
-    { kind: 'semantic_review', primary: CF_KIMI_K26, fallback: CF_70B },
+    // Pipeline stages (1-5): kimi-k2.6 for decompose (262K context needed), llama-70b for rest
+    // kimi-k2.6 produces malformed JSON on non-decompose passes (missing commas)
+    // env.AI.run() binding doesn't work with kimi — REST API required
+    { kind: 'planning', primary: CF_KIMI_K26, fallback: CF_70B },  // decompose + pressure + capability + proposal
+    { kind: 'structured', primary: CF_70B },    // invariant, interface, validation — llama JSON reliable
+    { kind: 'interpretive', primary: CF_70B },  // binding — llama sufficient
+    { kind: 'synthesis', primary: CF_70B },     // assembly — deterministic anyway
+    { kind: 'validation', primary: CF_70B },    // verification — deterministic
+    { kind: 'runtime_check', primary: CF_70B },
+    { kind: 'semantic_review', primary: CF_KIMI_K26, fallback: CF_70B },  // needs context for spec alignment
     // Crystallizer + Probe: STAYS on llama-70b — circuit isolation (verifier ≠ generator)
     { kind: 'crystallizer', primary: CF_70B },
     { kind: 'probe', primary: CF_70B },

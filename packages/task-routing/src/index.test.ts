@@ -6,12 +6,18 @@ const CF_70B = '@cf/meta/llama-3.3-70b-instruct-fp8-fast'
 const CF_KIMI = '@cf/moonshotai/kimi-k2.6'
 
 describe('resolve', () => {
-  it('routes compile task kinds to kimi-k2.6 with llama fallback', () => {
-    for (const kind of ['planning', 'structured', 'interpretive', 'synthesis', 'validation', 'runtime_check', 'semantic_review'] as const) {
+  it('routes context-heavy kinds to kimi-k2.6, structural kinds to llama-70b', () => {
+    // kimi for context-heavy: planning (decompose, pressure, capability, proposal) + semantic_review
+    for (const kind of ['planning', 'semantic_review'] as const) {
       const route = resolve(kind)
       expect(route.primary).toEqual({ provider: 'cloudflare', model: CF_KIMI })
       expect(route.fallback).toEqual({ provider: 'cloudflare', model: CF_70B })
-      expect(route.resolvedVia).toBe('route-default')
+    }
+    // llama for structural: invariant, interface, binding, validation, assembly, verification
+    for (const kind of ['structured', 'interpretive', 'synthesis', 'validation', 'runtime_check'] as const) {
+      const route = resolve(kind)
+      expect(route.primary).toEqual({ provider: 'cloudflare', model: CF_70B })
+      expect(route.fallback).toBeUndefined()
     }
   })
 
