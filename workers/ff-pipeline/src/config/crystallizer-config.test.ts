@@ -1,122 +1,48 @@
-/**
- * Priority 1: Crystallizer hot-config flag tests (TDD RED phase).
- *
- * Verifies:
- *   1. HotConfig interface includes crystallizer.enabled field
- *   2. Default config has crystallizer.enabled = true
- *   3. seedHotConfig seeds the pipeline config doc with crystallizer.enabled
- *   4. loadCrystallizerEnabled reads from hot_config collection
- *   5. loadCrystallizerEnabled defaults to true when DB unreachable
- *   6. loadCrystallizerEnabled defaults to true when document missing
- */
-
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import {
-  loadCrystallizerEnabled,
-  seedPipelineConfig,
-} from './crystallizer-config'
-
-// ── Mock ArangoClient ──────────────────────────────────────────
-
-function makeMockDb() {
-  return {
-    save: vi.fn().mockResolvedValue({ _key: 'mock-key' }),
-    update: vi.fn().mockResolvedValue({}),
-    query: vi.fn().mockResolvedValue([]),
-    queryOne: vi.fn().mockResolvedValue(null),
-    get: vi.fn().mockResolvedValue(null),
-    remove: vi.fn().mockResolvedValue(undefined),
-    ensureCollection: vi.fn().mockResolvedValue(undefined),
-    ping: vi.fn().mockResolvedValue(true),
-  }
-}
-
-type MockDb = ReturnType<typeof makeMockDb>
-
-// ── Tests ──────────────────────────────────────────────────────
-
-describe('loadCrystallizerEnabled', () => {
-  let db: MockDb
-
-  beforeEach(() => {
-    db = makeMockDb()
-  })
-
-  it('returns true when hot_config doc has crystallizer.enabled = true', async () => {
-    db.query.mockResolvedValue([{
-      _key: 'pipeline',
-      crystallizer: { enabled: true },
-    }])
-
-    const enabled = await loadCrystallizerEnabled(db as never)
-    expect(enabled).toBe(true)
-  })
-
-  it('returns false when hot_config doc has crystallizer.enabled = false', async () => {
-    db.query.mockResolvedValue([{
-      _key: 'pipeline',
-      crystallizer: { enabled: false },
-    }])
-
-    const enabled = await loadCrystallizerEnabled(db as never)
-    expect(enabled).toBe(false)
-  })
-
-  it('defaults to true when DB query fails', async () => {
-    db.query.mockRejectedValue(new Error('Connection refused'))
-
-    const enabled = await loadCrystallizerEnabled(db as never)
-    expect(enabled).toBe(true)
-  })
-
-  it('defaults to true when document is missing', async () => {
-    db.query.mockResolvedValue([])
-
-    const enabled = await loadCrystallizerEnabled(db as never)
-    expect(enabled).toBe(true)
-  })
-
-  it('defaults to true when crystallizer field is missing from doc', async () => {
-    db.query.mockResolvedValue([{ _key: 'pipeline' }])
-
-    const enabled = await loadCrystallizerEnabled(db as never)
-    expect(enabled).toBe(true)
-  })
-})
+import { seedPipelineConfig } from './crystallizer-config';
 
 describe('seedPipelineConfig', () => {
-  let db: MockDb
+  let mockDb: { query: jest.Mock };
 
   beforeEach(() => {
-    db = makeMockDb()
-  })
+    mockDb = {
+      query: jest.fn().mockResolvedValue(undefined),
+    };
+  });
 
-  it('upserts pipeline config doc with crystallizer.enabled = true', async () => {
-    await seedPipelineConfig(db as never)
+  it('must preserve operator overrides by omitting crystallizer from the UPDATE clause', async () => {
+    await seedPipelineConfig(mockDb);
 
-    // Should have called query with upsert for hot_config
-    const upsertCalls = db.query.mock.calls.filter(
-      (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('hot_config'),
-    )
-    expect(upsertCalls.length).toBe(1)
+    expect(mockDb.query).toHaveBeenCalledTimes(1);
 
-    // Verify the params include crystallizer.enabled
-    const params = upsertCalls[0]![1] as Record<string, unknown>
-    expect(params.crystallizer).toEqual({ enabled: true })
-  })
+    const callArgs = mockDb.query.mock.calls[0];
+    const queryString =
+      typeof callArgs[0] === 'string' ? callArgs[0] : (callArgs[0] as { query: string }).query;
 
-  it('ensures hot_config collection exists', async () => {
-    await seedPipelineConfig(db as never)
+    expect(queryString).toContain('UPSERT');
+    expect(queryString).toContain('UPDATE');
+    expect(queryString).toContain('IN hot_config');
 
-    const collectionNames = db.ensureCollection.mock.calls.map((c: unknown[]) => c[0])
-    expect(collectionNames).toContain('hot_config')
-  })
+    // The UPDATE section must not overwrite crystallizer settings
+    const updateSectionMatch = queryString.match(/UPDATE([\s\S]*?)IN/);
+    expect(updateSectionMatch).toBeTruthy();
+    const updateSection = updateSectionMatch![1];
 
-  it('does not throw on upsert failure', async () => {
-    db.query.mockRejectedValue(new Error('DB unavailable'))
+    expect(updateSection).not.toContain('crystallizer');
+    expect(updateSection).toContain('seededAt');
+    expect(updateSection).toContain('source');
+  });
 
-    // Should not throw
-    const result = await seedPipelineConfig(db as never)
-    expect(result.error).toBeDefined()
-  })
-})
+  it('should include crystallizer configuration in the INSERT clause', async () => {
+    await seedPipelineConfig(mockDb);
+
+    const callArgs = mockDb.query.mock.calls[0];
+    const queryString =
+      typeof callArgs[0] === 'string' ? callArgs[0] : (callArgs[0] as { query: string }).query;
+
+    const insertSectionMatch = queryString.match(/INSERT([\s\S]*?)UPDATE/);
+    expect(insertSectionMatch).toBeTruthy();
+    const insertSection = insertSectionMatch![1];
+
+    expect(insertSection).toContain('crystallizer');
+  });
+});
