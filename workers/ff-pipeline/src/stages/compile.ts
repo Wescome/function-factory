@@ -198,6 +198,7 @@ async function runLivePass(
   switch (passName) {
     case 'decompose':
       context.prd = state.prd
+      if (state.signalContext) context.signalContext = state.signalContext
       break
     case 'dependency':
       context.atoms = state.atoms

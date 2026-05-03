@@ -231,6 +231,11 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     let compState: Record<string, unknown> = {
       prd: proposal.prd,
       intentAnchors,
+      signalContext: {
+        title: signal.title,
+        description: signal.description,
+        specContent: typeof params.signal.specContent === 'string' ? params.signal.specContent : undefined,
+      },
       workGraph: null,
     }
 
