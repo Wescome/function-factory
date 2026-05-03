@@ -14,7 +14,10 @@ import { compilePRD, PASS_NAMES } from './stages/compile'
 import { crystallizeIntent, type IntentAnchor } from './stages/crystallize-intent'
 import { probeAnchors } from './stages/intent-probe'
 import { reconcile } from './stages/reconciliation-gate'
+import { buildViolationFeedback } from './stages/violation-feedback'
+import { filterAnchorsForPass } from './stages/pass-specific-anchors'
 import { appendDriftEntry } from './stages/drift-ledger'
+import { loadCrystallizerEnabled } from './config/crystallizer-config'
 import { createCRP } from './crp'
 import { transitionLifecycle } from './lifecycle'
 import type { PipelineEnv, PipelineParams, PipelineResult, SemanticReviewResult, Gate1Report } from './types'
@@ -184,9 +187,11 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     }
 
     // ── Crystallize signal intent into binary anchors ──
-    // Hot-config flag: crystallizer.enabled (default false for Phase 1)
+    // Hot-config flag: crystallizer.enabled (default true after synthesis #11 validation)
     // When disabled or on error, returns empty anchors — zero behavior change
-    const crystallizerEnabled = true // Flag ON for testing — read from hot-config when HotConfigLoader is wired
+    const crystallizerEnabled = await step.do('load-crystallizer-config', async () => {
+      return loadCrystallizerEnabled(db)
+    })
     const crystallization = await step.do('crystallize-intent', async () => {
       const result = await crystallizeIntent(
         {
@@ -225,7 +230,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     //
     // Non-probed passes (interface, binding, validation, assembly, verification)
     // use the existing simple pattern.
-    const PROBED_PASSES = ['decompose']
+    const PROBED_PASSES = ['decompose', 'dependency', 'invariant']
     const MAX_REMEDIATION = 2
 
     let compState: Record<string, unknown> = {
@@ -242,10 +247,22 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     let intentViolation = false
 
     for (const passName of PASS_NAMES) {
-      if (PROBED_PASSES.includes(passName) && intentAnchors.length > 0) {
+      // Priority 3: filter anchors to those applicable to this pass (C4)
+      const passAnchors = filterAnchorsForPass(intentAnchors, passName)
+
+      if (PROBED_PASSES.includes(passName) && passAnchors.length > 0) {
         // ── Probed pass: compile -> compute delta -> probe -> gate ──
         for (let r = 0; r <= MAX_REMEDIATION; r++) {
-          const prevState = compState
+          // C3: On remediation (r > 0), build violation feedback from compState
+          const prevState = r > 0 && Array.isArray((compState as Rec)._violatedAnchors)
+            ? {
+                ...compState,
+                _violationFeedback: buildViolationFeedback(
+                  (compState as Rec)._violatedAnchors as string[],
+                  passAnchors,
+                ),
+              }
+            : compState
           compState = await step.do(`compile-verify-${passName}-r${r}`, async () => {
             // Compile the pass
             const newState = toStep(await compilePRD(passName, prevState, db, this.env, dryRun))
@@ -254,20 +271,20 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
             const delta = computeDelta(prevState, newState)
             const deltaStr = JSON.stringify(delta)
 
-            // Probe the delta against intent anchors (isolated LLM call)
+            // Probe the delta against pass-filtered anchors (isolated LLM call)
             const probeStart = Date.now()
-            const probeResults = await probeAnchors(deltaStr, intentAnchors, this.env, dryRun)
+            const probeResults = await probeAnchors(deltaStr, passAnchors, this.env, dryRun)
             const probeLatency = Date.now() - probeStart
 
             // Gate: pure deterministic decision
-            const gate = reconcile(probeResults, intentAnchors, r, MAX_REMEDIATION)
+            const gate = reconcile(probeResults, passAnchors, r, MAX_REMEDIATION)
 
             // Phase 3: Drift ledger — best-effort, never blocks
             await appendDriftEntry({
               pipeline_id: event.instanceId,
               signal_id: signalKey,
               pass_name: passName,
-              anchors_probed: intentAnchors.map(a => a.id),
+              anchors_probed: passAnchors.map(a => a.id),
               probe_results: probeResults,
               gate_verdict: gate.verdict,
               remediation_count: r,
@@ -286,9 +303,9 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
                 _violatedAnchors: gate.violated_anchors,
               }
             }
-            // verdict === 'remediate': return with remediate flag
-            // Next iteration of the r-loop will run with r+1
-            return { ...newState, _gateVerdict: 'remediate' }
+            // verdict === 'remediate': store violated anchors in compState (C3)
+            // Next iteration of the r-loop will read _violatedAnchors
+            return { ...newState, _gateVerdict: 'remediate', _violatedAnchors: gate.violated_anchors }
           }) as unknown as Record<string, unknown>
 
           // Break out of remediation loop if not remediating

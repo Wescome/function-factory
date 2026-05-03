@@ -36,6 +36,9 @@ Each atom MUST carry:
 - description: implementation details
 - verifies: what specific aspect of the signal's intent this atom fulfills
 
+If violationFeedback is provided, your previous attempt missed key concepts.
+Address each violated claim in at least one atom's title or verifies field.
+
 Output ONLY the new atoms — do NOT repeat the PRD or any other state. Output JSON: { "atoms": [{ "id": "atom-001", "type": "implementation", "title": "...", "description": "...", "verifies": "..." }] }`,
 
   dependency: `Given atoms, identify dependencies between them. Output ONLY the new dependencies — do NOT repeat atoms or any other state. Output JSON: { "dependencies": [{ "from": "atom-id", "to": "atom-id", "type": "requires | enables | conflicts" }] }`,
@@ -199,6 +202,8 @@ async function runLivePass(
     case 'decompose':
       context.prd = state.prd
       if (state.signalContext) context.signalContext = state.signalContext
+      // C3: Inject violation feedback from prior remediation attempt
+      if (state._violationFeedback) context.violationFeedback = state._violationFeedback
       break
     case 'dependency':
       context.atoms = state.atoms

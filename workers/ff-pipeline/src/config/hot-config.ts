@@ -217,6 +217,7 @@ import {
   TEST_REPORT_SCHEMA,
   SEMANTIC_REVIEW_SCHEMA,
 } from '../agents/output-reliability'
+import { seedPipelineConfig } from './crystallizer-config'
 
 /** All ORL schemas that have fieldAliases */
 const ORL_SCHEMAS = [
@@ -307,6 +308,14 @@ export async function seedHotConfig(
         errors.push(`config_model_capabilities/${modelKey}: ${msg}`)
       }
     }
+  }
+
+  // Seed pipeline hot-config (crystallizer.enabled)
+  const pipelineResult = await seedPipelineConfig(db)
+  if (pipelineResult.ok) {
+    seeded++
+  } else if (pipelineResult.error) {
+    errors.push(`hot_config/pipeline: ${pipelineResult.error}`)
   }
 
   return { seeded, errors }

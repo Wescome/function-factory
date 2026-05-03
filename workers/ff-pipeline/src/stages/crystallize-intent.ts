@@ -24,6 +24,7 @@ export interface IntentAnchor {
   severity: 'block' | 'warn' | 'log'
   times_probed: number             // updated by drift ledger (per-run)
   times_violated: number           // updated by drift ledger (per-run)
+  applicable_passes?: string[]     // e.g. ['decompose'] or ['decompose', 'dependency']
 }
 
 export interface CrystallizationResult {
@@ -70,7 +71,8 @@ Your response is a JSON array:
     "claim": "The original intent being checked",
     "probe_question": "Does any atom's title, description, or verifies field mention [specific concept from the signal]?",
     "violation_signal": "no",
-    "severity": "block"
+    "severity": "block",
+    "applicable_passes": ["decompose"]
   }
 ]
 
@@ -78,6 +80,13 @@ Severity:
 - "block": The atoms completely miss a key concept from the signal
 - "warn": The atoms partially address the intent but drift from specifics
 - "log": Minor naming deviation worth tracking
+
+For each anchor, specify which compilation passes it applies to:
+- "decompose" anchors: check that atoms MENTION the key concepts
+- "dependency" anchors: check that dependencies CONNECT the right atoms
+- "invariant" anchors: check that invariants PROTECT the key behaviors
+
+Set applicable_passes for each anchor. Default to ["decompose"] if unsure.
 
 Generate 3-6 anchors. Each must check for a SPECIFIC concept from the signal.`
 
@@ -207,6 +216,11 @@ function parseAnchors(rawResponse: string, signalId: string): IntentAnchor[] {
 
     if (!claim || !probeQuestion) continue
 
+    // Extract applicable_passes if present
+    const applicablePasses = Array.isArray(raw.applicable_passes)
+      ? (raw.applicable_passes as string[]).filter(p => typeof p === 'string')
+      : undefined
+
     anchors.push({
       id: `IA-${signalId}-${String(anchors.length + 1).padStart(2, '0')}`,
       signal_id: signalId,
@@ -216,6 +230,7 @@ function parseAnchors(rawResponse: string, signalId: string): IntentAnchor[] {
       severity,
       times_probed: 0,
       times_violated: 0,
+      ...(applicablePasses && applicablePasses.length > 0 ? { applicable_passes: applicablePasses } : {}),
     })
   }
 
