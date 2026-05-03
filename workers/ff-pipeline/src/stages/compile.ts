@@ -292,16 +292,23 @@ async function runLivePass(
   // Minimal context per pass — send ONLY what the pass needs, not full state
   const context: Record<string, unknown> = { pass: passName }
   switch (passName) {
-    case 'decompose':
-      context.prd = state.prd
+    case 'decompose': {
+      // Context compression for llama-70b's 8K window:
+      // Send PRD summary (not full), signal specContent, and file exports (not raw content)
+      const prd = state.prd as Record<string, unknown> | undefined
+      context.prd = prd ? { title: prd.title, objective: prd.objective, atoms: prd.atoms, invariants: prd.invariants } : state.prd
       if (state.signalContext) context.signalContext = state.signalContext
-      // C3: Inject violation feedback from prior remediation attempt
       if (state._violationFeedback) context.violationFeedback = state._violationFeedback
-      // Phase E: forward file contexts to decompose pass when present
       if (Array.isArray(state.fileContexts) && state.fileContexts.length > 0) {
-        context.fileContexts = state.fileContexts
+        // Compress: exports + functions only, not raw content
+        context.existingFiles = (state.fileContexts as Array<Record<string, unknown>>).map(f => ({
+          path: f.path,
+          exports: f.exports,
+          functions: f.functions,
+        }))
       }
       break
+    }
     case 'dependency':
       context.atoms = state.atoms
       break

@@ -329,25 +329,14 @@ describe('compilePRD decompose pass: fileContexts in context', () => {
   })
 
   it('decompose pass forwards fileContexts to LLM context when present in state', async () => {
-    const fileContexts: FileContext[] = [
+    // fileContexts in compState use the FLATTENED format from pipeline.ts
+    // (exports at top level, not nested under structure)
+    const fileContexts = [
       {
         path: 'workers/ff-pipeline/src/stages/compile.ts',
-        language: 'typescript',
+        exports: ['compilePRD'],
+        functions: ['compilePRD(passName: PassName, state: Record<string, unknown>)'],
         rawContent: 'export async function compilePRD() { /* ... */ }',
-        structure: {
-          exports: ['compilePRD'],
-          imports: ['@factory/arango-client'],
-          functions: [{
-            name: 'compilePRD',
-            params: 'passName: PassName, state: Record<string, unknown>',
-            returnType: 'Promise<Record<string, unknown>>',
-            startLine: 1,
-            endLine: 1,
-          }],
-          types: [],
-          classes: [],
-        },
-        confidence: 'extracted',
       },
     ]
 
@@ -374,17 +363,17 @@ describe('compilePRD decompose pass: fileContexts in context', () => {
       false,
     )
 
-    // The decompose pass should have included fileContexts in the
-    // context object sent to the LLM
+    // The decompose pass should have included compressed file info
+    // (existingFiles with path/exports/functions, not full raw content)
     expect(modelCalls).toHaveLength(1)
     const sentContext = JSON.parse(modelCalls[0]!.user) as Record<string, unknown>
-    expect(sentContext.fileContexts).toBeDefined()
-    expect(Array.isArray(sentContext.fileContexts)).toBe(true)
+    expect(sentContext.existingFiles).toBeDefined()
+    expect(Array.isArray(sentContext.existingFiles)).toBe(true)
 
-    const sentFileContexts = sentContext.fileContexts as FileContext[]
-    expect(sentFileContexts).toHaveLength(1)
-    expect(sentFileContexts[0]!.path).toBe('workers/ff-pipeline/src/stages/compile.ts')
-    expect(sentFileContexts[0]!.structure.exports).toContain('compilePRD')
+    const sentFiles = sentContext.existingFiles as Array<Record<string, unknown>>
+    expect(sentFiles).toHaveLength(1)
+    expect(sentFiles[0]!.path).toBe('workers/ff-pipeline/src/stages/compile.ts')
+    expect(sentFiles[0]!.exports).toContain('compilePRD')
   })
 
   it('decompose pass works normally when fileContexts is absent from state', async () => {
@@ -469,10 +458,9 @@ describe('decompose prompt: file context awareness', () => {
       prd: { _key: 'PRD-PROMPT', title: 'Prompt test', objective: 'Test', invariants: [] },
       fileContexts: [{
         path: 'src/example.ts',
-        language: 'typescript',
+        exports: ['doThing'],
+        functions: ['doThing()'],
         rawContent: 'export function doThing() {}',
-        structure: { exports: ['doThing'], imports: [], functions: [], types: [], classes: [] },
-        confidence: 'extracted',
       }],
     }
 
@@ -486,15 +474,13 @@ describe('decompose prompt: file context awareness', () => {
 
     expect(modelCalls).toHaveLength(1)
 
-    // The user message context should include the file contexts so the
-    // LLM knows what the actual files contain when decomposing.
+    // The user message context should include compressed file info
     const sentContext = JSON.parse(modelCalls[0]!.user) as Record<string, unknown>
-    expect(sentContext.fileContexts).toBeDefined()
+    expect(sentContext.existingFiles).toBeDefined()
 
-    // The file contexts should carry enough information for the LLM to
-    // understand the existing code structure
-    const fc = sentContext.fileContexts as FileContext[]
-    expect(fc[0]!.path).toBe('src/example.ts')
-    expect(fc[0]!.structure).toBeDefined()
+    // Compressed format: path + exports + functions (not full raw content)
+    const ef = sentContext.existingFiles as Array<Record<string, unknown>>
+    expect(ef[0]!.path).toBe('src/example.ts')
+    expect(ef[0]!.exports).toBeDefined()
   })
 })
