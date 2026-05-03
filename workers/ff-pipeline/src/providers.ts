@@ -13,8 +13,38 @@ export async function callProvider(
   user: string,
   env: ProviderEnv,
 ): Promise<string> {
-  // Workers AI path: uses env.AI binding for pipeline stages (1-5)
+  // Workers AI path
   if (target.provider === 'cloudflare') {
+    // kimi-k2.6 requires REST API — env.AI.run() binding returns empty response for kimi
+    if (target.model.includes('kimi')) {
+      const token = (env as Record<string, unknown>).CF_API_TOKEN as string | undefined
+      if (!token) throw new Error('CF_API_TOKEN not set — required for kimi-k2.6 REST API')
+      const res = await fetch(
+        'https://api.cloudflare.com/client/v4/accounts/cb56a846c70a38987f31cf6e2b85cb57/ai/run/' + target.model,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messages: [
+              { role: 'system', content: system + '\n\nRespond ONLY with valid JSON.' },
+              { role: 'user', content: user },
+            ],
+            max_tokens: 8192,
+            response_format: { type: 'json_object' },
+          }),
+        },
+      )
+      if (!res.ok) {
+        const body = await res.text()
+        throw new Error(`Workers AI REST ${target.model} ${res.status}: ${body}`)
+      }
+      const data = await res.json() as { result?: { response?: string } }
+      const raw = data.result?.response ?? ''
+      if (!raw) throw new Error(`Workers AI REST ${target.model}: empty response`)
+      return extractJSON(raw)
+    }
+
+    // llama-70b and other models: use env.AI.run() binding (zero cost)
     if (!env.AI) throw new Error('Workers AI binding unavailable — configure ai binding in wrangler.jsonc')
     const result = await env.AI.run(target.model, {
       messages: [
