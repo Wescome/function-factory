@@ -50,7 +50,7 @@ export async function seedPipelineConfig(
     await db.query(
       `UPSERT { _key: 'pipeline' }
        INSERT { _key: 'pipeline', crystallizer: @crystallizer, seededAt: @now, source: 'hardcoded-defaults' }
-       UPDATE { crystallizer: @crystallizer, seededAt: @now, source: 'hardcoded-defaults' }
+       UPDATE { seededAt: @now, source: 'hardcoded-defaults' }
        IN hot_config`,
       { crystallizer: { enabled: true }, now: new Date().toISOString() },
     )
