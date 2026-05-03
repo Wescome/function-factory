@@ -6,15 +6,8 @@ const CF_70B = '@cf/meta/llama-3.3-70b-instruct-fp8-fast'
 const CF_KIMI = '@cf/moonshotai/kimi-k2.6'
 
 describe('resolve', () => {
-  it('routes context-heavy kinds to kimi-k2.6, structural kinds to llama-70b', () => {
-    // kimi for context-heavy: planning (decompose, pressure, capability, proposal) + semantic_review
-    for (const kind of ['planning', 'semantic_review'] as const) {
-      const route = resolve(kind)
-      expect(route.primary).toEqual({ provider: 'cloudflare', model: CF_KIMI })
-      expect(route.fallback).toEqual({ provider: 'cloudflare', model: CF_70B })
-    }
-    // llama for structural: invariant, interface, binding, validation, assembly, verification
-    for (const kind of ['structured', 'interpretive', 'synthesis', 'validation', 'runtime_check'] as const) {
+  it('routes all pipeline task kinds to llama-70b (reliable JSON)', () => {
+    for (const kind of ['planning', 'structured', 'interpretive', 'synthesis', 'validation', 'runtime_check', 'semantic_review'] as const) {
       const route = resolve(kind)
       expect(route.primary).toEqual({ provider: 'cloudflare', model: CF_70B })
       expect(route.fallback).toBeUndefined()
@@ -41,7 +34,7 @@ describe('resolve', () => {
 
   it('does not invent default pass overrides', () => {
     const route = resolve('planning', { passId: 'stage_2_pressure' })
-    expect(route.primary).toEqual({ provider: 'cloudflare', model: CF_KIMI })
+    expect(route.primary).toEqual({ provider: 'cloudflare', model: CF_70B })
     expect(route.passId).toBeUndefined()
     expect(route.resolvedVia).toBe('route-default')
   })
@@ -96,7 +89,7 @@ describe('resolve', () => {
   })
 
   it('uses the current Workers AI model identifiers', () => {
-    expect(resolve('planning').primary.model).toBe(CF_KIMI)
+    expect(resolve('planning').primary.model).toBe(CF_70B)
     expect(resolve('crystallizer').primary.model).toBe(CF_70B)
     expect(resolve('planner').primary.model).toBe(CF_KIMI)
   })
