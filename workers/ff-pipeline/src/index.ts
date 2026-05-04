@@ -29,6 +29,8 @@ export type {
   FeedbackSignal,
 } from './stages/generate-feedback'
 
+export type { ExtractionConfidence } from '@factory/file-context'
+
 import type { PipelineEnv } from './types'
 
 export default {
