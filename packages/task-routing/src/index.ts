@@ -88,19 +88,19 @@ const GEMINI_PRO: RouteTarget = { provider: 'google', model: 'gemini-3.1-pro-pre
 
 export const DEFAULT_CONFIG: RoutingConfig = {
   routes: [
-    // Pipeline stages (1-5): llama-70b primary, kimi-k2.6 fallback
+    // Pipeline stages (1-5): llama-70b primary, deepseek-v4-pro fallback (cross-provider)
     // Fallback only triggers on retriable errors (timeout, network, 5xx)
-    // Parse/validation errors throw immediately — no point retrying bad output
-    { kind: 'planning', primary: CF_70B, fallback: CF_KIMI_K26 },
-    { kind: 'structured', primary: CF_70B, fallback: CF_KIMI_K26 },
-    { kind: 'interpretive', primary: CF_70B, fallback: CF_KIMI_K26 },
-    { kind: 'synthesis', primary: CF_70B, fallback: CF_KIMI_K26 },
-    { kind: 'validation', primary: CF_70B, fallback: CF_KIMI_K26 },
-    { kind: 'runtime_check', primary: CF_70B, fallback: CF_KIMI_K26 },
-    { kind: 'semantic_review', primary: CF_70B, fallback: CF_KIMI_K26 },
-    // Crystallizer + Probe: llama-70b primary, kimi-k2.6 fallback
-    { kind: 'crystallizer', primary: CF_70B, fallback: CF_KIMI_K26 },
-    { kind: 'probe', primary: CF_70B, fallback: CF_KIMI_K26 },
+    // Cross-provider fallback eliminates correlated Workers AI platform failures
+    { kind: 'planning', primary: CF_70B, fallback: DEEPSEEK_PRO },
+    { kind: 'structured', primary: CF_70B, fallback: DEEPSEEK_PRO },
+    { kind: 'interpretive', primary: CF_70B, fallback: DEEPSEEK_PRO },
+    { kind: 'synthesis', primary: CF_70B, fallback: DEEPSEEK_PRO },
+    { kind: 'validation', primary: CF_70B, fallback: DEEPSEEK_PRO },
+    { kind: 'runtime_check', primary: CF_70B, fallback: DEEPSEEK_PRO },
+    { kind: 'semantic_review', primary: CF_70B, fallback: DEEPSEEK_PRO },
+    // Crystallizer + Probe: llama-70b primary, deepseek-v4-pro fallback
+    { kind: 'crystallizer', primary: CF_70B, fallback: DEEPSEEK_PRO },
+    { kind: 'probe', primary: CF_70B, fallback: DEEPSEEK_PRO },
     // Agent roles (Stage 6): kimi-k2.6 via REST API (agent-first, proven 3/5 atoms)
     { kind: 'planner', primary: CF_KIMI_K26, fallback: CF_70B },
     { kind: 'coder', primary: CF_KIMI_K26, fallback: CF_70B },

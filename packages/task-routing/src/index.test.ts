@@ -4,26 +4,27 @@ import type { RoutingConfig } from './index.js'
 
 const CF_70B = '@cf/meta/llama-3.3-70b-instruct-fp8-fast'
 const CF_KIMI = '@cf/moonshotai/kimi-k2.6'
+const DEEPSEEK = 'deepseek-v4-pro'
 
 describe('resolve', () => {
-  it('routes all pipeline task kinds to llama-70b with kimi fallback', () => {
+  it('routes all pipeline task kinds to llama-70b with deepseek fallback', () => {
     for (const kind of ['planning', 'structured', 'interpretive', 'synthesis', 'validation', 'runtime_check', 'semantic_review'] as const) {
       const route = resolve(kind)
       expect(route.primary).toEqual({ provider: 'cloudflare', model: CF_70B })
-      expect(route.fallback).toEqual({ provider: 'cloudflare', model: CF_KIMI })
+      expect(route.fallback).toEqual({ provider: 'deepseek', model: DEEPSEEK })
     }
   })
 
-  it('routes crystallizer + probe to llama-70b with kimi fallback', () => {
+  it('routes crystallizer + probe to llama-70b with deepseek fallback', () => {
     for (const kind of ['crystallizer', 'probe'] as const) {
       const route = resolve(kind)
       expect(route.primary).toEqual({ provider: 'cloudflare', model: CF_70B })
-      expect(route.fallback).toEqual({ provider: 'cloudflare', model: CF_KIMI })
+      expect(route.fallback).toEqual({ provider: 'deepseek', model: DEEPSEEK })
       expect(route.resolvedVia).toBe('route-default')
     }
   })
 
-  it('all 9 pipeline stage routes have fallback configured', () => {
+  it('all 9 pipeline stage routes have cross-provider fallback', () => {
     const pipelineKinds = [
       'planning', 'structured', 'interpretive', 'synthesis',
       'validation', 'runtime_check', 'semantic_review',
@@ -32,7 +33,7 @@ describe('resolve', () => {
     for (const kind of pipelineKinds) {
       const route = resolve(kind)
       expect(route.fallback, `${kind} should have a fallback`).toBeDefined()
-      expect(route.fallback).toEqual({ provider: 'cloudflare', model: CF_KIMI })
+      expect(route.fallback!.provider).toBe('deepseek')
     }
   })
 
@@ -173,7 +174,7 @@ describe('resolveAndCall', () => {
       }
       return `called ${target.provider}/${target.model}`
     })
-    expect(result).toBe(`called cloudflare/${CF_KIMI}`)
+    expect(result).toBe(`called deepseek/${DEEPSEEK}`)
     expect(attempt).toBe(2)
   })
 
