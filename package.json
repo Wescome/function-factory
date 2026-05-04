@@ -63,5 +63,9 @@
     "peerDependencyRules": {
       "ignoreMissing": []
     }
-  }
+  },
+  "workspaces": [
+    "packages/*",
+    "workers/*"
+  ]
 }
