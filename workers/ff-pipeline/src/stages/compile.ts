@@ -331,7 +331,23 @@ async function runLivePass(
   const userMessage = JSON.stringify(context)
 
   const result = await callModel(taskKind, systemPrompt, userMessage, env)
-  const parsed = JSON.parse(result) as Record<string, unknown>
+
+  let parsed: Record<string, unknown>
+  try {
+    parsed = JSON.parse(result) as Record<string, unknown>
+  } catch {
+    // JSON repair: try fixing common LLM errors (missing commas, trailing commas)
+    const repaired = result
+      .replace(/"\s*\n\s*"/g, '",\n"')        // missing comma between string properties
+      .replace(/}\s*\n\s*"/g, '},\n"')          // missing comma after closing brace
+      .replace(/]\s*\n\s*"/g, '],\n"')          // missing comma after closing bracket
+      .replace(/,\s*([}\]])/g, '$1')             // trailing commas
+    try {
+      parsed = JSON.parse(repaired) as Record<string, unknown>
+    } catch (e) {
+      throw new Error(`Compile pass ${passName}: JSON parse failed after repair. Error: ${e instanceof Error ? e.message : e}. Raw (first 200): ${result.slice(0, 200)}`)
+    }
+  }
 
   return { ...state, ...parsed }
 }
