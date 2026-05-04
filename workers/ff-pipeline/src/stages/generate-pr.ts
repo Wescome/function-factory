@@ -330,9 +330,10 @@ export async function generatePR(
         const fileData = await getFileRes.json() as { sha: string; content: string }
         existingSha = fileData.sha
         existingContent = fromBase64(fileData.content)
-        // Discrepancy #3: warn when action='create' but file already exists on branch
+        // HARD GATE: block create on existing files — prevents overwriting
         if (primaryAction === 'create') {
-          warnings.push(`create action on existing file, forcing modify: ${filePath}`)
+          warnings.push(`BLOCKED: create action on existing file: ${filePath} (${existingContent?.length ?? 0} chars). Atom must use modify with edits.`)
+          continue
         }
       } else if (primaryAction === 'modify') {
         filesNotFound.push(filePath)
@@ -378,7 +379,11 @@ export async function generatePR(
         warnings.push(`Edits provided but no existing file to patch: ${filePath}`)
         continue
       } else if (hasLegacyContent) {
-        // Fallback: legacy full-content replacement
+        // Size guard: block legacy replacement that shrinks file >50%
+        if (existingContent !== undefined && legacyContent.length < existingContent.length * 0.5) {
+          warnings.push(`BLOCKED: legacy content would shrink ${filePath} from ${existingContent.length} to ${legacyContent.length} chars (>50% reduction)`)
+          continue
+        }
         finalContent = legacyContent
       } else {
         warnings.push(`No content or edits for ${filePath}, skipping`)

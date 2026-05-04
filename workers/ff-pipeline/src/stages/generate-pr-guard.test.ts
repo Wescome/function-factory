@@ -154,9 +154,9 @@ describe('generate-pr: guard against create on existing files (discrepancy #3)',
     )).toBe(true)
   })
 
-  it('forces action to modify when file exists on branch and action is create', async () => {
-    // The pipeline should upgrade create -> modify when the file exists,
-    // ensuring the PUT includes the existing SHA for proper git tree update.
+  it('BLOCKS create action on existing file instead of overwriting', async () => {
+    // Hard gate: create on existing file is BLOCKED, not forced to modify.
+    // This prevents catastrophic overwrites (PR #62 root cause).
     const { calls } = mockFetchWithExistingFiles()
     const input = makeInput({
       atomResults: {
@@ -171,7 +171,7 @@ describe('generate-pr: guard against create on existing files (discrepancy #3)',
                 action: 'create',
               },
             ],
-            summary: 'Creates a file that exists — should auto-modify',
+            summary: 'Creates a file that exists — should be BLOCKED',
           },
         },
       },
@@ -179,14 +179,13 @@ describe('generate-pr: guard against create on existing files (discrepancy #3)',
 
     const result = await generatePR(input, 'ghp_test', 'Wescome', 'function-factory')
 
-    expect(result.success).toBe(true)
-
-    // The PUT call should include sha (existing file's SHA) because
-    // the pipeline detected the file exists and upgraded to modify
+    // File write is BLOCKED — no PUT call for this file
     const putCalls = calls.filter(c => c.url.includes('/contents/') && c.method === 'PUT')
-    expect(putCalls.length).toBe(1)
-    const putBody = putCalls[0]!.body as Record<string, unknown>
-    expect(putBody.sha).toBe('existing-file-sha-999')
+    expect(putCalls).toHaveLength(0)
+
+    // Warnings should include BLOCKED message
+    expect(result.warnings).toBeDefined()
+    expect(result.warnings!.some(w => w.includes('BLOCKED'))).toBe(true)
   })
 
   it('allows create action when file does NOT exist on branch', async () => {
