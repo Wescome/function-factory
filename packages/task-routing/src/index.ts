@@ -88,19 +88,19 @@ const GEMINI_PRO: RouteTarget = { provider: 'google', model: 'gemini-3.1-pro-pre
 
 export const DEFAULT_CONFIG: RoutingConfig = {
   routes: [
-    // Pipeline stages (1-5): llama-70b (reliable JSON, zero cost)
-    // kimi-k2.6 tested but produces malformed JSON on compile passes (missing commas)
-    // Context compression addresses llama's 8K limit instead of switching models
-    { kind: 'planning', primary: CF_70B },
-    { kind: 'structured', primary: CF_70B },
-    { kind: 'interpretive', primary: CF_70B },
-    { kind: 'synthesis', primary: CF_70B },
-    { kind: 'validation', primary: CF_70B },
-    { kind: 'runtime_check', primary: CF_70B },
-    { kind: 'semantic_review', primary: CF_70B },
-    // Crystallizer + Probe: STAYS on llama-70b — circuit isolation (verifier ≠ generator)
-    { kind: 'crystallizer', primary: CF_70B },
-    { kind: 'probe', primary: CF_70B },
+    // Pipeline stages (1-5): llama-70b primary, kimi-k2.6 fallback
+    // Fallback only triggers on retriable errors (timeout, network, 5xx)
+    // Parse/validation errors throw immediately — no point retrying bad output
+    { kind: 'planning', primary: CF_70B, fallback: CF_KIMI_K26 },
+    { kind: 'structured', primary: CF_70B, fallback: CF_KIMI_K26 },
+    { kind: 'interpretive', primary: CF_70B, fallback: CF_KIMI_K26 },
+    { kind: 'synthesis', primary: CF_70B, fallback: CF_KIMI_K26 },
+    { kind: 'validation', primary: CF_70B, fallback: CF_KIMI_K26 },
+    { kind: 'runtime_check', primary: CF_70B, fallback: CF_KIMI_K26 },
+    { kind: 'semantic_review', primary: CF_70B, fallback: CF_KIMI_K26 },
+    // Crystallizer + Probe: llama-70b primary, kimi-k2.6 fallback
+    { kind: 'crystallizer', primary: CF_70B, fallback: CF_KIMI_K26 },
+    { kind: 'probe', primary: CF_70B, fallback: CF_KIMI_K26 },
     // Agent roles (Stage 6): kimi-k2.6 via REST API (agent-first, proven 3/5 atoms)
     { kind: 'planner', primary: CF_KIMI_K26, fallback: CF_70B },
     { kind: 'coder', primary: CF_KIMI_K26, fallback: CF_70B },
@@ -148,6 +148,21 @@ export function resolve(
   }
 }
 
+/**
+ * Classify whether an error is retriable (worth trying a fallback provider).
+ *
+ * Retriable: timeout, network failures, 5xx server errors, empty responses.
+ * Non-retriable: JSON parse errors, schema validation errors, application logic errors.
+ * Unknown (non-Error) values: treat as retriable to maximize resilience.
+ */
+export function isRetriableError(err: unknown): boolean {
+  if (!(err instanceof Error)) return true // unknown errors: try fallback
+  const msg = err.message.toLowerCase()
+  const retriablePatterns = ['timeout', 'econnrefused', 'econnreset', '502', '503', '504', 'fetch failed', 'network', 'empty response']
+  if (err.name === 'TimeoutError' || err.name === 'AbortError') return true
+  return retriablePatterns.some(p => msg.includes(p))
+}
+
 export async function resolveAndCall<T>(
   kind: TaskKind,
   fn: (target: RouteTarget) => Promise<T>,
@@ -158,7 +173,7 @@ export async function resolveAndCall<T>(
   try {
     return await fn(primary)
   } catch (err) {
-    if (fallback) {
+    if (fallback && isRetriableError(err)) {
       return await fn(fallback)
     }
     throw err

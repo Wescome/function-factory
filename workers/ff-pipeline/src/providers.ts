@@ -23,7 +23,7 @@ export async function callProvider(
         'https://api.cloudflare.com/client/v4/accounts/cb56a846c70a38987f31cf6e2b85cb57/ai/run/' + target.model,
         {
           method: 'POST',
-          signal: AbortSignal.timeout(120_000),
+          signal: AbortSignal.timeout(90_000),
           headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
             messages: [

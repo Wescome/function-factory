@@ -25,9 +25,10 @@ import type { PipelineEnv, PipelineParams, PipelineResult, SemanticReviewResult,
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Rec = Record<string, any>
 
-/** Step config for AI model calls — 2 min timeout, 2 retries with exponential backoff */
+/** Step config for AI model calls — 4 min timeout, 2 retries with exponential backoff
+ *  Budget: primary attempt (~90s max) + fallback attempt (~90s max) + overhead */
 const AI_STEP_CONFIG = {
-  timeout: '2 minutes' as const,
+  timeout: '4 minutes' as const,
   retries: { limit: 2, delay: '5 seconds' as const, backoff: 'exponential' as const },
 }
 

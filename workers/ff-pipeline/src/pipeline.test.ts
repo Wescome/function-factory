@@ -1455,7 +1455,7 @@ describe('Stage 6: Event-driven synthesis handoff', () => {
         const call = stepConfigs.find(c => c.name === stepName)
         expect(call, `step '${stepName}' should exist`).toBeDefined()
         const opts = call!.opts as { timeout: string; retries: { limit: number; delay: string; backoff: string } }
-        expect(opts.timeout, `step '${stepName}' timeout`).toBe('2 minutes')
+        expect(opts.timeout, `step '${stepName}' timeout`).toBe('4 minutes')
         expect(opts.retries.limit, `step '${stepName}' retries.limit`).toBe(2)
         expect(opts.retries.delay, `step '${stepName}' retries.delay`).toBe('5 seconds')
         expect(opts.retries.backoff, `step '${stepName}' retries.backoff`).toBe('exponential')
@@ -1466,7 +1466,7 @@ describe('Stage 6: Event-driven synthesis handoff', () => {
       expect(compileSteps.length).toBeGreaterThan(0)
       for (const call of compileSteps) {
         const opts = call.opts as { timeout: string; retries: { limit: number } }
-        expect(opts.timeout, `step '${call.name}' timeout`).toBe('2 minutes')
+        expect(opts.timeout, `step '${call.name}' timeout`).toBe('4 minutes')
         expect(opts.retries.limit, `step '${call.name}' retries.limit`).toBe(2)
       }
     })
