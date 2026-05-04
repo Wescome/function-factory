@@ -148,6 +148,9 @@ export function formatForCodingAgent(spec: FactorySpecification): CommunicableSp
     }
   }
 
+  // BL5 primer at the END of the body (closest to generation point = strongest effect)
+  sections.push('Produce the changes described above. Start your response with {"files":')
+
   const body = sections.join('\n\n')
   const totalChars = SYSTEM_PROMPT.length + body.length
   const estimatedTokens = Math.ceil(totalChars / 4)
