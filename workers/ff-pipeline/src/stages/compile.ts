@@ -318,17 +318,29 @@ async function runLivePass(
       break
     case 'invariant':
       context.prd = state.prd
-      context.atoms = state.atoms
+      // Anti-corruption: strip file paths — invariants reference atom semantics, not files
+      context.atoms = ((state.atoms ?? []) as Record<string, unknown>[]).map(a => ({
+        id: a.id, type: a.type, title: a.title, description: a.description,
+      }))
       break
     case 'interface':
-      context.atoms = state.atoms
+      // Anti-corruption: strip file paths so model uses atom IDs as from/to targets
+      context.atoms = ((state.atoms ?? []) as Record<string, unknown>[]).map(a => ({
+        id: a.id, type: a.type, title: a.title, description: a.description,
+      }))
       context.dependencies = state.dependencies
       break
     case 'binding':
-      context.atoms = state.atoms
+      // Anti-corruption: strip file paths so model uses atom IDs for atomId references
+      context.atoms = ((state.atoms ?? []) as Record<string, unknown>[]).map(a => ({
+        id: a.id, type: a.type, title: a.title, description: a.description,
+      }))
       break
     case 'validation':
-      context.atoms = state.atoms
+      // Anti-corruption: strip file paths so model uses atom IDs for atomId references
+      context.atoms = ((state.atoms ?? []) as Record<string, unknown>[]).map(a => ({
+        id: a.id, type: a.type, title: a.title, description: a.description,
+      }))
       context.interfaces = state.interfaces
       break
   }
