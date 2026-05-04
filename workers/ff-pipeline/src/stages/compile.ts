@@ -310,7 +310,11 @@ async function runLivePass(
       break
     }
     case 'dependency':
-      context.atoms = state.atoms
+      // Anti-corruption: strip file paths from atom context to prevent
+      // model confusing file paths with atom IDs in dependency targets
+      context.atoms = ((state.atoms ?? []) as Record<string, unknown>[]).map(a => ({
+        id: a.id, type: a.type, title: a.title, description: a.description,
+      }))
       break
     case 'invariant':
       context.prd = state.prd
