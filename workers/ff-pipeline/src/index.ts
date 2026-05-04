@@ -1,5 +1,6 @@
 export { FactoryPipeline } from './pipeline'
 export { SynthesisCoordinator } from './coordinator'
+export { validateCodeLanguage } from './coordinator/atom-executor'
 export { AtomExecutor } from './coordinator/atom-executor-do'
 export { Sandbox } from '@cloudflare/sandbox'
 
