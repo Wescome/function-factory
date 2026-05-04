@@ -9,22 +9,36 @@
 
 import { describe, it, expect } from 'vitest'
 import { reformat } from '../src/index'
-import type { FactorySpecification, Substrate } from '../src/types'
+import type { FactorySpecification, Substrate, AgentsMdInput } from '../src/types'
 
 const minimalSpec: FactorySpecification = {
   intent: 'Add health check endpoint that returns 200 OK',
 }
 
-describe('reformat', () => {
-  it('routes to coding-agent substrate and returns a CommunicableSpecification', () => {
-    const result = reformat(minimalSpec, 'coding-agent')
+const agentsMdInput: AgentsMdInput = {
+  projectName: 'Test Project',
+  projectDescription: 'A test project.',
+  buildCommands: {
+    install: 'pnpm install',
+    build: 'pnpm -r build',
+    test: 'pnpm -r test',
+    typecheck: 'pnpm -r typecheck',
+  },
+  conventions: {
+    language: 'TypeScript',
+    monorepo: 'pnpm workspaces',
+    commitFormat: 'type: description',
+  },
+  artifactPrefixes: {
+    'FEAT-*': 'Features',
+  },
+}
 
-    expect(result).toHaveProperty('systemPrompt')
-    expect(result).toHaveProperty('body')
-    expect(result).toHaveProperty('estimatedTokens')
-    expect(typeof result.systemPrompt).toBe('string')
-    expect(typeof result.body).toBe('string')
-    expect(typeof result.estimatedTokens).toBe('number')
+describe('reformat', () => {
+  it('throws on coding-agent substrate with bypass message', () => {
+    expect(() => reformat(minimalSpec, 'coding-agent')).toThrow(
+      'coding-agent substrate is bypass',
+    )
   })
 
   it('throws on unknown substrate', () => {
@@ -33,8 +47,15 @@ describe('reformat', () => {
     )
   })
 
-  it('throws on agents-md substrate (stub)', () => {
-    expect(() => reformat(minimalSpec, 'agents-md')).toThrow('not yet implemented')
+  it('routes to agents-md substrate and returns a CommunicableSpecification', () => {
+    const result = reformat(agentsMdInput, 'agents-md')
+
+    expect(result).toHaveProperty('systemPrompt')
+    expect(result).toHaveProperty('body')
+    expect(result).toHaveProperty('estimatedTokens')
+    expect(typeof result.systemPrompt).toBe('string')
+    expect(typeof result.body).toBe('string')
+    expect(typeof result.estimatedTokens).toBe('number')
   })
 
   it('throws on claude-md substrate (stub)', () => {
@@ -49,8 +70,8 @@ describe('reformat', () => {
     expect(() => reformat(minimalSpec, 'a2a')).toThrow('not yet implemented')
   })
 
-  it('returns estimatedTokens > 0 for any non-trivial spec', () => {
-    const result = reformat(minimalSpec, 'coding-agent')
+  it('returns estimatedTokens > 0 for agents-md substrate', () => {
+    const result = reformat(agentsMdInput, 'agents-md')
     expect(result.estimatedTokens).toBeGreaterThan(0)
   })
 })

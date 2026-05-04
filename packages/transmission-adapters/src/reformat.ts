@@ -9,18 +9,25 @@
  * Every new agent integration is a new substrate, not a new adapter.
  */
 
-import type { FactorySpecification, CommunicableSpecification, Substrate } from './types.js'
-import { formatForCodingAgent } from './substrates/coding-agent.js'
+import type { FactorySpecification, CommunicableSpecification, Substrate, AgentsMdInput } from './types.js'
+import { agentsMdToCommunicable } from './substrates/agents-md.js'
+
+/** Accepted input types — each substrate declares which it needs. */
+export type ReformatInput = FactorySpecification | AgentsMdInput
 
 export function reformat(
-  spec: FactorySpecification,
+  spec: ReformatInput,
   substrate: Substrate,
 ): CommunicableSpecification {
   switch (substrate) {
     case 'coding-agent':
-      return formatForCodingAgent(spec)
+      throw new Error(
+        'coding-agent substrate is bypass — use the working CoderAgent prompt path directly. The adapter is for external substrates only.',
+      )
 
     case 'agents-md':
+      return agentsMdToCommunicable(spec as AgentsMdInput)
+
     case 'claude-md':
     case 'skill-md':
     case 'a2a':

@@ -62,3 +62,20 @@ export interface CommunicableSpecification {
   /** Rough token estimate for budget tracking */
   estimatedTokens: number
 }
+
+// ── agents-md substrate input ──
+
+export interface AgentsMdInput {
+  /** Project name (used as H1 heading) */
+  projectName: string
+  /** Short project description */
+  projectDescription: string
+  /** Build / dev commands */
+  buildCommands: { install: string; build: string; test: string; typecheck: string }
+  /** Code conventions */
+  conventions: { language: string; monorepo: string; commitFormat: string }
+  /** Artifact ID prefix → description mapping */
+  artifactPrefixes: Record<string, string>
+  /** Optional architecture summary */
+  architectureDescription?: string
+}

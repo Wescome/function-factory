@@ -9,4 +9,6 @@
  */
 
 export { reformat } from './reformat.js'
-export type { FactorySpecification, CommunicableSpecification, Substrate } from './types.js'
+export type { ReformatInput } from './reformat.js'
+export type { FactorySpecification, CommunicableSpecification, Substrate, AgentsMdInput } from './types.js'
+export { formatForAgentsMd } from './substrates/agents-md.js'
