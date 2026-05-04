@@ -534,6 +534,15 @@ importers:
         specifier: ^2.0.0
         version: 2.1.9(@types/node@24.12.2)
 
+  packages/transmission-adapters:
+    devDependencies:
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.0
+        version: 2.1.9(@types/node@24.12.2)
+
   workers/ff-gates:
     dependencies:
       '@factory/arango-client':
@@ -592,6 +601,9 @@ importers:
       '@factory/task-routing':
         specifier: workspace:*
         version: link:../../packages/task-routing
+      '@factory/transmission-adapters':
+        specifier: workspace:*
+        version: link:../../packages/transmission-adapters
       '@weops/gdk-agent':
         specifier: workspace:*
         version: link:../../packages/gdk-agent
@@ -4272,7 +4284,7 @@ snapshots:
       '@babel/helper-compilation-targets': 7.28.6
       '@babel/helper-module-transforms': 7.28.6(@babel/core@7.29.0)
       '@babel/helpers': 7.29.2
-      '@babel/parser': 7.29.2
+      '@babel/parser': 7.29.3
       '@babel/template': 7.28.6
       '@babel/traverse': 7.29.0
       '@babel/types': 7.29.0

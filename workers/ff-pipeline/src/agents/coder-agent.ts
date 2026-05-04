@@ -14,6 +14,8 @@ import type { Model, AssistantMessage, Message, UserMessage } from '@weops/gdk-a
 import type { ArangoClient } from '@factory/arango-client'
 import type { CodeArtifact, Plan, CritiqueReport } from '../coordinator/state'
 import type { FileContext } from '@factory/file-context'
+import { reformat } from '@factory/transmission-adapters'
+import type { FactorySpecification } from '@factory/transmission-adapters'
 import { resolveAgentModel } from './resolve-model'
 import { processAgentOutput, extractAssistantText, buildTelemetryEntry, CODE_ARTIFACT_SCHEMA } from './output-reliability'
 
@@ -39,39 +41,95 @@ export interface CoderAgentOpts {
   contextPrompt?: string
 }
 
-const SYSTEM_PROMPT = `You are the CodeProducer in the Function Factory synthesis pipeline.
+/**
+ * Build a FactorySpecification from CoderInput.
+ *
+ * This is the bridge between the coordinator's internal representation
+ * (atoms, plans, workGraphs) and the transmission adapter's substrate-
+ * neutral FactorySpecification. The adapter then reformats it into
+ * agent-friendly markdown with NO Factory vocabulary.
+ */
+function buildFactorySpecification(input: CoderInput, contextPrompt?: string): FactorySpecification {
+  // Extract the current atom's spec
+  const atoms = (input.workGraph.atoms as Record<string, unknown>[]) ?? []
+  const currentAtom = atoms.find((a: any) => a.id === input.plan?.atoms?.[0]?.id) ?? atoms[0]
 
-Your purpose: produce a CodeArtifact — a set of file changes that implement the Plan against the WorkGraph specification. This is a TypeScript monorepo. All code MUST be TypeScript (.ts files). All file paths MUST end in .ts (source) or .json (config).
+  // Build intent from atom title/description + verifies
+  const atomTitle = (currentAtom as any)?.title ?? (currentAtom as any)?.description ?? (input.workGraph as any).title ?? 'Implement task'
+  const atomVerifies = (currentAtom as any)?.verifies as string[] | undefined
+  const intent = atomVerifies?.length
+    ? `${atomTitle}\n\nAcceptance criteria:\n${atomVerifies.map((v: string) => `- ${v}`).join('\n')}`
+    : atomTitle
 
-Process this request in order:
-1. Read the atom spec and plan — understand what code to produce
-2. Study the file contexts — ground every reference in the provided Factory Knowledge Graph context
-3. Plan edits — for existing files, produce targeted search/replace edits; for new files, produce full content
-4. Produce the CodeArtifact JSON
+  // Build constraints from invariants
+  const rawInvariants = (input.workGraph.invariants as Array<{ id?: string; condition?: string; description?: string }>) ?? []
+  const constraints = rawInvariants
+    .map(inv => inv.condition ?? inv.description ?? '')
+    .filter(Boolean)
 
-If this is a repair cycle (repairNotes provided), focus on fixing the specific issues noted.
-Reuse existing patterns from the codebase. Follow the plan's atom ordering.
+  // Build file contexts
+  const fileContents = input.fileContexts?.map(ctx => ({
+    path: ctx.path,
+    exports: ctx.structure.exports.length > 0 ? ctx.structure.exports : undefined,
+    functions: ctx.structure.functions.length > 0
+      ? ctx.structure.functions.map(f => `${f.name}(${f.params})`)
+      : undefined,
+    content: ctx.targetSlice ?? ctx.rawContent,
+  }))
 
-FILE MODIFICATION RULES:
-- For NEW files (action: "create"): provide full "content" string.
-- For EXISTING files (action: "modify"): use "edits" — an array of search/replace pairs.
-  Each edit has: "search" (exact substring from the current file, min 10 chars), "replace" (what it becomes).
-  Edits are applied sequentially. Include enough context in "search" to be unique in the file.
-- For DELETIONS (action: "delete"): just the path.
+  // Build target files from atom
+  const targetFiles = (currentAtom as any)?.targetFiles as string[] | undefined
 
-Your response is a JSON object:
-{
-  "files": [
-    { "path": "src/new-file.ts", "content": "full file content", "action": "create" },
-    { "path": "src/existing.ts", "edits": [{"search": "old code here...", "replace": "new code here..."}], "action": "modify" },
-    { "path": "src/removed.ts", "action": "delete" }
-  ],
-  "summary": "What was implemented and why",
-  "testsIncluded": true
-}`
+  // Build repair context
+  const repair = input.repairNotes
+    ? {
+        notes: input.repairNotes,
+        previousFiles: input.previousCode?.files.map(f => f.path),
+        issues: input.critiqueIssues?.map(i => `[${i.severity}] ${i.description}${i.file ? ` (${i.file})` : ''}`),
+      }
+    : undefined
 
-// Required fields now defined in CODE_ARTIFACT_SCHEMA (output-reliability.ts)
+  // Build context (decisions, lessons, mentor rules from contextPrompt if present)
+  const decisions: string[] = []
+  const lessons: string[] = []
+  const mentorRules: string[] = []
+  if (contextPrompt) {
+    // Parse contextPrompt lines into categories
+    for (const line of contextPrompt.split('\n')) {
+      const trimmed = line.trim()
+      if (trimmed.startsWith('- Decision:') || trimmed.startsWith('Decision:')) {
+        decisions.push(trimmed.replace(/^-?\s*Decision:\s*/, ''))
+      } else if (trimmed.startsWith('- Lesson:') || trimmed.startsWith('Lesson:')) {
+        lessons.push(trimmed.replace(/^-?\s*Lesson:\s*/, ''))
+      } else if (trimmed.startsWith('- Rule:') || trimmed.startsWith('Rule:')) {
+        mentorRules.push(trimmed.replace(/^-?\s*Rule:\s*/, ''))
+      }
+    }
+  }
 
+  const spec: FactorySpecification = {
+    intent,
+    approach: (input.plan as any)?.approach as string | undefined,
+    targetFiles,
+    constraints: constraints.length > 0 ? constraints : undefined,
+    context: (fileContents?.length ?? 0) > 0 || decisions.length > 0 || lessons.length > 0 || mentorRules.length > 0
+      ? {
+          fileContents: fileContents?.length ? fileContents : undefined,
+          decisions: decisions.length > 0 ? decisions : undefined,
+          lessons: lessons.length > 0 ? lessons : undefined,
+          mentorRules: mentorRules.length > 0 ? mentorRules : undefined,
+        }
+      : undefined,
+    repair,
+  }
+
+  // Include spec content in the intent if available
+  if (input.specContent) {
+    spec.intent += `\n\nSpecification:\n${input.specContent}`
+  }
+
+  return spec
+}
 
 export class CoderAgent {
   private db: ArangoClient
@@ -102,72 +160,22 @@ export class CoderAgent {
     const tools: AgentTool[] = []  // No tools — context is pre-fetched
     const model = this.modelOverride ?? resolveAgentModel('coder')
 
-    // Extract only the current atom's spec + relevant interfaces to reduce BL1 context pressure.
-    // Sending the FULL workGraph causes models to produce prose instead of JSON (F1 failures).
-    const atoms = (input.workGraph.atoms as Record<string, unknown>[]) ?? []
-    const currentAtom = atoms.find((a: any) => a.id === input.plan?.atoms?.[0]?.id) ?? atoms[0]
-    const relevantContext = {
-      atom: currentAtom,
-      title: input.workGraph.title,
-      invariants: input.workGraph.invariants,
-    }
+    // Build FactorySpecification from CoderInput
+    const spec = buildFactorySpecification(input, this.contextPrompt)
 
-    const userParts: string[] = [
-      `Plan:\n${JSON.stringify(input.plan, null, 2)}`,
-      `\nWorkGraph atom specification:\n${JSON.stringify(relevantContext, null, 2)}`,
-    ]
-
-    if (input.specContent) {
-      userParts.push(`\nOriginal specification content:\n${input.specContent}`)
-    }
-
-    if (input.repairNotes) {
-      userParts.push(`\n--- REPAIR CYCLE ---`)
-      userParts.push(`Repair notes from Verifier:\n${input.repairNotes}`)
-    }
-
-    if (input.previousCode) {
-      userParts.push(`\nPrevious code (to fix, not rewrite from scratch):\n${JSON.stringify(input.previousCode, null, 2)}`)
-    }
-
-    if (input.critiqueIssues && input.critiqueIssues.length > 0) {
-      userParts.push(`\nCritique issues to address:\n${JSON.stringify(input.critiqueIssues, null, 2)}`)
-    }
-
-    if (input.fileContexts && input.fileContexts.length > 0) {
-      userParts.push(`\n--- EXISTING FILES (use edits for modifications, NOT full replacement) ---`)
-      for (const ctx of input.fileContexts) {
-        const badge = ctx.confidence === 'extracted' ? '[AST-verified]'
-          : ctx.confidence === 'inferred' ? '[inferred from import]'
-          : '[ambiguous]'
-        userParts.push(`\n## File: ${ctx.path} ${badge}`)
-        if (ctx.structure.exports.length > 0) {
-          userParts.push(`Exports: ${ctx.structure.exports.join(', ')}`)
-        }
-        if (ctx.structure.functions.length > 0) {
-          userParts.push(`Functions: ${ctx.structure.functions.map(f => `${f.name}(${f.params})`).join(', ')}`)
-        }
-        userParts.push('```')
-        userParts.push(ctx.targetSlice ?? ctx.rawContent)
-        userParts.push('```')
-      }
-    }
-
-    if (this.contextPrompt) {
-      userParts.push(`\n${this.contextPrompt}`)
-    }
-
-    userParts.push('\nProduce a CodeArtifact. Start your response with {"files":')
+    // reformat() is the ONLY way Factory internals reach the LLM.
+    // The atom JSON NEVER appears in the output.
+    const communicable = reformat(spec, 'coding-agent')
 
     const userMessage: UserMessage = {
       role: 'user',
-      content: userParts.join('\n'),
+      content: communicable.body,
       timestamp: Date.now(),
     }
 
     const stream = agentLoop(
       [userMessage],
-      { systemPrompt: SYSTEM_PROMPT, messages: [], tools },
+      { systemPrompt: communicable.systemPrompt, messages: [], tools },
       {
         model,
         convertToLlm: (msgs) => msgs as Message[],
