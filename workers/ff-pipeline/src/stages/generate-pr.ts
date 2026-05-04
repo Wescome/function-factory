@@ -397,7 +397,7 @@ export async function generatePR(
         error: 'Phantom synthesis: zero files written — all edits failed or no content provided',
         filesWritten: 0,
         branchName,
-        warnings: warnings.length > 0 ? warnings : undefined,
+        ...(warnings.length > 0 && { warnings }),
       }
     }
 

@@ -11,7 +11,7 @@ import { mapCapability } from './stages/map-capability'
 import { proposeFunction } from './stages/propose-function'
 import { semanticReview } from './stages/semantic-review'
 import { compilePRD, PASS_NAMES } from './stages/compile'
-import { crystallizeIntent, type IntentAnchor } from './stages/crystallize-intent'
+import { crystallizeIntent, type CrystallizeInput, type IntentAnchor } from './stages/crystallize-intent'
 import { probeAnchors } from './stages/intent-probe'
 import { reconcile } from './stages/reconciliation-gate'
 import { buildViolationFeedback } from './stages/violation-feedback'
@@ -193,15 +193,14 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       return loadCrystallizerEnabled(db)
     })
     const crystallization = await step.do('crystallize-intent', async () => {
+      const crystallizeInput: CrystallizeInput = {
+        signalId: signalKey,
+        title: signal.title as string,
+        description: signal.description as string,
+        ...(typeof params.signal.specContent === 'string' && { specContent: params.signal.specContent }),
+      }
       const result = await crystallizeIntent(
-        {
-          signalId: signalKey,
-          title: signal.title as string,
-          description: signal.description as string,
-          specContent: typeof params.signal.specContent === 'string'
-            ? params.signal.specContent
-            : undefined,
-        },
+        crystallizeInput,
         this.env,
         dryRun,
         crystallizerEnabled,

@@ -196,7 +196,8 @@ describe('crystallizeIntent', () => {
   })
 
   it('returns empty anchors when AI binding is unavailable', async () => {
-    const env = makeMockEnv({ AI: undefined })
+    const { AI: _, ...envWithoutAI } = makeMockEnv()
+    const env = envWithoutAI as PipelineEnv
 
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     const result = await crystallizeIntent(SIGNAL_INPUT, env, false, true)
