@@ -306,7 +306,7 @@ describe('generatePR', () => {
     expect(result.filesWritten).toBe(0)
   })
 
-  it('handles delete action', async () => {
+  it('BLOCKS delete action — Factory PRs never delete files', async () => {
     const { calls } = mockFetchSuccess()
     const input = makeInput({
       atomResults: {
@@ -315,7 +315,7 @@ describe('generatePR', () => {
           verdict: { decision: 'pass' },
           codeArtifact: {
             files: [{ path: 'src/old.ts', content: '', action: 'delete' }],
-            summary: 'Removed old file',
+            summary: 'Tried to delete a file',
           },
         },
       },
@@ -323,10 +323,11 @@ describe('generatePR', () => {
 
     const result = await generatePR(input, 'ghp_test', 'Wescome', 'function-factory')
 
-    expect(result.success).toBe(true)
-    expect(result.filesWritten).toBe(1)
+    // Delete is BLOCKED — no DELETE call made
     const deleteCall = calls.find(c => c.url.includes('/contents/') && c.method === 'DELETE')
-    expect(deleteCall).toBeDefined()
+    expect(deleteCall).toBeUndefined()
+    expect(result.warnings).toBeDefined()
+    expect(result.warnings!.some(w => w.includes('BLOCKED') && w.includes('delete'))).toBe(true)
   })
 
   it('returns success: false when branch creation fails (not 422)', async () => {

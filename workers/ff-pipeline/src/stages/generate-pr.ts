@@ -286,34 +286,10 @@ export async function generatePR(
     for (const [filePath, fileChanges] of filesByPath) {
       const primaryAction = fileChanges[fileChanges.length - 1]!.action
 
+      // RESTRICTED ACTION SPACE (SWE-agent pattern): Factory PRs never delete files.
+      // Delete actions are always hallucinated — the Factory builds, it doesn't destroy.
       if (primaryAction === 'delete') {
-        const getFileRes = await fetch(
-          apiUrl(repoOwner, repoName, `/contents/${filePath}?ref=${branchName}`),
-          { method: 'GET', headers },
-        )
-
-        let fileSha: string | undefined
-        if (getFileRes.ok) {
-          const fileData = await getFileRes.json() as { sha: string }
-          fileSha = fileData.sha
-        } else {
-          filesNotFound.push(filePath)
-          warnings.push(`Delete target not found: ${filePath}`)
-        }
-
-        await fetch(
-          apiUrl(repoOwner, repoName, `/contents/${filePath}`),
-          {
-            method: 'DELETE',
-            headers,
-            body: JSON.stringify({
-              message: `[Factory] Delete ${filePath}`,
-              branch: branchName,
-              sha: fileSha ?? '',
-            }),
-          },
-        )
-        filesWritten++
+        warnings.push(`BLOCKED: delete action on ${filePath}. Factory PRs do not delete files.`)
         continue
       }
 
