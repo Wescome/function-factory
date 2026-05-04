@@ -25,6 +25,18 @@ import type { PipelineEnv, PipelineParams, PipelineResult, SemanticReviewResult,
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Rec = Record<string, any>
 
+/** Step config for AI model calls — 2 min timeout, 2 retries with exponential backoff */
+const AI_STEP_CONFIG = {
+  timeout: '2 minutes' as const,
+  retries: { limit: 2, delay: '5 seconds' as const, backoff: 'exponential' as const },
+}
+
+/** Step config for DB/queue operations — 30 sec timeout, 3 retries with exponential backoff */
+const DB_STEP_CONFIG = {
+  timeout: '30 seconds' as const,
+  retries: { limit: 3, delay: '2 seconds' as const, backoff: 'exponential' as const },
+}
+
 function toStep(obj: Record<string, unknown>): Rec {
   return JSON.parse(JSON.stringify(obj)) as Rec
 }
@@ -62,19 +74,19 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     const dryRun = params.dryRun ?? false
 
     // ── Stage 1: Signal ingestion ──
-    const signal = await step.do('ingest-signal', async () => {
+    const signal = await step.do('ingest-signal', DB_STEP_CONFIG, async () => {
       return toStep(await ingestSignal(params.signal, db))
     })
     const signalKey = signal._key as string
 
     // ── Stage 2: Pressure synthesis ──
-    const pressure = await step.do('synthesize-pressure', async () => {
+    const pressure = await step.do('synthesize-pressure', AI_STEP_CONFIG, async () => {
       return toStep(await synthesizePressure(signal as Record<string, unknown>, db, this.env, dryRun))
     })
     const pressureKey = pressure._key as string
 
     // Lineage: Pressure → Signal
-    await step.do('edge-pressure-signal', async () => {
+    await step.do('edge-pressure-signal', DB_STEP_CONFIG, async () => {
       await db.saveEdge('lineage_edges', `specs_pressures/${pressureKey}`, `specs_signals/${signalKey}`, {
         type: 'derived-from', createdAt: new Date().toISOString(),
       })
@@ -82,13 +94,13 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     })
 
     // ── Stage 3: Capability mapping ──
-    const capability = await step.do('map-capability', async () => {
+    const capability = await step.do('map-capability', AI_STEP_CONFIG, async () => {
       return toStep(await mapCapability(pressure as Record<string, unknown>, db, this.env, dryRun))
     })
     const capabilityKey = capability._key as string
 
     // Lineage: Capability → Pressure
-    await step.do('edge-capability-pressure', async () => {
+    await step.do('edge-capability-pressure', DB_STEP_CONFIG, async () => {
       await db.saveEdge('lineage_edges', `specs_capabilities/${capabilityKey}`, `specs_pressures/${pressureKey}`, {
         type: 'derived-from', createdAt: new Date().toISOString(),
       })
@@ -96,13 +108,13 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     })
 
     // ── Stage 4: Function proposal ──
-    const proposal = await step.do('propose-function', async () => {
+    const proposal = await step.do('propose-function', AI_STEP_CONFIG, async () => {
       return toStep(await proposeFunction(capability as Record<string, unknown>, db, this.env, dryRun))
     })
     const proposalKey = proposal._key as string
 
     // Lineage: Proposal → Capability
-    await step.do('edge-proposal-capability', async () => {
+    await step.do('edge-proposal-capability', DB_STEP_CONFIG, async () => {
       await db.saveEdge('lineage_edges', `specs_functions/${proposalKey}`, `specs_capabilities/${capabilityKey}`, {
         type: 'derived-from', createdAt: new Date().toISOString(),
       })
@@ -110,7 +122,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     })
 
     // ── Phase D: Lifecycle → proposed ──
-    await step.do('lifecycle-proposed', async () => {
+    await step.do('lifecycle-proposed', DB_STEP_CONFIG, async () => {
       await transitionLifecycle(db, proposalKey, 'proposed', {
         trigger: 'pipeline-propose-function',
       }).catch((err: unknown) => {
@@ -137,7 +149,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     }
 
     if (approvalPayload?.decision !== 'approved') {
-      await step.do('persist-rejection', async () => {
+      await step.do('persist-rejection', DB_STEP_CONFIG, async () => {
         await db.save('specs_coverage_reports', {
           _key: `CR-REJECT-${signalKey}-${Date.now().toString(36)}`,
           type: 'architect-rejection',
@@ -158,7 +170,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     }
 
     // ── Semantic review (Critic-at-authoring, pre-compile) ──
-    const review = await step.do('semantic-review', async () => {
+    const review = await step.do('semantic-review', AI_STEP_CONFIG, async () => {
       const result = await semanticReview(proposal as Record<string, unknown>, db, this.env, dryRun)
       return toStep(result as unknown as Record<string, unknown>) as unknown as SemanticReviewResult
     }) as unknown as SemanticReviewResult
@@ -166,7 +178,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     // ── Phase D: CRP on low-confidence semantic review (C7) ──
     const reviewConfidence = (review as unknown as { confidence?: number }).confidence
     if (typeof reviewConfidence === 'number' && reviewConfidence < 0.7) {
-      await step.do('crp-semantic-review', async () => {
+      await step.do('crp-semantic-review', DB_STEP_CONFIG, async () => {
         await createCRP(db, {
           artifactKey: proposalKey,
           collection: 'specs_functions',
@@ -189,10 +201,10 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     // ── Crystallize signal intent into binary anchors ──
     // Hot-config flag: crystallizer.enabled (default true after synthesis #11 validation)
     // When disabled or on error, returns empty anchors — zero behavior change
-    const crystallizerEnabled = await step.do('load-crystallizer-config', async () => {
+    const crystallizerEnabled = await step.do('load-crystallizer-config', DB_STEP_CONFIG, async () => {
       return loadCrystallizerEnabled(db)
     })
-    const crystallization = await step.do('crystallize-intent', async () => {
+    const crystallization = await step.do('crystallize-intent', AI_STEP_CONFIG, async () => {
       const crystallizeInput: CrystallizeInput = {
         signalId: signalKey,
         title: signal.title as string,
@@ -212,7 +224,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
 
     // Persist anchors to ArangoDB for drift ledger analysis (Phase 3)
     if (intentAnchors.length > 0) {
-      await step.do('persist-intent-anchors', async () => {
+      await step.do('persist-intent-anchors', DB_STEP_CONFIG, async () => {
         await db.ensureCollection('intent_anchors').catch(() => {})
         for (const anchor of intentAnchors) {
           await db.save('intent_anchors', anchor as unknown as Record<string, unknown>).catch(() => {})
@@ -234,7 +246,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
 
     // ── Fetch file contexts for compile-stage grounding ──
     const signalSpecContent = typeof params.signal.specContent === 'string' ? params.signal.specContent : undefined
-    const compileFileContexts = await step.do('fetch-compile-context', async () => {
+    const compileFileContexts = await step.do('fetch-compile-context', DB_STEP_CONFIG, async () => {
       if (!signalSpecContent) return { fileContexts: [] }
       try {
         const { extractFilePathsFromSpec, fetchCompileFileContexts } = await import('./stages/compile.js')
@@ -276,7 +288,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
                 ),
               }
             : compState
-          compState = await step.do(`compile-verify-${passName}-r${r}`, async () => {
+          compState = await step.do(`compile-verify-${passName}-r${r}`, AI_STEP_CONFIG, async () => {
             // Compile the pass
             const newState = toStep(await compilePRD(passName, prevState, db, this.env, dryRun))
 
@@ -333,7 +345,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       } else {
         // ── Non-probed pass: simple compile ──
         const prevState = compState
-        compState = await step.do(`compile-${passName}`, async () => {
+        compState = await step.do(`compile-${passName}`, AI_STEP_CONFIG, async () => {
           return toStep(await compilePRD(passName, prevState, db, this.env, dryRun))
         }) as unknown as Record<string, unknown>
       }
@@ -351,7 +363,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     const wgKey = (compState.workGraph as { _key?: string })?._key ?? 'unknown'
 
     // ── Phase D: Lifecycle → designed (after compilation) ──
-    await step.do('lifecycle-designed', async () => {
+    await step.do('lifecycle-designed', DB_STEP_CONFIG, async () => {
       await transitionLifecycle(db, proposalKey, 'designed', {
         trigger: 'pipeline-compile',
       }).catch((err: unknown) => {
@@ -361,7 +373,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     })
 
     // Lineage: WorkGraph → Proposal (written before Gate 1 so lineage check passes)
-    await step.do('edge-workgraph-proposal', async () => {
+    await step.do('edge-workgraph-proposal', DB_STEP_CONFIG, async () => {
       await db.saveEdge('lineage_edges', `specs_workgraphs/${wgKey}`, `specs_functions/${proposalKey}`, {
         type: 'compiled-from', createdAt: new Date().toISOString(),
       })
@@ -369,13 +381,13 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     })
 
     // ── Gate 1: Compile coverage (deterministic) ──
-    const gate1 = await step.do('gate-1', async () => {
+    const gate1 = await step.do('gate-1', DB_STEP_CONFIG, async () => {
       const result = await this.env.GATES.evaluateGate1(compState.workGraph)
       return toStep(result as unknown as Record<string, unknown>) as unknown as Gate1Report
     }) as unknown as Gate1Report
 
     if (!gate1.passed) {
-      await step.do('persist-gate1-failure', async () => {
+      await step.do('persist-gate1-failure', DB_STEP_CONFIG, async () => {
         await db.save('specs_coverage_reports', {
           _key: `CR-G1-${wgKey}-${Date.now().toString(36)}`,
           type: 'gate-1',
@@ -400,7 +412,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
         report: gate1,
         signalId: signalKey,
       }
-      await step.do('enqueue-feedback-gate1', async () => {
+      await step.do('enqueue-feedback-gate1', DB_STEP_CONFIG, async () => {
         const feedbackDepth = typeof (signal as Rec).raw?.feedbackDepth === 'number'
           ? (signal as Rec).raw.feedbackDepth as number : 0
         await this.env.FEEDBACK_QUEUE?.send({
@@ -415,7 +427,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     }
 
     // ── Persist gate pass ──
-    await step.do('persist-gate1-pass', async () => {
+    await step.do('persist-gate1-pass', DB_STEP_CONFIG, async () => {
       await db.save('gate_status', {
         _key: `gate:1:${wgKey}-${Date.now().toString(36)}`,
         passed: true,
@@ -454,7 +466,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     // Thread specContent from the proposal through to the DO (when present)
     const specContent = typeof proposal.specContent === 'string' ? proposal.specContent : undefined
 
-    await step.do('enqueue-synthesis', async () => {
+    await step.do('enqueue-synthesis', DB_STEP_CONFIG, async () => {
       await this.env.SYNTHESIS_QUEUE.send({
         workflowId: event.instanceId,
         workGraphId: wgKey,
@@ -466,7 +478,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     })
 
     // ── Phase D: Lifecycle → in_progress (synthesis enqueued) ──
-    await step.do('lifecycle-in-progress', async () => {
+    await step.do('lifecycle-in-progress', DB_STEP_CONFIG, async () => {
       await transitionLifecycle(db, proposalKey, 'in_progress', {
         trigger: 'pipeline-enqueue-synthesis',
       }).catch((err: unknown) => {
@@ -533,7 +545,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     }
 
     // Lineage: execution artifact -> workgraph
-    await step.do('edge-synthesis-workgraph', async () => {
+    await step.do('edge-synthesis-workgraph', DB_STEP_CONFIG, async () => {
       await db.saveEdge('lineage_edges',
         `execution_artifacts/EA-${wgKey}-synthesis`,
         `specs_workgraphs/${wgKey}`,
@@ -544,7 +556,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
 
     // ── Phase D: Lifecycle → produced (if synthesis passed) ──
     if (finalVerdict.decision === 'pass') {
-      await step.do('lifecycle-produced', async () => {
+      await step.do('lifecycle-produced', DB_STEP_CONFIG, async () => {
         await transitionLifecycle(db, proposalKey, 'produced', {
           trigger: 'pipeline-synthesis-pass',
         }).catch((err: unknown) => {
@@ -573,7 +585,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       ...(atomResults ? { atomResults } : {}),
     }
 
-    await step.do('enqueue-feedback', async () => {
+    await step.do('enqueue-feedback', DB_STEP_CONFIG, async () => {
       const feedbackDepth = typeof (signal as Rec).raw?.feedbackDepth === 'number'
         ? (signal as Rec).raw.feedbackDepth as number : 0
       await this.env.FEEDBACK_QUEUE?.send({

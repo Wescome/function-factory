@@ -1403,4 +1403,181 @@ describe('Stage 6: Event-driven synthesis handoff', () => {
       expect(enqueueResult).toEqual({ enqueued: true })
     })
   })
+
+  describe('step timeout configuration', () => {
+
+    it('AI-calling steps pass AI_STEP_CONFIG with 2-minute timeout and retry config', async () => {
+      const { FactoryPipeline } = await import('./pipeline')
+
+      const env = createMockEnv()
+      const mockStep = createMockStep()
+      const stepConfigs: Array<{ name: string; opts: unknown }> = []
+
+      mockStep.step.do = vi.fn(async (name: string, optsOrFn: unknown, maybeFn?: unknown) => {
+        const fn = typeof optsOrFn === 'function'
+          ? optsOrFn as () => Promise<unknown>
+          : maybeFn as () => Promise<unknown>
+        const opts = typeof optsOrFn === 'object' ? optsOrFn : undefined
+        stepConfigs.push({ name, opts })
+        return fn()
+      })
+
+      mockStep.step.waitForEvent = vi.fn((name: string) => {
+        if (name === 'architect-approval') {
+          return Promise.resolve({ payload: { decision: 'approved', by: 'test' } })
+        }
+        if (name === 'synthesis-complete') {
+          return Promise.resolve({
+            payload: {
+              verdict: { decision: 'pass', confidence: 0.95, reason: 'ok' },
+              tokenUsage: 100,
+              repairCount: 0,
+            },
+          })
+        }
+        return Promise.reject(new Error(`Unexpected: ${name}`))
+      })
+
+      const pipeline = Object.create(FactoryPipeline.prototype)
+      pipeline.env = env
+
+      await pipeline.run(
+        {
+          instanceId: 'wf-timeout-test',
+          payload: { signal: { signalType: 'internal', source: 'test', title: 'Test', description: 'Test signal' } },
+        },
+        mockStep.step,
+      )
+
+      // AI-calling steps must have AI_STEP_CONFIG
+      const aiSteps = ['synthesize-pressure', 'map-capability', 'propose-function', 'semantic-review', 'crystallize-intent']
+      for (const stepName of aiSteps) {
+        const call = stepConfigs.find(c => c.name === stepName)
+        expect(call, `step '${stepName}' should exist`).toBeDefined()
+        const opts = call!.opts as { timeout: string; retries: { limit: number; delay: string; backoff: string } }
+        expect(opts.timeout, `step '${stepName}' timeout`).toBe('2 minutes')
+        expect(opts.retries.limit, `step '${stepName}' retries.limit`).toBe(2)
+        expect(opts.retries.delay, `step '${stepName}' retries.delay`).toBe('5 seconds')
+        expect(opts.retries.backoff, `step '${stepName}' retries.backoff`).toBe('exponential')
+      }
+
+      // Compile steps also use AI_STEP_CONFIG
+      const compileSteps = stepConfigs.filter(c => c.name.startsWith('compile-'))
+      expect(compileSteps.length).toBeGreaterThan(0)
+      for (const call of compileSteps) {
+        const opts = call.opts as { timeout: string; retries: { limit: number } }
+        expect(opts.timeout, `step '${call.name}' timeout`).toBe('2 minutes')
+        expect(opts.retries.limit, `step '${call.name}' retries.limit`).toBe(2)
+      }
+    })
+
+    it('DB/queue steps pass DB_STEP_CONFIG with 30-second timeout and retry config', async () => {
+      const { FactoryPipeline } = await import('./pipeline')
+
+      const env = createMockEnv()
+      const mockStep = createMockStep()
+      const stepConfigs: Array<{ name: string; opts: unknown }> = []
+
+      mockStep.step.do = vi.fn(async (name: string, optsOrFn: unknown, maybeFn?: unknown) => {
+        const fn = typeof optsOrFn === 'function'
+          ? optsOrFn as () => Promise<unknown>
+          : maybeFn as () => Promise<unknown>
+        const opts = typeof optsOrFn === 'object' ? optsOrFn : undefined
+        stepConfigs.push({ name, opts })
+        return fn()
+      })
+
+      mockStep.step.waitForEvent = vi.fn((name: string) => {
+        if (name === 'architect-approval') {
+          return Promise.resolve({ payload: { decision: 'approved', by: 'test' } })
+        }
+        if (name === 'synthesis-complete') {
+          return Promise.resolve({
+            payload: {
+              verdict: { decision: 'pass', confidence: 0.95, reason: 'ok' },
+              tokenUsage: 100,
+              repairCount: 0,
+            },
+          })
+        }
+        return Promise.reject(new Error(`Unexpected: ${name}`))
+      })
+
+      const pipeline = Object.create(FactoryPipeline.prototype)
+      pipeline.env = env
+
+      await pipeline.run(
+        {
+          instanceId: 'wf-db-timeout-test',
+          payload: { signal: { signalType: 'internal', source: 'test', title: 'Test', description: 'Test signal' } },
+        },
+        mockStep.step,
+      )
+
+      // DB/queue steps must have DB_STEP_CONFIG
+      const dbSteps = ['ingest-signal', 'edge-pressure-signal', 'edge-capability-pressure',
+        'edge-proposal-capability', 'lifecycle-proposed', 'enqueue-synthesis',
+        'lifecycle-in-progress', 'persist-gate1-pass']
+      for (const stepName of dbSteps) {
+        const call = stepConfigs.find(c => c.name === stepName)
+        expect(call, `step '${stepName}' should exist`).toBeDefined()
+        const opts = call!.opts as { timeout: string; retries: { limit: number; delay: string; backoff: string } }
+        expect(opts.timeout, `step '${stepName}' timeout`).toBe('30 seconds')
+        expect(opts.retries.limit, `step '${stepName}' retries.limit`).toBe(3)
+        expect(opts.retries.delay, `step '${stepName}' retries.delay`).toBe('2 seconds')
+        expect(opts.retries.backoff, `step '${stepName}' retries.backoff`).toBe('exponential')
+      }
+    })
+
+    it('ALL step.do calls have a config object (no bare step.do without timeout)', async () => {
+      const { FactoryPipeline } = await import('./pipeline')
+
+      const env = createMockEnv()
+      const mockStep = createMockStep()
+      const stepConfigs: Array<{ name: string; opts: unknown }> = []
+
+      mockStep.step.do = vi.fn(async (name: string, optsOrFn: unknown, maybeFn?: unknown) => {
+        const fn = typeof optsOrFn === 'function'
+          ? optsOrFn as () => Promise<unknown>
+          : maybeFn as () => Promise<unknown>
+        const opts = typeof optsOrFn === 'object' ? optsOrFn : undefined
+        stepConfigs.push({ name, opts })
+        return fn()
+      })
+
+      mockStep.step.waitForEvent = vi.fn((name: string) => {
+        if (name === 'architect-approval') {
+          return Promise.resolve({ payload: { decision: 'approved', by: 'test' } })
+        }
+        if (name === 'synthesis-complete') {
+          return Promise.resolve({
+            payload: {
+              verdict: { decision: 'pass', confidence: 0.95, reason: 'ok' },
+              tokenUsage: 100,
+              repairCount: 0,
+            },
+          })
+        }
+        return Promise.reject(new Error(`Unexpected: ${name}`))
+      })
+
+      const pipeline = Object.create(FactoryPipeline.prototype)
+      pipeline.env = env
+
+      await pipeline.run(
+        {
+          instanceId: 'wf-all-config-test',
+          payload: { signal: { signalType: 'internal', source: 'test', title: 'Test', description: 'Test signal' } },
+        },
+        mockStep.step,
+      )
+
+      // Every single step.do call must have a config object with timeout
+      const stepsWithoutConfig = stepConfigs.filter(c => !c.opts)
+      expect(
+        stepsWithoutConfig.map(c => c.name),
+        'These steps are missing timeout config',
+      ).toEqual([])
+    })
+  })
 })

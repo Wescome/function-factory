@@ -46,8 +46,10 @@ export async function callProvider(
     }
 
     // llama-70b and other models: use env.AI.run() binding (zero cost)
+    // NOTE: setTimeout is DEAD CODE inside CF Workflow steps (I/O suspension
+    // freezes timers). Step-level timeout handles cancellation instead.
     if (!env.AI) throw new Error('Workers AI binding unavailable — configure ai binding in wrangler.jsonc')
-    const aiPromise = env.AI.run(target.model, {
+    const result = await env.AI.run(target.model, {
       messages: [
         { role: 'system', content: system + '\n\nIMPORTANT: Respond ONLY with valid JSON. No prose, no markdown, no explanation.' },
         { role: 'user', content: user },
@@ -55,14 +57,6 @@ export async function callProvider(
       max_tokens: 4096,
       response_format: { type: 'json_object' },
     } as Record<string, unknown>)
-
-    let timer: ReturnType<typeof setTimeout>
-    const result = await Promise.race([
-      aiPromise,
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error(`[INFRA] Workers AI ${target.model}: timeout after 120000ms`)), 120_000)
-      }),
-    ]).finally(() => clearTimeout(timer!))
     const resp = (result as Record<string, unknown>)?.response
     if (resp === undefined || resp === null) {
       throw new Error(`Workers AI ${target.model}: empty response`)
