@@ -47,7 +47,7 @@ Address each violated claim in at least one atom's title or verifies field.
 
 Output ONLY the new atoms — do NOT repeat the PRD or any other state. Output JSON: { "atoms": [{ "id": "atom-001", "type": "implementation", "title": "...", "description": "...", "verifies": "...", "targetFiles": ["path/to/file.ts"] }] }`,
 
-  dependency: `Given atoms, identify dependencies between them. Output ONLY the new dependencies — do NOT repeat atoms or any other state. Output JSON: { "dependencies": [{ "from": "atom-id", "to": "atom-id", "type": "requires | enables | conflicts" }] }`,
+  dependency: `Given atoms, identify dependencies between them. Dependencies use ATOM IDs (format "atom-001", "atom-002") as from/to values — never file paths. If there is only one atom, output an empty dependencies array. Output ONLY the new dependencies. Output JSON: { "dependencies": [{ "from": "atom-001", "to": "atom-002", "type": "requires | enables | conflicts" }] }`,
 
   invariant: `Extract invariants from the PRD + atoms. Each invariant is a property that must always hold. Include a detector spec (how to check it). Output ONLY the new invariants — do NOT repeat atoms, PRD, or any other state. Output JSON: { "invariants": [{ "id": "INV-*", "property": "...", "detector": { "type": "...", "check": "..." } }] }`,
 
