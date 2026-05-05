@@ -37,6 +37,81 @@ export default {
   async fetch(request: Request, env: PipelineEnv, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url)
 
+    // ── Diagnostic: deployment/version metadata ──
+    if (url.pathname === '/version' && request.method === 'GET') {
+      return json({
+        service: 'ff-pipeline',
+        version: '0.1.0',
+        environment: env.ENVIRONMENT,
+        timestamp: new Date().toISOString(),
+      })
+    }
+
+    // ── Diagnostic: lightweight health check ──
+    if (url.pathname === '/debug/health' && request.method === 'GET') {
+      const arango = await checkArango(env)
+      return json({
+        service: 'ff-pipeline',
+        status: arango ? 'healthy' : 'degraded',
+        arango,
+        aiBinding: !!env.AI,
+        environment: env.ENVIRONMENT,
+        timestamp: new Date().toISOString(),
+      }, arango ? 200 : 503)
+    }
+
+    // ── Diagnostic: Arango connectivity without credential exposure ──
+    if (url.pathname === '/debug/arango' && request.method === 'GET') {
+      const ok = await checkArango(env)
+      return json({
+        ok,
+        status: ok ? 'healthy' : 'degraded',
+        database: env.ARANGO_DATABASE,
+        timestamp: new Date().toISOString(),
+      }, ok ? 200 : 503)
+    }
+
+    // ── Diagnostic: Workers AI binding smoke test ──
+    if (url.pathname === '/debug/ai-test' && request.method === 'GET') {
+      if (!env.AI) {
+        return json({
+          ok: false,
+          aiBinding: false,
+          error: 'Workers AI binding unavailable',
+          timestamp: new Date().toISOString(),
+        }, 503)
+      }
+
+      const model = '@cf/meta/llama-3.3-70b-instruct-fp8-fast'
+      try {
+        const result = await env.AI.run(model, {
+          messages: [
+            { role: 'system', content: 'Return a tiny JSON object only.' },
+            { role: 'user', content: '{"ping":true}' },
+          ],
+          max_tokens: 32,
+          response_format: { type: 'json_object' },
+        })
+        const response = result.response
+        return json({
+          ok: true,
+          aiBinding: true,
+          model,
+          responseType: typeof response,
+          responseLength: typeof response === 'string' ? response.length : JSON.stringify(response).length,
+          timestamp: new Date().toISOString(),
+        })
+      } catch (err) {
+        return json({
+          ok: false,
+          aiBinding: true,
+          model,
+          error: err instanceof Error ? err.message : String(err),
+          timestamp: new Date().toISOString(),
+        }, 502)
+      }
+    }
+
     // ── Synthesis trigger: external route that bridges Workflow <-> DO ──
     if (url.pathname === '/trigger-synthesis' && request.method === 'POST') {
       const body = await request.json() as {
@@ -778,4 +853,21 @@ export default {
       }
     }
   },
+}
+
+function json(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data, null, 2), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
+async function checkArango(env: PipelineEnv): Promise<boolean> {
+  try {
+    const { createClientFromEnv } = await import('@factory/arango-client')
+    const db = createClientFromEnv(env)
+    return await db.ping()
+  } catch {
+    return false
+  }
 }

@@ -166,12 +166,13 @@ function scanForSecrets(
   if (typeof value === 'string') {
     for (const pattern of SECRET_PATTERNS) {
       if (value.includes(pattern)) {
-        violations.push({
+        const violation: Violation = {
           constraint: 'C15-secrets',
           severity: 'violation',
           message: `SECRET LEAK: Detected secret pattern "${pattern}" in field "${path || '<root>'}". Artifacts must not contain API keys, passwords, or tokens.`,
-          field: path || undefined,
-        })
+        }
+        if (path) violation.field = path
+        violations.push(violation)
         // One violation per field is enough — don't report every
         // pattern match in the same string
         return

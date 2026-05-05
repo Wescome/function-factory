@@ -1,40 +1,50 @@
 # Current Workspace
 
 ## Status
-Session ended at 2026-05-04T17:58:00.875Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
+Session ended at 2026-05-04T18:19:03.564Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
 
 ## Last update
-2026-05-04T17:58:00.875Z
+2026-05-04T18:19:03.564Z
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
-- [14:11:56] Bash: find /Users/wes/Developer/function-factory -name '*.test.*' -path '*/ff-pipeline/*' -type f 2>/dev/null
-- [14:12:00] Bash: bun test workers/ff-pipeline/src/stages/compile.test.ts 2>&1 | tail -10
-- [14:12:10] Bash: bun test workers/ff-pipeline/ 2>&1 | tail -10
-- [14:12:35] Agent: Critic: anti-corruption on all compile passes
-- [14:14:48] Bash: git add workers/ff-pipeline/src/stages/compile.ts && git commit -m "$(cat <<'EOF'
-META: anti-corruption on ALL compile p
-- [14:21:46] Bash: ID=$(curl -s -X POST "https://ff-gateway.koales.workers.dev/pipeline" -H "Content-Type: application/json" -d '{"signal":
-- [14:21:55] Bash: curl -s "https://ff-gateway.koales.workers.dev/pipeline/a8c9416e-7587-4c64-903e-55581c31af4a" 2>/dev/null | jq '.output'
-- [14:22:08] Bash: curl -s "https://ff-pipeline.koales.workers.dev/debug/crystallizer?signal=SIG-MORA7ER3-JLL1" 2>/dev/null | jq '{anchors:
-- [14:27:08] Bash: cat /Users/wes/Downloads/DESIGN-FF-LPA-001.docx | strings | head -200
-- [14:27:17] Bash: cd /tmp && python3 -c "
-import zipfile, xml.etree.ElementTree as ET
-with zipfile.ZipFile('/Users/wes/Downloads/DESIGN-FF
-- [14:28:15] Bash: cd /tmp && python3 -c "
-import zipfile, xml.etree.ElementTree as ET
-with zipfile.ZipFile('/Users/wes/Downloads/spec-exec
-- [14:28:27] Bash: cd /tmp && python3 -c "
-import zipfile, xml.etree.ElementTree as ET
-with zipfile.ZipFile('/Users/wes/Downloads/spec-exec
-- [17:51:25] Write: /Users/wes/.claude/projects/-Users-wes-Developer-function-factory/memory/project_session_2026_05_01_to_04_final.md
-- [17:52:02] Edit: /Users/wes/.claude/projects/-Users-wes-Developer-function-factory/memory/MEMORY.md
-- [17:56:25] Bash: git log --oneline -10
-- [17:56:25] Bash: git diff --stat HEAD~3..HEAD
-- [17:57:48] Bash: git diff --stat
-- [17:57:49] Bash: git diff package.json
-- [17:57:49] Bash: git diff .agent/memory/working/WORKSPACE.md
-- [17:57:50] Bash: git diff .agent/memory/episodic/AGENT_LEARNINGS.jsonl | head -80
+- [18:11:30] Bash: curl -s "https://ff-gateway.koales.workers.dev/pipeline/0b046595-089f-4599-97a1-516d3d546369" 2>/dev/null | python3 -c "
+- [18:11:31] Bash: curl -s "https://ff-gateway.koales.workers.dev/pipeline/57d30a2b-8b75-4983-a1ec-8123232a7ebc" 2>/dev/null | python3 -c "
+- [18:12:26] Bash: for id in 0b046595-089f-4599-97a1-516d3d546369 57d30a2b-8b75-4983-a1ec-8123232a7ebc f848d60e-1e80-40a5-ab81-4f6fa88c5111
+- [18:12:33] Bash: curl -s "https://ff-pipeline.koales.workers.dev/debug/pipeline?id=0b046595-089f-4599-97a1-516d3d546369" 2>/dev/null | py
+- [18:12:35] Bash: curl -s "https://ff-pipeline.koales.workers.dev/debug/governor" 2>/dev/null | python3 -c "
+import sys, json
+d = json.loa
+- [18:12:41] Bash: curl -s "https://ff-pipeline.koales.workers.dev/debug/crystallizer?signal=latest" 2>/dev/null | python3 -c "
+import sys,
+- [18:12:42] Bash: curl -s "https://ff-pipeline.koales.workers.dev/debug/queues" 2>/dev/null | python3 -c "
+import sys, json
+try:
+  d = jso
+- [18:12:52] Bash: curl -s "https://ff-gateway.koales.workers.dev/pipeline/0b046595-089f-4599-97a1-516d3d546369" 2>/dev/null | python3 -c "
+- [18:13:00] Bash: grep -rn "signalType\|signal_type\|SignalType" /Users/wes/Developer/function-factory/workers/ff-gateway/src/ --include="
+- [18:13:01] Bash: grep -rn "signalType\|required.*field" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/ --include="*.ts" |
+- [18:13:12] Bash: ID1=$(curl -s -X POST "https://ff-gateway.koales.workers.dev/pipeline" \
+  -H "Content-Type: application/json" \
+  -d '{
+- [18:13:17] Bash: ID2=$(curl -s -X POST "https://ff-gateway.koales.workers.dev/pipeline" \
+  -H "Content-Type: application/json" \
+  -d '{
+- [18:13:19] Bash: ID3=$(curl -s -X POST "https://ff-gateway.koales.workers.dev/pipeline" \
+  -H "Content-Type: application/json" \
+  -d '{
+- [18:18:05] Bash: for id in 38eb0342-f210-4ef8-b063-c907ebabefe5 9bb2165a-a98e-4170-aab5-da3a04d79ecf 14638de4-3c81-4664-a089-27e34bb2f5d4
+- [18:18:14] Bash: curl -s "https://ff-pipeline.koales.workers.dev/debug/health" 2>/dev/null | python3 -c "
+import sys, json
+try:
+  d = jso
+- [18:18:15] Bash: curl -s "https://ff-pipeline.koales.workers.dev/debug/synthesis?limit=5" 2>/dev/null | python3 -c "
+import sys, json
+try
+- [18:18:23] Bash: grep -rn "running\|currentStage\|step.do" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/pipeline.ts | he
+- [18:18:37] Bash: git log --oneline -5 && echo "---" && curl -s "https://ff-pipeline.koales.workers.dev/version" 2>/dev/null || echo "No v
+- [18:18:44] Bash: grep -n "wrangler\|deploy" /Users/wes/Developer/function-factory/workers/ff-pipeline/package.json | head -5
+- [18:18:55] Bash: curl -s "https://ff-gateway.koales.workers.dev/pipeline/38eb0342-f210-4ef8-b063-c907ebabefe5" 2>/dev/null | python3 -c "
 
 ## Notes
 This file is auto-updated on session end. Manual edits will be overwritten.

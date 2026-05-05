@@ -18,6 +18,7 @@ import {
 	type SystemContentBlock,
 	type ToolChoice,
 	type ToolConfiguration,
+	type ToolResultContentBlock,
 	ToolResultStatus,
 } from "@aws-sdk/client-bedrock-runtime";
 
@@ -548,7 +549,7 @@ function convertMessages(
 					content:
 						typeof m.content === "string"
 							? [{ text: sanitizeSurrogates(m.content) }]
-							: m.content.map((c) => {
+							: m.content.map((c): ContentBlock => {
 									switch (c.type) {
 										case "text":
 											return { text: sanitizeSurrogates(c.text) };
@@ -632,7 +633,7 @@ function convertMessages(
 				toolResults.push({
 					toolResult: {
 						toolUseId: m.toolCallId,
-						content: m.content.map((c) =>
+						content: m.content.map((c): ToolResultContentBlock =>
 							c.type === "image"
 								? { image: createImageBlock(c.mimeType, c.data) }
 								: { text: sanitizeSurrogates(c.text) },
@@ -648,7 +649,7 @@ function convertMessages(
 					toolResults.push({
 						toolResult: {
 							toolUseId: nextMsg.toolCallId,
-							content: nextMsg.content.map((c) =>
+							content: nextMsg.content.map((c): ToolResultContentBlock =>
 								c.type === "image"
 									? { image: createImageBlock(c.mimeType, c.data) }
 									: { text: sanitizeSurrogates(c.text) },

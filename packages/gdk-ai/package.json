@@ -65,9 +65,9 @@
 	"scripts": {
 		"clean": "shx rm -rf dist",
 		"generate-models": "npx tsx scripts/generate-models.ts",
-		"build": "npm run generate-models && tsgo -p tsconfig.build.json",
-		"dev": "tsgo -p tsconfig.build.json --watch --preserveWatchOutput",
-		"dev:tsc": "tsgo -p tsconfig.build.json --watch --preserveWatchOutput",
+		"build": "tsc -p tsconfig.build.json",
+		"dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+		"dev:tsc": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
 		"test": "vitest --run --passWithNoTests",
 		"prepublishOnly": "npm run clean && npm run build"
 	},
@@ -76,6 +76,7 @@
 		"@aws-sdk/client-bedrock-runtime": "^3.983.0",
 		"@google/genai": "^1.40.0",
 		"@mistralai/mistralai": "1.14.1",
+		"@smithy/node-http-handler": "^4.6.1",
 		"@sinclair/typebox": "^0.34.41",
 		"ajv": "^8.17.1",
 		"ajv-formats": "^3.0.1",

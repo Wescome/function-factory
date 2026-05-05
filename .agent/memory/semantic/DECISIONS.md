@@ -1035,3 +1035,39 @@ benefit from on-demand Worker spawning.
 **Canonical spec amendment:** PHASE5-V4-HYBRID-AGENTS-SANDBOX.md v4.2.
 
 **Status:** Active.
+
+## 2026-05-05: Worker consumers need narrowed package boundaries for GDK substrate
+
+**Decision:** Cloudflare Worker packages must not be forced to typecheck the
+entire `@weops/gdk-ai` and `@weops/gdk-agent` source trees as a side effect
+of importing the GDK substrate. The Factory may continue to use source exports
+for Factory-owned bootstrap packages, but Node/provider-heavy substrate
+packages consumed by Workers need a narrowed package boundary: built
+declarations when available, or an explicit Worker-local type boundary for
+the subset of GDK APIs the Worker actually consumes.
+
+**Rationale:** `@factory/ff-pipeline` imports a small GDK surface for agent
+loops, model metadata, message types, event-stream helpers, and TypeBox
+schema helpers. Its package typecheck currently traverses raw GDK source
+because the GDK packages expose `src/*.ts` entrypoints. That turns a Worker
+entrypoint check into a full strict-mode compile of every GDK provider,
+including Node-oriented providers and optional OAuth/tooling paths unrelated
+to `ff-pipeline`. The resulting failures obscure Worker regressions and
+couple Cloudflare deploy readiness to substrate internals outside the
+Worker's behavioral surface.
+
+This decision does not reject source exports globally. Bootstrap Factory
+packages still commonly expose `src/index.ts`, and that remains acceptable
+while they are small, Factory-owned, and compiled under the same strictness
+discipline. GDK is different: it is adopted substrate with broad provider
+coverage, package-local tooling, and Node-specific optional provider code.
+Workers should consume a stable GDK boundary, not every implementation file.
+
+**Consequences:** Immediate remediation should avoid broad GDK source
+rewrite. First fix narrow hygiene issues (`@factory/artifact-validator`
+exact-optional bug, missing direct dependencies, broken package scripts), then
+isolate Worker typechecking from irrelevant GDK internals. A later GDK
+hardening pass may make the full GDK source strict-clean, but that is not a
+precondition for `ff-pipeline` diagnostic-route or pipeline deploy work.
+
+**Status:** Active.

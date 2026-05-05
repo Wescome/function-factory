@@ -11,12 +11,13 @@
   ],
   "scripts": {
     "clean": "shx rm -rf dist",
-    "build": "tsgo -p tsconfig.build.json",
-    "dev": "tsgo -p tsconfig.build.json --watch --preserveWatchOutput",
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
     "test": "vitest --run --passWithNoTests",
     "prepublishOnly": "npm run clean && npm run build"
   },
   "dependencies": {
+    "@sinclair/typebox": "^0.34.41",
     "@weops/gdk-ai": "workspace:*"
   },
   "keywords": [

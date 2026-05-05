@@ -263,6 +263,9 @@ importers:
 
   packages/gdk-agent:
     dependencies:
+      '@sinclair/typebox':
+        specifier: ^0.34.41
+        version: 0.34.49
       '@weops/gdk-ai':
         specifier: workspace:*
         version: link:../gdk-ai
@@ -294,6 +297,9 @@ importers:
       '@sinclair/typebox':
         specifier: ^0.34.41
         version: 0.34.49
+      '@smithy/node-http-handler':
+        specifier: ^4.6.1
+        version: 4.6.1
       ajv:
         specifier: ^8.17.1
         version: 8.20.0

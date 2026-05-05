@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@weops/gdk-ai": ["src/type-boundaries/gdk-ai.ts"],
+      "@weops/gdk-agent": ["src/type-boundaries/gdk-agent.ts"]
+    }
+  }
+}
