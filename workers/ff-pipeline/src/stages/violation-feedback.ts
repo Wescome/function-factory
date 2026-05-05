@@ -21,6 +21,8 @@ import type { IntentAnchor } from './crystallize-intent'
 export interface ViolationFeedback {
   message: string
   violatedClaims: string[]
+  avoidanceClaims?: string[]
+  avoidanceProbes?: string[]
   instruction: string
 }
 
@@ -48,31 +50,49 @@ export function buildViolationFeedback(
 
   const anchorMap = new Map(anchors.map(a => [a.id, a]))
 
-  // Filter to block-severity only (C2)
-  const blockClaims: string[] = []
+  // Filter to block-severity only (C2), preserving anchor polarity.
+  // violation_signal=no means a required concept was absent.
+  // violation_signal=yes means a prohibited concept was present.
+  const requiredClaims: string[] = []
+  const avoidanceClaims: string[] = []
+  const avoidanceProbes: string[] = []
   for (const id of violatedIds) {
     const anchor = anchorMap.get(id)
     if (anchor && anchor.severity === 'block') {
-      blockClaims.push(anchor.claim)
+      if (anchor.violation_signal === 'yes') {
+        avoidanceClaims.push(anchor.claim)
+        avoidanceProbes.push(anchor.probe_question)
+      } else {
+        requiredClaims.push(anchor.claim)
+      }
     }
-    if (blockClaims.length >= MAX_CLAIMS) break
+    if (requiredClaims.length + avoidanceClaims.length >= MAX_CLAIMS) break
   }
 
-  if (blockClaims.length === 0) return undefined
+  if (requiredClaims.length === 0 && avoidanceClaims.length === 0) return undefined
 
   // Build the feedback
   const feedback: ViolationFeedback = {
-    message: 'Your previous decomposition missed key concepts from the signal.',
-    violatedClaims: blockClaims,
-    instruction:
-      'Ensure your atoms explicitly address these concepts in their title, description, or verifies field.',
+    message: 'Your previous decomposition violated block-severity intent anchors.',
+    violatedClaims: requiredClaims,
+    ...(avoidanceClaims.length > 0 ? { avoidanceClaims, avoidanceProbes } : {}),
+    instruction: [
+      requiredClaims.length > 0
+        ? 'Required claims: explicitly address them in at least one atom title, description, or verifies field.'
+        : undefined,
+      avoidanceClaims.length > 0
+        ? 'Avoidance claims: satisfied by absence; remove atom wording, target files, and planned work that would make the avoidance probe answer yes. Do not merely repeat the avoidance claim.'
+        : undefined,
+    ].filter(Boolean).join(' '),
   }
 
   // Check serialized token count; truncate to 3 if exceeded (C2)
   const serialized = JSON.stringify(feedback)
   const estimatedTokens = Math.ceil(serialized.length / CHARS_PER_TOKEN)
   if (estimatedTokens > MAX_TOKENS) {
-    feedback.violatedClaims = blockClaims.slice(0, TRUNCATED_CLAIMS)
+    feedback.violatedClaims = requiredClaims.slice(0, TRUNCATED_CLAIMS)
+    if (feedback.avoidanceClaims) feedback.avoidanceClaims = feedback.avoidanceClaims.slice(0, TRUNCATED_CLAIMS)
+    if (feedback.avoidanceProbes) feedback.avoidanceProbes = feedback.avoidanceProbes.slice(0, TRUNCATED_CLAIMS)
   }
 
   return feedback

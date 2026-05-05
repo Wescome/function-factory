@@ -18,13 +18,18 @@ import type { IntentAnchor } from './crystallize-intent'
 
 // ── Helpers ────────────────────────────────────────────────────
 
-function makeAnchor(id: string, severity: 'block' | 'warn' | 'log', claim: string): IntentAnchor {
+function makeAnchor(
+  id: string,
+  severity: 'block' | 'warn' | 'log',
+  claim: string,
+  violationSignal: 'yes' | 'no' = 'no',
+): IntentAnchor {
   return {
     id,
     signal_id: 'SIG-TEST',
     claim,
     probe_question: `Does output address: ${claim}?`,
-    violation_signal: 'no',
+    violation_signal: violationSignal,
     severity,
     times_probed: 0,
     times_violated: 0,
@@ -124,5 +129,22 @@ describe('buildViolationFeedback', () => {
     expect(typeof feedback!.instruction).toBe('string')
     expect(feedback!.message.length).toBeGreaterThan(0)
     expect(feedback!.instruction.length).toBeGreaterThan(0)
+  })
+
+  it('separates avoidance anchors from required missing-concept anchors', () => {
+    const anchors: IntentAnchor[] = [
+      makeAnchor('IA-01', 'block', 'Signal must define LifecycleState'),
+      makeAnchor('IA-02', 'block', 'No code files created', 'yes'),
+    ]
+
+    const feedback = buildViolationFeedback(['IA-01', 'IA-02'], anchors)
+
+    expect(feedback).toBeDefined()
+    expect(feedback!.violatedClaims).toEqual(['Signal must define LifecycleState'])
+    expect(feedback!.avoidanceClaims).toEqual(['No code files created'])
+    expect(feedback!.avoidanceProbes).toEqual(['Does output address: No code files created?'])
+    expect(feedback!.instruction).toContain('Required claims')
+    expect(feedback!.instruction).toContain('Avoidance claims')
+    expect(feedback!.instruction).toContain('satisfied by absence')
   })
 })

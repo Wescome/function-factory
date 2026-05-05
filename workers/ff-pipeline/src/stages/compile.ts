@@ -42,8 +42,9 @@ Each atom MUST carry:
 
 Prefer fewer atoms. One atom per file is ideal. Each atom should make ONE focused change.
 
-If violationFeedback is provided, your previous attempt missed key concepts.
-Address each violated claim in at least one atom's title or verifies field.
+If violationFeedback is provided, your previous attempt violated intent anchors.
+Follow violationFeedback.instruction exactly. Required claims must be addressed in atom title, description, or verifies.
+Avoidance claims must be satisfied by absence: do not include atom wording, target files, or planned work that would make an avoidance probe answer yes.
 
 Output ONLY the new atoms — do NOT repeat the PRD or any other state. Output JSON: { "atoms": [{ "id": "atom-001", "type": "implementation", "title": "...", "description": "...", "verifies": "...", "targetFiles": ["path/to/file.ts"] }] }`,
 
