@@ -417,6 +417,97 @@ export default {
       }
     }
 
+    // ── Diagnostic: scan known Factory PRs and enqueue outcome observations ──
+    if (url.pathname === '/debug/pr-outcome-scan' && request.method === 'POST') {
+      try {
+        const body = await request.json().catch(() => ({})) as { limit?: number }
+        const limit = Number.isInteger(body.limit) && body.limit! > 0
+          ? Math.min(body.limit!, 50)
+          : 10
+
+        if (!env.FEEDBACK_QUEUE) {
+          return new Response(JSON.stringify({
+            error: 'FEEDBACK_QUEUE binding unavailable',
+          }), { status: 503, headers: { 'Content-Type': 'application/json' } })
+        }
+
+        const { createClientFromEnv } = await import('@factory/arango-client')
+        const db = createClientFromEnv(env)
+        const rows = await db.query<Record<string, unknown>>(
+          `FOR s IN specs_signals
+             FILTER s.source == 'factory:pr-outcome'
+             FILTER LIKE(s.subtype, 'synthesis:pr-%')
+             FILTER s.raw.pr.number != null
+             FILTER s.raw.pr.state == 'OPEN'
+             FILTER s.raw.pr.merged != true
+             FILTER s.raw.pipelineId != null
+             FILTER s.raw.proposalId != null
+             FILTER s.raw.workGraphId != null
+             SORT s.createdAt DESC
+             COLLECT pullNumber = s.raw.pr.number INTO grouped
+             LET latest = FIRST(grouped[*].s)
+             LIMIT @limit
+             RETURN latest`,
+          { limit },
+        )
+
+        const candidates: Array<{ pullNumber: number; workGraphId: string; lastSignalKey: string }> = []
+        const skipped: Array<{ lastSignalKey: string; reason: string }> = []
+        for (const row of rows) {
+          const raw = row.raw as Record<string, unknown> | undefined
+          const pr = raw?.pr as Record<string, unknown> | undefined
+          const sourceRefs = Array.isArray(row.sourceRefs) ? row.sourceRefs.filter((ref): ref is string => typeof ref === 'string') : []
+          const pullNumber = pr?.number
+          const pipelineId = raw?.pipelineId
+          const proposalId = raw?.proposalId
+          const workGraphId = raw?.workGraphId
+          const lastSignalKey = typeof row._key === 'string' ? row._key : 'unknown'
+
+          if (
+            typeof pullNumber !== 'number'
+            || typeof pipelineId !== 'string'
+            || typeof proposalId !== 'string'
+            || typeof workGraphId !== 'string'
+          ) {
+            skipped.push({ lastSignalKey, reason: 'missing required lineage or pullNumber' })
+            continue
+          }
+
+          const idFromRefs = (prefix: string) => sourceRefs
+            .find(ref => ref.startsWith(`${prefix}:`))
+            ?.slice(prefix.length + 1)
+
+          const lineage = {
+            pipelineId,
+            ...(idFromRefs('SIG') ? { signalId: idFromRefs('SIG') } : {}),
+            ...(idFromRefs('PRS') ? { pressureId: idFromRefs('PRS') } : {}),
+            ...(idFromRefs('BC') ? { capabilityId: idFromRefs('BC') } : {}),
+            proposalId,
+            workGraphId,
+          }
+
+          await env.FEEDBACK_QUEUE.send({
+            type: 'pr-outcome',
+            pullNumber,
+            lineage,
+          })
+          candidates.push({ pullNumber, workGraphId, lastSignalKey })
+        }
+
+        return new Response(JSON.stringify({
+          accepted: true,
+          scanned: rows.length,
+          enqueued: candidates.length,
+          candidates,
+          skipped,
+        }, null, 2), { status: 202, headers: { 'Content-Type': 'application/json' } })
+      } catch (err) {
+        return new Response(JSON.stringify({
+          error: err instanceof Error ? err.message : String(err),
+        }), { status: 500, headers: { 'Content-Type': 'application/json' } })
+      }
+    }
+
     return new Response('ff-pipeline: POST /trigger-synthesis, POST /synthesis-callback, or use Queue consumer', { status: 404 })
   },
 

@@ -322,4 +322,108 @@ describe('ff-pipeline diagnostic routes', () => {
       { pullNumber: 71, workGraphId: 'WG-MOTE4M1R-G7I0' },
     )
   })
+
+  it('POST /debug/pr-outcome-scan enqueues observations for known Factory PRs', async () => {
+    const { default: worker } = await import('./index')
+    const send = vi.fn(async () => undefined)
+    mockQuery.mockResolvedValueOnce([
+      {
+        _key: 'SIG-MOTILTZ0-6DGK',
+        sourceRefs: [
+          'SIG:SIG-MOTDWPYM-LTW5',
+          'PRS:PRS-MOTDWQ0T-S55Y',
+          'BC:BC-MOTDWSVY-PQOO',
+          'FN:FP-MOTDWVR2-W7UN',
+          'WG:WG-MOTE4M1R-G7I0',
+        ],
+        raw: {
+          pipelineId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
+          proposalId: 'FP-MOTDWVR2-W7UN',
+          workGraphId: 'WG-MOTE4M1R-G7I0',
+          pr: {
+            number: 71,
+            state: 'OPEN',
+            merged: false,
+            headSha: 'ff6187ac67c945a4fe007f666f32d337ecafcfd8',
+          },
+        },
+      },
+    ])
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/debug/pr-outcome-scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ limit: 10 }),
+      }),
+      createEnv({ FEEDBACK_QUEUE: { send } }) as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(202)
+    expect(await jsonBody(response)).toMatchObject({
+      accepted: true,
+      scanned: 1,
+      enqueued: 1,
+      candidates: [
+        {
+          pullNumber: 71,
+          workGraphId: 'WG-MOTE4M1R-G7I0',
+          lastSignalKey: 'SIG-MOTILTZ0-6DGK',
+        },
+      ],
+    })
+    expect(send).toHaveBeenCalledWith({
+      type: 'pr-outcome',
+      pullNumber: 71,
+      lineage: {
+        pipelineId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
+        signalId: 'SIG-MOTDWPYM-LTW5',
+        pressureId: 'PRS-MOTDWQ0T-S55Y',
+        capabilityId: 'BC-MOTDWSVY-PQOO',
+        proposalId: 'FP-MOTDWVR2-W7UN',
+        workGraphId: 'WG-MOTE4M1R-G7I0',
+      },
+    })
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.stringContaining("factory:pr-outcome"),
+      { limit: 10 },
+    )
+  })
+
+  it('POST /debug/pr-outcome-scan skips malformed persisted candidates', async () => {
+    const { default: worker } = await import('./index')
+    const send = vi.fn(async () => undefined)
+    mockQuery.mockResolvedValueOnce([
+      {
+        _key: 'SIG-BAD',
+        sourceRefs: [],
+        raw: {
+          pipelineId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
+          proposalId: 'FP-MOTDWVR2-W7UN',
+          pr: { number: 71 },
+        },
+      },
+    ])
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/debug/pr-outcome-scan', { method: 'POST' }),
+      createEnv({ FEEDBACK_QUEUE: { send } }) as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(202)
+    expect(await jsonBody(response)).toMatchObject({
+      accepted: true,
+      scanned: 1,
+      enqueued: 0,
+      skipped: [
+        {
+          lastSignalKey: 'SIG-BAD',
+          reason: 'missing required lineage or pullNumber',
+        },
+      ],
+    })
+    expect(send).not.toHaveBeenCalled()
+  })
 })

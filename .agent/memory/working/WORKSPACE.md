@@ -4,7 +4,7 @@
 Active task: Dogfood loop - guarded synthesis artifact application.
 
 ## Last update
-2026-05-06T03:47:14Z
+2026-05-06T04:00:30Z
 
 ## Current actions
 
@@ -172,6 +172,25 @@ Active task: Dogfood loop - guarded synthesis artifact application.
   - `pnpm --filter @factory/ff-pipeline test -- src/diagnostic-routes.test.ts src/pr-outcome-queue.test.ts src/stages/pr-outcome-signal.test.ts`: pass, 22 tests
   - `pnpm --filter @factory/ff-pipeline typecheck`: pass
   - `pnpm --filter @factory/ff-pipeline test`: pass, 64 files / 954 tests
+- Added PR outcome observer scan:
+  - added `/debug/pr-outcome-scan` POST route
+  - scans persisted `factory:pr-outcome` signals for known open Factory PRs
+  - reconstructs lineage from persisted raw payload plus `sourceRefs`
+  - enqueues `feedback-signals` `type: "pr-outcome"` observations without PR-specific operator input
+  - skips malformed candidates rather than emitting partial lineage
+  - still performs no GitHub PR mutations
+- Runtime dogfooded observer scan:
+  - deployed `ff-pipeline` version `6172341e-e55d-4d24-a564-452a3d60c45f`
+  - live health after deploy: healthy, Arango true, AI binding true
+  - POST `/debug/pr-outcome-scan` with `{ "limit": 10 }`
+  - scan result: `scanned=1`, `enqueued=1`, candidate PR #71 / `WG-MOTE4M1R-G7I0`, last signal `SIG-MOTILTZ0-6DGK`
+  - readback returned existing signal `SIG-MOTILTZ0-6DGK`, confirming idempotent repeated observation of the same PR state
+- Verification completed:
+  - red test confirmed missing `/debug/pr-outcome-scan`
+  - `pnpm --filter @factory/ff-pipeline test -- src/diagnostic-routes.test.ts src/pr-outcome-queue.test.ts src/stages/pr-outcome-signal.test.ts`: pass, 24 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+  - `pnpm --filter @factory/ff-pipeline test`: pass, 64 files / 956 tests
+  - `git diff --check`: pass
 - Hardened Stage 6 graph evidence:
   - replaced graph-internal compile stub output with non-authoritative upstream compile pass-through evidence
   - replaced graph-internal Gate 1 stub output with non-authoritative upstream Gate 1 pass-through evidence
