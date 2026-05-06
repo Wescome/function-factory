@@ -1,10 +1,10 @@
 # Current Workspace
 
 ## Status
-Active task: Stage 3 Diataxis documentation grouping for Function Factory.
+Active task: Stage 4 Diataxis documentation hardening and ontology reference import for Function Factory.
 
 ## Last update
-2026-05-06T00:30:25Z
+2026-05-06T00:51:21Z
 
 ## Current actions
 
@@ -34,6 +34,30 @@ Active task: Stage 3 Diataxis documentation grouping for Function Factory.
   - moved the Strategy.Recipes dogfood how-to to `docs/how-to/STRATEGY_RECIPES_DOGFOOD.md`
   - left `docs/STRATEGY_RECIPES_DOGFOOD.md` as a compatibility stub
   - updated links in `docs/README.md` and `docs/AUTONOMOUS_FACTORY_TRANSITION.md`
+- Verification completed:
+  - `pnpm audit:docs`: pass
+  - `git diff --check`: pass
+  - `pnpm -r --if-present typecheck`: pass
+  - `pnpm -r --if-present test`: pass
+- Imported ontology self-sensing reference:
+  - copied `/Users/wes/Downloads/factory-onto-self-sense.md` to `specs/reference/ONTOLOGICAL-SELF-SENSING-2026-05-03.md`
+  - indexed it in `specs/reference/README.md`
+  - linked it from `specs/README.md` and `docs/README.md`
+  - clarified that `AGENTS.md`, `spec.md`, and `tasks.md` are portable agent-facing emission views, not replacements for the native typed Factory artifact graph
+- Verification completed after import:
+  - `pnpm audit:docs`: pass
+  - `git diff --check`: pass
+- Added Stage 4 docs hardening:
+  - added `docs/how-to/README.md`
+  - classified remaining root docs in `docs/README.md`
+  - kept `AUTONOMOUS_FACTORY_TRANSITION.md` as explanation
+  - kept terminal contract/backlog docs as reference/planning material
+  - found no additional pure how-to files to move
+  - kept all `specs/` paths unchanged
+- Tightened `pnpm audit:docs`:
+  - requires README files for Markdown-bearing `docs/` sections
+  - requires declared how-to migration compatibility stubs
+  - reports orphan docs not linked from a docs README index
 - Verification completed:
   - `pnpm audit:docs`: pass
   - `git diff --check`: pass

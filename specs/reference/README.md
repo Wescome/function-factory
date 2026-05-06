@@ -22,6 +22,7 @@ Read these first when grounding work in the architecture.
 | [`literate-canonical-reference.md`](literate-canonical-reference.md) | Canonical architecture reference | Implementation-facing reference and literate source for generated/tangled code. |
 | [`The_Function_Factory_2026-04-18_v4.md`](The_Function_Factory_2026-04-18_v4.md) | Conceptual source | Whitepaper defining the Factory, pipeline, non-negotiables, and category boundaries. |
 | [`The_Function_Factory_ConOps_2026-04-18.md`](The_Function_Factory_ConOps_2026-04-18.md) | Operational source | Concept of Operations for how the Factory is operated. |
+| [`ONTOLOGICAL-SELF-SENSING-2026-05-03.md`](ONTOLOGICAL-SELF-SENSING-2026-05-03.md) | Strategic self-assessment | Applies the Factory's ontology-sensing frame to the Factory itself; clarifies that AGENTS.md/spec.md/tasks.md should be emitted portable views, not replacements for native typed artifacts. |
 | [`ADR-003-pi-sdk-default-executor.md`](ADR-003-pi-sdk-default-executor.md) | Active per decision log; header still says proposed | Establishes Pi SDK as default Coder/Tester executor. |
 | [`FULL-PI-DEPLOYMENT-ARCHITECTURE.md`](FULL-PI-DEPLOYMENT-ARCHITECTURE.md) | Active per decision log; header still says draft | Current deployment architecture amended by ADR-003. |
 | [`SDLC-ARCHITECTURE.md`](SDLC-ARCHITECTURE.md) | Active per decision log; header still says draft | Lifecycle layer above deployment architecture. |
@@ -84,8 +85,18 @@ Repository/process ADRs are indexed separately in
 | Document | Purpose |
 | --- | --- |
 | [`CONTEXT-IS-NOT-COMPREHENSION-2026-04-24.md`](CONTEXT-IS-NOT-COMPREHENSION-2026-04-24.md) | Internal reference on limits of context injection. |
+| [`ONTOLOGICAL-SELF-SENSING-2026-05-03.md`](ONTOLOGICAL-SELF-SENSING-2026-05-03.md) | Self-application analysis comparing the Factory ontology to Software 3.0/spec-driven development, including AGENTS.md emission, vocabulary translation, model-routing reevaluation, and ontology-layer positioning. |
 | [`RESEARCH-PAPER-CLOSED-LOOP-SYNTHESIS.md`](RESEARCH-PAPER-CLOSED-LOOP-SYNTHESIS.md) | Research paper framing Function Factory as closed-loop synthesis. |
 | [`cognitive-runtime-integration-whitepaper.md`](cognitive-runtime-integration-whitepaper.md) | Companion whitepaper connecting Function Factory and layered cognitive runtime. |
+
+## Agent-Facing Markdown Views
+
+`AGENTS.md`, `spec.md`, `tasks.md`, and similar files are treated as portable
+agent-facing views that the Factory can emit from native artifacts. They do not
+replace the typed internal artifact graph (`PRS-*`, `BC-*`, `FP-*`, `PRD-*`,
+`WG-*`, `INV-*`, `CR-*`) or its `source_refs` lineage. The current strategic
+reference for this boundary is
+[`ONTOLOGICAL-SELF-SENSING-2026-05-03.md`](ONTOLOGICAL-SELF-SENSING-2026-05-03.md).
 
 ## Known Friction To Resolve Later
 

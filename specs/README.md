@@ -5,6 +5,14 @@ inputs or outputs of the Factory pipeline, not ordinary documentation. Diataxis
 helps humans navigate these files, but it does not change their artifact
 locations.
 
+Markdown files can exist in two different roles:
+
+- Native Factory references and PRDs live here when they are part of the
+  architecture/spec corpus.
+- Agent-facing files such as `AGENTS.md`, `spec.md`, or `tasks.md` are portable
+  emission targets the Factory can generate from native artifacts; they do not
+  replace the typed artifact graph.
+
 ## Ground Rule
 
 Do not reorganize Factory artifacts by tutorial/how-to/reference/explanation
@@ -18,6 +26,7 @@ explicit architecture decision and link/lineage verification.
 | --- | --- |
 | Human docs hub | [`../docs/README.md`](../docs/README.md) |
 | Architecture/reference corpus | [`reference/README.md`](reference/README.md) |
+| Agent-facing Markdown emission rationale | [`reference/ONTOLOGICAL-SELF-SENSING-2026-05-03.md`](reference/ONTOLOGICAL-SELF-SENSING-2026-05-03.md) |
 | Project overview | [`../README.md`](../README.md) |
 | Architecture map | [`../ARCHITECTURE.md`](../ARCHITECTURE.md) |
 

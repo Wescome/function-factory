@@ -15,12 +15,16 @@ const listItemPattern = /^(\s*)-\s+(.+?)\s*$/
 const ignoredDirs = new Set(['.git', 'node_modules', 'dist', 'build', '.wrangler'])
 const linkRoots = ['README.md', 'ARCHITECTURE.md', 'AGENTS.md', 'CLAUDE.md', 'GEMINI.md', 'docs', 'specs', '.agent']
 const artifactRoots = ['specs']
+const docsRoot = path.join(root, 'docs')
 const virtualCompilerPrefixes = new Set(['ATOM'])
 const externalBootstrapSignals = new Set(['SIG-EXT-1', 'SIG-FB-1', 'SIG-INF-1'])
 const knownLineageGaps = new Set([
   // Historical candidate-reliability fixture cites a second observation outcome
   // that was never materialized under specs/observations/.
   'OBS-META-ARCHITECTURE-CANDIDATE-EXECUTION-2',
+])
+const requiredMigrationStubs = new Map([
+  ['docs/STRATEGY_RECIPES_DOGFOOD.md', 'docs/how-to/STRATEGY_RECIPES_DOGFOOD.md'],
 ])
 
 const markdownFiles = linkRoots.flatMap((entry) => collectFiles(path.join(root, entry), (file) => file.endsWith('.md')))
@@ -29,10 +33,15 @@ const specFiles = artifactRoots.flatMap((entry) =>
 )
 const artifactIndex = buildArtifactIndex(specFiles)
 const linkFailures = checkMarkdownLinks(markdownFiles)
+const docsStructure = checkDocsStructure(markdownFiles)
 const lineage = checkSourceRefs(specFiles, artifactIndex)
 
 for (const failure of linkFailures) {
   console.error(`broken-link ${formatLocation(failure.file, failure.line)} -> ${failure.target}`)
+}
+
+for (const failure of docsStructure.failures) {
+  console.error(`${failure.kind} ${formatLocation(failure.file, failure.line)} -> ${failure.message}`)
 }
 
 for (const failure of lineage.failures) {
@@ -48,6 +57,9 @@ console.log(
     `virtual_refs=${lineage.virtualRefs}`,
     `external_signal_refs=${lineage.externalSignalRefs}`,
     `known_lineage_gaps=${lineage.knownGaps}`,
+    `docs_section_readmes_checked=${docsStructure.sectionReadmesChecked}`,
+    `docs_indexed_files_checked=${docsStructure.indexedFilesChecked}`,
+    `migration_stubs_checked=${docsStructure.migrationStubsChecked}`,
   ].join(' '),
 )
 
@@ -63,7 +75,7 @@ if (lineage.knownGaps > 0) {
   console.log('note: known_lineage_gaps are historical unresolved refs explicitly named in scripts/audit-docs.mjs')
 }
 
-if (linkFailures.length > 0 || lineage.failures.length > 0) {
+if (linkFailures.length > 0 || docsStructure.failures.length > 0 || lineage.failures.length > 0) {
   process.exit(1)
 }
 
@@ -135,6 +147,151 @@ function checkMarkdownLinks(files) {
   }
 
   return failures
+}
+
+function checkDocsStructure(files) {
+  const docsFiles = files.filter((file) => isInsidePath(file, docsRoot) && file.endsWith('.md'))
+  const sectionReadmes = checkDocsSectionReadmes(docsFiles)
+  const migrationStubs = checkMigrationStubs(docsFiles)
+  const indexTargets = buildDocsIndexTargets(docsFiles)
+  const indexedDocs = checkIndexedDocs(docsFiles, indexTargets, migrationStubs.stubFiles)
+
+  return {
+    failures: [...sectionReadmes.failures, ...migrationStubs.failures, ...indexedDocs.failures],
+    indexedFilesChecked: indexedDocs.checked,
+    migrationStubsChecked: migrationStubs.checked,
+    sectionReadmesChecked: sectionReadmes.checked,
+  }
+}
+
+function checkDocsSectionReadmes(docsFiles) {
+  const failures = []
+  const sectionDirs = new Set(
+    docsFiles
+      .map((file) => path.dirname(file))
+      .filter((directory) => directory !== docsRoot),
+  )
+
+  for (const directory of sectionDirs) {
+    const readme = path.join(directory, 'README.md')
+    if (!existsSync(readme)) {
+      failures.push({
+        file: directory,
+        kind: 'missing-section-readme',
+        line: 1,
+        message: 'docs directories containing Markdown must include README.md',
+      })
+    }
+  }
+
+  return { checked: sectionDirs.size, failures }
+}
+
+function checkMigrationStubs(docsFiles) {
+  const expectations = new Map(requiredMigrationStubs)
+  const howToRoot = path.join(docsRoot, 'how-to')
+
+  for (const file of docsFiles) {
+    if (path.dirname(file) !== howToRoot || path.basename(file) === 'README.md') continue
+    expectations.set(`docs/${path.basename(file)}`, relative(file))
+  }
+
+  const failures = []
+  const stubFiles = new Set()
+
+  for (const [stubRel, targetRel] of expectations) {
+    const stubFile = path.join(root, stubRel)
+    const targetFile = path.join(root, targetRel)
+    stubFiles.add(stubRel)
+
+    if (!existsSync(stubFile)) {
+      failures.push({
+        file: stubFile,
+        kind: 'missing-migration-stub',
+        line: 1,
+        message: `expected compatibility stub for ${targetRel}`,
+      })
+      continue
+    }
+
+    if (!existsSync(targetFile)) {
+      failures.push({
+        file: stubFile,
+        kind: 'missing-migration-target',
+        line: 1,
+        message: `expected moved document ${targetRel}`,
+      })
+      continue
+    }
+
+    if (!isMigrationStub(stubFile, targetFile)) {
+      failures.push({
+        file: stubFile,
+        kind: 'invalid-migration-stub',
+        line: 1,
+        message: `stub must say the document moved and link to ${targetRel}`,
+      })
+    }
+  }
+
+  return { checked: expectations.size, failures, stubFiles }
+}
+
+function buildDocsIndexTargets(docsFiles) {
+  const targets = new Set()
+  const indexFiles = docsFiles.filter((file) => path.basename(file) === 'README.md')
+
+  for (const file of indexFiles) {
+    for (const target of markdownTargetsForFile(file)) {
+      if (isExternalLink(target)) continue
+
+      const targetPath = normalizeMarkdownTarget(target)
+      if (!targetPath) continue
+
+      const resolved = path.resolve(path.dirname(file), targetPath)
+      if (isInsidePath(resolved, docsRoot) && resolved.endsWith('.md')) {
+        targets.add(relative(resolved))
+      }
+    }
+  }
+
+  return targets
+}
+
+function checkIndexedDocs(docsFiles, indexTargets, migrationStubs) {
+  const failures = []
+  let checked = 0
+
+  for (const file of docsFiles) {
+    if (path.basename(file) === 'README.md') continue
+
+    const rel = relative(file)
+    if (migrationStubs.has(rel)) continue
+
+    checked += 1
+    if (!indexTargets.has(rel)) {
+      failures.push({
+        file,
+        kind: 'orphan-doc',
+        line: 1,
+        message: 'document must be linked from docs/README.md or a docs section README',
+      })
+    }
+  }
+
+  return { checked, failures }
+}
+
+function isMigrationStub(stubFile, targetFile) {
+  const content = readFileSync(stubFile, 'utf8')
+  const announcesMove = /\bmoved\b/i.test(content) && /compatibility stub/i.test(content)
+  if (!announcesMove) return false
+
+  return markdownTargetsForFile(stubFile).some((target) => {
+    const targetPath = normalizeMarkdownTarget(target)
+    if (!targetPath) return false
+    return path.resolve(path.dirname(stubFile), targetPath) === targetFile
+  })
 }
 
 function checkSourceRefs(files, artifactIndex) {
@@ -228,6 +385,21 @@ function isExternalLink(target) {
   return /^(https?:|mailto:|tel:|ftp:|data:|#)/i.test(target)
 }
 
+function markdownTargetsForFile(file) {
+  const targets = []
+  const lines = readFileSync(file, 'utf8').split('\n')
+
+  for (const line of lines) {
+    let match
+    const stripped = stripInlineCode(line)
+    while ((match = markdownLinkPattern.exec(stripped)) !== null) {
+      targets.push(match[2].trim())
+    }
+  }
+
+  return targets
+}
+
 function stripInlineCode(value) {
   return value.replace(/`[^`]*`/g, '')
 }
@@ -238,6 +410,11 @@ function indentation(value) {
 
 function relative(file) {
   return path.relative(root, file)
+}
+
+function isInsidePath(file, directory) {
+  const rel = path.relative(directory, file)
+  return rel.length > 0 && !rel.startsWith('..') && !path.isAbsolute(rel)
 }
 
 function formatLocation(file, line) {
