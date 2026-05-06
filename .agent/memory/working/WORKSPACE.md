@@ -4,7 +4,7 @@
 Active task: Dogfood loop - guarded synthesis artifact application.
 
 ## Last update
-2026-05-06T04:00:30Z
+2026-05-06T20:48:04Z
 
 ## Current actions
 
@@ -225,6 +225,21 @@ Active task: Dogfood loop - guarded synthesis artifact application.
   - `git diff --check`: pass
   - `pnpm -r --if-present typecheck`: pass
   - `pnpm -r --if-present test`: pass
+- Added minimal Stage 8 Merge-Readiness Pack boundary:
+  - added `workers/ff-pipeline/src/merge-readiness-pack.ts`
+  - added `workers/ff-pipeline/src/merge-readiness-pack.test.ts`
+  - exported `buildMergeReadinessPack` from `workers/ff-pipeline/src/index.ts`
+  - builder consumes a synthesis materialization audit plus a persisted `factory:pr-outcome` signal
+  - emits a local `MRP-*` evidence bundle with proposal/workgraph/pipeline lineage, materialized file hashes, atom results, local verification, PR evidence, CI evidence, five readiness criteria, and `ready | blocked` verdict
+  - fails closed on missing required lineage or audit/PR outcome lineage disagreement
+  - returns `blocked` rather than `ready` when observed PR CI is failed or pending
+- Verification completed:
+  - red test confirmed missing `merge-readiness-pack` module
+  - `pnpm --filter @factory/ff-pipeline test -- src/merge-readiness-pack.test.ts`: pass, 4 tests
+  - `pnpm --filter @factory/ff-pipeline test -- src/merge-readiness-pack.test.ts src/synthesis-pr-draft.test.ts src/stages/pr-outcome-signal.test.ts`: pass, 21 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+  - `git diff --check`: pass
+  - `pnpm --filter @factory/ff-pipeline test`: pass, 65 files / 960 tests
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
