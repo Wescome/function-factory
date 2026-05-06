@@ -1,10 +1,10 @@
 # Current Workspace
 
 ## Status
-Active task: Stage 6 synthesis artifact materialization complete.
+Active task: Stage 6 synthesis artifact egress guard complete.
 
 ## Last update
-2026-05-06T01:52:57Z
+2026-05-06T02:42:26Z
 
 ## Current actions
 
@@ -84,6 +84,17 @@ Active task: Stage 6 synthesis artifact materialization complete.
   - `pnpm --filter @factory/ff-pipeline test -- src/runtime-verification.test.ts`: pass, 14 tests
   - `pnpm --filter @factory/ff-pipeline typecheck`: pass
   - `pnpm --filter @factory/ff-pipeline test`: pass, 60 files / 915 tests
+- Added synthesis artifact egress guard:
+  - added `workers/ff-pipeline/src/synthesis-artifact-egress.ts`
+  - added `workers/ff-pipeline/src/synthesis-artifact-egress.test.ts`
+  - extracts `codeArtifact.files[]` from pipeline result atom outputs without writing to disk
+  - validates repo-relative paths, rejects absolute paths, parent traversal, `.git`, `node_modules`, env files, secret-like paths, invalid actions, and missing create/modify content
+  - tests use the `WG-MOTE4M1R-G7I0` result shape and multi-atom ordering
+- Verification completed after egress guard:
+  - red test confirmed missing egress module
+  - `pnpm --filter @factory/ff-pipeline test -- src/synthesis-artifact-egress.test.ts`: pass, 13 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+  - `pnpm --filter @factory/ff-pipeline test`: pass, 61 files / 928 tests
 - Hardened Stage 6 graph evidence:
   - replaced graph-internal compile stub output with non-authoritative upstream compile pass-through evidence
   - replaced graph-internal Gate 1 stub output with non-authoritative upstream Gate 1 pass-through evidence
