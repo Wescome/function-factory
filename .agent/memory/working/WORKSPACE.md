@@ -109,6 +109,16 @@ Active task: Dogfood loop - guarded synthesis artifact application.
   - `.agent/memory/episodic/synthesis-materialization-WG-MOTE4M1R-G7I0.json`
   - captures pipeline `b1b51f73-416d-4d87-90a5-9ccaa12bec76`, signal/pressure/capability/proposal/WorkGraph IDs, Gate 1 pass, atom pass, file paths, and SHA-256 hashes
   - audit is retrospective because the artifact was materialized one slice before the guarded apply boundary existed
+- Added Stage 8 PR draft boundary:
+  - added `workers/ff-pipeline/src/synthesis-pr-draft.ts`
+  - added `workers/ff-pipeline/src/synthesis-pr-draft.test.ts`
+  - consumes the materialization audit shape and produces a draft PR title, branch, base branch, body, and ordered source refs
+  - fails closed unless runtime status is `synthesis-passed`, Gate 1 passed, all atoms passed, and at least one materialized file exists
+- Verification completed:
+  - red test confirmed missing PR draft module
+  - `pnpm --filter @factory/ff-pipeline test -- src/synthesis-pr-draft.test.ts`: pass, 6 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+  - `pnpm --filter @factory/ff-pipeline test`: pass, 62 files / 937 tests
 - Hardened Stage 6 graph evidence:
   - replaced graph-internal compile stub output with non-authoritative upstream compile pass-through evidence
   - replaced graph-internal Gate 1 stub output with non-authoritative upstream Gate 1 pass-through evidence
