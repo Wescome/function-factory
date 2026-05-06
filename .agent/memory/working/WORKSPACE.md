@@ -4,10 +4,23 @@
 Active task: Dogfood loop - guarded synthesis artifact application.
 
 ## Last update
-2026-05-06T23:35:32Z
+2026-05-06T23:38:48Z
 
 ## Current actions
 
+- Runtime dogfooded canonical MRP diagnostic:
+  - deployed `ff-pipeline` version `82233e0c-f83d-42c1-902e-6adfa4571bd5`
+  - live health after deploy: healthy, Arango true, AI binding true
+  - PR #71 latest head: `6a51cabd5e3f162da09137589d7d08827053a77d`
+  - GitHub checks on latest head: `Test`, `Typecheck`, and `Factory PR Gate` passed
+  - POST `/debug/pr-outcome` for PR #71 / `WG-MOTE4M1R-G7I0` accepted
+  - GET `/debug/pr-outcome` returned fresh signal `SIG-MOUP7CDQ-ZTJX` with description `Factory PR #71 passed all observed CI checks at head 6a51cab`
+  - POST `/debug/mrp` with `canonicalEvidence` and `prOutcomeSignalKey: SIG-MOUP7CDQ-ZTJX` refreshed `MRP-MOTE4M1R-G7I0-71`
+  - runtime response returned canonical MRP:
+    - `functionId: FN-MOTDWVR2-W7UN`
+    - `verdict: merge-ready`
+    - `ciEvidence.commitSha: 6a51cabd5e3f162da09137589d7d08827053a77d`
+    - source refs include `SIG-MOUP7CDQ-ZTJX`
 - Active slice: `/debug/mrp` can return canonical MRP validation when explicit canonical evidence is supplied.
 - Added optional `canonicalEvidence` to the diagnostic MRP POST route:
   - persistence remains the existing runtime MRP blob
