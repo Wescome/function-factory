@@ -4,7 +4,7 @@
 Active task: Dogfood loop - guarded synthesis artifact application.
 
 ## Last update
-2026-05-06T03:09:14Z
+2026-05-06T03:33:22Z
 
 ## Current actions
 
@@ -133,6 +133,22 @@ Active task: Dogfood loop - guarded synthesis artifact application.
   - `Test`: pass
   - `Typecheck`: pass
   - `Factory PR Gate`: pass
+- Added PR outcome signal milestone:
+  - added `workers/ff-pipeline/src/stages/pr-outcome-signal.ts`
+  - added `workers/ff-pipeline/src/stages/pr-outcome-signal.test.ts`
+  - added `workers/ff-pipeline/src/pr-outcome-queue.test.ts`
+  - exports PR outcome normalization/signal helpers from `workers/ff-pipeline/src/index.ts`
+  - `feedback-signals` queue now handles `type: "pr-outcome"` messages
+  - queue handler accepts either a full observed PR outcome snapshot or `{ pullNumber, lineage }` and fetches PR/check/review/requested-reviewer state from GitHub using `GITHUB_TOKEN`
+  - emits observational, non-destructive internal signals for `synthesis:pr-ci-passed`, `synthesis:pr-ci-failed`, `synthesis:pr-approved`, `synthesis:pr-review-requested`, `synthesis:pr-changes-requested`, `synthesis:pr-merged`, and `synthesis:pr-closed`
+  - all emitted PR outcome signals carry pipeline ID, proposal ID, WorkGraph ID, PR number/URL/head SHA, normalized PR/CI/review state, checks, reviews, requested reviewers, and source refs
+  - fixed `ingestSignal` to persist `raw` payloads so feedback lineage survives storage
+- Verification completed:
+  - red test confirmed missing PR outcome module
+  - `pnpm --filter @factory/ff-pipeline test -- src/stages/pr-outcome-signal.test.ts src/pr-outcome-queue.test.ts`: pass, 14 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+  - `pnpm --filter @factory/ff-pipeline test`: pass, 64 files / 951 tests
+  - `git diff --check`: pass
 - Hardened Stage 6 graph evidence:
   - replaced graph-internal compile stub output with non-authoritative upstream compile pass-through evidence
   - replaced graph-internal Gate 1 stub output with non-authoritative upstream Gate 1 pass-through evidence

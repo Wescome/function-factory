@@ -7,6 +7,7 @@ export { Sandbox } from '@cloudflare/sandbox'
 export { ingestSignal } from './stages/ingest-signal'
 export { generateFeedbackSignals } from './stages/generate-feedback'
 export { generatePR } from './stages/generate-pr'
+export { buildPROutcomeSignals, ingestPROutcomeSignals, normalizePROutcome } from './stages/pr-outcome-signal'
 export { synthesizePressure } from './stages/synthesize-pressure'
 export { mapCapability } from './stages/map-capability'
 export { proposeFunction } from './stages/propose-function'
@@ -347,6 +348,50 @@ export default {
           const errorMessage = err instanceof Error ? err.message : String(err)
           console.error(`[Governor] Cycle failed: ${errorMessage}`)
           msg.ack() // Don't retry — next cron will handle it
+        }
+        continue
+      }
+
+      // ── feedback-signals queue: Factory PR outcome observations ──
+      if (batch.queue === 'feedback-signals' && (msg.body as any).type === 'pr-outcome') {
+        try {
+          const { createClientFromEnv } = await import('@factory/arango-client')
+          const { validateArtifact } = await import('@factory/artifact-validator')
+          const { fetchPROutcomeFromGitHub, ingestPROutcomeSignals } = await import('./stages/pr-outcome-signal.js')
+
+          const db = createClientFromEnv(env)
+          db.setValidator(validateArtifact)
+
+          const body = msg.body as {
+            outcome?: import('./stages/pr-outcome-signal').PROutcomeInput
+            pullNumber?: number
+            lineage?: import('./stages/pr-outcome-signal').PROutcomeLineage
+          }
+          const outcome = body.outcome ?? await (async () => {
+            if (!body.pullNumber || !body.lineage || !env.GITHUB_TOKEN) {
+              throw new Error('Missing pr-outcome payload')
+            }
+            return fetchPROutcomeFromGitHub({
+              githubToken: env.GITHUB_TOKEN,
+              repoOwner: 'Wescome',
+              repoName: 'function-factory',
+              pullNumber: body.pullNumber,
+              lineage: body.lineage,
+            })
+          })()
+
+          const records = await ingestPROutcomeSignals(outcome, db as never)
+          console.log(`[PR Outcome] Ingested ${records.length} signal(s) for PR #${outcome.pullRequest.number}`)
+          msg.ack()
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : String(err)
+          console.error(`[PR Outcome] processing failed: ${errorMessage}`)
+          if (msg.attempts >= 3) {
+            console.error(`[PR Outcome] exhausted retries`)
+            msg.ack()
+          } else {
+            msg.retry()
+          }
         }
         continue
       }
