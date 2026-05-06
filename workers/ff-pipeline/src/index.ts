@@ -509,6 +509,97 @@ export default {
       }
     }
 
+    // ── Diagnostic: assemble and persist Merge-Readiness Pack evidence ──
+    if (url.pathname === '/debug/mrp' && request.method === 'POST') {
+      try {
+        const body = await request.json() as {
+          audit?: unknown
+          prOutcomeSignal?: unknown
+          prOutcomeSignalKey?: string
+          createdAt?: string
+        }
+
+        if (!body.audit) {
+          return new Response(JSON.stringify({
+            error: 'Missing required field: audit',
+          }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+        }
+        if (!body.prOutcomeSignal && !body.prOutcomeSignalKey) {
+          return new Response(JSON.stringify({
+            error: 'Missing required field: prOutcomeSignal or prOutcomeSignalKey',
+          }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+        }
+
+        const { createClientFromEnv } = await import('@factory/arango-client')
+        const { buildMergeReadinessPack, ingestMergeReadinessPack } = await import('./merge-readiness-pack.js')
+        const db = createClientFromEnv(env)
+        const prOutcomeSignal = body.prOutcomeSignal ?? await db.queryOne<Record<string, unknown>>(
+          `FOR s IN specs_signals
+             FILTER s._key == @key
+             FILTER s.source == 'factory:pr-outcome'
+             LIMIT 1
+             RETURN s`,
+          { key: body.prOutcomeSignalKey },
+        )
+
+        if (!prOutcomeSignal) {
+          return new Response(JSON.stringify({
+            error: `PR outcome signal not found: ${body.prOutcomeSignalKey}`,
+          }), { status: 404, headers: { 'Content-Type': 'application/json' } })
+        }
+
+        const pack = buildMergeReadinessPack({
+          audit: body.audit as import('./synthesis-pr-draft').SynthesisMaterializationAudit,
+          prOutcomeSignal: prOutcomeSignal as import('./merge-readiness-pack').PROutcomeSignalRecord,
+          ...(body.createdAt ? { createdAt: body.createdAt } : {}),
+        })
+        const persisted = await ingestMergeReadinessPack(pack, db)
+
+        return new Response(JSON.stringify({
+          persisted: true,
+          id: pack.id,
+          readinessVerdict: pack.readinessVerdict,
+          verdict: (persisted as { verdict?: unknown }).verdict,
+          pack: persisted,
+        }, null, 2), { status: 201, headers: { 'Content-Type': 'application/json' } })
+      } catch (err) {
+        return new Response(JSON.stringify({
+          error: err instanceof Error ? err.message : String(err),
+        }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+      }
+    }
+
+    // ── Diagnostic: read persisted Merge-Readiness Pack evidence ──
+    if (url.pathname === '/debug/mrp' && request.method === 'GET') {
+      try {
+        const id = url.searchParams.get('id') ?? ''
+        if (!id) {
+          return new Response(JSON.stringify({
+            error: 'Missing required query param: id',
+          }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+        }
+
+        const { createClientFromEnv } = await import('@factory/arango-client')
+        const db = createClientFromEnv(env)
+        const pack = await db.queryOne<Record<string, unknown>>(
+          `FOR mrp IN merge_readiness_packs
+             FILTER mrp.id == @id
+             LIMIT 1
+             RETURN mrp`,
+          { id },
+        )
+
+        return new Response(JSON.stringify({
+          found: pack !== null,
+          pack,
+        }, null, 2), { headers: { 'Content-Type': 'application/json' } })
+      } catch (err) {
+        return new Response(JSON.stringify({
+          error: err instanceof Error ? err.message : String(err),
+        }), { status: 500, headers: { 'Content-Type': 'application/json' } })
+      }
+    }
+
     return new Response('ff-pipeline: POST /trigger-synthesis, POST /synthesis-callback, or use Queue consumer', { status: 404 })
   },
 
