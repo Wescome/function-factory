@@ -516,6 +516,7 @@ export default {
           audit?: unknown
           prOutcomeSignal?: unknown
           prOutcomeSignalKey?: string
+          canonicalEvidence?: unknown
           createdAt?: string
         }
 
@@ -531,7 +532,11 @@ export default {
         }
 
         const { createClientFromEnv } = await import('@factory/arango-client')
-        const { buildMergeReadinessPack, ingestMergeReadinessPack } = await import('./merge-readiness-pack.js')
+        const {
+          buildMergeReadinessPack,
+          ingestMergeReadinessPack,
+          toCanonicalMergeReadinessPack,
+        } = await import('./merge-readiness-pack.js')
         const db = createClientFromEnv(env)
         const prOutcomeSignal = body.prOutcomeSignal ?? await db.queryOne<Record<string, unknown>>(
           `FOR s IN specs_signals
@@ -554,12 +559,19 @@ export default {
           ...(body.createdAt ? { createdAt: body.createdAt } : {}),
         })
         const persisted = await ingestMergeReadinessPack(pack, db)
+        const canonical = body.canonicalEvidence
+          ? toCanonicalMergeReadinessPack(
+            pack,
+            body.canonicalEvidence as import('./merge-readiness-pack').CanonicalMRPEvidence,
+          )
+          : undefined
 
         return new Response(JSON.stringify({
           persisted: true,
           id: pack.id,
           readinessVerdict: pack.readinessVerdict,
           verdict: (persisted as { verdict?: unknown }).verdict,
+          ...(canonical ? { canonical } : {}),
           pack: persisted,
         }, null, 2), { status: 201, headers: { 'Content-Type': 'application/json' } })
       } catch (err) {

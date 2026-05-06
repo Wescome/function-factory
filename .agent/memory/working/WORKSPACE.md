@@ -4,10 +4,21 @@
 Active task: Dogfood loop - guarded synthesis artifact application.
 
 ## Last update
-2026-05-06T23:31:04Z
+2026-05-06T23:35:32Z
 
 ## Current actions
 
+- Active slice: `/debug/mrp` can return canonical MRP validation when explicit canonical evidence is supplied.
+- Added optional `canonicalEvidence` to the diagnostic MRP POST route:
+  - persistence remains the existing runtime MRP blob
+  - canonical output is returned only when evidence is supplied
+  - canonical output uses Stage 8 derivation of `FP-*` proposal ID into `FN-*` function ID
+- Verification completed:
+  - red test confirmed `/debug/mrp` ignored `canonicalEvidence`
+  - `pnpm --filter @factory/ff-pipeline test -- src/diagnostic-routes.test.ts src/merge-readiness-pack.test.ts`: pass, 29 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+  - `git diff --check`: pass
+  - `pnpm --filter @factory/ff-pipeline test`: pass, 65 files / 975 tests
 - Active slice: Stage 8 MRP assembly deterministically materializes `FP-*` proposal IDs into canonical `FN-*` function IDs.
 - Red test confirmed previous canonical MRP adapter still required external `functionId` evidence:
   - `pnpm --filter @factory/ff-pipeline test -- src/merge-readiness-pack.test.ts`: failed, 3 expected failures
