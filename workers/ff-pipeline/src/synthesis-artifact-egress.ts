@@ -7,6 +7,36 @@ export interface SynthesisCodeFile {
   content?: string
 }
 
+export interface SynthesisArtifactApplyContext {
+  pipelineId: string
+  workGraphId: string
+  appliedBy: string
+}
+
+export interface SynthesisArtifactApplyOps {
+  exists: (path: string) => Promise<boolean>
+  writeFile: (path: string, content: string) => Promise<void>
+  deleteFile: (path: string) => Promise<void>
+  hashContent?: (content: string) => Promise<string>
+  now?: () => string
+}
+
+export interface SynthesisArtifactAuditFile {
+  atomId: string
+  path: string
+  action: SynthesisFileAction
+  contentHash: string | null
+}
+
+export interface SynthesisArtifactApplyAudit {
+  pipelineId: string
+  workGraphId: string
+  appliedBy: string
+  appliedAt: string
+  validationPassed: true
+  files: SynthesisArtifactAuditFile[]
+}
+
 export class SynthesisArtifactEgressError extends Error {
   constructor(message: string) {
     super(message)
@@ -104,4 +134,62 @@ export function extractSynthesisCodeFiles(pipelineResult: unknown): SynthesisCod
   }
 
   return files
+}
+
+async function defaultHashContent(content: string): Promise<string> {
+  const bytes = new TextEncoder().encode(content)
+  const digest = await crypto.subtle.digest('SHA-256', bytes)
+  return Array.from(new Uint8Array(digest))
+    .map(byte => byte.toString(16).padStart(2, '0'))
+    .join('')
+}
+
+export async function applySynthesisCodeFiles(
+  files: readonly SynthesisCodeFile[],
+  context: SynthesisArtifactApplyContext,
+  ops: SynthesisArtifactApplyOps,
+): Promise<SynthesisArtifactApplyAudit> {
+  const auditFiles: SynthesisArtifactAuditFile[] = []
+  const hashContent = ops.hashContent ?? defaultHashContent
+
+  for (const rawFile of files) {
+    const file = validateSynthesisCodeFile(rawFile, rawFile.atomId)
+    const exists = await ops.exists(file.path)
+
+    if (file.action === 'create' && exists) {
+      throw new SynthesisArtifactEgressError(`Cannot create synthesized file that already exists: ${file.path}`)
+    }
+    if ((file.action === 'modify' || file.action === 'delete') && !exists) {
+      throw new SynthesisArtifactEgressError(`Cannot ${file.action} synthesized file that does not exist: ${file.path}`)
+    }
+
+    if (file.action === 'delete') {
+      await ops.deleteFile(file.path)
+      auditFiles.push({
+        atomId: file.atomId,
+        path: file.path,
+        action: file.action,
+        contentHash: null,
+      })
+      continue
+    }
+
+    const content = file.content ?? ''
+    await ops.writeFile(file.path, content)
+    auditFiles.push({
+      atomId: file.atomId,
+      path: file.path,
+      action: file.action,
+      contentHash: await hashContent(content),
+    })
+  }
+
+  return {
+    pipelineId: context.pipelineId,
+    workGraphId: context.workGraphId,
+    appliedBy: context.appliedBy,
+    appliedAt: ops.now?.() ?? new Date().toISOString(),
+    validationPassed: true,
+    files: auditFiles,
+  }
 }

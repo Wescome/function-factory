@@ -1,10 +1,10 @@
 # Current Workspace
 
 ## Status
-Active task: Stage 6 synthesis artifact egress guard complete.
+Active task: Dogfood loop - guarded synthesis artifact application.
 
 ## Last update
-2026-05-06T02:42:26Z
+2026-05-06T02:58:53Z
 
 ## Current actions
 
@@ -95,6 +95,16 @@ Active task: Stage 6 synthesis artifact egress guard complete.
   - `pnpm --filter @factory/ff-pipeline test -- src/synthesis-artifact-egress.test.ts`: pass, 13 tests
   - `pnpm --filter @factory/ff-pipeline typecheck`: pass
   - `pnpm --filter @factory/ff-pipeline test`: pass, 61 files / 928 tests
+- Extended synthesis artifact egress guard with controlled application:
+  - added injected filesystem operation boundary `applySynthesisCodeFiles`
+  - emits an audit record with pipeline ID, WorkGraph ID, actor, timestamp, file actions, and content hashes
+  - fails closed when `create` targets an existing file or `modify`/`delete` targets a missing file
+  - still performs no ambient filesystem writes; all side effects are through injected operations
+- Verification completed:
+  - red test confirmed missing apply function
+  - `pnpm --filter @factory/ff-pipeline test -- src/synthesis-artifact-egress.test.ts`: pass, 16 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+  - `pnpm --filter @factory/ff-pipeline test`: pass, 61 files / 931 tests
 - Hardened Stage 6 graph evidence:
   - replaced graph-internal compile stub output with non-authoritative upstream compile pass-through evidence
   - replaced graph-internal Gate 1 stub output with non-authoritative upstream Gate 1 pass-through evidence
