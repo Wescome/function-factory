@@ -1,3 +1,4 @@
+import type { ArangoClient } from '@factory/arango-client'
 import type { SynthesisMaterializationAudit } from './synthesis-pr-draft'
 
 export type ReadinessVerdict = 'ready' | 'blocked'
@@ -89,6 +90,13 @@ export interface MergeReadinessPack {
   createdAt: string
 }
 
+export type PersistedMergeReadinessVerdict = 'merge-ready' | 'needs-revision'
+
+export interface PersistedMergeReadinessPack extends MergeReadinessPack {
+  _key: string
+  verdict: PersistedMergeReadinessVerdict
+}
+
 export interface BuildMergeReadinessPackInput {
   audit: SynthesisMaterializationAudit
   prOutcomeSignal: PROutcomeSignalRecord
@@ -105,6 +113,15 @@ export class MergeReadinessPackError extends Error {
 function assertNonEmpty(value: unknown, field: string): asserts value is string {
   if (typeof value !== 'string' || value.trim().length === 0) {
     throw new MergeReadinessPackError(`${field} is required`)
+  }
+}
+
+function assertNonEmptyStringArray(value: unknown, field: string): asserts value is string[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new MergeReadinessPackError(`${field} is required`)
+  }
+  for (const item of value) {
+    assertNonEmpty(item, field)
   }
 }
 
@@ -196,6 +213,32 @@ function verdictRationale(criteria: MergeReadinessCriterion[], ciStatus: string)
   const names = failed.map(item => item.name).join(', ')
   const ciSuffix = ciStatus === 'passed' ? '' : ` CI status is ${ciStatus}.`
   return `Blocked by ${names}.${ciSuffix}`
+}
+
+function persistedVerdict(verdict: ReadinessVerdict): PersistedMergeReadinessVerdict {
+  if (verdict === 'ready') return 'merge-ready'
+  if (verdict === 'blocked') return 'needs-revision'
+  throw new MergeReadinessPackError('readinessVerdict must be ready or blocked')
+}
+
+function assertPackReadyForPersistence(pack: MergeReadinessPack): void {
+  assertNonEmpty(pack.id, 'pack.id')
+  if (!pack.id.startsWith('MRP-')) {
+    throw new MergeReadinessPackError('pack.id must start with MRP-')
+  }
+  if (pack.type !== 'merge_readiness_pack') {
+    throw new MergeReadinessPackError('pack.type must be merge_readiness_pack')
+  }
+  assertNonEmpty(pack.proposalId, 'pack.proposalId')
+  assertNonEmpty(pack.workGraphId, 'pack.workGraphId')
+  assertNonEmpty(pack.pipelineId, 'pack.pipelineId')
+  assertNonEmpty(pack.createdAt, 'pack.createdAt')
+  assertNonEmpty(pack.verdictRationale, 'pack.verdictRationale')
+  assertNonEmptyStringArray(pack.sourceRefs, 'pack.sourceRefs')
+  if (!Array.isArray(pack.criteria) || pack.criteria.length === 0) {
+    throw new MergeReadinessPackError('pack.criteria is required')
+  }
+  persistedVerdict(pack.readinessVerdict)
 }
 
 export function buildMergeReadinessPack(input: BuildMergeReadinessPackInput): MergeReadinessPack {
@@ -290,4 +333,30 @@ export function buildMergeReadinessPack(input: BuildMergeReadinessPackInput): Me
     verdictRationale: verdictRationale(criteria, ciStatus),
     createdAt: input.createdAt ?? new Date().toISOString(),
   }
+}
+
+export async function ingestMergeReadinessPack(
+  pack: MergeReadinessPack,
+  db: ArangoClient,
+): Promise<Record<string, unknown>> {
+  assertPackReadyForPersistence(pack)
+
+  const existing = await db.queryOne<Record<string, unknown>>(
+    `FOR mrp IN merge_readiness_packs
+       FILTER mrp.id == @id
+       LIMIT 1
+       RETURN mrp`,
+    { id: pack.id },
+  )
+
+  if (existing) return existing
+
+  const persisted: PersistedMergeReadinessPack = {
+    ...pack,
+    _key: pack.id,
+    verdict: persistedVerdict(pack.readinessVerdict),
+  }
+
+  await db.save('merge_readiness_packs', persisted as unknown as Record<string, unknown>)
+  return persisted as unknown as Record<string, unknown>
 }

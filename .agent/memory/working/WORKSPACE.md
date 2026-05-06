@@ -4,7 +4,7 @@
 Active task: Dogfood loop - guarded synthesis artifact application.
 
 ## Last update
-2026-05-06T20:48:04Z
+2026-05-06T21:07:12Z
 
 ## Current actions
 
@@ -240,6 +240,20 @@ Active task: Dogfood loop - guarded synthesis artifact application.
   - `pnpm --filter @factory/ff-pipeline typecheck`: pass
   - `git diff --check`: pass
   - `pnpm --filter @factory/ff-pipeline test`: pass, 65 files / 960 tests
+- Added minimal Stage 8 MRP persistence boundary:
+  - added `ingestMergeReadinessPack` in `workers/ff-pipeline/src/merge-readiness-pack.ts`
+  - exported `ingestMergeReadinessPack` from `workers/ff-pipeline/src/index.ts`
+  - persists MRP evidence to `merge_readiness_packs`
+  - performs idempotent lookup by `MRP-*` id before saving
+  - saves `_key`, `id`, local `readinessVerdict`, and SDLC-compatible `verdict` alias (`merge-ready` or `needs-revision`)
+  - fails closed before persistence on malformed verdict, missing required lineage, invalid type, invalid id, or empty criteria
+- Verification completed:
+  - red test confirmed missing `ingestMergeReadinessPack`
+  - `pnpm --filter @factory/ff-pipeline test -- src/merge-readiness-pack.test.ts`: pass, 8 tests
+  - `pnpm --filter @factory/ff-pipeline test -- src/merge-readiness-pack.test.ts src/synthesis-pr-draft.test.ts src/stages/pr-outcome-signal.test.ts`: pass, 25 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+  - `git diff --check`: pass
+  - `pnpm --filter @factory/ff-pipeline test`: pass, 65 files / 964 tests
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 

@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   buildMergeReadinessPack,
+  ingestMergeReadinessPack,
   type PROutcomeSignalRecord,
 } from './merge-readiness-pack'
 import type { SynthesisMaterializationAudit } from './synthesis-pr-draft'
@@ -169,5 +170,97 @@ describe('merge-readiness pack', () => {
       prOutcomeSignal: makeOutcome(),
       createdAt: '2026-05-06T04:00:00Z',
     })).toThrow(/signalId/i)
+  })
+
+  it('persists an MRP idempotently by MRP id', async () => {
+    const pack = buildMergeReadinessPack({
+      audit: makeAudit(),
+      prOutcomeSignal: makeOutcome(),
+      createdAt: '2026-05-06T04:00:00Z',
+    })
+    const db = {
+      queryOne: vi.fn(async (_query: string, _bindVars: Record<string, unknown>) => null),
+      save: vi.fn(async (_collection: string, doc: Record<string, unknown>) => doc),
+    }
+
+    const persisted = await ingestMergeReadinessPack(pack, db as never)
+
+    expect(db.queryOne).toHaveBeenCalledOnce()
+    expect(db.queryOne.mock.calls[0]![0]).toContain('merge_readiness_packs')
+    expect(db.queryOne.mock.calls[0]![1]).toEqual({ id: 'MRP-MOTE4M1R-G7I0-71' })
+    expect(db.save).toHaveBeenCalledOnce()
+    expect(db.save.mock.calls[0]![0]).toBe('merge_readiness_packs')
+    expect(db.save.mock.calls[0]![1]).toMatchObject({
+      _key: 'MRP-MOTE4M1R-G7I0-71',
+      id: 'MRP-MOTE4M1R-G7I0-71',
+      verdict: 'merge-ready',
+      readinessVerdict: 'ready',
+      sourceRefs: [
+        'SIG-MOTDWPYM-LTW5',
+        'PRS-MOTDWQ0T-S55Y',
+        'BC-MOTDWSVY-PQOO',
+        'FP-MOTDWVR2-W7UN',
+        'WG-MOTE4M1R-G7I0',
+        'SIG-MOTILTZ0-6DGK',
+      ],
+    })
+    expect(persisted).toMatchObject({
+      id: 'MRP-MOTE4M1R-G7I0-71',
+      verdict: 'merge-ready',
+    })
+  })
+
+  it('returns an existing persisted MRP without saving a duplicate', async () => {
+    const pack = buildMergeReadinessPack({
+      audit: makeAudit(),
+      prOutcomeSignal: makeOutcome(),
+      createdAt: '2026-05-06T04:00:00Z',
+    })
+    const existing = { _key: pack.id, id: pack.id, verdict: 'merge-ready' }
+    const db = {
+      queryOne: vi.fn(async (_query: string, _bindVars: Record<string, unknown>) => existing),
+      save: vi.fn(),
+    }
+
+    await expect(ingestMergeReadinessPack(pack, db as never)).resolves.toBe(existing)
+    expect(db.save).not.toHaveBeenCalled()
+  })
+
+  it('fails closed before persistence when MRP verdict is malformed', async () => {
+    const pack = buildMergeReadinessPack({
+      audit: makeAudit(),
+      prOutcomeSignal: makeOutcome(),
+      createdAt: '2026-05-06T04:00:00Z',
+    })
+    const db = {
+      queryOne: vi.fn(),
+      save: vi.fn(),
+    }
+
+    await expect(ingestMergeReadinessPack({
+      ...pack,
+      readinessVerdict: 'maybe',
+    } as never, db as never)).rejects.toThrow(/readinessVerdict/i)
+    expect(db.queryOne).not.toHaveBeenCalled()
+    expect(db.save).not.toHaveBeenCalled()
+  })
+
+  it('fails closed before persistence when required lineage is absent', async () => {
+    const pack = buildMergeReadinessPack({
+      audit: makeAudit(),
+      prOutcomeSignal: makeOutcome(),
+      createdAt: '2026-05-06T04:00:00Z',
+    })
+    const db = {
+      queryOne: vi.fn(),
+      save: vi.fn(),
+    }
+
+    await expect(ingestMergeReadinessPack({
+      ...pack,
+      sourceRefs: [],
+    }, db as never)).rejects.toThrow(/sourceRefs/i)
+    expect(db.queryOne).not.toHaveBeenCalled()
+    expect(db.save).not.toHaveBeenCalled()
   })
 })
