@@ -105,6 +105,10 @@ Active task: Dogfood loop - guarded synthesis artifact application.
   - `pnpm --filter @factory/ff-pipeline test -- src/synthesis-artifact-egress.test.ts`: pass, 16 tests
   - `pnpm --filter @factory/ff-pipeline typecheck`: pass
   - `pnpm --filter @factory/ff-pipeline test`: pass, 61 files / 931 tests
+- Recorded local materialization audit:
+  - `.agent/memory/episodic/synthesis-materialization-WG-MOTE4M1R-G7I0.json`
+  - captures pipeline `b1b51f73-416d-4d87-90a5-9ccaa12bec76`, signal/pressure/capability/proposal/WorkGraph IDs, Gate 1 pass, atom pass, file paths, and SHA-256 hashes
+  - audit is retrospective because the artifact was materialized one slice before the guarded apply boundary existed
 - Hardened Stage 6 graph evidence:
   - replaced graph-internal compile stub output with non-authoritative upstream compile pass-through evidence
   - replaced graph-internal Gate 1 stub output with non-authoritative upstream Gate 1 pass-through evidence
