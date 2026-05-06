@@ -13,7 +13,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { GraphState, CodeArtifact, TestReport } from './state.js'
-import type { SandboxDeps } from './sandbox-role.js'
+import type { SandboxBackupHandle, SandboxDeps } from './sandbox-role.js'
 import { sandboxRole, makeExecutionRole } from './sandbox-role.js'
 import { createInitialState } from './state.js'
 import type { GraphDeps } from './graph.js'
@@ -138,6 +138,11 @@ function makeState(overrides: Partial<GraphState> = {}): GraphState {
   }
 }
 
+const backupHandle: SandboxBackupHandle = {
+  id: 'backup-phase-c',
+  dir: '/workspace',
+}
+
 function makeSandboxDeps(overrides: Partial<SandboxDeps> = {}): SandboxDeps {
   return {
     execInSandbox: vi.fn().mockResolvedValue(JSON.stringify({
@@ -148,7 +153,7 @@ function makeSandboxDeps(overrides: Partial<SandboxDeps> = {}): SandboxDeps {
       tokenUsage: { input: 200, output: 100, total: 300 },
     })),
     prepareWorkspace: vi.fn().mockResolvedValue(undefined),
-    createBackup: vi.fn().mockResolvedValue('backup-phase-c'),
+    createBackup: vi.fn().mockResolvedValue(backupHandle),
     restoreBackup: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   }

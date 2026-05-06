@@ -1,10 +1,10 @@
 # Current Workspace
 
 ## Status
-Active task: Phase 5 sandbox binding preflight for Function Factory.
+Active task: Phase 5 sandbox backup-handle test consistency for Function Factory.
 
 ## Last update
-2026-05-06T01:18:39Z
+2026-05-06T01:23:43Z
 
 ## Current actions
 
@@ -48,6 +48,12 @@ Active task: Phase 5 sandbox binding preflight for Function Factory.
   - `pnpm --filter @factory/ff-pipeline test -- src/coordinator/sandbox-deps-factory.test.ts src/coordinator/sandbox-role.test.ts src/coordinator/coordinator-sandbox-wiring.test.ts src/coordinator/coordinator-integration.test.ts src/coordinator/state.test.ts src/coordinator/sandbox-preflight.test.ts`: pass, 92 tests
   - `pnpm --filter @factory/ff-pipeline typecheck`: pass
   - `git diff --check`: pass
+- Aligned remaining sandbox execution tests with the backup-handle contract:
+  - changed `workers/ff-pipeline/src/coordinator/sandbox-execution.test.ts` from a string backup fixture to a typed `SandboxBackupHandle`
+  - confirmed no remaining coordinator tests mock backup handles as strings
+- Verification completed:
+  - `pnpm --filter @factory/ff-pipeline test -- src/coordinator/sandbox-execution.test.ts src/coordinator/sandbox-deps-factory.test.ts src/coordinator/sandbox-role.test.ts src/coordinator/sandbox-preflight.test.ts`: pass, 89 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
 - Hardened Stage 6 graph evidence:
   - replaced graph-internal compile stub output with non-authoritative upstream compile pass-through evidence
   - replaced graph-internal Gate 1 stub output with non-authoritative upstream Gate 1 pass-through evidence
