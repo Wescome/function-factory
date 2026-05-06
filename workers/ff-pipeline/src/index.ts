@@ -327,6 +327,96 @@ export default {
       }
     }
 
+    // ── Diagnostic: read latest persisted Factory PR outcome signal ──
+    if (url.pathname === '/debug/pr-outcome' && request.method === 'GET') {
+      try {
+        const pullNumber = Number(url.searchParams.get('pullNumber') ?? '')
+        const workGraphId = url.searchParams.get('workGraphId') ?? ''
+        if (!Number.isInteger(pullNumber) || pullNumber <= 0 || !workGraphId) {
+          return new Response(JSON.stringify({
+            error: 'Missing required query params: pullNumber, workGraphId',
+          }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+        }
+
+        const { createClientFromEnv } = await import('@factory/arango-client')
+        const db = createClientFromEnv(env)
+        const rows = await db.query<Record<string, unknown>>(
+          `FOR s IN specs_signals
+             FILTER s.source == 'factory:pr-outcome'
+             FILTER LIKE(s.subtype, 'synthesis:pr-%')
+             FILTER s.raw.pr.number == @pullNumber
+             FILTER s.raw.workGraphId == @workGraphId
+             SORT s.createdAt DESC
+             LIMIT 1
+             RETURN s`,
+          { pullNumber, workGraphId },
+        )
+        const signal = rows[0] ?? null
+        return new Response(JSON.stringify({
+          found: signal !== null,
+          signal,
+        }, null, 2), { headers: { 'Content-Type': 'application/json' } })
+      } catch (err) {
+        return new Response(JSON.stringify({
+          error: err instanceof Error ? err.message : String(err),
+        }), { status: 500, headers: { 'Content-Type': 'application/json' } })
+      }
+    }
+
+    // ── Diagnostic: enqueue Factory PR outcome observation ──
+    if (url.pathname === '/debug/pr-outcome' && request.method === 'POST') {
+      try {
+        const body = await request.json() as {
+          pullNumber?: number
+          lineage?: {
+            pipelineId?: string
+            signalId?: string
+            pressureId?: string
+            capabilityId?: string
+            proposalId?: string
+            workGraphId?: string
+          }
+        }
+
+        if (!body.pullNumber || !body.lineage?.pipelineId || !body.lineage.proposalId || !body.lineage.workGraphId) {
+          return new Response(JSON.stringify({
+            error: 'Missing required fields: pullNumber, lineage.pipelineId, lineage.proposalId, lineage.workGraphId',
+          }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+        }
+
+        if (!env.FEEDBACK_QUEUE) {
+          return new Response(JSON.stringify({
+            error: 'FEEDBACK_QUEUE binding unavailable',
+          }), { status: 503, headers: { 'Content-Type': 'application/json' } })
+        }
+
+        const lineage = {
+          pipelineId: body.lineage.pipelineId,
+          ...(body.lineage.signalId ? { signalId: body.lineage.signalId } : {}),
+          ...(body.lineage.pressureId ? { pressureId: body.lineage.pressureId } : {}),
+          ...(body.lineage.capabilityId ? { capabilityId: body.lineage.capabilityId } : {}),
+          proposalId: body.lineage.proposalId,
+          workGraphId: body.lineage.workGraphId,
+        }
+
+        await env.FEEDBACK_QUEUE.send({
+          type: 'pr-outcome',
+          pullNumber: body.pullNumber,
+          lineage,
+        })
+
+        return new Response(JSON.stringify({
+          accepted: true,
+          pullNumber: body.pullNumber,
+          workGraphId: lineage.workGraphId,
+        }), { status: 202, headers: { 'Content-Type': 'application/json' } })
+      } catch (err) {
+        return new Response(JSON.stringify({
+          error: err instanceof Error ? err.message : String(err),
+        }), { status: 500, headers: { 'Content-Type': 'application/json' } })
+      }
+    }
+
     return new Response('ff-pipeline: POST /trigger-synthesis, POST /synthesis-callback, or use Queue consumer', { status: 404 })
   },
 

@@ -4,7 +4,7 @@
 Active task: Dogfood loop - guarded synthesis artifact application.
 
 ## Last update
-2026-05-06T03:33:22Z
+2026-05-06T03:47:14Z
 
 ## Current actions
 
@@ -149,6 +149,29 @@ Active task: Dogfood loop - guarded synthesis artifact application.
   - `pnpm --filter @factory/ff-pipeline typecheck`: pass
   - `pnpm --filter @factory/ff-pipeline test`: pass, 64 files / 951 tests
   - `git diff --check`: pass
+- Runtime dogfooded PR outcome signal:
+  - added `/debug/pr-outcome` POST diagnostic route to enqueue a `feedback-signals` `type: "pr-outcome"` message because Wrangler v3 exposes queue management but not direct message send
+  - added `/debug/pr-outcome` GET diagnostic route to read back the latest persisted PR outcome signal by PR number and WorkGraph ID
+  - deployed `ff-pipeline` version `81ed8435-2f90-4997-9b0b-60f8ef276c0d`
+  - live health after deploy: healthy, Arango true, AI binding true
+  - POSTed PR #71 outcome observation for `WG-MOTE4M1R-G7I0`
+  - persisted signal observed immediately:
+    - signal `_key`: `SIG-MOTILTZ0-6DGK`
+    - subtype: `synthesis:pr-ci-passed`
+    - source: `factory:pr-outcome`
+    - pipeline: `b1b51f73-416d-4d87-90a5-9ccaa12bec76`
+    - proposal: `FP-MOTDWVR2-W7UN`
+    - WorkGraph: `WG-MOTE4M1R-G7I0`
+    - PR URL: `https://github.com/Wescome/function-factory/pull/71`
+    - head SHA: `ff6187ac67c945a4fe007f666f32d337ecafcfd8`
+    - checks passed: `Factory PR Gate`, `Typecheck`, `Test`
+    - source refs: `SIG:SIG-MOTDWPYM-LTW5`, `PRS:PRS-MOTDWQ0T-S55Y`, `BC:BC-MOTDWSVY-PQOO`, `FN:FP-MOTDWVR2-W7UN`, `WG:WG-MOTE4M1R-G7I0`
+- Verification completed:
+  - red test confirmed missing `/debug/pr-outcome` POST route
+  - red test confirmed missing `/debug/pr-outcome` GET route
+  - `pnpm --filter @factory/ff-pipeline test -- src/diagnostic-routes.test.ts src/pr-outcome-queue.test.ts src/stages/pr-outcome-signal.test.ts`: pass, 22 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+  - `pnpm --filter @factory/ff-pipeline test`: pass, 64 files / 954 tests
 - Hardened Stage 6 graph evidence:
   - replaced graph-internal compile stub output with non-authoritative upstream compile pass-through evidence
   - replaced graph-internal Gate 1 stub output with non-authoritative upstream Gate 1 pass-through evidence

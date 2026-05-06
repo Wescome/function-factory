@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('cloudflare:workers', () => {
   class WorkflowEntrypoint {
@@ -45,11 +45,12 @@ vi.mock('@cloudflare/containers', () => ({
 }))
 
 const mockPing = vi.fn(async () => true)
+const mockQuery = vi.fn(async (): Promise<Record<string, unknown>[]> => [])
 
 vi.mock('@factory/arango-client', () => ({
   createClientFromEnv: () => ({
     ping: mockPing,
-    query: vi.fn(async () => []),
+    query: mockQuery,
   }),
 }))
 
@@ -90,6 +91,11 @@ async function jsonBody(response: Response): Promise<Record<string, unknown>> {
 }
 
 describe('ff-pipeline diagnostic routes', () => {
+  beforeEach(() => {
+    mockQuery.mockReset()
+    mockQuery.mockResolvedValue([])
+  })
+
   it('GET /version returns service version metadata', async () => {
     const { default: worker } = await import('./index')
 
@@ -181,5 +187,139 @@ describe('ff-pipeline diagnostic routes', () => {
       aiBinding: false,
       error: 'Workers AI binding unavailable',
     })
+  })
+
+  it('POST /debug/pr-outcome enqueues a PR outcome observation', async () => {
+    const { default: worker } = await import('./index')
+    const send = vi.fn(async () => undefined)
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/debug/pr-outcome', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pullNumber: 71,
+          lineage: {
+            pipelineId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
+            signalId: 'SIG-MOTDWPYM-LTW5',
+            pressureId: 'PRS-MOTDWQ0T-S55Y',
+            capabilityId: 'BC-MOTDWSVY-PQOO',
+            proposalId: 'FP-MOTDWVR2-W7UN',
+            workGraphId: 'WG-MOTE4M1R-G7I0',
+          },
+        }),
+      }),
+      createEnv({ FEEDBACK_QUEUE: { send } }) as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(202)
+    expect(await jsonBody(response)).toMatchObject({
+      accepted: true,
+      pullNumber: 71,
+      workGraphId: 'WG-MOTE4M1R-G7I0',
+    })
+    expect(send).toHaveBeenCalledWith({
+      type: 'pr-outcome',
+      pullNumber: 71,
+      lineage: {
+        pipelineId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
+        signalId: 'SIG-MOTDWPYM-LTW5',
+        pressureId: 'PRS-MOTDWQ0T-S55Y',
+        capabilityId: 'BC-MOTDWSVY-PQOO',
+        proposalId: 'FP-MOTDWVR2-W7UN',
+        workGraphId: 'WG-MOTE4M1R-G7I0',
+      },
+    })
+  })
+
+  it('POST /debug/pr-outcome fails closed when lineage is incomplete', async () => {
+    const { default: worker } = await import('./index')
+    const send = vi.fn(async () => undefined)
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/debug/pr-outcome', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pullNumber: 71,
+          lineage: {
+            pipelineId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
+            proposalId: 'FP-MOTDWVR2-W7UN',
+          },
+        }),
+      }),
+      createEnv({ FEEDBACK_QUEUE: { send } }) as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(400)
+    expect(await jsonBody(response)).toMatchObject({
+      error: 'Missing required fields: pullNumber, lineage.pipelineId, lineage.proposalId, lineage.workGraphId',
+    })
+    expect(send).not.toHaveBeenCalled()
+  })
+
+  it('GET /debug/pr-outcome returns the latest persisted PR outcome signal', async () => {
+    const { default: worker } = await import('./index')
+    mockQuery.mockResolvedValueOnce([
+      {
+        _key: 'SIG-PR-OUTCOME',
+        subtype: 'synthesis:pr-ci-passed',
+        sourceRefs: ['WG:WG-MOTE4M1R-G7I0'],
+        createdAt: '2026-05-06T03:45:00Z',
+        raw: {
+          pipelineId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
+          proposalId: 'FP-MOTDWVR2-W7UN',
+          workGraphId: 'WG-MOTE4M1R-G7I0',
+          pr: {
+            number: 71,
+            url: 'https://github.com/Wescome/function-factory/pull/71',
+            headSha: 'ff6187ac67c945a4fe007f666f32d337ecafcfd8',
+          },
+          outcome: {
+            ciState: 'passed',
+            prState: 'ready',
+            reviewState: 'none',
+          },
+          checks: {
+            passed: ['Test', 'Typecheck', 'Factory PR Gate'],
+            failed: [],
+            pending: [],
+          },
+        },
+      },
+    ])
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/debug/pr-outcome?pullNumber=71&workGraphId=WG-MOTE4M1R-G7I0'),
+      createEnv() as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(200)
+    expect(await jsonBody(response)).toMatchObject({
+      found: true,
+      signal: {
+        _key: 'SIG-PR-OUTCOME',
+        subtype: 'synthesis:pr-ci-passed',
+        raw: {
+          pipelineId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
+          workGraphId: 'WG-MOTE4M1R-G7I0',
+          pr: {
+            number: 71,
+            url: 'https://github.com/Wescome/function-factory/pull/71',
+            headSha: 'ff6187ac67c945a4fe007f666f32d337ecafcfd8',
+          },
+          checks: {
+            passed: ['Test', 'Typecheck', 'Factory PR Gate'],
+          },
+        },
+      },
+    })
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.stringContaining('synthesis:pr-'),
+      { pullNumber: 71, workGraphId: 'WG-MOTE4M1R-G7I0' },
+    )
   })
 })
