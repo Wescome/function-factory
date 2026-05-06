@@ -4,7 +4,7 @@
 Active task: Dogfood loop - guarded synthesis artifact application.
 
 ## Last update
-2026-05-06T21:26:34Z
+2026-05-06T21:28:26Z
 
 ## Current actions
 
@@ -269,6 +269,14 @@ Active task: Dogfood loop - guarded synthesis artifact application.
   - `pnpm --filter @factory/ff-pipeline typecheck`: pass
   - `git diff --check`: pass
   - `pnpm --filter @factory/ff-pipeline test`: pass, 65 files / 968 tests
+- Runtime dogfooded MRP route:
+  - deployed `ff-pipeline` version `e8c0ccb2-ada6-41de-a8fa-aefb6442821e`
+  - `POST /debug/mrp` with materialization audit and `prOutcomeSignalKey=SIG-MOTILTZ0-6DGK` persisted `MRP-MOTE4M1R-G7I0-71`
+  - persisted verdict: `merge-ready`
+  - readiness verdict: `ready`
+  - persisted source refs: `SIG-MOTDWPYM-LTW5`, `PRS-MOTDWQ0T-S55Y`, `BC-MOTDWSVY-PQOO`, `FP-MOTDWVR2-W7UN`, `WG-MOTE4M1R-G7I0`, `SIG-MOTILTZ0-6DGK`
+  - `GET /debug/mrp?id=MRP-MOTE4M1R-G7I0-71` returned `found=true`
+  - readback CI evidence: `Factory PR Gate`, `Typecheck`, `Test` passed on observed PR outcome signal
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
