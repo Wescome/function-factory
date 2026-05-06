@@ -1,10 +1,10 @@
 # Current Workspace
 
 ## Status
-Active task: Phase 5 / Stage 6 runtime full-synthesis workstream complete.
+Active task: Stage 6 synthesis artifact materialization complete.
 
 ## Last update
-2026-05-06T01:44:17Z
+2026-05-06T01:52:57Z
 
 ## Current actions
 
@@ -75,6 +75,15 @@ Active task: Phase 5 / Stage 6 runtime full-synthesis workstream complete.
     - atom `atom-001` passed with confidence 0.95
     - generated code artifact `workers/ff-pipeline/src/runtime-verification.ts` in synthesis output
     - tester report: 14/14 tests passed, repairCount 0
+- Materialized real-mode synthesis artifact into the repo:
+  - added `workers/ff-pipeline/src/runtime-verification.ts`
+  - added `workers/ff-pipeline/src/runtime-verification.test.ts`
+  - implementation follows the synthesized artifact's public behavior while conforming to local TypeScript style
+  - tests cover the 14 validation claims from real-mode synthesis output
+- Verification completed after materialization:
+  - `pnpm --filter @factory/ff-pipeline test -- src/runtime-verification.test.ts`: pass, 14 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+  - `pnpm --filter @factory/ff-pipeline test`: pass, 60 files / 915 tests
 - Hardened Stage 6 graph evidence:
   - replaced graph-internal compile stub output with non-authoritative upstream compile pass-through evidence
   - replaced graph-internal Gate 1 stub output with non-authoritative upstream Gate 1 pass-through evidence
