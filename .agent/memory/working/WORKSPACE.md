@@ -4,7 +4,7 @@
 Active task: Dogfood loop - guarded synthesis artifact application.
 
 ## Last update
-2026-05-06T02:58:53Z
+2026-05-06T03:06:56Z
 
 ## Current actions
 
@@ -119,6 +119,16 @@ Active task: Dogfood loop - guarded synthesis artifact application.
   - `pnpm --filter @factory/ff-pipeline test -- src/synthesis-pr-draft.test.ts`: pass, 6 tests
   - `pnpm --filter @factory/ff-pipeline typecheck`: pass
   - `pnpm --filter @factory/ff-pipeline test`: pass, 62 files / 937 tests
+- Published dogfood draft PR:
+  - updated existing draft PR #71: https://github.com/Wescome/function-factory/pull/71
+  - branch `factory/fp-motdwvr2-w7un`
+  - merged the verified local dogfood history onto the original generated branch commit without force-pushing
+  - integration commit `aca7f88` (`META: integrate verified dogfood loop`)
+  - PR title updated to `[Factory] Materialize WG-MOTE4M1R-G7I0 synthesis artifact`
+- Verification completed on the PR branch after merge:
+  - `pnpm --filter @factory/ff-pipeline test`: pass, 62 files / 937 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+  - `node scripts/audit-docs.mjs`: pass
 - Hardened Stage 6 graph evidence:
   - replaced graph-internal compile stub output with non-authoritative upstream compile pass-through evidence
   - replaced graph-internal Gate 1 stub output with non-authoritative upstream Gate 1 pass-through evidence
