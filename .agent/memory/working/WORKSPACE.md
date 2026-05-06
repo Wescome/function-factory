@@ -1,10 +1,10 @@
 # Current Workspace
 
 ## Status
-Active task: Phase 5 sandbox backup-handle test consistency for Function Factory.
+Active task: Phase 5 / Stage 6 local green verification for Function Factory.
 
 ## Last update
-2026-05-06T01:23:43Z
+2026-05-06T01:25:41Z
 
 ## Current actions
 
@@ -53,6 +53,9 @@ Active task: Phase 5 sandbox backup-handle test consistency for Function Factory
   - confirmed no remaining coordinator tests mock backup handles as strings
 - Verification completed:
   - `pnpm --filter @factory/ff-pipeline test -- src/coordinator/sandbox-execution.test.ts src/coordinator/sandbox-deps-factory.test.ts src/coordinator/sandbox-role.test.ts src/coordinator/sandbox-preflight.test.ts`: pass, 89 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+- Stage 6 / ff-pipeline local green verification completed:
+  - `pnpm --filter @factory/ff-pipeline test`: pass, 59 files / 901 tests
   - `pnpm --filter @factory/ff-pipeline typecheck`: pass
 - Hardened Stage 6 graph evidence:
   - replaced graph-internal compile stub output with non-authoritative upstream compile pass-through evidence
