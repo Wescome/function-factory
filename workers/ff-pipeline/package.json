@@ -18,6 +18,7 @@
     "@factory/diff-engine": "workspace:*",
     "@factory/file-context": "workspace:*",
     "@factory/ontology-loader": "workspace:*",
+    "@factory/schemas": "workspace:*",
     "@factory/task-routing": "workspace:*",
     "@factory/transmission-adapters": "workspace:*",
     "@weops/gdk-agent": "workspace:*",

@@ -604,6 +604,9 @@ importers:
       '@factory/ontology-loader':
         specifier: workspace:*
         version: link:../../packages/ontology-loader
+      '@factory/schemas':
+        specifier: workspace:*
+        version: link:../../packages/schemas
       '@factory/task-routing':
         specifier: workspace:*
         version: link:../../packages/task-routing

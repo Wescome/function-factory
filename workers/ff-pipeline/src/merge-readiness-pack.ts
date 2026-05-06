@@ -1,4 +1,8 @@
 import type { ArangoClient } from '@factory/arango-client'
+import {
+  MergeReadinessPack as CanonicalMergeReadinessPackSchema,
+  type MergeReadinessPack as CanonicalMergeReadinessPack,
+} from '@factory/schemas'
 import type { SynthesisMaterializationAudit } from './synthesis-pr-draft'
 
 export type ReadinessVerdict = 'ready' | 'blocked'
@@ -97,6 +101,62 @@ export interface PersistedMergeReadinessPack extends MergeReadinessPack {
   verdict: PersistedMergeReadinessVerdict
 }
 
+export interface CanonicalMRPEvidence {
+  functionId?: string
+  functionalCompleteness?: {
+    acceptanceCriteria?: Array<{
+      criterion: string
+      met: boolean
+      evidence: string
+    }>
+  }
+  soundVerification?: {
+    testPlan?: string
+    newTestCases?: Array<{
+      name: string
+      type: 'unit' | 'integration' | 'property'
+      result: 'pass' | 'fail'
+    }>
+    gate2ReportId?: string
+    coveragePercentage?: number
+  }
+  seHygiene?: {
+    mentorRuleCompliance?: Array<{
+      ruleId: string
+      rule: string
+      compliant: boolean
+      evidence?: string
+    }>
+    lintReport?: {
+      errors: number
+      warnings: number
+    }
+    complexityDelta?: {
+      before: number
+      after: number
+    }
+  }
+  rationale?: {
+    approach?: string
+    tradeoffsConsidered?: string
+    prDescription?: string
+    crpsResolved?: string[]
+  }
+  auditability?: {
+    prdId?: string
+    semanticReviewId?: string
+    gate1ReportId?: string
+    gate2ReportId?: string
+    sessionTreeId?: string
+    modelBindings?: Record<string, { provider: string; model: string }>
+    mentorRulesApplied?: string[]
+    totalTokenUsage?: number
+    totalCost?: number
+    executionDurationMs?: number
+  }
+  resolution?: string
+}
+
 export interface BuildMergeReadinessPackInput {
   audit: SynthesisMaterializationAudit
   prOutcomeSignal: PROutcomeSignalRecord
@@ -107,6 +167,16 @@ export class MergeReadinessPackError extends Error {
   constructor(message: string) {
     super(message)
     this.name = 'MergeReadinessPackError'
+  }
+}
+
+export class MissingCanonicalMRPEvidenceError extends MergeReadinessPackError {
+  readonly missing: string[]
+
+  constructor(missing: string[]) {
+    super(`Missing canonical MRP evidence: ${missing.join(', ')}`)
+    this.name = 'MissingCanonicalMRPEvidenceError'
+    this.missing = missing
   }
 }
 
@@ -219,6 +289,46 @@ function persistedVerdict(verdict: ReadinessVerdict): PersistedMergeReadinessVer
   if (verdict === 'ready') return 'merge-ready'
   if (verdict === 'blocked') return 'needs-revision'
   throw new MergeReadinessPackError('readinessVerdict must be ready or blocked')
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0
+}
+
+function isNonEmptyArray(value: unknown): value is unknown[] {
+  return Array.isArray(value) && value.length > 0
+}
+
+function requiredCanonicalFields(evidence: CanonicalMRPEvidence): string[] {
+  const missing: string[] = []
+
+  if (!isNonEmptyString(evidence.functionId)) missing.push('functionId')
+  if (!isNonEmptyArray(evidence.functionalCompleteness?.acceptanceCriteria)) {
+    missing.push('functionalCompleteness.acceptanceCriteria')
+  }
+  if (!isNonEmptyString(evidence.soundVerification?.testPlan)) missing.push('soundVerification.testPlan')
+  if (!isNonEmptyArray(evidence.soundVerification?.newTestCases)) missing.push('soundVerification.newTestCases')
+  if (!isNonEmptyString(evidence.soundVerification?.gate2ReportId)) missing.push('soundVerification.gate2ReportId')
+  if (!isNonEmptyArray(evidence.seHygiene?.mentorRuleCompliance)) missing.push('seHygiene.mentorRuleCompliance')
+  if (!isNonEmptyString(evidence.rationale?.approach)) missing.push('rationale.approach')
+  if (!isNonEmptyString(evidence.rationale?.tradeoffsConsidered)) missing.push('rationale.tradeoffsConsidered')
+  if (!isNonEmptyString(evidence.rationale?.prDescription)) missing.push('rationale.prDescription')
+  if (!isNonEmptyString(evidence.auditability?.prdId)) missing.push('auditability.prdId')
+  if (!isNonEmptyString(evidence.auditability?.semanticReviewId)) missing.push('auditability.semanticReviewId')
+  if (!isNonEmptyString(evidence.auditability?.gate1ReportId)) missing.push('auditability.gate1ReportId')
+  if (!isNonEmptyString(evidence.auditability?.gate2ReportId)) missing.push('auditability.gate2ReportId')
+  if (!evidence.auditability?.modelBindings || Object.keys(evidence.auditability.modelBindings).length === 0) {
+    missing.push('auditability.modelBindings')
+  }
+  if (typeof evidence.auditability?.totalTokenUsage !== 'number') missing.push('auditability.totalTokenUsage')
+  if (typeof evidence.auditability?.totalCost !== 'number') missing.push('auditability.totalCost')
+  if (typeof evidence.auditability?.executionDurationMs !== 'number') missing.push('auditability.executionDurationMs')
+
+  return missing
+}
+
+function canonicalVerdict(pack: MergeReadinessPack): CanonicalMergeReadinessPack['verdict'] {
+  return pack.readinessVerdict === 'ready' ? 'merge-ready' : 'needs-revision'
 }
 
 function assertPackReadyForPersistence(pack: MergeReadinessPack): void {
@@ -340,6 +450,83 @@ export function buildMergeReadinessPack(input: BuildMergeReadinessPackInput): Me
     verdictRationale: verdictRationale(criteria, ciStatus),
     createdAt: input.createdAt ?? new Date().toISOString(),
   }
+}
+
+export function toCanonicalMergeReadinessPack(
+  pack: MergeReadinessPack,
+  evidence: CanonicalMRPEvidence = {},
+): CanonicalMergeReadinessPack {
+  const missing = requiredCanonicalFields(evidence)
+  if (missing.length > 0) {
+    throw new MissingCanonicalMRPEvidenceError(missing)
+  }
+
+  const canonical = {
+    _key: pack.id,
+    id: pack.id,
+    functionId: evidence.functionId,
+    workGraphId: pack.workGraphId,
+    pipelineInstanceId: pack.pipelineId,
+    functionalCompleteness: {
+      passed: pack.criteria.find(item => item.name === 'functional-completeness')?.passed ?? false,
+      acceptanceCriteria: evidence.functionalCompleteness?.acceptanceCriteria,
+    },
+    soundVerification: {
+      passed: pack.criteria.find(item => item.name === 'sound-verification')?.passed ?? false,
+      testPlan: evidence.soundVerification?.testPlan,
+      newTestCases: evidence.soundVerification?.newTestCases,
+      gate2ReportId: evidence.soundVerification?.gate2ReportId,
+      ...(typeof evidence.soundVerification?.coveragePercentage === 'number'
+        ? { coveragePercentage: evidence.soundVerification.coveragePercentage }
+        : {}),
+    },
+    seHygiene: {
+      passed: pack.criteria.find(item => item.name === 'se-hygiene')?.passed ?? false,
+      mentorRuleCompliance: evidence.seHygiene?.mentorRuleCompliance,
+      ...(evidence.seHygiene?.lintReport ? { lintReport: evidence.seHygiene.lintReport } : {}),
+      ...(evidence.seHygiene?.complexityDelta ? { complexityDelta: evidence.seHygiene.complexityDelta } : {}),
+    },
+    rationale: {
+      approach: evidence.rationale?.approach,
+      tradeoffsConsidered: evidence.rationale?.tradeoffsConsidered,
+      prDescription: evidence.rationale?.prDescription,
+      crpsResolved: evidence.rationale?.crpsResolved ?? [],
+    },
+    auditability: {
+      prdId: evidence.auditability?.prdId,
+      workGraphId: pack.workGraphId,
+      semanticReviewId: evidence.auditability?.semanticReviewId,
+      gate1ReportId: evidence.auditability?.gate1ReportId,
+      gate2ReportId: evidence.auditability?.gate2ReportId,
+      ...(evidence.auditability?.sessionTreeId ? { sessionTreeId: evidence.auditability.sessionTreeId } : {}),
+      modelBindings: evidence.auditability?.modelBindings,
+      mentorRulesApplied: evidence.auditability?.mentorRulesApplied ?? [],
+      totalTokenUsage: evidence.auditability?.totalTokenUsage,
+      totalCost: evidence.auditability?.totalCost,
+      executionDurationMs: evidence.auditability?.executionDurationMs,
+    },
+    ciEvidence: {
+      status: pack.ciEvidence.status,
+      checksPassed: pack.ciEvidence.checksPassed,
+      checksFailed: pack.ciEvidence.checksFailed.map(name => ({
+        name,
+        conclusion: 'failure',
+        logUrl: pack.prEvidence.url,
+      })),
+      commitSha: pack.ciEvidence.commitSha,
+      verifiedAt: pack.ciEvidence.verifiedAt,
+    },
+    verdict: canonicalVerdict(pack),
+    verdictRationale: pack.verdictRationale,
+    ...(evidence.resolution ? { resolution: evidence.resolution } : {}),
+    createdAt: pack.createdAt,
+  }
+
+  const parsed = CanonicalMergeReadinessPackSchema.safeParse(canonical)
+  if (!parsed.success) {
+    throw new MergeReadinessPackError(`Canonical MRP schema validation failed: ${parsed.error.message}`)
+  }
+  return parsed.data
 }
 
 export async function ingestMergeReadinessPack(

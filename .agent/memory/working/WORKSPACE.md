@@ -4,7 +4,7 @@
 Active task: Dogfood loop - guarded synthesis artifact application.
 
 ## Last update
-2026-05-06T21:38:25Z
+2026-05-06T23:11:19Z
 
 ## Current actions
 
@@ -302,6 +302,20 @@ Active task: Dogfood loop - guarded synthesis artifact application.
   - refreshed MRP `prEvidence.headSha` and `ciEvidence.commitSha`: `2b27674bd7b36a0363af87f78969b5c809b8fa65`
   - refreshed MRP source refs now include `SIG-MOUKWPF7-1L16`
   - refreshed MRP has `refreshedAt=2026-05-06T21:38:20.097Z`
+- Added strict canonical MRP schema adapter:
+  - added `toCanonicalMergeReadinessPack(runtimePack, evidence?)`
+  - added `MissingCanonicalMRPEvidenceError` with explicit missing field ledger
+  - adapter imports and validates against canonical `MergeReadinessPack` Zod schema from `@factory/schemas`
+  - added internal workspace dependency from `@factory/ff-pipeline` to `@factory/schemas`
+  - runtime blob without supplemental evidence fails closed rather than inventing function ID, Gate 2 report, semantic review, model bindings, cost, or PRD evidence
+  - supplied-evidence path produces a canonical Zod-validated MRP object with canonical sections: functional completeness, sound verification, SE hygiene, rationale, auditability, CI evidence, and verdict
+- Verification completed:
+  - red strict-adapter test confirmed current runtime blob cannot be treated as canonical without missing evidence
+  - `pnpm --filter @factory/ff-pipeline test -- src/merge-readiness-pack.test.ts`: pass, 11 tests
+  - `pnpm --filter @factory/ff-pipeline test -- src/merge-readiness-pack.test.ts src/diagnostic-routes.test.ts`: pass, 25 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+  - `git diff --check`: pass
+  - `pnpm --filter @factory/ff-pipeline test`: pass, 65 files / 971 tests
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
