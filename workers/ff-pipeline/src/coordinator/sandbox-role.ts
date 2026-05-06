@@ -29,10 +29,16 @@ export interface SandboxDeps {
   execInSandbox: (taskJson: string) => Promise<string>
   /** Prepares workspace: git clone, pnpm install. */
   prepareWorkspace: (config: { repoUrl: string; ref: string; branch: string }) => Promise<void>
-  /** Creates a filesystem backup; returns an opaque handle. */
-  createBackup: (dir: string) => Promise<string>
+  /** Creates a filesystem backup; returns an opaque serializable handle. */
+  createBackup: (dir: string) => Promise<SandboxBackupHandle>
   /** Restores a previously-created backup. */
-  restoreBackup: (handle: string) => Promise<void>
+  restoreBackup: (handle: SandboxBackupHandle) => Promise<void>
+}
+
+export interface SandboxBackupHandle {
+  id: string
+  dir: string
+  localBucket?: boolean
 }
 
 // ────────────────────────────────────────────────────────────

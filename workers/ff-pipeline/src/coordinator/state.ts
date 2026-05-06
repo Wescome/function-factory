@@ -109,6 +109,12 @@ export interface TestReport {
   summary: string
 }
 
+export interface SandboxBackupHandle {
+  id: string
+  dir: string
+  localBucket?: boolean
+}
+
 export type VerdictDecision = 'pass' | 'patch' | 'resample' | 'interrupt' | 'fail'
 
 export type DisagreementClass =
@@ -173,8 +179,8 @@ export interface GraphState {
 
   // Sandbox state
   sandboxName: string | null
-  freshBackupHandle: string | null
-  coderBackupHandle: string | null
+  freshBackupHandle: SandboxBackupHandle | null
+  coderBackupHandle: SandboxBackupHandle | null
   executionMode: 'dry-run' | 'sandbox' | 'callModel-fallback' | null
 
   // Tool tracking

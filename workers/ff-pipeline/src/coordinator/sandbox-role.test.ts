@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { GraphState } from './state.js'
-import type { SandboxDeps } from './sandbox-role.js'
+import type { SandboxBackupHandle, SandboxDeps } from './sandbox-role.js'
 import { sandboxRole, makeExecutionRole } from './sandbox-role.js'
 import { createInitialState } from './state.js'
 import type { GraphDeps } from './graph.js'
@@ -29,6 +29,7 @@ function makeState(overrides: Partial<GraphState> = {}): GraphState {
 }
 
 function makeSandboxDeps(overrides: Partial<SandboxDeps> = {}): SandboxDeps {
+  const backupHandle: SandboxBackupHandle = { id: 'backup-handle-001', dir: '/workspace' }
   return {
     execInSandbox: vi.fn().mockResolvedValue(JSON.stringify({
       ok: true,
@@ -38,7 +39,7 @@ function makeSandboxDeps(overrides: Partial<SandboxDeps> = {}): SandboxDeps {
       tokenUsage: { input: 100, output: 50, total: 150 },
     })),
     prepareWorkspace: vi.fn().mockResolvedValue(undefined),
-    createBackup: vi.fn().mockResolvedValue('backup-handle-001'),
+    createBackup: vi.fn().mockResolvedValue(backupHandle),
     restoreBackup: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   }
@@ -289,7 +290,7 @@ describe('sandboxRole()', () => {
       const result = await node(state)
 
       expect(sandboxDeps.createBackup).toHaveBeenCalledOnce()
-      expect(result.coderBackupHandle).toBe('backup-handle-001')
+      expect(result.coderBackupHandle).toEqual({ id: 'backup-handle-001', dir: '/workspace' })
     })
 
     it('tester does NOT create backup', async () => {
@@ -313,7 +314,7 @@ describe('sandboxRole()', () => {
     it('restores backup on resample before re-execution', async () => {
       const state = makeState({
         workspaceReady: true,
-        coderBackupHandle: 'backup-previous',
+        coderBackupHandle: { id: 'backup-previous', dir: '/workspace' },
         verdict: {
           decision: 'resample',
           confidence: 0.7,
@@ -324,7 +325,7 @@ describe('sandboxRole()', () => {
 
       await node(state)
 
-      expect(sandboxDeps.restoreBackup).toHaveBeenCalledWith('backup-previous')
+      expect(sandboxDeps.restoreBackup).toHaveBeenCalledWith({ id: 'backup-previous', dir: '/workspace' })
     })
   })
 
@@ -405,7 +406,7 @@ describe('sandboxRole()', () => {
       })
       const state = makeState({
         workspaceReady: true,
-        coderBackupHandle: 'backup-previous',
+        coderBackupHandle: { id: 'backup-previous', dir: '/workspace' },
         verdict: {
           decision: 'resample',
           confidence: 0.7,

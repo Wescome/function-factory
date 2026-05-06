@@ -1,10 +1,158 @@
 # Current Workspace
 
 ## Status
-Session ended at 2026-05-04T18:19:03.564Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
+Active task: Dogfood loop - guarded synthesis artifact application.
 
 ## Last update
-2026-05-04T18:19:03.564Z
+2026-05-06T02:58:53Z
+
+## Current actions
+
+- Added index-only documentation files:
+  - `docs/README.md`
+  - `docs/adr/README.md`
+  - `specs/README.md`
+  - `specs/reference/README.md`
+- No `specs/` artifacts were moved or renamed.
+- Verification completed:
+  - new-doc relative link check: pass
+  - `pnpm -r --if-present typecheck`: pass
+  - `pnpm -r --if-present test`: pass
+- Added Stage 2 audit:
+  - `scripts/audit-docs.mjs`
+  - root `pnpm audit:docs` script
+  - docs references in `docs/README.md` and `specs/README.md`
+- Stage 2 audit recognizes current explicit exceptions:
+  - 253 `ATOM-*` virtual compiler-intermediate refs in WorkGraphs
+  - 1 historical known lineage gap:
+    `OBS-META-ARCHITECTURE-CANDIDATE-EXECUTION-2`
+- Verification completed:
+  - `pnpm audit:docs`: pass
+  - `pnpm -r --if-present typecheck`: pass
+  - `pnpm -r --if-present test`: pass
+- Added Stage 3 low-risk docs grouping:
+  - moved the Strategy.Recipes dogfood how-to to `docs/how-to/STRATEGY_RECIPES_DOGFOOD.md`
+  - left `docs/STRATEGY_RECIPES_DOGFOOD.md` as a compatibility stub
+  - updated links in `docs/README.md` and `docs/AUTONOMOUS_FACTORY_TRANSITION.md`
+- Verification completed:
+  - `pnpm audit:docs`: pass
+  - `git diff --check`: pass
+  - `pnpm -r --if-present typecheck`: pass
+  - `pnpm -r --if-present test`: pass
+- Hardened sandbox binding/API preflight:
+  - verified `workers/ff-pipeline/wrangler.jsonc` declares the `SANDBOX` Durable Object binding, migration, sandbox container, workspace R2 bucket, and Stage 6 queue bridge bindings
+  - added `workers/ff-pipeline/src/coordinator/sandbox-preflight.test.ts` to lock those bindings and the installed `@cloudflare/sandbox` backup API shape
+  - changed sandbox backup state/deps from string IDs to full `SandboxBackupHandle` objects matching the installed `DirectoryBackup` contract
+  - updated coordinator fallback stubs and sandbox/coordinator/state tests to pass full backup handles through restore
+- Verification completed:
+  - `pnpm --filter @factory/ff-pipeline test -- src/coordinator/sandbox-deps-factory.test.ts src/coordinator/sandbox-role.test.ts src/coordinator/coordinator-sandbox-wiring.test.ts src/coordinator/coordinator-integration.test.ts src/coordinator/state.test.ts src/coordinator/sandbox-preflight.test.ts`: pass, 92 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+  - `git diff --check`: pass
+- Aligned remaining sandbox execution tests with the backup-handle contract:
+  - changed `workers/ff-pipeline/src/coordinator/sandbox-execution.test.ts` from a string backup fixture to a typed `SandboxBackupHandle`
+  - confirmed no remaining coordinator tests mock backup handles as strings
+- Verification completed:
+  - `pnpm --filter @factory/ff-pipeline test -- src/coordinator/sandbox-execution.test.ts src/coordinator/sandbox-deps-factory.test.ts src/coordinator/sandbox-role.test.ts src/coordinator/sandbox-preflight.test.ts`: pass, 89 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+- Stage 6 / ff-pipeline local green verification completed:
+  - `pnpm --filter @factory/ff-pipeline test`: pass, 59 files / 901 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+- Architect granted autonomy to proceed until full synthesis:
+  - Runtime/domain/deploy work against the existing Function Factory endpoints is approved for this workstream.
+  - Proceed through dry-run smoke first, then real synthesis, fixing the first blocker encountered with local tests before redeploying.
+- Runtime full-synthesis evidence:
+  - deployed `ff-pipeline` via Wrangler; current deployed version ID `21e8ec58-660b-470c-bd38-4cf9018e3e29`
+  - live health after deploy: `ff-pipeline` healthy, Arango true, AI binding true
+  - dry-run pipeline `4148823b-225a-45ad-aafd-20eb7f6e26c7` completed `synthesis-passed`
+    - signal `SIG-MOTDQ89R-JM8X`
+    - workGraph `WG-MOTDRXMY-WN58`
+    - Gate 1 passed 6/6 checks
+    - atom `atom-001` passed
+  - real-mode pipeline `b1b51f73-416d-4d87-90a5-9ccaa12bec76` completed `synthesis-passed`
+    - signal `SIG-MOTDWPYM-LTW5`
+    - workGraph `WG-MOTE4M1R-G7I0`
+    - Gate 1 passed 6/6 checks
+    - atom `atom-001` passed with confidence 0.95
+    - generated code artifact `workers/ff-pipeline/src/runtime-verification.ts` in synthesis output
+    - tester report: 14/14 tests passed, repairCount 0
+- Materialized real-mode synthesis artifact into the repo:
+  - added `workers/ff-pipeline/src/runtime-verification.ts`
+  - added `workers/ff-pipeline/src/runtime-verification.test.ts`
+  - implementation follows the synthesized artifact's public behavior while conforming to local TypeScript style
+  - tests cover the 14 validation claims from real-mode synthesis output
+- Verification completed after materialization:
+  - `pnpm --filter @factory/ff-pipeline test -- src/runtime-verification.test.ts`: pass, 14 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+  - `pnpm --filter @factory/ff-pipeline test`: pass, 60 files / 915 tests
+- Added synthesis artifact egress guard:
+  - added `workers/ff-pipeline/src/synthesis-artifact-egress.ts`
+  - added `workers/ff-pipeline/src/synthesis-artifact-egress.test.ts`
+  - extracts `codeArtifact.files[]` from pipeline result atom outputs without writing to disk
+  - validates repo-relative paths, rejects absolute paths, parent traversal, `.git`, `node_modules`, env files, secret-like paths, invalid actions, and missing create/modify content
+  - tests use the `WG-MOTE4M1R-G7I0` result shape and multi-atom ordering
+- Verification completed after egress guard:
+  - red test confirmed missing egress module
+  - `pnpm --filter @factory/ff-pipeline test -- src/synthesis-artifact-egress.test.ts`: pass, 13 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+  - `pnpm --filter @factory/ff-pipeline test`: pass, 61 files / 928 tests
+- Extended synthesis artifact egress guard with controlled application:
+  - added injected filesystem operation boundary `applySynthesisCodeFiles`
+  - emits an audit record with pipeline ID, WorkGraph ID, actor, timestamp, file actions, and content hashes
+  - fails closed when `create` targets an existing file or `modify`/`delete` targets a missing file
+  - still performs no ambient filesystem writes; all side effects are through injected operations
+- Verification completed:
+  - red test confirmed missing apply function
+  - `pnpm --filter @factory/ff-pipeline test -- src/synthesis-artifact-egress.test.ts`: pass, 16 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+  - `pnpm --filter @factory/ff-pipeline test`: pass, 61 files / 931 tests
+- Recorded local materialization audit:
+  - `.agent/memory/episodic/synthesis-materialization-WG-MOTE4M1R-G7I0.json`
+  - captures pipeline `b1b51f73-416d-4d87-90a5-9ccaa12bec76`, signal/pressure/capability/proposal/WorkGraph IDs, Gate 1 pass, atom pass, file paths, and SHA-256 hashes
+  - audit is retrospective because the artifact was materialized one slice before the guarded apply boundary existed
+- Added Stage 8 PR draft boundary:
+  - added `workers/ff-pipeline/src/synthesis-pr-draft.ts`
+  - added `workers/ff-pipeline/src/synthesis-pr-draft.test.ts`
+  - consumes the materialization audit shape and produces a draft PR title, branch, base branch, body, and ordered source refs
+  - fails closed unless runtime status is `synthesis-passed`, Gate 1 passed, all atoms passed, and at least one materialized file exists
+- Verification completed:
+  - red test confirmed missing PR draft module
+  - `pnpm --filter @factory/ff-pipeline test -- src/synthesis-pr-draft.test.ts`: pass, 6 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+  - `pnpm --filter @factory/ff-pipeline test`: pass, 62 files / 937 tests
+- Hardened Stage 6 graph evidence:
+  - replaced graph-internal compile stub output with non-authoritative upstream compile pass-through evidence
+  - replaced graph-internal Gate 1 stub output with non-authoritative upstream Gate 1 pass-through evidence
+  - added tests that reject the old `stub-check` / `Gate 1 passed (stub)` evidence labels
+  - cleaned repair-path test fixtures to use upstream compile evidence instead of `{ stub: true }`
+- Verification completed:
+  - `pnpm --filter @factory/ff-pipeline test -- src/coordinator/graph-9node.test.ts`: failed before implementation as expected
+  - `pnpm --filter @factory/ff-pipeline test -- src/coordinator/graph-9node.test.ts src/coordinator/coordinator-9node-wiring.test.ts src/coordinator/vertical-slicing.test.ts`: pass
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+  - `git diff --check`: pass
+- Imported ontology self-sensing reference:
+  - copied `/Users/wes/Downloads/factory-onto-self-sense.md` to `specs/reference/ONTOLOGICAL-SELF-SENSING-2026-05-03.md`
+  - indexed it in `specs/reference/README.md`
+  - linked it from `specs/README.md` and `docs/README.md`
+  - clarified that `AGENTS.md`, `spec.md`, and `tasks.md` are portable agent-facing emission views, not replacements for the native typed Factory artifact graph
+- Verification completed after import:
+  - `pnpm audit:docs`: pass
+  - `git diff --check`: pass
+- Added Stage 4 docs hardening:
+  - added `docs/how-to/README.md`
+  - classified remaining root docs in `docs/README.md`
+  - kept `AUTONOMOUS_FACTORY_TRANSITION.md` as explanation
+  - kept terminal contract/backlog docs as reference/planning material
+  - found no additional pure how-to files to move
+  - kept all `specs/` paths unchanged
+- Tightened `pnpm audit:docs`:
+  - requires README files for Markdown-bearing `docs/` sections
+  - requires declared how-to migration compatibility stubs
+  - reports orphan docs not linked from a docs README index
+- Verification completed:
+  - `pnpm audit:docs`: pass
+  - `git diff --check`: pass
+  - `pnpm -r --if-present typecheck`: pass
+  - `pnpm -r --if-present test`: pass
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
