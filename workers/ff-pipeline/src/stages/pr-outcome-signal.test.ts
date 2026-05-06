@@ -111,6 +111,7 @@ describe('buildPROutcomeSignals', () => {
     expect(signal!.signal.subtype).toBe('synthesis:pr-ci-passed')
     expect(signal!.autoApprove).toBe(false)
     expect(signal!.signal.source).toBe('factory:pr-outcome')
+    expect(signal!.signal.description).toContain('head b43cb8a')
     expect(signal!.signal.sourceRefs).toEqual([
       'SIG:SIG-MOTDWPYM-LTW5',
       'PRS:PRS-MOTDWQ0T-S55Y',
@@ -144,6 +145,7 @@ describe('buildPROutcomeSignals', () => {
 
     expect(signals.map(s => s.signal.subtype)).toEqual(['synthesis:pr-ci-failed'])
     expect(signals[0]!.signal.description).toContain('Typecheck')
+    expect(signals[0]!.signal.description).toContain('head b43cb8a')
   })
 
   it('emits merge, close, approval, requested-review, and changes-requested signals', () => {

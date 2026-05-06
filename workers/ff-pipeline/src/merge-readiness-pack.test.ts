@@ -210,20 +210,87 @@ describe('merge-readiness pack', () => {
     })
   })
 
-  it('returns an existing persisted MRP without saving a duplicate', async () => {
+  it('returns an existing persisted MRP without saving a duplicate when PR head is unchanged', async () => {
     const pack = buildMergeReadinessPack({
       audit: makeAudit(),
       prOutcomeSignal: makeOutcome(),
       createdAt: '2026-05-06T04:00:00Z',
     })
-    const existing = { _key: pack.id, id: pack.id, verdict: 'merge-ready' }
+    const existing = {
+      _key: pack.id,
+      id: pack.id,
+      verdict: 'merge-ready',
+      prEvidence: {
+        headSha: pack.prEvidence.headSha,
+      },
+    }
     const db = {
       queryOne: vi.fn(async (_query: string, _bindVars: Record<string, unknown>) => existing),
       save: vi.fn(),
+      update: vi.fn(),
     }
 
     await expect(ingestMergeReadinessPack(pack, db as never)).resolves.toBe(existing)
     expect(db.save).not.toHaveBeenCalled()
+    expect(db.update).not.toHaveBeenCalled()
+  })
+
+  it('refreshes an existing persisted MRP when PR head changes', async () => {
+    const pack = buildMergeReadinessPack({
+      audit: makeAudit(),
+      prOutcomeSignal: makeOutcome({
+        _key: 'SIG-NEW-HEAD',
+        raw: {
+          ...makeOutcome().raw,
+          pr: {
+            ...makeOutcome().raw?.pr,
+            headSha: 'd924c8137c0ef004b8ee52028ea9a49ad289be93',
+          },
+          observedAt: '2026-05-06T21:45:00Z',
+        },
+      }),
+      createdAt: '2026-05-06T21:45:00Z',
+    })
+    const existing = {
+      _key: pack.id,
+      id: pack.id,
+      verdict: 'merge-ready',
+      prEvidence: {
+        headSha: 'ff6187ac67c945a4fe007f666f32d337ecafcfd8',
+      },
+    }
+    const db = {
+      queryOne: vi.fn(async (_query: string, _bindVars: Record<string, unknown>) => existing),
+      save: vi.fn(),
+      update: vi.fn(async (_collection: string, _key: string, patch: Record<string, unknown>) => ({
+        ...existing,
+        ...patch,
+      })),
+    }
+
+    const persisted = await ingestMergeReadinessPack(pack, db as never)
+
+    expect(db.save).not.toHaveBeenCalled()
+    expect(db.update).toHaveBeenCalledWith(
+      'merge_readiness_packs',
+      'MRP-MOTE4M1R-G7I0-71',
+      expect.objectContaining({
+        prEvidence: expect.objectContaining({
+          signalId: 'SIG-NEW-HEAD',
+          headSha: 'd924c8137c0ef004b8ee52028ea9a49ad289be93',
+        }),
+        ciEvidence: expect.objectContaining({
+          commitSha: 'd924c8137c0ef004b8ee52028ea9a49ad289be93',
+        }),
+        verdict: 'merge-ready',
+        refreshedAt: '2026-05-06T21:45:00Z',
+      }),
+    )
+    expect(persisted).toMatchObject({
+      prEvidence: {
+        headSha: 'd924c8137c0ef004b8ee52028ea9a49ad289be93',
+      },
+    })
   })
 
   it('fails closed before persistence when MRP verdict is malformed', async () => {

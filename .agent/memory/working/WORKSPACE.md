@@ -4,7 +4,7 @@
 Active task: Dogfood loop - guarded synthesis artifact application.
 
 ## Last update
-2026-05-06T21:28:26Z
+2026-05-06T21:35:32Z
 
 ## Current actions
 
@@ -277,6 +277,18 @@ Active task: Dogfood loop - guarded synthesis artifact application.
   - persisted source refs: `SIG-MOTDWPYM-LTW5`, `PRS-MOTDWQ0T-S55Y`, `BC-MOTDWSVY-PQOO`, `FP-MOTDWVR2-W7UN`, `WG-MOTE4M1R-G7I0`, `SIG-MOTILTZ0-6DGK`
   - `GET /debug/mrp?id=MRP-MOTE4M1R-G7I0-71` returned `found=true`
   - readback CI evidence: `Factory PR Gate`, `Typecheck`, `Test` passed on observed PR outcome signal
+- Fresh-head MRP refresh blocker found and fixed locally:
+  - live PR #71 head is `d924c8137c0ef004b8ee52028ea9a49ad289be93`
+  - persisted PR outcome signal `SIG-MOTILTZ0-6DGK` still referenced old head `ff6187ac67c945a4fe007f666f32d337ecafcfd8`
+  - re-enqueueing PR outcome before the fix returned the old signal because PR outcome signal idempotency was title/description based and description did not include head SHA
+  - changed PR outcome signal descriptions to include short PR head SHA, making observations head-specific without changing global signal idempotency
+  - changed `ingestMergeReadinessPack` to return an existing MRP only when PR head is unchanged; if head differs, it patches the existing MRP and records `refreshedAt`
+- Verification completed:
+  - red tests confirmed missing head-specific PR outcome descriptions and missing MRP refresh update
+  - `pnpm --filter @factory/ff-pipeline test -- src/stages/pr-outcome-signal.test.ts src/merge-readiness-pack.test.ts src/pr-outcome-queue.test.ts src/diagnostic-routes.test.ts`: pass, 37 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+  - `git diff --check`: pass
+  - `pnpm --filter @factory/ff-pipeline test`: pass, 65 files / 969 tests
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 

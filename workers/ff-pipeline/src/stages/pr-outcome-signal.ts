@@ -350,12 +350,13 @@ function makeSignal(
   description: string,
   outcome: NormalizedPROutcome,
 ): FeedbackSignal {
+  const head = input.pullRequest.headSha.slice(0, 7)
   const signal: SignalInput & { raw: Record<string, unknown> } = {
     signalType: 'internal',
     source: 'factory:pr-outcome',
     subtype,
     title,
-    description,
+    description: `${description} at head ${head}`,
     sourceRefs: sourceRefs(input.lineage),
     raw: rawPayload(input, outcome),
   }

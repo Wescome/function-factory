@@ -241,6 +241,13 @@ function assertPackReadyForPersistence(pack: MergeReadinessPack): void {
   persistedVerdict(pack.readinessVerdict)
 }
 
+function existingHeadSha(existing: Record<string, unknown>): string | null {
+  const prEvidence = existing.prEvidence
+  if (typeof prEvidence !== 'object' || prEvidence === null) return null
+  const headSha = (prEvidence as { headSha?: unknown }).headSha
+  return typeof headSha === 'string' && headSha.length > 0 ? headSha : null
+}
+
 export function buildMergeReadinessPack(input: BuildMergeReadinessPackInput): MergeReadinessPack {
   const { audit, prOutcomeSignal } = input
   assertAuditLineage(audit)
@@ -349,12 +356,23 @@ export async function ingestMergeReadinessPack(
     { id: pack.id },
   )
 
-  if (existing) return existing
-
   const persisted: PersistedMergeReadinessPack = {
     ...pack,
     _key: pack.id,
     verdict: persistedVerdict(pack.readinessVerdict),
+  }
+
+  if (existing) {
+    if (existingHeadSha(existing) === pack.prEvidence.headSha) {
+      return existing
+    }
+
+    const patch = {
+      ...persisted,
+      refreshedAt: pack.createdAt,
+    }
+    await db.update('merge_readiness_packs', pack.id, patch as unknown as Record<string, unknown>)
+    return patch as unknown as Record<string, unknown>
   }
 
   await db.save('merge_readiness_packs', persisted as unknown as Record<string, unknown>)
