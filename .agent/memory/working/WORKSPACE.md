@@ -4,7 +4,7 @@
 Active task: Dogfood loop - guarded synthesis artifact application.
 
 ## Last update
-2026-05-06T21:35:32Z
+2026-05-06T21:38:25Z
 
 ## Current actions
 
@@ -289,6 +289,19 @@ Active task: Dogfood loop - guarded synthesis artifact application.
   - `pnpm --filter @factory/ff-pipeline typecheck`: pass
   - `git diff --check`: pass
   - `pnpm --filter @factory/ff-pipeline test`: pass, 65 files / 969 tests
+- Runtime dogfooded fresh-head MRP refresh:
+  - deployed `ff-pipeline` version `22d8f65f-a3f5-446d-98ba-1dde5ddb2006`
+  - waited for PR #71 CI to pass on head `2b27674bd7b36a0363af87f78969b5c809b8fa65`
+  - re-enqueued PR outcome for PR #71 / `WG-MOTE4M1R-G7I0`
+  - new PR outcome signal persisted: `SIG-MOUKWPF7-1L16`
+  - signal description: `Factory PR #71 passed all observed CI checks at head 2b27674`
+  - signal raw head SHA: `2b27674bd7b36a0363af87f78969b5c809b8fa65`
+  - refreshed `MRP-MOTE4M1R-G7I0-71` with `prOutcomeSignalKey=SIG-MOUKWPF7-1L16`
+  - refreshed MRP verdict: `merge-ready`
+  - refreshed MRP `readinessVerdict`: `ready`
+  - refreshed MRP `prEvidence.headSha` and `ciEvidence.commitSha`: `2b27674bd7b36a0363af87f78969b5c809b8fa65`
+  - refreshed MRP source refs now include `SIG-MOUKWPF7-1L16`
+  - refreshed MRP has `refreshedAt=2026-05-06T21:38:20.097Z`
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
