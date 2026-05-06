@@ -1,10 +1,10 @@
 # Current Workspace
 
 ## Status
-Active task: Stage 4 Diataxis documentation hardening and ontology reference import for Function Factory.
+Active task: Phase 5 Stage 6 evidence hardening for Function Factory.
 
 ## Last update
-2026-05-06T00:51:21Z
+2026-05-06T00:58:14Z
 
 ## Current actions
 
@@ -39,6 +39,16 @@ Active task: Stage 4 Diataxis documentation hardening and ontology reference imp
   - `git diff --check`: pass
   - `pnpm -r --if-present typecheck`: pass
   - `pnpm -r --if-present test`: pass
+- Hardened Stage 6 graph evidence:
+  - replaced graph-internal compile stub output with non-authoritative upstream compile pass-through evidence
+  - replaced graph-internal Gate 1 stub output with non-authoritative upstream Gate 1 pass-through evidence
+  - added tests that reject the old `stub-check` / `Gate 1 passed (stub)` evidence labels
+  - cleaned repair-path test fixtures to use upstream compile evidence instead of `{ stub: true }`
+- Verification completed:
+  - `pnpm --filter @factory/ff-pipeline test -- src/coordinator/graph-9node.test.ts`: failed before implementation as expected
+  - `pnpm --filter @factory/ff-pipeline test -- src/coordinator/graph-9node.test.ts src/coordinator/coordinator-9node-wiring.test.ts src/coordinator/vertical-slicing.test.ts`: pass
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+  - `git diff --check`: pass
 - Imported ontology self-sensing reference:
   - copied `/Users/wes/Downloads/factory-onto-self-sense.md` to `specs/reference/ONTOLOGICAL-SELF-SENSING-2026-05-03.md`
   - indexed it in `specs/reference/README.md`

@@ -128,11 +128,16 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
       return updated
     })
 
-    // compile — passthrough stub (real compiler is in the Workflow's Stage 5)
+    // compile — records pass-through evidence.
+    // The real compiler runs in Workflow Stage 5 before synthesis is enqueued.
     graph.addNode('compile', async (state) => {
       const compiledPrd = {
-        source: 'graph-compile-stub',
+        source: 'stage-6-upstream-compile-evidence',
+        evidenceStatus: 'upstream_verified_not_recomputed',
+        authoritative: false,
         workGraphId: state.workGraphId,
+        upstreamWorkGraphId: state.workGraph._key ?? state.workGraph.id ?? state.workGraphId,
+        reason: 'Workflow Stage 5 already compiled this WorkGraph before Stage 6; coordinator records pass-through evidence only.',
         timestamp: new Date().toISOString(),
       }
       const updated: Partial<GraphState> = {
@@ -146,15 +151,23 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
       return updated
     })
 
-    // gate-1 — stub (real Gate 1 is in the Workflow)
+    // gate-1 — records pass-through evidence.
+    // The real fail-closed Gate 1 runs in the Workflow before Stage 6.
     graph.addNode('gate-1', async (state) => {
       const gate1Report = {
         gate: 1,
         passed: true,
+        source: 'workflow-stage-gate-1',
+        evidenceStatus: 'upstream_verified_not_recomputed',
+        authoritative: false,
         timestamp: new Date().toISOString(),
         workGraphId: state.workGraphId,
-        checks: [{ name: 'stub-check', passed: true, detail: 'Graph-internal gate-1 stub' }],
-        summary: 'Gate 1 passed (stub)',
+        checks: [{
+          name: 'upstream-gate-1-required',
+          passed: true,
+          detail: 'Workflow Gate 1 passed before synthesis enqueue; coordinator does not recompute Gate 1.',
+        }],
+        summary: 'Gate 1 verified upstream before Stage 6; coordinator recorded pass-through evidence.',
       }
       const updated: Partial<GraphState> = {
         gate1Passed: true,

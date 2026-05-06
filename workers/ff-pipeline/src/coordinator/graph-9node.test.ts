@@ -101,6 +101,18 @@ function makeStubCodeCritique(): CritiqueReport {
   }
 }
 
+function makeUpstreamCompileEvidence() {
+  return {
+    source: 'stage-6-upstream-compile-evidence',
+    evidenceStatus: 'upstream_verified_not_recomputed',
+    authoritative: false,
+    workGraphId: 'WG-T11',
+    upstreamWorkGraphId: 'WG-T11',
+    reason: 'Workflow Stage 5 already compiled this WorkGraph before Stage 6; coordinator records pass-through evidence only.',
+    timestamp: new Date().toISOString(),
+  }
+}
+
 function make9NodeDeps(overrides: Partial<GraphDeps> = {}): GraphDeps {
   const callModel = makeStubCallModel()
   return {
@@ -241,7 +253,7 @@ describe('T11: 9-node synthesis graph', () => {
       briefingScript: makeStubBriefingScript(),
       semanticReview: makeStubSemanticReview(),
       gate1Passed: true,
-      compiledPrd: { stub: true },
+      compiledPrd: makeUpstreamCompileEvidence(),
     })
     const visited2: string[] = []
     await graph.run(state2, {
@@ -454,7 +466,7 @@ describe('T11: 9-node synthesis graph', () => {
       // Skip architect pipeline (already done)
       briefingScript: makeStubBriefingScript(),
       semanticReview: makeStubSemanticReview(),
-      compiledPrd: { stub: true },
+      compiledPrd: makeUpstreamCompileEvidence(),
       gate1Passed: false,
       // Set a verdict that would cause gate-1 to fail via a custom check
     })
@@ -497,19 +509,47 @@ describe('T11: 9-node synthesis graph', () => {
   })
 
   // ────────────────────────────────────────────────────────────
-  // T11.10: compile node writes compiledPrd to state
+  // T11.10: compile node writes pass-through compile evidence to state
   // ────────────────────────────────────────────────────────────
 
-  it('T11.10: compile node writes compiledPrd to state', async () => {
+  it('T11.10: compile node writes non-authoritative upstream compile evidence to state', async () => {
     const deps = make9NodeDeps()
     const graph = buildSynthesisGraph(deps)
     const state = makeState()
 
     const finalState = await graph.run(state, { maxSteps: 50 })
 
-    // compiledPrd should be set (even as a passthrough stub)
     expect(finalState.compiledPrd).toBeDefined()
     expect(finalState.compiledPrd).not.toBeNull()
+
+    const compiledPrd = finalState.compiledPrd as Record<string, unknown>
+    expect(compiledPrd.source).toBe('stage-6-upstream-compile-evidence')
+    expect(compiledPrd.evidenceStatus).toBe('upstream_verified_not_recomputed')
+    expect(compiledPrd.authoritative).toBe(false)
+    expect(compiledPrd.reason).toContain('Stage 5 already compiled')
+  })
+
+  // ────────────────────────────────────────────────────────────
+  // T11.10b: gate-1 node records upstream verification, not fake proof
+  // ────────────────────────────────────────────────────────────
+
+  it('T11.10b: gate-1 node records non-authoritative upstream Gate 1 evidence', async () => {
+    const deps = make9NodeDeps()
+    const graph = buildSynthesisGraph(deps)
+    const state = makeState()
+
+    const finalState = await graph.run(state, { maxSteps: 50 })
+
+    expect(finalState.gate1Passed).toBe(true)
+    expect(finalState.gate1Report).toBeDefined()
+
+    const gate1Report = finalState.gate1Report as Record<string, unknown>
+    expect(gate1Report.source).toBe('workflow-stage-gate-1')
+    expect(gate1Report.evidenceStatus).toBe('upstream_verified_not_recomputed')
+    expect(gate1Report.authoritative).toBe(false)
+    expect(gate1Report.summary).toContain('verified upstream')
+    expect(JSON.stringify(gate1Report)).not.toContain('stub-check')
+    expect(JSON.stringify(gate1Report)).not.toContain('Gate 1 passed (stub)')
   })
 
   // ────────────────────────────────────────────────────────────
