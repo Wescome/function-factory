@@ -77,7 +77,7 @@ function makeThrowingSandboxDeps(): SandboxDeps {
     prepareWorkspace: vi.fn().mockRejectedValue(
       new Error('Sandbox not yet deployed'),
     ),
-    createBackup: vi.fn().mockResolvedValue(''),
+    createBackup: vi.fn().mockImplementation(async (dir: string) => ({ id: 'sandbox-unavailable', dir })),
     restoreBackup: vi.fn().mockResolvedValue(undefined),
   }
 }
@@ -225,10 +225,13 @@ describe('T7: coordinator executionRole wiring', () => {
       .rejects.toThrow('Sandbox not yet deployed')
 
     // createBackup must resolve (non-throwing even when sandbox is down)
-    await expect(deps.createBackup('/workspace')).resolves.toBe('')
+    await expect(deps.createBackup('/workspace')).resolves.toEqual({
+      id: 'sandbox-unavailable',
+      dir: '/workspace',
+    })
 
     // restoreBackup must resolve
-    await expect(deps.restoreBackup('')).resolves.toBeUndefined()
+    await expect(deps.restoreBackup({ id: 'sandbox-unavailable', dir: '/workspace' })).resolves.toBeUndefined()
   })
 
   // ────────────────────────────────────────────────────────────

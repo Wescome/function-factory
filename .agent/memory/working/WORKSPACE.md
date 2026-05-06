@@ -1,10 +1,10 @@
 # Current Workspace
 
 ## Status
-Active task: Phase 5 Stage 6 evidence hardening for Function Factory.
+Active task: Phase 5 sandbox binding preflight for Function Factory.
 
 ## Last update
-2026-05-06T00:58:14Z
+2026-05-06T01:18:39Z
 
 ## Current actions
 
@@ -39,6 +39,15 @@ Active task: Phase 5 Stage 6 evidence hardening for Function Factory.
   - `git diff --check`: pass
   - `pnpm -r --if-present typecheck`: pass
   - `pnpm -r --if-present test`: pass
+- Hardened sandbox binding/API preflight:
+  - verified `workers/ff-pipeline/wrangler.jsonc` declares the `SANDBOX` Durable Object binding, migration, sandbox container, workspace R2 bucket, and Stage 6 queue bridge bindings
+  - added `workers/ff-pipeline/src/coordinator/sandbox-preflight.test.ts` to lock those bindings and the installed `@cloudflare/sandbox` backup API shape
+  - changed sandbox backup state/deps from string IDs to full `SandboxBackupHandle` objects matching the installed `DirectoryBackup` contract
+  - updated coordinator fallback stubs and sandbox/coordinator/state tests to pass full backup handles through restore
+- Verification completed:
+  - `pnpm --filter @factory/ff-pipeline test -- src/coordinator/sandbox-deps-factory.test.ts src/coordinator/sandbox-role.test.ts src/coordinator/coordinator-sandbox-wiring.test.ts src/coordinator/coordinator-integration.test.ts src/coordinator/state.test.ts src/coordinator/sandbox-preflight.test.ts`: pass, 92 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+  - `git diff --check`: pass
 - Hardened Stage 6 graph evidence:
   - replaced graph-internal compile stub output with non-authoritative upstream compile pass-through evidence
   - replaced graph-internal Gate 1 stub output with non-authoritative upstream Gate 1 pass-through evidence

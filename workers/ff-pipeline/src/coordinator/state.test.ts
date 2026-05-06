@@ -66,7 +66,7 @@ describe('GraphState type', () => {
     // Simulate what sandboxRole does: spread-merge partial updates into state
     const update: Partial<GraphState> = {
       workspaceReady: true,
-      coderBackupHandle: 'r2://backups/coder-001',
+      coderBackupHandle: { id: 'coder-001', dir: '/workspace' },
       executionMode: 'sandbox',
       gate1Passed: true,
       coderToolCalls: 12,
@@ -84,7 +84,7 @@ describe('GraphState type', () => {
 
     // And the overrides must take effect
     expect(merged.workspaceReady).toBe(true)
-    expect(merged.coderBackupHandle).toBe('r2://backups/coder-001')
+    expect(merged.coderBackupHandle).toEqual({ id: 'coder-001', dir: '/workspace' })
     expect(merged.executionMode).toBe('sandbox')
     expect(merged.gate1Passed).toBe(true)
     expect(merged.coderToolCalls).toBe(12)

@@ -66,9 +66,9 @@ describe('T12-wiring: buildSandboxDeps() env.SANDBOX branching', () => {
     expect(coordinatorSrc).toMatch(/prepareWorkspace[\s\S]*?throw\s+new\s+Error/)
   })
 
-  it('stub createBackup returns empty string (non-throwing)', () => {
-    // createBackup is non-fatal; returning empty string is fine
-    expect(coordinatorSrc).toMatch(/createBackup:\s*async\s*\([^)]*\)\s*=>\s*['"]/)
+  it('stub createBackup returns a serializable placeholder handle (non-throwing)', () => {
+    // createBackup is non-fatal; placeholder must still match SandboxBackupHandle shape.
+    expect(coordinatorSrc).toMatch(/createBackup:\s*async\s*\(\s*dir\s*\)\s*=>\s*\(\{\s*id:\s*['"]sandbox-unavailable['"],\s*dir\s*\}\)/)
   })
 
   it('stub restoreBackup is a no-op (non-throwing)', () => {
@@ -193,7 +193,7 @@ describe('T12-wiring: throwing stubs trigger callModel fallback (integration)', 
     return {
       execInSandbox: async () => { throw new Error('Sandbox not yet deployed — falling back to callModel') },
       prepareWorkspace: async () => { throw new Error('Sandbox not yet deployed') },
-      createBackup: async () => '',
+      createBackup: async (dir) => ({ id: 'sandbox-unavailable', dir }),
       restoreBackup: async () => {},
     }
   }
@@ -320,13 +320,16 @@ describe('T12-wiring: throwing stubs trigger callModel fallback (integration)', 
       .rejects.toThrow(/Sandbox not/)
   })
 
-  it('stub createBackup resolves to empty string (non-fatal)', async () => {
+  it('stub createBackup resolves to a serializable placeholder handle (non-fatal)', async () => {
     const stubs = makeThrowingStubs()
-    await expect(stubs.createBackup('/workspace')).resolves.toBe('')
+    await expect(stubs.createBackup('/workspace')).resolves.toEqual({
+      id: 'sandbox-unavailable',
+      dir: '/workspace',
+    })
   })
 
   it('stub restoreBackup resolves to void (non-fatal)', async () => {
     const stubs = makeThrowingStubs()
-    await expect(stubs.restoreBackup('handle')).resolves.toBeUndefined()
+    await expect(stubs.restoreBackup({ id: 'handle', dir: '/workspace' })).resolves.toBeUndefined()
   })
 })

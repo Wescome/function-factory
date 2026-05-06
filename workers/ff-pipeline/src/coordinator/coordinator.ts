@@ -542,7 +542,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       prepareWorkspace: async (_config) => {
         throw new Error('Sandbox not yet deployed')
       },
-      createBackup: async (_dir) => '',
+      createBackup: async (dir) => ({ id: 'sandbox-unavailable', dir }),
       restoreBackup: async (_handle) => {},
     }
   }
