@@ -299,10 +299,18 @@ function isNonEmptyArray(value: unknown): value is unknown[] {
   return Array.isArray(value) && value.length > 0
 }
 
-function requiredCanonicalFields(evidence: CanonicalMRPEvidence): string[] {
+function deriveFunctionIdFromProposalId(proposalId: string): string | null {
+  return proposalId.startsWith('FP-') && proposalId.length > 3
+    ? `FN-${proposalId.slice(3)}`
+    : null
+}
+
+function requiredCanonicalFields(pack: MergeReadinessPack, evidence: CanonicalMRPEvidence): string[] {
   const missing: string[] = []
 
-  if (!isNonEmptyString(evidence.functionId)) missing.push('functionId')
+  if (!isNonEmptyString(evidence.functionId) && !deriveFunctionIdFromProposalId(pack.proposalId)) {
+    missing.push('functionId')
+  }
   if (!isNonEmptyArray(evidence.functionalCompleteness?.acceptanceCriteria)) {
     missing.push('functionalCompleteness.acceptanceCriteria')
   }
@@ -329,6 +337,17 @@ function requiredCanonicalFields(evidence: CanonicalMRPEvidence): string[] {
 
 function canonicalVerdict(pack: MergeReadinessPack): CanonicalMergeReadinessPack['verdict'] {
   return pack.readinessVerdict === 'ready' ? 'merge-ready' : 'needs-revision'
+}
+
+function canonicalFunctionId(pack: MergeReadinessPack, evidence: CanonicalMRPEvidence): string {
+  const derived = deriveFunctionIdFromProposalId(pack.proposalId)
+  if (!derived) {
+    throw new MergeReadinessPackError('pack.proposalId must start with FP- for Stage 8 functionId derivation')
+  }
+  if (isNonEmptyString(evidence.functionId) && evidence.functionId !== derived) {
+    throw new MergeReadinessPackError('evidence.functionId must match the Stage 8 functionId derived from pack.proposalId')
+  }
+  return derived
 }
 
 function assertPackReadyForPersistence(pack: MergeReadinessPack): void {
@@ -456,15 +475,16 @@ export function toCanonicalMergeReadinessPack(
   pack: MergeReadinessPack,
   evidence: CanonicalMRPEvidence = {},
 ): CanonicalMergeReadinessPack {
-  const missing = requiredCanonicalFields(evidence)
+  const missing = requiredCanonicalFields(pack, evidence)
   if (missing.length > 0) {
     throw new MissingCanonicalMRPEvidenceError(missing)
   }
+  const functionId = canonicalFunctionId(pack, evidence)
 
   const canonical = {
     _key: pack.id,
     id: pack.id,
-    functionId: evidence.functionId,
+    functionId,
     workGraphId: pack.workGraphId,
     pipelineInstanceId: pack.pipelineId,
     functionalCompleteness: {

@@ -1071,3 +1071,29 @@ hardening pass may make the full GDK source strict-clean, but that is not a
 precondition for `ff-pipeline` diagnostic-route or pipeline deploy work.
 
 **Status:** Active.
+
+## 2026-05-06: Stage 8 MRP assembly materializes FP identity into FN identity
+
+**Decision:** Stage 8 Merge Readiness Pack assembly is the lifecycle boundary
+where a FunctionProposal identity deterministically materializes into the
+canonical Function identity. The mapping is byte-preserving across the suffix:
+`FP-<suffix>` becomes `FN-<suffix>`.
+
+**Rationale:** Runtime synthesis and WorkGraph evidence still carry the
+proposal identity because the generated work is not yet accepted as a
+Function. The canonical MRP schema requires `functionId`, and Stage 8 is the
+first point where the system has the merge-readiness evidence needed to name
+the resulting Function candidate without asking callers to supply a second
+identity. Deriving the ID at this boundary keeps lineage explicit and avoids
+fabricating or trusting external `functionId` evidence.
+
+**Consequences:** The MRP canonical adapter derives `functionId` from
+`pack.proposalId` when the proposal ID is `FP-*`. Supplied `functionId`
+evidence must match the derived value or the adapter fails closed. All other
+canonical MRP evidence remains strict: Gate 2 report, semantic review, PRD,
+model bindings, cost, token, duration, and similar fields are not fabricated.
+This identity materialization does not imply promotion to `monitored` or
+accepted Function state; Gate 2 and later lifecycle transitions remain
+separate.
+
+**Status:** Active.

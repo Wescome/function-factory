@@ -4,10 +4,25 @@
 Active task: Dogfood loop - guarded synthesis artifact application.
 
 ## Last update
-2026-05-06T23:11:19Z
+2026-05-06T23:28:40Z
 
 ## Current actions
 
+- Active slice: Stage 8 MRP assembly deterministically materializes `FP-*` proposal IDs into canonical `FN-*` function IDs.
+- Red test confirmed previous canonical MRP adapter still required external `functionId` evidence:
+  - `pnpm --filter @factory/ff-pipeline test -- src/merge-readiness-pack.test.ts`: failed, 3 expected failures
+- Patched `workers/ff-pipeline/src/merge-readiness-pack.ts`:
+  - derives `FN-<suffix>` from `pack.proposalId` when `pack.proposalId` is `FP-<suffix>`
+  - rejects conflicting supplied `evidence.functionId`
+  - fails closed when Stage 8 cannot derive from an `FP-*` proposal ID
+  - leaves all other canonical MRP evidence strict
+- Updated `workers/ff-pipeline/src/merge-readiness-pack.test.ts` with derivation, conflict, and invalid-proposal coverage.
+- Recorded the architecture decision in `.agent/memory/semantic/DECISIONS.md`.
+- Verification completed:
+  - `pnpm --filter @factory/ff-pipeline test -- src/merge-readiness-pack.test.ts`: pass, 14 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+  - `git diff --check`: pass
+  - `pnpm --filter @factory/ff-pipeline test`: pass, 65 files / 974 tests
 - Added index-only documentation files:
   - `docs/README.md`
   - `docs/adr/README.md`
