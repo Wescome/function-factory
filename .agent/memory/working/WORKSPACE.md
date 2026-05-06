@@ -1,10 +1,44 @@
 # Current Workspace
 
 ## Status
-Session ended at 2026-05-04T18:19:03.564Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
+Active task: Stage 3 Diataxis documentation grouping for Function Factory.
 
 ## Last update
-2026-05-04T18:19:03.564Z
+2026-05-06T00:30:25Z
+
+## Current actions
+
+- Added index-only documentation files:
+  - `docs/README.md`
+  - `docs/adr/README.md`
+  - `specs/README.md`
+  - `specs/reference/README.md`
+- No `specs/` artifacts were moved or renamed.
+- Verification completed:
+  - new-doc relative link check: pass
+  - `pnpm -r --if-present typecheck`: pass
+  - `pnpm -r --if-present test`: pass
+- Added Stage 2 audit:
+  - `scripts/audit-docs.mjs`
+  - root `pnpm audit:docs` script
+  - docs references in `docs/README.md` and `specs/README.md`
+- Stage 2 audit recognizes current explicit exceptions:
+  - 253 `ATOM-*` virtual compiler-intermediate refs in WorkGraphs
+  - 1 historical known lineage gap:
+    `OBS-META-ARCHITECTURE-CANDIDATE-EXECUTION-2`
+- Verification completed:
+  - `pnpm audit:docs`: pass
+  - `pnpm -r --if-present typecheck`: pass
+  - `pnpm -r --if-present test`: pass
+- Added Stage 3 low-risk docs grouping:
+  - moved the Strategy.Recipes dogfood how-to to `docs/how-to/STRATEGY_RECIPES_DOGFOOD.md`
+  - left `docs/STRATEGY_RECIPES_DOGFOOD.md` as a compatibility stub
+  - updated links in `docs/README.md` and `docs/AUTONOMOUS_FACTORY_TRANSITION.md`
+- Verification completed:
+  - `pnpm audit:docs`: pass
+  - `git diff --check`: pass
+  - `pnpm -r --if-present typecheck`: pass
+  - `pnpm -r --if-present test`: pass
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
