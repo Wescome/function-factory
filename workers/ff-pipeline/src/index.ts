@@ -544,6 +544,23 @@ export default {
       }
     }
 
+    // ── Diagnostic: pure Gate 2 simulation evaluator ──
+    if (url.pathname === '/debug/gate2-simulate' && request.method === 'POST') {
+      try {
+        const body = await request.json()
+        const { evaluateGate2Simulation } = await import('./gate2-simulation.js')
+        const result = evaluateGate2Simulation(body as import('./gate2-simulation').Gate2SimulationInput)
+
+        return new Response(JSON.stringify(result, null, 2), {
+          headers: { 'Content-Type': 'application/json' },
+        })
+      } catch (err) {
+        return new Response(JSON.stringify({
+          error: err instanceof Error ? err.message : String(err),
+        }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+      }
+    }
+
     // ── Diagnostic: assemble MRP from latest persisted PR outcome ──
     if (url.pathname === '/debug/mrp-auto' && request.method === 'POST') {
       try {

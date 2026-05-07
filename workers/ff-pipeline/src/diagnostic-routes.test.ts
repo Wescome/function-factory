@@ -804,6 +804,34 @@ describe('ff-pipeline diagnostic routes', () => {
     )
   })
 
+  it('POST /debug/gate2-simulate returns a Gate 2 simulation report and verdict', async () => {
+    const { default: worker } = await import('./index')
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/debug/gate2-simulate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(makeGate2SimulationInput()),
+      }),
+      createEnv() as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(200)
+    expect(await jsonBody(response)).toMatchObject({
+      report: {
+        gate: 2,
+        function_id: 'FN-MOTDWVR2-W7UN',
+        overall: 'pass',
+      },
+      verdict: {
+        verdict: 'accepted',
+        scenario_coverage_score: 1,
+        invariant_exercise_rate: 1,
+      },
+    })
+  })
+
   it('POST /debug/mrp fails closed when PR outcome evidence is missing', async () => {
     const { default: worker } = await import('./index')
 
@@ -980,5 +1008,49 @@ function makeCanonicalMRPEvidence(): Record<string, unknown> {
       totalCost: 0,
       executionDurationMs: 1,
     },
+  }
+}
+
+function makeGate2SimulationInput(): Record<string, unknown> {
+  return {
+    functionId: 'FN-MOTDWVR2-W7UN',
+    prdId: 'PRD-META-FUNCTION-SYNTHESIS',
+    workGraphId: 'WG-META-FUNCTION-SYNTHESIS',
+    candidateId: 'AC-META-ARCHITECTURE-CANDIDATE-EXECUTION',
+    timestamp: '2026-05-07T21:30:00.000Z',
+    sourceRefs: ['MRP-MOTE4M1R-G7I0-71'],
+    branches: [
+      { workgraphNode: 'atom-001', edge: 'success' },
+    ],
+    invariants: [
+      {
+        id: 'INV-META-RUNTIME-VERIFICATION-COVERS-SMOKE',
+        workgraphNode: 'atom-001',
+      },
+    ],
+    scenarios: [
+      {
+        id: 'SCN-RUNTIME-VERIFICATION-PASS',
+        kind: 'positive',
+        passed: true,
+        coversBranches: [{ workgraphNode: 'atom-001', edge: 'success' }],
+        coversInvariants: ['INV-META-RUNTIME-VERIFICATION-COVERS-SMOKE'],
+      },
+      {
+        id: 'SCN-RUNTIME-VERIFICATION-NEGATIVE',
+        kind: 'negative',
+        passed: true,
+        coversBranches: [],
+        coversInvariants: ['INV-META-RUNTIME-VERIFICATION-COVERS-SMOKE'],
+      },
+    ],
+    validationOutcomes: [
+      {
+        id: 'VAL-META-RUNTIME-VERIFICATION-SMOKE',
+        priority: 'required',
+        status: 'pass',
+        invariantIds: ['INV-META-RUNTIME-VERIFICATION-COVERS-SMOKE'],
+      },
+    ],
   }
 }

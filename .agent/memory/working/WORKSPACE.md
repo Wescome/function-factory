@@ -4,10 +4,27 @@
 Active task: Dogfood loop - guarded synthesis artifact application.
 
 ## Last update
-2026-05-07T21:27:00Z
+2026-05-07T21:31:38Z
 
 ## Current actions
 
+- Active slice: first Gate 2 simulation path.
+- Added `workers/ff-pipeline/src/gate2-simulation.ts` and tests:
+  - deterministic pure evaluator for scenario coverage, invariant negative-test exercise, and required validation pass rate
+  - emits `Gate2Report` and `Gate2Verdict` validated by `@factory/schemas`
+  - fails closed for unexercised branches, missing negative scenarios, and failing required validations
+  - does not mutate lifecycle state or write report files
+- Added `/debug/gate2-simulate` diagnostic route:
+  - evaluates a posted Gate 2 simulation input and returns report/verdict
+  - route is a thin wrapper over the pure evaluator
+- Verification completed:
+  - red test confirmed missing `gate2-simulation` module
+  - red test confirmed `/debug/gate2-simulate` returned 404 before implementation
+  - `pnpm --filter @factory/ff-pipeline test -- src/gate2-simulation.test.ts src/diagnostic-routes.test.ts`: pass, 23 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+  - `pnpm audit:docs`: pass
+  - `git diff --check`: pass
+  - `pnpm --filter @factory/ff-pipeline test`: pass, 66 files / 984 tests
 - Active slice: FN registry / lifecycle record.
 - Added `specs/functions/FN-MOTDWVR2-W7UN.yaml`:
   - records the Stage 8 materialized Function identity derived from `FP-MOTDWVR2-W7UN`
