@@ -4,10 +4,21 @@
 Active task: Dogfood loop - guarded synthesis artifact application.
 
 ## Last update
-2026-05-07T21:15:24Z
+2026-05-07T21:18:39Z
 
 ## Current actions
 
+- Runtime dogfooded sourced canonical MRP evidence and synchronous PR outcome refresh:
+  - committed and pushed `b44ae7d` (`META: process PR outcome diagnostics synchronously`)
+  - deployed `ff-pipeline` version `1f017c1a-41d3-42ec-8c5b-724713af9e89`
+  - live health after deploy: healthy, Arango true, AI binding true
+  - PR #71 head `b44ae7d085e1d8c763b162d805767e04b22f7c89` had `Test`, `Typecheck`, and `Factory PR Gate` passing
+  - POST `/debug/pr-outcome` with `processNow: true` returned signal `SIG-MOVZMOAH-8IHS` for head `b44ae7d085e1d8c763b162d805767e04b22f7c89`
+  - POST `/debug/mrp-evidence` persisted canonical evidence key `MRP-EVIDENCE-MOTE4M1R-b44ae7d`
+  - POST `/debug/mrp` with `prOutcomeSignalKey: SIG-MOVZMOAH-8IHS` and `canonicalEvidenceKey: MRP-EVIDENCE-MOTE4M1R-b44ae7d` refreshed `MRP-MOTE4M1R-G7I0-71`
+  - runtime pack and canonical response both returned `functionId: FN-MOTDWVR2-W7UN`
+  - runtime pack and canonical CI evidence both referenced commit `b44ae7d085e1d8c763b162d805767e04b22f7c89`
+  - milestone 2 complete: canonical MRP evidence can now be sourced from a persisted artifact instead of inline request payload
 - Runtime dogfood found stale PR outcome readback after PR #71 advanced to `2409e98586b99b9d3517d4d8b4f18daf9508e658`:
   - POST `/debug/pr-outcome` and POST `/debug/pr-outcome-scan` accepted/enqueued but GET `/debug/pr-outcome` still returned older signal `SIG-MOVYSH7F-GHPT` for head `aeffbc6701d23dc643db8878a87484bcd92988d0`
   - added `processNow: true` diagnostic mode to `/debug/pr-outcome`
