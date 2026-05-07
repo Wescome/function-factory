@@ -4,10 +4,20 @@
 Active task: Dogfood loop - guarded synthesis artifact application.
 
 ## Last update
-2026-05-07T21:04:56Z
+2026-05-07T21:08:41Z
 
 ## Current actions
 
+- Runtime dogfood found and fixed sourced-evidence collection preflight:
+  - deployed `ff-pipeline` version `a6001ed1-55d8-4cfb-a714-215055a53764`
+  - live health after deploy: healthy, Arango true, AI binding true
+  - first POST `/debug/mrp-evidence` returned `400` because Arango collection `merge_readiness_evidence` did not exist
+  - patched `/debug/mrp-evidence` to call `db.ensureCollection('merge_readiness_evidence')` before save
+  - verification completed:
+    - `pnpm --filter @factory/ff-pipeline test -- src/diagnostic-routes.test.ts src/merge-readiness-pack.test.ts`: pass, 33 tests
+    - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+    - `git diff --check`: pass
+    - `pnpm --filter @factory/ff-pipeline test`: pass, 65 files / 979 tests
 - Active slice: source canonical MRP evidence from a persisted evidence record.
 - Added `/debug/mrp-evidence` POST route:
   - persists `{ _key, id, type: "canonical_mrp_evidence", canonicalEvidence, sourceRefs, createdAt }` to `merge_readiness_evidence`

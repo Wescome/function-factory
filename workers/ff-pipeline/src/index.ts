@@ -631,6 +631,7 @@ export default {
 
         const { createClientFromEnv } = await import('@factory/arango-client')
         const db = createClientFromEnv(env)
+        await db.ensureCollection('merge_readiness_evidence')
         const key = body.key.trim()
         const record = {
           _key: key,

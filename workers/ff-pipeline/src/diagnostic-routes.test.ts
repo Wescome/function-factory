@@ -45,6 +45,7 @@ vi.mock('@cloudflare/containers', () => ({
 }))
 
 const mockPing = vi.fn(async () => true)
+const mockEnsureCollection = vi.fn(async (_collection: string): Promise<void> => undefined)
 const mockQuery = vi.fn(async (): Promise<Record<string, unknown>[]> => [])
 const mockQueryOne = vi.fn(async (): Promise<Record<string, unknown> | null> => null)
 const mockSave = vi.fn(async (_collection: string, doc: Record<string, unknown>) => doc)
@@ -52,6 +53,7 @@ const mockSave = vi.fn(async (_collection: string, doc: Record<string, unknown>)
 vi.mock('@factory/arango-client', () => ({
   createClientFromEnv: () => ({
     ping: mockPing,
+    ensureCollection: mockEnsureCollection,
     query: mockQuery,
     queryOne: mockQueryOne,
     save: mockSave,
@@ -98,6 +100,8 @@ describe('ff-pipeline diagnostic routes', () => {
   beforeEach(() => {
     mockQuery.mockReset()
     mockQuery.mockResolvedValue([])
+    mockEnsureCollection.mockReset()
+    mockEnsureCollection.mockResolvedValue(undefined)
     mockQueryOne.mockReset()
     mockQueryOne.mockResolvedValue(null)
     mockSave.mockReset()
@@ -613,6 +617,7 @@ describe('ff-pipeline diagnostic routes', () => {
       persisted: true,
       key: 'MRP-EVIDENCE-MOTE4M1R',
     })
+    expect(mockEnsureCollection).toHaveBeenCalledWith('merge_readiness_evidence')
     expect(mockSave).toHaveBeenCalledWith(
       'merge_readiness_evidence',
       expect.objectContaining({
