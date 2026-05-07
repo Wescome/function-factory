@@ -2,8 +2,10 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   buildMergeReadinessPack,
   ingestMergeReadinessPack,
+  MergeReadinessPackError,
   MissingCanonicalMRPEvidenceError,
   toCanonicalMergeReadinessPack,
+  withGate2ReportEvidence,
   type CanonicalMRPEvidence,
   type PROutcomeSignalRecord,
 } from './merge-readiness-pack'
@@ -508,6 +510,22 @@ describe('merge-readiness pack', () => {
         gate2ReportId: 'CR-MOTE4M1R-GATE2',
       },
     })
+  })
+
+  it('overlays canonical MRP evidence with a persisted Gate 2 report id', () => {
+    const evidence = withGate2ReportEvidence(
+      makeCanonicalEvidence(),
+      'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+    )
+
+    expect(evidence.soundVerification?.gate2ReportId).toBe('CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z')
+    expect(evidence.auditability?.gate2ReportId).toBe('CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z')
+  })
+
+  it('rejects empty Gate 2 report ids when overlaying canonical MRP evidence', () => {
+    expect(() => withGate2ReportEvidence(makeCanonicalEvidence(), '')).toThrow(
+      new MergeReadinessPackError('gate2ReportId is required'),
+    )
   })
 
   it('derives canonical functionId from proposalId at Stage 8 MRP assembly', () => {

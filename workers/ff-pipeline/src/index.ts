@@ -547,11 +547,104 @@ export default {
     // ── Diagnostic: pure Gate 2 simulation evaluator ──
     if (url.pathname === '/debug/gate2-simulate' && request.method === 'POST') {
       try {
-        const body = await request.json()
-        const { evaluateGate2Simulation } = await import('./gate2-simulation.js')
-        const result = evaluateGate2Simulation(body as import('./gate2-simulation').Gate2SimulationInput)
+        const body = await request.json() as Record<string, unknown>
+        const gate2Simulation = await import('./gate2-simulation.js')
+        let result: import('./gate2-simulation').Gate2SimulationResult
+        if (body.gate2Input) {
+          const options: import('./gate2-simulation').AdaptGate2InputOptions = {
+            prdId: body.prdId as string,
+            ...(body.timestamp ? { timestamp: body.timestamp as string } : {}),
+            ...(body.sourceRefs ? { sourceRefs: body.sourceRefs as string[] } : {}),
+          }
+          result = gate2Simulation.evaluateGate2FromContractInput(
+            body.gate2Input as import('./gate2-simulation').Gate2ContractInput,
+            options,
+          )
+        } else {
+          result = gate2Simulation.evaluateGate2Simulation(body as unknown as import('./gate2-simulation').Gate2SimulationInput)
+        }
 
-        return new Response(JSON.stringify(result, null, 2), {
+        const lifecycleDryRunInput = body.lifecycleDryRun as Record<string, unknown> | undefined
+        const lifecycleDryRun = lifecycleDryRunInput
+          ? gate2Simulation.dryRunGate2AcceptanceTransition({
+            currentState: lifecycleDryRunInput.currentState as import('./lifecycle').LifecycleState,
+            report: result.report,
+            verdict: result.verdict,
+          })
+          : undefined
+        const responseBody = lifecycleDryRun ? { ...result, lifecycleDryRun } : result
+
+        if (body.persist === true) {
+          const { createClientFromEnv } = await import('@factory/arango-client')
+          const db = createClientFromEnv(env)
+          await db.ensureCollection('specs_coverage_reports')
+          const record = {
+            _key: result.report.id,
+            id: result.report.id,
+            type: 'gate-2',
+            passed: result.report.overall === 'pass',
+            report: result.report,
+            verdict: result.verdict,
+            source_refs: result.report.source_refs,
+            timestamp: result.report.timestamp,
+          }
+          await db.save('specs_coverage_reports', record)
+
+          return new Response(JSON.stringify({
+            persisted: true,
+            coverageReportKey: result.report.id,
+            ...responseBody,
+          }, null, 2), {
+            status: 201,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        }
+
+        return new Response(JSON.stringify(responseBody, null, 2), {
+          headers: { 'Content-Type': 'application/json' },
+        })
+      } catch (err) {
+        return new Response(JSON.stringify({
+          error: err instanceof Error ? err.message : String(err),
+        }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+      }
+    }
+
+    // ── Diagnostic: minimal Gate 3 assurance registration report ──
+    if (url.pathname === '/debug/gate3-register' && request.method === 'POST') {
+      try {
+        const body = await request.json() as Record<string, unknown>
+        const { evaluateGate3AssuranceRegistration } = await import('./gate3-assurance.js')
+        const report = evaluateGate3AssuranceRegistration(
+          body as unknown as import('./gate3-assurance').Gate3AssuranceRegistrationInput,
+        )
+
+        if (body.persist === true) {
+          const { createClientFromEnv } = await import('@factory/arango-client')
+          const db = createClientFromEnv(env)
+          await db.ensureCollection('specs_coverage_reports')
+          const record = {
+            _key: report.id,
+            id: report.id,
+            type: 'gate-3',
+            passed: report.overall === 'pass',
+            report,
+            source_refs: report.source_refs,
+            timestamp: report.timestamp,
+          }
+          await db.save('specs_coverage_reports', record)
+
+          return new Response(JSON.stringify({
+            persisted: true,
+            coverageReportKey: report.id,
+            report,
+          }, null, 2), {
+            status: 201,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        }
+
+        return new Response(JSON.stringify({ report }, null, 2), {
           headers: { 'Content-Type': 'application/json' },
         })
       } catch (err) {
@@ -568,6 +661,7 @@ export default {
           audit?: unknown
           pullNumber?: unknown
           canonicalEvidenceKey?: unknown
+          gate2ReportKey?: unknown
           createdAt?: string
         }
 
@@ -600,6 +694,7 @@ export default {
           buildMergeReadinessPack,
           ingestMergeReadinessPack,
           toCanonicalMergeReadinessPack,
+          withGate2ReportEvidence,
         } = await import('./merge-readiness-pack.js')
         const db = createClientFromEnv(env)
         const prOutcomeSignals = await db.query<Record<string, unknown>>(
@@ -633,13 +728,41 @@ export default {
             error: `Canonical MRP evidence not found: ${evidenceKey}`,
           }), { status: 404, headers: { 'Content-Type': 'application/json' } })
         }
+        const gate2ReportKey = typeof body.gate2ReportKey === 'string' && body.gate2ReportKey.trim().length > 0
+          ? body.gate2ReportKey.trim()
+          : undefined
+        const gate2ReportRecord = gate2ReportKey
+          ? await db.queryOne<Record<string, unknown>>(
+            `FOR report IN specs_coverage_reports
+               FILTER report._key == @key OR report.id == @key
+               LIMIT 1
+               RETURN report`,
+            { key: gate2ReportKey },
+          )
+          : null
+        if (gate2ReportKey && !gate2ReportRecord) {
+          return new Response(JSON.stringify({
+            error: `Gate 2 report not found: ${gate2ReportKey}`,
+          }), { status: 404, headers: { 'Content-Type': 'application/json' } })
+        }
+        if (gate2ReportKey && (gate2ReportRecord?.type !== 'gate-2' || gate2ReportRecord.passed !== true)) {
+          return new Response(JSON.stringify({
+            error: `Gate 2 report has not passed: ${gate2ReportKey}`,
+          }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+        }
 
         const pack = buildMergeReadinessPack({
           audit,
           prOutcomeSignal: prOutcomeSignal as unknown as import('./merge-readiness-pack').PROutcomeSignalRecord,
           ...(body.createdAt ? { createdAt: body.createdAt } : {}),
         })
-        const canonicalEvidence = canonicalEvidenceRecord.canonicalEvidence ?? canonicalEvidenceRecord.evidence
+        const rawCanonicalEvidence = canonicalEvidenceRecord.canonicalEvidence ?? canonicalEvidenceRecord.evidence
+        const canonicalEvidence = gate2ReportKey
+          ? withGate2ReportEvidence(
+            rawCanonicalEvidence as import('./merge-readiness-pack').CanonicalMRPEvidence,
+            gate2ReportKey,
+          )
+          : rawCanonicalEvidence
         const canonical = toCanonicalMergeReadinessPack(
           pack,
           canonicalEvidence as import('./merge-readiness-pack').CanonicalMRPEvidence,
@@ -653,6 +776,7 @@ export default {
           verdict: (persisted as { verdict?: unknown }).verdict,
           prOutcomeSignalKey: prOutcomeSignal._key,
           canonicalEvidenceKey: evidenceKey,
+          ...(gate2ReportKey ? { gate2ReportKey } : {}),
           canonical,
           pack: persisted,
         }, null, 2), { status: 201, headers: { 'Content-Type': 'application/json' } })
@@ -672,6 +796,7 @@ export default {
           prOutcomeSignalKey?: string
           canonicalEvidence?: unknown
           canonicalEvidenceKey?: string
+          gate2ReportKey?: string
           createdAt?: string
         }
 
@@ -696,6 +821,7 @@ export default {
           buildMergeReadinessPack,
           ingestMergeReadinessPack,
           toCanonicalMergeReadinessPack,
+          withGate2ReportEvidence,
         } = await import('./merge-readiness-pack.js')
         const db = createClientFromEnv(env)
         const prOutcomeSignal = body.prOutcomeSignal ?? await db.queryOne<Record<string, unknown>>(
@@ -715,6 +841,15 @@ export default {
             { key: body.canonicalEvidenceKey },
           )
           : null
+        const gate2ReportRecord = body.gate2ReportKey
+          ? await db.queryOne<Record<string, unknown>>(
+            `FOR report IN specs_coverage_reports
+               FILTER report._key == @key OR report.id == @key
+               LIMIT 1
+               RETURN report`,
+            { key: body.gate2ReportKey },
+          )
+          : null
 
         if (!prOutcomeSignal) {
           return new Response(JSON.stringify({
@@ -726,15 +861,31 @@ export default {
             error: `Canonical MRP evidence not found: ${body.canonicalEvidenceKey}`,
           }), { status: 404, headers: { 'Content-Type': 'application/json' } })
         }
+        if (body.gate2ReportKey && !gate2ReportRecord) {
+          return new Response(JSON.stringify({
+            error: `Gate 2 report not found: ${body.gate2ReportKey}`,
+          }), { status: 404, headers: { 'Content-Type': 'application/json' } })
+        }
+        if (body.gate2ReportKey && (gate2ReportRecord?.type !== 'gate-2' || gate2ReportRecord.passed !== true)) {
+          return new Response(JSON.stringify({
+            error: `Gate 2 report has not passed: ${body.gate2ReportKey}`,
+          }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+        }
 
         const pack = buildMergeReadinessPack({
           audit: body.audit as import('./synthesis-pr-draft').SynthesisMaterializationAudit,
           prOutcomeSignal: prOutcomeSignal as import('./merge-readiness-pack').PROutcomeSignalRecord,
           ...(body.createdAt ? { createdAt: body.createdAt } : {}),
         })
-        const canonicalEvidence = body.canonicalEvidence
+        const rawCanonicalEvidence = body.canonicalEvidence
           ?? canonicalEvidenceRecord?.canonicalEvidence
           ?? canonicalEvidenceRecord?.evidence
+        const canonicalEvidence = body.gate2ReportKey
+          ? withGate2ReportEvidence(
+            (rawCanonicalEvidence ?? {}) as import('./merge-readiness-pack').CanonicalMRPEvidence,
+            body.gate2ReportKey,
+          )
+          : rawCanonicalEvidence
         const canonical = canonicalEvidence
           ? toCanonicalMergeReadinessPack(
             pack,
@@ -748,6 +899,7 @@ export default {
           id: pack.id,
           readinessVerdict: pack.readinessVerdict,
           verdict: (persisted as { verdict?: unknown }).verdict,
+          ...(body.gate2ReportKey ? { gate2ReportKey: body.gate2ReportKey } : {}),
           ...(canonical ? { canonical } : {}),
           pack: persisted,
         }, null, 2), { status: 201, headers: { 'Content-Type': 'application/json' } })

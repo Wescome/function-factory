@@ -1,13 +1,38 @@
 # Current Workspace
 
 ## Status
-Active task: Dogfood loop - guarded synthesis artifact application.
+Active task: Architecture-aligned Gate 2/Stage 8/Gate 3 diagnostic integration.
 
 ## Last update
-2026-05-07T21:31:38Z
+2026-05-07T22:25:31Z
 
 ## Current actions
 
+- Completed architecture-plan milestones 1-6 in `workers/ff-pipeline`:
+  - Gate 2 diagnostic now accepts normalized `Gate2Input` evidence via `{ gate2Input, prdId, sourceRefs }`
+  - Gate 2 report persistence is opt-in with `persist: true` and writes `specs_coverage_reports`
+  - Gate 2 lifecycle acceptance dry-run reports `produced -> accepted` authorization without mutation
+  - Stage 8 MRP assembly can overlay canonical MRP evidence with a persisted passing Gate 2 report key
+  - `/debug/mrp-auto` carries the same Gate 2 report overlay for the dogfood Stage 8 path
+  - added minimal Gate 3 assurance registration via `/debug/gate3-register`, producing/persisting a schema-valid Gate3Report blocker without monitored promotion
+- Verification completed:
+  - `pnpm --filter @factory/ff-pipeline test -- src/gate3-assurance.test.ts src/diagnostic-routes.test.ts src/gate2-simulation.test.ts src/merge-readiness-pack.test.ts`: pass, 51 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+  - `pnpm --filter @factory/ff-pipeline test`: pass, 67 files / 997 tests
+  - `pnpm audit:docs`: pass
+  - `git diff --check`: pass
+- No lifecycle promotion, PR merge, or ready-for-review transition was performed.
+- Final closure for autonomous milestones 1-6:
+  - committed and pushed `d5fb350` (`META: add Gate 2 simulation diagnostic`)
+  - deployed `ff-pipeline` version `e814d778-1825-4b2c-a8db-837661c6b90f`
+  - live health after deploy: healthy, Arango true, AI binding true
+  - live POST `/debug/gate2-simulate` returned Gate 2 report `CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z` with `overall: pass` and verdict `accepted`
+  - PR #71 head `d5fb3500cad1b2e20aff8abb16ae04d046ed84d7` had `Test`, `Typecheck`, and `Factory PR Gate` passing; merge state `CLEAN`; PR remains draft
+  - POST `/debug/pr-outcome` with `processNow: true` returned signal `SIG-MOW07F1W-A9W9` for head `d5fb3500cad1b2e20aff8abb16ae04d046ed84d7`
+  - POST `/debug/mrp-evidence` persisted canonical evidence key `MRP-EVIDENCE-MOTE4M1R-d5fb350`
+  - POST `/debug/mrp-auto` selected `SIG-MOW07F1W-A9W9` and refreshed `MRP-MOTE4M1R-G7I0-71` with `verdict: merge-ready`, canonical/runtime `functionId: FN-MOTDWVR2-W7UN`, and CI commit `d5fb3500cad1b2e20aff8abb16ae04d046ed84d7`
+  - added PR comment with final evidence: https://github.com/Wescome/function-factory/pull/71#issuecomment-4401346686
+  - no merge, ready-for-review transition, or lifecycle promotion was performed
 - Active slice: first Gate 2 simulation path.
 - Added `workers/ff-pipeline/src/gate2-simulation.ts` and tests:
   - deterministic pure evaluator for scenario coverage, invariant negative-test exercise, and required validation pass rate

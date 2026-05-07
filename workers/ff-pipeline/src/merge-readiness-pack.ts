@@ -356,6 +356,24 @@ function canonicalFunctionId(pack: MergeReadinessPack, evidence: CanonicalMRPEvi
   return derived
 }
 
+export function withGate2ReportEvidence(
+  evidence: CanonicalMRPEvidence,
+  gate2ReportId: string,
+): CanonicalMRPEvidence {
+  assertNonEmpty(gate2ReportId, 'gate2ReportId')
+  return {
+    ...evidence,
+    soundVerification: {
+      ...evidence.soundVerification,
+      gate2ReportId,
+    },
+    auditability: {
+      ...evidence.auditability,
+      gate2ReportId,
+    },
+  }
+}
+
 function assertPackReadyForPersistence(pack: MergeReadinessPack): void {
   assertNonEmpty(pack.id, 'pack.id')
   if (!pack.id.startsWith('MRP-')) {

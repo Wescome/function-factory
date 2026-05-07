@@ -628,6 +628,57 @@ describe('ff-pipeline diagnostic routes', () => {
     expect(mockSave).toHaveBeenCalledOnce()
   })
 
+  it('POST /debug/mrp can rebuild canonical MRP from persisted Gate 2 evidence', async () => {
+    const { default: worker } = await import('./index')
+    mockQueryOne
+      .mockResolvedValueOnce({
+        _key: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+        id: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+        type: 'gate-2',
+        passed: true,
+        report: {
+          gate: 2,
+          overall: 'pass',
+        },
+      })
+      .mockResolvedValueOnce(null)
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/debug/mrp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          audit: makeMaterializationAudit(),
+          prOutcomeSignal: makePROutcomeSignal(),
+          canonicalEvidence: makeCanonicalMRPEvidence(),
+          gate2ReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+          createdAt: '2026-05-06T21:30:00Z',
+        }),
+      }),
+      createEnv() as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(201)
+    expect(await jsonBody(response)).toMatchObject({
+      persisted: true,
+      gate2ReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+      canonical: {
+        soundVerification: {
+          gate2ReportId: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+        },
+        auditability: {
+          gate2ReportId: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+        },
+      },
+    })
+    expect(mockQueryOne.mock.calls[0]).toEqual([
+      expect.stringContaining('specs_coverage_reports'),
+      { key: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z' },
+    ])
+    expect(mockSave).toHaveBeenCalledOnce()
+  })
+
   it('POST /debug/mrp can source canonical evidence by key before canonical validation', async () => {
     const { default: worker } = await import('./index')
     mockQueryOne
@@ -804,6 +855,62 @@ describe('ff-pipeline diagnostic routes', () => {
     )
   })
 
+  it('POST /debug/mrp-auto can overlay persisted Gate 2 evidence during Stage 8 assembly', async () => {
+    const { default: worker } = await import('./index')
+    mockQuery.mockResolvedValueOnce([
+      {
+        ...makePROutcomeSignal(),
+        _key: 'SIG-LATEST',
+      },
+    ])
+    mockQueryOne
+      .mockResolvedValueOnce({
+        _key: 'MRP-EVIDENCE-MOTE4M1R-b44ae7d',
+        canonicalEvidence: makeCanonicalMRPEvidence(),
+      })
+      .mockResolvedValueOnce({
+        _key: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+        id: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+        type: 'gate-2',
+        passed: true,
+      })
+      .mockResolvedValueOnce(null)
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/debug/mrp-auto', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          audit: makeMaterializationAudit(),
+          pullNumber: 71,
+          canonicalEvidenceKey: 'MRP-EVIDENCE-MOTE4M1R-b44ae7d',
+          gate2ReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+          createdAt: '2026-05-07T21:18:10Z',
+        }),
+      }),
+      createEnv() as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(201)
+    expect(await jsonBody(response)).toMatchObject({
+      persisted: true,
+      gate2ReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+      canonical: {
+        soundVerification: {
+          gate2ReportId: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+        },
+        auditability: {
+          gate2ReportId: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+        },
+      },
+    })
+    expect(mockQueryOne.mock.calls[1]).toEqual([
+      expect.stringContaining('specs_coverage_reports'),
+      { key: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z' },
+    ])
+  })
+
   it('POST /debug/gate2-simulate returns a Gate 2 simulation report and verdict', async () => {
     const { default: worker } = await import('./index')
 
@@ -830,6 +937,171 @@ describe('ff-pipeline diagnostic routes', () => {
         invariant_exercise_rate: 1,
       },
     })
+  })
+
+  it('POST /debug/gate2-simulate accepts normalized Gate2Input evidence', async () => {
+    const { default: worker } = await import('./index')
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/debug/gate2-simulate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gate2Input: makeGate2ContractInput(),
+          prdId: 'PRD-META-FUNCTION-SYNTHESIS',
+          sourceRefs: ['MRP-MOTE4M1R-G7I0-71'],
+        }),
+      }),
+      createEnv() as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(200)
+    expect(await jsonBody(response)).toMatchObject({
+      report: {
+        id: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+        gate: 2,
+        function_id: 'FN-MOTDWVR2-W7UN',
+        overall: 'pass',
+        source_refs: expect.arrayContaining([
+          'FN-MOTDWVR2-W7UN',
+          'PRD-META-FUNCTION-SYNTHESIS',
+          'WG-META-FUNCTION-SYNTHESIS',
+          'AC-META-ARCHITECTURE-CANDIDATE-EXECUTION',
+          'MRP-MOTE4M1R-G7I0-71',
+        ]),
+      },
+      verdict: {
+        verdict: 'accepted',
+        scenario_coverage_score: 1,
+        invariant_exercise_rate: 1,
+      },
+    })
+  })
+
+  it('POST /debug/gate2-simulate can persist the emitted Gate 2 report', async () => {
+    const { default: worker } = await import('./index')
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/debug/gate2-simulate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gate2Input: makeGate2ContractInput(),
+          prdId: 'PRD-META-FUNCTION-SYNTHESIS',
+          sourceRefs: ['MRP-MOTE4M1R-G7I0-71'],
+          persist: true,
+        }),
+      }),
+      createEnv() as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(201)
+    expect(await jsonBody(response)).toMatchObject({
+      persisted: true,
+      coverageReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+      report: {
+        overall: 'pass',
+      },
+    })
+    expect(mockEnsureCollection).toHaveBeenCalledWith('specs_coverage_reports')
+    expect(mockSave).toHaveBeenCalledWith(
+      'specs_coverage_reports',
+      expect.objectContaining({
+        _key: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+        id: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+        type: 'gate-2',
+        passed: true,
+        source_refs: expect.arrayContaining([
+          'FN-MOTDWVR2-W7UN',
+          'PRD-META-FUNCTION-SYNTHESIS',
+          'WG-META-FUNCTION-SYNTHESIS',
+        ]),
+        report: expect.objectContaining({
+          gate: 2,
+          overall: 'pass',
+        }),
+        verdict: expect.objectContaining({
+          verdict: 'accepted',
+        }),
+      }),
+    )
+  })
+
+  it('POST /debug/gate2-simulate can dry-run Gate 2 lifecycle acceptance without mutation', async () => {
+    const { default: worker } = await import('./index')
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/debug/gate2-simulate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gate2Input: makeGate2ContractInput(),
+          prdId: 'PRD-META-FUNCTION-SYNTHESIS',
+          sourceRefs: ['MRP-MOTE4M1R-G7I0-71'],
+          lifecycleDryRun: {
+            currentState: 'produced',
+          },
+        }),
+      }),
+      createEnv() as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(200)
+    expect(await jsonBody(response)).toMatchObject({
+      lifecycleDryRun: {
+        from: 'produced',
+        to: 'accepted',
+        gate: 'gate-2',
+        wouldTransition: true,
+        mutationApplied: false,
+        gateReport: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+      },
+    })
+    expect(mockSave).not.toHaveBeenCalled()
+  })
+
+  it('POST /debug/gate3-register persists a minimal Gate 3 assurance blocker report', async () => {
+    const { default: worker } = await import('./index')
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/debug/gate3-register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...makeGate3RegistrationInput(),
+          persist: true,
+        }),
+      }),
+      createEnv() as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(201)
+    expect(await jsonBody(response)).toMatchObject({
+      persisted: true,
+      coverageReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE3-2026-05-07T22-00-00-000Z',
+      report: {
+        gate: 3,
+        function_id: 'FN-MOTDWVR2-W7UN',
+        overall: 'fail',
+      },
+    })
+    expect(mockEnsureCollection).toHaveBeenCalledWith('specs_coverage_reports')
+    expect(mockSave).toHaveBeenCalledWith(
+      'specs_coverage_reports',
+      expect.objectContaining({
+        _key: 'CR-FN-MOTDWVR2-W7UN-GATE3-2026-05-07T22-00-00-000Z',
+        type: 'gate-3',
+        passed: false,
+        report: expect.objectContaining({
+          gate: 3,
+          overall: 'fail',
+        }),
+      }),
+    )
   })
 
   it('POST /debug/mrp fails closed when PR outcome evidence is missing', async () => {
@@ -1052,5 +1324,97 @@ function makeGate2SimulationInput(): Record<string, unknown> {
         invariantIds: ['INV-META-RUNTIME-VERIFICATION-COVERS-SMOKE'],
       },
     ],
+  }
+}
+
+function makeGate2ContractInput(): Record<string, unknown> {
+  return {
+    synthesisRunId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
+    functionId: 'FN-MOTDWVR2-W7UN',
+    workGraphId: 'WG-META-FUNCTION-SYNTHESIS',
+    architectureCandidateId: 'AC-META-ARCHITECTURE-CANDIDATE-EXECUTION',
+    artifactPaths: ['workers/ff-pipeline/src/runtime-verification.ts'],
+    validationOutcomes: [
+      {
+        validationId: 'VAL-META-RUNTIME-VERIFICATION-SMOKE',
+        passed: true,
+        summary: 'Runtime verification smoke scenario passed',
+        details: {
+          priority: 'required',
+          invariantIds: ['INV-META-RUNTIME-VERIFICATION-COVERS-SMOKE'],
+          branches: [
+            { workgraphNode: 'atom-001', edge: 'success' },
+          ],
+          invariants: [
+            {
+              id: 'INV-META-RUNTIME-VERIFICATION-COVERS-SMOKE',
+              workgraphNode: 'atom-001',
+            },
+          ],
+          scenarios: [
+            {
+              id: 'SCN-RUNTIME-VERIFICATION-PASS',
+              kind: 'positive',
+              passed: true,
+              coversBranches: [{ workgraphNode: 'atom-001', edge: 'success' }],
+              coversInvariants: ['INV-META-RUNTIME-VERIFICATION-COVERS-SMOKE'],
+            },
+            {
+              id: 'SCN-RUNTIME-VERIFICATION-NEGATIVE',
+              kind: 'negative',
+              passed: true,
+              coversBranches: [],
+              coversInvariants: ['INV-META-RUNTIME-VERIFICATION-COVERS-SMOKE'],
+            },
+          ],
+        },
+      },
+    ],
+    compileSummary: 'pass',
+    testSummary: 'pass',
+    scopeViolation: false,
+    constraintViolation: false,
+    repairLoopCount: 0,
+    resampleSummary: 'none',
+    provenance: {
+      bindingModeName: 'factory-runtime',
+      promptPackVersion: 'observed',
+      toolPolicyHash: 'observed',
+      modelBindingHash: 'observed',
+      startedAt: '2026-05-07T21:33:00.000Z',
+      completedAt: '2026-05-07T21:33:20.000Z',
+    },
+  }
+}
+
+function makeGate3RegistrationInput(): Record<string, unknown> {
+  return {
+    functionId: 'FN-MOTDWVR2-W7UN',
+    timestamp: '2026-05-07T22:00:00.000Z',
+    sourceRefs: [
+      'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+      'MRP-MOTE4M1R-G7I0-71',
+    ],
+    detectors: [
+      {
+        invariantId: 'INV-META-RUNTIME-VERIFICATION-COVERS-SMOKE',
+        detector: 'runtime-verification-smoke',
+        lastReport: null,
+        threshold: 'PT5M',
+        stale: true,
+      },
+    ],
+    evidenceSources: [
+      {
+        source: 'factory:runtime-verification',
+        lastEmission: null,
+        expectedCadence: 'on every monitored execution',
+        quiet: true,
+      },
+    ],
+    auditPipeline: {
+      expected: 1,
+      observed: 0,
+    },
   }
 }
