@@ -4,10 +4,20 @@
 Active task: Dogfood loop - guarded synthesis artifact application.
 
 ## Last update
-2026-05-07T21:21:51Z
+2026-05-07T21:24:45Z
 
 ## Current actions
 
+- Runtime dogfooded automatic Stage 8 MRP assembly:
+  - committed and pushed `25ec34d` (`META: automate diagnostic MRP assembly`)
+  - deployed `ff-pipeline` version `85488895-4bbc-437d-a7bb-175e5451dc35`
+  - live health after deploy: healthy, Arango true, AI binding true
+  - PR #71 head `25ec34d91380d68d3cbebe9cea691f624629c5c6` had `Test`, `Typecheck`, and `Factory PR Gate` passing
+  - POST `/debug/pr-outcome` with `processNow: true` returned signal `SIG-MOVZUL8I-0DYR` for head `25ec34d91380d68d3cbebe9cea691f624629c5c6`
+  - POST `/debug/mrp-evidence` persisted canonical evidence key `MRP-EVIDENCE-MOTE4M1R-25ec34d`
+  - POST `/debug/mrp-auto` with audit, PR #71, and `canonicalEvidenceKey: MRP-EVIDENCE-MOTE4M1R-25ec34d` selected `SIG-MOVZUL8I-0DYR` automatically
+  - `/debug/mrp-auto` refreshed `MRP-MOTE4M1R-G7I0-71` with `verdict: merge-ready`, canonical/runtime `functionId: FN-MOTDWVR2-W7UN`, and CI commit `25ec34d91380d68d3cbebe9cea691f624629c5c6`
+  - milestone 3 complete: Stage 8 diagnostic MRP assembly no longer requires passing `prOutcomeSignalKey` manually
 - Active slice: automatic Stage 8 MRP assembly from latest persisted PR outcome signal.
 - Added `/debug/mrp-auto` POST route:
   - accepts `audit`, `pullNumber`, `canonicalEvidenceKey`, and optional `createdAt`
