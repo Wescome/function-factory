@@ -4,10 +4,20 @@
 Active task: Dogfood loop - guarded synthesis artifact application.
 
 ## Last update
-2026-05-07T20:40:06Z
+2026-05-07T20:43:54Z
 
 ## Current actions
 
+- Runtime dogfooded canonical MRP atomicity:
+  - deployed `ff-pipeline` version `690ba648-026f-4f7b-a438-5a908cc82a6e`
+  - live health after deploy: healthy, Arango true, AI binding true
+  - PR #71 head at deploy: `09797a9998cfd1c5ac1565d2a908e6694a42adc0`
+  - GitHub checks on that head: `Test`, `Typecheck`, and `Factory PR Gate` passed
+  - POST `/debug/pr-outcome` accepted a new observation for PR #71 / `WG-MOTE4M1R-G7I0`
+  - GET `/debug/pr-outcome` returned signal `SIG-MOVYDXV3-DKCY` for head `09797a9998cfd1c5ac1565d2a908e6694a42adc0`
+  - Before invalid canonical MRP request, persisted `MRP-MOTE4M1R-G7I0-71` still referenced head `6a51cabd5e3f162da09137589d7d08827053a77d`, signal `SIG-MOUP7CDQ-ZTJX`, refreshedAt `2026-05-06T23:38:40Z`
+  - POST `/debug/mrp` with `prOutcomeSignalKey: SIG-MOVYDXV3-DKCY` and conflicting `canonicalEvidence.functionId: FN-DIFFERENT` returned `400`
+  - After invalid request, persisted `MRP-MOTE4M1R-G7I0-71` remained unchanged at head `6a51cabd5e3f162da09137589d7d08827053a77d`, signal `SIG-MOUP7CDQ-ZTJX`, refreshedAt `2026-05-06T23:38:40Z`
 - Active slice: make `/debug/mrp` canonical validation atomic with runtime MRP persistence.
 - Red test confirmed invalid canonical evidence returned an error only after saving `merge_readiness_packs`.
 - Patched `workers/ff-pipeline/src/index.ts` so `toCanonicalMergeReadinessPack` runs before `ingestMergeReadinessPack` whenever `canonicalEvidence` is supplied.
