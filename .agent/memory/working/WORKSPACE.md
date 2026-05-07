@@ -4,10 +4,20 @@
 Active task: Dogfood loop - guarded synthesis artifact application.
 
 ## Last update
-2026-05-07T20:50:55Z
+2026-05-07T20:55:20Z
 
 ## Current actions
 
+- Runtime dogfooded persisted MRP function identity:
+  - deployed `ff-pipeline` version `8ec719f7-a5ba-4e32-bbe3-06fe3f6b659c`
+  - live health after deploy: healthy, Arango true, AI binding true
+  - PR #71 head at deploy: `aeffbc6701d23dc643db8878a87484bcd92988d0`
+  - GitHub checks on that head: `Test`, `Typecheck`, and `Factory PR Gate` passed
+  - POST `/debug/pr-outcome` accepted a new observation for PR #71 / `WG-MOTE4M1R-G7I0`
+  - GET `/debug/pr-outcome` returned signal `SIG-MOVYSH7F-GHPT` for head `aeffbc6701d23dc643db8878a87484bcd92988d0`
+  - POST `/debug/mrp` with `canonicalEvidence` and `prOutcomeSignalKey: SIG-MOVYSH7F-GHPT` refreshed `MRP-MOTE4M1R-G7I0-71`
+  - runtime pack and canonical response both returned `functionId: FN-MOTDWVR2-W7UN`
+  - runtime and canonical CI evidence both referenced commit `aeffbc6701d23dc643db8878a87484bcd92988d0`
 - Active slice: persist Stage 8 materialized `functionId` on runtime MRPs.
 - Red tests confirmed runtime MRP build/persist/readback did not carry `functionId`, while canonical output did.
 - Patched `workers/ff-pipeline/src/merge-readiness-pack.ts`:
