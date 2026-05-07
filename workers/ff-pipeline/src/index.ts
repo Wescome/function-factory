@@ -369,6 +369,8 @@ export default {
       try {
         const body = await request.json() as {
           pullNumber?: number
+          processNow?: boolean
+          outcome?: import('./stages/pr-outcome-signal').PROutcomeInput
           lineage?: {
             pipelineId?: string
             signalId?: string
@@ -377,6 +379,48 @@ export default {
             proposalId?: string
             workGraphId?: string
           }
+        }
+
+        const lineage = body.lineage
+          ? {
+              pipelineId: body.lineage.pipelineId ?? '',
+              ...(body.lineage.signalId ? { signalId: body.lineage.signalId } : {}),
+              ...(body.lineage.pressureId ? { pressureId: body.lineage.pressureId } : {}),
+              ...(body.lineage.capabilityId ? { capabilityId: body.lineage.capabilityId } : {}),
+              proposalId: body.lineage.proposalId ?? '',
+              workGraphId: body.lineage.workGraphId ?? '',
+            }
+          : undefined
+
+        if (body.processNow === true) {
+          const { createClientFromEnv } = await import('@factory/arango-client')
+          const { fetchPROutcomeFromGitHub, ingestPROutcomeSignals } = await import('./stages/pr-outcome-signal.js')
+
+          const outcome = body.outcome ?? await (async () => {
+            if (!body.pullNumber || !lineage?.pipelineId || !lineage.proposalId || !lineage.workGraphId) {
+              throw new Error('Missing required fields: pullNumber, lineage.pipelineId, lineage.proposalId, lineage.workGraphId')
+            }
+            if (!env.GITHUB_TOKEN) {
+              throw new Error('GITHUB_TOKEN binding unavailable')
+            }
+            return fetchPROutcomeFromGitHub({
+              githubToken: env.GITHUB_TOKEN,
+              repoOwner: 'Wescome',
+              repoName: 'function-factory',
+              pullNumber: body.pullNumber,
+              lineage,
+            })
+          })()
+
+          const db = createClientFromEnv(env)
+          const records = await ingestPROutcomeSignals(outcome, db as never)
+          return new Response(JSON.stringify({
+            accepted: true,
+            processed: true,
+            pullNumber: outcome.pullRequest.number,
+            workGraphId: outcome.lineage.workGraphId,
+            records,
+          }), { headers: { 'Content-Type': 'application/json' } })
         }
 
         if (!body.pullNumber || !body.lineage?.pipelineId || !body.lineage.proposalId || !body.lineage.workGraphId) {
@@ -391,25 +435,16 @@ export default {
           }), { status: 503, headers: { 'Content-Type': 'application/json' } })
         }
 
-        const lineage = {
-          pipelineId: body.lineage.pipelineId,
-          ...(body.lineage.signalId ? { signalId: body.lineage.signalId } : {}),
-          ...(body.lineage.pressureId ? { pressureId: body.lineage.pressureId } : {}),
-          ...(body.lineage.capabilityId ? { capabilityId: body.lineage.capabilityId } : {}),
-          proposalId: body.lineage.proposalId,
-          workGraphId: body.lineage.workGraphId,
-        }
-
         await env.FEEDBACK_QUEUE.send({
           type: 'pr-outcome',
           pullNumber: body.pullNumber,
-          lineage,
+          lineage: lineage!,
         })
 
         return new Response(JSON.stringify({
           accepted: true,
           pullNumber: body.pullNumber,
-          workGraphId: lineage.workGraphId,
+          workGraphId: lineage!.workGraphId,
         }), { status: 202, headers: { 'Content-Type': 'application/json' } })
       } catch (err) {
         return new Response(JSON.stringify({

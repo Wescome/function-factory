@@ -4,10 +4,19 @@
 Active task: Dogfood loop - guarded synthesis artifact application.
 
 ## Last update
-2026-05-07T21:08:41Z
+2026-05-07T21:15:24Z
 
 ## Current actions
 
+- Runtime dogfood found stale PR outcome readback after PR #71 advanced to `2409e98586b99b9d3517d4d8b4f18daf9508e658`:
+  - POST `/debug/pr-outcome` and POST `/debug/pr-outcome-scan` accepted/enqueued but GET `/debug/pr-outcome` still returned older signal `SIG-MOVYSH7F-GHPT` for head `aeffbc6701d23dc643db8878a87484bcd92988d0`
+  - added `processNow: true` diagnostic mode to `/debug/pr-outcome`
+  - process-now mode accepts supplied outcome evidence or fetches GitHub PR/check/review state synchronously, ingests PR outcome signals immediately, and returns the saved records/errors at the route boundary
+  - verification completed:
+    - red test confirmed `/debug/pr-outcome` did not support immediate processing
+    - `pnpm --filter @factory/ff-pipeline test -- src/diagnostic-routes.test.ts`: pass, 19 tests
+    - `pnpm --filter @factory/ff-pipeline test -- src/diagnostic-routes.test.ts src/merge-readiness-pack.test.ts`: pass, 34 tests
+    - `pnpm --filter @factory/ff-pipeline typecheck`: pass
 - Runtime dogfood found and fixed sourced-evidence collection preflight:
   - deployed `ff-pipeline` version `a6001ed1-55d8-4cfb-a714-215055a53764`
   - live health after deploy: healthy, Arango true, AI binding true

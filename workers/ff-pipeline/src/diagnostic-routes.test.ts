@@ -245,6 +245,79 @@ describe('ff-pipeline diagnostic routes', () => {
     })
   })
 
+  it('POST /debug/pr-outcome can process a supplied PR outcome immediately', async () => {
+    const { default: worker } = await import('./index')
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/debug/pr-outcome', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          processNow: true,
+          outcome: {
+            lineage: {
+              pipelineId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
+              signalId: 'SIG-MOTDWPYM-LTW5',
+              pressureId: 'PRS-MOTDWQ0T-S55Y',
+              capabilityId: 'BC-MOTDWSVY-PQOO',
+              proposalId: 'FP-MOTDWVR2-W7UN',
+              workGraphId: 'WG-MOTE4M1R-G7I0',
+            },
+            pullRequest: {
+              number: 71,
+              url: 'https://github.com/Wescome/function-factory/pull/71',
+              title: '[Factory] Materialize WG-MOTE4M1R-G7I0 synthesis artifact',
+              state: 'OPEN',
+              draft: true,
+              merged: false,
+              headRefName: 'factory/fp-motdwvr2-w7un',
+              baseRefName: 'main',
+              headSha: '2409e98586b99b9d3517d4d8b4f18daf9508e658',
+            },
+            checks: [
+              { name: 'Factory PR Gate', state: 'SUCCESS' },
+              { name: 'Test', state: 'SUCCESS' },
+              { name: 'Typecheck', state: 'SUCCESS' },
+            ],
+            observedAt: '2026-05-07T21:20:00Z',
+          },
+        }),
+      }),
+      createEnv() as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(200)
+    expect(await jsonBody(response)).toMatchObject({
+      accepted: true,
+      processed: true,
+      pullNumber: 71,
+      workGraphId: 'WG-MOTE4M1R-G7I0',
+      records: [
+        {
+          subtype: 'synthesis:pr-ci-passed',
+          raw: {
+            pr: {
+              headSha: '2409e98586b99b9d3517d4d8b4f18daf9508e658',
+            },
+          },
+        },
+      ],
+    })
+    expect(mockSave).toHaveBeenCalledWith(
+      'specs_signals',
+      expect.objectContaining({
+        source: 'factory:pr-outcome',
+        description: 'Factory PR #71 passed all observed CI checks at head 2409e98',
+        raw: expect.objectContaining({
+          pr: expect.objectContaining({
+            headSha: '2409e98586b99b9d3517d4d8b4f18daf9508e658',
+          }),
+        }),
+      }),
+    )
+  })
+
   it('POST /debug/pr-outcome fails closed when lineage is incomplete', async () => {
     const { default: worker } = await import('./index')
     const send = vi.fn(async () => undefined)
