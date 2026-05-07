@@ -551,6 +551,84 @@ describe('ff-pipeline diagnostic routes', () => {
     expect(mockSave).toHaveBeenCalledOnce()
   })
 
+  it('POST /debug/mrp can source canonical evidence by key before canonical validation', async () => {
+    const { default: worker } = await import('./index')
+    mockQueryOne
+      .mockResolvedValueOnce({
+        _key: 'MRP-EVIDENCE-MOTE4M1R',
+        canonicalEvidence: makeCanonicalMRPEvidence(),
+      })
+      .mockResolvedValueOnce(null)
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/debug/mrp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          audit: makeMaterializationAudit(),
+          prOutcomeSignal: makePROutcomeSignal(),
+          canonicalEvidenceKey: 'MRP-EVIDENCE-MOTE4M1R',
+          createdAt: '2026-05-06T21:30:00Z',
+        }),
+      }),
+      createEnv() as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(201)
+    expect(await jsonBody(response)).toMatchObject({
+      persisted: true,
+      canonical: {
+        functionId: 'FN-MOTDWVR2-W7UN',
+        verdict: 'merge-ready',
+      },
+    })
+    expect(mockQueryOne.mock.calls[0]).toEqual([
+      expect.stringContaining('merge_readiness_evidence'),
+      { key: 'MRP-EVIDENCE-MOTE4M1R' },
+    ])
+    expect(mockSave).toHaveBeenCalledOnce()
+  })
+
+  it('POST /debug/mrp-evidence persists a canonical evidence record for sourced MRP assembly', async () => {
+    const { default: worker } = await import('./index')
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/debug/mrp-evidence', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: 'MRP-EVIDENCE-MOTE4M1R',
+          canonicalEvidence: makeCanonicalMRPEvidence(),
+          sourceRefs: ['MRP-MOTE4M1R-G7I0-71', 'SIG-MOTILTZ0-6DGK'],
+          createdAt: '2026-05-06T21:29:00Z',
+        }),
+      }),
+      createEnv() as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(201)
+    expect(await jsonBody(response)).toMatchObject({
+      persisted: true,
+      key: 'MRP-EVIDENCE-MOTE4M1R',
+    })
+    expect(mockSave).toHaveBeenCalledWith(
+      'merge_readiness_evidence',
+      expect.objectContaining({
+        _key: 'MRP-EVIDENCE-MOTE4M1R',
+        id: 'MRP-EVIDENCE-MOTE4M1R',
+        canonicalEvidence: expect.objectContaining({
+          auditability: expect.objectContaining({
+            gate2ReportId: 'CR-MOTE4M1R-GATE2',
+          }),
+        }),
+        sourceRefs: ['MRP-MOTE4M1R-G7I0-71', 'SIG-MOTILTZ0-6DGK'],
+        createdAt: '2026-05-06T21:29:00Z',
+      }),
+    )
+  })
+
   it('POST /debug/mrp validates canonical evidence before persisting runtime MRP', async () => {
     const { default: worker } = await import('./index')
 

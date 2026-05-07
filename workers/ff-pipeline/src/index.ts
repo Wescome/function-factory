@@ -517,6 +517,7 @@ export default {
           prOutcomeSignal?: unknown
           prOutcomeSignalKey?: string
           canonicalEvidence?: unknown
+          canonicalEvidenceKey?: string
           createdAt?: string
         }
 
@@ -528,6 +529,11 @@ export default {
         if (!body.prOutcomeSignal && !body.prOutcomeSignalKey) {
           return new Response(JSON.stringify({
             error: 'Missing required field: prOutcomeSignal or prOutcomeSignalKey',
+          }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+        }
+        if (body.canonicalEvidence && body.canonicalEvidenceKey) {
+          return new Response(JSON.stringify({
+            error: 'Provide only one of canonicalEvidence or canonicalEvidenceKey',
           }), { status: 400, headers: { 'Content-Type': 'application/json' } })
         }
 
@@ -546,10 +552,24 @@ export default {
              RETURN s`,
           { key: body.prOutcomeSignalKey },
         )
+        const canonicalEvidenceRecord = body.canonicalEvidenceKey
+          ? await db.queryOne<Record<string, unknown>>(
+            `FOR evidence IN merge_readiness_evidence
+               FILTER evidence._key == @key OR evidence.id == @key
+               LIMIT 1
+               RETURN evidence`,
+            { key: body.canonicalEvidenceKey },
+          )
+          : null
 
         if (!prOutcomeSignal) {
           return new Response(JSON.stringify({
             error: `PR outcome signal not found: ${body.prOutcomeSignalKey}`,
+          }), { status: 404, headers: { 'Content-Type': 'application/json' } })
+        }
+        if (body.canonicalEvidenceKey && !canonicalEvidenceRecord) {
+          return new Response(JSON.stringify({
+            error: `Canonical MRP evidence not found: ${body.canonicalEvidenceKey}`,
           }), { status: 404, headers: { 'Content-Type': 'application/json' } })
         }
 
@@ -558,10 +578,13 @@ export default {
           prOutcomeSignal: prOutcomeSignal as import('./merge-readiness-pack').PROutcomeSignalRecord,
           ...(body.createdAt ? { createdAt: body.createdAt } : {}),
         })
-        const canonical = body.canonicalEvidence
+        const canonicalEvidence = body.canonicalEvidence
+          ?? canonicalEvidenceRecord?.canonicalEvidence
+          ?? canonicalEvidenceRecord?.evidence
+        const canonical = canonicalEvidence
           ? toCanonicalMergeReadinessPack(
             pack,
-            body.canonicalEvidence as import('./merge-readiness-pack').CanonicalMRPEvidence,
+            canonicalEvidence as import('./merge-readiness-pack').CanonicalMRPEvidence,
           )
           : undefined
         const persisted = await ingestMergeReadinessPack(pack, db)
@@ -573,6 +596,56 @@ export default {
           verdict: (persisted as { verdict?: unknown }).verdict,
           ...(canonical ? { canonical } : {}),
           pack: persisted,
+        }, null, 2), { status: 201, headers: { 'Content-Type': 'application/json' } })
+      } catch (err) {
+        return new Response(JSON.stringify({
+          error: err instanceof Error ? err.message : String(err),
+        }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+      }
+    }
+
+    // ── Diagnostic: persist sourced canonical Merge-Readiness evidence ──
+    if (url.pathname === '/debug/mrp-evidence' && request.method === 'POST') {
+      try {
+        const body = await request.json() as {
+          key?: unknown
+          canonicalEvidence?: unknown
+          sourceRefs?: unknown
+          createdAt?: string
+        }
+        if (typeof body.key !== 'string' || body.key.trim().length === 0) {
+          return new Response(JSON.stringify({
+            error: 'Missing required field: key',
+          }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+        }
+        if (!body.canonicalEvidence || typeof body.canonicalEvidence !== 'object') {
+          return new Response(JSON.stringify({
+            error: 'Missing required field: canonicalEvidence',
+          }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+        }
+        if (body.sourceRefs !== undefined && !Array.isArray(body.sourceRefs)) {
+          return new Response(JSON.stringify({
+            error: 'sourceRefs must be an array when provided',
+          }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+        }
+
+        const { createClientFromEnv } = await import('@factory/arango-client')
+        const db = createClientFromEnv(env)
+        const key = body.key.trim()
+        const record = {
+          _key: key,
+          id: key,
+          type: 'canonical_mrp_evidence',
+          canonicalEvidence: body.canonicalEvidence,
+          sourceRefs: body.sourceRefs ?? [],
+          createdAt: body.createdAt ?? new Date().toISOString(),
+        }
+        const persisted = await db.save<Record<string, unknown>>('merge_readiness_evidence', record)
+
+        return new Response(JSON.stringify({
+          persisted: true,
+          key,
+          record: persisted,
         }, null, 2), { status: 201, headers: { 'Content-Type': 'application/json' } })
       } catch (err) {
         return new Response(JSON.stringify({

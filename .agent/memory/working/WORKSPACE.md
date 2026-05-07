@@ -4,10 +4,26 @@
 Active task: Dogfood loop - guarded synthesis artifact application.
 
 ## Last update
-2026-05-07T20:55:20Z
+2026-05-07T21:04:56Z
 
 ## Current actions
 
+- Active slice: source canonical MRP evidence from a persisted evidence record.
+- Added `/debug/mrp-evidence` POST route:
+  - persists `{ _key, id, type: "canonical_mrp_evidence", canonicalEvidence, sourceRefs, createdAt }` to `merge_readiness_evidence`
+  - validates required `key` and `canonicalEvidence`
+- Extended `/debug/mrp` POST route:
+  - accepts `canonicalEvidenceKey`
+  - loads a record from `merge_readiness_evidence`
+  - uses `record.canonicalEvidence` or `record.evidence` for canonical validation before runtime MRP persistence
+  - rejects requests that provide both inline `canonicalEvidence` and `canonicalEvidenceKey`
+- Verification completed:
+  - red test confirmed `/debug/mrp` did not support `canonicalEvidenceKey`
+  - red test confirmed `/debug/mrp-evidence` route returned 404 before implementation
+  - `pnpm --filter @factory/ff-pipeline test -- src/diagnostic-routes.test.ts src/merge-readiness-pack.test.ts`: pass, 33 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+  - `git diff --check`: pass
+  - `pnpm --filter @factory/ff-pipeline test`: pass, 65 files / 979 tests
 - Runtime dogfooded persisted MRP function identity:
   - deployed `ff-pipeline` version `8ec719f7-a5ba-4e32-bbe3-06fe3f6b659c`
   - live health after deploy: healthy, Arango true, AI binding true
