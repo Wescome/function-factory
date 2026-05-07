@@ -4,10 +4,23 @@
 Active task: Architecture-aligned Gate 2/Stage 8/Gate 3 diagnostic integration.
 
 ## Last update
-2026-05-07T23:41:52Z
+2026-05-07T23:45:09Z
 
 ## Current actions
 
+- Live dogfood completed for `eb77bec`:
+  - committed and pushed `eb77bec` (`META: add guarded function identity migration`)
+  - PR #71 remote checks passed on `eb77bec1e1604dc858c6df7dd931005a15a16cbc`: `Test`, `Typecheck`, and `Factory PR Gate`
+  - deployed `ff-pipeline` version `247c9c17-cc2a-47de-8e3c-f0065f9ee35a`
+  - live `/debug/health` returned healthy with Arango true and AI binding true
+  - dry-run POST `/debug/function-identity-migration` for `FP-MOTDWVR2-W7UN` -> `FN-MOTDWVR2-W7UN` returned `applied: false`, `migrationPlan.required: true`, `safeToApply: true`
+  - apply POST `/debug/function-identity-migration` with `apply: true` returned `applied: true`
+  - created runtime `specs_functions/FN-MOTDWVR2-W7UN` with `proposal_ref: FP-MOTDWVR2-W7UN`, `functionId: FN-MOTDWVR2-W7UN`, `lifecycleState: produced`, and `source_refs: [FP-MOTDWVR2-W7UN]`
+  - recorded lineage edge `specs_functions/FN-MOTDWVR2-W7UN` -> `specs_functions/FP-MOTDWVR2-W7UN` with `type: materialized-from`
+  - readback POST `/debug/function-identity` now returns `resolution: fully_materialized`, both runtime docs found, findings empty, and `mutationApplied: false`
+  - post-apply migration dry-run returns `migrationPlan.required: false`; remaining operation is `block_monitored_promotion`
+  - added PR evidence comment: https://github.com/Wescome/function-factory/pull/71#issuecomment-4401965866
+  - no lifecycle promotion, ready-for-review transition, monitored promotion, or PR merge was performed
 - Implemented guarded function identity migration diagnostic:
   - added `POST /debug/function-identity-migration`
   - dry-runs by default and returns the same identity report under `report`
