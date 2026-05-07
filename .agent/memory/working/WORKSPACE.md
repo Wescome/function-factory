@@ -4,10 +4,19 @@
 Active task: Dogfood loop - guarded synthesis artifact application.
 
 ## Last update
-2026-05-07T21:24:45Z
+2026-05-07T21:27:00Z
 
 ## Current actions
 
+- Active slice: FN registry / lifecycle record.
+- Added `specs/functions/FN-MOTDWVR2-W7UN.yaml`:
+  - records the Stage 8 materialized Function identity derived from `FP-MOTDWVR2-W7UN`
+  - uses existing materialized specs artifacts in `source_refs`
+  - preserves live-only pipeline IDs in `runtime_refs`
+  - records observed candidate state as `produced` evidence only, with `transition_applied: false`
+  - explicitly blocks treating this record as promotion to `accepted` or `monitored`
+- Verification completed:
+  - `pnpm audit:docs`: pass
 - Runtime dogfooded automatic Stage 8 MRP assembly:
   - committed and pushed `25ec34d` (`META: automate diagnostic MRP assembly`)
   - deployed `ff-pipeline` version `85488895-4bbc-437d-a7bb-175e5451dc35`
