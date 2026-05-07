@@ -4,10 +4,25 @@
 Active task: Architecture-aligned Gate 2/Stage 8/Gate 3 diagnostic integration.
 
 ## Last update
-2026-05-07T23:19:29Z
+2026-05-07T23:23:01Z
 
 ## Current actions
 
+- Live dogfood completed for `eeff6bc`:
+  - committed and pushed `eeff6bc` (`META: add function identity migration plan`)
+  - PR #71 remote checks passed on `eeff6bc45f37d8b5de9fb5bb5cf0bea148c14f0a`: `Test`, `Typecheck`, and `Factory PR Gate`
+  - deployed `ff-pipeline` version `ad28da29-dece-4d64-9120-023220a09635`
+  - live `/debug/health` returned healthy with Arango true and AI binding true
+  - POST `/debug/function-identity` for `FP-MOTDWVR2-W7UN` -> `FN-MOTDWVR2-W7UN` with `MRP-MOTE4M1R-G7I0-71` returned:
+    - `identityConsistent: true`
+    - `resolution: mapped_not_migrated`
+    - `mutationApplied: false`
+    - `migrationPlan.required: true`
+    - `migrationPlan.safeToApply: true`
+    - planned operations: `create_function_document`, `preserve_proposal_document`, and `block_monitored_promotion`
+    - create target `_key/id/functionId: FN-MOTDWVR2-W7UN`, `proposal_ref: FP-MOTDWVR2-W7UN`, `lifecycleState: produced`
+  - added PR evidence comment: https://github.com/Wescome/function-factory/pull/71#issuecomment-4401883819
+  - no mutation, migration apply, ready-for-review transition, monitored promotion, or merge was performed
 - Implemented deterministic read-only function identity migration plan:
   - `evaluateFunctionIdentity` now returns `migrationPlan` alongside identity/runtime/MRP findings
   - consistent proposal-keyed lifecycle with missing `FN-*` runtime doc returns `required: true`, `safeToApply: true`
