@@ -1268,6 +1268,31 @@ describe('ff-pipeline diagnostic routes', () => {
         functionId: 'FN-MOTDWVR2-W7UN',
         consistent: true,
       },
+      migrationPlan: {
+        required: true,
+        safeToApply: true,
+        operations: [
+          {
+            action: 'create_function_document',
+            targetKey: 'FN-MOTDWVR2-W7UN',
+            sourceKey: 'FP-MOTDWVR2-W7UN',
+            fields: {
+              _key: 'FN-MOTDWVR2-W7UN',
+              proposal_ref: 'FP-MOTDWVR2-W7UN',
+              functionId: 'FN-MOTDWVR2-W7UN',
+              lifecycleState: 'produced',
+            },
+          },
+          {
+            action: 'preserve_proposal_document',
+            targetKey: 'FP-MOTDWVR2-W7UN',
+          },
+          {
+            action: 'block_monitored_promotion',
+            targetKey: 'FN-MOTDWVR2-W7UN',
+          },
+        ],
+      },
     })
     expect(mockGet).toHaveBeenCalledWith('specs_functions', 'FP-MOTDWVR2-W7UN')
     expect(mockGet).toHaveBeenCalledWith('specs_functions', 'FN-MOTDWVR2-W7UN')

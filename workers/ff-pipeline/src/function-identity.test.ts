@@ -42,6 +42,33 @@ describe('function identity diagnostic', () => {
         functionId: 'FN-MOTDWVR2-W7UN',
         consistent: true,
       },
+      migrationPlan: {
+        required: true,
+        safeToApply: true,
+        operations: [
+          {
+            action: 'create_function_document',
+            targetKey: 'FN-MOTDWVR2-W7UN',
+            sourceKey: 'FP-MOTDWVR2-W7UN',
+            fields: {
+              _key: 'FN-MOTDWVR2-W7UN',
+              id: 'FN-MOTDWVR2-W7UN',
+              proposal_ref: 'FP-MOTDWVR2-W7UN',
+              functionId: 'FN-MOTDWVR2-W7UN',
+              lifecycleState: 'produced',
+              lifecycleStateSource: 'FP-MOTDWVR2-W7UN',
+            },
+          },
+          {
+            action: 'preserve_proposal_document',
+            targetKey: 'FP-MOTDWVR2-W7UN',
+          },
+          {
+            action: 'block_monitored_promotion',
+            targetKey: 'FN-MOTDWVR2-W7UN',
+          },
+        ],
+      },
     })
     expect(report.findings).toEqual([
       'Materialized Function document FN-MOTDWVR2-W7UN is not present in specs_functions; lifecycle remains proposal-keyed.',
@@ -71,7 +98,45 @@ describe('function identity diagnostic', () => {
       mergeReadiness: {
         consistent: false,
       },
+      migrationPlan: {
+        required: false,
+        safeToApply: false,
+        operations: [{
+          action: 'halt_identity_inconsistent',
+          targetKey: 'FN-MOTDWVR2-W7UN',
+        }],
+      },
     })
     expect(report.findings).toContain('Merge-readiness pack identity does not match the supplied proposal/function pair.')
+  })
+
+  it('reports no migration requirement after the Function document is materialized', () => {
+    const report = evaluateFunctionIdentity({
+      proposalKey: 'FP-MOTDWVR2-W7UN',
+      functionId: 'FN-MOTDWVR2-W7UN',
+      proposalDocument: {
+        _key: 'FP-MOTDWVR2-W7UN',
+        lifecycleState: 'produced',
+      },
+      functionDocument: {
+        _key: 'FN-MOTDWVR2-W7UN',
+        lifecycleState: 'produced',
+        proposal_ref: 'FP-MOTDWVR2-W7UN',
+        functionId: 'FN-MOTDWVR2-W7UN',
+      },
+    })
+
+    expect(report).toMatchObject({
+      identityConsistent: true,
+      resolution: 'fully_materialized',
+      migrationPlan: {
+        required: false,
+        safeToApply: true,
+        operations: [{
+          action: 'block_monitored_promotion',
+          targetKey: 'FN-MOTDWVR2-W7UN',
+        }],
+      },
+    })
   })
 })

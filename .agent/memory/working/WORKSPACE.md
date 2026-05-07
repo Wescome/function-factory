@@ -4,10 +4,38 @@
 Active task: Architecture-aligned Gate 2/Stage 8/Gate 3 diagnostic integration.
 
 ## Last update
-2026-05-07T23:08:22Z
+2026-05-07T23:19:29Z
 
 ## Current actions
 
+- Implemented deterministic read-only function identity migration plan:
+  - `evaluateFunctionIdentity` now returns `migrationPlan` alongside identity/runtime/MRP findings
+  - consistent proposal-keyed lifecycle with missing `FN-*` runtime doc returns `required: true`, `safeToApply: true`
+  - planned operations are `create_function_document`, `preserve_proposal_document`, and `block_monitored_promotion`
+  - inconsistent identity evidence fails closed with `safeToApply: false`
+  - fully materialized identity returns `required: false` while still blocking monitored promotion until Gate 3 active monitoring exists
+  - `/debug/function-identity` remains read-only; route tests still assert no save/update/edge writes
+- Verification completed:
+  - `pnpm --filter @factory/ff-pipeline test -- src/function-identity.test.ts src/diagnostic-routes.test.ts`: pass, 33 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+  - `pnpm --filter @factory/ff-pipeline test`: pass, 68 files / 1004 tests
+  - `pnpm audit:docs`: pass
+  - `git diff --check`: pass
+- Live dogfood completed for `ea6367d`:
+  - committed and pushed `ea6367d` (`META: add function identity diagnostic`)
+  - PR #71 remote checks passed on `ea6367d`: `Test`, `Typecheck`, and `Factory PR Gate`
+  - deployed `ff-pipeline` version `a674c9be-0307-40de-a921-f800449ea809`
+  - live `/debug/health` returned healthy with Arango true and AI binding true
+  - POST `/debug/function-identity` for `FP-MOTDWVR2-W7UN` -> `FN-MOTDWVR2-W7UN` with `MRP-MOTE4M1R-G7I0-71` returned:
+    - `derivedFunctionId: FN-MOTDWVR2-W7UN`
+    - `identityConsistent: true`
+    - `resolution: mapped_not_migrated`
+    - `mutationApplied: false`
+    - proposal runtime doc found with `lifecycleState: produced`
+    - function runtime doc `FN-MOTDWVR2-W7UN` not found in `specs_functions`
+    - MRP identity consistent, `verdict: merge-ready`, signal `SIG-MOW36LRI-I3NG`, head `99d78b7c609c3c3a2005e5ef10c68521f2cf69b6`
+  - added PR evidence comment: https://github.com/Wescome/function-factory/pull/71#issuecomment-4401836190
+  - no mutation, migration, ready-for-review transition, monitored promotion, or merge was performed
 - Implemented read-only function identity split diagnostic:
   - added `workers/ff-pipeline/src/function-identity.ts`
   - added `/debug/function-identity`

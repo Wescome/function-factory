@@ -27,6 +27,34 @@ export interface FunctionIdentityInput {
   mergeReadinessPack?: FunctionIdentityMergeReadiness | null
 }
 
+export type FunctionIdentityMigrationAction =
+  | 'create_function_document'
+  | 'preserve_proposal_document'
+  | 'block_monitored_promotion'
+  | 'halt_identity_inconsistent'
+  | 'halt_missing_proposal_document'
+
+export interface FunctionIdentityMigrationOperation {
+  action: FunctionIdentityMigrationAction
+  targetKey: string
+  sourceKey?: string
+  reason: string
+  fields?: {
+    _key: string
+    id: string
+    proposal_ref: string
+    functionId: string
+    lifecycleState: string | null
+    lifecycleStateSource: string
+  }
+}
+
+export interface FunctionIdentityMigrationPlan {
+  required: boolean
+  safeToApply: boolean
+  operations: FunctionIdentityMigrationOperation[]
+}
+
 export interface FunctionIdentityReport {
   proposalKey: string
   functionId: string
@@ -49,6 +77,7 @@ export interface FunctionIdentityReport {
     headSha: string | null
     consistent: boolean
   }
+  migrationPlan: FunctionIdentityMigrationPlan
   findings: string[]
 }
 
@@ -79,6 +108,78 @@ function docProposalRef(doc: FunctionIdentityDocument | null | undefined): strin
 function docFunctionRef(doc: FunctionIdentityDocument | null | undefined): string | null {
   if (!doc) return null
   return doc.functionId ?? doc.function_id ?? null
+}
+
+function buildMigrationPlan(
+  input: FunctionIdentityInput,
+  identityConsistent: boolean,
+  proposalDocumentFound: boolean,
+  functionDocumentFound: boolean,
+): FunctionIdentityMigrationPlan {
+  if (!identityConsistent) {
+    return {
+      required: false,
+      safeToApply: false,
+      operations: [{
+        action: 'halt_identity_inconsistent',
+        targetKey: input.functionId,
+        reason: 'Identity evidence is inconsistent; migration must not be applied until findings are resolved.',
+      }],
+    }
+  }
+
+  if (!proposalDocumentFound) {
+    return {
+      required: false,
+      safeToApply: false,
+      operations: [{
+        action: 'halt_missing_proposal_document',
+        targetKey: input.proposalKey,
+        reason: 'The proposal-keyed lifecycle document is missing, so there is no source document to materialize.',
+      }],
+    }
+  }
+
+  const monitoredBlock: FunctionIdentityMigrationOperation = {
+    action: 'block_monitored_promotion',
+    targetKey: input.functionId,
+    reason: 'Gate 3 active monitoring is still required before monitored promotion.',
+  }
+
+  if (functionDocumentFound) {
+    return {
+      required: false,
+      safeToApply: true,
+      operations: [monitoredBlock],
+    }
+  }
+
+  return {
+    required: true,
+    safeToApply: true,
+    operations: [
+      {
+        action: 'create_function_document',
+        targetKey: input.functionId,
+        sourceKey: input.proposalKey,
+        reason: 'Materialize the FN-keyed runtime document from the existing proposal-keyed lifecycle document.',
+        fields: {
+          _key: input.functionId,
+          id: input.functionId,
+          proposal_ref: input.proposalKey,
+          functionId: input.functionId,
+          lifecycleState: input.proposalDocument?.lifecycleState ?? null,
+          lifecycleStateSource: input.proposalKey,
+        },
+      },
+      {
+        action: 'preserve_proposal_document',
+        targetKey: input.proposalKey,
+        reason: 'Keep the proposal-keyed lifecycle history intact until an explicit migration apply path exists.',
+      },
+      monitoredBlock,
+    ],
+  }
 }
 
 export function evaluateFunctionIdentity(input: FunctionIdentityInput): FunctionIdentityReport {
@@ -140,6 +241,7 @@ export function evaluateFunctionIdentity(input: FunctionIdentityInput): Function
     : identityConsistent
       ? 'mapped_not_migrated'
       : 'inconsistent'
+  const migrationPlan = buildMigrationPlan(input, identityConsistent, proposalDocumentFound, functionDocumentFound)
 
   return {
     proposalKey: input.proposalKey,
@@ -155,6 +257,7 @@ export function evaluateFunctionIdentity(input: FunctionIdentityInput): Function
       functionLifecycleState: input.functionDocument?.lifecycleState ?? null,
     },
     ...(mergeReadiness ? { mergeReadiness } : {}),
+    migrationPlan,
     findings,
   }
 }
