@@ -4,10 +4,23 @@
 Active task: Dogfood loop - guarded synthesis artifact application.
 
 ## Last update
-2026-05-07T21:18:39Z
+2026-05-07T21:21:51Z
 
 ## Current actions
 
+- Active slice: automatic Stage 8 MRP assembly from latest persisted PR outcome signal.
+- Added `/debug/mrp-auto` POST route:
+  - accepts `audit`, `pullNumber`, `canonicalEvidenceKey`, and optional `createdAt`
+  - derives `workGraphId` from the materialization audit
+  - loads the latest `factory:pr-outcome` signal for `{ pullNumber, workGraphId }` sorted by `raw.observedAt` and `createdAt`
+  - loads canonical evidence from `merge_readiness_evidence` by key
+  - validates canonical MRP before runtime MRP persistence and returns the selected PR outcome/evidence keys
+- Verification completed:
+  - red test confirmed `/debug/mrp-auto` did not exist
+  - `pnpm --filter @factory/ff-pipeline test -- src/diagnostic-routes.test.ts src/merge-readiness-pack.test.ts`: pass, 35 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+  - `git diff --check`: pass
+  - `pnpm --filter @factory/ff-pipeline test`: pass, 65 files / 981 tests
 - Runtime dogfooded sourced canonical MRP evidence and synchronous PR outcome refresh:
   - committed and pushed `b44ae7d` (`META: process PR outcome diagnostics synchronously`)
   - deployed `ff-pipeline` version `1f017c1a-41d3-42ec-8c5b-724713af9e89`

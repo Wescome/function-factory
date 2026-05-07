@@ -735,6 +735,75 @@ describe('ff-pipeline diagnostic routes', () => {
     expect(mockSave).not.toHaveBeenCalled()
   })
 
+  it('POST /debug/mrp-auto assembles MRP from the latest persisted PR outcome signal', async () => {
+    const { default: worker } = await import('./index')
+    mockQuery.mockResolvedValueOnce([
+      {
+        ...makePROutcomeSignal(),
+        _key: 'SIG-LATEST',
+        raw: {
+          ...makePROutcomeSignal().raw as Record<string, unknown>,
+          pr: {
+            ...((makePROutcomeSignal().raw as Record<string, unknown>).pr as Record<string, unknown>),
+            headSha: 'b44ae7d085e1d8c763b162d805767e04b22f7c89',
+          },
+          observedAt: '2026-05-07T21:18:02.047Z',
+        },
+        createdAt: '2026-05-07T21:18:02.105Z',
+      },
+    ])
+    mockQueryOne
+      .mockResolvedValueOnce({
+        _key: 'MRP-EVIDENCE-MOTE4M1R-b44ae7d',
+        canonicalEvidence: makeCanonicalMRPEvidence(),
+      })
+      .mockResolvedValueOnce(null)
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/debug/mrp-auto', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          audit: makeMaterializationAudit(),
+          pullNumber: 71,
+          canonicalEvidenceKey: 'MRP-EVIDENCE-MOTE4M1R-b44ae7d',
+          createdAt: '2026-05-07T21:18:10Z',
+        }),
+      }),
+      createEnv() as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(201)
+    expect(await jsonBody(response)).toMatchObject({
+      persisted: true,
+      id: 'MRP-MOTE4M1R-G7I0-71',
+      prOutcomeSignalKey: 'SIG-LATEST',
+      canonicalEvidenceKey: 'MRP-EVIDENCE-MOTE4M1R-b44ae7d',
+      canonical: {
+        functionId: 'FN-MOTDWVR2-W7UN',
+        ciEvidence: {
+          commitSha: 'b44ae7d085e1d8c763b162d805767e04b22f7c89',
+        },
+      },
+      pack: {
+        functionId: 'FN-MOTDWVR2-W7UN',
+        prEvidence: {
+          signalId: 'SIG-LATEST',
+          headSha: 'b44ae7d085e1d8c763b162d805767e04b22f7c89',
+        },
+      },
+    })
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.stringContaining('factory:pr-outcome'),
+      { pullNumber: 71, workGraphId: 'WG-MOTE4M1R-G7I0' },
+    )
+    expect(mockQueryOne).toHaveBeenCalledWith(
+      expect.stringContaining('merge_readiness_evidence'),
+      { key: 'MRP-EVIDENCE-MOTE4M1R-b44ae7d' },
+    )
+  })
+
   it('POST /debug/mrp fails closed when PR outcome evidence is missing', async () => {
     const { default: worker } = await import('./index')
 

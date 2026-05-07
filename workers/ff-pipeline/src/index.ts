@@ -544,6 +544,108 @@ export default {
       }
     }
 
+    // ── Diagnostic: assemble MRP from latest persisted PR outcome ──
+    if (url.pathname === '/debug/mrp-auto' && request.method === 'POST') {
+      try {
+        const body = await request.json() as {
+          audit?: unknown
+          pullNumber?: unknown
+          canonicalEvidenceKey?: unknown
+          createdAt?: string
+        }
+
+        if (!body.audit || typeof body.audit !== 'object') {
+          return new Response(JSON.stringify({
+            error: 'Missing required field: audit',
+          }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+        }
+        if (!Number.isInteger(body.pullNumber) || (body.pullNumber as number) <= 0) {
+          return new Response(JSON.stringify({
+            error: 'Missing required field: pullNumber',
+          }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+        }
+        if (typeof body.canonicalEvidenceKey !== 'string' || body.canonicalEvidenceKey.trim().length === 0) {
+          return new Response(JSON.stringify({
+            error: 'Missing required field: canonicalEvidenceKey',
+          }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+        }
+
+        const audit = body.audit as import('./synthesis-pr-draft').SynthesisMaterializationAudit
+        const workGraphId = audit.workGraphId
+        if (typeof workGraphId !== 'string' || workGraphId.trim().length === 0) {
+          return new Response(JSON.stringify({
+            error: 'audit.workGraphId is required',
+          }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+        }
+
+        const { createClientFromEnv } = await import('@factory/arango-client')
+        const {
+          buildMergeReadinessPack,
+          ingestMergeReadinessPack,
+          toCanonicalMergeReadinessPack,
+        } = await import('./merge-readiness-pack.js')
+        const db = createClientFromEnv(env)
+        const prOutcomeSignals = await db.query<Record<string, unknown>>(
+          `FOR s IN specs_signals
+             FILTER s.source == 'factory:pr-outcome'
+             FILTER LIKE(s.subtype, 'synthesis:pr-%')
+             FILTER s.raw.pr.number == @pullNumber
+             FILTER s.raw.workGraphId == @workGraphId
+             SORT s.raw.observedAt DESC, s.createdAt DESC
+             LIMIT 1
+             RETURN s`,
+          { pullNumber: body.pullNumber, workGraphId },
+        )
+        const prOutcomeSignal = prOutcomeSignals[0] ?? null
+        if (!prOutcomeSignal) {
+          return new Response(JSON.stringify({
+            error: `PR outcome signal not found for PR #${body.pullNumber} and ${workGraphId}`,
+          }), { status: 404, headers: { 'Content-Type': 'application/json' } })
+        }
+
+        const evidenceKey = body.canonicalEvidenceKey.trim()
+        const canonicalEvidenceRecord = await db.queryOne<Record<string, unknown>>(
+          `FOR evidence IN merge_readiness_evidence
+             FILTER evidence._key == @key OR evidence.id == @key
+             LIMIT 1
+             RETURN evidence`,
+          { key: evidenceKey },
+        )
+        if (!canonicalEvidenceRecord) {
+          return new Response(JSON.stringify({
+            error: `Canonical MRP evidence not found: ${evidenceKey}`,
+          }), { status: 404, headers: { 'Content-Type': 'application/json' } })
+        }
+
+        const pack = buildMergeReadinessPack({
+          audit,
+          prOutcomeSignal: prOutcomeSignal as unknown as import('./merge-readiness-pack').PROutcomeSignalRecord,
+          ...(body.createdAt ? { createdAt: body.createdAt } : {}),
+        })
+        const canonicalEvidence = canonicalEvidenceRecord.canonicalEvidence ?? canonicalEvidenceRecord.evidence
+        const canonical = toCanonicalMergeReadinessPack(
+          pack,
+          canonicalEvidence as import('./merge-readiness-pack').CanonicalMRPEvidence,
+        )
+        const persisted = await ingestMergeReadinessPack(pack, db)
+
+        return new Response(JSON.stringify({
+          persisted: true,
+          id: pack.id,
+          readinessVerdict: pack.readinessVerdict,
+          verdict: (persisted as { verdict?: unknown }).verdict,
+          prOutcomeSignalKey: prOutcomeSignal._key,
+          canonicalEvidenceKey: evidenceKey,
+          canonical,
+          pack: persisted,
+        }, null, 2), { status: 201, headers: { 'Content-Type': 'application/json' } })
+      } catch (err) {
+        return new Response(JSON.stringify({
+          error: err instanceof Error ? err.message : String(err),
+        }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+      }
+    }
+
     // ── Diagnostic: assemble and persist Merge-Readiness Pack evidence ──
     if (url.pathname === '/debug/mrp' && request.method === 'POST') {
       try {
