@@ -4,10 +4,19 @@
 Active task: Dogfood loop - guarded synthesis artifact application.
 
 ## Last update
-2026-05-06T23:38:48Z
+2026-05-07T20:40:06Z
 
 ## Current actions
 
+- Active slice: make `/debug/mrp` canonical validation atomic with runtime MRP persistence.
+- Red test confirmed invalid canonical evidence returned an error only after saving `merge_readiness_packs`.
+- Patched `workers/ff-pipeline/src/index.ts` so `toCanonicalMergeReadinessPack` runs before `ingestMergeReadinessPack` whenever `canonicalEvidence` is supplied.
+- Added diagnostic-route coverage that conflicting canonical `functionId` returns `400` and does not call `save`.
+- Verification completed:
+  - `pnpm --filter @factory/ff-pipeline test -- src/diagnostic-routes.test.ts src/merge-readiness-pack.test.ts`: pass, 30 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+  - `git diff --check`: pass
+  - `pnpm --filter @factory/ff-pipeline test`: pass, 65 files / 976 tests
 - Runtime dogfooded canonical MRP diagnostic:
   - deployed `ff-pipeline` version `82233e0c-f83d-42c1-902e-6adfa4571bd5`
   - live health after deploy: healthy, Arango true, AI binding true

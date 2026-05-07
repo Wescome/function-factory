@@ -558,13 +558,13 @@ export default {
           prOutcomeSignal: prOutcomeSignal as import('./merge-readiness-pack').PROutcomeSignalRecord,
           ...(body.createdAt ? { createdAt: body.createdAt } : {}),
         })
-        const persisted = await ingestMergeReadinessPack(pack, db)
         const canonical = body.canonicalEvidence
           ? toCanonicalMergeReadinessPack(
             pack,
             body.canonicalEvidence as import('./merge-readiness-pack').CanonicalMRPEvidence,
           )
           : undefined
+        const persisted = await ingestMergeReadinessPack(pack, db)
 
         return new Response(JSON.stringify({
           persisted: true,

@@ -546,6 +546,34 @@ describe('ff-pipeline diagnostic routes', () => {
     expect(mockSave).toHaveBeenCalledOnce()
   })
 
+  it('POST /debug/mrp validates canonical evidence before persisting runtime MRP', async () => {
+    const { default: worker } = await import('./index')
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/debug/mrp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          audit: makeMaterializationAudit(),
+          prOutcomeSignal: makePROutcomeSignal(),
+          canonicalEvidence: {
+            ...makeCanonicalMRPEvidence(),
+            functionId: 'FN-DIFFERENT',
+          },
+          createdAt: '2026-05-06T21:30:00Z',
+        }),
+      }),
+      createEnv() as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(400)
+    expect(await jsonBody(response)).toMatchObject({
+      error: expect.stringContaining('evidence.functionId must match the Stage 8 functionId'),
+    })
+    expect(mockSave).not.toHaveBeenCalled()
+  })
+
   it('POST /debug/mrp fails closed when PR outcome evidence is missing', async () => {
     const { default: worker } = await import('./index')
 
