@@ -4,10 +4,26 @@
 Active task: Architecture-aligned Gate 2/Stage 8/Gate 3 diagnostic integration.
 
 ## Last update
-2026-05-07T23:23:01Z
+2026-05-07T23:41:52Z
 
 ## Current actions
 
+- Implemented guarded function identity migration diagnostic:
+  - added `POST /debug/function-identity-migration`
+  - dry-runs by default and returns the same identity report under `report`
+  - applies only when `apply: true`
+  - fails closed when `migrationPlan.safeToApply` is false
+  - no-ops when the FN runtime document is already materialized
+  - apply path creates only the `specs_functions/FN-*` runtime document from the plan fields
+  - apply path preserves the `FP-*` proposal-keyed document and does not call lifecycle `update`
+  - apply path records a `lineage_edges` edge from `specs_functions/FN-*` to `specs_functions/FP-*` with `type: materialized-from`
+  - monitored promotion remains blocked by the migration plan and no Gate 3 promotion path was added
+- Verification completed:
+  - `pnpm --filter @factory/ff-pipeline test -- src/diagnostic-routes.test.ts src/function-identity.test.ts`: pass, 36 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+  - `pnpm --filter @factory/ff-pipeline test`: pass, 68 files / 1007 tests
+  - `pnpm audit:docs`: pass
+  - `git diff --check`: pass
 - Live dogfood completed for `eeff6bc`:
   - committed and pushed `eeff6bc` (`META: add function identity migration plan`)
   - PR #71 remote checks passed on `eeff6bc45f37d8b5de9fb5bb5cf0bea148c14f0a`: `Test`, `Typecheck`, and `Factory PR Gate`

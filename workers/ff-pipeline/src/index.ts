@@ -808,6 +808,123 @@ export default {
       }
     }
 
+    // ── Diagnostic: guarded FP -> FN runtime materialization ──
+    if (url.pathname === '/debug/function-identity-migration' && request.method === 'POST') {
+      try {
+        const body = await request.json() as {
+          proposalKey?: unknown
+          functionId?: unknown
+          mergeReadinessPackId?: unknown
+          apply?: unknown
+        }
+        if (typeof body.proposalKey !== 'string' || body.proposalKey.trim().length === 0) {
+          return new Response(JSON.stringify({
+            error: 'Missing required field: proposalKey',
+          }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+        }
+        if (typeof body.functionId !== 'string' || body.functionId.trim().length === 0) {
+          return new Response(JSON.stringify({
+            error: 'Missing required field: functionId',
+          }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+        }
+
+        const proposalKey = body.proposalKey.trim()
+        const functionId = body.functionId.trim()
+        const apply = body.apply === true
+        const mergeReadinessPackId = typeof body.mergeReadinessPackId === 'string' && body.mergeReadinessPackId.trim().length > 0
+          ? body.mergeReadinessPackId.trim()
+          : undefined
+        const { createClientFromEnv } = await import('@factory/arango-client')
+        const { evaluateFunctionIdentity } = await import('./function-identity.js')
+        const db = createClientFromEnv(env)
+        const proposalDocument = await db.get<Record<string, unknown>>('specs_functions', proposalKey)
+        const functionDocument = await db.get<Record<string, unknown>>('specs_functions', functionId)
+        const mergeReadinessPack = mergeReadinessPackId
+          ? await db.queryOne<Record<string, unknown>>(
+            `FOR mrp IN merge_readiness_packs
+               FILTER mrp._key == @id OR mrp.id == @id
+               LIMIT 1
+               RETURN mrp`,
+            { id: mergeReadinessPackId },
+          )
+          : null
+
+        const report = evaluateFunctionIdentity({
+          proposalKey,
+          functionId,
+          proposalDocument,
+          functionDocument,
+          mergeReadinessPack,
+        })
+
+        if (!apply) {
+          return new Response(JSON.stringify({
+            applied: false,
+            report,
+          }, null, 2), { status: 200, headers: { 'Content-Type': 'application/json' } })
+        }
+
+        if (!report.migrationPlan.safeToApply) {
+          return new Response(JSON.stringify({
+            error: 'Function identity migration is not safe to apply',
+            applied: false,
+            report,
+          }, null, 2), { status: 400, headers: { 'Content-Type': 'application/json' } })
+        }
+
+        if (!report.migrationPlan.required) {
+          return new Response(JSON.stringify({
+            applied: false,
+            reason: 'Function identity migration is not required',
+            report,
+          }, null, 2), { status: 200, headers: { 'Content-Type': 'application/json' } })
+        }
+
+        const createOperation = report.migrationPlan.operations.find((operation) => operation.action === 'create_function_document')
+        if (!createOperation?.fields) {
+          return new Response(JSON.stringify({
+            error: 'Function identity migration plan does not include a create_function_document operation',
+            applied: false,
+            report,
+          }, null, 2), { status: 400, headers: { 'Content-Type': 'application/json' } })
+        }
+
+        const appliedAt = new Date().toISOString()
+        const functionRecord = {
+          ...createOperation.fields,
+          source_refs: [proposalKey],
+          materializedFrom: proposalKey,
+          materializedAt: appliedAt,
+          migrationAppliedBy: 'ff-pipeline:debug-function-identity-migration',
+        }
+        await db.ensureCollection('specs_functions')
+        await db.save('specs_functions', functionRecord)
+        const lineageEdge = {
+          type: 'materialized-from',
+          createdAt: appliedAt,
+          operation: 'create_function_document',
+          responsible_context: 'ff-pipeline:debug-function-identity-migration',
+        }
+        await db.saveEdge(
+          'lineage_edges',
+          `specs_functions/${functionId}`,
+          `specs_functions/${proposalKey}`,
+          lineageEdge,
+        )
+
+        return new Response(JSON.stringify({
+          applied: true,
+          report,
+          functionRecord,
+          lineageEdge,
+        }, null, 2), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      } catch (err) {
+        return new Response(JSON.stringify({
+          error: err instanceof Error ? err.message : String(err),
+        }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+      }
+    }
+
     // ── Diagnostic: assemble MRP from latest persisted PR outcome ──
     if (url.pathname === '/debug/mrp-auto' && request.method === 'POST') {
       try {

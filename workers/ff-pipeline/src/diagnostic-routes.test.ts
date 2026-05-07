@@ -1305,6 +1305,191 @@ describe('ff-pipeline diagnostic routes', () => {
     expect(mockSaveEdge).not.toHaveBeenCalled()
   })
 
+  it('POST /debug/function-identity-migration dry-runs the materialization plan without mutation', async () => {
+    const { default: worker } = await import('./index')
+    mockGet
+      .mockResolvedValueOnce({
+        _key: 'FP-MOTDWVR2-W7UN',
+        lifecycleState: 'produced',
+      })
+      .mockResolvedValueOnce(null)
+    mockQueryOne.mockResolvedValueOnce({
+      id: 'MRP-MOTE4M1R-G7I0-71',
+      proposalId: 'FP-MOTDWVR2-W7UN',
+      functionId: 'FN-MOTDWVR2-W7UN',
+      verdict: 'merge-ready',
+    })
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/debug/function-identity-migration', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          proposalKey: 'FP-MOTDWVR2-W7UN',
+          functionId: 'FN-MOTDWVR2-W7UN',
+          mergeReadinessPackId: 'MRP-MOTE4M1R-G7I0-71',
+        }),
+      }),
+      createEnv() as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(200)
+    expect(await jsonBody(response)).toMatchObject({
+      applied: false,
+      report: {
+        proposalKey: 'FP-MOTDWVR2-W7UN',
+        functionId: 'FN-MOTDWVR2-W7UN',
+        identityConsistent: true,
+        resolution: 'mapped_not_migrated',
+        mutationApplied: false,
+        migrationPlan: {
+          required: true,
+          safeToApply: true,
+          operations: [
+            {
+              action: 'create_function_document',
+              targetKey: 'FN-MOTDWVR2-W7UN',
+              sourceKey: 'FP-MOTDWVR2-W7UN',
+            },
+            {
+              action: 'preserve_proposal_document',
+              targetKey: 'FP-MOTDWVR2-W7UN',
+            },
+            {
+              action: 'block_monitored_promotion',
+              targetKey: 'FN-MOTDWVR2-W7UN',
+            },
+          ],
+        },
+      },
+    })
+    expect(mockSave).not.toHaveBeenCalled()
+    expect(mockUpdate).not.toHaveBeenCalled()
+    expect(mockSaveEdge).not.toHaveBeenCalled()
+  })
+
+  it('POST /debug/function-identity-migration applies only the FN materialization and lineage edge when requested', async () => {
+    const { default: worker } = await import('./index')
+    mockGet
+      .mockResolvedValueOnce({
+        _key: 'FP-MOTDWVR2-W7UN',
+        lifecycleState: 'produced',
+      })
+      .mockResolvedValueOnce(null)
+    mockQueryOne.mockResolvedValueOnce({
+      id: 'MRP-MOTE4M1R-G7I0-71',
+      proposalId: 'FP-MOTDWVR2-W7UN',
+      functionId: 'FN-MOTDWVR2-W7UN',
+      verdict: 'merge-ready',
+    })
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/debug/function-identity-migration', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          proposalKey: 'FP-MOTDWVR2-W7UN',
+          functionId: 'FN-MOTDWVR2-W7UN',
+          mergeReadinessPackId: 'MRP-MOTE4M1R-G7I0-71',
+          apply: true,
+        }),
+      }),
+      createEnv() as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(200)
+    expect(await jsonBody(response)).toMatchObject({
+      applied: true,
+      functionRecord: {
+        _key: 'FN-MOTDWVR2-W7UN',
+        id: 'FN-MOTDWVR2-W7UN',
+        proposal_ref: 'FP-MOTDWVR2-W7UN',
+        functionId: 'FN-MOTDWVR2-W7UN',
+        lifecycleState: 'produced',
+        lifecycleStateSource: 'FP-MOTDWVR2-W7UN',
+        source_refs: ['FP-MOTDWVR2-W7UN'],
+        materializedFrom: 'FP-MOTDWVR2-W7UN',
+        migrationAppliedBy: 'ff-pipeline:debug-function-identity-migration',
+      },
+      lineageEdge: {
+        type: 'materialized-from',
+        operation: 'create_function_document',
+        responsible_context: 'ff-pipeline:debug-function-identity-migration',
+      },
+    })
+    expect(mockEnsureCollection).toHaveBeenCalledWith('specs_functions')
+    expect(mockSave).toHaveBeenCalledWith(
+      'specs_functions',
+      expect.objectContaining({
+        _key: 'FN-MOTDWVR2-W7UN',
+        id: 'FN-MOTDWVR2-W7UN',
+        proposal_ref: 'FP-MOTDWVR2-W7UN',
+        functionId: 'FN-MOTDWVR2-W7UN',
+        lifecycleState: 'produced',
+        source_refs: ['FP-MOTDWVR2-W7UN'],
+      }),
+    )
+    expect(mockSaveEdge).toHaveBeenCalledWith(
+      'lineage_edges',
+      'specs_functions/FN-MOTDWVR2-W7UN',
+      'specs_functions/FP-MOTDWVR2-W7UN',
+      expect.objectContaining({
+        type: 'materialized-from',
+        operation: 'create_function_document',
+      }),
+    )
+    expect(mockUpdate).not.toHaveBeenCalled()
+  })
+
+  it('POST /debug/function-identity-migration fails closed for inconsistent identity evidence', async () => {
+    const { default: worker } = await import('./index')
+    mockGet
+      .mockResolvedValueOnce({
+        _key: 'FP-MOTDWVR2-W7UN',
+        lifecycleState: 'produced',
+      })
+      .mockResolvedValueOnce(null)
+    mockQueryOne.mockResolvedValueOnce({
+      id: 'MRP-MOTE4M1R-G7I0-71',
+      proposalId: 'FP-MOTDWVR2-W7UN',
+      functionId: 'FN-DIFFERENT',
+      verdict: 'merge-ready',
+    })
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/debug/function-identity-migration', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          proposalKey: 'FP-MOTDWVR2-W7UN',
+          functionId: 'FN-MOTDWVR2-W7UN',
+          mergeReadinessPackId: 'MRP-MOTE4M1R-G7I0-71',
+          apply: true,
+        }),
+      }),
+      createEnv() as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(400)
+    expect(await jsonBody(response)).toMatchObject({
+      error: 'Function identity migration is not safe to apply',
+      applied: false,
+      report: {
+        identityConsistent: false,
+        resolution: 'inconsistent',
+        migrationPlan: {
+          safeToApply: false,
+        },
+      },
+    })
+    expect(mockSave).not.toHaveBeenCalled()
+    expect(mockUpdate).not.toHaveBeenCalled()
+    expect(mockSaveEdge).not.toHaveBeenCalled()
+  })
+
   it('POST /debug/mrp fails closed when PR outcome evidence is missing', async () => {
     const { default: worker } = await import('./index')
 
