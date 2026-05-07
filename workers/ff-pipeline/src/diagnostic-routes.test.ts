@@ -460,6 +460,7 @@ describe('ff-pipeline diagnostic routes', () => {
       verdict: 'merge-ready',
       pack: {
         id: 'MRP-MOTE4M1R-G7I0-71',
+        functionId: 'FN-MOTDWVR2-W7UN',
         workGraphId: 'WG-MOTE4M1R-G7I0',
         ciEvidence: {
           status: 'passed',
@@ -476,6 +477,7 @@ describe('ff-pipeline diagnostic routes', () => {
       expect.objectContaining({
         _key: 'MRP-MOTE4M1R-G7I0-71',
         id: 'MRP-MOTE4M1R-G7I0-71',
+        functionId: 'FN-MOTDWVR2-W7UN',
         verdict: 'merge-ready',
       }),
     )
@@ -505,6 +507,9 @@ describe('ff-pipeline diagnostic routes', () => {
     expect(await jsonBody(response)).toMatchObject({
       persisted: true,
       id: 'MRP-MOTE4M1R-G7I0-71',
+      pack: {
+        functionId: 'FN-MOTDWVR2-W7UN',
+      },
     })
     expect(mockQueryOne.mock.calls[0]).toEqual([
       expect.stringContaining('specs_signals'),

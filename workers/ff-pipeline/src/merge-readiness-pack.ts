@@ -61,6 +61,7 @@ export interface MergeReadinessPack {
   id: string
   type: 'merge_readiness_pack'
   proposalId: string
+  functionId: string
   workGraphId: string
   pipelineId: string
   sourceRefs: string[]
@@ -305,6 +306,14 @@ function deriveFunctionIdFromProposalId(proposalId: string): string | null {
     : null
 }
 
+function requireFunctionIdFromProposalId(proposalId: string, field: string): string {
+  const functionId = deriveFunctionIdFromProposalId(proposalId)
+  if (!functionId) {
+    throw new MergeReadinessPackError(`${field} must start with FP- for Stage 8 functionId derivation`)
+  }
+  return functionId
+}
+
 function requiredCanonicalFields(pack: MergeReadinessPack, evidence: CanonicalMRPEvidence): string[] {
   const missing: string[] = []
 
@@ -340,10 +349,7 @@ function canonicalVerdict(pack: MergeReadinessPack): CanonicalMergeReadinessPack
 }
 
 function canonicalFunctionId(pack: MergeReadinessPack, evidence: CanonicalMRPEvidence): string {
-  const derived = deriveFunctionIdFromProposalId(pack.proposalId)
-  if (!derived) {
-    throw new MergeReadinessPackError('pack.proposalId must start with FP- for Stage 8 functionId derivation')
-  }
+  const derived = requireFunctionIdFromProposalId(pack.proposalId, 'pack.proposalId')
   if (isNonEmptyString(evidence.functionId) && evidence.functionId !== derived) {
     throw new MergeReadinessPackError('evidence.functionId must match the Stage 8 functionId derived from pack.proposalId')
   }
@@ -359,6 +365,7 @@ function assertPackReadyForPersistence(pack: MergeReadinessPack): void {
     throw new MergeReadinessPackError('pack.type must be merge_readiness_pack')
   }
   assertNonEmpty(pack.proposalId, 'pack.proposalId')
+  assertNonEmpty(pack.functionId, 'pack.functionId')
   assertNonEmpty(pack.workGraphId, 'pack.workGraphId')
   assertNonEmpty(pack.pipelineId, 'pack.pipelineId')
   assertNonEmpty(pack.createdAt, 'pack.createdAt')
@@ -382,6 +389,7 @@ export function buildMergeReadinessPack(input: BuildMergeReadinessPackInput): Me
   assertAuditLineage(audit)
   assertOutcomeSignal(prOutcomeSignal)
   assertLineageMatches(audit, prOutcomeSignal.raw)
+  const functionId = requireFunctionIdFromProposalId(audit.proposalId, 'audit.proposalId')
 
   const raw = prOutcomeSignal.raw
   assertPositiveInteger(raw.pr?.number, 'prOutcomeSignal.raw.pr.number')
@@ -437,6 +445,7 @@ export function buildMergeReadinessPack(input: BuildMergeReadinessPackInput): Me
     id: makePackId(audit.workGraphId, raw.pr.number),
     type: 'merge_readiness_pack',
     proposalId: audit.proposalId,
+    functionId,
     workGraphId: audit.workGraphId,
     pipelineId: audit.pipelineId,
     sourceRefs: sourceRefs(audit, prOutcomeSignal._key),

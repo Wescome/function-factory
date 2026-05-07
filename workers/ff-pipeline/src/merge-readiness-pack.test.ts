@@ -165,6 +165,7 @@ describe('merge-readiness pack', () => {
     expect(pack).toMatchObject({
       id: 'MRP-MOTE4M1R-G7I0-71',
       proposalId: 'FP-MOTDWVR2-W7UN',
+      functionId: 'FN-MOTDWVR2-W7UN',
       workGraphId: 'WG-MOTE4M1R-G7I0',
       pipelineId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
       readinessVerdict: 'ready',
@@ -258,6 +259,7 @@ describe('merge-readiness pack', () => {
     expect(db.save.mock.calls[0]![1]).toMatchObject({
       _key: 'MRP-MOTE4M1R-G7I0-71',
       id: 'MRP-MOTE4M1R-G7I0-71',
+      functionId: 'FN-MOTDWVR2-W7UN',
       verdict: 'merge-ready',
       readinessVerdict: 'ready',
       sourceRefs: [
@@ -271,6 +273,7 @@ describe('merge-readiness pack', () => {
     })
     expect(persisted).toMatchObject({
       id: 'MRP-MOTE4M1R-G7I0-71',
+      functionId: 'FN-MOTDWVR2-W7UN',
       verdict: 'merge-ready',
     })
   })
@@ -344,6 +347,7 @@ describe('merge-readiness pack', () => {
           signalId: 'SIG-NEW-HEAD',
           headSha: 'd924c8137c0ef004b8ee52028ea9a49ad289be93',
         }),
+        functionId: 'FN-MOTDWVR2-W7UN',
         ciEvidence: expect.objectContaining({
           commitSha: 'd924c8137c0ef004b8ee52028ea9a49ad289be93',
         }),
@@ -570,6 +574,7 @@ describe('merge-readiness pack', () => {
     })
 
     expect(canonical.functionId).toBe('FN-ABCDE123')
+    expect(pack.functionId).toBe('FN-ABCDE123')
   })
 
   it('rejects canonical functionId evidence that conflicts with Stage 8 derivation', () => {
@@ -584,8 +589,8 @@ describe('merge-readiness pack', () => {
     }))).toThrow(/must match the Stage 8 functionId derived from pack\.proposalId/)
   })
 
-  it('fails closed when Stage 8 cannot derive a functionId from an FP proposal', () => {
-    const pack = buildMergeReadinessPack({
+  it('fails closed when Stage 8 cannot build runtime MRP from a non-FP proposal', () => {
+    expect(() => buildMergeReadinessPack({
       audit: makeAudit({
         proposalId: 'PROPOSAL-ABCDE123',
       }),
@@ -596,7 +601,18 @@ describe('merge-readiness pack', () => {
         },
       }),
       createdAt: '2026-05-06T04:00:00Z',
-    })
+    })).toThrow(/audit\.proposalId must start with FP-/)
+  })
+
+  it('fails closed when canonical adapter receives a legacy non-FP runtime pack', () => {
+    const pack = {
+      ...buildMergeReadinessPack({
+        audit: makeAudit(),
+        prOutcomeSignal: makeOutcome(),
+        createdAt: '2026-05-06T04:00:00Z',
+      }),
+      proposalId: 'PROPOSAL-ABCDE123',
+    }
 
     expect(() => toCanonicalMergeReadinessPack(pack, makeCanonicalEvidence({
       functionId: 'FN-ABCDE123',

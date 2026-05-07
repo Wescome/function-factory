@@ -4,10 +4,24 @@
 Active task: Dogfood loop - guarded synthesis artifact application.
 
 ## Last update
-2026-05-07T20:43:54Z
+2026-05-07T20:50:55Z
 
 ## Current actions
 
+- Active slice: persist Stage 8 materialized `functionId` on runtime MRPs.
+- Red tests confirmed runtime MRP build/persist/readback did not carry `functionId`, while canonical output did.
+- Patched `workers/ff-pipeline/src/merge-readiness-pack.ts`:
+  - `MergeReadinessPack` now includes required `functionId`
+  - `buildMergeReadinessPack` derives `functionId` from `audit.proposalId` via `FP-* -> FN-*`
+  - `buildMergeReadinessPack` fails closed for non-`FP-*` proposal IDs
+  - persistence preflight requires `pack.functionId`
+  - canonical adapter still fails closed for legacy non-`FP-*` runtime packs
+- Updated route and MRP tests so persisted runtime packs expose `functionId: FN-MOTDWVR2-W7UN`.
+- Verification completed:
+  - `pnpm --filter @factory/ff-pipeline test -- src/merge-readiness-pack.test.ts src/diagnostic-routes.test.ts`: pass, 31 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+  - `git diff --check`: pass
+  - `pnpm --filter @factory/ff-pipeline test`: pass, 65 files / 977 tests
 - Runtime dogfooded canonical MRP atomicity:
   - deployed `ff-pipeline` version `690ba648-026f-4f7b-a438-5a908cc82a6e`
   - live health after deploy: healthy, Arango true, AI binding true
