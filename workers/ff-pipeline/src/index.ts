@@ -751,6 +751,63 @@ export default {
       }
     }
 
+    // ── Diagnostic: read-only FP -> FN identity split report ──
+    if (url.pathname === '/debug/function-identity' && request.method === 'POST') {
+      try {
+        const body = await request.json() as {
+          proposalKey?: unknown
+          functionId?: unknown
+          mergeReadinessPackId?: unknown
+        }
+        if (typeof body.proposalKey !== 'string' || body.proposalKey.trim().length === 0) {
+          return new Response(JSON.stringify({
+            error: 'Missing required field: proposalKey',
+          }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+        }
+        if (typeof body.functionId !== 'string' || body.functionId.trim().length === 0) {
+          return new Response(JSON.stringify({
+            error: 'Missing required field: functionId',
+          }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+        }
+
+        const proposalKey = body.proposalKey.trim()
+        const functionId = body.functionId.trim()
+        const mergeReadinessPackId = typeof body.mergeReadinessPackId === 'string' && body.mergeReadinessPackId.trim().length > 0
+          ? body.mergeReadinessPackId.trim()
+          : undefined
+        const { createClientFromEnv } = await import('@factory/arango-client')
+        const { evaluateFunctionIdentity } = await import('./function-identity.js')
+        const db = createClientFromEnv(env)
+        const proposalDocument = await db.get<Record<string, unknown>>('specs_functions', proposalKey)
+        const functionDocument = await db.get<Record<string, unknown>>('specs_functions', functionId)
+        const mergeReadinessPack = mergeReadinessPackId
+          ? await db.queryOne<Record<string, unknown>>(
+            `FOR mrp IN merge_readiness_packs
+               FILTER mrp._key == @id OR mrp.id == @id
+               LIMIT 1
+               RETURN mrp`,
+            { id: mergeReadinessPackId },
+          )
+          : null
+
+        const report = evaluateFunctionIdentity({
+          proposalKey,
+          functionId,
+          proposalDocument,
+          functionDocument,
+          mergeReadinessPack,
+        })
+
+        return new Response(JSON.stringify(report, null, 2), {
+          headers: { 'Content-Type': 'application/json' },
+        })
+      } catch (err) {
+        return new Response(JSON.stringify({
+          error: err instanceof Error ? err.message : String(err),
+        }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+      }
+    }
+
     // ── Diagnostic: assemble MRP from latest persisted PR outcome ──
     if (url.pathname === '/debug/mrp-auto' && request.method === 'POST') {
       try {

@@ -1,0 +1,160 @@
+export interface FunctionIdentityDocument {
+  _key?: string
+  lifecycleState?: string
+  proposalId?: string
+  proposal_ref?: string
+  functionId?: string
+  function_id?: string
+}
+
+export interface FunctionIdentityMergeReadiness {
+  id?: string
+  proposalId?: string
+  functionId?: string
+  verdict?: string
+  readinessVerdict?: string
+  prEvidence?: {
+    signalId?: string
+    headSha?: string
+  }
+}
+
+export interface FunctionIdentityInput {
+  proposalKey: string
+  functionId: string
+  proposalDocument?: FunctionIdentityDocument | null
+  functionDocument?: FunctionIdentityDocument | null
+  mergeReadinessPack?: FunctionIdentityMergeReadiness | null
+}
+
+export interface FunctionIdentityReport {
+  proposalKey: string
+  functionId: string
+  derivedFunctionId: string | null
+  identityConsistent: boolean
+  resolution: 'mapped_not_migrated' | 'fully_materialized' | 'inconsistent'
+  mutationApplied: false
+  runtime: {
+    proposalDocumentFound: boolean
+    proposalLifecycleState: string | null
+    functionDocumentFound: boolean
+    functionLifecycleState: string | null
+  }
+  mergeReadiness?: {
+    id: string | null
+    proposalId: string | null
+    functionId: string | null
+    verdict: string | null
+    signalId: string | null
+    headSha: string | null
+    consistent: boolean
+  }
+  findings: string[]
+}
+
+export class FunctionIdentityError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'FunctionIdentityError'
+  }
+}
+
+function assertNonEmpty(value: unknown, field: string): asserts value is string {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new FunctionIdentityError(`${field} is required`)
+  }
+}
+
+export function deriveFunctionIdFromProposalKey(proposalKey: string): string | null {
+  return proposalKey.startsWith('FP-') && proposalKey.length > 3
+    ? `FN-${proposalKey.slice(3)}`
+    : null
+}
+
+function docProposalRef(doc: FunctionIdentityDocument | null | undefined): string | null {
+  if (!doc) return null
+  return doc.proposalId ?? doc.proposal_ref ?? null
+}
+
+function docFunctionRef(doc: FunctionIdentityDocument | null | undefined): string | null {
+  if (!doc) return null
+  return doc.functionId ?? doc.function_id ?? null
+}
+
+export function evaluateFunctionIdentity(input: FunctionIdentityInput): FunctionIdentityReport {
+  assertNonEmpty(input.proposalKey, 'proposalKey')
+  assertNonEmpty(input.functionId, 'functionId')
+
+  const derivedFunctionId = deriveFunctionIdFromProposalKey(input.proposalKey)
+  const findings: string[] = []
+  const proposalDocumentFound = !!input.proposalDocument
+  const functionDocumentFound = !!input.functionDocument
+  const proposalDocFunctionRef = docFunctionRef(input.proposalDocument)
+  const functionDocProposalRef = docProposalRef(input.functionDocument)
+  const functionDocFunctionRef = docFunctionRef(input.functionDocument)
+
+  if (derivedFunctionId !== input.functionId) {
+    findings.push(`Derived Function ID ${derivedFunctionId ?? 'null'} does not match supplied functionId ${input.functionId}.`)
+  }
+  if (!proposalDocumentFound) {
+    findings.push(`Runtime lifecycle document ${input.proposalKey} is missing from specs_functions.`)
+  }
+  if (!functionDocumentFound) {
+    findings.push(`Materialized Function document ${input.functionId} is not present in specs_functions; lifecycle remains proposal-keyed.`)
+  }
+  if (proposalDocFunctionRef && proposalDocFunctionRef !== input.functionId) {
+    findings.push(`Runtime proposal document function reference ${proposalDocFunctionRef} does not match ${input.functionId}.`)
+  }
+  if (functionDocProposalRef && functionDocProposalRef !== input.proposalKey) {
+    findings.push(`Function document proposal reference ${functionDocProposalRef} does not match ${input.proposalKey}.`)
+  }
+  if (functionDocFunctionRef && functionDocFunctionRef !== input.functionId) {
+    findings.push(`Function document function reference ${functionDocFunctionRef} does not match ${input.functionId}.`)
+  }
+
+  const mergeReadiness = input.mergeReadinessPack
+    ? {
+        id: input.mergeReadinessPack.id ?? null,
+        proposalId: input.mergeReadinessPack.proposalId ?? null,
+        functionId: input.mergeReadinessPack.functionId ?? null,
+        verdict: input.mergeReadinessPack.verdict ?? input.mergeReadinessPack.readinessVerdict ?? null,
+        signalId: input.mergeReadinessPack.prEvidence?.signalId ?? null,
+        headSha: input.mergeReadinessPack.prEvidence?.headSha ?? null,
+        consistent: input.mergeReadinessPack.proposalId === input.proposalKey
+          && input.mergeReadinessPack.functionId === input.functionId,
+      }
+    : undefined
+
+  if (mergeReadiness && !mergeReadiness.consistent) {
+    findings.push('Merge-readiness pack identity does not match the supplied proposal/function pair.')
+  }
+
+  const identityConsistent = derivedFunctionId === input.functionId
+    && (!proposalDocFunctionRef || proposalDocFunctionRef === input.functionId)
+    && (!functionDocProposalRef || functionDocProposalRef === input.proposalKey)
+    && (!functionDocFunctionRef || functionDocFunctionRef === input.functionId)
+    && (!mergeReadiness || mergeReadiness.consistent)
+
+  const resolution = identityConsistent && proposalDocumentFound && functionDocumentFound
+    ? 'fully_materialized'
+    : identityConsistent
+      ? 'mapped_not_migrated'
+      : 'inconsistent'
+
+  return {
+    proposalKey: input.proposalKey,
+    functionId: input.functionId,
+    derivedFunctionId,
+    identityConsistent,
+    resolution,
+    mutationApplied: false,
+    runtime: {
+      proposalDocumentFound,
+      proposalLifecycleState: input.proposalDocument?.lifecycleState ?? null,
+      functionDocumentFound,
+      functionLifecycleState: input.functionDocument?.lifecycleState ?? null,
+    },
+    ...(mergeReadiness ? { mergeReadiness } : {}),
+    findings,
+  }
+}

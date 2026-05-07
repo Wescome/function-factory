@@ -1216,6 +1216,70 @@ describe('ff-pipeline diagnostic routes', () => {
     )
   })
 
+  it('POST /debug/function-identity reports FP lifecycle and FN materialization without mutation', async () => {
+    const { default: worker } = await import('./index')
+    mockGet
+      .mockResolvedValueOnce({
+        _key: 'FP-MOTDWVR2-W7UN',
+        lifecycleState: 'produced',
+      })
+      .mockResolvedValueOnce(null)
+    mockQueryOne.mockResolvedValueOnce({
+      id: 'MRP-MOTE4M1R-G7I0-71',
+      proposalId: 'FP-MOTDWVR2-W7UN',
+      functionId: 'FN-MOTDWVR2-W7UN',
+      verdict: 'merge-ready',
+      prEvidence: {
+        signalId: 'SIG-MOW36LRI-I3NG',
+        headSha: '99d78b7c609c3c3a2005e5ef10c68521f2cf69b6',
+      },
+    })
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/debug/function-identity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          proposalKey: 'FP-MOTDWVR2-W7UN',
+          functionId: 'FN-MOTDWVR2-W7UN',
+          mergeReadinessPackId: 'MRP-MOTE4M1R-G7I0-71',
+        }),
+      }),
+      createEnv() as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(200)
+    expect(await jsonBody(response)).toMatchObject({
+      proposalKey: 'FP-MOTDWVR2-W7UN',
+      functionId: 'FN-MOTDWVR2-W7UN',
+      derivedFunctionId: 'FN-MOTDWVR2-W7UN',
+      identityConsistent: true,
+      resolution: 'mapped_not_migrated',
+      mutationApplied: false,
+      runtime: {
+        proposalDocumentFound: true,
+        proposalLifecycleState: 'produced',
+        functionDocumentFound: false,
+      },
+      mergeReadiness: {
+        id: 'MRP-MOTE4M1R-G7I0-71',
+        proposalId: 'FP-MOTDWVR2-W7UN',
+        functionId: 'FN-MOTDWVR2-W7UN',
+        consistent: true,
+      },
+    })
+    expect(mockGet).toHaveBeenCalledWith('specs_functions', 'FP-MOTDWVR2-W7UN')
+    expect(mockGet).toHaveBeenCalledWith('specs_functions', 'FN-MOTDWVR2-W7UN')
+    expect(mockQueryOne).toHaveBeenCalledWith(
+      expect.stringContaining('merge_readiness_packs'),
+      { id: 'MRP-MOTE4M1R-G7I0-71' },
+    )
+    expect(mockSave).not.toHaveBeenCalled()
+    expect(mockUpdate).not.toHaveBeenCalled()
+    expect(mockSaveEdge).not.toHaveBeenCalled()
+  })
+
   it('POST /debug/mrp fails closed when PR outcome evidence is missing', async () => {
     const { default: worker } = await import('./index')
 

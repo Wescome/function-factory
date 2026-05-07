@@ -4,10 +4,38 @@
 Active task: Architecture-aligned Gate 2/Stage 8/Gate 3 diagnostic integration.
 
 ## Last update
-2026-05-07T22:54:22Z
+2026-05-07T23:08:22Z
 
 ## Current actions
 
+- Implemented read-only function identity split diagnostic:
+  - added `workers/ff-pipeline/src/function-identity.ts`
+  - added `/debug/function-identity`
+  - route accepts `proposalKey`, `functionId`, and optional `mergeReadinessPackId`
+  - derives expected `FN-*` identity from `FP-*`
+  - reads `specs_functions` for both proposal-keyed and function-keyed runtime docs
+  - optionally reads `merge_readiness_packs`
+  - returns `identityConsistent`, `resolution`, runtime doc presence/lifecycle state, MRP identity consistency, and findings
+  - never writes; `mutationApplied: false`
+- Verification completed:
+  - `pnpm --filter @factory/ff-pipeline test -- src/function-identity.test.ts src/diagnostic-routes.test.ts`: pass, 32 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+  - `pnpm --filter @factory/ff-pipeline test`: pass, 68 files / 1003 tests
+  - `pnpm audit:docs`: pass
+  - `git diff --check`: pass
+- Live dogfood completed for `99d78b7`:
+  - committed and pushed `99d78b7` (`META: add guarded Gate 2 lifecycle acceptance`)
+  - PR #71 remote checks passed on `99d78b7c609c3c3a2005e5ef10c68521f2cf69b6`: `Test`, `Typecheck`, and `Factory PR Gate`
+  - deployed `ff-pipeline` version `8dcfb180-19ef-434f-99fc-d7c283ad13cd`
+  - live `/debug/health` returned healthy with Arango true and AI binding true
+  - POST `/debug/pr-outcome` with `processNow: true` returned `SIG-MOW36LRI-I3NG` for head `99d78b7c609c3c3a2005e5ef10c68521f2cf69b6`
+  - POST `/debug/gate2-simulate` persisted `CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-58-10-000Z`; report `overall: pass`; verdict `accepted`
+  - POST `/debug/mrp-evidence` persisted `MRP-EVIDENCE-MOTE4M1R-99d78b7`
+  - POST `/debug/mrp-auto` refreshed `MRP-MOTE4M1R-G7I0-71` with `verdict: merge-ready`, canonical/runtime `functionId: FN-MOTDWVR2-W7UN`, PR signal `SIG-MOW36LRI-I3NG`, CI commit `99d78b7c609c3c3a2005e5ef10c68521f2cf69b6`, and Gate 2 report overlay
+  - POST `/debug/lifecycle-acceptance` dry-run against runtime key `FP-MOTDWVR2-W7UN` returned `produced -> accepted`, `wouldTransition: true`, `mutationApplied: false`, `applied: false`
+  - live `specs_functions` did not contain `FN-MOTDWVR2-W7UN`; it currently contains the lifecycle document under `FP-MOTDWVR2-W7UN`
+  - added PR evidence comment: https://github.com/Wescome/function-factory/pull/71#issuecomment-4401785487
+  - no lifecycle mutation, monitored promotion, ready-for-review transition, or merge was performed
 - Implemented guarded lifecycle acceptance boundary:
   - `transitionLifecycle` now recognizes persisted passing Gate reports from `specs_coverage_reports` in addition to legacy `gate_status`
   - added `/debug/lifecycle-acceptance` route:
