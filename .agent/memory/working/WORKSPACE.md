@@ -4,10 +4,36 @@
 Active task: Architecture-aligned Gate 2/Stage 8/Gate 3 diagnostic integration.
 
 ## Last update
-2026-05-07T22:25:31Z
+2026-05-07T22:54:22Z
 
 ## Current actions
 
+- Implemented guarded lifecycle acceptance boundary:
+  - `transitionLifecycle` now recognizes persisted passing Gate reports from `specs_coverage_reports` in addition to legacy `gate_status`
+  - added `/debug/lifecycle-acceptance` route:
+    - requires `functionKey` and `gate2ReportKey`
+    - loads persisted Gate 2 evidence from `specs_coverage_reports`
+    - loads current Function lifecycle state from `specs_functions`
+    - dry-runs `produced -> accepted` by default with no mutation
+    - applies the transition only when `apply: true`, using `transitionLifecycle` and recording the gate report on the transition edge
+  - route only targets `accepted`; it does not implement or imply `accepted -> monitored`
+- Verification completed:
+  - `pnpm --filter @factory/ff-pipeline test -- src/lifecycle.test.ts src/diagnostic-routes.test.ts src/gate2-simulation.test.ts`: pass, 73 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+  - `pnpm --filter @factory/ff-pipeline test`: pass, 67 files / 1000 tests
+  - `pnpm audit:docs`: pass
+  - `git diff --check`: pass
+- Live dogfood completed for `edd28d6`:
+  - deployed `ff-pipeline` version `3b2dda34-84ee-4a71-b6cf-652a4ff032e5`
+  - live `/debug/health` returned healthy with Arango true and AI binding true
+  - PR #71 head `edd28d64dda4d4cfd6a20407d96fea877dbee783` had `Test`, `Typecheck`, and `Factory PR Gate` passing; merge state `CLEAN`; PR remains draft
+  - POST `/debug/pr-outcome` with `processNow: true` returned `SIG-MOW2CAV8-LBN0` for head `edd28d64dda4d4cfd6a20407d96fea877dbee783`
+  - POST `/debug/gate2-simulate` with normalized Gate2Input, `persist: true`, and lifecycle dry-run persisted `CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z`; report `overall: pass`; verdict `accepted`; dry-run `produced -> accepted` would transition with `mutationApplied: false`
+  - POST `/debug/mrp-evidence` persisted `MRP-EVIDENCE-MOTE4M1R-edd28d6`
+  - POST `/debug/mrp-auto` with `gate2ReportKey` refreshed `MRP-MOTE4M1R-G7I0-71` with `verdict: merge-ready`, canonical/runtime `functionId: FN-MOTDWVR2-W7UN`, PR signal `SIG-MOW2CAV8-LBN0`, CI commit `edd28d64dda4d4cfd6a20407d96fea877dbee783`, and Gate 2 report overlay in canonical sound verification/auditability
+  - POST `/debug/gate3-register` with `persist: true` persisted blocker report `CR-FN-MOTDWVR2-W7UN-GATE3-2026-05-07T22-35-40-000Z` with `overall: fail` by design
+  - added PR evidence comment: https://github.com/Wescome/function-factory/pull/71#issuecomment-4401665814
+  - no PR merge, ready-for-review transition, accepted lifecycle mutation, or monitored promotion was performed
 - Completed architecture-plan milestones 1-6 in `workers/ff-pipeline`:
   - Gate 2 diagnostic now accepts normalized `Gate2Input` evidence via `{ gate2Input, prdId, sourceRefs }`
   - Gate 2 report persistence is opt-in with `persist: true` and writes `specs_coverage_reports`

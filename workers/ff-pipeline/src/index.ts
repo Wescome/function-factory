@@ -654,6 +654,103 @@ export default {
       }
     }
 
+    // ── Diagnostic: guarded lifecycle acceptance from persisted Gate 2 evidence ──
+    if (url.pathname === '/debug/lifecycle-acceptance' && request.method === 'POST') {
+      try {
+        const body = await request.json() as {
+          functionKey?: unknown
+          gate2ReportKey?: unknown
+          apply?: boolean
+        }
+        if (typeof body.functionKey !== 'string' || body.functionKey.trim().length === 0) {
+          return new Response(JSON.stringify({
+            error: 'Missing required field: functionKey',
+          }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+        }
+        if (typeof body.gate2ReportKey !== 'string' || body.gate2ReportKey.trim().length === 0) {
+          return new Response(JSON.stringify({
+            error: 'Missing required field: gate2ReportKey',
+          }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+        }
+
+        const functionKey = body.functionKey.trim()
+        const gate2ReportKey = body.gate2ReportKey.trim()
+        const { createClientFromEnv } = await import('@factory/arango-client')
+        const { dryRunGate2AcceptanceTransition } = await import('./gate2-simulation.js')
+        const { transitionLifecycle } = await import('./lifecycle.js')
+        const db = createClientFromEnv(env)
+        const gate2ReportRecord = await db.queryOne<Record<string, unknown>>(
+          `FOR report IN specs_coverage_reports
+             FILTER report._key == @key OR report.id == @key
+             LIMIT 1
+             RETURN report`,
+          { key: gate2ReportKey },
+        )
+        if (!gate2ReportRecord) {
+          return new Response(JSON.stringify({
+            error: `Gate 2 report not found: ${gate2ReportKey}`,
+          }), { status: 404, headers: { 'Content-Type': 'application/json' } })
+        }
+        if (gate2ReportRecord.type !== 'gate-2' || gate2ReportRecord.passed !== true) {
+          return new Response(JSON.stringify({
+            error: `Gate 2 report has not passed: ${gate2ReportKey}`,
+          }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+        }
+
+        const doc = await db.get<{ _key: string; lifecycleState?: string }>('specs_functions', functionKey)
+        if (!doc) {
+          return new Response(JSON.stringify({
+            error: `Function ${functionKey} not found in specs_functions`,
+          }), { status: 404, headers: { 'Content-Type': 'application/json' } })
+        }
+
+        const report = gate2ReportRecord.report as import('./gate2-simulation').Gate2SimulationResult['report']
+        const verdict = gate2ReportRecord.verdict as import('./gate2-simulation').Gate2SimulationResult['verdict']
+        const lifecycleDryRun = dryRunGate2AcceptanceTransition({
+          currentState: (doc.lifecycleState ?? 'proposed') as import('./lifecycle').LifecycleState,
+          report,
+          verdict,
+        })
+
+        if (!lifecycleDryRun.wouldTransition) {
+          return new Response(JSON.stringify({
+            applied: false,
+            functionKey,
+            gate2ReportKey,
+            lifecycleDryRun,
+          }, null, 2), { status: 200, headers: { 'Content-Type': 'application/json' } })
+        }
+
+        if (body.apply === true) {
+          await transitionLifecycle(db as never, functionKey, 'accepted', {
+            trigger: 'gate-2-pass',
+            guard: 'gate-2',
+            responsible_context: 'ff-pipeline:debug-lifecycle-acceptance',
+            gateReport: gate2ReportKey,
+          })
+
+          return new Response(JSON.stringify({
+            applied: true,
+            functionKey,
+            from: lifecycleDryRun.from,
+            to: 'accepted',
+            gate2ReportKey,
+          }, null, 2), { status: 200, headers: { 'Content-Type': 'application/json' } })
+        }
+
+        return new Response(JSON.stringify({
+          applied: false,
+          functionKey,
+          gate2ReportKey,
+          lifecycleDryRun,
+        }, null, 2), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      } catch (err) {
+        return new Response(JSON.stringify({
+          error: err instanceof Error ? err.message : String(err),
+        }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+      }
+    }
+
     // ── Diagnostic: assemble MRP from latest persisted PR outcome ──
     if (url.pathname === '/debug/mrp-auto' && request.method === 'POST') {
       try {

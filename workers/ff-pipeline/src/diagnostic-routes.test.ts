@@ -49,6 +49,14 @@ const mockEnsureCollection = vi.fn(async (_collection: string): Promise<void> =>
 const mockQuery = vi.fn(async (): Promise<Record<string, unknown>[]> => [])
 const mockQueryOne = vi.fn(async (): Promise<Record<string, unknown> | null> => null)
 const mockSave = vi.fn(async (_collection: string, doc: Record<string, unknown>) => doc)
+const mockGet = vi.fn(async (_collection: string, _key: string): Promise<Record<string, unknown> | null> => null)
+const mockUpdate = vi.fn(async (_collection: string, _key: string, patch: Record<string, unknown>) => patch)
+const mockSaveEdge = vi.fn(async (
+  _collection: string,
+  _from: string,
+  _to: string,
+  edge: Record<string, unknown>,
+) => edge)
 
 vi.mock('@factory/arango-client', () => ({
   createClientFromEnv: () => ({
@@ -57,6 +65,9 @@ vi.mock('@factory/arango-client', () => ({
     query: mockQuery,
     queryOne: mockQueryOne,
     save: mockSave,
+    get: mockGet,
+    update: mockUpdate,
+    saveEdge: mockSaveEdge,
   }),
 }))
 
@@ -106,6 +117,17 @@ describe('ff-pipeline diagnostic routes', () => {
     mockQueryOne.mockResolvedValue(null)
     mockSave.mockReset()
     mockSave.mockImplementation(async (_collection: string, doc: Record<string, unknown>) => doc)
+    mockGet.mockReset()
+    mockGet.mockResolvedValue(null)
+    mockUpdate.mockReset()
+    mockUpdate.mockImplementation(async (_collection: string, _key: string, patch: Record<string, unknown>) => patch)
+    mockSaveEdge.mockReset()
+    mockSaveEdge.mockImplementation(async (
+      _collection: string,
+      _from: string,
+      _to: string,
+      edge: Record<string, unknown>,
+    ) => edge)
   })
 
   it('GET /version returns service version metadata', async () => {
@@ -1104,6 +1126,96 @@ describe('ff-pipeline diagnostic routes', () => {
     )
   })
 
+  it('POST /debug/lifecycle-acceptance dry-runs produced to accepted from persisted Gate 2 evidence', async () => {
+    const { default: worker } = await import('./index')
+    mockQueryOne.mockResolvedValueOnce(makeGate2CoverageReportRecord())
+    mockGet.mockResolvedValueOnce({
+      _key: 'FN-MOTDWVR2-W7UN',
+      lifecycleState: 'produced',
+    })
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/debug/lifecycle-acceptance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          functionKey: 'FN-MOTDWVR2-W7UN',
+          gate2ReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
+        }),
+      }),
+      createEnv() as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(200)
+    expect(await jsonBody(response)).toMatchObject({
+      applied: false,
+      gate2ReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
+      lifecycleDryRun: {
+        from: 'produced',
+        to: 'accepted',
+        gate: 'gate-2',
+        wouldTransition: true,
+        mutationApplied: false,
+      },
+    })
+    expect(mockUpdate).not.toHaveBeenCalled()
+    expect(mockSaveEdge).not.toHaveBeenCalled()
+  })
+
+  it('POST /debug/lifecycle-acceptance can apply produced to accepted from persisted Gate 2 evidence', async () => {
+    const { default: worker } = await import('./index')
+    mockQueryOne
+      .mockResolvedValueOnce(makeGate2CoverageReportRecord())
+      .mockResolvedValueOnce({ passed: true })
+    mockGet
+      .mockResolvedValueOnce({
+        _key: 'FN-MOTDWVR2-W7UN',
+        lifecycleState: 'produced',
+      })
+      .mockResolvedValueOnce({
+        _key: 'FN-MOTDWVR2-W7UN',
+        lifecycleState: 'produced',
+      })
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/debug/lifecycle-acceptance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          functionKey: 'FN-MOTDWVR2-W7UN',
+          gate2ReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
+          apply: true,
+        }),
+      }),
+      createEnv() as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(200)
+    expect(await jsonBody(response)).toMatchObject({
+      applied: true,
+      functionKey: 'FN-MOTDWVR2-W7UN',
+      to: 'accepted',
+      gate2ReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
+    })
+    expect(mockUpdate).toHaveBeenCalledWith(
+      'specs_functions',
+      'FN-MOTDWVR2-W7UN',
+      expect.objectContaining({ lifecycleState: 'accepted' }),
+    )
+    expect(mockSaveEdge).toHaveBeenCalledWith(
+      'lifecycle_transitions',
+      'specs_functions/FN-MOTDWVR2-W7UN',
+      'specs_functions/FN-MOTDWVR2-W7UN',
+      expect.objectContaining({
+        from: 'produced',
+        to: 'accepted',
+        gateReport: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
+      }),
+    )
+  })
+
   it('POST /debug/mrp fails closed when PR outcome evidence is missing', async () => {
     const { default: worker } = await import('./index')
 
@@ -1415,6 +1527,31 @@ function makeGate3RegistrationInput(): Record<string, unknown> {
     auditPipeline: {
       expected: 1,
       observed: 0,
+    },
+  }
+}
+
+function makeGate2CoverageReportRecord(): Record<string, unknown> {
+  return {
+    _key: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
+    id: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
+    type: 'gate-2',
+    passed: true,
+    report: {
+      id: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
+      gate: 2,
+      function_id: 'FN-MOTDWVR2-W7UN',
+      timestamp: '2026-05-07T22:34:30.000Z',
+      overall: 'pass',
+    },
+    verdict: {
+      verdict: 'accepted',
+      evidence_reviewed: [
+        'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
+      ],
+      scenario_coverage_score: 1,
+      invariant_exercise_rate: 1,
+      remediation_notes: [],
     },
   }
 }

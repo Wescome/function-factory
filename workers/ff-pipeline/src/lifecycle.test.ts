@@ -288,6 +288,36 @@ describe('transitionLifecycle', () => {
     )
   })
 
+  it('allows accepted transition when the gateReport is a persisted Gate 2 coverage report', async () => {
+    db.get.mockResolvedValue({
+      _key: 'FN-MOTDWVR2-W7UN',
+      lifecycleState: 'produced',
+    })
+    db.queryOne.mockResolvedValue({
+      passed: true,
+      source: 'specs_coverage_reports',
+      type: 'gate-2',
+    })
+
+    await transitionLifecycle(db as any, 'FN-MOTDWVR2-W7UN', 'accepted', {
+      trigger: 'gate-2-pass',
+      gateReport: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
+    })
+
+    expect(db.queryOne).toHaveBeenCalledWith(
+      expect.stringContaining('specs_coverage_reports'),
+      {
+        key: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
+        gateRequired: 'gate-2',
+      },
+    )
+    expect(db.update).toHaveBeenCalledWith(
+      'specs_functions',
+      'FN-MOTDWVR2-W7UN',
+      expect.objectContaining({ lifecycleState: 'accepted' }),
+    )
+  })
+
   it('throws when function document not found', async () => {
     db.get.mockResolvedValue(null)
 

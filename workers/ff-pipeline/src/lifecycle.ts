@@ -172,12 +172,25 @@ export async function transitionLifecycle(
       )
     }
 
-    // Verify gate actually passed
+    // Verify gate actually passed. Older paths write gate_status; diagnostic
+    // Gate 2 evidence writes schema-validated records to specs_coverage_reports.
     const gateStatus = await db.queryOne<{ passed: boolean }>(
-      `FOR g IN gate_status
-         FILTER g._key == @key OR g.report._key == @key
-         RETURN { passed: g.passed }`,
-      { key: opts.gateReport },
+      `LET gateStatus = FIRST(
+         FOR g IN gate_status
+           FILTER g._key == @key OR g.report._key == @key
+           RETURN { passed: g.passed }
+       )
+       LET coverageReport = FIRST(
+         FOR report IN specs_coverage_reports
+           FILTER report._key == @key OR report.id == @key
+           RETURN {
+             passed: report.passed == true
+               OR (report.type == @gateRequired AND report.report.overall == "pass")
+               OR (report.gate == TO_NUMBER(SUBSTITUTE(@gateRequired, "gate-", "")) AND report.overall == "pass")
+           }
+       )
+       RETURN gateStatus != null ? gateStatus : coverageReport`,
+      { key: opts.gateReport, gateRequired: validation.gateRequired },
     )
 
     if (!gateStatus?.passed) {
