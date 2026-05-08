@@ -2,6 +2,19 @@
 
 Fail-closed coverage evaluators for the Factory pipeline. Currently implements Gate 1 (Compile Coverage Gate); Gates 2 and 3 are planned for subsequent PRs.
 
+## Ontology Alias
+
+Ontology v0.2 names the three gate classes as verification processes:
+
+| Current name | Ontology alias |
+| --- | --- |
+| Gate 1 / Compile Coverage Gate | Coherence Verification |
+| Gate 2 / Simulation Coverage Gate | Fidelity Verification |
+| Gate 3 / Assurance Coverage Gate | Persistence Verification |
+
+The package name, schema names, and `Gate*Report` APIs remain stable
+compatibility names.
+
 ## Pipeline Position
 
 **Stage:** 5.5

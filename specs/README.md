@@ -26,9 +26,28 @@ explicit architecture decision and link/lineage verification.
 | --- | --- |
 | Human docs hub | [`../docs/README.md`](../docs/README.md) |
 | Architecture/reference corpus | [`reference/README.md`](reference/README.md) |
+| Ontology alias crosswalk | [`reference/ONTOLOGY-CURRENT-MAPPING.md`](reference/ONTOLOGY-CURRENT-MAPPING.md) |
 | Agent-facing Markdown emission rationale | [`reference/ONTOLOGICAL-SELF-SENSING-2026-05-03.md`](reference/ONTOLOGICAL-SELF-SENSING-2026-05-03.md) |
 | Project overview | [`../README.md`](../README.md) |
 | Architecture map | [`../ARCHITECTURE.md`](../ARCHITECTURE.md) |
+
+## Ontology Aliases
+
+The paths in this directory are stable compatibility names. Ontology v0.2
+adds interpretive aliases without moving artifacts:
+
+| Current path/name | Ontology alias |
+| --- | --- |
+| `specs/prds/`, `PRD-*` | Intent Specification |
+| `specs/workgraphs/`, `WG-*` | Executable Specification |
+| `specs/coverage-reports/`, `CR-*` | Verification Report |
+| Gate 1 | Coherence Verification |
+| Gate 2 | Fidelity Verification |
+| Gate 3 | Persistence Verification |
+| `specs/invariants/`, `INV-*` | Invariant Specification |
+
+Use the current names in paths, schemas, IDs, and APIs unless a separate
+rename decision explicitly changes them.
 
 ## Artifact Buckets
 

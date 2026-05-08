@@ -2,6 +2,14 @@
 
 Canonical Zod schema definitions for every Factory artifact, shared across all pipeline stages.
 
+## Ontology Alias
+
+Ontology v0.2 introduces aliases for several schema-backed artifact families:
+PRD is an `Intent Specification`, WorkGraph is an `Executable Specification`,
+Coverage Report is a `Verification Report`, and Invariant is an
+`Invariant Specification`. The exported schema names remain the compatibility
+APIs until a separate schema/API alias pass is approved and typechecked.
+
 ## Pipeline Position
 
 **Stage:** Foundation (no pipeline stage)
@@ -29,6 +37,10 @@ Re-exports from the following modules:
 - `meta-governance` -- `PolicyStressReport`, `GovernanceProposal`, `GovernanceDecision`, `PolicySuccessorNote`
 - `policy-activation` -- `PolicyActivation`, `PolicyRollbackPlan`
 - `commit-triage` -- Commit triage schemas
+- `ontology-aliases` -- Non-breaking aliases from ontology v0.2 terms to
+  current stable schema names (`IntentSpecification` -> `PRDDraft`,
+  `ExecutableSpecification` -> `WorkGraph`, `VerificationReport` ->
+  `CoverageReport`)
 
 ## Key Invariants
 

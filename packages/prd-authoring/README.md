@@ -2,6 +2,12 @@
 
 Renders structured PRD markdown from FunctionProposal demand, producing compiler-ready PRD artifacts with YAML frontmatter and required sections.
 
+## Ontology Alias
+
+This package renders the current PRD artifact family, which ontology v0.2
+aliases as `Intent Specification`. The compatibility API remains PRD-oriented:
+`PRD-*` IDs, `specs/prds/`, and `@factory/prd-authoring` stay current.
+
 ## Pipeline Position
 
 **Stage:** 5 input

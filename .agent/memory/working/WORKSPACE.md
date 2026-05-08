@@ -1,13 +1,56 @@
 # Current Workspace
 
 ## Status
-Active task: Architecture-aligned Gate 2/Stage 8/Gate 3 diagnostic integration.
+Active task: Ontology v0.2 roadmap implementation complete through non-rename milestones.
 
 ## Last update
-2026-05-08T00:19:52Z
+2026-05-08T19:26:36Z
 
 ## Current actions
 
+- Completed: remaining ontology roadmap milestones.
+  - Added non-breaking `@factory/schemas` ontology aliases in
+    `packages/schemas/src/ontology-aliases.ts`, exported from package index
+    and subpath `@factory/schemas/ontology-aliases`.
+  - Added tests proving aliases point to current compatibility schemas.
+  - Added draft `.agent/charter/` extraction workspace and failure taxonomy
+    template without activating charter policy or rewriting skills.
+  - Added physical rename decision language to
+    `specs/reference/ONTOLOGY-CURRENT-MAPPING.md`: renames deferred until
+    aliases, docs audit, affected tests, full typecheck, reference search, and
+    live evidence checks are green.
+  - Verification passed:
+    - `pnpm --filter @factory/schemas test`
+    - `pnpm --filter @factory/schemas typecheck`
+    - `pnpm audit:docs`
+    - `pnpm -r typecheck`
+    - `git diff --check`
+- Completed: M3 documentation alias pass.
+  - Added ontology alias language to low-risk documentation surfaces only:
+    `README.md`, `specs/README.md`, and package READMEs for schemas,
+    compiler, coverage-gates, prd-authoring, runtime-admission,
+    execution-lifecycle, harness-bridge, runtime, and assurance-graph.
+  - Preserved current paths, package names, artifact IDs, schema names, and
+    APIs as stable compatibility names.
+  - No `.agent/AGENTS.md`, `.agent/skills/*`, package source, schema source,
+    directory rename, lifecycle promotion, or Gate 3 monitored promotion has
+    been performed.
+- Completed: ontology-aligned hybrid roadmap reference-doc grounding slice.
+  - Read `.agent/AGENTS.md`, working memory, lessons, decisions,
+    preferences, skill registry, permissions, and `factory-meta` guidance.
+  - Imported `/Users/wes/Downloads/FF-ONTOLOGY-v0.2.md` and
+    `/Users/wes/Downloads/FF-REFACTORING-PLAN.md` into `specs/reference/`.
+  - Added `specs/reference/ONTOLOGY-CURRENT-MAPPING.md` with alias-first
+    mappings for artifacts, packages, verification terms, and runtime
+    concepts.
+  - Updated `specs/reference/README.md` to classify ontology v0.2 as the
+    newest architecture reference and the refactoring plan as a
+    stale-baseline roadmap.
+  - Verification passed: `pnpm audit:docs`, `git diff --check`, and
+    trailing-whitespace scan across touched docs/reference files.
+  - No `.agent/AGENTS.md`, `.agent/skills/*`, package source, schema source,
+    directory rename, lifecycle promotion, or Gate 3 monitored promotion has
+    been performed.
 - Completed requested steps 1-3 for `FN-MOTDWVR2-W7UN`:
   - refreshed PR outcome on final head `3cb3c350d86bc960d898d21ed07e33f295e0e000`
   - latest PR outcome signal: `SIG-MOW63V9L-RDF3`

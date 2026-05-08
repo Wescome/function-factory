@@ -2,6 +2,13 @@
 
 Harness-agnostic execution bridge that dispatches WorkGraph nodes through pluggable adapters, producing deterministic execution plans and structured ExecutionLog artifacts.
 
+## Ontology Alias
+
+Ontology v0.2 adopts Natural-Language Agent Harness terminology for runtime
+structure. This package is the current compatibility surface for harness
+adapters over WorkGraphs, which are aliased as `Executable Specifications`.
+The package name and WorkGraph APIs remain unchanged.
+
 ## Pipeline Position
 
 **Stage:** Cross-cutting (Stage 6 execution infrastructure)

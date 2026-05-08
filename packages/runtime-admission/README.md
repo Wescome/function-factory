@@ -2,6 +2,12 @@
 
 Evaluates whether a WorkGraph is admitted to runtime execution based on bootstrap mode status and linked ArchitectureCandidate selection decision.
 
+## Ontology Alias
+
+This package admits a WorkGraph, aliased by ontology v0.2 as an `Executable
+Specification`, into runtime execution. The compatibility names remain
+WorkGraph, `WG-*`, `RAD-*`, and `@factory/runtime-admission`.
+
 ## Pipeline Position
 
 **Stage:** 6

@@ -2,6 +2,14 @@
 
 Stage 5 compiler that transforms a PRD into compiler intermediates, runs Gate 1 coverage evaluation, and emits a WorkGraph. Eight narrow passes from normalization through workgraph assembly.
 
+## Ontology Alias
+
+This package implements compilation transformations from the ontology v0.2
+`Intent Specification` alias to the `Executable Specification` alias. The
+stable compatibility names remain PRD, WorkGraph, Gate 1, and
+`@factory/compiler`; do not rename imports or artifact paths based only on the
+ontology terminology.
+
 ## Pipeline Position
 
 **Stage:** 5

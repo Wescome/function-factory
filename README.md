@@ -17,6 +17,16 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full pipeline diagram, artifact
 prefix glossary, package dependency map, stage-by-stage breakdown, and
 governance policy chain. Every package also has its own README.
 
+Ontology v0.2 is indexed in
+[`specs/reference/FF-ONTOLOGY-v0.2.md`](specs/reference/FF-ONTOLOGY-v0.2.md).
+Use
+[`specs/reference/ONTOLOGY-CURRENT-MAPPING.md`](specs/reference/ONTOLOGY-CURRENT-MAPPING.md)
+as the compatibility crosswalk: current names such as PRD, WorkGraph, Gate 1,
+Gate 2, Gate 3, and Coverage Report remain stable physical names while
+ontology terms such as Intent Specification, Executable Specification,
+Coherence Verification, Fidelity Verification, Persistence Verification, and
+Verification Report are interpretive aliases.
+
 ## Repository layout
 
 ```
@@ -29,8 +39,8 @@ governance policy chain. Every package also has its own README.
 
 packages/                       # TypeScript monorepo (pnpm workspaces)
   schemas/                      # Canonical Zod schemas for every Factory object
-  compiler/                     # Stage 5: PRD → WorkGraph (8 passes)
-  coverage-gates/               # §6: Gate 1, Gate 2, Gate 3 (fail-closed)
+  compiler/                     # Stage 5: PRD → WorkGraph; ontology alias: Intent → Executable Specification
+  coverage-gates/               # §6: Gate 1/2/3; aliases: Coherence/Fidelity/Persistence Verification
   assurance-graph/              # §5: incident propagation via typed dependencies
   runtime/                      # Stage 7: trust, invariant health, regression
   autonomous-scheduler/          # Stage 6 boundary: WorkGraph → AgentRequest → evidence
@@ -40,10 +50,10 @@ specs/                          # Factory artifacts (Factory-built-by-Factory)
   pressures/                    # Stage 2 output
   capabilities/                 # Stage 3 output
   functions/                    # Stage 4 output (FunctionProposals)
-  prds/                         # Stage 5 input
-  workgraphs/                   # Stage 5 output
-  invariants/                   # Invariant + detector specs
-  coverage-reports/             # Gate 1/2/3 outputs, timestamped
+  prds/                         # Stage 5 input; ontology alias: Intent Specifications
+  workgraphs/                   # Stage 5 output; ontology alias: Executable Specifications
+  invariants/                   # Invariant + detector specs; ontology alias: Invariant Specifications
+  coverage-reports/             # Gate 1/2/3 outputs; ontology alias: Verification Reports
 ```
 
 ## Bootstrap loop

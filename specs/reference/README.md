@@ -19,6 +19,8 @@ Read these first when grounding work in the architecture.
 
 | Document | Current status | Role |
 | --- | --- | --- |
+| [`FF-ONTOLOGY-v0.2.md`](FF-ONTOLOGY-v0.2.md) | Newest architecture reference; working document | Ontology anchor for current architecture vocabulary and categorical structure. Use with the compatibility mapping before proposing renames. |
+| [`ONTOLOGY-CURRENT-MAPPING.md`](ONTOLOGY-CURRENT-MAPPING.md) | Current compatibility crosswalk | Maps existing repo terms, paths, packages, verification terms, and runtime concepts to ontology v0.2 aliases while preserving current physical names. |
 | [`literate-canonical-reference.md`](literate-canonical-reference.md) | Canonical architecture reference | Implementation-facing reference and literate source for generated/tangled code. |
 | [`The_Function_Factory_2026-04-18_v4.md`](The_Function_Factory_2026-04-18_v4.md) | Conceptual source | Whitepaper defining the Factory, pipeline, non-negotiables, and category boundaries. |
 | [`The_Function_Factory_ConOps_2026-04-18.md`](The_Function_Factory_ConOps_2026-04-18.md) | Operational source | Concept of Operations for how the Factory is operated. |
@@ -32,6 +34,7 @@ Read these first when grounding work in the architecture.
 
 | Document | Status | Notes |
 | --- | --- | --- |
+| [`FF-REFACTORING-PLAN.md`](FF-REFACTORING-PLAN.md) | Stale-baseline roadmap | Directionally useful ontology-alignment plan, but written against an older skeleton repo. Do not execute mass renames from it without the compatibility checks in `ONTOLOGY-CURRENT-MAPPING.md`. |
 | [`FINAL-DEPLOYMENT-ARCHITECTURE.md`](FINAL-DEPLOYMENT-ARCHITECTURE.md) | Superseded by `FULL-PI-DEPLOYMENT-ARCHITECTURE.md` per decision log | Keep for history and comparison. |
 | [`SESSION-HANDOFF-2026-04-28.md`](SESSION-HANDOFF-2026-04-28.md) | Historical handoff | Cold-start/session transfer context from 2026-04-28. |
 | [`PHASE5-PI-SDK-SPEC-v3.md`](PHASE5-PI-SDK-SPEC-v3.md) | Superseded by v4 hybrid spec | Keep as design history. |

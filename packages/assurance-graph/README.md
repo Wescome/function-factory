@@ -2,6 +2,12 @@
 
 Incident propagation via dependency relationships. Planned to model how failures in one Function affect downstream dependents through the Factory's dependency graph.
 
+## Ontology Alias
+
+This package maps directly to the ontology v0.2 `Assurance Graph` structural
+component. The existing `@factory/assurance-graph` package name is already the
+stable compatibility name.
+
 ## Pipeline Position
 
 **Stage:** Cross-cutting

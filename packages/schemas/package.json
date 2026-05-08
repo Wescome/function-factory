@@ -9,7 +9,8 @@
     ".": "./src/index.ts",
     "./core": "./src/core.ts",
     "./lineage": "./src/lineage.ts",
-    "./coverage": "./src/coverage.ts"
+    "./coverage": "./src/coverage.ts",
+    "./ontology-aliases": "./src/ontology-aliases.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
