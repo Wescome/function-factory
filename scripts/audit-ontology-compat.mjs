@@ -10,6 +10,7 @@ const checks = []
 
 const files = {
   packageJson: 'package.json',
+  ciWorkflow: '.github/workflows/ci.yml',
   schemaIndex: 'packages/schemas/src/index.ts',
   schemaPackageJson: 'packages/schemas/package.json',
   aliases: 'packages/schemas/src/ontology-aliases.ts',
@@ -37,6 +38,7 @@ for (const [label, file] of Object.entries(files)) {
 }
 
 checkPackageScript()
+checkCiGate()
 checkSchemaAliases()
 checkCompilerPathContracts()
 checkDocsSurfaces()
@@ -57,6 +59,14 @@ console.log('ontology compatibility audit passed')
 function checkPackageScript() {
   const pkg = readJson(files.packageJson)
   expectEqual('root package exposes audit:ontology script', pkg.scripts?.['audit:ontology'], 'node scripts/audit-ontology-compat.mjs')
+}
+
+function checkCiGate() {
+  const ciWorkflow = read(files.ciWorkflow)
+
+  expectIncludes('CI runs ontology compatibility audit', ciWorkflow, 'pnpm audit:ontology')
+  expectIncludes('CI runs docs audit before rename work', ciWorkflow, 'pnpm audit:docs')
+  expectIncludes('Factory PR Gate depends on repository audit', ciWorkflow, 'needs: [typecheck, test, repository-audit]')
 }
 
 function checkSchemaAliases() {

@@ -117,8 +117,11 @@ include:
 
 1. Compatibility aliases already merged.
 2. `pnpm audit:docs`.
-3. Package tests for affected exports.
-4. Full `pnpm -r typecheck`.
-5. Reference search for stale paths and stale ontology aliases.
-6. Explicit confirmation that live worker, MRP, lifecycle, and Gate evidence
+3. `pnpm audit:ontology`.
+4. Package tests for affected exports.
+5. Full `pnpm -r typecheck`.
+6. Reference search for stale paths and stale ontology aliases.
+7. Explicit confirmation that live worker, MRP, lifecycle, and Gate evidence
    references remain valid.
+8. Green remote `Repository Audit`, `Test`, `Typecheck`, and Factory PR Gate
+   checks.

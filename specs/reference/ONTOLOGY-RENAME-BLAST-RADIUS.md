@@ -100,7 +100,9 @@ Counts are file counts, not occurrence counts.
    - docs audit,
    - remote PR checks,
    - live runtime evidence validation where applicable.
-5. Only after aliases and migration plans are green, decide whether the rename
+5. Keep `pnpm audit:ontology` and `pnpm audit:docs` green in CI before and
+   after each rename-family proposal.
+6. Only after aliases and migration plans are green, decide whether the rename
    is worth the churn.
 
 ## Explicit Non-Starters
@@ -132,3 +134,8 @@ It verifies:
 - runtime collection names used by workers match infra seed/init names.
 
 Run it before any physical rename PR.
+
+The root CI workflow also runs `pnpm audit:docs` and `pnpm audit:ontology` in
+the `Repository Audit` job. The Factory PR Gate depends on that job, so future
+rename proposals must preserve the compatibility contract before they can pass
+the PR gate.

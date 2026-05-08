@@ -68,11 +68,33 @@ jobs:
       - name: Run all tests
         run: pnpm -r --if-present test
 
+  repository-audit:
+    name: Repository Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Audit documentation references
+        run: pnpm audit:docs
+
+      - name: Audit ontology compatibility
+        run: pnpm audit:ontology
+
   factory-pr-check:
     name: Factory PR Gate
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'factory-generated')
-    needs: [typecheck, test]
+    needs: [typecheck, test, repository-audit]
     steps:
       - name: Factory PR passed CI
         run: echo "Factory-generated PR passed all gates"
