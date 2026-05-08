@@ -661,6 +661,7 @@ export default {
           functionKey?: unknown
           gate2ReportKey?: unknown
           apply?: boolean
+          repairAcceptedTransitionEdge?: boolean
         }
         if (typeof body.functionKey !== 'string' || body.functionKey.trim().length === 0) {
           return new Response(JSON.stringify({
@@ -711,6 +712,46 @@ export default {
           report,
           verdict,
         })
+
+        if (body.repairAcceptedTransitionEdge === true) {
+          if ((doc.lifecycleState ?? 'proposed') !== 'accepted') {
+            return new Response(JSON.stringify({
+              error: `Function ${functionKey} is not accepted; transition edge repair is only valid after produced -> accepted has already applied.`,
+              applied: false,
+              functionKey,
+              gate2ReportKey,
+              lifecycleDryRun,
+            }, null, 2), { status: 400, headers: { 'Content-Type': 'application/json' } })
+          }
+
+          const repairedAt = new Date().toISOString()
+          const transition = {
+            from: 'produced',
+            to: 'accepted',
+            trigger: 'gate-2-pass',
+            guard: 'gate-2',
+            responsible_context: 'ff-pipeline:debug-lifecycle-acceptance-repair',
+            gateReport: gate2ReportKey,
+            timestamp: repairedAt,
+          }
+          await db.ensureCollection('lifecycle_transitions')
+          await db.saveEdge(
+            'lifecycle_transitions',
+            `specs_functions/${functionKey}`,
+            `specs_functions/${functionKey}`,
+            transition,
+          )
+
+          return new Response(JSON.stringify({
+            applied: true,
+            repaired: true,
+            functionKey,
+            from: 'produced',
+            to: 'accepted',
+            gate2ReportKey,
+            transition,
+          }, null, 2), { status: 200, headers: { 'Content-Type': 'application/json' } })
+        }
 
         if (!lifecycleDryRun.wouldTransition) {
           return new Response(JSON.stringify({

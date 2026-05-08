@@ -1216,6 +1216,57 @@ describe('ff-pipeline diagnostic routes', () => {
     )
   })
 
+  it('POST /debug/lifecycle-acceptance can repair a missing produced to accepted transition edge', async () => {
+    const { default: worker } = await import('./index')
+    mockQueryOne.mockResolvedValueOnce(makeGate2CoverageReportRecord())
+    mockGet.mockResolvedValueOnce({
+      _key: 'FN-MOTDWVR2-W7UN',
+      lifecycleState: 'accepted',
+    })
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/debug/lifecycle-acceptance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          functionKey: 'FN-MOTDWVR2-W7UN',
+          gate2ReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
+          repairAcceptedTransitionEdge: true,
+        }),
+      }),
+      createEnv() as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(200)
+    expect(await jsonBody(response)).toMatchObject({
+      applied: true,
+      repaired: true,
+      functionKey: 'FN-MOTDWVR2-W7UN',
+      from: 'produced',
+      to: 'accepted',
+      gate2ReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
+      transition: {
+        from: 'produced',
+        to: 'accepted',
+        gateReport: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
+        responsible_context: 'ff-pipeline:debug-lifecycle-acceptance-repair',
+      },
+    })
+    expect(mockEnsureCollection).toHaveBeenCalledWith('lifecycle_transitions')
+    expect(mockSaveEdge).toHaveBeenCalledWith(
+      'lifecycle_transitions',
+      'specs_functions/FN-MOTDWVR2-W7UN',
+      'specs_functions/FN-MOTDWVR2-W7UN',
+      expect.objectContaining({
+        from: 'produced',
+        to: 'accepted',
+        gateReport: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
+      }),
+    )
+    expect(mockUpdate).not.toHaveBeenCalled()
+  })
+
   it('POST /debug/function-identity reports FP lifecycle and FN materialization without mutation', async () => {
     const { default: worker } = await import('./index')
     mockGet

@@ -201,6 +201,8 @@ export async function transitionLifecycle(
     }
   }
 
+  await db.ensureCollection('lifecycle_transitions')
+
   // 5. Update document
   await db.update('specs_functions', functionKey, {
     lifecycleState: to,

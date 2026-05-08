@@ -30,6 +30,7 @@ function makeMockDb() {
     query: vi.fn().mockResolvedValue([]),
     queryOne: vi.fn().mockResolvedValue(null),
     get: vi.fn().mockResolvedValue(null),
+    ensureCollection: vi.fn().mockResolvedValue(undefined),
     saveEdge: vi.fn().mockResolvedValue(undefined),
   }
 }
@@ -222,6 +223,7 @@ describe('transitionLifecycle', () => {
       trigger: 'pipeline-compile',
     })
 
+    expect(db.ensureCollection).toHaveBeenCalledWith('lifecycle_transitions')
     expect(db.saveEdge).toHaveBeenCalledWith(
       'lifecycle_transitions',
       expect.any(String), // from vertex
