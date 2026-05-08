@@ -20,6 +20,9 @@ const files = {
   artifactValidatorReadme: 'packages/artifact-validator/README.md',
   functionSynthesisReadme: 'packages/function-synthesis/README.md',
   ontologyLoaderReadme: 'packages/ontology-loader/README.md',
+  ffPipelineReadme: 'workers/ff-pipeline/README.md',
+  ffGatesReadme: 'workers/ff-gates/README.md',
+  ffGatewayReadme: 'workers/ff-gateway/README.md',
   specsReadme: 'specs/README.md',
   referenceReadme: 'specs/reference/README.md',
   mapping: 'specs/reference/ONTOLOGY-CURRENT-MAPPING.md',
@@ -47,6 +50,7 @@ checkSchemaAliases()
 checkCompilerPathContracts()
 checkDocsSurfaces()
 checkPackageAliasReadmes()
+checkWorkerAliasReadmes()
 checkRenameProposalTemplate()
 checkRuntimeCollectionContracts()
 
@@ -163,6 +167,31 @@ function checkPackageAliasReadmes() {
   expectIncludes('ontology loader README retains specs_prds collection', read(files.ontologyLoaderReadme), 'specs_prds')
   expectIncludes('ontology loader README retains specs_workgraphs collection', read(files.ontologyLoaderReadme), 'specs_workgraphs')
   expectIncludes('ontology loader README retains specs_coverage_reports collection', read(files.ontologyLoaderReadme), 'specs_coverage_reports')
+}
+
+function checkWorkerAliasReadmes() {
+  const workerReadmes = [
+    [files.ffPipelineReadme, '@factory/ff-pipeline', 'Fidelity Verification'],
+    [files.ffGatesReadme, '@factory/ff-gates', 'Coherence Verification'],
+    [files.ffGatewayReadme, '@factory/ff-gateway', 'Coherence Verification'],
+  ]
+
+  for (const [file, packageName, ontologyRole] of workerReadmes) {
+    const content = read(file)
+    expectIncludes(`${packageName} README has ontology alias section`, content, '## Ontology Alias')
+    expectIncludes(`${packageName} README keeps package compatibility name`, content, packageName)
+    expectIncludes(`${packageName} README documents ontology role`, content, ontologyRole)
+    expectIncludes(`${packageName} README names stable compatibility`, content, 'stable compatibility')
+  }
+
+  expectIncludes('ff-pipeline README retains specs_workgraphs collection', read(files.ffPipelineReadme), 'specs_workgraphs')
+  expectIncludes('ff-pipeline README retains specs_coverage_reports collection', read(files.ffPipelineReadme), 'specs_coverage_reports')
+  expectIncludes('ff-pipeline README retains MRP compatibility term', read(files.ffPipelineReadme), 'MRP')
+  expectIncludes('ff-pipeline README requires rename proposal template', read(files.ffPipelineReadme), 'ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md')
+  expectIncludes('ff-gates README retains Gate1Report compatibility term', read(files.ffGatesReadme), 'Gate1Report')
+  expectIncludes('ff-gates README retains specs_workgraphs collection', read(files.ffGatesReadme), 'specs_workgraphs')
+  expectIncludes('ff-gateway README retains gate route compatibility', read(files.ffGatewayReadme), '/gate/1')
+  expectIncludes('ff-gateway README retains MRP route compatibility', read(files.ffGatewayReadme), '/mrps/pending')
 }
 
 function checkRenameProposalTemplate() {
