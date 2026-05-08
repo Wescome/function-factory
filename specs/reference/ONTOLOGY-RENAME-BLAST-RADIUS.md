@@ -109,6 +109,10 @@ Counts are file counts, not occurrence counts.
 
 - No mass rename of `specs/prds`, `specs/workgraphs`, or
   `specs/coverage-reports`.
+- No parallel ontology-named replacement directories such as
+  `specs/intent-specifications`, `specs/executable-specifications`,
+  `specs/verification-reports`, `packages/verification`, or
+  `workers/ff-fidelity-verification` without a one-family rename proposal.
 - No package rename of `@factory/compiler` or `@factory/coverage-gates`.
 - No Arango collection rename of `specs_prds`, `specs_workgraphs`, or
   `specs_coverage_reports`.

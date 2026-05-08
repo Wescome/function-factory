@@ -57,6 +57,7 @@ for (const [label, file] of Object.entries(files)) {
 
 checkPackageScript()
 checkCurrentCompatibilitySurfaces()
+checkNoUnapprovedOntologyRenameTargets()
 checkCiGate()
 checkSchemaAliases()
 checkCompilerPathContracts()
@@ -124,6 +125,30 @@ function checkCurrentCompatibilitySurfaces() {
 
   for (const [file, packageName] of stablePackages) {
     expectEqual(`${packageName} package name remains stable`, readJson(file).name, packageName)
+  }
+}
+
+function checkNoUnapprovedOntologyRenameTargets() {
+  const forbiddenPaths = [
+    'specs/intent-specifications',
+    'specs/executable-specifications',
+    'specs/verification-reports',
+    'specs/coherence-verifications',
+    'specs/fidelity-verifications',
+    'specs/persistence-verifications',
+    'packages/intent-specification',
+    'packages/executable-specification',
+    'packages/verification',
+    'packages/coherence-verification',
+    'packages/fidelity-verification',
+    'packages/persistence-verification',
+    'workers/ff-coherence-verification',
+    'workers/ff-fidelity-verification',
+    'workers/ff-persistence-verification',
+  ]
+
+  for (const forbiddenPath of forbiddenPaths) {
+    expectAbsent(`unapproved ontology rename target ${forbiddenPath}`, forbiddenPath)
   }
 }
 
@@ -332,6 +357,13 @@ function checkExists(label, file) {
   checks.push(label)
   if (!existsSync(resolve(file))) {
     failures.push(`missing-file ${file}`)
+  }
+}
+
+function expectAbsent(label, file) {
+  checks.push(label)
+  if (existsSync(resolve(file))) {
+    failures.push(`unexpected-file ${label}: ${file}`)
   }
 }
 

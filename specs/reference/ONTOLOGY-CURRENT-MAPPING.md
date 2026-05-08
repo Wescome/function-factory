@@ -112,6 +112,13 @@ Physical renames are deferred. The compatibility names in this document remain
 the active paths, package names, artifact IDs, schema exports, and runtime API
 terms.
 
+Do not create ontology-named replacement directories or packages in parallel
+with the compatibility paths as a shortcut around the rename process. Examples
+include `specs/intent-specifications`, `specs/executable-specifications`,
+`specs/verification-reports`, `packages/verification`, or
+`workers/ff-fidelity-verification`. Those targets require the same one-family
+rename proposal and audit updates as any physical rename.
+
 A future rename PR must be scoped to one rename family at a time, start from
 `ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md`, and include:
 
