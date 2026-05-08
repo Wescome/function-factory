@@ -72,6 +72,8 @@ A rename family is ready to propose only when all of the following are true:
   surfaces.
 - `pnpm audit:ontology` covers the affected compatibility names and any
   proposed migration guardrails.
+- `ONTOLOGY-COMPATIBILITY-CONTRACT.json` has been updated for any approved
+  compatibility surface, forbidden target, or runtime collection guard change.
 - The proposal can be reverted without losing current artifact lineage or live
   runtime evidence.
 - The expected blast radius is small enough for one PR with no behavior changes

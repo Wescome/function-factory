@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "status": "active compatibility contract",
+  "stableDirectories": [
+    "specs/prds",
+    "specs/workgraphs",
+    "specs/invariants",
+    "specs/coverage-reports",
+    "packages/compiler",
+    "packages/coverage-gates",
+    "packages/schemas",
+    "packages/artifact-validator",
+    "packages/function-synthesis",
+    "packages/ontology-loader",
+    "workers/ff-pipeline",
+    "workers/ff-gates",
+    "workers/ff-gateway",
+    "infra/arangodb"
+  ],
+  "stablePackages": [
+    {
+      "manifest": "packages/schemas/package.json",
+      "name": "@factory/schemas"
+    },
+    {
+      "manifest": "packages/compiler/package.json",
+      "name": "@factory/compiler"
+    },
+    {
+      "manifest": "packages/coverage-gates/package.json",
+      "name": "@factory/coverage-gates"
+    },
+    {
+      "manifest": "packages/prd-authoring/package.json",
+      "name": "@factory/prd-authoring"
+    },
+    {
+      "manifest": "packages/runtime-admission/package.json",
+      "name": "@factory/runtime-admission"
+    },
+    {
+      "manifest": "packages/artifact-validator/package.json",
+      "name": "@factory/artifact-validator"
+    },
+    {
+      "manifest": "packages/function-synthesis/package.json",
+      "name": "@factory/function-synthesis"
+    },
+    {
+      "manifest": "packages/ontology-loader/package.json",
+      "name": "@factory/ontology-loader"
+    },
+    {
+      "manifest": "workers/ff-pipeline/package.json",
+      "name": "@factory/ff-pipeline"
+    },
+    {
+      "manifest": "workers/ff-gates/package.json",
+      "name": "@factory/ff-gates"
+    },
+    {
+      "manifest": "workers/ff-gateway/package.json",
+      "name": "@factory/ff-gateway"
+    }
+  ],
+  "forbiddenOntologyRenameTargets": [
+    "specs/intent-specifications",
+    "specs/executable-specifications",
+    "specs/verification-reports",
+    "specs/coherence-verifications",
+    "specs/fidelity-verifications",
+    "specs/persistence-verifications",
+    "packages/intent-specification",
+    "packages/executable-specification",
+    "packages/verification",
+    "packages/coherence-verification",
+    "packages/fidelity-verification",
+    "packages/persistence-verification",
+    "workers/ff-coherence-verification",
+    "workers/ff-fidelity-verification",
+    "workers/ff-persistence-verification"
+  ],
+  "runtimeCollectionFilesToScan": [
+    "infra/arangodb/init-db.ts",
+    "infra/arangodb/init/001-create-db.js",
+    "infra/arangodb/seed.ts",
+    "infra/arangodb/verify.ts",
+    "packages/ontology-loader/src/classes.ts",
+    "packages/ontology-loader/src/instances.ts",
+    "workers/ff-pipeline/src/index.ts",
+    "workers/ff-pipeline/src/lifecycle.ts",
+    "workers/ff-pipeline/src/stages/compile.ts",
+    "workers/ff-gates/src/index.ts"
+  ],
+  "forbiddenOntologyCollectionTargets": [
+    "specs_intent_specifications",
+    "specs_executable_specifications",
+    "specs_verification_reports",
+    "specs_coherence_verifications",
+    "specs_fidelity_verifications",
+    "specs_persistence_verifications",
+    "intent_specifications",
+    "executable_specifications",
+    "verification_reports",
+    "coherence_verifications",
+    "fidelity_verifications",
+    "persistence_verifications"
+  ]
+}

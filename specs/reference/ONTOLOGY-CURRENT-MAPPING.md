@@ -125,6 +125,10 @@ Do not introduce ontology-named replacement collection identifiers such as
 `fidelity_verifications` without the same one-family proposal, dual-read
 compatibility, and migration plan.
 
+The machine-readable compatibility contract lives in
+`ONTOLOGY-COMPATIBILITY-CONTRACT.json` and is enforced by
+`pnpm audit:ontology`.
+
 A future rename PR must first satisfy
 `ONTOLOGY-REFACTOR-READINESS-CHECKLIST.md`, be scoped to one rename family at a
 time, start from `ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md`, and include:

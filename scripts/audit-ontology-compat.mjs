@@ -36,6 +36,7 @@ const files = {
   arangoReadme: 'infra/arangodb/README.md',
   specsReadme: 'specs/README.md',
   referenceReadme: 'specs/reference/README.md',
+  compatibilityContract: 'specs/reference/ONTOLOGY-COMPATIBILITY-CONTRACT.json',
   mapping: 'specs/reference/ONTOLOGY-CURRENT-MAPPING.md',
   blastRadius: 'specs/reference/ONTOLOGY-RENAME-BLAST-RADIUS.md',
   renameTemplate: 'specs/reference/ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md',
@@ -57,6 +58,7 @@ for (const [label, file] of Object.entries(files)) {
 }
 
 checkPackageScript()
+checkCompatibilityContractManifest()
 checkCurrentCompatibilitySurfaces()
 checkNoUnapprovedOntologyRenameTargets()
 checkNoUnapprovedOntologyCollectionTargets()
@@ -90,103 +92,76 @@ function checkPackageScript() {
   expectIncludes('root package keeps workers workspace glob', read(files.packageJson), '"workers/*"')
 }
 
-function checkCurrentCompatibilitySurfaces() {
-  const stableDirs = [
-    'specs/prds',
-    'specs/workgraphs',
-    'specs/invariants',
-    'specs/coverage-reports',
-    'packages/compiler',
-    'packages/coverage-gates',
-    'packages/schemas',
-    'packages/artifact-validator',
-    'packages/function-synthesis',
-    'packages/ontology-loader',
-    'workers/ff-pipeline',
-    'workers/ff-gates',
-    'workers/ff-gateway',
-    'infra/arangodb',
-  ]
+function checkCompatibilityContractManifest() {
+  const contract = readJson(files.compatibilityContract)
 
-  for (const stableDir of stableDirs) {
+  expectEqual('compatibility contract schema version', contract.schemaVersion, 1)
+  expectEqual('compatibility contract status', contract.status, 'active compatibility contract')
+
+  expectArrayIncludes('compatibility contract keeps specs/prds stable', contract.stableDirectories, 'specs/prds')
+  expectArrayIncludes('compatibility contract keeps specs/workgraphs stable', contract.stableDirectories, 'specs/workgraphs')
+  expectArrayIncludes('compatibility contract keeps specs/coverage-reports stable', contract.stableDirectories, 'specs/coverage-reports')
+  expectArrayIncludes('compatibility contract keeps packages/compiler stable', contract.stableDirectories, 'packages/compiler')
+  expectArrayIncludes('compatibility contract keeps workers/ff-pipeline stable', contract.stableDirectories, 'workers/ff-pipeline')
+  expectArrayIncludes('compatibility contract keeps infra/arangodb stable', contract.stableDirectories, 'infra/arangodb')
+
+  const stablePackageNames = contract.stablePackages.map((entry) => entry.name)
+  expectArrayIncludes('compatibility contract keeps @factory/schemas stable', stablePackageNames, '@factory/schemas')
+  expectArrayIncludes('compatibility contract keeps @factory/compiler stable', stablePackageNames, '@factory/compiler')
+  expectArrayIncludes('compatibility contract keeps @factory/coverage-gates stable', stablePackageNames, '@factory/coverage-gates')
+  expectArrayIncludes('compatibility contract keeps @factory/ff-pipeline stable', stablePackageNames, '@factory/ff-pipeline')
+
+  for (const stablePackage of contract.stablePackages) {
+    checkExists(`compatibility contract package manifest ${stablePackage.manifest}`, stablePackage.manifest)
+  }
+
+  expectArrayIncludes('compatibility contract forbids specs/intent-specifications', contract.forbiddenOntologyRenameTargets, 'specs/intent-specifications')
+  expectArrayIncludes('compatibility contract forbids specs/executable-specifications', contract.forbiddenOntologyRenameTargets, 'specs/executable-specifications')
+  expectArrayIncludes('compatibility contract forbids specs/verification-reports', contract.forbiddenOntologyRenameTargets, 'specs/verification-reports')
+  expectArrayIncludes('compatibility contract forbids packages/verification', contract.forbiddenOntologyRenameTargets, 'packages/verification')
+  expectArrayIncludes('compatibility contract forbids workers/ff-fidelity-verification', contract.forbiddenOntologyRenameTargets, 'workers/ff-fidelity-verification')
+
+  expectArrayIncludes('compatibility contract scans Arango init', contract.runtimeCollectionFilesToScan, files.arangoInitTs)
+  expectArrayIncludes('compatibility contract scans ontology classes', contract.runtimeCollectionFilesToScan, files.ontologyClasses)
+  expectArrayIncludes('compatibility contract scans ff-pipeline runtime', contract.runtimeCollectionFilesToScan, files.pipelineIndex)
+  expectArrayIncludes('compatibility contract scans ff-gates runtime', contract.runtimeCollectionFilesToScan, files.gatesWorker)
+
+  for (const runtimeFile of contract.runtimeCollectionFilesToScan) {
+    checkExists(`compatibility contract runtime collection scan file ${runtimeFile}`, runtimeFile)
+  }
+
+  expectArrayIncludes('compatibility contract forbids specs_intent_specifications', contract.forbiddenOntologyCollectionTargets, 'specs_intent_specifications')
+  expectArrayIncludes('compatibility contract forbids specs_executable_specifications', contract.forbiddenOntologyCollectionTargets, 'specs_executable_specifications')
+  expectArrayIncludes('compatibility contract forbids specs_verification_reports', contract.forbiddenOntologyCollectionTargets, 'specs_verification_reports')
+  expectArrayIncludes('compatibility contract forbids fidelity_verifications', contract.forbiddenOntologyCollectionTargets, 'fidelity_verifications')
+}
+
+function checkCurrentCompatibilitySurfaces() {
+  const contract = readJson(files.compatibilityContract)
+
+  for (const stableDir of contract.stableDirectories) {
     checkExists(`stable compatibility directory ${stableDir}`, stableDir)
   }
 
-  const stablePackages = [
-    [files.schemaPackageJson, '@factory/schemas'],
-    [files.compilerPackageJson, '@factory/compiler'],
-    [files.coverageGatesPackageJson, '@factory/coverage-gates'],
-    [files.prdAuthoringPackageJson, '@factory/prd-authoring'],
-    [files.runtimeAdmissionPackageJson, '@factory/runtime-admission'],
-    [files.artifactValidatorPackageJson, '@factory/artifact-validator'],
-    [files.functionSynthesisPackageJson, '@factory/function-synthesis'],
-    [files.ontologyLoaderPackageJson, '@factory/ontology-loader'],
-    [files.ffPipelinePackageJson, '@factory/ff-pipeline'],
-    [files.ffGatesPackageJson, '@factory/ff-gates'],
-    [files.ffGatewayPackageJson, '@factory/ff-gateway'],
-  ]
-
-  for (const [file, packageName] of stablePackages) {
-    expectEqual(`${packageName} package name remains stable`, readJson(file).name, packageName)
+  for (const stablePackage of contract.stablePackages) {
+    expectEqual(`${stablePackage.name} package name remains stable`, readJson(stablePackage.manifest).name, stablePackage.name)
   }
 }
 
 function checkNoUnapprovedOntologyRenameTargets() {
-  const forbiddenPaths = [
-    'specs/intent-specifications',
-    'specs/executable-specifications',
-    'specs/verification-reports',
-    'specs/coherence-verifications',
-    'specs/fidelity-verifications',
-    'specs/persistence-verifications',
-    'packages/intent-specification',
-    'packages/executable-specification',
-    'packages/verification',
-    'packages/coherence-verification',
-    'packages/fidelity-verification',
-    'packages/persistence-verification',
-    'workers/ff-coherence-verification',
-    'workers/ff-fidelity-verification',
-    'workers/ff-persistence-verification',
-  ]
+  const contract = readJson(files.compatibilityContract)
 
-  for (const forbiddenPath of forbiddenPaths) {
+  for (const forbiddenPath of contract.forbiddenOntologyRenameTargets) {
     expectAbsent(`unapproved ontology rename target ${forbiddenPath}`, forbiddenPath)
   }
 }
 
 function checkNoUnapprovedOntologyCollectionTargets() {
-  const filesToScan = [
-    files.arangoInitTs,
-    files.arangoInitJs,
-    files.arangoSeed,
-    files.arangoVerify,
-    files.ontologyClasses,
-    files.ontologyInstances,
-    files.pipelineIndex,
-    files.pipelineLifecycle,
-    files.pipelineCompileStage,
-    files.gatesWorker,
-  ]
+  const contract = readJson(files.compatibilityContract)
 
-  const forbiddenCollections = [
-    'specs_intent_specifications',
-    'specs_executable_specifications',
-    'specs_verification_reports',
-    'specs_coherence_verifications',
-    'specs_fidelity_verifications',
-    'specs_persistence_verifications',
-    'intent_specifications',
-    'executable_specifications',
-    'verification_reports',
-    'coherence_verifications',
-    'fidelity_verifications',
-    'persistence_verifications',
-  ]
-
-  for (const file of filesToScan) {
+  for (const file of contract.runtimeCollectionFilesToScan) {
     const content = read(file)
-    for (const collection of forbiddenCollections) {
+    for (const collection of contract.forbiddenOntologyCollectionTargets) {
       expectExcludes(`${file} does not introduce ${collection}`, content, collection)
     }
   }
@@ -257,6 +232,7 @@ function checkDocsSurfaces() {
   }
 
   expectIncludes('reference index links ontology current mapping', referenceReadme, 'ONTOLOGY-CURRENT-MAPPING.md')
+  expectIncludes('reference index links compatibility contract manifest', referenceReadme, 'ONTOLOGY-COMPATIBILITY-CONTRACT.json')
   expectIncludes('reference index links rename blast-radius report', referenceReadme, 'ONTOLOGY-RENAME-BLAST-RADIUS.md')
   expectIncludes('reference index links rename proposal template', referenceReadme, 'ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md')
   expectIncludes('reference index links refactor readiness checklist', referenceReadme, 'ONTOLOGY-REFACTOR-READINESS-CHECKLIST.md')
@@ -267,6 +243,7 @@ function checkDocsSurfaces() {
   expectIncludes('blast-radius report points future renames to readiness checklist', blastRadius, 'ONTOLOGY-REFACTOR-READINESS-CHECKLIST.md')
   expectIncludes('current mapping requires rename proposal template', mapping, 'ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md')
   expectIncludes('current mapping requires refactor readiness checklist', mapping, 'ONTOLOGY-REFACTOR-READINESS-CHECKLIST.md')
+  expectIncludes('current mapping links compatibility contract manifest', mapping, 'ONTOLOGY-COMPATIBILITY-CONTRACT.json')
 }
 
 function checkPackageAliasReadmes() {
@@ -391,6 +368,7 @@ function checkRefactorReadinessChecklist() {
 
   const requiredTerms = [
     'stable compatibility contracts',
+    'ONTOLOGY-COMPATIBILITY-CONTRACT.json',
     'ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md',
     'aliases alone are insufficient',
     'dual-read compatibility',
@@ -464,6 +442,13 @@ function expectExcludes(label, content, forbidden) {
   checks.push(label)
   if (content.includes(forbidden)) {
     failures.push(`forbidden-content ${label}: ${forbidden}`)
+  }
+}
+
+function expectArrayIncludes(label, values, expected) {
+  checks.push(label)
+  if (!Array.isArray(values) || !values.includes(expected)) {
+    failures.push(`missing-array-value ${label}: ${expected}`)
   }
 }
 
