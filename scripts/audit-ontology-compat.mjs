@@ -13,6 +13,16 @@ const files = {
   ciWorkflow: '.github/workflows/ci.yml',
   schemaIndex: 'packages/schemas/src/index.ts',
   schemaPackageJson: 'packages/schemas/package.json',
+  compilerPackageJson: 'packages/compiler/package.json',
+  coverageGatesPackageJson: 'packages/coverage-gates/package.json',
+  prdAuthoringPackageJson: 'packages/prd-authoring/package.json',
+  runtimeAdmissionPackageJson: 'packages/runtime-admission/package.json',
+  artifactValidatorPackageJson: 'packages/artifact-validator/package.json',
+  functionSynthesisPackageJson: 'packages/function-synthesis/package.json',
+  ontologyLoaderPackageJson: 'packages/ontology-loader/package.json',
+  ffPipelinePackageJson: 'workers/ff-pipeline/package.json',
+  ffGatesPackageJson: 'workers/ff-gates/package.json',
+  ffGatewayPackageJson: 'workers/ff-gateway/package.json',
   aliases: 'packages/schemas/src/ontology-aliases.ts',
   aliasTest: 'packages/schemas/src/ontology-aliases.test.ts',
   compiler: 'packages/compiler/src/compile.ts',
@@ -46,6 +56,7 @@ for (const [label, file] of Object.entries(files)) {
 }
 
 checkPackageScript()
+checkCurrentCompatibilitySurfaces()
 checkCiGate()
 checkSchemaAliases()
 checkCompilerPathContracts()
@@ -71,6 +82,49 @@ console.log('ontology compatibility audit passed')
 function checkPackageScript() {
   const pkg = readJson(files.packageJson)
   expectEqual('root package exposes audit:ontology script', pkg.scripts?.['audit:ontology'], 'node scripts/audit-ontology-compat.mjs')
+  expectIncludes('root package keeps packages workspace glob', read(files.packageJson), '"packages/*"')
+  expectIncludes('root package keeps workers workspace glob', read(files.packageJson), '"workers/*"')
+}
+
+function checkCurrentCompatibilitySurfaces() {
+  const stableDirs = [
+    'specs/prds',
+    'specs/workgraphs',
+    'specs/invariants',
+    'specs/coverage-reports',
+    'packages/compiler',
+    'packages/coverage-gates',
+    'packages/schemas',
+    'packages/artifact-validator',
+    'packages/function-synthesis',
+    'packages/ontology-loader',
+    'workers/ff-pipeline',
+    'workers/ff-gates',
+    'workers/ff-gateway',
+    'infra/arangodb',
+  ]
+
+  for (const stableDir of stableDirs) {
+    checkExists(`stable compatibility directory ${stableDir}`, stableDir)
+  }
+
+  const stablePackages = [
+    [files.schemaPackageJson, '@factory/schemas'],
+    [files.compilerPackageJson, '@factory/compiler'],
+    [files.coverageGatesPackageJson, '@factory/coverage-gates'],
+    [files.prdAuthoringPackageJson, '@factory/prd-authoring'],
+    [files.runtimeAdmissionPackageJson, '@factory/runtime-admission'],
+    [files.artifactValidatorPackageJson, '@factory/artifact-validator'],
+    [files.functionSynthesisPackageJson, '@factory/function-synthesis'],
+    [files.ontologyLoaderPackageJson, '@factory/ontology-loader'],
+    [files.ffPipelinePackageJson, '@factory/ff-pipeline'],
+    [files.ffGatesPackageJson, '@factory/ff-gates'],
+    [files.ffGatewayPackageJson, '@factory/ff-gateway'],
+  ]
+
+  for (const [file, packageName] of stablePackages) {
+    expectEqual(`${packageName} package name remains stable`, readJson(file).name, packageName)
+  }
 }
 
 function checkCiGate() {
