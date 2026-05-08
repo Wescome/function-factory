@@ -112,8 +112,8 @@ Physical renames are deferred. The compatibility names in this document remain
 the active paths, package names, artifact IDs, schema exports, and runtime API
 terms.
 
-A future rename PR must be scoped to one rename family at a time and must
-include:
+A future rename PR must be scoped to one rename family at a time, start from
+`ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md`, and include:
 
 1. Compatibility aliases already merged.
 2. `pnpm audit:docs`.

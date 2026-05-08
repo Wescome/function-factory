@@ -92,7 +92,7 @@ Counts are file counts, not occurrence counts.
 3. Write package README alias notes for any packages not covered by the first
    pass only when touched for related work.
 4. For each candidate rename family, create a one-family migration proposal
-   with:
+   from `ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md` with:
    - exact files touched,
    - old-to-new compatibility strategy,
    - rollback plan,
@@ -133,7 +133,8 @@ It verifies:
 - docs links still resolve,
 - runtime collection names used by workers match infra seed/init names.
 
-Run it before any physical rename PR.
+Run it before any physical rename PR. Any future physical rename PR should also
+start from `ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md`.
 
 The root CI workflow also runs `pnpm audit:docs` and `pnpm audit:ontology` in
 the `Repository Audit` job. The Factory PR Gate depends on that job, so future

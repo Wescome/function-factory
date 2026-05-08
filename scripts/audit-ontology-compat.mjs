@@ -21,6 +21,7 @@ const files = {
   referenceReadme: 'specs/reference/README.md',
   mapping: 'specs/reference/ONTOLOGY-CURRENT-MAPPING.md',
   blastRadius: 'specs/reference/ONTOLOGY-RENAME-BLAST-RADIUS.md',
+  renameTemplate: 'specs/reference/ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md',
   arangoInitTs: 'infra/arangodb/init-db.ts',
   arangoInitJs: 'infra/arangodb/init/001-create-db.js',
   arangoSeed: 'infra/arangodb/seed.ts',
@@ -42,6 +43,7 @@ checkCiGate()
 checkSchemaAliases()
 checkCompilerPathContracts()
 checkDocsSurfaces()
+checkRenameProposalTemplate()
 checkRuntimeCollectionContracts()
 
 for (const failure of failures) {
@@ -127,9 +129,48 @@ function checkDocsSurfaces() {
 
   expectIncludes('reference index links ontology current mapping', referenceReadme, 'ONTOLOGY-CURRENT-MAPPING.md')
   expectIncludes('reference index links rename blast-radius report', referenceReadme, 'ONTOLOGY-RENAME-BLAST-RADIUS.md')
+  expectIncludes('reference index links rename proposal template', referenceReadme, 'ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md')
   expectIncludes('blast-radius report forbids mass rename of specs/prds', blastRadius, 'No mass rename of `specs/prds`')
   expectIncludes('blast-radius report names compatibility audit script', blastRadius, 'scripts/audit-ontology-compat.mjs')
   expectIncludes('blast-radius report names compatibility audit command', blastRadius, 'pnpm audit:ontology')
+  expectIncludes('blast-radius report points future renames to template', blastRadius, 'ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md')
+  expectIncludes('current mapping requires rename proposal template', mapping, 'ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md')
+}
+
+function checkRenameProposalTemplate() {
+  const renameTemplate = read(files.renameTemplate)
+
+  const requiredSections = [
+    '# Ontology Rename Proposal Template',
+    '## Rename Family',
+    '## Decision',
+    '## Compatibility Strategy',
+    '## Blast Radius',
+    '## Rollback Plan',
+    '## Verification Plan',
+    '## Non-Starters',
+  ]
+
+  for (const section of requiredSections) {
+    expectIncludes(`rename proposal template includes ${section}`, renameTemplate, section)
+  }
+
+  const requiredTerms = [
+    'exactly one rename family',
+    'current compatibility contract',
+    'pnpm audit:docs',
+    'pnpm audit:ontology',
+    'Repository Audit',
+    'Factory PR Gate',
+    'packages/schemas/src/core.ts',
+    '.agent/AGENTS.md',
+    '.agent/skills/*',
+    'dual-read compatibility',
+  ]
+
+  for (const term of requiredTerms) {
+    expectIncludes(`rename proposal template requires ${term}`, renameTemplate, term)
+  }
 }
 
 function checkRuntimeCollectionContracts() {
