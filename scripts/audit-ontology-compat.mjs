@@ -53,6 +53,7 @@ const files = {
   ontologyClasses: 'packages/ontology-loader/src/classes.ts',
   ontologyInstances: 'packages/ontology-loader/src/instances.ts',
   pipelineIndex: 'workers/ff-pipeline/src/index.ts',
+  pipelineWorkflow: 'workers/ff-pipeline/src/pipeline.ts',
   pipelineLifecycle: 'workers/ff-pipeline/src/lifecycle.ts',
   pipelineCompileStage: 'workers/ff-pipeline/src/stages/compile.ts',
   pipelineFidelityVerification: 'workers/ff-pipeline/src/gate2-simulation.ts',
@@ -221,6 +222,8 @@ function checkSchemaAliases() {
   expectIncludes('ff-pipeline exposes Persistence Verification evaluator alias', read(files.pipelinePersistenceVerification), 'export const evaluatePersistenceVerificationRegistration = evaluateGate3AssuranceRegistration')
   expectIncludes('ff-pipeline exposes Fidelity Verification diagnostic route', read(files.pipelineIndex), '/debug/fidelity-verification')
   expectIncludes('ff-pipeline exposes Persistence Verification diagnostic route', read(files.pipelineIndex), '/debug/persistence-verification')
+  expectIncludes('ff-pipeline workflow calls Coherence Verification service method', read(files.pipelineWorkflow), 'evaluateCoherenceVerification')
+  expectIncludes('ff-pipeline workflow uses Coherence Verification step name', read(files.pipelineWorkflow), "'coherence-verification'")
   expectIncludes('ff-gates exposes Coherence Verification service method', read(files.gatesWorker), 'evaluateCoherenceVerification')
   expectIncludes('ff-gateway exposes Coherence Verification route', read(files.gatewayWorker), '/coherence-verification')
   expectIncludes('ff-gateway service binding supports Coherence Verification method', read(files.gatewayEnv), 'evaluateCoherenceVerification')

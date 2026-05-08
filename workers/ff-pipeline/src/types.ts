@@ -6,6 +6,7 @@ export interface PipelineEnv {
   ARANGO_PASSWORD?: string
 
   GATES: {
+    evaluateCoherenceVerification?(workGraph: unknown): Promise<CoherenceVerificationReport>
     evaluateGate1(workGraph: unknown): Promise<Gate1Report>
   }
 
@@ -78,6 +79,7 @@ export interface PipelineResult {
   capabilityId?: string
   proposalId?: string
   workGraphId?: string
+  coherenceVerificationReport?: CoherenceVerificationReport
   gate1Report?: Gate1Report
   report?: unknown
   reason?: string
@@ -97,6 +99,8 @@ export interface Gate1Report {
   checks: { name: string; passed: boolean; detail: string }[]
   summary: string
 }
+
+export type CoherenceVerificationReport = Gate1Report
 
 export interface SemanticReviewResult {
   alignment: 'aligned' | 'miscast' | 'uncertain'
