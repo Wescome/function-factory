@@ -7,7 +7,7 @@ export interface PipelineEnv {
 
   GATES: {
     evaluateCoherenceVerification?(workGraph: unknown): Promise<CoherenceVerificationReport>
-    evaluateGate1(workGraph: unknown): Promise<Gate1Report>
+    evaluateGate1(workGraph: unknown): Promise<CoherenceVerificationReport>
   }
 
   FACTORY_PIPELINE: {
@@ -80,7 +80,7 @@ export interface PipelineResult {
   proposalId?: string
   workGraphId?: string
   coherenceVerificationReport?: CoherenceVerificationReport
-  gate1Report?: Gate1Report
+  gate1Report?: CoherenceVerificationReport
   report?: unknown
   reason?: string
   synthesisResult?: {
@@ -91,7 +91,7 @@ export interface PipelineResult {
   atomResults?: Record<string, unknown>
 }
 
-export interface Gate1Report {
+export interface CoherenceVerificationReport {
   gate: 1
   passed: boolean
   timestamp: string
@@ -100,7 +100,7 @@ export interface Gate1Report {
   summary: string
 }
 
-export type CoherenceVerificationReport = Gate1Report
+export type Gate1Report = CoherenceVerificationReport
 
 export interface SemanticReviewResult {
   alignment: 'aligned' | 'miscast' | 'uncertain'

@@ -2,7 +2,7 @@
   "name": "@factory/ff-gates",
   "version": "0.1.0",
   "private": true,
-  "description": "Gate 1 — deterministic compile coverage validation (CF Worker)",
+  "description": "Coherence Verification — deterministic compile coverage validation (CF Worker)",
   "type": "module",
   "main": "src/index.ts",
   "scripts": {

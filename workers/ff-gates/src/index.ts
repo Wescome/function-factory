@@ -28,23 +28,23 @@ interface GatesEnv {
   ENVIRONMENT: string
 }
 
-export interface Gate1Report {
+export interface CoherenceVerificationReport {
   gate: 1
   passed: boolean
   timestamp: string
   workGraphId: string
-  checks: Gate1Check[]
+  checks: CoherenceVerificationCheck[]
   summary: string
 }
 
-export interface Gate1Check {
+export interface CoherenceVerificationCheck {
   name: string
   passed: boolean
   detail: string
 }
 
-export type CoherenceVerificationReport = Gate1Report
-export type CoherenceVerificationCheck = Gate1Check
+export type Gate1Report = CoherenceVerificationReport
+export type Gate1Check = CoherenceVerificationCheck
 
 export { GatesService }
 
@@ -71,7 +71,7 @@ class GatesService extends WorkerEntrypoint<GatesEnv> {
    * Fail-closed: if ANY check fails, gate fails.
    */
   async evaluateCoherenceVerification(workGraphJson: unknown): Promise<CoherenceVerificationReport> {
-    const checks: Gate1Check[] = []
+    const checks: CoherenceVerificationCheck[] = []
 
     // Parse the WorkGraph — if it doesn't parse, that's a gate failure
     const parseResult = this.checkParseable(workGraphJson)
@@ -107,7 +107,7 @@ class GatesService extends WorkerEntrypoint<GatesEnv> {
 
   // ── Check implementations ──
 
-  private checkParseable(wg: unknown): Gate1Check {
+  private checkParseable(wg: unknown): CoherenceVerificationCheck {
     if (typeof wg !== 'object' || wg === null) {
       return {
         name: 'parseable',
@@ -128,7 +128,7 @@ class GatesService extends WorkerEntrypoint<GatesEnv> {
     return { name: 'parseable', passed: true, detail: 'WorkGraph structure valid' }
   }
 
-  private checkAtomCoverage(wg: Record<string, unknown>): Gate1Check {
+  private checkAtomCoverage(wg: Record<string, unknown>): CoherenceVerificationCheck {
     const atoms = wg.atoms as Array<Record<string, unknown>> | undefined
     if (!atoms || !Array.isArray(atoms)) {
       return { name: 'atom-coverage', passed: false, detail: 'No atoms array' }
@@ -149,7 +149,7 @@ class GatesService extends WorkerEntrypoint<GatesEnv> {
     }
   }
 
-  private checkInvariantCoverage(wg: Record<string, unknown>): Gate1Check {
+  private checkInvariantCoverage(wg: Record<string, unknown>): CoherenceVerificationCheck {
     const invariants = wg.invariants as Array<Record<string, unknown>> | undefined
     if (!invariants || !Array.isArray(invariants)) {
       return { name: 'invariant-coverage', passed: false, detail: 'No invariants array' }
@@ -170,7 +170,7 @@ class GatesService extends WorkerEntrypoint<GatesEnv> {
     }
   }
 
-  private async checkDependencyClosure(wg: Record<string, unknown>): Promise<Gate1Check> {
+  private async checkDependencyClosure(wg: Record<string, unknown>): Promise<CoherenceVerificationCheck> {
     const deps = wg.dependencies as Array<Record<string, unknown>> | undefined
     if (!deps || !Array.isArray(deps)) {
       return { name: 'dependency-closure', passed: true, detail: 'No dependencies declared' }
@@ -199,7 +199,7 @@ class GatesService extends WorkerEntrypoint<GatesEnv> {
     }
   }
 
-  private async checkLineageCompleteness(wgId: string): Promise<Gate1Check> {
+  private async checkLineageCompleteness(wgId: string): Promise<CoherenceVerificationCheck> {
     const db = this.getDb()
 
     // Trace back from WorkGraph through lineage edges — should reach a Signal
@@ -225,7 +225,7 @@ class GatesService extends WorkerEntrypoint<GatesEnv> {
     }
   }
 
-  private checkFieldCompleteness(wg: Record<string, unknown>): Gate1Check {
+  private checkFieldCompleteness(wg: Record<string, unknown>): CoherenceVerificationCheck {
     const missing: string[] = []
 
     // WorkGraph-level required fields
@@ -261,16 +261,16 @@ class GatesService extends WorkerEntrypoint<GatesEnv> {
 
   private buildReport(
     wg: unknown,
-    checks: Gate1Check[],
-  ): Gate1Report {
+    checks: CoherenceVerificationCheck[],
+  ): CoherenceVerificationReport {
     const passed = checks.every((c) => c.passed)
     const obj = wg as Record<string, unknown>
     const wgId = ((obj?._key ?? obj?.id) as string) ?? 'unknown'
 
     const failedNames = checks.filter((c) => !c.passed).map((c) => c.name)
     const summary = passed
-      ? `Gate 1 PASSED: ${checks.length} checks, all clear`
-      : `Gate 1 FAILED: ${failedNames.join(', ')}`
+      ? `Coherence Verification PASSED: ${checks.length} checks, all clear`
+      : `Coherence Verification FAILED: ${failedNames.join(', ')}`
 
     return {
       gate: 1,

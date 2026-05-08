@@ -63,6 +63,7 @@ const files = {
   gatesWorker: 'workers/ff-gates/src/index.ts',
   gatewayWorker: 'workers/ff-gateway/src/index.ts',
   gatewayEnv: 'workers/ff-gateway/src/env.ts',
+  gatewayTypes: 'workers/ff-gateway/src/types.ts',
 }
 
 for (const [label, file] of Object.entries(files)) {
@@ -230,8 +231,13 @@ function checkSchemaAliases() {
   expectIncludes('ff-pipeline workflow calls Coherence Verification service method', read(files.pipelineWorkflow), 'evaluateCoherenceVerification')
   expectIncludes('ff-pipeline workflow uses Coherence Verification step name', read(files.pipelineWorkflow), "'coherence-verification'")
   expectIncludes('ff-gates exposes Coherence Verification service method', read(files.gatesWorker), 'evaluateCoherenceVerification')
+  expectIncludes('ff-gates defines canonical Coherence Verification report interface first', read(files.gatesWorker), 'export interface CoherenceVerificationReport')
+  expectIncludes('ff-gates keeps Gate1Report as alias', read(files.gatesWorker), 'export type Gate1Report = CoherenceVerificationReport')
   expectIncludes('ff-gateway exposes Coherence Verification route', read(files.gatewayWorker), '/coherence-verification')
+  expectIncludes('ff-gateway defines canonical Coherence Verification report interface first', read(files.gatewayTypes), 'export interface CoherenceVerificationReport')
+  expectIncludes('ff-gateway keeps Gate1Report as alias', read(files.gatewayTypes), 'export type Gate1Report = CoherenceVerificationReport')
   expectIncludes('ff-gateway service binding supports Coherence Verification method', read(files.gatewayEnv), 'evaluateCoherenceVerification')
+  expectIncludes('ff-gates package description uses Coherence Verification', read(files.ffGatesPackageJson), 'Coherence Verification')
 }
 
 function checkCompilerPathContracts() {

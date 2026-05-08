@@ -1,4 +1,4 @@
-export interface Gate1Report {
+export interface CoherenceVerificationReport {
   gate: 1
   passed: boolean
   timestamp: string
@@ -7,4 +7,4 @@ export interface Gate1Report {
   summary: string
 }
 
-export type CoherenceVerificationReport = Gate1Report
+export type Gate1Report = CoherenceVerificationReport
