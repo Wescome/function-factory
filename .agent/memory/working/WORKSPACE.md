@@ -1,13 +1,25 @@
 # Current Workspace
 
 ## Status
-Active task: PR #71 literate-sync CI fix.
+Active task: ontology rename blast-radius report.
 
 ## Last update
-2026-05-08T19:48:13Z
+2026-05-08T19:53:29Z
 
 ## Current actions
 
+- Completed: ontology rename blast-radius report.
+  - Added `specs/reference/ONTOLOGY-RENAME-BLAST-RADIUS.md`.
+  - Indexed it from `specs/reference/README.md`.
+  - Search excluded `node_modules`, `pnpm-lock.yaml`, `.git`, and ignored
+    untracked `specs/reference/NLAH`.
+  - Search covered 2040 repository files and 383 critical rename-surface
+    files under specs artifacts, compiler, coverage gates, workers, infra,
+    and `.github`.
+  - Report classifies PRD, WorkGraph, CoverageReport, Gate, package, and
+    Arango collection rename families.
+  - Conclusion: physical renames are not ready; next safe step is an additive
+    compatibility audit script before one-family migration proposals.
 - Completed: PR #71 literate-sync fixes.
   - Pushed `801e060` (`INFRA: fix literate sync pnpm setup`) after approval
     to remove duplicate pnpm version configuration from
