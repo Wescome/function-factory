@@ -20,6 +20,7 @@ import { join, dirname } from "path"
 const REPO_ROOT = join(dirname(new URL(import.meta.url).pathname), "..", "..", "..")
 const REFERENCE_PATH = join(REPO_ROOT, "specs", "reference", "literate-canonical-reference.md")
 const OUTPUT_DIR = join(dirname(new URL(import.meta.url).pathname), "..", "tangled")
+const TANGLE_GENERATED_MARKER = "deterministic"
 
 const KNOWN_CONTEXTS = [
   "specification",
@@ -147,7 +148,7 @@ function writeContextFiles(grouped: Map<ContextName, ExtractedBlock[]>): void {
       `// Tangled from specs/reference/literate-canonical-reference.md`,
       `// Context: ${context}`,
       `// Blocks: ${blocks.length}`,
-      `// Generated: ${new Date().toISOString()}`,
+      `// Generated: ${TANGLE_GENERATED_MARKER}`,
       `// DO NOT EDIT — edit the literate reference and re-run tangle.`,
       ``,
     ].join("\n")

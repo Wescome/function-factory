@@ -1,7 +1,7 @@
 // Tangled from specs/reference/literate-canonical-reference.md
 // Context: specification
 // Blocks: 13
-// Generated: 2026-04-24T15:11:44.398Z
+// Generated: deterministic
 // DO NOT EDIT — edit the literate reference and re-run tangle.
 // --- Block from line 455 (Part II -- How Does a Function Come to Exist?) ---
 /**

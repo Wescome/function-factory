@@ -1,7 +1,7 @@
 // Tangled from specs/reference/literate-canonical-reference.md
 // Context: loop
 // Blocks: 4
-// Generated: 2026-04-24T15:11:44.401Z
+// Generated: deterministic
 // DO NOT EDIT — edit the literate reference and re-run tangle.
 // --- Block from line 2307 (Part VII -- How Does the Code Get Organized?) ---
 /**

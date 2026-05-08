@@ -1,13 +1,33 @@
 # Current Workspace
 
 ## Status
-Active task: Ontology v0.2 roadmap implementation complete through non-rename milestones.
+Active task: PR #71 literate-sync CI fix.
 
 ## Last update
-2026-05-08T19:26:36Z
+2026-05-08T19:48:13Z
 
 ## Current actions
 
+- Completed: PR #71 literate-sync fixes.
+  - Pushed `801e060` (`INFRA: fix literate sync pnpm setup`) after approval
+    to remove duplicate pnpm version configuration from
+    `.github/workflows/literate-sync.yml`.
+  - `literate-sync` then reached the tangle verification step and failed
+    because `packages/literate-tools/src/tangle.ts` emitted wall-clock
+    `Generated` headers on every run.
+  - After approval, added `packages/literate-tools/src/tangle.test.ts`, made
+    `tangle.ts` emit `Generated: deterministic`, and regenerated
+    `packages/literate-tools/tangled/*/index.ts`.
+  - Verification passed:
+    - focused tangle test failed before implementation, then passed
+    - `pnpm --filter @factory/literate-tools tangle`
+    - second tangle run idempotence check
+    - `pnpm --filter @factory/literate-tools walkthrough`
+    - `pnpm --filter @factory/literate-tools test`
+    - stale `CANONICAL-ONLY` marker check
+    - `pnpm audit:docs`
+    - `pnpm -r typecheck`
+    - `git diff --check`
 - Completed: remaining ontology roadmap milestones.
   - Added non-breaking `@factory/schemas` ontology aliases in
     `packages/schemas/src/ontology-aliases.ts`, exported from package index
