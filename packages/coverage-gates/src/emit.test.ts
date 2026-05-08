@@ -3,7 +3,7 @@ import { mkdtemp, rm, readFile, readdir } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { parse as parseYaml } from "yaml"
-import { emitGate1Report } from "./emit.js"
+import { emitCoherenceVerificationReport, emitGate1Report } from "./emit.js"
 import { runGate1 } from "./gate-1.js"
 import type { Gate1Input } from "./gate-1.js"
 import {
@@ -44,6 +44,10 @@ describe("emitGate1Report", () => {
 
   afterEach(async () => {
     await rm(workDir, { recursive: true, force: true })
+  })
+
+  it("exposes Coherence Verification as the canonical report emitter alias", () => {
+    expect(emitCoherenceVerificationReport).toBe(emitGate1Report)
   })
 
   it("writes a YAML file whose name matches <id>.yaml", async () => {

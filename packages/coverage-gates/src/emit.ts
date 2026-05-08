@@ -35,3 +35,6 @@ export async function emitGate1Report(
   await writeFile(filepath, yaml, "utf8")
   return filepath
 }
+
+export const emitCoherenceVerificationReport = emitGate1Report
+export type CoherenceVerificationReport = Gate1Report

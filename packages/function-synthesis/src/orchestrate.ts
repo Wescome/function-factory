@@ -17,7 +17,7 @@ import {
   type SynthesisDecisionState,
 } from "./decision-state.js"
 import { checkRoleAdherence } from "./role-adherence.js"
-import { buildTraceLog, buildGate2Input, buildCandidateSelectionReport } from "./evidence.js"
+import { buildTraceLog, buildFidelityVerificationInput, buildCandidateSelectionReport } from "./evidence.js"
 import { checkCrystallization } from "./crystallization.js"
 import { MemoryWriteCollector } from "./memory-tool.js"
 import {
@@ -211,7 +211,7 @@ export async function orchestrate(
     completedAt,
   })
 
-  const gate2Input = buildGate2Input({
+  const fidelityVerificationInput = buildFidelityVerificationInput({
     runId,
     functionId: config.functionId,
     workGraphId: workGraph.id,
@@ -273,7 +273,8 @@ export async function orchestrate(
     generatedArtifactPaths: emittedPaths,
     traceLog,
     roleAdherenceReport,
-    gate2Input,
+    fidelityVerificationInput,
+    gate2Input: fidelityVerificationInput,
     candidateSelectionReport,
     requiresHumanApproval,
     humanApprovalPayload,

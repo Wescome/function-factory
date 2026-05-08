@@ -160,7 +160,7 @@ export const RoleAdherenceReport = z.object({
 })
 export type RoleAdherenceReport = z.infer<typeof RoleAdherenceReport>
 
-// ─── Gate 2 Input (AC 11) ─────────────────────────────────────────────
+// ─── Fidelity Verification Input (AC 11) ──────────────────────────────
 // TODO: promote to @factory/schemas — normalized acceptance evidence
 
 export const Gate2Input = z.object({
@@ -186,6 +186,9 @@ export const Gate2Input = z.object({
   }),
 })
 export type Gate2Input = z.infer<typeof Gate2Input>
+
+export const FidelityVerificationInput = Gate2Input
+export type FidelityVerificationInput = Gate2Input
 
 // ─── Candidate Selection Report (AC 12) ───────────────────────────────
 // TODO: promote to @factory/schemas
@@ -219,6 +222,7 @@ export const SynthesisResult = z.object({
   generatedArtifactPaths: z.array(z.string()),
   traceLog: SynthesisTraceLog,
   roleAdherenceReport: RoleAdherenceReport,
+  fidelityVerificationInput: FidelityVerificationInput.optional(),
   gate2Input: Gate2Input,
   candidateSelectionReport: SynthesisCandidateSelectionReport,
   requiresHumanApproval: z.boolean(),

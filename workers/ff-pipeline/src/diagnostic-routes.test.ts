@@ -1001,6 +1001,37 @@ describe('ff-pipeline diagnostic routes', () => {
     })
   })
 
+  it('POST /debug/fidelity-verification accepts FidelityVerificationInput evidence', async () => {
+    const { default: worker } = await import('./index')
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/debug/fidelity-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fidelityVerificationInput: makeGate2ContractInput(),
+          prdId: 'PRD-META-FUNCTION-SYNTHESIS',
+          sourceRefs: ['MRP-MOTE4M1R-G7I0-71'],
+        }),
+      }),
+      createEnv() as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(200)
+    expect(await jsonBody(response)).toMatchObject({
+      report: {
+        id: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+        gate: 2,
+        function_id: 'FN-MOTDWVR2-W7UN',
+        overall: 'pass',
+      },
+      verdict: {
+        verdict: 'accepted',
+      },
+    })
+  })
+
   it('POST /debug/gate2-simulate can persist the emitted Gate 2 report', async () => {
     const { default: worker } = await import('./index')
 
@@ -1124,6 +1155,34 @@ describe('ff-pipeline diagnostic routes', () => {
         }),
       }),
     )
+  })
+
+  it('POST /debug/persistence-verification persists a minimal Persistence Verification blocker report', async () => {
+    const { default: worker } = await import('./index')
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/debug/persistence-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...makeGate3RegistrationInput(),
+          persist: true,
+        }),
+      }),
+      createEnv() as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(201)
+    expect(await jsonBody(response)).toMatchObject({
+      persisted: true,
+      persistenceVerificationReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE3-2026-05-07T22-00-00-000Z',
+      report: {
+        gate: 3,
+        function_id: 'FN-MOTDWVR2-W7UN',
+        overall: 'fail',
+      },
+    })
   })
 
   it('POST /debug/lifecycle-acceptance dry-runs produced to accepted from persisted Gate 2 evidence', async () => {

@@ -458,3 +458,22 @@ export function evaluateGate2Simulation(input: Gate2SimulationInput): Gate2Simul
 
   return { report, verdict }
 }
+
+export type FidelityVerificationScenarioKind = Gate2ScenarioKind
+export type FidelityVerificationValidationPriority = Gate2ValidationPriority
+export type FidelityVerificationValidationStatus = Gate2ValidationStatus
+export type FidelityVerificationBranch = Gate2Branch
+export type FidelityVerificationInvariant = Gate2Invariant
+export type FidelityVerificationScenario = Gate2Scenario
+export type FidelityVerificationValidationOutcome = Gate2ValidationOutcome
+export type FidelityVerificationInput = Gate2SimulationInput
+export type FidelityVerificationContractInput = Gate2ContractInput
+export type FidelityVerificationResult = Gate2SimulationResult
+export type FidelityVerificationAcceptanceDryRunInput = Gate2AcceptanceDryRunInput
+export type FidelityVerificationAcceptanceDryRun = Gate2AcceptanceDryRun
+
+export const FidelityVerificationError = Gate2SimulationError
+export const adaptFidelityVerificationInput = adaptGate2Input
+export const evaluateFidelityVerificationFromContractInput = evaluateGate2FromContractInput
+export const dryRunFidelityAcceptanceTransition = dryRunGate2AcceptanceTransition
+export const evaluateFidelityVerification = evaluateGate2Simulation

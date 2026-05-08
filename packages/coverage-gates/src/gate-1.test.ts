@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { runGate1, type Gate1Input } from "./gate-1.js"
+import { runCoherenceVerification, runGate1, type Gate1Input } from "./gate-1.js"
 import { Gate1Report } from "@factory/schemas"
 import {
   makeAtom,
@@ -33,6 +33,10 @@ function passingInput(mode: Gate1Input["mode"] = "bootstrap"): Gate1Input {
 }
 
 describe("runGate1", () => {
+  it("exposes Coherence Verification as the canonical evaluator alias", () => {
+    expect(runCoherenceVerification).toBe(runGate1)
+  })
+
   it("produces a Gate1Report that validates against the Zod schema", () => {
     const report = runGate1(passingInput(), TIMESTAMP)
     const parsed = Gate1Report.safeParse(report)

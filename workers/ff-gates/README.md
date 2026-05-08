@@ -1,26 +1,29 @@
 # @factory/ff-gates
 
-Cloudflare Worker service binding for deterministic Gate 1 evaluation.
+Cloudflare Worker service binding for deterministic `Coherence Verification`.
 
 ## Ontology Alias
 
-Gate 1 maps to ontology v0.2 `Coherence Verification`. This worker still
-accepts and reports on WorkGraph artifacts, which are aliased as `Executable
-Specification`.
+Ontology v0.2 names this worker's verification role `Coherence Verification`.
+This worker still accepts and reports on WorkGraph artifacts, which are aliased
+as `Executable Specification`.
 
-The worker package name `@factory/ff-gates`, the `Gate1Report` shape, and the
-`/gate/1` gateway route remain stable compatibility names.
+The worker package name `@factory/ff-gates` remains a stable compatibility
+name. New service-binding callers should prefer
+`evaluateCoherenceVerification`; `evaluateGate1`, the `Gate1Report` shape, and
+the `/gate/1` gateway route remain legacy compatibility shims.
 
 ## Runtime Surfaces
 
 - Service binding consumed by `@factory/ff-gateway`
 - WorkGraph parse and completeness checks
 - `specs_workgraphs` lineage roots
-- fail-closed Gate 1 report output
+- fail-closed Coherence Verification report output
 
 ## Compatibility Notes
 
-- Do not rename Gate 1, Gate1Report, WorkGraph, or `specs_workgraphs` without a
-  one-family rename proposal and remote `Repository Audit` evidence.
-- This worker performs deterministic validation only; it does not introduce
-  new ontology terminology into runtime API shapes.
+- Do not add new numbered Gate 1 APIs. Add ontology-named aliases first, keep
+  legacy shims in place, and require a one-family rename proposal before any
+  physical rename.
+- This worker performs deterministic validation only; report persistence shapes
+  stay compatible until a dedicated migration proves dual-read compatibility.

@@ -544,29 +544,30 @@ export default {
       }
     }
 
-    // ── Diagnostic: pure Gate 2 simulation evaluator ──
-    if (url.pathname === '/debug/gate2-simulate' && request.method === 'POST') {
+    // ── Diagnostic: pure Fidelity Verification evaluator ──
+    if ((url.pathname === '/debug/fidelity-verification' || url.pathname === '/debug/gate2-simulate') && request.method === 'POST') {
       try {
         const body = await request.json() as Record<string, unknown>
         const gate2Simulation = await import('./gate2-simulation.js')
-        let result: import('./gate2-simulation').Gate2SimulationResult
-        if (body.gate2Input) {
+        let result: import('./gate2-simulation').FidelityVerificationResult
+        const fidelityVerificationInput = body.fidelityVerificationInput ?? body.gate2Input
+        if (fidelityVerificationInput) {
           const options: import('./gate2-simulation').AdaptGate2InputOptions = {
             prdId: body.prdId as string,
             ...(body.timestamp ? { timestamp: body.timestamp as string } : {}),
             ...(body.sourceRefs ? { sourceRefs: body.sourceRefs as string[] } : {}),
           }
-          result = gate2Simulation.evaluateGate2FromContractInput(
-            body.gate2Input as import('./gate2-simulation').Gate2ContractInput,
+          result = gate2Simulation.evaluateFidelityVerificationFromContractInput(
+            fidelityVerificationInput as import('./gate2-simulation').FidelityVerificationContractInput,
             options,
           )
         } else {
-          result = gate2Simulation.evaluateGate2Simulation(body as unknown as import('./gate2-simulation').Gate2SimulationInput)
+          result = gate2Simulation.evaluateFidelityVerification(body as unknown as import('./gate2-simulation').FidelityVerificationInput)
         }
 
         const lifecycleDryRunInput = body.lifecycleDryRun as Record<string, unknown> | undefined
         const lifecycleDryRun = lifecycleDryRunInput
-          ? gate2Simulation.dryRunGate2AcceptanceTransition({
+          ? gate2Simulation.dryRunFidelityAcceptanceTransition({
             currentState: lifecycleDryRunInput.currentState as import('./lifecycle').LifecycleState,
             report: result.report,
             verdict: result.verdict,
@@ -593,6 +594,7 @@ export default {
           return new Response(JSON.stringify({
             persisted: true,
             coverageReportKey: result.report.id,
+            fidelityVerificationReportKey: result.report.id,
             ...responseBody,
           }, null, 2), {
             status: 201,
@@ -610,13 +612,13 @@ export default {
       }
     }
 
-    // ── Diagnostic: minimal Gate 3 assurance registration report ──
-    if (url.pathname === '/debug/gate3-register' && request.method === 'POST') {
+    // ── Diagnostic: minimal Persistence Verification registration report ──
+    if ((url.pathname === '/debug/persistence-verification' || url.pathname === '/debug/gate3-register') && request.method === 'POST') {
       try {
         const body = await request.json() as Record<string, unknown>
-        const { evaluateGate3AssuranceRegistration } = await import('./gate3-assurance.js')
-        const report = evaluateGate3AssuranceRegistration(
-          body as unknown as import('./gate3-assurance').Gate3AssuranceRegistrationInput,
+        const { evaluatePersistenceVerificationRegistration } = await import('./gate3-assurance.js')
+        const report = evaluatePersistenceVerificationRegistration(
+          body as unknown as import('./gate3-assurance').PersistenceVerificationRegistrationInput,
         )
 
         if (body.persist === true) {
@@ -637,6 +639,7 @@ export default {
           return new Response(JSON.stringify({
             persisted: true,
             coverageReportKey: report.id,
+            persistenceVerificationReportKey: report.id,
             report,
           }, null, 2), {
             status: 201,

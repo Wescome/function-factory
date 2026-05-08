@@ -150,3 +150,11 @@ export function evaluateGate3AssuranceRegistration(input: Gate3AssuranceRegistra
     rationale: 'Gate 3 assurance registration report produced from normalized detector and evidence-source registration.',
   })
 }
+
+export type PersistenceVerificationDetectorRegistration = Gate3DetectorRegistration
+export type PersistenceVerificationEvidenceSourceRegistration = Gate3EvidenceSourceRegistration
+export type PersistenceVerificationRegistrationInput = Gate3AssuranceRegistrationInput
+export type PersistenceVerificationReport = Gate3ReportType
+
+export const PersistenceVerificationError = Gate3AssuranceError
+export const evaluatePersistenceVerificationRegistration = evaluateGate3AssuranceRegistration

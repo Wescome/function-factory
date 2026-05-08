@@ -25,6 +25,7 @@ export {
   ContractSurfaceCheck,
   RoleAdherenceEntry,
   RoleAdherenceReport,
+  FidelityVerificationInput,
   Gate2Input,
   SynthesisCandidateSelectionReport,
   PatchProposal,
@@ -66,7 +67,12 @@ export type { DisagreementConditions, DisagreementResolution } from "./disagreem
 export { resolveDisagreement } from "./disagreement.js"
 
 // ─── Evidence ─────────────────────────────────────────────────────────
-export { buildTraceLog, buildGate2Input, buildCandidateSelectionReport } from "./evidence.js"
+export {
+  buildTraceLog,
+  buildFidelityVerificationInput,
+  buildGate2Input,
+  buildCandidateSelectionReport,
+} from "./evidence.js"
 
 // ─── Memory ───────────────────────────────────────────────────────────
 export { MemoryWriteCollector } from "./memory-tool.js"

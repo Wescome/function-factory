@@ -2,10 +2,15 @@ import { describe, expect, it } from 'vitest'
 import { Gate2Report, Gate2Verdict } from '@factory/schemas'
 import {
   Gate2SimulationError,
+  FidelityVerificationError,
   adaptGate2Input,
+  adaptFidelityVerificationInput,
   dryRunGate2AcceptanceTransition,
+  dryRunFidelityAcceptanceTransition,
   evaluateGate2FromContractInput,
   evaluateGate2Simulation,
+  evaluateFidelityVerification,
+  evaluateFidelityVerificationFromContractInput,
   type Gate2ContractInput,
   type Gate2SimulationInput,
 } from './gate2-simulation'
@@ -117,6 +122,14 @@ function makeContractInput(overrides: Partial<Gate2ContractInput> = {}): Gate2Co
 }
 
 describe('Gate 2 simulation evaluator', () => {
+  it('exposes Fidelity Verification aliases for new code', () => {
+    expect(FidelityVerificationError).toBe(Gate2SimulationError)
+    expect(adaptFidelityVerificationInput).toBe(adaptGate2Input)
+    expect(evaluateFidelityVerification).toBe(evaluateGate2Simulation)
+    expect(evaluateFidelityVerificationFromContractInput).toBe(evaluateGate2FromContractInput)
+    expect(dryRunFidelityAcceptanceTransition).toBe(dryRunGate2AcceptanceTransition)
+  })
+
   it('adapts normalized Gate2Input evidence into simulation input', () => {
     const adapted = adaptGate2Input(makeContractInput(), {
       prdId: 'PRD-META-FUNCTION-SYNTHESIS',

@@ -13,6 +13,10 @@
  * audit tool inspecting intermediates might run only runGate1).
  */
 
-export { runGate1 } from "./gate-1.js"
-export type { Gate1Input } from "./gate-1.js"
-export { emitGate1Report } from "./emit.js"
+export { runCoherenceVerification, runGate1 } from "./gate-1.js"
+export type {
+  CoherenceVerificationInput,
+  CoherenceVerificationReport,
+  Gate1Input,
+} from "./gate-1.js"
+export { emitCoherenceVerificationReport, emitGate1Report } from "./emit.js"

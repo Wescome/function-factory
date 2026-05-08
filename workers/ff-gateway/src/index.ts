@@ -11,7 +11,8 @@
  *   GET  /specs/:collection      → list specs
  *   GET  /lineage/:collection/:key → lineage traversal
  *   GET  /impact/:collection/:key  → impact analysis
- *   POST /gate/1           → Gate 1 evaluation
+ *   POST /coherence-verification → Coherence Verification
+ *   POST /gate/1           → legacy Gate 1 compatibility route
  *   GET  /gate-status/:gate/:id → gate status lookup
  *   GET  /trust/:id        → trust score
  *   GET  /crps/pending      → pending CRPs (ACE inbox)
@@ -92,10 +93,12 @@ export default {
         return json({ startId: `${collection}/${key}`, impact })
       }
 
-      // ── Gate 1 ──
-      if (method === 'POST' && path === '/gate/1') {
+      // ── Coherence Verification ──
+      if (method === 'POST' && (path === '/coherence-verification' || path === '/gate/1')) {
         const workGraph = await request.json()
-        const report = await env.GATES.evaluateGate1(workGraph)
+        const report = env.GATES.evaluateCoherenceVerification
+          ? await env.GATES.evaluateCoherenceVerification(workGraph)
+          : await env.GATES.evaluateGate1(workGraph)
         const status = report.passed ? 200 : 422
         return json(report, status)
       }
@@ -196,6 +199,7 @@ export default {
           'GET  /specs/:collection',
           'GET  /lineage/:collection/:key',
           'GET  /impact/:collection/:key',
+          'POST /coherence-verification',
           'POST /gate/1',
           'GET  /gate-status/:gate/:id',
           'GET  /trust/:id',

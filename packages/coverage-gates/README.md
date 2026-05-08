@@ -1,6 +1,8 @@
 # @factory/coverage-gates
 
-Fail-closed coverage evaluators for the Factory pipeline. Currently implements Gate 1 (Compile Coverage Gate); Gates 2 and 3 are planned for subsequent PRs.
+Fail-closed verification evaluators for the Factory pipeline. The canonical
+ontology name for the implemented evaluator is `Coherence Verification`; the
+numbered Gate 1 names remain legacy compatibility shims.
 
 ## Ontology Alias
 
@@ -12,20 +14,23 @@ Ontology v0.2 names the three gate classes as verification processes:
 | Gate 2 / Simulation Coverage Gate | Fidelity Verification |
 | Gate 3 / Assurance Coverage Gate | Persistence Verification |
 
-The package name, schema names, and `Gate*Report` APIs remain stable
-compatibility names.
+The package name remains a stable compatibility name. New code should prefer
+`runCoherenceVerification`, `emitCoherenceVerificationReport`, and
+`CoherenceVerificationInput`; `runGate1`, `emitGate1Report`, `Gate1Input`, and
+`Gate1Report` remain legacy compatibility shims.
 
 ## Pipeline Position
 
 **Stage:** 5.5
 **Consumes:** Compiler intermediates (atoms, invariants, validations, dependencies, PRD ID, factory mode)
-**Produces:** `CR-*` (Gate1Report coverage reports as YAML)
+**Produces:** `CR-*` (`CoherenceVerificationReport` coverage reports as YAML)
 
 ## Exports
 
-- `runGate1()` -- Pure function that composes five coverage checks and returns a validated Gate1Report
-- `emitGate1Report()` -- Side-effect module that writes a Gate1Report to disk as YAML
-- `Gate1Input` type -- Typed input for the five coverage checks
+- `runCoherenceVerification()` -- Pure function that composes five coverage checks and returns a validated report
+- `emitCoherenceVerificationReport()` -- Side-effect module that writes the report to disk as YAML
+- `CoherenceVerificationInput` type -- Typed input for the five coverage checks
+- `runGate1()`, `emitGate1Report()`, and `Gate1Input` -- legacy compatibility shims
 
 ### Coverage Checks (internal)
 

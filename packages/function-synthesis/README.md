@@ -6,28 +6,31 @@ ArchitectureCandidate into Function implementation evidence.
 ## Ontology Alias
 
 This package operates on WorkGraph artifacts, which ontology v0.2 aliases as
-`Executable Specification`. It emits Gate 2 inputs and synthesis traces that
-support `Fidelity Verification`. The stable compatibility names remain
-WorkGraph, ArchitectureCandidate, Gate 2, and `@factory/function-synthesis`.
+`Executable Specification`. It emits `FidelityVerificationInput` evidence and
+synthesis traces that support `Fidelity Verification`. Numbered Gate 2 names
+are legacy compatibility shims only; new code should use Fidelity Verification
+terms.
+The package name `@factory/function-synthesis` remains the stable compatibility
+name.
 
 ## Pipeline Position
 
 **Stage:** Worker synthesis process
 **Consumes:** WorkGraph, ArchitectureCandidate, binding mode, synthesis config
-**Produces:** SynthesisResult, role traces, Gate2Input, candidate-selection
-evidence, and patch proposals
+**Produces:** SynthesisResult, role traces, FidelityVerificationInput,
+candidate-selection evidence, and patch proposals
 
 ## Runtime Concepts
 
 - Planner, Coder, Critic, Tester, and Verifier role contracts
 - Binding modes for stub, Pi agent, and live synthesis paths
 - Decision-state transitions for pass, retry, escalation, and failure
-- Gate 2 evidence inputs for semantic fidelity review
+- Fidelity Verification evidence inputs for semantic fidelity review
 
 ## Compatibility Notes
 
 - `synthesize(workGraph, candidate, bindingMode, config)` remains the primary
   compatibility API.
-- WorkGraph IDs and Gate 2 evidence names remain live runtime terms until a
-  dedicated one-family rename proposal proves compatibility.
+- `Gate2Input` remains as a temporary legacy export that points at
+  `FidelityVerificationInput`.
 - This package must not be renamed as part of ontology grounding alone.

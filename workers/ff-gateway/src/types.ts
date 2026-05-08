@@ -6,3 +6,5 @@ export interface Gate1Report {
   checks: { name: string; passed: boolean; detail: string }[]
   summary: string
 }
+
+export type CoherenceVerificationReport = Gate1Report

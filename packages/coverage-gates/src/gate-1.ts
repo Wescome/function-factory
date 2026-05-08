@@ -26,6 +26,7 @@ import {
 import { generateRemediation } from "./remediation.js"
 
 export type { Gate1Input } from "./checks.js"
+export type { Gate1Input as CoherenceVerificationInput } from "./checks.js"
 
 /**
  * Run Gate 1 against validated compiler intermediates.
@@ -99,6 +100,9 @@ export function runGate1(input: Gate1Input, timestamp: string): Gate1ReportType 
   }
   return parsed.data
 }
+
+export const runCoherenceVerification = runGate1
+export type CoherenceVerificationReport = Gate1ReportType
 
 /**
  * Construct the Coverage Report ID per the SKILL.md naming convention-

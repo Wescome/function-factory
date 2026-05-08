@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { Gate3Report } from '@factory/schemas'
-import { evaluateGate3AssuranceRegistration, type Gate3AssuranceRegistrationInput } from './gate3-assurance'
+import {
+  PersistenceVerificationError,
+  evaluateGate3AssuranceRegistration,
+  evaluatePersistenceVerificationRegistration,
+  type Gate3AssuranceRegistrationInput,
+} from './gate3-assurance'
 
 function makeInput(overrides: Partial<Gate3AssuranceRegistrationInput> = {}): Gate3AssuranceRegistrationInput {
   return {
@@ -36,6 +41,11 @@ function makeInput(overrides: Partial<Gate3AssuranceRegistrationInput> = {}): Ga
 }
 
 describe('Gate 3 assurance registration', () => {
+  it('exposes Persistence Verification aliases for new code', () => {
+    expect(PersistenceVerificationError.name).toBe('Gate3AssuranceError')
+    expect(evaluatePersistenceVerificationRegistration).toBe(evaluateGate3AssuranceRegistration)
+  })
+
   it('emits a failing Gate3Report for incomplete assurance registration', () => {
     const report = evaluateGate3AssuranceRegistration(makeInput())
 

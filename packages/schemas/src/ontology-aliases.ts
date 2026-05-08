@@ -17,10 +17,12 @@ import {
   CoverageReport,
   Gate1Report,
   Gate2Report,
+  Gate2Verdict,
   Gate3Report,
   type CoverageReport as CurrentCoverageReport,
   type Gate1Report as CurrentGate1Report,
   type Gate2Report as CurrentGate2Report,
+  type Gate2Verdict as CurrentGate2Verdict,
   type Gate3Report as CurrentGate3Report,
 } from "./coverage.js"
 
@@ -41,6 +43,9 @@ export type CoherenceVerificationReport = CurrentGate1Report
 
 export const FidelityVerificationReport = Gate2Report
 export type FidelityVerificationReport = CurrentGate2Report
+
+export const FidelityVerificationVerdict = Gate2Verdict
+export type FidelityVerificationVerdict = CurrentGate2Verdict
 
 export const PersistenceVerificationReport = Gate3Report
 export type PersistenceVerificationReport = CurrentGate3Report

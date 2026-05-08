@@ -1,7 +1,7 @@
 /**
  * @module ff-gates
  *
- * Gate 1: Compile Coverage — deterministic, fail-closed.
+ * Coherence Verification — deterministic, fail-closed.
  *
  * Validates a WorkGraph against five coverage criteria using Zod schemas.
  * No LLM calls. No network calls except ArangoDB reads. Target: <10ms.
@@ -43,6 +43,9 @@ export interface Gate1Check {
   detail: string
 }
 
+export type CoherenceVerificationReport = Gate1Report
+export type CoherenceVerificationCheck = Gate1Check
+
 export { GatesService }
 
 class GatesService extends WorkerEntrypoint<GatesEnv> {
@@ -56,7 +59,7 @@ class GatesService extends WorkerEntrypoint<GatesEnv> {
   }
 
   /**
-   * Evaluate Gate 1 on a WorkGraph.
+   * Evaluate Coherence Verification on a WorkGraph.
    *
    * Five checks, all deterministic:
    * 1. Atom coverage     — every atom in the WorkGraph has an implementation binding
@@ -67,7 +70,7 @@ class GatesService extends WorkerEntrypoint<GatesEnv> {
    *
    * Fail-closed: if ANY check fails, gate fails.
    */
-  async evaluateGate1(workGraphJson: unknown): Promise<Gate1Report> {
+  async evaluateCoherenceVerification(workGraphJson: unknown): Promise<CoherenceVerificationReport> {
     const checks: Gate1Check[] = []
 
     // Parse the WorkGraph — if it doesn't parse, that's a gate failure
@@ -96,6 +99,10 @@ class GatesService extends WorkerEntrypoint<GatesEnv> {
     checks.push(this.checkFieldCompleteness(wg))
 
     return this.buildReport(workGraphJson, checks)
+  }
+
+  async evaluateGate1(workGraphJson: unknown): Promise<Gate1Report> {
+    return this.evaluateCoherenceVerification(workGraphJson)
   }
 
   // ── Check implementations ──

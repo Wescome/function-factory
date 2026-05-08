@@ -1,5 +1,6 @@
 /**
- * Evidence emission — Stage6TraceLog, CandidateSelectionReport, Gate2Input.
+ * Evidence emission — Stage6TraceLog, CandidateSelectionReport,
+ * FidelityVerificationInput.
  *
  * Three artifacts emitted per synthesis, regardless of outcome.
  *
@@ -9,7 +10,7 @@
 import type { ArchitectureCandidate, WorkGraph } from "@factory/schemas"
 import {
   SynthesisTraceLog,
-  Gate2Input,
+  FidelityVerificationInput,
   SynthesisCandidateSelectionReport,
   type TerminalDecision,
   type RoleIterationRecord,
@@ -50,7 +51,7 @@ export function buildTraceLog(input: TraceLogInput): SynthesisTraceLog {
   })
 }
 
-// ─── Gate 2 Input Builder (AC 11) ─────────────────────────────────────
+// ─── Fidelity Verification Input Builder (AC 11) ──────────────────────
 
 export interface Gate2InputBuilderInput {
   readonly runId: string
@@ -73,8 +74,10 @@ export interface Gate2InputBuilderInput {
   readonly completedAt: string
 }
 
-export function buildGate2Input(input: Gate2InputBuilderInput): Gate2Input {
-  return Gate2Input.parse({
+export type FidelityVerificationInputBuilderInput = Gate2InputBuilderInput
+
+export function buildFidelityVerificationInput(input: FidelityVerificationInputBuilderInput): FidelityVerificationInput {
+  return FidelityVerificationInput.parse({
     synthesisRunId: input.runId,
     functionId: input.functionId,
     workGraphId: input.workGraphId,
@@ -97,6 +100,8 @@ export function buildGate2Input(input: Gate2InputBuilderInput): Gate2Input {
     },
   })
 }
+
+export const buildGate2Input = buildFidelityVerificationInput
 
 // ─── Candidate Selection Report Builder (AC 12) ──────────────────────
 

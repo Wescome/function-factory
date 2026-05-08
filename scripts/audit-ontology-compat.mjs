@@ -26,7 +26,12 @@ const files = {
   aliases: 'packages/schemas/src/ontology-aliases.ts',
   aliasTest: 'packages/schemas/src/ontology-aliases.test.ts',
   compiler: 'packages/compiler/src/compile.ts',
+  coverageGatesIndex: 'packages/coverage-gates/src/index.ts',
+  coverageGatesGate1: 'packages/coverage-gates/src/gate-1.ts',
+  coverageGatesEmit: 'packages/coverage-gates/src/emit.ts',
   coverageEmit: 'packages/coverage-gates/src/emit.ts',
+  functionSynthesisTypes: 'packages/function-synthesis/src/types.ts',
+  functionSynthesisEvidence: 'packages/function-synthesis/src/evidence.ts',
   artifactValidatorReadme: 'packages/artifact-validator/README.md',
   functionSynthesisReadme: 'packages/function-synthesis/README.md',
   ontologyLoaderReadme: 'packages/ontology-loader/README.md',
@@ -50,7 +55,11 @@ const files = {
   pipelineIndex: 'workers/ff-pipeline/src/index.ts',
   pipelineLifecycle: 'workers/ff-pipeline/src/lifecycle.ts',
   pipelineCompileStage: 'workers/ff-pipeline/src/stages/compile.ts',
+  pipelineFidelityVerification: 'workers/ff-pipeline/src/gate2-simulation.ts',
+  pipelinePersistenceVerification: 'workers/ff-pipeline/src/gate3-assurance.ts',
   gatesWorker: 'workers/ff-gates/src/index.ts',
+  gatewayWorker: 'workers/ff-gateway/src/index.ts',
+  gatewayEnv: 'workers/ff-gateway/src/env.ts',
 }
 
 for (const [label, file] of Object.entries(files)) {
@@ -188,6 +197,7 @@ function checkSchemaAliases() {
     ['VerificationReport', 'CoverageReport'],
     ['CoherenceVerificationReport', 'Gate1Report'],
     ['FidelityVerificationReport', 'Gate2Report'],
+    ['FidelityVerificationVerdict', 'Gate2Verdict'],
     ['PersistenceVerificationReport', 'Gate3Report'],
   ]
 
@@ -199,6 +209,21 @@ function checkSchemaAliases() {
 
   expectIncludes('schema package index re-exports ontology aliases', schemaIndex, 'export * from "./ontology-aliases.js"')
   expectIncludes('schema package exports ontology alias subpath', schemaPackage, '"./ontology-aliases": "./src/ontology-aliases.ts"')
+  expectIncludes('coverage-gates exports Coherence Verification runner alias', read(files.coverageGatesIndex), 'runCoherenceVerification')
+  expectIncludes('coverage-gates runner alias points to runGate1', read(files.coverageGatesGate1), 'export const runCoherenceVerification = runGate1')
+  expectIncludes('coverage-gates emits Coherence Verification report alias', read(files.coverageGatesEmit), 'export const emitCoherenceVerificationReport = emitGate1Report')
+  expectIncludes('function synthesis exports FidelityVerificationInput schema', read(files.functionSynthesisTypes), 'export const FidelityVerificationInput = Gate2Input')
+  expectIncludes('function synthesis exports FidelityVerificationInput type', read(files.functionSynthesisTypes), 'export type FidelityVerificationInput = Gate2Input')
+  expectIncludes('function synthesis builds FidelityVerificationInput', read(files.functionSynthesisEvidence), 'buildFidelityVerificationInput')
+  expectIncludes('function synthesis keeps legacy Gate2Input builder alias', read(files.functionSynthesisEvidence), 'export const buildGate2Input = buildFidelityVerificationInput')
+  expectIncludes('ff-pipeline exposes Fidelity Verification evaluator alias', read(files.pipelineFidelityVerification), 'export const evaluateFidelityVerification = evaluateGate2Simulation')
+  expectIncludes('ff-pipeline exposes Fidelity Verification contract adapter alias', read(files.pipelineFidelityVerification), 'export const evaluateFidelityVerificationFromContractInput = evaluateGate2FromContractInput')
+  expectIncludes('ff-pipeline exposes Persistence Verification evaluator alias', read(files.pipelinePersistenceVerification), 'export const evaluatePersistenceVerificationRegistration = evaluateGate3AssuranceRegistration')
+  expectIncludes('ff-pipeline exposes Fidelity Verification diagnostic route', read(files.pipelineIndex), '/debug/fidelity-verification')
+  expectIncludes('ff-pipeline exposes Persistence Verification diagnostic route', read(files.pipelineIndex), '/debug/persistence-verification')
+  expectIncludes('ff-gates exposes Coherence Verification service method', read(files.gatesWorker), 'evaluateCoherenceVerification')
+  expectIncludes('ff-gateway exposes Coherence Verification route', read(files.gatewayWorker), '/coherence-verification')
+  expectIncludes('ff-gateway service binding supports Coherence Verification method', read(files.gatewayEnv), 'evaluateCoherenceVerification')
 }
 
 function checkCompilerPathContracts() {
@@ -264,7 +289,8 @@ function checkPackageAliasReadmes() {
   expectIncludes('artifact validator README retains specs_workgraphs collection', read(files.artifactValidatorReadme), 'specs_workgraphs')
   expectIncludes('artifact validator README retains specs_coverage_reports collection', read(files.artifactValidatorReadme), 'specs_coverage_reports')
   expectIncludes('function synthesis README retains WorkGraph compatibility term', read(files.functionSynthesisReadme), 'WorkGraph')
-  expectIncludes('function synthesis README retains Gate 2 compatibility term', read(files.functionSynthesisReadme), 'Gate 2')
+  expectIncludes('function synthesis README documents FidelityVerificationInput', read(files.functionSynthesisReadme), 'FidelityVerificationInput')
+  expectIncludes('function synthesis README marks numbered gate terms legacy', read(files.functionSynthesisReadme), 'legacy compatibility shims')
   expectIncludes('ontology loader README retains specs_prds collection', read(files.ontologyLoaderReadme), 'specs_prds')
   expectIncludes('ontology loader README retains specs_workgraphs collection', read(files.ontologyLoaderReadme), 'specs_workgraphs')
   expectIncludes('ontology loader README retains specs_coverage_reports collection', read(files.ontologyLoaderReadme), 'specs_coverage_reports')
@@ -288,8 +314,13 @@ function checkWorkerAliasReadmes() {
   expectIncludes('ff-pipeline README retains specs_workgraphs collection', read(files.ffPipelineReadme), 'specs_workgraphs')
   expectIncludes('ff-pipeline README retains specs_coverage_reports collection', read(files.ffPipelineReadme), 'specs_coverage_reports')
   expectIncludes('ff-pipeline README retains MRP compatibility term', read(files.ffPipelineReadme), 'MRP')
+  expectIncludes('ff-pipeline README marks numbered gate terms legacy', read(files.ffPipelineReadme), 'legacy compatibility shims')
   expectIncludes('ff-pipeline README requires rename proposal template', read(files.ffPipelineReadme), 'ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md')
   expectIncludes('ff-gates README retains Gate1Report compatibility term', read(files.ffGatesReadme), 'Gate1Report')
+  expectIncludes('ff-gates README marks numbered gate terms legacy', read(files.ffGatesReadme), 'legacy compatibility shims')
+  expectIncludes('ff-gates README documents Coherence Verification service method', read(files.ffGatesReadme), 'evaluateCoherenceVerification')
+  expectIncludes('ff-gateway README documents Coherence Verification route', read(files.ffGatewayReadme), '/coherence-verification')
+  expectIncludes('ff-gateway README marks numbered gate terms legacy', read(files.ffGatewayReadme), 'legacy compatibility shims')
   expectIncludes('ff-gates README retains specs_workgraphs collection', read(files.ffGatesReadme), 'specs_workgraphs')
   expectIncludes('ff-gateway README retains gate route compatibility', read(files.ffGatewayReadme), '/gate/1')
   expectIncludes('ff-gateway README retains MRP route compatibility', read(files.ffGatewayReadme), '/mrps/pending')

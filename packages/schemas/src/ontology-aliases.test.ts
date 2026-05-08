@@ -3,6 +3,7 @@ import {
   CoherenceVerificationReport,
   ExecutableSpecification,
   FidelityVerificationReport,
+  FidelityVerificationVerdict,
   IntentSpecification,
   InvariantSpecification,
   PersistenceVerificationReport,
@@ -12,6 +13,7 @@ import {
   CoverageReport,
   Gate1Report,
   Gate2Report,
+  Gate2Verdict,
   Gate3Report,
 } from "./coverage.js"
 import { Invariant, PRDDraft, WorkGraph } from "./core.js"
@@ -27,6 +29,7 @@ describe("ontology aliases", () => {
   it("aliases current gate report schemas to verification process terms", () => {
     expect(CoherenceVerificationReport).toBe(Gate1Report)
     expect(FidelityVerificationReport).toBe(Gate2Report)
+    expect(FidelityVerificationVerdict).toBe(Gate2Verdict)
     expect(PersistenceVerificationReport).toBe(Gate3Report)
   })
 })
