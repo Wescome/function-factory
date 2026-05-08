@@ -4,10 +4,34 @@
 Active task: Architecture-aligned Gate 2/Stage 8/Gate 3 diagnostic integration.
 
 ## Last update
-2026-05-07T23:45:09Z
+2026-05-08T00:19:52Z
 
 ## Current actions
 
+- Completed requested steps 1-3 for `FN-MOTDWVR2-W7UN`:
+  - refreshed PR outcome on final head `3cb3c350d86bc960d898d21ed07e33f295e0e000`
+  - latest PR outcome signal: `SIG-MOW63V9L-RDF3`
+  - CI state passed with `Test`, `Typecheck`, and `Factory PR Gate`
+  - persisted Gate 2 report `CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-08T00-19-22-000Z`
+  - Gate 2 report returned `overall: pass`; verdict `accepted`
+  - refreshed canonical evidence `MRP-EVIDENCE-MOTE4M1R-3cb3c35-G2`
+  - refreshed `MRP-MOTE4M1R-G7I0-71` with latest PR signal, latest head, and latest Gate 2 report; verdict `merge-ready`
+  - applied `produced -> accepted` lifecycle transition for runtime `specs_functions/FN-MOTDWVR2-W7UN`
+  - first lifecycle apply exposed missing Arango collection `lifecycle_transitions` after the document update had already moved to `accepted`
+  - patched lifecycle transition persistence to ensure `lifecycle_transitions` before future transitions and added guarded accepted-edge repair
+  - committed and pushed `3cb3c35` (`META: guard lifecycle transition edge persistence`)
+  - PR #71 remote checks passed on `3cb3c35`: `Test`, `Typecheck`, and `Factory PR Gate`
+  - deployed `ff-pipeline` version `203f4d5d-e915-4c5e-8f5f-688c8b3dfd6a`
+  - ran guarded repair for the missing `produced -> accepted` transition edge with Gate 2 report `CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-08T00-12-13-000Z`
+  - final identity readback: `identityConsistent: true`, `resolution: fully_materialized`, proposal lifecycle `produced`, function lifecycle `accepted`, MRP signal `SIG-MOW63V9L-RDF3`, MRP head `3cb3c350d86bc960d898d21ed07e33f295e0e000`, findings empty
+  - added PR evidence comment: https://github.com/Wescome/function-factory/pull/71#issuecomment-4402122901
+  - no Gate 3 monitored promotion, ready-for-review transition, PR merge, or monitored lifecycle mutation was performed
+- Verification completed for lifecycle edge guard:
+  - `pnpm --filter @factory/ff-pipeline test -- src/lifecycle.test.ts src/diagnostic-routes.test.ts`: pass, 72 tests
+  - `pnpm --filter @factory/ff-pipeline typecheck`: pass
+  - `pnpm --filter @factory/ff-pipeline test`: pass, 68 files / 1008 tests
+  - `pnpm audit:docs`: pass
+  - `git diff --check`: pass
 - Live dogfood completed for `eb77bec`:
   - committed and pushed `eb77bec` (`META: add guarded function identity migration`)
   - PR #71 remote checks passed on `eb77bec1e1604dc858c6df7dd931005a15a16cbc`: `Test`, `Typecheck`, and `Factory PR Gate`
