@@ -26,6 +26,8 @@ const files = {
   aliases: 'packages/schemas/src/ontology-aliases.ts',
   aliasTest: 'packages/schemas/src/ontology-aliases.test.ts',
   compiler: 'packages/compiler/src/compile.ts',
+  compilerPassCoherenceVerification: 'packages/compiler/src/passes/07-gate-1.ts',
+  compilerReadme: 'packages/compiler/README.md',
   coverageGatesIndex: 'packages/coverage-gates/src/index.ts',
   coverageGatesGate1: 'packages/coverage-gates/src/gate-1.ts',
   coverageGatesEmit: 'packages/coverage-gates/src/emit.ts',
@@ -213,6 +215,9 @@ function checkSchemaAliases() {
   expectIncludes('coverage-gates exports Coherence Verification runner alias', read(files.coverageGatesIndex), 'runCoherenceVerification')
   expectIncludes('coverage-gates runner alias points to runGate1', read(files.coverageGatesGate1), 'export const runCoherenceVerification = runGate1')
   expectIncludes('coverage-gates emits Coherence Verification report alias', read(files.coverageGatesEmit), 'export const emitCoherenceVerificationReport = emitGate1Report')
+  expectIncludes('compiler invokes Coherence Verification pass', read(files.compiler), 'runCoherenceVerificationPass')
+  expectIncludes('compiler pass invokes Coherence Verification evaluator', read(files.compilerPassCoherenceVerification), 'runCoherenceVerification')
+  expectIncludes('compiler pass emits Coherence Verification report', read(files.compilerPassCoherenceVerification), 'emitCoherenceVerificationReport')
   expectIncludes('function synthesis exports FidelityVerificationInput schema', read(files.functionSynthesisTypes), 'export const FidelityVerificationInput = Gate2Input')
   expectIncludes('function synthesis exports FidelityVerificationInput type', read(files.functionSynthesisTypes), 'export type FidelityVerificationInput = Gate2Input')
   expectIncludes('function synthesis builds FidelityVerificationInput', read(files.functionSynthesisEvidence), 'buildFidelityVerificationInput')
@@ -291,6 +296,8 @@ function checkPackageAliasReadmes() {
 
   expectIncludes('artifact validator README retains specs_workgraphs collection', read(files.artifactValidatorReadme), 'specs_workgraphs')
   expectIncludes('artifact validator README retains specs_coverage_reports collection', read(files.artifactValidatorReadme), 'specs_coverage_reports')
+  expectIncludes('compiler README documents Coherence Verification pass', read(files.compilerReadme), 'runCoherenceVerificationPass')
+  expectIncludes('compiler README marks numbered gate terms legacy', read(files.compilerReadme), 'legacy compatibility shims')
   expectIncludes('function synthesis README retains WorkGraph compatibility term', read(files.functionSynthesisReadme), 'WorkGraph')
   expectIncludes('function synthesis README documents FidelityVerificationInput', read(files.functionSynthesisReadme), 'FidelityVerificationInput')
   expectIncludes('function synthesis README marks numbered gate terms legacy', read(files.functionSynthesisReadme), 'legacy compatibility shims')

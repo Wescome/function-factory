@@ -5,7 +5,7 @@
  * types. This module declares the types used at pass boundaries. Every
  * pass output that represents a Factory artifact is typed to the
  * corresponding Zod-inferred type from `@factory/schemas` so the Zod
- * schemas remain the single source of truth and Pass 7 (Gate 1) can
+ * schemas remain the single source of truth and Pass 7 (Coherence Verification) can
  * consume them directly.
  */
 
@@ -14,7 +14,7 @@ import type {
   Contract,
   Dependency,
   FactoryMode,
-  Gate1Report,
+  CoherenceVerificationReport,
   Invariant,
   PRDDraft,
   RequirementAtom,
@@ -47,7 +47,7 @@ export interface NormalizedPRD {
 }
 
 /**
- * The aggregated output of all passes. Pass 7 (Gate 1) consumes
+ * The aggregated output of all passes. Pass 7 (Coherence Verification) consumes
  * this bundle via its `prdId` and the five artifact arrays.
  */
 export interface CompilerIntermediates {
@@ -60,18 +60,18 @@ export interface CompilerIntermediates {
 }
 
 /**
- * Output of the end-to-end compile orchestrator. The Gate1Report is
- * the bootstrap proof; the intermediates are preserved so callers
+ * Output of the end-to-end compile orchestrator. The Coherence Verification
+ * report is the bootstrap proof; the intermediates are preserved so callers
  * can inspect Passes 1–5 for debugging.
  */
 export interface CompileResult {
-  readonly report: Gate1Report
+  readonly report: CoherenceVerificationReport
   readonly reportPath: string
   readonly intermediates: CompilerIntermediates
   readonly mode: FactoryMode
   /**
-   * Pass 8 output. Populated when Gate 1 verdict is `pass`; null when
-   * Gate 1 failed (Pass 8 is skipped per ConOps §7.2 step 2).
+   * Pass 8 output. Populated when Coherence Verification verdict is `pass`;
+   * null when verification failed (Pass 8 is skipped per ConOps §7.2 step 2).
    */
   readonly workgraph: WorkGraph | null
   readonly workgraphPath: string | null

@@ -2,7 +2,7 @@
  * End-to-end compile test against the real PRD-META-GATE-1-COMPILE-COVERAGE.md.
  *
  * This is the bootstrap proof- run the compiler against the first meta-PRD,
- * assert that the pipeline produces a Gate1Report on disk, and capture
+ * assert that the pipeline produces a CoherenceVerificationReport on disk, and capture
  * whether that verdict is pass or fail. Either outcome is acceptable
  * for bootstrap- the artifact that matters is the Coverage Report itself.
  */
@@ -12,7 +12,7 @@ import { mkdtemp, readFile, rm, writeFile, mkdir } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { parse as parseYaml } from "yaml"
-import { Gate1Report, WorkGraph } from "@factory/schemas"
+import { CoherenceVerificationReport, Gate1Report, WorkGraph } from "@factory/schemas"
 import { compile } from "./compile.js"
 
 // Path to the real meta-PRD; resolved from the monorepo root.
@@ -52,13 +52,14 @@ describe("compile- end-to-end against PRD-META-GATE-1-COMPILE-COVERAGE", () => {
     await rm(workDir, { recursive: true, force: true })
   })
 
-  it("produces a Gate1Report that validates against the Zod schema", async () => {
+  it("produces a CoherenceVerificationReport that validates against the Zod schema", async () => {
     const result = await compile(prdPath, {
       timestamp: "2026-04-19T00:00:00Z",
       coverageReportsDir,
     })
-    const parsed = Gate1Report.safeParse(result.report)
+    const parsed = CoherenceVerificationReport.safeParse(result.report)
     expect(parsed.success).toBe(true)
+    expect(Gate1Report.safeParse(result.report).success).toBe(true)
   })
 
   it("emits the Coverage Report as YAML to the configured directory", async () => {

@@ -1,15 +1,15 @@
 /**
  * Compile orchestrator- reads a PRD file, runs Passes 0–7 in order,
- * emits a Gate 1 Coverage Report, and returns the aggregate result.
+ * emits a Coherence Verification Coverage Report, and returns the aggregate result.
  *
  * IO is confined to this module (reading the PRD file, writing the
- * Coverage Report via emitGate1Report). Each individual pass is pure;
+ * Coverage Report via emitCoherenceVerificationReport). Each individual pass is pure;
  * the orchestrator composes them.
  *
  * Timestamp is generated here — the one ISO-8601 timestamp used for
  * both the Coverage Report's `timestamp` field and its derived `id`
- * (via Gate 1's internal ID construction). This keeps Gate 1 itself
- * pure (no new Date() inside runGate1) while centralizing the clock
+ * (via Coherence Verification's internal ID construction). This keeps
+ * Coherence Verification itself pure while centralizing the clock
  * read in the orchestration layer per the prd-compiler SKILL's
  * "pure functions; side effects in named integration modules"
  * discipline.
@@ -30,7 +30,7 @@ import {
   emitWorkgraph,
   extractAtoms,
   normalize,
-  runGate1Pass,
+  runCoherenceVerificationPass,
 } from "./passes/index.js"
 
 export interface CompileOptions {
@@ -77,21 +77,21 @@ export async function compile(
   // Pass 6- consistency check (MVP no-op).
   consistencyCheck(intermediates)
 
-  // Pass 7- Gate 1.
+  // Pass 7- Coherence Verification.
   const mode = options.mode ?? determineMode(normalized.draft.id)
   const timestamp = options.timestamp ?? new Date().toISOString()
   const coverageReportsDir =
     options.coverageReportsDir ?? defaultCoverageReportsDir(absolutePrdPath)
 
-  const { report, reportPath } = await runGate1Pass(
+  const { report, reportPath } = await runCoherenceVerificationPass(
     intermediates,
     mode,
     timestamp,
     coverageReportsDir
   )
 
-  // Pass 8- assemble WorkGraph from validated intermediates if Gate 1
-  // passed. On Gate 1 fail, workgraph and workgraphPath remain null;
+  // Pass 8- assemble WorkGraph from validated intermediates if Coherence
+  // Verification passed. On failure, workgraph and workgraphPath remain null;
   // the orchestrator still returns with the Coverage Report preserved
   // on disk per ConOps §7.2 step 2.
   let workgraph: WorkGraph | null = null

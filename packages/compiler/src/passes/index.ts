@@ -10,8 +10,10 @@ export { deriveDependencies } from "./04-derive-dependencies.js"
 export { deriveValidations } from "./05-derive-validations.js"
 export { consistencyCheck } from "./06-consistency-check.js"
 export {
+  runCoherenceVerificationPass,
   runGate1Pass,
   determineMode,
+  type CoherenceVerificationPassResult,
   type Gate1PassResult,
 } from "./07-gate-1.js"
 export { assembleWorkgraph } from "./08-assemble-workgraph.js"

@@ -1,9 +1,9 @@
 /**
- * Pass 7- Gate 1.
+ * Pass 7- Coherence Verification.
  *
- * Adapts compiler intermediates into the shape `runGate1` consumes,
+ * Adapts compiler intermediates into the shape `runCoherenceVerification` consumes,
  * determines Factory mode from the PRD ID (or from an explicit
- * override), invokes Gate 1, and emits the Coverage Report to disk.
+ * override), invokes Coherence Verification, and emits the Coverage Report to disk.
  *
  * Mode determination- a PRD ID matching `^PRD-META-` compiles in
  * bootstrap mode, where the fifth coverage check (META- prefix
@@ -14,26 +14,31 @@
  * Emission- the report is written to
  * `<coverageReportsDir>/CR-<PRD-ID>-GATE1-<timestamp>.yaml`. The
  * timestamp is supplied by the orchestrator to preserve purity of the
- * Gate 1 logic itself; this pass passes it through.
+ * Coherence Verification logic itself; this pass passes it through.
  */
 
-import type { ArtifactId, Gate1Report } from "@factory/schemas"
-import { runGate1, emitGate1Report } from "@factory/coverage-gates"
-import type { Gate1Input } from "@factory/coverage-gates"
+import type { ArtifactId, CoherenceVerificationReport } from "@factory/schemas"
+import {
+  emitCoherenceVerificationReport,
+  runCoherenceVerification,
+} from "@factory/coverage-gates"
+import type { CoherenceVerificationInput } from "@factory/coverage-gates"
 import type { CompilerIntermediates, FactoryMode } from "../types.js"
 
-export interface Gate1PassResult {
-  readonly report: Gate1Report
+export interface CoherenceVerificationPassResult {
+  readonly report: CoherenceVerificationReport
   readonly reportPath: string
 }
 
-export async function runGate1Pass(
+export type Gate1PassResult = CoherenceVerificationPassResult
+
+export async function runCoherenceVerificationPass(
   intermediates: CompilerIntermediates,
   mode: FactoryMode,
   timestamp: string,
   coverageReportsDir: string
-): Promise<Gate1PassResult> {
-  const input: Gate1Input = {
+): Promise<CoherenceVerificationPassResult> {
+  const input: CoherenceVerificationInput = {
     prdId: intermediates.prd.id,
     mode,
     atoms: intermediates.atoms,
@@ -43,10 +48,12 @@ export async function runGate1Pass(
     validations: intermediates.validations,
   }
 
-  const report = runGate1(input, timestamp)
-  const reportPath = await emitGate1Report(report, coverageReportsDir)
+  const report = runCoherenceVerification(input, timestamp)
+  const reportPath = await emitCoherenceVerificationReport(report, coverageReportsDir)
   return { report, reportPath }
 }
+
+export const runGate1Pass = runCoherenceVerificationPass
 
 /**
  * Determine Factory mode from PRD ID. PRDs whose ID starts with

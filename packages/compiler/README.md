@@ -1,20 +1,22 @@
 # @factory/compiler
 
-Stage 5 compiler that transforms a PRD into compiler intermediates, runs Gate 1 coverage evaluation, and emits a WorkGraph. Eight narrow passes from normalization through workgraph assembly.
+Stage 5 compiler that transforms a PRD into compiler intermediates, runs
+Coherence Verification, and emits a WorkGraph. Eight narrow passes from
+normalization through workgraph assembly.
 
 ## Ontology Alias
 
 This package implements compilation transformations from the ontology v0.2
 `Intent Specification` alias to the `Executable Specification` alias. The
-stable compatibility names remain PRD, WorkGraph, Gate 1, and
-`@factory/compiler`; do not rename imports or artifact paths based only on the
-ontology terminology.
+stable compatibility names remain PRD, WorkGraph, Gate 1 artifact IDs, and
+`@factory/compiler`. New code should prefer Coherence Verification APIs;
+numbered Gate 1 APIs remain legacy compatibility shims.
 
 ## Pipeline Position
 
 **Stage:** 5
 **Consumes:** `PRD-*` (PRD markdown files)
-**Produces:** `CR-*` (Gate 1 Coverage Reports), `WG-*` (WorkGraphs)
+**Produces:** `CR-*` (Coherence Verification Coverage Reports), `WG-*` (WorkGraphs)
 
 ## Exports
 
@@ -31,18 +33,19 @@ ontology terminology.
 - Pass 4: `deriveDependencies` -- Derive dependency graph
 - Pass 5: `deriveValidations` -- Derive validation rules
 - Pass 6: `consistencyCheck` -- Cross-check intermediates
-- Pass 7: `runGate1Pass` -- Gate 1 coverage evaluation via @factory/coverage-gates
+- Pass 7: `runCoherenceVerificationPass` -- Coherence Verification via @factory/coverage-gates
+- Pass 7 compatibility: `runGate1Pass` -- legacy compatibility shim
 - Pass 8: `assembleWorkgraph` / `emitWorkgraph` -- Assemble and emit the WorkGraph
 
 ## Key Invariants
 
 - Individual passes are pure functions; IO is confined to the compile orchestrator
 - Timestamp is generated once in the orchestrator and threaded through all passes
-- Gate 1 failure does not prevent Coverage Report emission; the report is the product
+- Coherence Verification failure does not prevent Coverage Report emission; the report is the product
 - Deterministic: identical inputs produce identical outputs (modulo timestamp)
 
 ## Dependencies
 
 - `@factory/schemas` -- All artifact types
-- `@factory/coverage-gates` -- Gate 1 evaluation (Pass 7)
+- `@factory/coverage-gates` -- Coherence Verification evaluation (Pass 7)
 - `yaml` -- YAML parsing and emission
