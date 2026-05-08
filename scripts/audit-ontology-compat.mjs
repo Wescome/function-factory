@@ -58,6 +58,7 @@ for (const [label, file] of Object.entries(files)) {
 checkPackageScript()
 checkCurrentCompatibilitySurfaces()
 checkNoUnapprovedOntologyRenameTargets()
+checkNoUnapprovedOntologyCollectionTargets()
 checkCiGate()
 checkSchemaAliases()
 checkCompilerPathContracts()
@@ -149,6 +150,43 @@ function checkNoUnapprovedOntologyRenameTargets() {
 
   for (const forbiddenPath of forbiddenPaths) {
     expectAbsent(`unapproved ontology rename target ${forbiddenPath}`, forbiddenPath)
+  }
+}
+
+function checkNoUnapprovedOntologyCollectionTargets() {
+  const filesToScan = [
+    files.arangoInitTs,
+    files.arangoInitJs,
+    files.arangoSeed,
+    files.arangoVerify,
+    files.ontologyClasses,
+    files.ontologyInstances,
+    files.pipelineIndex,
+    files.pipelineLifecycle,
+    files.pipelineCompileStage,
+    files.gatesWorker,
+  ]
+
+  const forbiddenCollections = [
+    'specs_intent_specifications',
+    'specs_executable_specifications',
+    'specs_verification_reports',
+    'specs_coherence_verifications',
+    'specs_fidelity_verifications',
+    'specs_persistence_verifications',
+    'intent_specifications',
+    'executable_specifications',
+    'verification_reports',
+    'coherence_verifications',
+    'fidelity_verifications',
+    'persistence_verifications',
+  ]
+
+  for (const file of filesToScan) {
+    const content = read(file)
+    for (const collection of forbiddenCollections) {
+      expectExcludes(`${file} does not introduce ${collection}`, content, collection)
+    }
   }
 }
 
@@ -371,6 +409,13 @@ function expectIncludes(label, content, expected) {
   checks.push(label)
   if (!content.includes(expected)) {
     failures.push(`missing-content ${label}: ${expected}`)
+  }
+}
+
+function expectExcludes(label, content, forbidden) {
+  checks.push(label)
+  if (content.includes(forbidden)) {
+    failures.push(`forbidden-content ${label}: ${forbidden}`)
   }
 }
 

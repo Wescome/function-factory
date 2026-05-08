@@ -113,6 +113,11 @@ Counts are file counts, not occurrence counts.
   `specs/intent-specifications`, `specs/executable-specifications`,
   `specs/verification-reports`, `packages/verification`, or
   `workers/ff-fidelity-verification` without a one-family rename proposal.
+- No ontology-named replacement collection identifiers such as
+  `specs_intent_specifications`, `specs_executable_specifications`,
+  `specs_verification_reports`, `coherence_verifications`, or
+  `fidelity_verifications` without dual-read compatibility and a migration
+  plan.
 - No package rename of `@factory/compiler` or `@factory/coverage-gates`.
 - No Arango collection rename of `specs_prds`, `specs_workgraphs`, or
   `specs_coverage_reports`.

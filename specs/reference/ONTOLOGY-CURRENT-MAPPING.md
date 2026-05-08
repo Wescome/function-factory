@@ -119,6 +119,12 @@ include `specs/intent-specifications`, `specs/executable-specifications`,
 `workers/ff-fidelity-verification`. Those targets require the same one-family
 rename proposal and audit updates as any physical rename.
 
+Do not introduce ontology-named replacement collection identifiers such as
+`specs_intent_specifications`, `specs_executable_specifications`,
+`specs_verification_reports`, `coherence_verifications`, or
+`fidelity_verifications` without the same one-family proposal, dual-read
+compatibility, and migration plan.
+
 A future rename PR must be scoped to one rename family at a time, start from
 `ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md`, and include:
 
