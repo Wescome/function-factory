@@ -23,6 +23,7 @@ const files = {
   ffPipelineReadme: 'workers/ff-pipeline/README.md',
   ffGatesReadme: 'workers/ff-gates/README.md',
   ffGatewayReadme: 'workers/ff-gateway/README.md',
+  arangoReadme: 'infra/arangodb/README.md',
   specsReadme: 'specs/README.md',
   referenceReadme: 'specs/reference/README.md',
   mapping: 'specs/reference/ONTOLOGY-CURRENT-MAPPING.md',
@@ -51,6 +52,7 @@ checkCompilerPathContracts()
 checkDocsSurfaces()
 checkPackageAliasReadmes()
 checkWorkerAliasReadmes()
+checkInfraAliasReadmes()
 checkRenameProposalTemplate()
 checkRuntimeCollectionContracts()
 
@@ -192,6 +194,24 @@ function checkWorkerAliasReadmes() {
   expectIncludes('ff-gates README retains specs_workgraphs collection', read(files.ffGatesReadme), 'specs_workgraphs')
   expectIncludes('ff-gateway README retains gate route compatibility', read(files.ffGatewayReadme), '/gate/1')
   expectIncludes('ff-gateway README retains MRP route compatibility', read(files.ffGatewayReadme), '/mrps/pending')
+}
+
+function checkInfraAliasReadmes() {
+  const arangoReadme = read(files.arangoReadme)
+
+  expectIncludes('Arango README has ontology alias section', arangoReadme, '## Ontology Alias')
+  expectIncludes('Arango README names stable compatibility collections', arangoReadme, 'stable compatibility names')
+  expectIncludes('Arango README documents Intent Specification', arangoReadme, 'Intent Specification')
+  expectIncludes('Arango README documents Executable Specification', arangoReadme, 'Executable Specification')
+  expectIncludes('Arango README documents Verification Report', arangoReadme, 'Verification Report')
+  expectIncludes('Arango README documents Persistence Verification', arangoReadme, 'Persistence Verification')
+  expectIncludes('Arango README retains specs_prds collection', arangoReadme, 'specs_prds')
+  expectIncludes('Arango README retains specs_workgraphs collection', arangoReadme, 'specs_workgraphs')
+  expectIncludes('Arango README retains specs_invariants collection', arangoReadme, 'specs_invariants')
+  expectIncludes('Arango README retains specs_coverage_reports collection', arangoReadme, 'specs_coverage_reports')
+  expectIncludes('Arango README retains lineage_edges collection', arangoReadme, 'lineage_edges')
+  expectIncludes('Arango README requires dual-read compatibility', arangoReadme, 'dual-read compatibility')
+  expectIncludes('Arango README requires rename proposal template', arangoReadme, 'ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md')
 }
 
 function checkRenameProposalTemplate() {
