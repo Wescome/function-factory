@@ -39,6 +39,7 @@ const files = {
   mapping: 'specs/reference/ONTOLOGY-CURRENT-MAPPING.md',
   blastRadius: 'specs/reference/ONTOLOGY-RENAME-BLAST-RADIUS.md',
   renameTemplate: 'specs/reference/ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md',
+  refactorReadiness: 'specs/reference/ONTOLOGY-REFACTOR-READINESS-CHECKLIST.md',
   arangoInitTs: 'infra/arangodb/init-db.ts',
   arangoInitJs: 'infra/arangodb/init/001-create-db.js',
   arangoSeed: 'infra/arangodb/seed.ts',
@@ -67,6 +68,7 @@ checkPackageAliasReadmes()
 checkWorkerAliasReadmes()
 checkInfraAliasReadmes()
 checkRenameProposalTemplate()
+checkRefactorReadinessChecklist()
 checkRuntimeCollectionContracts()
 
 for (const failure of failures) {
@@ -257,11 +259,14 @@ function checkDocsSurfaces() {
   expectIncludes('reference index links ontology current mapping', referenceReadme, 'ONTOLOGY-CURRENT-MAPPING.md')
   expectIncludes('reference index links rename blast-radius report', referenceReadme, 'ONTOLOGY-RENAME-BLAST-RADIUS.md')
   expectIncludes('reference index links rename proposal template', referenceReadme, 'ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md')
+  expectIncludes('reference index links refactor readiness checklist', referenceReadme, 'ONTOLOGY-REFACTOR-READINESS-CHECKLIST.md')
   expectIncludes('blast-radius report forbids mass rename of specs/prds', blastRadius, 'No mass rename of `specs/prds`')
   expectIncludes('blast-radius report names compatibility audit script', blastRadius, 'scripts/audit-ontology-compat.mjs')
   expectIncludes('blast-radius report names compatibility audit command', blastRadius, 'pnpm audit:ontology')
   expectIncludes('blast-radius report points future renames to template', blastRadius, 'ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md')
+  expectIncludes('blast-radius report points future renames to readiness checklist', blastRadius, 'ONTOLOGY-REFACTOR-READINESS-CHECKLIST.md')
   expectIncludes('current mapping requires rename proposal template', mapping, 'ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md')
+  expectIncludes('current mapping requires refactor readiness checklist', mapping, 'ONTOLOGY-REFACTOR-READINESS-CHECKLIST.md')
 }
 
 function checkPackageAliasReadmes() {
@@ -364,6 +369,49 @@ function checkRenameProposalTemplate() {
 
   for (const term of requiredTerms) {
     expectIncludes(`rename proposal template requires ${term}`, renameTemplate, term)
+  }
+}
+
+function checkRefactorReadinessChecklist() {
+  const checklist = read(files.refactorReadiness)
+
+  const requiredSections = [
+    '# Ontology Refactor Readiness Checklist',
+    '## Current Decision',
+    '## Required Before Any Rename',
+    '## Required Green Checks',
+    '## Blocked Without Explicit Approval',
+    '## Audit-Enforced Non-Starters',
+    '## Ready-To-Propose Bar',
+  ]
+
+  for (const section of requiredSections) {
+    expectIncludes(`refactor readiness checklist includes ${section}`, checklist, section)
+  }
+
+  const requiredTerms = [
+    'stable compatibility contracts',
+    'ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md',
+    'aliases alone are insufficient',
+    'dual-read compatibility',
+    'live worker, MRP, lifecycle, and Gate evidence',
+    'pnpm audit:docs',
+    'pnpm audit:ontology',
+    'Repository Audit',
+    'Factory PR Gate',
+    '.agent/AGENTS.md',
+    '.agent/skills/*',
+    'packages/schemas/src/core.ts',
+    'specs/intent-specifications',
+    'specs_intent_specifications',
+    'specs/prds',
+    'packages/compiler',
+    'workers/ff-pipeline',
+    'infra/arangodb',
+  ]
+
+  for (const term of requiredTerms) {
+    expectIncludes(`refactor readiness checklist requires ${term}`, checklist, term)
   }
 }
 

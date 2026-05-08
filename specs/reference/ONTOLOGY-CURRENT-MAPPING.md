@@ -125,8 +125,9 @@ Do not introduce ontology-named replacement collection identifiers such as
 `fidelity_verifications` without the same one-family proposal, dual-read
 compatibility, and migration plan.
 
-A future rename PR must be scoped to one rename family at a time, start from
-`ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md`, and include:
+A future rename PR must first satisfy
+`ONTOLOGY-REFACTOR-READINESS-CHECKLIST.md`, be scoped to one rename family at a
+time, start from `ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md`, and include:
 
 1. Compatibility aliases already merged.
 2. `pnpm audit:docs`.

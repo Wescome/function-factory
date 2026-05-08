@@ -23,6 +23,7 @@ Read these first when grounding work in the architecture.
 | [`ONTOLOGY-CURRENT-MAPPING.md`](ONTOLOGY-CURRENT-MAPPING.md) | Current compatibility crosswalk | Maps existing repo terms, paths, packages, verification terms, and runtime concepts to ontology v0.2 aliases while preserving current physical names. |
 | [`ONTOLOGY-RENAME-BLAST-RADIUS.md`](ONTOLOGY-RENAME-BLAST-RADIUS.md) | Pre-refactor assessment | Classifies current-name usage across source, specs, workers, infra, and docs; recommends no physical rename before one-family migration plans exist. |
 | [`ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md`](ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md) | Rename proposal template | Required structure for any future one-family physical rename proposal. |
+| [`ONTOLOGY-REFACTOR-READINESS-CHECKLIST.md`](ONTOLOGY-REFACTOR-READINESS-CHECKLIST.md) | Refactor readiness checklist | Required preflight checklist before any ontology-aligned physical rename or refactor. |
 | [`literate-canonical-reference.md`](literate-canonical-reference.md) | Canonical architecture reference | Implementation-facing reference and literate source for generated/tangled code. |
 | [`The_Function_Factory_2026-04-18_v4.md`](The_Function_Factory_2026-04-18_v4.md) | Conceptual source | Whitepaper defining the Factory, pipeline, non-negotiables, and category boundaries. |
 | [`The_Function_Factory_ConOps_2026-04-18.md`](The_Function_Factory_ConOps_2026-04-18.md) | Operational source | Concept of Operations for how the Factory is operated. |
