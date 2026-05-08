@@ -1,13 +1,27 @@
 # Current Workspace
 
 ## Status
-Active task: ontology rename blast-radius report.
+Active task: ontology compatibility audit script.
 
 ## Last update
-2026-05-08T19:53:29Z
+2026-05-08T19:57:59Z
 
 ## Current actions
 
+- Completed: ontology compatibility audit script.
+  - Added `scripts/audit-ontology-compat.mjs`.
+  - Added root script `pnpm audit:ontology`.
+  - Updated `specs/reference/ONTOLOGY-RENAME-BLAST-RADIUS.md` to point to
+    the audit command.
+  - Audit verifies compatibility schema aliases, compiler path contracts,
+    docs/index surfaces, and runtime collection-name consistency across
+    infra, ontology loader, and workers.
+  - Verification passed:
+    - `pnpm audit:ontology` with 88 checks
+    - `pnpm audit:docs`
+    - `pnpm --filter @factory/schemas test -- src/ontology-aliases.test.ts`
+    - `pnpm -r typecheck`
+    - `git diff --check`
 - Completed: ontology rename blast-radius report.
   - Added `specs/reference/ONTOLOGY-RENAME-BLAST-RADIUS.md`.
   - Indexed it from `specs/reference/README.md`.

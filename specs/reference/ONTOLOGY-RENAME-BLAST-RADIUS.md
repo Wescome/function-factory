@@ -116,8 +116,14 @@ Counts are file counts, not occurrence counts.
 
 ## Next Safe Step
 
-If refactor work continues, the next safe implementation task is a
-machine-checkable compatibility audit script that verifies:
+The additive compatibility audit script now lives at
+`scripts/audit-ontology-compat.mjs` and runs with:
+
+```bash
+pnpm audit:ontology
+```
+
+It verifies:
 
 - current compatibility names remain exported,
 - ontology aliases resolve to the same schemas,
@@ -125,4 +131,4 @@ machine-checkable compatibility audit script that verifies:
 - docs links still resolve,
 - runtime collection names used by workers match infra seed/init names.
 
-That script should be additive and should run before any physical rename PR.
+Run it before any physical rename PR.
