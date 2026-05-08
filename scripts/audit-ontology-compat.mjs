@@ -17,6 +17,9 @@ const files = {
   aliasTest: 'packages/schemas/src/ontology-aliases.test.ts',
   compiler: 'packages/compiler/src/compile.ts',
   coverageEmit: 'packages/coverage-gates/src/emit.ts',
+  artifactValidatorReadme: 'packages/artifact-validator/README.md',
+  functionSynthesisReadme: 'packages/function-synthesis/README.md',
+  ontologyLoaderReadme: 'packages/ontology-loader/README.md',
   specsReadme: 'specs/README.md',
   referenceReadme: 'specs/reference/README.md',
   mapping: 'specs/reference/ONTOLOGY-CURRENT-MAPPING.md',
@@ -43,6 +46,7 @@ checkCiGate()
 checkSchemaAliases()
 checkCompilerPathContracts()
 checkDocsSurfaces()
+checkPackageAliasReadmes()
 checkRenameProposalTemplate()
 checkRuntimeCollectionContracts()
 
@@ -135,6 +139,30 @@ function checkDocsSurfaces() {
   expectIncludes('blast-radius report names compatibility audit command', blastRadius, 'pnpm audit:ontology')
   expectIncludes('blast-radius report points future renames to template', blastRadius, 'ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md')
   expectIncludes('current mapping requires rename proposal template', mapping, 'ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md')
+}
+
+function checkPackageAliasReadmes() {
+  const packageReadmes = [
+    [files.artifactValidatorReadme, '@factory/artifact-validator', 'constraint enforcement'],
+    [files.functionSynthesisReadme, '@factory/function-synthesis', 'Fidelity Verification'],
+    [files.ontologyLoaderReadme, '@factory/ontology-loader', 'Queryable ontology'],
+  ]
+
+  for (const [file, packageName, ontologyRole] of packageReadmes) {
+    const content = read(file)
+    expectIncludes(`${packageName} README has ontology alias section`, content, '## Ontology Alias')
+    expectIncludes(`${packageName} README keeps package compatibility name`, content, packageName)
+    expectIncludes(`${packageName} README documents ontology role`, content, ontologyRole)
+    expectIncludes(`${packageName} README names stable compatibility`, content, 'stable compatibility')
+  }
+
+  expectIncludes('artifact validator README retains specs_workgraphs collection', read(files.artifactValidatorReadme), 'specs_workgraphs')
+  expectIncludes('artifact validator README retains specs_coverage_reports collection', read(files.artifactValidatorReadme), 'specs_coverage_reports')
+  expectIncludes('function synthesis README retains WorkGraph compatibility term', read(files.functionSynthesisReadme), 'WorkGraph')
+  expectIncludes('function synthesis README retains Gate 2 compatibility term', read(files.functionSynthesisReadme), 'Gate 2')
+  expectIncludes('ontology loader README retains specs_prds collection', read(files.ontologyLoaderReadme), 'specs_prds')
+  expectIncludes('ontology loader README retains specs_workgraphs collection', read(files.ontologyLoaderReadme), 'specs_workgraphs')
+  expectIncludes('ontology loader README retains specs_coverage_reports collection', read(files.ontologyLoaderReadme), 'specs_coverage_reports')
 }
 
 function checkRenameProposalTemplate() {
