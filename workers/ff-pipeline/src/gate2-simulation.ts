@@ -6,62 +6,62 @@ import {
 } from '@factory/schemas'
 import { validateTransition, type LifecycleState } from './lifecycle'
 
-export type Gate2ScenarioKind = 'positive' | 'negative'
-export type Gate2ValidationPriority = 'required' | 'recommended'
-export type Gate2ValidationStatus = 'pass' | 'fail'
+export type FidelityVerificationScenarioKind = 'positive' | 'negative'
+export type FidelityVerificationValidationPriority = 'required' | 'recommended'
+export type FidelityVerificationValidationStatus = 'pass' | 'fail'
 
-export interface Gate2Branch {
+export interface FidelityVerificationBranch {
   workgraphNode: string
   edge?: string
 }
 
-export interface Gate2Invariant {
+export interface FidelityVerificationInvariant {
   id: string
   workgraphNode: string
 }
 
-export interface Gate2Scenario {
+export interface FidelityVerificationScenario {
   id: string
-  kind: Gate2ScenarioKind
+  kind: FidelityVerificationScenarioKind
   passed: boolean
-  coversBranches: Gate2Branch[]
+  coversBranches: FidelityVerificationBranch[]
   coversInvariants: string[]
 }
 
-export interface Gate2ValidationOutcome {
+export interface FidelityVerificationValidationOutcome {
   id: string
-  priority: Gate2ValidationPriority
-  status: Gate2ValidationStatus
+  priority: FidelityVerificationValidationPriority
+  status: FidelityVerificationValidationStatus
   invariantIds: string[]
 }
 
-export interface Gate2SimulationInput {
+export interface FidelityVerificationInput {
   functionId: string
   prdId: string
   workGraphId: string
   candidateId: string
   timestamp: string
   sourceRefs: string[]
-  branches: Gate2Branch[]
-  invariants: Gate2Invariant[]
-  scenarios: Gate2Scenario[]
-  validationOutcomes: Gate2ValidationOutcome[]
+  branches: FidelityVerificationBranch[]
+  invariants: FidelityVerificationInvariant[]
+  scenarios: FidelityVerificationScenario[]
+  validationOutcomes: FidelityVerificationValidationOutcome[]
 }
 
-export interface Gate2ContractValidationOutcome {
+export interface FidelityVerificationContractValidationOutcome {
   validationId: string
   passed: boolean
   summary: string
   details?: Record<string, unknown>
 }
 
-export interface Gate2ContractInput {
+export interface FidelityVerificationContractInput {
   synthesisRunId: string
   functionId: string
   workGraphId: string
   architectureCandidateId: string
   artifactPaths: string[]
-  validationOutcomes: Gate2ContractValidationOutcome[]
+  validationOutcomes: FidelityVerificationContractValidationOutcome[]
   compileSummary: string
   testSummary: string
   scopeViolation: boolean
@@ -78,24 +78,24 @@ export interface Gate2ContractInput {
   }
 }
 
-export interface AdaptGate2InputOptions {
+export interface AdaptFidelityVerificationInputOptions {
   prdId: string
   timestamp?: string
   sourceRefs?: string[]
 }
 
-export interface Gate2SimulationResult {
+export interface FidelityVerificationResult {
   report: Gate2ReportType
   verdict: Gate2VerdictType
 }
 
-export interface Gate2AcceptanceDryRunInput {
+export interface FidelityVerificationAcceptanceDryRunInput {
   currentState: LifecycleState
   report: Gate2ReportType
   verdict: Gate2VerdictType
 }
 
-export interface Gate2AcceptanceDryRun {
+export interface FidelityVerificationAcceptanceDryRun {
   from: LifecycleState
   to: 'accepted'
   gate: 'gate-2'
@@ -105,42 +105,59 @@ export interface Gate2AcceptanceDryRun {
   reason: string
 }
 
-export class Gate2SimulationError extends Error {
+export type Gate2Branch = FidelityVerificationBranch
+export type Gate2ContractInput = FidelityVerificationContractInput
+export type Gate2ContractValidationOutcome = FidelityVerificationContractValidationOutcome
+export type Gate2Invariant = FidelityVerificationInvariant
+export type Gate2Scenario = FidelityVerificationScenario
+export type Gate2ScenarioKind = FidelityVerificationScenarioKind
+export type Gate2SimulationInput = FidelityVerificationInput
+export type Gate2SimulationResult = FidelityVerificationResult
+export type Gate2ValidationOutcome = FidelityVerificationValidationOutcome
+export type Gate2ValidationPriority = FidelityVerificationValidationPriority
+export type Gate2ValidationStatus = FidelityVerificationValidationStatus
+export type Gate2AcceptanceDryRunInput = FidelityVerificationAcceptanceDryRunInput
+export type Gate2AcceptanceDryRun = FidelityVerificationAcceptanceDryRun
+export type AdaptGate2InputOptions = AdaptFidelityVerificationInputOptions
+
+export class FidelityVerificationError extends Error {
   constructor(message: string) {
     super(message)
-    this.name = 'Gate2SimulationError'
+    this.name = 'FidelityVerificationError'
   }
 }
 
+export const Gate2SimulationError = FidelityVerificationError
+
 function assertNonEmpty(value: unknown, field: string): asserts value is string {
   if (typeof value !== 'string' || value.trim().length === 0) {
-    throw new Gate2SimulationError(`${field} is required`)
+    throw new FidelityVerificationError(`${field} is required`)
   }
 }
 
 function assertNonEmptyArray<T>(value: T[], field: string): void {
   if (!Array.isArray(value) || value.length === 0) {
-    throw new Gate2SimulationError(`${field} is required`)
+    throw new FidelityVerificationError(`${field} is required`)
   }
 }
 
 function requireRecord(value: unknown, field: string): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Gate2SimulationError(`${field} is required`)
+    throw new FidelityVerificationError(`${field} is required`)
   }
   return value as Record<string, unknown>
 }
 
 function requireArray(value: unknown, field: string): unknown[] {
   if (!Array.isArray(value) || value.length === 0) {
-    throw new Gate2SimulationError(`${field} is required`)
+    throw new FidelityVerificationError(`${field} is required`)
   }
   return value
 }
 
 function requireArrayValue(value: unknown, field: string): unknown[] {
   if (!Array.isArray(value)) {
-    throw new Gate2SimulationError(`${field} must be an array`)
+    throw new FidelityVerificationError(`${field} must be an array`)
   }
   return value
 }
@@ -148,16 +165,16 @@ function requireArrayValue(value: unknown, field: string): unknown[] {
 function requireStringArray(value: unknown, field: string): string[] {
   const values = requireArray(value, field)
   if (!values.every(item => typeof item === 'string' && item.trim().length > 0)) {
-    throw new Gate2SimulationError(`${field} must contain only strings`)
+    throw new FidelityVerificationError(`${field} must contain only strings`)
   }
   return values as string[]
 }
 
-function readBranch(value: unknown, field: string): Gate2Branch {
+function readBranch(value: unknown, field: string): FidelityVerificationBranch {
   const branch = requireRecord(value, field)
   assertNonEmpty(branch.workgraphNode, `${field}.workgraphNode`)
   if (branch.edge !== undefined && typeof branch.edge !== 'string') {
-    throw new Gate2SimulationError(`${field}.edge must be a string`)
+    throw new FidelityVerificationError(`${field}.edge must be a string`)
   }
   return {
     workgraphNode: branch.workgraphNode,
@@ -165,7 +182,7 @@ function readBranch(value: unknown, field: string): Gate2Branch {
   }
 }
 
-function readInvariant(value: unknown, field: string): Gate2Invariant {
+function readInvariant(value: unknown, field: string): FidelityVerificationInvariant {
   const invariant = requireRecord(value, field)
   assertNonEmpty(invariant.id, `${field}.id`)
   assertNonEmpty(invariant.workgraphNode, `${field}.workgraphNode`)
@@ -175,14 +192,14 @@ function readInvariant(value: unknown, field: string): Gate2Invariant {
   }
 }
 
-function readScenario(value: unknown, field: string): Gate2Scenario {
+function readScenario(value: unknown, field: string): FidelityVerificationScenario {
   const scenario = requireRecord(value, field)
   assertNonEmpty(scenario.id, `${field}.id`)
   if (scenario.kind !== 'positive' && scenario.kind !== 'negative') {
-    throw new Gate2SimulationError(`${field}.kind must be positive or negative`)
+    throw new FidelityVerificationError(`${field}.kind must be positive or negative`)
   }
   if (typeof scenario.passed !== 'boolean') {
-    throw new Gate2SimulationError(`${field}.passed must be boolean`)
+    throw new FidelityVerificationError(`${field}.passed must be boolean`)
   }
   return {
     id: scenario.id,
@@ -194,19 +211,19 @@ function readScenario(value: unknown, field: string): Gate2Scenario {
   }
 }
 
-function pushUniqueBranch(branches: Gate2Branch[], branch: Gate2Branch): void {
+function pushUniqueBranch(branches: FidelityVerificationBranch[], branch: FidelityVerificationBranch): void {
   if (!branches.some(existing => sameBranch(existing, branch))) {
     branches.push(branch)
   }
 }
 
-function pushUniqueInvariant(invariants: Gate2Invariant[], invariant: Gate2Invariant): void {
+function pushUniqueInvariant(invariants: FidelityVerificationInvariant[], invariant: FidelityVerificationInvariant): void {
   if (!invariants.some(existing => existing.id === invariant.id && existing.workgraphNode === invariant.workgraphNode)) {
     invariants.push(invariant)
   }
 }
 
-function pushUniqueScenario(scenarios: Gate2Scenario[], scenario: Gate2Scenario): void {
+function pushUniqueScenario(scenarios: FidelityVerificationScenario[], scenario: FidelityVerificationScenario): void {
   if (!scenarios.some(existing => existing.id === scenario.id)) {
     scenarios.push(scenario)
   }
@@ -220,11 +237,11 @@ function unique(values: string[]): string[] {
   return [...new Set(values)]
 }
 
-function sameBranch(left: Gate2Branch, right: Gate2Branch): boolean {
+function sameBranch(left: FidelityVerificationBranch, right: FidelityVerificationBranch): boolean {
   return left.workgraphNode === right.workgraphNode && (left.edge ?? '') === (right.edge ?? '')
 }
 
-function branchDetail(branch: Gate2Branch): { workgraph_node: string; edge?: string; reason: string } {
+function branchDetail(branch: FidelityVerificationBranch): { workgraph_node: string; edge?: string; reason: string } {
   const detail = {
     workgraph_node: branch.workgraphNode,
     reason: 'no passing scenario exercises this branch',
@@ -247,10 +264,13 @@ function remediation(
   if (failingValidations.length > 0) {
     notes.push(`Fix failing required validations: ${failingValidations.join(', ')}.`)
   }
-  return notes.length > 0 ? notes.join(' ') : 'Gate 2 simulation coverage passed.'
+  return notes.length > 0 ? notes.join(' ') : 'Fidelity Verification passed.'
 }
 
-export function adaptGate2Input(input: Gate2ContractInput, options: AdaptGate2InputOptions): Gate2SimulationInput {
+export function adaptFidelityVerificationInput(
+  input: FidelityVerificationContractInput,
+  options: AdaptFidelityVerificationInputOptions,
+): FidelityVerificationInput {
   assertNonEmpty(input.functionId, 'functionId')
   assertNonEmpty(options.prdId, 'prdId')
   assertNonEmpty(input.workGraphId, 'workGraphId')
@@ -258,40 +278,40 @@ export function adaptGate2Input(input: Gate2ContractInput, options: AdaptGate2In
   assertNonEmpty(input.provenance?.completedAt, 'provenance.completedAt')
   assertNonEmptyArray(input.validationOutcomes, 'validationOutcomes')
 
-  const branches: Gate2Branch[] = []
-  const invariants: Gate2Invariant[] = []
-  const scenarios: Gate2Scenario[] = []
-  const validationOutcomes: Gate2ValidationOutcome[] = []
+  const branches: FidelityVerificationBranch[] = []
+  const invariants: FidelityVerificationInvariant[] = []
+  const scenarios: FidelityVerificationScenario[] = []
+  const validationOutcomes: FidelityVerificationValidationOutcome[] = []
 
   input.validationOutcomes.forEach((validation, validationIndex) => {
     assertNonEmpty(validation.validationId, `validationOutcomes[${validationIndex}].validationId`)
     if (typeof validation.passed !== 'boolean') {
-      throw new Gate2SimulationError(`validationOutcomes[${validationIndex}].passed must be boolean`)
+      throw new FidelityVerificationError(`validationOutcomes[${validationIndex}].passed must be boolean`)
     }
 
     const details = requireRecord(
       validation.details,
-      'normalized Gate2Input validationOutcomes.details',
+      'normalized FidelityVerificationInput validationOutcomes.details',
     )
     const priority = details.priority === 'recommended' ? 'recommended' : details.priority === 'required' ? 'required' : undefined
     if (!priority) {
-      throw new Gate2SimulationError('normalized Gate2Input validationOutcomes.details.priority is required')
+      throw new FidelityVerificationError('normalized FidelityVerificationInput validationOutcomes.details.priority is required')
     }
 
     const invariantIds = requireStringArray(
       details.invariantIds,
-      'normalized Gate2Input validationOutcomes.details.invariantIds',
+      'normalized FidelityVerificationInput validationOutcomes.details.invariantIds',
     )
 
-    requireArray(details.branches, 'normalized Gate2Input validationOutcomes.details.branches')
+    requireArray(details.branches, 'normalized FidelityVerificationInput validationOutcomes.details.branches')
       .map((branch, branchIndex) => readBranch(branch, `validationOutcomes[${validationIndex}].details.branches[${branchIndex}]`))
       .forEach(branch => pushUniqueBranch(branches, branch))
 
-    requireArray(details.invariants, 'normalized Gate2Input validationOutcomes.details.invariants')
+    requireArray(details.invariants, 'normalized FidelityVerificationInput validationOutcomes.details.invariants')
       .map((invariant, invariantIndex) => readInvariant(invariant, `validationOutcomes[${validationIndex}].details.invariants[${invariantIndex}]`))
       .forEach(invariant => pushUniqueInvariant(invariants, invariant))
 
-    requireArray(details.scenarios, 'normalized Gate2Input validationOutcomes.details.scenarios')
+    requireArray(details.scenarios, 'normalized FidelityVerificationInput validationOutcomes.details.scenarios')
       .map((scenario, scenarioIndex) => readScenario(scenario, `validationOutcomes[${validationIndex}].details.scenarios[${scenarioIndex}]`))
       .forEach(scenario => pushUniqueScenario(scenarios, scenario))
 
@@ -303,9 +323,9 @@ export function adaptGate2Input(input: Gate2ContractInput, options: AdaptGate2In
     })
   })
 
-  assertNonEmptyArray(branches, 'normalized Gate2Input validationOutcomes.details.branches')
-  assertNonEmptyArray(invariants, 'normalized Gate2Input validationOutcomes.details.invariants')
-  assertNonEmptyArray(scenarios, 'normalized Gate2Input validationOutcomes.details.scenarios')
+  assertNonEmptyArray(branches, 'normalized FidelityVerificationInput validationOutcomes.details.branches')
+  assertNonEmptyArray(invariants, 'normalized FidelityVerificationInput validationOutcomes.details.invariants')
+  assertNonEmptyArray(scenarios, 'normalized FidelityVerificationInput validationOutcomes.details.scenarios')
 
   return {
     functionId: input.functionId,
@@ -321,14 +341,16 @@ export function adaptGate2Input(input: Gate2ContractInput, options: AdaptGate2In
   }
 }
 
-export function evaluateGate2FromContractInput(
-  input: Gate2ContractInput,
-  options: AdaptGate2InputOptions,
-): Gate2SimulationResult {
-  return evaluateGate2Simulation(adaptGate2Input(input, options))
+export function evaluateFidelityVerificationFromContractInput(
+  input: FidelityVerificationContractInput,
+  options: AdaptFidelityVerificationInputOptions,
+): FidelityVerificationResult {
+  return evaluateFidelityVerification(adaptFidelityVerificationInput(input, options))
 }
 
-export function dryRunGate2AcceptanceTransition(input: Gate2AcceptanceDryRunInput): Gate2AcceptanceDryRun {
+export function dryRunFidelityAcceptanceTransition(
+  input: FidelityVerificationAcceptanceDryRunInput,
+): FidelityVerificationAcceptanceDryRun {
   const validation = validateTransition(input.currentState, 'accepted')
   if (!validation.valid) {
     return {
@@ -350,7 +372,7 @@ export function dryRunGate2AcceptanceTransition(input: Gate2AcceptanceDryRunInpu
       gateReport: input.report.id,
       wouldTransition: false,
       mutationApplied: false,
-      reason: 'Gate 2 report did not pass; produced -> accepted is blocked.',
+      reason: 'Fidelity Verification report did not pass; produced -> accepted is blocked.',
     }
   }
 
@@ -361,11 +383,11 @@ export function dryRunGate2AcceptanceTransition(input: Gate2AcceptanceDryRunInpu
     gateReport: input.report.id,
     wouldTransition: true,
     mutationApplied: false,
-    reason: 'Gate 2 report passed and verdict accepted; produced -> accepted is authorized.',
+    reason: 'Fidelity Verification report passed and verdict accepted; produced -> accepted is authorized.',
   }
 }
 
-export function evaluateGate2Simulation(input: Gate2SimulationInput): Gate2SimulationResult {
+export function evaluateFidelityVerification(input: FidelityVerificationInput): FidelityVerificationResult {
   assertNonEmpty(input.functionId, 'functionId')
   assertNonEmpty(input.prdId, 'prdId')
   assertNonEmpty(input.workGraphId, 'workGraphId')
@@ -440,7 +462,7 @@ export function evaluateGate2Simulation(input: Gate2SimulationInput): Gate2Simul
       ...failingValidations,
     ]),
     explicitness: 'inferred',
-    rationale: 'Gate 2 simulation coverage report produced from normalized simulation evidence.',
+    rationale: 'Fidelity Verification report produced from normalized simulation evidence.',
   })
 
   const scenarioCoverageScore = input.invariants.length === 0 ? 0 : invariantsWithPassingScenario.length / input.invariants.length
@@ -453,27 +475,13 @@ export function evaluateGate2Simulation(input: Gate2SimulationInput): Gate2Simul
     ],
     scenario_coverage_score: scenarioCoverageScore,
     invariant_exercise_rate: invariantExerciseRate,
-    remediation_notes: remediationText === 'Gate 2 simulation coverage passed.' ? [] : remediationText.split('. ').filter(Boolean),
+    remediation_notes: remediationText === 'Fidelity Verification passed.' ? [] : remediationText.split('. ').filter(Boolean),
   })
 
   return { report, verdict }
 }
 
-export type FidelityVerificationScenarioKind = Gate2ScenarioKind
-export type FidelityVerificationValidationPriority = Gate2ValidationPriority
-export type FidelityVerificationValidationStatus = Gate2ValidationStatus
-export type FidelityVerificationBranch = Gate2Branch
-export type FidelityVerificationInvariant = Gate2Invariant
-export type FidelityVerificationScenario = Gate2Scenario
-export type FidelityVerificationValidationOutcome = Gate2ValidationOutcome
-export type FidelityVerificationInput = Gate2SimulationInput
-export type FidelityVerificationContractInput = Gate2ContractInput
-export type FidelityVerificationResult = Gate2SimulationResult
-export type FidelityVerificationAcceptanceDryRunInput = Gate2AcceptanceDryRunInput
-export type FidelityVerificationAcceptanceDryRun = Gate2AcceptanceDryRun
-
-export const FidelityVerificationError = Gate2SimulationError
-export const adaptFidelityVerificationInput = adaptGate2Input
-export const evaluateFidelityVerificationFromContractInput = evaluateGate2FromContractInput
-export const dryRunFidelityAcceptanceTransition = dryRunGate2AcceptanceTransition
-export const evaluateFidelityVerification = evaluateGate2Simulation
+export const adaptGate2Input = adaptFidelityVerificationInput
+export const evaluateGate2FromContractInput = evaluateFidelityVerificationFromContractInput
+export const dryRunGate2AcceptanceTransition = dryRunFidelityAcceptanceTransition
+export const evaluateGate2Simulation = evaluateFidelityVerification

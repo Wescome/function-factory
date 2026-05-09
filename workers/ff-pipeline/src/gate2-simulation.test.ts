@@ -11,11 +11,12 @@ import {
   evaluateGate2Simulation,
   evaluateFidelityVerification,
   evaluateFidelityVerificationFromContractInput,
-  type Gate2ContractInput,
-  type Gate2SimulationInput,
+  type FidelityVerificationAcceptanceDryRun,
+  type FidelityVerificationContractInput,
+  type FidelityVerificationInput,
 } from './gate2-simulation'
 
-function makeInput(overrides: Partial<Gate2SimulationInput> = {}): Gate2SimulationInput {
+function makeInput(overrides: Partial<FidelityVerificationInput> = {}): FidelityVerificationInput {
   return {
     functionId: 'FN-MOTDWVR2-W7UN',
     prdId: 'PRD-META-FUNCTION-SYNTHESIS',
@@ -60,7 +61,7 @@ function makeInput(overrides: Partial<Gate2SimulationInput> = {}): Gate2Simulati
   }
 }
 
-function makeContractInput(overrides: Partial<Gate2ContractInput> = {}): Gate2ContractInput {
+function makeContractInput(overrides: Partial<FidelityVerificationContractInput> = {}): FidelityVerificationContractInput {
   return {
     synthesisRunId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
     functionId: 'FN-MOTDWVR2-W7UN',
@@ -122,16 +123,27 @@ function makeContractInput(overrides: Partial<Gate2ContractInput> = {}): Gate2Co
 }
 
 describe('Gate 2 simulation evaluator', () => {
-  it('exposes Fidelity Verification aliases for new code', () => {
-    expect(FidelityVerificationError).toBe(Gate2SimulationError)
-    expect(adaptFidelityVerificationInput).toBe(adaptGate2Input)
-    expect(evaluateFidelityVerification).toBe(evaluateGate2Simulation)
-    expect(evaluateFidelityVerificationFromContractInput).toBe(evaluateGate2FromContractInput)
-    expect(dryRunFidelityAcceptanceTransition).toBe(dryRunGate2AcceptanceTransition)
+  it('keeps legacy Gate 2 exports as compatibility aliases', () => {
+    const dryRun: FidelityVerificationAcceptanceDryRun = {
+      from: 'produced',
+      to: 'accepted',
+      gate: 'gate-2',
+      gateReport: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-30-00-000Z',
+      wouldTransition: false,
+      mutationApplied: false,
+      reason: 'fixture',
+    }
+
+    expect(dryRun.gate).toBe('gate-2')
+    expect(Gate2SimulationError).toBe(FidelityVerificationError)
+    expect(adaptGate2Input).toBe(adaptFidelityVerificationInput)
+    expect(evaluateGate2Simulation).toBe(evaluateFidelityVerification)
+    expect(evaluateGate2FromContractInput).toBe(evaluateFidelityVerificationFromContractInput)
+    expect(dryRunGate2AcceptanceTransition).toBe(dryRunFidelityAcceptanceTransition)
   })
 
-  it('adapts normalized Gate2Input evidence into simulation input', () => {
-    const adapted = adaptGate2Input(makeContractInput(), {
+  it('adapts normalized FidelityVerificationInput evidence into simulation input', () => {
+    const adapted = adaptFidelityVerificationInput(makeContractInput(), {
       prdId: 'PRD-META-FUNCTION-SYNTHESIS',
       sourceRefs: ['MRP-MOTE4M1R-G7I0-71'],
     })
@@ -174,7 +186,7 @@ describe('Gate 2 simulation evaluator', () => {
       ],
     })
 
-    const result = evaluateGate2FromContractInput(makeContractInput(), {
+    const result = evaluateFidelityVerificationFromContractInput(makeContractInput(), {
       prdId: 'PRD-META-FUNCTION-SYNTHESIS',
       sourceRefs: ['MRP-MOTE4M1R-G7I0-71'],
     })
@@ -182,7 +194,7 @@ describe('Gate 2 simulation evaluator', () => {
     expect(result.verdict.verdict).toBe('accepted')
   })
 
-  it('fails closed when normalized Gate2Input coverage details are missing', () => {
+  it('fails closed when normalized FidelityVerificationInput coverage details are missing', () => {
     const contractInput = makeContractInput({
       validationOutcomes: [
         {
@@ -204,16 +216,16 @@ describe('Gate 2 simulation evaluator', () => {
       ],
     })
 
-    expect(() => adaptGate2Input(contractInput, {
+    expect(() => adaptFidelityVerificationInput(contractInput, {
       prdId: 'PRD-META-FUNCTION-SYNTHESIS',
       sourceRefs: ['MRP-MOTE4M1R-G7I0-71'],
-    })).toThrow(new Gate2SimulationError('normalized Gate2Input validationOutcomes.details.scenarios is required'))
+    })).toThrow(new FidelityVerificationError('normalized FidelityVerificationInput validationOutcomes.details.scenarios is required'))
   })
 
-  it('dry-runs the produced to accepted lifecycle transition from Gate 2 evidence', () => {
-    const result = evaluateGate2Simulation(makeInput())
+  it('dry-runs the produced to accepted lifecycle transition from Fidelity Verification evidence', () => {
+    const result = evaluateFidelityVerification(makeInput())
 
-    expect(dryRunGate2AcceptanceTransition({
+    expect(dryRunFidelityAcceptanceTransition({
       currentState: 'produced',
       report: result.report,
       verdict: result.verdict,
@@ -224,12 +236,12 @@ describe('Gate 2 simulation evaluator', () => {
       gateReport: result.report.id,
       wouldTransition: true,
       mutationApplied: false,
-      reason: 'Gate 2 report passed and verdict accepted; produced -> accepted is authorized.',
+      reason: 'Fidelity Verification report passed and verdict accepted; produced -> accepted is authorized.',
     })
   })
 
-  it('dry-run blocks accepted lifecycle transition when Gate 2 rejects', () => {
-    const result = evaluateGate2Simulation(makeInput({
+  it('dry-run blocks accepted lifecycle transition when Fidelity Verification rejects', () => {
+    const result = evaluateFidelityVerification(makeInput({
       validationOutcomes: [
         {
           id: 'VAL-META-RUNTIME-VERIFICATION-SMOKE',
@@ -240,7 +252,7 @@ describe('Gate 2 simulation evaluator', () => {
       ],
     }))
 
-    expect(dryRunGate2AcceptanceTransition({
+    expect(dryRunFidelityAcceptanceTransition({
       currentState: 'produced',
       report: result.report,
       verdict: result.verdict,
@@ -251,12 +263,12 @@ describe('Gate 2 simulation evaluator', () => {
       gateReport: result.report.id,
       wouldTransition: false,
       mutationApplied: false,
-      reason: 'Gate 2 report did not pass; produced -> accepted is blocked.',
+      reason: 'Fidelity Verification report did not pass; produced -> accepted is blocked.',
     })
   })
 
   it('emits a passing Gate2Report and accepted verdict when coverage is complete', () => {
-    const result = evaluateGate2Simulation(makeInput())
+    const result = evaluateFidelityVerification(makeInput())
 
     expect(result.report).toMatchObject({
       id: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-30-00-000Z',
@@ -289,7 +301,7 @@ describe('Gate 2 simulation evaluator', () => {
   })
 
   it('fails closed when scenarios, negative tests, or required validations are missing', () => {
-    const result = evaluateGate2Simulation(makeInput({
+    const result = evaluateFidelityVerification(makeInput({
       scenarios: [
         {
           id: 'SCN-RUNTIME-VERIFICATION-PASS',

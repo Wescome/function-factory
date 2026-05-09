@@ -4,7 +4,7 @@
 Active task: ontology alias-first migration away from primary Gate(x) names.
 
 ## Last update
-2026-05-09T15:36:55Z
+2026-05-09T15:45:57Z
 
 ## Current actions
 
@@ -12,9 +12,13 @@ Active task: ontology alias-first migration away from primary Gate(x) names.
   - Completed previous slice: MRP evidence now uses
     `fidelityVerificationReportId` / `fidelityVerificationReportKey` as
     canonical names with `gate2ReportId` / `gate2ReportKey` compatibility.
-  - Current slice: invert function-synthesis normalized evidence schema so
+  - Completed: inverted function-synthesis normalized evidence schema so
     `FidelityVerificationInput` is primary and `Gate2Input` remains a
     compatibility alias.
+  - Current slice: make the ff-pipeline Fidelity Verification evaluator,
+    contract adapter, input types, and lifecycle acceptance diagnostic primary,
+    while preserving legacy Gate 2 aliases and persisted `gate-2` report
+    compatibility.
   - `specs/reference/NLAH` remains untouched and untracked by request.
 - Completed: ontology compatibility audit script.
   - Added `scripts/audit-ontology-compat.mjs`.

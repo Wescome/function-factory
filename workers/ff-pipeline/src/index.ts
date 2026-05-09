@@ -552,7 +552,7 @@ export default {
         let result: import('./gate2-simulation').FidelityVerificationResult
         const fidelityVerificationInput = body.fidelityVerificationInput ?? body.gate2Input
         if (fidelityVerificationInput) {
-          const options: import('./gate2-simulation').AdaptGate2InputOptions = {
+          const options: import('./gate2-simulation').AdaptFidelityVerificationInputOptions = {
             prdId: body.prdId as string,
             ...(body.timestamp ? { timestamp: body.timestamp as string } : {}),
             ...(body.sourceRefs ? { sourceRefs: body.sourceRefs as string[] } : {}),
@@ -657,11 +657,12 @@ export default {
       }
     }
 
-    // ── Diagnostic: guarded lifecycle acceptance from persisted Gate 2 evidence ──
+    // ── Diagnostic: guarded lifecycle acceptance from persisted Fidelity Verification evidence ──
     if (url.pathname === '/debug/lifecycle-acceptance' && request.method === 'POST') {
       try {
         const body = await request.json() as {
           functionKey?: unknown
+          fidelityVerificationReportKey?: unknown
           gate2ReportKey?: unknown
           apply?: boolean
           repairAcceptedTransitionEdge?: boolean
@@ -671,16 +672,21 @@ export default {
             error: 'Missing required field: functionKey',
           }), { status: 400, headers: { 'Content-Type': 'application/json' } })
         }
-        if (typeof body.gate2ReportKey !== 'string' || body.gate2ReportKey.trim().length === 0) {
+        const fidelityVerificationReportKey =
+          typeof body.fidelityVerificationReportKey === 'string' && body.fidelityVerificationReportKey.trim().length > 0
+            ? body.fidelityVerificationReportKey.trim()
+            : typeof body.gate2ReportKey === 'string' && body.gate2ReportKey.trim().length > 0
+              ? body.gate2ReportKey.trim()
+              : undefined
+        if (!fidelityVerificationReportKey) {
           return new Response(JSON.stringify({
-            error: 'Missing required field: gate2ReportKey',
+            error: 'Missing required field: fidelityVerificationReportKey',
           }), { status: 400, headers: { 'Content-Type': 'application/json' } })
         }
 
         const functionKey = body.functionKey.trim()
-        const gate2ReportKey = body.gate2ReportKey.trim()
         const { createClientFromEnv } = await import('@factory/arango-client')
-        const { dryRunGate2AcceptanceTransition } = await import('./gate2-simulation.js')
+        const { dryRunFidelityAcceptanceTransition } = await import('./gate2-simulation.js')
         const { transitionLifecycle } = await import('./lifecycle.js')
         const db = createClientFromEnv(env)
         const gate2ReportRecord = await db.queryOne<Record<string, unknown>>(
@@ -688,16 +694,16 @@ export default {
              FILTER report._key == @key OR report.id == @key
              LIMIT 1
              RETURN report`,
-          { key: gate2ReportKey },
+          { key: fidelityVerificationReportKey },
         )
         if (!gate2ReportRecord) {
           return new Response(JSON.stringify({
-            error: `Gate 2 report not found: ${gate2ReportKey}`,
+            error: `Fidelity Verification report not found: ${fidelityVerificationReportKey}`,
           }), { status: 404, headers: { 'Content-Type': 'application/json' } })
         }
         if (gate2ReportRecord.type !== 'gate-2' || gate2ReportRecord.passed !== true) {
           return new Response(JSON.stringify({
-            error: `Gate 2 report has not passed: ${gate2ReportKey}`,
+            error: `Fidelity Verification report has not passed: ${fidelityVerificationReportKey}`,
           }), { status: 400, headers: { 'Content-Type': 'application/json' } })
         }
 
@@ -708,9 +714,9 @@ export default {
           }), { status: 404, headers: { 'Content-Type': 'application/json' } })
         }
 
-        const report = gate2ReportRecord.report as import('./gate2-simulation').Gate2SimulationResult['report']
-        const verdict = gate2ReportRecord.verdict as import('./gate2-simulation').Gate2SimulationResult['verdict']
-        const lifecycleDryRun = dryRunGate2AcceptanceTransition({
+        const report = gate2ReportRecord.report as import('./gate2-simulation').FidelityVerificationResult['report']
+        const verdict = gate2ReportRecord.verdict as import('./gate2-simulation').FidelityVerificationResult['verdict']
+        const lifecycleDryRun = dryRunFidelityAcceptanceTransition({
           currentState: (doc.lifecycleState ?? 'proposed') as import('./lifecycle').LifecycleState,
           report,
           verdict,
@@ -722,7 +728,8 @@ export default {
               error: `Function ${functionKey} is not accepted; transition edge repair is only valid after produced -> accepted has already applied.`,
               applied: false,
               functionKey,
-              gate2ReportKey,
+              fidelityVerificationReportKey,
+              gate2ReportKey: fidelityVerificationReportKey,
               lifecycleDryRun,
             }, null, 2), { status: 400, headers: { 'Content-Type': 'application/json' } })
           }
@@ -734,7 +741,7 @@ export default {
             trigger: 'gate-2-pass',
             guard: 'gate-2',
             responsible_context: 'ff-pipeline:debug-lifecycle-acceptance-repair',
-            gateReport: gate2ReportKey,
+            gateReport: fidelityVerificationReportKey,
             timestamp: repairedAt,
           }
           await db.ensureCollection('lifecycle_transitions')
@@ -751,7 +758,8 @@ export default {
             functionKey,
             from: 'produced',
             to: 'accepted',
-            gate2ReportKey,
+            fidelityVerificationReportKey,
+            gate2ReportKey: fidelityVerificationReportKey,
             transition,
           }, null, 2), { status: 200, headers: { 'Content-Type': 'application/json' } })
         }
@@ -760,7 +768,8 @@ export default {
           return new Response(JSON.stringify({
             applied: false,
             functionKey,
-            gate2ReportKey,
+            fidelityVerificationReportKey,
+            gate2ReportKey: fidelityVerificationReportKey,
             lifecycleDryRun,
           }, null, 2), { status: 200, headers: { 'Content-Type': 'application/json' } })
         }
@@ -770,7 +779,7 @@ export default {
             trigger: 'gate-2-pass',
             guard: 'gate-2',
             responsible_context: 'ff-pipeline:debug-lifecycle-acceptance',
-            gateReport: gate2ReportKey,
+            gateReport: fidelityVerificationReportKey,
           })
 
           return new Response(JSON.stringify({
@@ -778,14 +787,16 @@ export default {
             functionKey,
             from: lifecycleDryRun.from,
             to: 'accepted',
-            gate2ReportKey,
+            fidelityVerificationReportKey,
+            gate2ReportKey: fidelityVerificationReportKey,
           }, null, 2), { status: 200, headers: { 'Content-Type': 'application/json' } })
         }
 
         return new Response(JSON.stringify({
           applied: false,
           functionKey,
-          gate2ReportKey,
+          fidelityVerificationReportKey,
+          gate2ReportKey: fidelityVerificationReportKey,
           lifecycleDryRun,
         }, null, 2), { status: 200, headers: { 'Content-Type': 'application/json' } })
       } catch (err) {
