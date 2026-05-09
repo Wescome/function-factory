@@ -163,7 +163,7 @@ export type RoleAdherenceReport = z.infer<typeof RoleAdherenceReport>
 // ─── Fidelity Verification Input (AC 11) ──────────────────────────────
 // TODO: promote to @factory/schemas — normalized acceptance evidence
 
-export const Gate2Input = z.object({
+export const FidelityVerificationInput = z.object({
   synthesisRunId: z.string().min(1),
   functionId: z.string().min(1),
   workGraphId: z.string().min(1),
@@ -185,10 +185,10 @@ export const Gate2Input = z.object({
     completedAt: z.string().datetime(),
   }),
 })
-export type Gate2Input = z.infer<typeof Gate2Input>
+export type FidelityVerificationInput = z.infer<typeof FidelityVerificationInput>
 
-export const FidelityVerificationInput = Gate2Input
-export type FidelityVerificationInput = Gate2Input
+export const Gate2Input = FidelityVerificationInput
+export type Gate2Input = FidelityVerificationInput
 
 // ─── Candidate Selection Report (AC 12) ───────────────────────────────
 // TODO: promote to @factory/schemas

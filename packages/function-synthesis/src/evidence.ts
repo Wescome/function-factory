@@ -53,7 +53,7 @@ export function buildTraceLog(input: TraceLogInput): SynthesisTraceLog {
 
 // ─── Fidelity Verification Input Builder (AC 11) ──────────────────────
 
-export interface Gate2InputBuilderInput {
+export interface FidelityVerificationInputBuilderInput {
   readonly runId: string
   readonly functionId: string
   readonly workGraphId: string
@@ -74,7 +74,7 @@ export interface Gate2InputBuilderInput {
   readonly completedAt: string
 }
 
-export type FidelityVerificationInputBuilderInput = Gate2InputBuilderInput
+export type Gate2InputBuilderInput = FidelityVerificationInputBuilderInput
 
 export function buildFidelityVerificationInput(input: FidelityVerificationInputBuilderInput): FidelityVerificationInput {
   return FidelityVerificationInput.parse({

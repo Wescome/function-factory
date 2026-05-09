@@ -1,13 +1,21 @@
 # Current Workspace
 
 ## Status
-Active task: ontology compatibility audit script.
+Active task: ontology alias-first migration away from primary Gate(x) names.
 
 ## Last update
-2026-05-08T19:57:59Z
+2026-05-09T15:36:55Z
 
 ## Current actions
 
+- In progress: Gate(x) API de-primary pass.
+  - Completed previous slice: MRP evidence now uses
+    `fidelityVerificationReportId` / `fidelityVerificationReportKey` as
+    canonical names with `gate2ReportId` / `gate2ReportKey` compatibility.
+  - Current slice: invert function-synthesis normalized evidence schema so
+    `FidelityVerificationInput` is primary and `Gate2Input` remains a
+    compatibility alias.
+  - `specs/reference/NLAH` remains untouched and untracked by request.
 - Completed: ontology compatibility audit script.
   - Added `scripts/audit-ontology-compat.mjs`.
   - Added root script `pnpm audit:ontology`.
