@@ -650,7 +650,7 @@ describe('ff-pipeline diagnostic routes', () => {
     expect(mockSave).toHaveBeenCalledOnce()
   })
 
-  it('POST /debug/mrp can rebuild canonical MRP from persisted Gate 2 evidence', async () => {
+  it('POST /debug/mrp can rebuild canonical MRP from persisted Fidelity Verification evidence', async () => {
     const { default: worker } = await import('./index')
     mockQueryOne
       .mockResolvedValueOnce({
@@ -673,7 +673,7 @@ describe('ff-pipeline diagnostic routes', () => {
           audit: makeMaterializationAudit(),
           prOutcomeSignal: makePROutcomeSignal(),
           canonicalEvidence: makeCanonicalMRPEvidence(),
-          gate2ReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+          fidelityVerificationReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
           createdAt: '2026-05-06T21:30:00Z',
         }),
       }),
@@ -684,12 +684,15 @@ describe('ff-pipeline diagnostic routes', () => {
     expect(response.status).toBe(201)
     expect(await jsonBody(response)).toMatchObject({
       persisted: true,
+      fidelityVerificationReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
       gate2ReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
       canonical: {
         soundVerification: {
+          fidelityVerificationReportId: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
           gate2ReportId: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
         },
         auditability: {
+          fidelityVerificationReportId: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
           gate2ReportId: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
         },
       },
@@ -877,7 +880,7 @@ describe('ff-pipeline diagnostic routes', () => {
     )
   })
 
-  it('POST /debug/mrp-auto can overlay persisted Gate 2 evidence during Stage 8 assembly', async () => {
+  it('POST /debug/mrp-auto can overlay persisted Fidelity Verification evidence during Stage 8 assembly', async () => {
     const { default: worker } = await import('./index')
     mockQuery.mockResolvedValueOnce([
       {
@@ -906,7 +909,7 @@ describe('ff-pipeline diagnostic routes', () => {
           audit: makeMaterializationAudit(),
           pullNumber: 71,
           canonicalEvidenceKey: 'MRP-EVIDENCE-MOTE4M1R-b44ae7d',
-          gate2ReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+          fidelityVerificationReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
           createdAt: '2026-05-07T21:18:10Z',
         }),
       }),
@@ -917,12 +920,15 @@ describe('ff-pipeline diagnostic routes', () => {
     expect(response.status).toBe(201)
     expect(await jsonBody(response)).toMatchObject({
       persisted: true,
+      fidelityVerificationReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
       gate2ReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
       canonical: {
         soundVerification: {
+          fidelityVerificationReportId: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
           gate2ReportId: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
         },
         auditability: {
+          fidelityVerificationReportId: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
           gate2ReportId: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
         },
       },

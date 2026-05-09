@@ -118,6 +118,7 @@ export interface CanonicalMRPEvidence {
       type: 'unit' | 'integration' | 'property'
       result: 'pass' | 'fail'
     }>
+    fidelityVerificationReportId?: string
     gate2ReportId?: string
     coveragePercentage?: number
   }
@@ -147,6 +148,7 @@ export interface CanonicalMRPEvidence {
     prdId?: string
     semanticReviewId?: string
     gate1ReportId?: string
+    fidelityVerificationReportId?: string
     gate2ReportId?: string
     sessionTreeId?: string
     modelBindings?: Record<string, { provider: string; model: string }>
@@ -325,7 +327,9 @@ function requiredCanonicalFields(pack: MergeReadinessPack, evidence: CanonicalMR
   }
   if (!isNonEmptyString(evidence.soundVerification?.testPlan)) missing.push('soundVerification.testPlan')
   if (!isNonEmptyArray(evidence.soundVerification?.newTestCases)) missing.push('soundVerification.newTestCases')
-  if (!isNonEmptyString(evidence.soundVerification?.gate2ReportId)) missing.push('soundVerification.gate2ReportId')
+  if (!isNonEmptyString(fidelityVerificationReportId(evidence.soundVerification))) {
+    missing.push('soundVerification.fidelityVerificationReportId')
+  }
   if (!isNonEmptyArray(evidence.seHygiene?.mentorRuleCompliance)) missing.push('seHygiene.mentorRuleCompliance')
   if (!isNonEmptyString(evidence.rationale?.approach)) missing.push('rationale.approach')
   if (!isNonEmptyString(evidence.rationale?.tradeoffsConsidered)) missing.push('rationale.tradeoffsConsidered')
@@ -333,7 +337,9 @@ function requiredCanonicalFields(pack: MergeReadinessPack, evidence: CanonicalMR
   if (!isNonEmptyString(evidence.auditability?.prdId)) missing.push('auditability.prdId')
   if (!isNonEmptyString(evidence.auditability?.semanticReviewId)) missing.push('auditability.semanticReviewId')
   if (!isNonEmptyString(evidence.auditability?.gate1ReportId)) missing.push('auditability.gate1ReportId')
-  if (!isNonEmptyString(evidence.auditability?.gate2ReportId)) missing.push('auditability.gate2ReportId')
+  if (!isNonEmptyString(fidelityVerificationReportId(evidence.auditability))) {
+    missing.push('auditability.fidelityVerificationReportId')
+  }
   if (!evidence.auditability?.modelBindings || Object.keys(evidence.auditability.modelBindings).length === 0) {
     missing.push('auditability.modelBindings')
   }
@@ -360,18 +366,33 @@ export function withGate2ReportEvidence(
   evidence: CanonicalMRPEvidence,
   gate2ReportId: string,
 ): CanonicalMRPEvidence {
-  assertNonEmpty(gate2ReportId, 'gate2ReportId')
+  return withFidelityVerificationReportEvidence(evidence, gate2ReportId)
+}
+
+export function withFidelityVerificationReportEvidence(
+  evidence: CanonicalMRPEvidence,
+  fidelityVerificationReportId: string,
+): CanonicalMRPEvidence {
+  assertNonEmpty(fidelityVerificationReportId, 'fidelityVerificationReportId')
   return {
     ...evidence,
     soundVerification: {
       ...evidence.soundVerification,
-      gate2ReportId,
+      fidelityVerificationReportId,
+      gate2ReportId: fidelityVerificationReportId,
     },
     auditability: {
       ...evidence.auditability,
-      gate2ReportId,
+      fidelityVerificationReportId,
+      gate2ReportId: fidelityVerificationReportId,
     },
   }
+}
+
+function fidelityVerificationReportId(
+  evidence: { fidelityVerificationReportId?: string; gate2ReportId?: string } | undefined,
+): string | undefined {
+  return evidence?.fidelityVerificationReportId ?? evidence?.gate2ReportId
 }
 
 function assertPackReadyForPersistence(pack: MergeReadinessPack): void {
@@ -507,6 +528,8 @@ export function toCanonicalMergeReadinessPack(
     throw new MissingCanonicalMRPEvidenceError(missing)
   }
   const functionId = canonicalFunctionId(pack, evidence)
+  const soundVerificationReportId = fidelityVerificationReportId(evidence.soundVerification)
+  const auditabilityVerificationReportId = fidelityVerificationReportId(evidence.auditability)
 
   const canonical = {
     _key: pack.id,
@@ -522,7 +545,8 @@ export function toCanonicalMergeReadinessPack(
       passed: pack.criteria.find(item => item.name === 'sound-verification')?.passed ?? false,
       testPlan: evidence.soundVerification?.testPlan,
       newTestCases: evidence.soundVerification?.newTestCases,
-      gate2ReportId: evidence.soundVerification?.gate2ReportId,
+      fidelityVerificationReportId: soundVerificationReportId,
+      gate2ReportId: soundVerificationReportId,
       ...(typeof evidence.soundVerification?.coveragePercentage === 'number'
         ? { coveragePercentage: evidence.soundVerification.coveragePercentage }
         : {}),
@@ -544,7 +568,8 @@ export function toCanonicalMergeReadinessPack(
       workGraphId: pack.workGraphId,
       semanticReviewId: evidence.auditability?.semanticReviewId,
       gate1ReportId: evidence.auditability?.gate1ReportId,
-      gate2ReportId: evidence.auditability?.gate2ReportId,
+      fidelityVerificationReportId: auditabilityVerificationReportId,
+      gate2ReportId: auditabilityVerificationReportId,
       ...(evidence.auditability?.sessionTreeId ? { sessionTreeId: evidence.auditability.sessionTreeId } : {}),
       modelBindings: evidence.auditability?.modelBindings,
       mentorRulesApplied: evidence.auditability?.mentorRulesApplied ?? [],

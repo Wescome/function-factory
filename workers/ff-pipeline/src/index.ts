@@ -976,6 +976,7 @@ export default {
           audit?: unknown
           pullNumber?: unknown
           canonicalEvidenceKey?: unknown
+          fidelityVerificationReportKey?: unknown
           gate2ReportKey?: unknown
           createdAt?: string
         }
@@ -1009,7 +1010,7 @@ export default {
           buildMergeReadinessPack,
           ingestMergeReadinessPack,
           toCanonicalMergeReadinessPack,
-          withGate2ReportEvidence,
+          withFidelityVerificationReportEvidence,
         } = await import('./merge-readiness-pack.js')
         const db = createClientFromEnv(env)
         const prOutcomeSignals = await db.query<Record<string, unknown>>(
@@ -1043,26 +1044,28 @@ export default {
             error: `Canonical MRP evidence not found: ${evidenceKey}`,
           }), { status: 404, headers: { 'Content-Type': 'application/json' } })
         }
-        const gate2ReportKey = typeof body.gate2ReportKey === 'string' && body.gate2ReportKey.trim().length > 0
-          ? body.gate2ReportKey.trim()
-          : undefined
-        const gate2ReportRecord = gate2ReportKey
+        const fidelityVerificationReportKey = typeof body.fidelityVerificationReportKey === 'string' && body.fidelityVerificationReportKey.trim().length > 0
+          ? body.fidelityVerificationReportKey.trim()
+          : typeof body.gate2ReportKey === 'string' && body.gate2ReportKey.trim().length > 0
+            ? body.gate2ReportKey.trim()
+            : undefined
+        const fidelityVerificationReportRecord = fidelityVerificationReportKey
           ? await db.queryOne<Record<string, unknown>>(
             `FOR report IN specs_coverage_reports
                FILTER report._key == @key OR report.id == @key
                LIMIT 1
                RETURN report`,
-            { key: gate2ReportKey },
+            { key: fidelityVerificationReportKey },
           )
           : null
-        if (gate2ReportKey && !gate2ReportRecord) {
+        if (fidelityVerificationReportKey && !fidelityVerificationReportRecord) {
           return new Response(JSON.stringify({
-            error: `Gate 2 report not found: ${gate2ReportKey}`,
+            error: `Fidelity Verification report not found: ${fidelityVerificationReportKey}`,
           }), { status: 404, headers: { 'Content-Type': 'application/json' } })
         }
-        if (gate2ReportKey && (gate2ReportRecord?.type !== 'gate-2' || gate2ReportRecord.passed !== true)) {
+        if (fidelityVerificationReportKey && (fidelityVerificationReportRecord?.type !== 'gate-2' || fidelityVerificationReportRecord.passed !== true)) {
           return new Response(JSON.stringify({
-            error: `Gate 2 report has not passed: ${gate2ReportKey}`,
+            error: `Fidelity Verification report has not passed: ${fidelityVerificationReportKey}`,
           }), { status: 400, headers: { 'Content-Type': 'application/json' } })
         }
 
@@ -1072,10 +1075,10 @@ export default {
           ...(body.createdAt ? { createdAt: body.createdAt } : {}),
         })
         const rawCanonicalEvidence = canonicalEvidenceRecord.canonicalEvidence ?? canonicalEvidenceRecord.evidence
-        const canonicalEvidence = gate2ReportKey
-          ? withGate2ReportEvidence(
+        const canonicalEvidence = fidelityVerificationReportKey
+          ? withFidelityVerificationReportEvidence(
             rawCanonicalEvidence as import('./merge-readiness-pack').CanonicalMRPEvidence,
-            gate2ReportKey,
+            fidelityVerificationReportKey,
           )
           : rawCanonicalEvidence
         const canonical = toCanonicalMergeReadinessPack(
@@ -1091,7 +1094,10 @@ export default {
           verdict: (persisted as { verdict?: unknown }).verdict,
           prOutcomeSignalKey: prOutcomeSignal._key,
           canonicalEvidenceKey: evidenceKey,
-          ...(gate2ReportKey ? { gate2ReportKey } : {}),
+          ...(fidelityVerificationReportKey ? {
+            fidelityVerificationReportKey,
+            gate2ReportKey: fidelityVerificationReportKey,
+          } : {}),
           canonical,
           pack: persisted,
         }, null, 2), { status: 201, headers: { 'Content-Type': 'application/json' } })
@@ -1111,6 +1117,7 @@ export default {
           prOutcomeSignalKey?: string
           canonicalEvidence?: unknown
           canonicalEvidenceKey?: string
+          fidelityVerificationReportKey?: string
           gate2ReportKey?: string
           createdAt?: string
         }
@@ -1136,7 +1143,7 @@ export default {
           buildMergeReadinessPack,
           ingestMergeReadinessPack,
           toCanonicalMergeReadinessPack,
-          withGate2ReportEvidence,
+          withFidelityVerificationReportEvidence,
         } = await import('./merge-readiness-pack.js')
         const db = createClientFromEnv(env)
         const prOutcomeSignal = body.prOutcomeSignal ?? await db.queryOne<Record<string, unknown>>(
@@ -1156,13 +1163,18 @@ export default {
             { key: body.canonicalEvidenceKey },
           )
           : null
-        const gate2ReportRecord = body.gate2ReportKey
+        const fidelityVerificationReportKey = typeof body.fidelityVerificationReportKey === 'string' && body.fidelityVerificationReportKey.trim().length > 0
+          ? body.fidelityVerificationReportKey.trim()
+          : typeof body.gate2ReportKey === 'string' && body.gate2ReportKey.trim().length > 0
+            ? body.gate2ReportKey.trim()
+            : undefined
+        const fidelityVerificationReportRecord = fidelityVerificationReportKey
           ? await db.queryOne<Record<string, unknown>>(
             `FOR report IN specs_coverage_reports
                FILTER report._key == @key OR report.id == @key
                LIMIT 1
                RETURN report`,
-            { key: body.gate2ReportKey },
+            { key: fidelityVerificationReportKey },
           )
           : null
 
@@ -1176,14 +1188,14 @@ export default {
             error: `Canonical MRP evidence not found: ${body.canonicalEvidenceKey}`,
           }), { status: 404, headers: { 'Content-Type': 'application/json' } })
         }
-        if (body.gate2ReportKey && !gate2ReportRecord) {
+        if (fidelityVerificationReportKey && !fidelityVerificationReportRecord) {
           return new Response(JSON.stringify({
-            error: `Gate 2 report not found: ${body.gate2ReportKey}`,
+            error: `Fidelity Verification report not found: ${fidelityVerificationReportKey}`,
           }), { status: 404, headers: { 'Content-Type': 'application/json' } })
         }
-        if (body.gate2ReportKey && (gate2ReportRecord?.type !== 'gate-2' || gate2ReportRecord.passed !== true)) {
+        if (fidelityVerificationReportKey && (fidelityVerificationReportRecord?.type !== 'gate-2' || fidelityVerificationReportRecord.passed !== true)) {
           return new Response(JSON.stringify({
-            error: `Gate 2 report has not passed: ${body.gate2ReportKey}`,
+            error: `Fidelity Verification report has not passed: ${fidelityVerificationReportKey}`,
           }), { status: 400, headers: { 'Content-Type': 'application/json' } })
         }
 
@@ -1195,10 +1207,10 @@ export default {
         const rawCanonicalEvidence = body.canonicalEvidence
           ?? canonicalEvidenceRecord?.canonicalEvidence
           ?? canonicalEvidenceRecord?.evidence
-        const canonicalEvidence = body.gate2ReportKey
-          ? withGate2ReportEvidence(
+        const canonicalEvidence = fidelityVerificationReportKey
+          ? withFidelityVerificationReportEvidence(
             (rawCanonicalEvidence ?? {}) as import('./merge-readiness-pack').CanonicalMRPEvidence,
-            body.gate2ReportKey,
+            fidelityVerificationReportKey,
           )
           : rawCanonicalEvidence
         const canonical = canonicalEvidence
@@ -1214,7 +1226,10 @@ export default {
           id: pack.id,
           readinessVerdict: pack.readinessVerdict,
           verdict: (persisted as { verdict?: unknown }).verdict,
-          ...(body.gate2ReportKey ? { gate2ReportKey: body.gate2ReportKey } : {}),
+          ...(fidelityVerificationReportKey ? {
+            fidelityVerificationReportKey,
+            gate2ReportKey: fidelityVerificationReportKey,
+          } : {}),
           ...(canonical ? { canonical } : {}),
           pack: persisted,
         }, null, 2), { status: 201, headers: { 'Content-Type': 'application/json' } })

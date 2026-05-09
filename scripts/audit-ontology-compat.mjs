@@ -13,6 +13,8 @@ const files = {
   ciWorkflow: '.github/workflows/ci.yml',
   schemaIndex: 'packages/schemas/src/index.ts',
   schemaPackageJson: 'packages/schemas/package.json',
+  sdlcSchema: 'packages/schemas/src/sdlc.ts',
+  sdlcSchemaTest: 'packages/schemas/src/sdlc.test.ts',
   compilerPackageJson: 'packages/compiler/package.json',
   coverageGatesPackageJson: 'packages/coverage-gates/package.json',
   prdAuthoringPackageJson: 'packages/prd-authoring/package.json',
@@ -60,6 +62,7 @@ const files = {
   pipelineCompileStage: 'workers/ff-pipeline/src/stages/compile.ts',
   pipelineFidelityVerification: 'workers/ff-pipeline/src/gate2-simulation.ts',
   pipelinePersistenceVerification: 'workers/ff-pipeline/src/gate3-assurance.ts',
+  pipelineMergeReadinessPack: 'workers/ff-pipeline/src/merge-readiness-pack.ts',
   gatesWorker: 'workers/ff-gates/src/index.ts',
   gatewayWorker: 'workers/ff-gateway/src/index.ts',
   gatewayEnv: 'workers/ff-gateway/src/env.ts',
@@ -225,6 +228,10 @@ function checkSchemaAliases() {
   expectIncludes('function synthesis keeps legacy Gate2Input builder alias', read(files.functionSynthesisEvidence), 'export const buildGate2Input = buildFidelityVerificationInput')
   expectIncludes('ff-pipeline exposes Fidelity Verification evaluator alias', read(files.pipelineFidelityVerification), 'export const evaluateFidelityVerification = evaluateGate2Simulation')
   expectIncludes('ff-pipeline exposes Fidelity Verification contract adapter alias', read(files.pipelineFidelityVerification), 'export const evaluateFidelityVerificationFromContractInput = evaluateGate2FromContractInput')
+  expectIncludes('MRP schema accepts Fidelity Verification report id', read(files.sdlcSchema), 'fidelityVerificationReportId')
+  expectIncludes('MRP schema test covers Fidelity Verification report id', read(files.sdlcSchemaTest), 'fidelityVerificationReportId')
+  expectIncludes('MRP helper exposes Fidelity Verification evidence overlay', read(files.pipelineMergeReadinessPack), 'withFidelityVerificationReportEvidence')
+  expectIncludes('MRP helper keeps legacy Gate 2 evidence overlay', read(files.pipelineMergeReadinessPack), 'export function withGate2ReportEvidence')
   expectIncludes('ff-pipeline exposes Persistence Verification evaluator alias', read(files.pipelinePersistenceVerification), 'export const evaluatePersistenceVerificationRegistration = evaluateGate3AssuranceRegistration')
   expectIncludes('ff-pipeline exposes Fidelity Verification diagnostic route', read(files.pipelineIndex), '/debug/fidelity-verification')
   expectIncludes('ff-pipeline exposes Persistence Verification diagnostic route', read(files.pipelineIndex), '/debug/persistence-verification')

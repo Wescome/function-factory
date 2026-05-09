@@ -5,6 +5,7 @@ import {
   MergeReadinessPackError,
   MissingCanonicalMRPEvidenceError,
   toCanonicalMergeReadinessPack,
+  withFidelityVerificationReportEvidence,
   withGate2ReportEvidence,
   type CanonicalMRPEvidence,
   type PROutcomeSignalRecord,
@@ -418,7 +419,7 @@ describe('merge-readiness pack', () => {
         'functionalCompleteness.acceptanceCriteria',
         'soundVerification.testPlan',
         'soundVerification.newTestCases',
-        'soundVerification.gate2ReportId',
+        'soundVerification.fidelityVerificationReportId',
         'seHygiene.mentorRuleCompliance',
         'rationale.approach',
         'rationale.tradeoffsConsidered',
@@ -426,7 +427,7 @@ describe('merge-readiness pack', () => {
         'auditability.prdId',
         'auditability.semanticReviewId',
         'auditability.gate1ReportId',
-        'auditability.gate2ReportId',
+        'auditability.fidelityVerificationReportId',
         'auditability.modelBindings',
         'auditability.totalTokenUsage',
         'auditability.totalCost',
@@ -505,26 +506,43 @@ describe('merge-readiness pack', () => {
         checksFailed: [],
         commitSha: 'e933510c98dc29dabfb635bb49e47667eefdbf1c',
       },
+      soundVerification: {
+        fidelityVerificationReportId: 'CR-MOTE4M1R-GATE2',
+        gate2ReportId: 'CR-MOTE4M1R-GATE2',
+      },
       auditability: {
         workGraphId: 'WG-MOTE4M1R-G7I0',
+        fidelityVerificationReportId: 'CR-MOTE4M1R-GATE2',
         gate2ReportId: 'CR-MOTE4M1R-GATE2',
       },
     })
   })
 
-  it('overlays canonical MRP evidence with a persisted Gate 2 report id', () => {
+  it('overlays canonical MRP evidence with a persisted Fidelity Verification report id', () => {
+    const evidence = withFidelityVerificationReportEvidence(
+      makeCanonicalEvidence(),
+      'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+    )
+
+    expect(evidence.soundVerification?.fidelityVerificationReportId).toBe('CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z')
+    expect(evidence.soundVerification?.gate2ReportId).toBe('CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z')
+    expect(evidence.auditability?.fidelityVerificationReportId).toBe('CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z')
+    expect(evidence.auditability?.gate2ReportId).toBe('CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z')
+  })
+
+  it('keeps the legacy Gate 2 MRP evidence helper as a compatibility alias', () => {
     const evidence = withGate2ReportEvidence(
       makeCanonicalEvidence(),
       'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
     )
 
-    expect(evidence.soundVerification?.gate2ReportId).toBe('CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z')
+    expect(evidence.soundVerification?.fidelityVerificationReportId).toBe('CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z')
     expect(evidence.auditability?.gate2ReportId).toBe('CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z')
   })
 
-  it('rejects empty Gate 2 report ids when overlaying canonical MRP evidence', () => {
-    expect(() => withGate2ReportEvidence(makeCanonicalEvidence(), '')).toThrow(
-      new MergeReadinessPackError('gate2ReportId is required'),
+  it('rejects empty Fidelity Verification report ids when overlaying canonical MRP evidence', () => {
+    expect(() => withFidelityVerificationReportEvidence(makeCanonicalEvidence(), '')).toThrow(
+      new MergeReadinessPackError('fidelityVerificationReportId is required'),
     )
   })
 

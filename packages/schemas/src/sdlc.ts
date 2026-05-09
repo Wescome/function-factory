@@ -183,6 +183,7 @@ export const MergeReadinessPack = z.object({
         result: z.enum(["pass", "fail"]),
       })
     ),
+    fidelityVerificationReportId: z.string().optional(),
     gate2ReportId: z.string(),
     coveragePercentage: z.number().min(0).max(100).optional(),
   }),
@@ -223,6 +224,7 @@ export const MergeReadinessPack = z.object({
     workGraphId: z.string(),
     semanticReviewId: z.string(),
     gate1ReportId: z.string(),
+    fidelityVerificationReportId: z.string().optional(),
     gate2ReportId: z.string(),
     sessionTreeId: z.string().optional(),
     modelBindings: z.record(z.object({
