@@ -3,7 +3,7 @@ import {
   type Gate3Report as Gate3ReportType,
 } from '@factory/schemas'
 
-export interface Gate3DetectorRegistration {
+export interface PersistenceVerificationDetectorRegistration {
   invariantId: string
   detector: string
   lastReport: string | null
@@ -11,41 +11,48 @@ export interface Gate3DetectorRegistration {
   stale: boolean
 }
 
-export interface Gate3EvidenceSourceRegistration {
+export interface PersistenceVerificationEvidenceSourceRegistration {
   source: string
   lastEmission: string | null
   expectedCadence: string
   quiet: boolean
 }
 
-export interface Gate3AssuranceRegistrationInput {
+export interface PersistenceVerificationRegistrationInput {
   functionId: string
   timestamp: string
   sourceRefs: string[]
-  detectors: Gate3DetectorRegistration[]
-  evidenceSources: Gate3EvidenceSourceRegistration[]
+  detectors: PersistenceVerificationDetectorRegistration[]
+  evidenceSources: PersistenceVerificationEvidenceSourceRegistration[]
   auditPipeline: {
     expected: number
     observed: number
   }
 }
 
-export class Gate3AssuranceError extends Error {
+export type Gate3DetectorRegistration = PersistenceVerificationDetectorRegistration
+export type Gate3EvidenceSourceRegistration = PersistenceVerificationEvidenceSourceRegistration
+export type Gate3AssuranceRegistrationInput = PersistenceVerificationRegistrationInput
+export type PersistenceVerificationReport = Gate3ReportType
+
+export class PersistenceVerificationError extends Error {
   constructor(message: string) {
     super(message)
-    this.name = 'Gate3AssuranceError'
+    this.name = 'PersistenceVerificationError'
   }
 }
 
+export const Gate3AssuranceError = PersistenceVerificationError
+
 function assertNonEmpty(value: unknown, field: string): asserts value is string {
   if (typeof value !== 'string' || value.trim().length === 0) {
-    throw new Gate3AssuranceError(`${field} is required`)
+    throw new PersistenceVerificationError(`${field} is required`)
   }
 }
 
 function assertArray<T>(value: T[], field: string): void {
   if (!Array.isArray(value) || value.length === 0) {
-    throw new Gate3AssuranceError(`${field} is required`)
+    throw new PersistenceVerificationError(`${field} is required`)
   }
 }
 
@@ -62,7 +69,7 @@ function divergencePct(expected: number, observed: number): number {
   return Math.abs(expected - observed) / expected
 }
 
-export function evaluateGate3AssuranceRegistration(input: Gate3AssuranceRegistrationInput): Gate3ReportType {
+export function evaluatePersistenceVerificationRegistration(input: PersistenceVerificationRegistrationInput): Gate3ReportType {
   assertNonEmpty(input.functionId, 'functionId')
   assertNonEmpty(input.timestamp, 'timestamp')
   assertArray(input.sourceRefs, 'sourceRefs')
@@ -98,10 +105,10 @@ export function evaluateGate3AssuranceRegistration(input: Gate3AssuranceRegistra
   const expected = input.auditPipeline.expected
   const observed = input.auditPipeline.observed
   if (!Number.isInteger(expected) || expected < 0) {
-    throw new Gate3AssuranceError('auditPipeline.expected must be a nonnegative integer')
+    throw new PersistenceVerificationError('auditPipeline.expected must be a nonnegative integer')
   }
   if (!Number.isInteger(observed) || observed < 0) {
-    throw new Gate3AssuranceError('auditPipeline.observed must be a nonnegative integer')
+    throw new PersistenceVerificationError('auditPipeline.observed must be a nonnegative integer')
   }
 
   const divergence = divergencePct(expected, observed)
@@ -110,7 +117,7 @@ export function evaluateGate3AssuranceRegistration(input: Gate3AssuranceRegistra
   const auditPipelineIntegrityPassed = divergence === 0
   const overall = detectorFreshnessPassed && evidenceSourceLivenessPassed && auditPipelineIntegrityPassed ? 'pass' : 'fail'
   const remediation = overall === 'pass'
-    ? 'Gate 3 assurance coverage passed.'
+    ? 'Persistence Verification passed.'
     : 'Register active detectors, restore quiet evidence sources, and reconcile audit-pipeline event divergence before monitored promotion.'
 
   return Gate3Report.parse({
@@ -147,14 +154,8 @@ export function evaluateGate3AssuranceRegistration(input: Gate3AssuranceRegistra
       ...staleDetectors.map(detector => detector.invariant_id),
     ]),
     explicitness: 'inferred',
-    rationale: 'Gate 3 assurance registration report produced from normalized detector and evidence-source registration.',
+    rationale: 'Persistence Verification report produced from normalized detector and evidence-source registration.',
   })
 }
 
-export type PersistenceVerificationDetectorRegistration = Gate3DetectorRegistration
-export type PersistenceVerificationEvidenceSourceRegistration = Gate3EvidenceSourceRegistration
-export type PersistenceVerificationRegistrationInput = Gate3AssuranceRegistrationInput
-export type PersistenceVerificationReport = Gate3ReportType
-
-export const PersistenceVerificationError = Gate3AssuranceError
-export const evaluatePersistenceVerificationRegistration = evaluateGate3AssuranceRegistration
+export const evaluateGate3AssuranceRegistration = evaluatePersistenceVerificationRegistration
