@@ -32,6 +32,7 @@ const files = {
   compilerPassCoherenceVerification: 'packages/compiler/src/passes/07-gate-1.ts',
   compilerReadme: 'packages/compiler/README.md',
   coverageGatesIndex: 'packages/coverage-gates/src/index.ts',
+  coverageGatesChecks: 'packages/coverage-gates/src/checks.ts',
   coverageGatesGate1: 'packages/coverage-gates/src/gate-1.ts',
   coverageGatesEmit: 'packages/coverage-gates/src/emit.ts',
   coverageEmit: 'packages/coverage-gates/src/emit.ts',
@@ -223,9 +224,11 @@ function checkSchemaAliases() {
   expectIncludes('coverage schema keeps Gate2Report compatibility alias', read(files.coverageSchema), 'export const Gate2Report = FidelityVerificationReport')
   expectIncludes('coverage schema defines Persistence Verification report as primary', read(files.coverageSchema), 'export const PersistenceVerificationReport = Lineage.extend')
   expectIncludes('coverage schema keeps Gate3Report compatibility alias', read(files.coverageSchema), 'export const Gate3Report = PersistenceVerificationReport')
-  expectIncludes('coverage-gates exports Coherence Verification runner alias', read(files.coverageGatesIndex), 'runCoherenceVerification')
-  expectIncludes('coverage-gates runner alias points to runGate1', read(files.coverageGatesGate1), 'export const runCoherenceVerification = runGate1')
-  expectIncludes('coverage-gates emits Coherence Verification report alias', read(files.coverageGatesEmit), 'export const emitCoherenceVerificationReport = emitGate1Report')
+  expectIncludes('coverage-gates exports Coherence Verification runner', read(files.coverageGatesIndex), 'runCoherenceVerification')
+  expectIncludes('coverage-gates runner keeps legacy Gate 1 alias', read(files.coverageGatesGate1), 'export const runGate1 = runCoherenceVerification')
+  expectIncludes('coverage-gates checks define Coherence Verification input first', read(files.coverageGatesChecks), 'export interface CoherenceVerificationInput')
+  expectIncludes('coverage-gates checks keep Gate 1 input alias', read(files.coverageGatesChecks), 'export type Gate1Input = CoherenceVerificationInput')
+  expectIncludes('coverage-gates emit keeps legacy Gate 1 report alias', read(files.coverageGatesEmit), 'export const emitGate1Report = emitCoherenceVerificationReport')
   expectIncludes('compiler invokes Coherence Verification pass', read(files.compiler), 'runCoherenceVerificationPass')
   expectIncludes('compiler pass invokes Coherence Verification evaluator', read(files.compilerPassCoherenceVerification), 'runCoherenceVerification')
   expectIncludes('compiler pass emits Coherence Verification report', read(files.compilerPassCoherenceVerification), 'emitCoherenceVerificationReport')

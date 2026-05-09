@@ -1,7 +1,7 @@
 /**
- * The five coverage checks Gate 1 performs on compiler intermediates.
+ * The five coverage checks Coherence Verification performs on compiler intermediates.
  *
- * Each check is a pure function taking the full Gate 1 input bundle and
+ * Each check is a pure function taking the full Coherence Verification input bundle and
  * returning a structured result. No IO, no mutation of inputs, no
  * external state. Determinism is preserved by sorting ID arrays before
  * emission — identical inputs produce byte-identical outputs.
@@ -14,7 +14,7 @@
 import type {
   ArtifactId,
   FactoryMode,
-  Gate1Report,
+  CoherenceVerificationReport,
   RequirementAtom,
   Contract,
   Invariant,
@@ -27,7 +27,7 @@ import { DetectorSpec } from "@factory/schemas"
  * Union of every artifact type that can appear as a reference endpoint
  * in compiler intermediates. The Bootstrap prefix check walks these.
  */
-export interface Gate1Input {
+export interface CoherenceVerificationInput {
   readonly prdId: ArtifactId
   readonly mode: FactoryMode
   readonly atoms: readonly RequirementAtom[]
@@ -37,7 +37,9 @@ export interface Gate1Input {
   readonly validations: readonly ValidationSpec[]
 }
 
-type Checks = Gate1Report["checks"]
+export type Gate1Input = CoherenceVerificationInput
+
+type Checks = CoherenceVerificationReport["checks"]
 type AtomCoverageResult = Checks["atom_coverage"]
 type InvariantCoverageResult = Checks["invariant_coverage"]
 type ValidationCoverageResult = Checks["validation_coverage"]
@@ -57,7 +59,7 @@ const META_PREFIX_REGEX =
  * Downstream means a Contract, Invariant, or ValidationSpec whose
  * source_refs, derivedFromAtomIds, or coversAtomIds contains the atom's ID.
  */
-export function checkAtomCoverage(input: Gate1Input): AtomCoverageResult {
+export function checkAtomCoverage(input: CoherenceVerificationInput): AtomCoverageResult {
   const referenced = new Set<string>()
   for (const c of input.contracts) {
     for (const id of c.source_refs) referenced.add(id)
@@ -89,11 +91,11 @@ export function checkAtomCoverage(input: Gate1Input): AtomCoverageResult {
  * Check 2- every Invariant has both ≥1 covering ValidationSpec and a
  * well-formed DetectorSpec. Detector well-formedness is verified by
  * re-parsing the detector against the Zod schema — a defensive check
- * that catches cases where malformed detectors somehow reached Gate 1
+ * that catches cases where malformed detectors somehow reached Coherence Verification
  * despite earlier-pass validation.
  */
 export function checkInvariantCoverage(
-  input: Gate1Input
+  input: CoherenceVerificationInput
 ): InvariantCoverageResult {
   const missingValidation: ArtifactId[] = []
   const missingDetector: ArtifactId[] = []
@@ -125,7 +127,7 @@ export function checkInvariantCoverage(
  * A validation whose covers* arrays are all empty is a dead test.
  */
 export function checkValidationCoverage(
-  input: Gate1Input
+  input: CoherenceVerificationInput
 ): ValidationCoverageResult {
   const dead: ArtifactId[] = []
   for (const v of input.validations) {
@@ -150,7 +152,7 @@ export function checkValidationCoverage(
  * assurance graph is incomplete.
  */
 export function checkDependencyClosure(
-  input: Gate1Input
+  input: CoherenceVerificationInput
 ): DependencyClosureResult {
   const known = new Set<string>()
   for (const a of input.atoms) known.add(a.id)
@@ -183,7 +185,7 @@ export function checkDependencyClosure(
  * optional functionId references on Invariants.
  */
 export function checkBootstrapPrefix(
-  input: Gate1Input
+  input: CoherenceVerificationInput
 ): BootstrapPrefixCheckResult {
   const seen = new Set<string>()
 

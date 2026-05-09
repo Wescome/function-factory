@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
-import { runCoherenceVerification, runGate1, type Gate1Input } from "./gate-1.js"
-import { Gate1Report } from "@factory/schemas"
+import { runCoherenceVerification, runGate1, type CoherenceVerificationInput } from "./gate-1.js"
+import { CoherenceVerificationReport } from "@factory/schemas"
 import {
   makeAtom,
   makeContract,
@@ -10,7 +10,7 @@ import {
 
 const TIMESTAMP = "2026-04-19T00:00:00Z"
 
-function passingInput(mode: Gate1Input["mode"] = "bootstrap"): Gate1Input {
+function passingInput(mode: CoherenceVerificationInput["mode"] = "bootstrap"): CoherenceVerificationInput {
   const atom = makeAtom("ATOM-META-A")
   const contract = makeContract("INV-META-C1", ["ATOM-META-A"])
   const inv = makeInvariant("INV-META-I1", {
@@ -29,22 +29,22 @@ function passingInput(mode: Gate1Input["mode"] = "bootstrap"): Gate1Input {
     invariants: [inv],
     dependencies: [],
     validations: [val],
-  } as Gate1Input
+  } as CoherenceVerificationInput
 }
 
-describe("runGate1", () => {
-  it("exposes Coherence Verification as the canonical evaluator alias", () => {
-    expect(runCoherenceVerification).toBe(runGate1)
+describe("runCoherenceVerification", () => {
+  it("keeps legacy Gate 1 evaluator as a compatibility alias", () => {
+    expect(runGate1).toBe(runCoherenceVerification)
   })
 
-  it("produces a Gate1Report that validates against the Zod schema", () => {
-    const report = runGate1(passingInput(), TIMESTAMP)
-    const parsed = Gate1Report.safeParse(report)
+  it("produces a CoherenceVerificationReport that validates against the Zod schema", () => {
+    const report = runCoherenceVerification(passingInput(), TIMESTAMP)
+    const parsed = CoherenceVerificationReport.safeParse(report)
     expect(parsed.success).toBe(true)
   })
 
   it("emits overall=pass when every check passes", () => {
-    const report = runGate1(passingInput(), TIMESTAMP)
+    const report = runCoherenceVerification(passingInput(), TIMESTAMP)
     expect(report.overall).toBe("pass")
     expect(report.remediation).toBe("no remediation required")
   })
@@ -52,8 +52,8 @@ describe("runGate1", () => {
   it("emits overall=fail when any check fails (orphan atom)", () => {
     const input = passingInput()
     const extra = makeAtom("ATOM-META-ORPHAN")
-    const modified = { ...input, atoms: [...input.atoms, extra] } as Gate1Input
-    const report = runGate1(modified, TIMESTAMP)
+    const modified = { ...input, atoms: [...input.atoms, extra] } as CoherenceVerificationInput
+    const report = runCoherenceVerification(modified, TIMESTAMP)
     expect(report.overall).toBe("fail")
     expect(report.checks.atom_coverage.status).toBe("fail")
     expect(report.checks.atom_coverage.orphan_atoms).toEqual([
@@ -64,13 +64,13 @@ describe("runGate1", () => {
   })
 
   it("includes bootstrap_prefix_check when mode is bootstrap", () => {
-    const report = runGate1(passingInput("bootstrap"), TIMESTAMP)
+    const report = runCoherenceVerification(passingInput("bootstrap"), TIMESTAMP)
     expect(report.checks.bootstrap_prefix_check).toBeDefined()
     expect(report.checks.bootstrap_prefix_check?.status).toBe("pass")
   })
 
   it("omits bootstrap_prefix_check when mode is steady_state", () => {
-    const report = runGate1(passingInput("steady_state"), TIMESTAMP)
+    const report = runCoherenceVerification(passingInput("steady_state"), TIMESTAMP)
     expect(report.checks.bootstrap_prefix_check).toBeUndefined()
   })
 
@@ -86,8 +86,8 @@ describe("runGate1", () => {
         ...input.contracts,
         makeContract("INV-META-C2", ["ATOM-VERTICAL-NOT-META"]),
       ],
-    } as Gate1Input
-    const report = runGate1(modified, TIMESTAMP)
+    } as CoherenceVerificationInput
+    const report = runCoherenceVerification(modified, TIMESTAMP)
     expect(report.overall).toBe("fail")
     expect(report.checks.bootstrap_prefix_check?.status).toBe("fail")
     expect(
@@ -105,8 +105,8 @@ describe("runGate1", () => {
         ...input.contracts,
         makeContract("INV-META-C2", ["ATOM-VERTICAL-NOT-META"]),
       ],
-    } as Gate1Input
-    const report = runGate1(modified, TIMESTAMP)
+    } as CoherenceVerificationInput
+    const report = runCoherenceVerification(modified, TIMESTAMP)
     expect(report.checks.bootstrap_prefix_check).toBeUndefined()
     expect(report.overall).toBe("pass")
   })
@@ -114,8 +114,8 @@ describe("runGate1", () => {
   it("populates source_refs with PRD ID and every failing artifact ID", () => {
     const input = passingInput()
     const extra = makeAtom("ATOM-META-ORPHAN")
-    const modified = { ...input, atoms: [...input.atoms, extra] } as Gate1Input
-    const report = runGate1(modified, TIMESTAMP)
+    const modified = { ...input, atoms: [...input.atoms, extra] } as CoherenceVerificationInput
+    const report = runCoherenceVerification(modified, TIMESTAMP)
     expect(report.source_refs).toContain("PRD-META-EXAMPLE")
     expect(report.source_refs).toContain("ATOM-META-ORPHAN")
   })
@@ -127,23 +127,23 @@ describe("runGate1", () => {
     const modified = {
       ...input,
       atoms: [...input.atoms, orphanB, orphanA],
-    } as Gate1Input
-    const report = runGate1(modified, TIMESTAMP)
+    } as CoherenceVerificationInput
+    const report = runCoherenceVerification(modified, TIMESTAMP)
     const sorted = [...report.source_refs].sort()
     expect(report.source_refs).toEqual(sorted)
   })
 
   it("is deterministic — byte-identical reports modulo timestamp", () => {
     const input = passingInput()
-    const reportA = runGate1(input, TIMESTAMP)
-    const reportB = runGate1(input, TIMESTAMP)
+    const reportA = runCoherenceVerification(input, TIMESTAMP)
+    const reportB = runCoherenceVerification(input, TIMESTAMP)
     expect(reportA).toEqual(reportB)
   })
 
   it("produces different ids for different timestamps, same content otherwise", () => {
     const input = passingInput()
-    const reportA = runGate1(input, "2026-04-19T00:00:00Z")
-    const reportB = runGate1(input, "2026-04-19T01:00:00Z")
+    const reportA = runCoherenceVerification(input, "2026-04-19T00:00:00Z")
+    const reportB = runCoherenceVerification(input, "2026-04-19T01:00:00Z")
     expect(reportA.id).not.toBe(reportB.id)
     expect(reportA.timestamp).not.toBe(reportB.timestamp)
     // Everything else should match.
@@ -153,23 +153,23 @@ describe("runGate1", () => {
   })
 
   it("Coverage Report ID starts with CR- and embeds the PRD ID", () => {
-    const report = runGate1(passingInput(), TIMESTAMP)
+    const report = runCoherenceVerification(passingInput(), TIMESTAMP)
     expect(report.id).toMatch(/^CR-PRD-META-EXAMPLE-GATE1-/)
   })
 
   it("replaces colons in timestamp so the ID matches ArtifactId regex", () => {
-    const report = runGate1(passingInput(), "2026-04-19T12:34:56Z")
+    const report = runCoherenceVerification(passingInput(), "2026-04-19T12:34:56Z")
     expect(report.id).not.toContain(":")
-    expect(Gate1Report.safeParse(report).success).toBe(true)
+    expect(CoherenceVerificationReport.safeParse(report).success).toBe(true)
   })
 
   it("sets explicitness to 'explicit' (checks derive literally from inputs)", () => {
-    const report = runGate1(passingInput(), TIMESTAMP)
+    const report = runCoherenceVerification(passingInput(), TIMESTAMP)
     expect(report.explicitness).toBe("explicit")
   })
 
   it("rationale is substantive and mentions PRD ID and mode", () => {
-    const report = runGate1(passingInput("bootstrap"), TIMESTAMP)
+    const report = runCoherenceVerification(passingInput("bootstrap"), TIMESTAMP)
     expect(report.rationale).toContain("PRD-META-EXAMPLE")
     expect(report.rationale).toContain("bootstrap")
     expect(report.rationale.length).toBeGreaterThan(10)
@@ -183,8 +183,8 @@ describe("runGate1", () => {
       ...input,
       atoms: [...input.atoms, orphan],
       validations: [...input.validations, deadVal],
-    } as Gate1Input
-    const report = runGate1(modified, TIMESTAMP)
+    } as CoherenceVerificationInput
+    const report = runCoherenceVerification(modified, TIMESTAMP)
     expect(report.overall).toBe("fail")
     expect(report.checks.atom_coverage.status).toBe("fail")
     expect(report.checks.validation_coverage.status).toBe("fail")

@@ -1,22 +1,22 @@
 /**
- * Gate 1 orchestrator- composes the five coverage checks, assembles a
- * Gate1Report conforming to the Zod schema, and validates the output
+ * Coherence Verification orchestrator- composes the five coverage checks,
+ * assembles a CoherenceVerificationReport conforming to the Zod schema, and validates the output
  * before returning.
  *
  * Pure function with no side effects. File emission is handled by
- * `emitGate1Report` in emit.ts so the core logic stays testable with
+ * `emitCoherenceVerificationReport` in emit.ts so the core logic stays testable with
  * synchronous inputs and outputs.
  *
  * Determinism- identical validated inputs produce byte-identical
- * Gate1Report contents modulo the `id` (timestamp-suffixed) and
+ * CoherenceVerificationReport contents modulo the `id` (timestamp-suffixed) and
  * `timestamp` fields. This is load-bearing for audit per PRD
  * acceptance criterion 11 and ConOps §3.4.
  */
 
-import type { ArtifactId, Gate1Report as Gate1ReportType } from "@factory/schemas"
-import { Gate1Report } from "@factory/schemas"
+import type { ArtifactId, CoherenceVerificationReport as CurrentCoherenceVerificationReport } from "@factory/schemas"
+import { CoherenceVerificationReport as CoherenceVerificationReportSchema } from "@factory/schemas"
 import {
-  type Gate1Input,
+  type CoherenceVerificationInput,
   checkAtomCoverage,
   checkInvariantCoverage,
   checkValidationCoverage,
@@ -25,21 +25,23 @@ import {
 } from "./checks.js"
 import { generateRemediation } from "./remediation.js"
 
-export type { Gate1Input } from "./checks.js"
-export type { Gate1Input as CoherenceVerificationInput } from "./checks.js"
+export type { CoherenceVerificationInput, Gate1Input } from "./checks.js"
 
 /**
- * Run Gate 1 against validated compiler intermediates.
+ * Run Coherence Verification against validated compiler intermediates.
  *
  * @param input - Compiler intermediates plus PRD ID and Factory mode.
  * @param timestamp - ISO-8601 timestamp to embed in the report.
  *                    Caller owns timestamp generation to preserve purity
- *                    (Gate 1 makes no `new Date()` calls).
- * @returns A Gate1Report that passes Gate1Report.safeParse.
+ *                    (Coherence Verification makes no `new Date()` calls).
+ * @returns A CoherenceVerificationReport that passes CoherenceVerificationReport.safeParse.
  * @throws If the constructed report fails Zod validation, indicating a
- *         Gate 1 implementation defect.
+ *         Coherence Verification implementation defect.
  */
-export function runGate1(input: Gate1Input, timestamp: string): Gate1ReportType {
+export function runCoherenceVerification(
+  input: CoherenceVerificationInput,
+  timestamp: string,
+): CurrentCoherenceVerificationReport {
   const atomCoverage = checkAtomCoverage(input)
   const invariantCoverage = checkInvariantCoverage(input)
   const validationCoverage = checkValidationCoverage(input)
@@ -77,7 +79,7 @@ export function runGate1(input: Gate1Input, timestamp: string): Gate1ReportType 
     id: coverageReportId(input.prdId, timestamp),
     source_refs: sourceRefs,
     explicitness: "explicit" as const,
-    rationale: `Gate 1 compile coverage evaluation for ${input.prdId} in ${input.mode} mode`,
+    rationale: `Coherence Verification evaluation for ${input.prdId} in ${input.mode} mode`,
     gate: 1 as const,
     prd_id: input.prdId,
     timestamp,
@@ -86,23 +88,24 @@ export function runGate1(input: Gate1Input, timestamp: string): Gate1ReportType 
     remediation,
   }
 
-  const parsed = Gate1Report.safeParse(candidate)
+  const parsed = CoherenceVerificationReportSchema.safeParse(candidate)
   if (!parsed.success) {
-    // Gate 1 produced a report that does not conform to its own output
+    // Coherence Verification produced a report that does not conform to its own output
     // schema. This is an implementation defect, not a specification
     // defect; throwing here surfaces it loudly rather than letting a
     // malformed report propagate. Per coverage-gate-1 SKILL.md self-
     // rewrite hook, a recurring instance of this class of failure would
     // trigger skill revision.
     throw new Error(
-      `Gate 1 produced an invalid Coverage Report- ${parsed.error.message}`
+      `Coherence Verification produced an invalid Coverage Report- ${parsed.error.message}`
     )
   }
   return parsed.data
 }
 
-export const runCoherenceVerification = runGate1
-export type CoherenceVerificationReport = Gate1ReportType
+export const runGate1 = runCoherenceVerification
+export type CoherenceVerificationReport = CurrentCoherenceVerificationReport
+export type Gate1Report = CurrentCoherenceVerificationReport
 
 /**
  * Construct the Coverage Report ID per the SKILL.md naming convention-
@@ -114,7 +117,7 @@ function coverageReportId(prdId: ArtifactId, timestamp: string): ArtifactId {
   return `CR-${prdId}-GATE1-${safeTs}` as ArtifactId
 }
 
-type Checks = Gate1ReportType["checks"]
+type Checks = CurrentCoherenceVerificationReport["checks"]
 
 function allChecksPass(checks: Checks): boolean {
   if (checks.atom_coverage.status !== "pass") return false

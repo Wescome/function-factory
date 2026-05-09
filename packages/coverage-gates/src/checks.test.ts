@@ -5,7 +5,7 @@ import {
   checkValidationCoverage,
   checkDependencyClosure,
   checkBootstrapPrefix,
-  type Gate1Input,
+  type CoherenceVerificationInput,
 } from "./checks.js"
 import {
   makeAtom,
@@ -16,7 +16,7 @@ import {
   makeValidation,
 } from "./test-fixtures.js"
 
-function baseInput(overrides: Partial<Gate1Input> = {}): Gate1Input {
+function baseInput(overrides: Partial<CoherenceVerificationInput> = {}): CoherenceVerificationInput {
   return {
     prdId: "PRD-META-TEST",
     mode: "bootstrap",
@@ -26,7 +26,7 @@ function baseInput(overrides: Partial<Gate1Input> = {}): Gate1Input {
     dependencies: [],
     validations: [],
     ...overrides,
-  } as Gate1Input
+  } as CoherenceVerificationInput
 }
 
 describe("checkAtomCoverage", () => {
@@ -267,7 +267,7 @@ describe("checkBootstrapPrefix", () => {
   })
 
   it("flags non-META PRD ID", () => {
-    const input = baseInput({ prdId: "PRD-VERTICAL-EXAMPLE" } as Gate1Input)
+    const input = baseInput({ prdId: "PRD-VERTICAL-EXAMPLE" } as CoherenceVerificationInput)
     const result = checkBootstrapPrefix(input)
     expect(result.status).toBe("fail")
     expect(result.non_meta_artifact_ids).toContain("PRD-VERTICAL-EXAMPLE")

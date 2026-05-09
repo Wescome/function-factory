@@ -1,5 +1,5 @@
 /**
- * Remediation text generation for Gate 1 Coverage Reports.
+ * Remediation text generation for Coherence Verification reports.
  *
  * Per PRD-META-GATE-1-COMPILE-COVERAGE acceptance criterion 14- on pass,
  * remediation is the literal string "no remediation required". On fail,
@@ -7,10 +7,10 @@
  * failed, and the upstream remediation per ConOps §7.2 Scenario B.
  */
 
-import type { Gate1Report } from "@factory/schemas"
+import type { CoherenceVerificationReport } from "@factory/schemas"
 
-type Checks = Gate1Report["checks"]
-type Overall = Gate1Report["overall"]
+type Checks = CoherenceVerificationReport["checks"]
+type Overall = CoherenceVerificationReport["overall"]
 
 export function generateRemediation(checks: Checks, overall: Overall): string {
   if (overall === "pass") return "no remediation required"

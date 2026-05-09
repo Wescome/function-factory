@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest"
 import { generateRemediation } from "./remediation.js"
-import type { Gate1Report } from "@factory/schemas"
+import type { CoherenceVerificationReport } from "@factory/schemas"
 
-type Checks = Gate1Report["checks"]
+type Checks = CoherenceVerificationReport["checks"]
 
 const passingChecks: Checks = {
   atom_coverage: { status: "pass", details: [], orphan_atoms: [] },

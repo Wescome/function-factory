@@ -4,8 +4,8 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { parse as parseYaml } from "yaml"
 import { emitCoherenceVerificationReport, emitGate1Report } from "./emit.js"
-import { runGate1 } from "./gate-1.js"
-import type { Gate1Input } from "./gate-1.js"
+import { runCoherenceVerification } from "./gate-1.js"
+import type { CoherenceVerificationInput } from "./gate-1.js"
 import {
   makeAtom,
   makeContract,
@@ -13,7 +13,7 @@ import {
   makeValidation,
 } from "./test-fixtures.js"
 
-function passingInput(): Gate1Input {
+function passingInput(): CoherenceVerificationInput {
   const atom = makeAtom("ATOM-META-A")
   const contract = makeContract("INV-META-C1", ["ATOM-META-A"])
   const inv = makeInvariant("INV-META-I1", {
@@ -32,10 +32,10 @@ function passingInput(): Gate1Input {
     invariants: [inv],
     dependencies: [],
     validations: [val],
-  } as Gate1Input
+  } as CoherenceVerificationInput
 }
 
-describe("emitGate1Report", () => {
+describe("emitCoherenceVerificationReport", () => {
   let workDir: string
 
   beforeEach(async () => {
@@ -46,14 +46,14 @@ describe("emitGate1Report", () => {
     await rm(workDir, { recursive: true, force: true })
   })
 
-  it("exposes Coherence Verification as the canonical report emitter alias", () => {
-    expect(emitCoherenceVerificationReport).toBe(emitGate1Report)
+  it("keeps legacy Gate 1 report emitter as a compatibility alias", () => {
+    expect(emitGate1Report).toBe(emitCoherenceVerificationReport)
   })
 
   it("writes a YAML file whose name matches <id>.yaml", async () => {
-    const report = runGate1(passingInput(), "2026-04-19T00:00:00Z")
+    const report = runCoherenceVerification(passingInput(), "2026-04-19T00:00:00Z")
     const outDir = join(workDir, "specs", "coverage-reports")
-    const path = await emitGate1Report(report, outDir)
+    const path = await emitCoherenceVerificationReport(report, outDir)
     expect(path).toBe(join(outDir, `${report.id}.yaml`))
 
     const files = await readdir(outDir)
@@ -61,17 +61,17 @@ describe("emitGate1Report", () => {
   })
 
   it("creates the destination directory if it does not exist", async () => {
-    const report = runGate1(passingInput(), "2026-04-19T00:00:00Z")
+    const report = runCoherenceVerification(passingInput(), "2026-04-19T00:00:00Z")
     // Deeply nested target that does not exist yet
     const outDir = join(workDir, "does", "not", "exist", "yet")
-    const path = await emitGate1Report(report, outDir)
+    const path = await emitCoherenceVerificationReport(report, outDir)
     const contents = await readFile(path, "utf8")
     expect(contents.length).toBeGreaterThan(0)
   })
 
   it("produces YAML that roundtrips to an equivalent object", async () => {
-    const report = runGate1(passingInput(), "2026-04-19T00:00:00Z")
-    const path = await emitGate1Report(report, workDir)
+    const report = runCoherenceVerification(passingInput(), "2026-04-19T00:00:00Z")
+    const path = await emitCoherenceVerificationReport(report, workDir)
     const contents = await readFile(path, "utf8")
     const roundtripped = parseYaml(contents)
     expect(roundtripped.id).toBe(report.id)
@@ -81,9 +81,9 @@ describe("emitGate1Report", () => {
     expect(roundtripped.remediation).toBe("no remediation required")
   })
 
-  it("YAML output contains key Gate1Report fields", async () => {
-    const report = runGate1(passingInput(), "2026-04-19T00:00:00Z")
-    const path = await emitGate1Report(report, workDir)
+  it("YAML output contains key CoherenceVerificationReport fields", async () => {
+    const report = runCoherenceVerification(passingInput(), "2026-04-19T00:00:00Z")
+    const path = await emitCoherenceVerificationReport(report, workDir)
     const contents = await readFile(path, "utf8")
     expect(contents).toContain("gate: 1")
     expect(contents).toContain("overall: pass")

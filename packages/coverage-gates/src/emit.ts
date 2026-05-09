@@ -1,7 +1,7 @@
 /**
- * Gate 1 Coverage Report emission.
+ * Coherence Verification report emission.
  *
- * Writes a Gate1Report to disk as YAML. Side-effect-bearing module,
+ * Writes a CoherenceVerificationReport to disk as YAML. Side-effect-bearing module,
  * separated from the pure orchestrator in gate-1.ts per PREFERENCES.md
  * ("Pure functions wherever possible; side effects confined to named
  * integration modules").
@@ -13,19 +13,19 @@
 import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { stringify as stringifyYaml } from "yaml"
-import type { Gate1Report } from "@factory/schemas"
+import type { CoherenceVerificationReport } from "@factory/schemas"
 
 /**
- * Emit a Gate1Report to disk as YAML, creating the destination directory
+ * Emit a CoherenceVerificationReport to disk as YAML, creating the destination directory
  * if it does not exist.
  *
- * @param report - The validated Gate1Report to write.
+ * @param report - The validated CoherenceVerificationReport to write.
  * @param coverageReportsDir - Destination directory (typically
  *                             `<repo>/specs/coverage-reports`).
  * @returns The path to the written file.
  */
-export async function emitGate1Report(
-  report: Gate1Report,
+export async function emitCoherenceVerificationReport(
+  report: CoherenceVerificationReport,
   coverageReportsDir: string
 ): Promise<string> {
   await mkdir(coverageReportsDir, { recursive: true })
@@ -36,5 +36,5 @@ export async function emitGate1Report(
   return filepath
 }
 
-export const emitCoherenceVerificationReport = emitGate1Report
-export type CoherenceVerificationReport = Gate1Report
+export const emitGate1Report = emitCoherenceVerificationReport
+export type Gate1Report = CoherenceVerificationReport
