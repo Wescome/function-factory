@@ -1,5 +1,5 @@
 /**
- * Coverage Report schemas for Gates 1, 2, and 3.
+ * Coverage Report schemas for Coherence, Fidelity, and Persistence Verification.
  *
  * Coverage Reports are first-class Factory artifacts and are emitted on
  * every gate run, pass or fail. They live in specs/coverage-reports/ and
@@ -17,9 +17,9 @@ export const CoverageCheck = z.object({
   details: z.array(z.record(z.string(), z.unknown())).default([]),
 })
 
-// ─── Gate 1 — Compile Coverage ────────────────────────────────────────
+// ─── Coherence Verification ───────────────────────────────────────────
 
-export const Gate1Report = Lineage.extend({
+export const CoherenceVerificationReport = Lineage.extend({
   id: ArtifactId.refine((s) => s.startsWith("CR-"), "CoverageReport IDs must start with CR-"),
   gate: z.literal(1),
   prd_id: ArtifactId,
@@ -39,8 +39,8 @@ export const Gate1Report = Lineage.extend({
     dependency_closure: CoverageCheck.extend({
       dangling_dependencies: z.array(ArtifactId).default([]),
     }),
-    // Added per DECISIONS.md 2026-04-19 entry #2. Populated only when Gate 1
-    // runs with Factory mode `bootstrap`; absent from Gate1Reports emitted
+    // Added per DECISIONS.md 2026-04-19 entry #2. Populated only when
+    // Coherence Verification runs with Factory mode `bootstrap`; absent from reports emitted
     // in `steady_state`. `overall: fail` is set when this check's status is
     // `fail`, consistent with the other four checks. Enforces the META-
     // prefix rule from ConOps §4.1 Rule 2 during Bootstrap.
@@ -50,11 +50,14 @@ export const Gate1Report = Lineage.extend({
   }),
   remediation: z.string().min(1),
 })
-export type Gate1Report = z.infer<typeof Gate1Report>
+export type CoherenceVerificationReport = z.infer<typeof CoherenceVerificationReport>
 
-// ─── Gate 2 — Simulation Coverage ────────────────────────────────────
+export const Gate1Report = CoherenceVerificationReport
+export type Gate1Report = CoherenceVerificationReport
 
-export const Gate2Report = Lineage.extend({
+// ─── Fidelity Verification ───────────────────────────────────────────
+
+export const FidelityVerificationReport = Lineage.extend({
   id: ArtifactId.refine((s) => s.startsWith("CR-"), "CoverageReport IDs must start with CR-"),
   gate: z.literal(2),
   function_id: ArtifactId,
@@ -82,11 +85,14 @@ export const Gate2Report = Lineage.extend({
   }),
   remediation: z.string().min(1),
 })
-export type Gate2Report = z.infer<typeof Gate2Report>
+export type FidelityVerificationReport = z.infer<typeof FidelityVerificationReport>
 
-// ─── Gate 3 — Assurance Coverage ─────────────────────────────────────
+export const Gate2Report = FidelityVerificationReport
+export type Gate2Report = FidelityVerificationReport
 
-export const Gate3Report = Lineage.extend({
+// ─── Persistence Verification ────────────────────────────────────────
+
+export const PersistenceVerificationReport = Lineage.extend({
   id: ArtifactId.refine((s) => s.startsWith("CR-"), "CoverageReport IDs must start with CR-"),
   gate: z.literal(3),
   function_id: ArtifactId,
@@ -126,25 +132,31 @@ export const Gate3Report = Lineage.extend({
   }),
   remediation: z.string().min(1),
 })
-export type Gate3Report = z.infer<typeof Gate3Report>
+export type PersistenceVerificationReport = z.infer<typeof PersistenceVerificationReport>
+
+export const Gate3Report = PersistenceVerificationReport
+export type Gate3Report = PersistenceVerificationReport
 
 export const CoverageReport = z.discriminatedUnion("gate", [
-  Gate1Report,
-  Gate2Report,
-  Gate3Report,
+  CoherenceVerificationReport,
+  FidelityVerificationReport,
+  PersistenceVerificationReport,
 ])
 export type CoverageReport = z.infer<typeof CoverageReport>
 
-// ─── Gate 2 — Acceptance Review Verdict ─────────────────────────────
+// ─── Fidelity Verification Verdict ──────────────────────────────────
 
-export const Gate2Verdict = z.object({
+export const FidelityVerificationVerdict = z.object({
   verdict: z.enum(["accepted", "rejected", "needs_remediation"]),
   evidence_reviewed: z.array(z.string().min(1)).min(1),
   scenario_coverage_score: z.number().min(0).max(1),
   invariant_exercise_rate: z.number().min(0).max(1),
   remediation_notes: z.array(z.string()).default([]),
 })
-export type Gate2Verdict = z.infer<typeof Gate2Verdict>
+export type FidelityVerificationVerdict = z.infer<typeof FidelityVerificationVerdict>
+
+export const Gate2Verdict = FidelityVerificationVerdict
+export type Gate2Verdict = FidelityVerificationVerdict
 
 // ─── Coverage Check Failure ─────────────────────────────────────────
 

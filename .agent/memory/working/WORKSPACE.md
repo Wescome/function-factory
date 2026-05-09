@@ -4,7 +4,7 @@
 Active task: ontology alias-first migration away from primary Gate(x) names.
 
 ## Last update
-2026-05-09T15:50:26Z
+2026-05-09T15:57:54Z
 
 ## Current actions
 
@@ -19,9 +19,14 @@ Active task: ontology alias-first migration away from primary Gate(x) names.
     contract adapter, input types, and lifecycle acceptance diagnostic primary,
     while preserving legacy Gate 2 aliases and persisted `gate-2` report
     compatibility.
-  - Current slice: make the ff-pipeline Persistence Verification registration
+  - Completed: made the ff-pipeline Persistence Verification registration
     evaluator and input types primary, while preserving legacy Gate 3 aliases
     and persisted `gate-3` report compatibility.
+  - Current slice: make coverage schema verification report names primary
+    (`CoherenceVerificationReport`, `FidelityVerificationReport`,
+    `FidelityVerificationVerdict`, `PersistenceVerificationReport`) while
+    preserving legacy `Gate1Report`, `Gate2Report`, `Gate2Verdict`, and
+    `Gate3Report` compatibility aliases.
   - `specs/reference/NLAH` remains untouched and untracked by request.
 - Completed: ontology compatibility audit script.
   - Added `scripts/audit-ontology-compat.mjs`.

@@ -20,3 +20,15 @@ export * from "./decision-state.js"
 export * from "./commit-triage.js"
 export * from "./sdlc.js"
 export * from "./ontology-aliases.js"
+export {
+  CoherenceVerificationReport,
+  FidelityVerificationReport,
+  FidelityVerificationVerdict,
+  PersistenceVerificationReport,
+} from "./coverage.js"
+export type {
+  CoherenceVerificationReport as CoherenceVerificationReportType,
+  FidelityVerificationReport as FidelityVerificationReportType,
+  FidelityVerificationVerdict as FidelityVerificationVerdictType,
+  PersistenceVerificationReport as PersistenceVerificationReportType,
+} from "./coverage.js"

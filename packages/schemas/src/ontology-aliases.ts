@@ -15,15 +15,15 @@ import {
 } from "./core.js"
 import {
   CoverageReport,
-  Gate1Report,
-  Gate2Report,
-  Gate2Verdict,
-  Gate3Report,
+  CoherenceVerificationReport as CurrentCoherenceVerificationReportValue,
+  FidelityVerificationReport as CurrentFidelityVerificationReportValue,
+  FidelityVerificationVerdict as CurrentFidelityVerificationVerdictValue,
+  PersistenceVerificationReport as CurrentPersistenceVerificationReportValue,
   type CoverageReport as CurrentCoverageReport,
-  type Gate1Report as CurrentGate1Report,
-  type Gate2Report as CurrentGate2Report,
-  type Gate2Verdict as CurrentGate2Verdict,
-  type Gate3Report as CurrentGate3Report,
+  type CoherenceVerificationReport as CurrentCoherenceVerificationReport,
+  type FidelityVerificationReport as CurrentFidelityVerificationReport,
+  type FidelityVerificationVerdict as CurrentFidelityVerificationVerdict,
+  type PersistenceVerificationReport as CurrentPersistenceVerificationReport,
 } from "./coverage.js"
 
 export const IntentSpecification = PRDDraft
@@ -38,14 +38,14 @@ export type InvariantSpecification = CurrentInvariant
 export const VerificationReport = CoverageReport
 export type VerificationReport = CurrentCoverageReport
 
-export const CoherenceVerificationReport = Gate1Report
-export type CoherenceVerificationReport = CurrentGate1Report
+export const CoherenceVerificationReport = CurrentCoherenceVerificationReportValue
+export type CoherenceVerificationReport = CurrentCoherenceVerificationReport
 
-export const FidelityVerificationReport = Gate2Report
-export type FidelityVerificationReport = CurrentGate2Report
+export const FidelityVerificationReport = CurrentFidelityVerificationReportValue
+export type FidelityVerificationReport = CurrentFidelityVerificationReport
 
-export const FidelityVerificationVerdict = Gate2Verdict
-export type FidelityVerificationVerdict = CurrentGate2Verdict
+export const FidelityVerificationVerdict = CurrentFidelityVerificationVerdictValue
+export type FidelityVerificationVerdict = CurrentFidelityVerificationVerdict
 
-export const PersistenceVerificationReport = Gate3Report
-export type PersistenceVerificationReport = CurrentGate3Report
+export const PersistenceVerificationReport = CurrentPersistenceVerificationReportValue
+export type PersistenceVerificationReport = CurrentPersistenceVerificationReport

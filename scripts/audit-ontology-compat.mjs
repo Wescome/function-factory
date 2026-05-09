@@ -13,6 +13,7 @@ const files = {
   ciWorkflow: '.github/workflows/ci.yml',
   schemaIndex: 'packages/schemas/src/index.ts',
   schemaPackageJson: 'packages/schemas/package.json',
+  coverageSchema: 'packages/schemas/src/coverage.ts',
   sdlcSchema: 'packages/schemas/src/sdlc.ts',
   sdlcSchemaTest: 'packages/schemas/src/sdlc.test.ts',
   compilerPackageJson: 'packages/compiler/package.json',
@@ -202,10 +203,6 @@ function checkSchemaAliases() {
     ['ExecutableSpecification', 'WorkGraph'],
     ['InvariantSpecification', 'Invariant'],
     ['VerificationReport', 'CoverageReport'],
-    ['CoherenceVerificationReport', 'Gate1Report'],
-    ['FidelityVerificationReport', 'Gate2Report'],
-    ['FidelityVerificationVerdict', 'Gate2Verdict'],
-    ['PersistenceVerificationReport', 'Gate3Report'],
   ]
 
   for (const [alias, current] of aliasPairs) {
@@ -216,6 +213,16 @@ function checkSchemaAliases() {
 
   expectIncludes('schema package index re-exports ontology aliases', schemaIndex, 'export * from "./ontology-aliases.js"')
   expectIncludes('schema package exports ontology alias subpath', schemaPackage, '"./ontology-aliases": "./src/ontology-aliases.ts"')
+  expectIncludes('ontology alias module re-exports primary Coherence Verification report', aliases, 'export const CoherenceVerificationReport = CurrentCoherenceVerificationReportValue')
+  expectIncludes('ontology alias module re-exports primary Fidelity Verification report', aliases, 'export const FidelityVerificationReport = CurrentFidelityVerificationReportValue')
+  expectIncludes('ontology alias module re-exports primary Fidelity Verification verdict', aliases, 'export const FidelityVerificationVerdict = CurrentFidelityVerificationVerdictValue')
+  expectIncludes('ontology alias module re-exports primary Persistence Verification report', aliases, 'export const PersistenceVerificationReport = CurrentPersistenceVerificationReportValue')
+  expectIncludes('coverage schema defines Coherence Verification report as primary', read(files.coverageSchema), 'export const CoherenceVerificationReport = Lineage.extend')
+  expectIncludes('coverage schema keeps Gate1Report compatibility alias', read(files.coverageSchema), 'export const Gate1Report = CoherenceVerificationReport')
+  expectIncludes('coverage schema defines Fidelity Verification report as primary', read(files.coverageSchema), 'export const FidelityVerificationReport = Lineage.extend')
+  expectIncludes('coverage schema keeps Gate2Report compatibility alias', read(files.coverageSchema), 'export const Gate2Report = FidelityVerificationReport')
+  expectIncludes('coverage schema defines Persistence Verification report as primary', read(files.coverageSchema), 'export const PersistenceVerificationReport = Lineage.extend')
+  expectIncludes('coverage schema keeps Gate3Report compatibility alias', read(files.coverageSchema), 'export const Gate3Report = PersistenceVerificationReport')
   expectIncludes('coverage-gates exports Coherence Verification runner alias', read(files.coverageGatesIndex), 'runCoherenceVerification')
   expectIncludes('coverage-gates runner alias points to runGate1', read(files.coverageGatesGate1), 'export const runCoherenceVerification = runGate1')
   expectIncludes('coverage-gates emits Coherence Verification report alias', read(files.coverageGatesEmit), 'export const emitCoherenceVerificationReport = emitGate1Report')
