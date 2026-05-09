@@ -11,7 +11,7 @@
  * and INDEX is a zero-padded sequence per category.
  *
  * The MVP populates subject/action/object with bootstrap values- subject
- * is "Gate 1", action is "shall", object is the full item text. A
+ * is "Coherence Verification", action is "shall", object is the full item text. A
  * production compiler would parse the natural language into structured
  * subject/action/object triples, but the MVP keeps the atom content
  * intact in `object` so no information is lost, and the triple still
@@ -87,7 +87,7 @@ function makeAtom(args: MakeAtomArgs): RequirementAtom {
     explicitness: "explicit",
     rationale: `Extracted from ${args.prdId} ${args.sourceSection} item ${args.index}`,
     category: args.category,
-    subject: "Gate 1",
+    subject: "Coherence Verification",
     action: "shall",
     object: args.object,
     conditions: [],

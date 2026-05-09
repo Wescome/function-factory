@@ -10,7 +10,8 @@ export interface SynthesisMaterializationAudit {
   capabilityId: string
   proposalId: string
   workGraphId: string
-  gate1Passed: boolean
+  coherenceVerificationPassed?: boolean
+  gate1Passed?: boolean
   atomResults: Array<{
     atomId: string
     decision: string
@@ -44,12 +45,16 @@ export class SynthesisPRDraftError extends Error {
   }
 }
 
+export function auditCoherenceVerificationPassed(audit: SynthesisMaterializationAudit): boolean {
+  return audit.coherenceVerificationPassed ?? audit.gate1Passed ?? false
+}
+
 function assertReadyForPR(audit: SynthesisMaterializationAudit): void {
   if (audit.runtimeStatus !== 'synthesis-passed') {
     throw new SynthesisPRDraftError(`Runtime status must be synthesis-passed, got ${audit.runtimeStatus}`)
   }
-  if (!audit.gate1Passed) {
-    throw new SynthesisPRDraftError('Gate 1 must pass before building a synthesis PR draft')
+  if (!auditCoherenceVerificationPassed(audit)) {
+    throw new SynthesisPRDraftError('Coherence Verification must pass before building a synthesis PR draft')
   }
   if (audit.materializedFiles.length === 0) {
     throw new SynthesisPRDraftError('At least one materialized file is required for a synthesis PR draft')
@@ -63,6 +68,7 @@ function assertReadyForPR(audit: SynthesisMaterializationAudit): void {
 
 export function buildSynthesisPRDraft(audit: SynthesisMaterializationAudit): SynthesisPRDraft {
   assertReadyForPR(audit)
+  const coherenceVerificationPassed = auditCoherenceVerificationPassed(audit)
 
   const sourceRefs = [
     audit.signalId,
@@ -79,7 +85,7 @@ export function buildSynthesisPRDraft(audit: SynthesisMaterializationAudit): Syn
     `WorkGraph: \`${audit.workGraphId}\``,
     `Proposal: \`${audit.proposalId}\``,
     `Runtime status: \`${audit.runtimeStatus}\``,
-    `Gate 1: \`${audit.gate1Passed ? 'pass' : 'fail'}\``,
+    `Coherence Verification: \`${coherenceVerificationPassed ? 'pass' : 'fail'}\``,
     `Materialized at: \`${audit.timestamp}\``,
     '',
     '### Lineage',

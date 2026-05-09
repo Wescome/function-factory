@@ -50,6 +50,7 @@ const baseMergeReadinessPack = {
     prdId: "PRD-MOTE4M1R-G7I0",
     workGraphId: "WG-MOTE4M1R-G7I0",
     semanticReviewId: "SRR-MOTE4M1R-G7I0",
+    coherenceVerificationReportId: "CR-MOTE4M1R-GATE1",
     gate1ReportId: "CR-MOTE4M1R-GATE1",
     fidelityVerificationReportId: "CR-MOTE4M1R-GATE2",
     gate2ReportId: "CR-MOTE4M1R-GATE2",

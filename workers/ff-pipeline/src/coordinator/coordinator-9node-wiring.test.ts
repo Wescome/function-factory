@@ -497,6 +497,7 @@ describe('T12: integration — real agent instances drive 9-node graph', () => {
     expect(finalState.briefingScript).toBeDefined()
     expect(finalState.briefingScript).not.toBeNull()
     expect(finalState.semanticReview).toBeDefined()
+    expect(finalState.coherenceVerificationPassed).toBe(true)
     expect(finalState.gate1Passed).toBe(true)
   })
 })

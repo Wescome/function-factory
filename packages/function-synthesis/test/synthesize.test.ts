@@ -129,12 +129,14 @@ describe("synthesize", () => {
       workGraph, candidate, new StubBindingMode(makeFailConfig()), config,
     )
 
-    // Both produce traceLog, gate2Input, candidateSelectionReport
+    // Both produce traceLog, fidelityVerificationInput, candidateSelectionReport
     expect(passResult.traceLog).toBeTruthy()
-    expect(passResult.gate2Input).toBeTruthy()
+    expect(passResult.fidelityVerificationInput).toBeTruthy()
     expect(passResult.candidateSelectionReport).toBeTruthy()
     expect(failResult.traceLog).toBeTruthy()
-    expect(failResult.gate2Input).toBeTruthy()
+    expect(failResult.fidelityVerificationInput).toBeTruthy()
     expect(failResult.candidateSelectionReport).toBeTruthy()
+    expect(passResult.gate2Input).toEqual(passResult.fidelityVerificationInput)
+    expect(failResult.gate2Input).toEqual(failResult.fidelityVerificationInput)
   })
 })

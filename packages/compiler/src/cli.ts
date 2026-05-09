@@ -6,7 +6,7 @@
  *   pnpm compile <path-to-prd.md> [--mode bootstrap|steady_state]
  *                                  [--coverage-reports-dir <path>]
  *
- * Exits 0 on Gate 1 pass, 1 on Gate 1 fail, 2 on compile error
+ * Exits 0 on Coherence Verification pass, 1 on Coherence Verification fail, 2 on compile error
  * (parse failure, schema violation, IO error, etc.). The Coverage
  * Report is emitted on disk regardless of verdict — a fail exit
  * does not suppress report emission.
@@ -79,7 +79,7 @@ async function main(): Promise<void> {
   try {
     const result = await compile(parsed.prdPath, parsed.options)
     process.stdout.write(
-      `Gate 1- ${result.report.overall.toUpperCase()}\n` +
+      `Coherence Verification- ${result.report.overall.toUpperCase()}\n` +
         `PRD- ${result.intermediates.prd.id}\n` +
         `Mode- ${result.mode}\n` +
         `Coverage Report- ${result.reportPath}\n` +

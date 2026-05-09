@@ -167,6 +167,8 @@ export interface GraphState {
   // ── Phase 5 v4: Briefing, gating, and sandbox execution (SS11) ──
   briefingScript: unknown | null
   semanticReview: unknown | null
+  coherenceVerificationPassed: boolean
+  coherenceVerificationReport: unknown | null
   gate1Passed: boolean
   gate1Report: unknown | null
   compiledPrd: unknown | null
@@ -218,6 +220,8 @@ export function createInitialState(
     // Phase 5 v4 defaults (SS11)
     briefingScript: null,
     semanticReview: null,
+    coherenceVerificationPassed: false,
+    coherenceVerificationReport: null,
     gate1Passed: false,
     gate1Report: null,
     compiledPrd: null,

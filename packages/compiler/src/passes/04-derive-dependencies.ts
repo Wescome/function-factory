@@ -1,7 +1,7 @@
 /**
  * Pass 4- derive dependencies.
  *
- * The MVP emits no typed-edge dependencies. Gate 1's dependency_closure
+ * The MVP emits no typed-edge dependencies. Coherence Verification's dependency_closure
  * check passes vacuously on an empty dependency set- there are no
  * endpoints to resolve. This is acceptable for the bootstrap proof-
  * what matters is that every check runs and emits a verdict, not that

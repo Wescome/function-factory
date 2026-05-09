@@ -6,7 +6,7 @@
  * by Passes 1–5, every lineage chain should be acyclic, no invariant
  * should cite a contract that does not exist, etc.
  *
- * The MVP performs no checks. Gate 1 (Pass 7) re-verifies dependency
+ * The MVP performs no checks. Coherence Verification (Pass 7) re-verifies dependency
  * closure and atom coverage independently, so structural gaps that
  * Pass 6 would otherwise catch will still surface in the Coverage
  * Report. The pass exists in the pipeline for structural completeness

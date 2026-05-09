@@ -168,7 +168,7 @@ describe("compile- end-to-end against PRD-META-GATE-1-COMPILE-COVERAGE", () => {
     }
   })
 
-  it("Pass 8- emits a WorkGraph with WG-<PRD subject> id on passing Gate 1", async () => {
+  it("Pass 8- emits a WorkGraph with WG-<PRD subject> id on passing Coherence Verification", async () => {
     const result = await compile(prdPath, {
       timestamp: "2026-04-19T00:00:00Z",
       coverageReportsDir,

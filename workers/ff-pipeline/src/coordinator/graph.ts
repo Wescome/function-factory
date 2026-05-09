@@ -151,30 +151,32 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
       return updated
     })
 
-    // gate-1 — records pass-through evidence.
-    // The real fail-closed Gate 1 runs in the Workflow before Stage 6.
+    // gate-1 — compatibility node name; records pass-through Coherence Verification evidence.
+    // The real fail-closed Coherence Verification runs in the Workflow before Stage 6.
     graph.addNode('gate-1', async (state) => {
-      const gate1Report = {
+      const coherenceVerificationReport = {
         gate: 1,
         passed: true,
-        source: 'workflow-stage-gate-1',
+        source: 'workflow-stage-coherence-verification',
         evidenceStatus: 'upstream_verified_not_recomputed',
         authoritative: false,
         timestamp: new Date().toISOString(),
         workGraphId: state.workGraphId,
         checks: [{
-          name: 'upstream-gate-1-required',
+          name: 'upstream-coherence-verification-required',
           passed: true,
-          detail: 'Workflow Gate 1 passed before synthesis enqueue; coordinator does not recompute Gate 1.',
+          detail: 'Workflow Coherence Verification passed before synthesis enqueue; coordinator does not recompute Coherence Verification.',
         }],
-        summary: 'Gate 1 verified upstream before Stage 6; coordinator recorded pass-through evidence.',
+        summary: 'Coherence Verification verified upstream before Stage 6; coordinator recorded pass-through evidence.',
       }
       const updated: Partial<GraphState> = {
+        coherenceVerificationPassed: true,
+        coherenceVerificationReport,
         gate1Passed: true,
-        gate1Report,
+        gate1Report: coherenceVerificationReport,
         roleHistory: [
           ...state.roleHistory,
-          { role: 'gate-1', output: gate1Report, tokenUsage: 0, timestamp: new Date().toISOString() },
+          { role: 'gate-1', output: coherenceVerificationReport, tokenUsage: 0, timestamp: new Date().toISOString() },
         ],
       }
       await deps.persistState({ ...state, ...updated } as GraphState, 'gate-1')

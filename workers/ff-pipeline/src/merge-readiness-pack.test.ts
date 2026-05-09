@@ -23,7 +23,7 @@ function makeAudit(overrides: Partial<SynthesisMaterializationAudit> = {}): Synt
     capabilityId: 'BC-MOTDWSVY-PQOO',
     proposalId: 'FP-MOTDWVR2-W7UN',
     workGraphId: 'WG-MOTE4M1R-G7I0',
-    gate1Passed: true,
+    coherenceVerificationPassed: true,
     atomResults: [
       { atomId: 'atom-001', decision: 'pass', confidence: 0.95, tests: '14/14' },
     ],
@@ -135,7 +135,7 @@ function makeCanonicalEvidence(overrides: CanonicalMRPEvidence = {}): CanonicalM
     auditability: {
       prdId: 'PRD-MOTE4M1R-G7I0',
       semanticReviewId: 'SRR-MOTE4M1R-G7I0',
-      gate1ReportId: 'CR-MOTE4M1R-GATE1',
+      coherenceVerificationReportId: 'CR-MOTE4M1R-GATE1',
       gate2ReportId: 'CR-MOTE4M1R-GATE2',
       modelBindings: {
         planner: { provider: 'factory-runtime', model: 'observed' },
@@ -426,7 +426,7 @@ describe('merge-readiness pack', () => {
         'rationale.prDescription',
         'auditability.prdId',
         'auditability.semanticReviewId',
-        'auditability.gate1ReportId',
+        'auditability.coherenceVerificationReportId',
         'auditability.fidelityVerificationReportId',
         'auditability.modelBindings',
         'auditability.totalTokenUsage',
@@ -482,7 +482,7 @@ describe('merge-readiness pack', () => {
       auditability: {
         prdId: 'PRD-MOTE4M1R-G7I0',
         semanticReviewId: 'SRR-MOTE4M1R-G7I0',
-        gate1ReportId: 'CR-MOTE4M1R-GATE1',
+        coherenceVerificationReportId: 'CR-MOTE4M1R-GATE1',
         gate2ReportId: 'CR-MOTE4M1R-GATE2',
         modelBindings: {
           planner: { provider: 'factory-runtime', model: 'observed' },
@@ -512,6 +512,8 @@ describe('merge-readiness pack', () => {
       },
       auditability: {
         workGraphId: 'WG-MOTE4M1R-G7I0',
+        coherenceVerificationReportId: 'CR-MOTE4M1R-GATE1',
+        gate1ReportId: 'CR-MOTE4M1R-GATE1',
         fidelityVerificationReportId: 'CR-MOTE4M1R-GATE2',
         gate2ReportId: 'CR-MOTE4M1R-GATE2',
       },
@@ -598,7 +600,7 @@ describe('merge-readiness pack', () => {
       auditability: {
         prdId: 'PRD-ABCDE123',
         semanticReviewId: 'SRR-ABCDE123',
-        gate1ReportId: 'CR-ABCDE123-GATE1',
+        coherenceVerificationReportId: 'CR-ABCDE123-GATE1',
         gate2ReportId: 'CR-ABCDE123-GATE2',
         modelBindings: {
           planner: { provider: 'factory-runtime', model: 'observed' },

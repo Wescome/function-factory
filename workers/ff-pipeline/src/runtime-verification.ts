@@ -11,7 +11,8 @@ export interface SynthesisLineage {
   pipelineId: string
 }
 
-export type Gate1Verdict = 'pass' | 'fail' | 'pending'
+export type CoherenceVerificationVerdict = 'pass' | 'fail' | 'pending'
+export type Gate1Verdict = CoherenceVerificationVerdict
 
 export type AtomVerdict = 'success' | 'failure' | 'incomplete'
 
@@ -24,7 +25,8 @@ export interface SynthesisCompletionEvidence {
 
 export interface SynthesisSmokeResult {
   lineage: SynthesisLineage
-  gate1Verdict: Gate1Verdict
+  coherenceVerificationVerdict?: CoherenceVerificationVerdict
+  gate1Verdict?: Gate1Verdict
   atomVerdict: AtomVerdict
   evidence: SynthesisCompletionEvidence
 }
@@ -32,6 +34,7 @@ export interface SynthesisSmokeResult {
 export interface RuntimeVerificationRecord {
   id: string
   lineage: SynthesisLineage
+  coherenceVerificationVerdict: CoherenceVerificationVerdict
   gate1Verdict: Gate1Verdict
   atomVerdict: AtomVerdict
   evidence: SynthesisCompletionEvidence
@@ -46,7 +49,7 @@ export class SynthesisValidationError extends Error {
   }
 }
 
-const GATE_1_VERDICTS = new Set<Gate1Verdict>(['pass', 'fail', 'pending'])
+const COHERENCE_VERIFICATION_VERDICTS = new Set<CoherenceVerificationVerdict>(['pass', 'fail', 'pending'])
 const ATOM_VERDICTS = new Set<AtomVerdict>(['success', 'failure', 'incomplete'])
 
 function assertObject(value: unknown, message: string): asserts value is Record<string, unknown> {
@@ -107,8 +110,9 @@ export function recordSynthesisSmokeResult(result: unknown): RuntimeVerification
   assertNonEmptyString(result.lineage.planId, 'lineage.planId is required')
   assertNonEmptyString(result.lineage.pipelineId, 'lineage.pipelineId is required')
 
-  if (!GATE_1_VERDICTS.has(result.gate1Verdict as Gate1Verdict)) {
-    throw new SynthesisValidationError(`Invalid Gate 1 verdict: ${String(result.gate1Verdict)}`)
+  const coherenceVerificationVerdict = result.coherenceVerificationVerdict ?? result.gate1Verdict
+  if (!COHERENCE_VERIFICATION_VERDICTS.has(coherenceVerificationVerdict as CoherenceVerificationVerdict)) {
+    throw new SynthesisValidationError(`Invalid Coherence Verification verdict: ${String(coherenceVerificationVerdict)}`)
   }
 
   if (!ATOM_VERDICTS.has(result.atomVerdict as AtomVerdict)) {
@@ -122,7 +126,8 @@ export function recordSynthesisSmokeResult(result: unknown): RuntimeVerification
       planId: result.lineage.planId,
       pipelineId: result.lineage.pipelineId,
     },
-    gate1Verdict: result.gate1Verdict as Gate1Verdict,
+    coherenceVerificationVerdict: coherenceVerificationVerdict as CoherenceVerificationVerdict,
+    gate1Verdict: coherenceVerificationVerdict as Gate1Verdict,
     atomVerdict: result.atomVerdict as AtomVerdict,
     evidence: result.evidence,
     recordedAt: new Date().toISOString(),

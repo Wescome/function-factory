@@ -45,4 +45,4 @@ echo '  curl -X POST https://ff-gateway.koales.workers.dev/approve/{instanceId} 
 echo '    -H "Content-Type: application/json" \'
 echo '    -d '"'"'{"decision":"approved","by":"architect"}'"'"''
 echo ""
-echo "Expected: Stages 1-5 → Gate 1 PASS → Stage 6 (5 roles) → synthesis-passed"
+echo "Expected: Stages 1-5 → Coherence Verification PASS → Stage 6 (5 roles) → synthesis-passed"

@@ -15,7 +15,7 @@ function makeAudit(overrides: Partial<SynthesisMaterializationAudit> = {}): Synt
     capabilityId: 'BC-MOTDWSVY-PQOO',
     proposalId: 'FP-MOTDWVR2-W7UN',
     workGraphId: 'WG-MOTE4M1R-G7I0',
-    gate1Passed: true,
+    coherenceVerificationPassed: true,
     atomResults: [
       { atomId: 'atom-001', decision: 'pass', confidence: 0.95, tests: '14/14' },
     ],
@@ -54,7 +54,7 @@ describe('synthesis PR draft plan', () => {
       proposalId: 'FP-MOTDWVR2-W7UN',
     })
     expect(draft.body).toContain('Pipeline: `b1b51f73-416d-4d87-90a5-9ccaa12bec76`')
-    expect(draft.body).toContain('Gate 1: `pass`')
+    expect(draft.body).toContain('Coherence Verification: `pass`')
     expect(draft.body).toContain('workers/ff-pipeline/src/runtime-verification.ts')
     expect(draft.body).toContain('16ae4de2b48f6956246c2c6876151ee5690fbccde493e70ebe38bae4042d9b43')
     expect(draft.body).toContain('pnpm --filter @factory/ff-pipeline test passed 61 files / 931 tests')
@@ -75,8 +75,16 @@ describe('synthesis PR draft plan', () => {
     }
   })
 
-  it('fails closed when Gate 1 did not pass', () => {
-    expect(() => buildSynthesisPRDraft(makeAudit({ gate1Passed: false }))).toThrow(/Gate 1/i)
+  it('fails closed when Coherence Verification did not pass', () => {
+    expect(() => buildSynthesisPRDraft(makeAudit({ coherenceVerificationPassed: false }))).toThrow(/Coherence Verification/i)
+  })
+
+  it('accepts legacy gate1Passed audits as a compatibility input', () => {
+    const audit = makeAudit({ gate1Passed: true })
+    delete audit.coherenceVerificationPassed
+    const draft = buildSynthesisPRDraft(audit)
+
+    expect(draft.body).toContain('Coherence Verification: `pass`')
   })
 
   it('fails closed when runtime synthesis did not pass', () => {

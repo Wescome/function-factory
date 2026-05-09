@@ -39,9 +39,9 @@ const TEMPLATES: readonly InvariantTemplate[] = [
     tag: "DETERMINISM",
     matches: (a) => /determinis|byte-identic/i.test(a.object),
     statement:
-      "Gate 1 produces byte-identical Gate1Report contents for identical validated inputs modulo id and timestamp",
+      "Coherence Verification produces byte-identical CoherenceVerificationReport contents for identical validated inputs modulo id and timestamp",
     detector: {
-      name: "gate_1_determinism_detector",
+      name: "coherence_verification_determinism_detector",
       evidence_sources: ["build.test_output", "ci.regression_replay"],
       direct_rules: [
         "golden test mismatch between two runs of the same fixture",
@@ -57,12 +57,12 @@ const TEMPLATES: readonly InvariantTemplate[] = [
     matches: (a) =>
       /fail.?closed|partial pass is fail|soft.?warning/i.test(a.object),
     statement:
-      "Gate 1 emits overall=fail whenever any active coverage check fails; there is no soft-warning mode",
+      "Coherence Verification emits overall=fail whenever any active coverage check fails; there is no soft-warning mode",
     detector: {
-      name: "gate_1_fail_closed_detector",
+      name: "coherence_verification_fail_closed_detector",
       evidence_sources: ["build.test_output"],
       direct_rules: [
-        "Gate1Report with overall=pass and any check.status=fail",
+        "CoherenceVerificationReport with overall=pass and any check.status=fail",
       ],
       warning_rules: [],
       regression_policy: { direct_violation: "regressed" },
@@ -74,13 +74,13 @@ const TEMPLATES: readonly InvariantTemplate[] = [
     tag: "LINEAGE",
     matches: (a) => /lineage|source_refs|rationale/i.test(a.object),
     statement:
-      "Every Gate1Report's source_refs cites the PRD ID and every artifact ID referenced in failing check detail arrays",
+      "Every CoherenceVerificationReport's source_refs cites the PRD ID and every artifact ID referenced in failing check detail arrays",
     detector: {
-      name: "gate_1_lineage_detector",
+      name: "coherence_verification_lineage_detector",
       evidence_sources: ["build.test_output", "audit.coverage_report_scan"],
       direct_rules: [
-        "Gate1Report whose source_refs omits the compiled PRD ID",
-        "Gate1Report whose source_refs omits a flagged artifact ID present in a failing check's detail array",
+        "CoherenceVerificationReport whose source_refs omits the compiled PRD ID",
+        "CoherenceVerificationReport whose source_refs omits a flagged artifact ID present in a failing check's detail array",
       ],
       warning_rules: [],
       regression_policy: { direct_violation: "regressed" },
@@ -93,12 +93,12 @@ const TEMPLATES: readonly InvariantTemplate[] = [
     matches: (a) =>
       /emit|emission|writes.+report|coverage report.+disk/i.test(a.object),
     statement:
-      "Gate 1 writes a Coverage Report to specs/coverage-reports/ on every invocation, pass or fail, before returning control",
+      "Coherence Verification writes a Coverage Report to specs/coverage-reports/ on every invocation, pass or fail, before returning control",
     detector: {
-      name: "gate_1_emission_detector",
+      name: "coherence_verification_emission_detector",
       evidence_sources: ["build.test_output", "ci.filesystem_snapshot"],
       direct_rules: [
-        "Gate 1 invocation where coverage-reports directory contains no matching file after return",
+        "Coherence Verification invocation where coverage-reports directory contains no matching file after return",
       ],
       warning_rules: [],
       regression_policy: { direct_violation: "regressed" },

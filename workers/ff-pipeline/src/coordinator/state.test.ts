@@ -42,6 +42,8 @@ describe('createInitialState', () => {
     const state = createInitialState(wgId, wg)
     expect(state.briefingScript).toBeNull()
     expect(state.semanticReview).toBeNull()
+    expect(state.coherenceVerificationPassed).toBe(false)
+    expect(state.coherenceVerificationReport).toBeNull()
     expect(state.gate1Passed).toBe(false)
     expect(state.gate1Report).toBeNull()
     expect(state.compiledPrd).toBeNull()
@@ -68,6 +70,7 @@ describe('GraphState type', () => {
       workspaceReady: true,
       coderBackupHandle: { id: 'coder-001', dir: '/workspace' },
       executionMode: 'sandbox',
+      coherenceVerificationPassed: true,
       gate1Passed: true,
       coderToolCalls: 12,
     }
@@ -77,6 +80,7 @@ describe('GraphState type', () => {
     // The merge must preserve base defaults that were NOT overridden
     expect(merged.briefingScript).toBeNull()
     expect(merged.semanticReview).toBeNull()
+    expect(merged.coherenceVerificationReport).toBeNull()
     expect(merged.gate1Report).toBeNull()
     expect(merged.compiledPrd).toBeNull()
     expect(merged.sandboxName).toBeNull()
@@ -86,6 +90,7 @@ describe('GraphState type', () => {
     expect(merged.workspaceReady).toBe(true)
     expect(merged.coderBackupHandle).toEqual({ id: 'coder-001', dir: '/workspace' })
     expect(merged.executionMode).toBe('sandbox')
+    expect(merged.coherenceVerificationPassed).toBe(true)
     expect(merged.gate1Passed).toBe(true)
     expect(merged.coderToolCalls).toBe(12)
 

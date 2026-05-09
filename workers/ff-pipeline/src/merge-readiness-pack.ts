@@ -3,7 +3,10 @@ import {
   MergeReadinessPack as CanonicalMergeReadinessPackSchema,
   type MergeReadinessPack as CanonicalMergeReadinessPack,
 } from '@factory/schemas'
-import type { SynthesisMaterializationAudit } from './synthesis-pr-draft'
+import {
+  auditCoherenceVerificationPassed,
+  type SynthesisMaterializationAudit,
+} from './synthesis-pr-draft'
 
 export type ReadinessVerdict = 'ready' | 'blocked'
 export type ReadinessCriterionName =
@@ -147,6 +150,7 @@ export interface CanonicalMRPEvidence {
   auditability?: {
     prdId?: string
     semanticReviewId?: string
+    coherenceVerificationReportId?: string
     gate1ReportId?: string
     fidelityVerificationReportId?: string
     gate2ReportId?: string
@@ -280,7 +284,7 @@ function hasPassedLocalVerification(audit: SynthesisMaterializationAudit): boole
 function verdictRationale(criteria: MergeReadinessCriterion[], ciStatus: string): string {
   const failed = criteria.filter(item => !item.passed)
   if (failed.length === 0) {
-    return 'Synthesis passed, Gate 1 passed, all atoms passed, files were materialized, local verification passed, and observed PR CI passed.'
+    return 'Synthesis passed, Coherence Verification passed, all atoms passed, files were materialized, local verification passed, and observed PR CI passed.'
   }
 
   const names = failed.map(item => item.name).join(', ')
@@ -336,7 +340,9 @@ function requiredCanonicalFields(pack: MergeReadinessPack, evidence: CanonicalMR
   if (!isNonEmptyString(evidence.rationale?.prDescription)) missing.push('rationale.prDescription')
   if (!isNonEmptyString(evidence.auditability?.prdId)) missing.push('auditability.prdId')
   if (!isNonEmptyString(evidence.auditability?.semanticReviewId)) missing.push('auditability.semanticReviewId')
-  if (!isNonEmptyString(evidence.auditability?.gate1ReportId)) missing.push('auditability.gate1ReportId')
+  if (!isNonEmptyString(coherenceVerificationReportId(evidence.auditability))) {
+    missing.push('auditability.coherenceVerificationReportId')
+  }
   if (!isNonEmptyString(fidelityVerificationReportId(evidence.auditability))) {
     missing.push('auditability.fidelityVerificationReportId')
   }
@@ -395,6 +401,12 @@ function fidelityVerificationReportId(
   return evidence?.fidelityVerificationReportId ?? evidence?.gate2ReportId
 }
 
+function coherenceVerificationReportId(
+  evidence: { coherenceVerificationReportId?: string; gate1ReportId?: string } | undefined,
+): string | undefined {
+  return evidence?.coherenceVerificationReportId ?? evidence?.gate1ReportId
+}
+
 function assertPackReadyForPersistence(pack: MergeReadinessPack): void {
   assertNonEmpty(pack.id, 'pack.id')
   if (!pack.id.startsWith('MRP-')) {
@@ -451,11 +463,12 @@ export function buildMergeReadinessPack(input: BuildMergeReadinessPackInput): Me
     : raw.outcome.ciState === 'failed'
       ? 'failed'
       : 'pending'
+  const coherencePassed = auditCoherenceVerificationPassed(audit)
 
   const criteria = [
-    criterion('functional-completeness', audit.runtimeStatus === 'synthesis-passed' && audit.gate1Passed && audit.materializedFiles.length > 0, [
+    criterion('functional-completeness', audit.runtimeStatus === 'synthesis-passed' && coherencePassed && audit.materializedFiles.length > 0, [
       `runtime:${audit.runtimeStatus}`,
-      `gate1:${audit.gate1Passed ? 'pass' : 'fail'}`,
+      `coherenceVerification:${coherencePassed ? 'pass' : 'fail'}`,
       `files:${audit.materializedFiles.length}`,
     ]),
     criterion('sound-verification', audit.atomResults.every(atom => atom.decision === 'pass') && hasPassedLocalVerification(audit) && ciStatus === 'passed', [
@@ -530,6 +543,7 @@ export function toCanonicalMergeReadinessPack(
   const functionId = canonicalFunctionId(pack, evidence)
   const soundVerificationReportId = fidelityVerificationReportId(evidence.soundVerification)
   const auditabilityVerificationReportId = fidelityVerificationReportId(evidence.auditability)
+  const auditabilityCoherenceReportId = coherenceVerificationReportId(evidence.auditability)
 
   const canonical = {
     _key: pack.id,
@@ -567,7 +581,8 @@ export function toCanonicalMergeReadinessPack(
       prdId: evidence.auditability?.prdId,
       workGraphId: pack.workGraphId,
       semanticReviewId: evidence.auditability?.semanticReviewId,
-      gate1ReportId: evidence.auditability?.gate1ReportId,
+      coherenceVerificationReportId: auditabilityCoherenceReportId,
+      gate1ReportId: auditabilityCoherenceReportId,
       fidelityVerificationReportId: auditabilityVerificationReportId,
       gate2ReportId: auditabilityVerificationReportId,
       ...(evidence.auditability?.sessionTreeId ? { sessionTreeId: evidence.auditability.sessionTreeId } : {}),

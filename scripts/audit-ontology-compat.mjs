@@ -29,7 +29,10 @@ const files = {
   aliases: 'packages/schemas/src/ontology-aliases.ts',
   aliasTest: 'packages/schemas/src/ontology-aliases.test.ts',
   compiler: 'packages/compiler/src/compile.ts',
+  compilerCli: 'packages/compiler/src/cli.ts',
+  compilerExtractAtoms: 'packages/compiler/src/passes/01-extract-atoms.ts',
   compilerPassCoherenceVerification: 'packages/compiler/src/passes/07-gate-1.ts',
+  compilerDeriveInvariants: 'packages/compiler/src/passes/03-derive-invariants.ts',
   compilerAssembleWorkgraph: 'packages/compiler/src/passes/08-assemble-workgraph.ts',
   compilerTestFixtures: 'packages/compiler/src/passes/_test-fixtures.ts',
   compilerReadme: 'packages/compiler/README.md',
@@ -64,9 +67,13 @@ const files = {
   pipelineWorkflow: 'workers/ff-pipeline/src/pipeline.ts',
   pipelineLifecycle: 'workers/ff-pipeline/src/lifecycle.ts',
   pipelineCompileStage: 'workers/ff-pipeline/src/stages/compile.ts',
+  pipelineCoordinatorState: 'workers/ff-pipeline/src/coordinator/state.ts',
+  pipelineCoordinatorGraph: 'workers/ff-pipeline/src/coordinator/graph.ts',
+  pipelineRuntimeVerification: 'workers/ff-pipeline/src/runtime-verification.ts',
   pipelineFidelityVerification: 'workers/ff-pipeline/src/gate2-simulation.ts',
   pipelinePersistenceVerification: 'workers/ff-pipeline/src/gate3-assurance.ts',
   pipelineMergeReadinessPack: 'workers/ff-pipeline/src/merge-readiness-pack.ts',
+  pipelineSynthesisPrDraft: 'workers/ff-pipeline/src/synthesis-pr-draft.ts',
   gatesWorker: 'workers/ff-gates/src/index.ts',
   gatewayWorker: 'workers/ff-gateway/src/index.ts',
   gatewayEnv: 'workers/ff-gateway/src/env.ts',
@@ -234,10 +241,15 @@ function checkSchemaAliases() {
   expectIncludes('compiler invokes Coherence Verification pass', read(files.compiler), 'runCoherenceVerificationPass')
   expectIncludes('compiler pass invokes Coherence Verification evaluator', read(files.compilerPassCoherenceVerification), 'runCoherenceVerification')
   expectIncludes('compiler pass emits Coherence Verification report', read(files.compilerPassCoherenceVerification), 'emitCoherenceVerificationReport')
+  expectIncludes('compiler generated invariants use Coherence Verification report name', read(files.compilerDeriveInvariants), 'Coherence Verification produces byte-identical CoherenceVerificationReport')
+  expectIncludes('compiler extracted atoms use Coherence Verification subject', read(files.compilerExtractAtoms), 'subject: "Coherence Verification"')
+  expectIncludes('compiler CLI prints Coherence Verification verdict', read(files.compilerCli), 'Coherence Verification- ${result.report.overall.toUpperCase()}')
   expectIncludes('compiler Pass 8 consumes Coherence Verification report', read(files.compilerAssembleWorkgraph), 'coherenceVerificationReport: CoherenceVerificationReport')
   expectIncludes('compiler fixtures build Coherence Verification reports first', read(files.compilerTestFixtures), 'export function makeCoherenceVerificationReportPassing')
   expectIncludes('compiler fixtures keep legacy Gate 1 report helper alias', read(files.compilerTestFixtures), 'export const makeGate1ReportPassing = makeCoherenceVerificationReportPassing')
   expectIncludes('function synthesis makes FidelityVerificationInput the primary schema', read(files.functionSynthesisTypes), 'export const FidelityVerificationInput = z.object')
+  expectIncludes('function synthesis requires FidelityVerificationInput on SynthesisResult', read(files.functionSynthesisTypes), 'fidelityVerificationInput: FidelityVerificationInput,')
+  expectIncludes('function synthesis keeps optional gate2Input compatibility field on SynthesisResult', read(files.functionSynthesisTypes), 'gate2Input: Gate2Input.optional()')
   expectIncludes('function synthesis keeps legacy Gate2Input schema alias', read(files.functionSynthesisTypes), 'export const Gate2Input = FidelityVerificationInput')
   expectIncludes('function synthesis keeps legacy Gate2Input type alias', read(files.functionSynthesisTypes), 'export type Gate2Input = FidelityVerificationInput')
   expectIncludes('function synthesis builds FidelityVerificationInput', read(files.functionSynthesisEvidence), 'buildFidelityVerificationInput')
@@ -251,9 +263,21 @@ function checkSchemaAliases() {
   expectIncludes('ff-pipeline defines Fidelity Verification input as primary', read(files.pipelineFidelityVerification), 'export interface FidelityVerificationInput')
   expectIncludes('ff-pipeline keeps legacy Gate 2 simulation input alias', read(files.pipelineFidelityVerification), 'export type Gate2SimulationInput = FidelityVerificationInput')
   expectIncludes('MRP schema accepts Fidelity Verification report id', read(files.sdlcSchema), 'fidelityVerificationReportId')
+  expectIncludes('MRP schema accepts Coherence Verification report id', read(files.sdlcSchema), 'coherenceVerificationReportId')
   expectIncludes('MRP schema test covers Fidelity Verification report id', read(files.sdlcSchemaTest), 'fidelityVerificationReportId')
+  expectIncludes('MRP schema test covers Coherence Verification report id', read(files.sdlcSchemaTest), 'coherenceVerificationReportId')
   expectIncludes('MRP helper exposes Fidelity Verification evidence overlay', read(files.pipelineMergeReadinessPack), 'withFidelityVerificationReportEvidence')
   expectIncludes('MRP helper keeps legacy Gate 2 evidence overlay', read(files.pipelineMergeReadinessPack), 'export function withGate2ReportEvidence')
+  expectIncludes('MRP canonical evidence accepts Coherence Verification report id', read(files.pipelineMergeReadinessPack), 'coherenceVerificationReportId?: string')
+  expectIncludes('MRP readiness criterion uses Coherence Verification primary evidence label', read(files.pipelineMergeReadinessPack), 'coherenceVerification:${coherencePassed ?')
+  expectIncludes('synthesis PR draft uses Coherence Verification primary status field', read(files.pipelineSynthesisPrDraft), 'coherenceVerificationPassed?: boolean')
+  expectIncludes('synthesis PR draft keeps gate1Passed compatibility input', read(files.pipelineSynthesisPrDraft), 'gate1Passed?: boolean')
+  expectIncludes('synthesis PR draft body names Coherence Verification', read(files.pipelineSynthesisPrDraft), 'Coherence Verification: \\`')
+  expectIncludes('runtime verification exposes Coherence Verification verdict as primary', read(files.pipelineRuntimeVerification), 'coherenceVerificationVerdict: CoherenceVerificationVerdict')
+  expectIncludes('runtime verification keeps gate1Verdict compatibility field', read(files.pipelineRuntimeVerification), 'gate1Verdict: Gate1Verdict')
+  expectIncludes('coordinator state exposes Coherence Verification pass flag', read(files.pipelineCoordinatorState), 'coherenceVerificationPassed: boolean')
+  expectIncludes('coordinator state exposes Coherence Verification report field', read(files.pipelineCoordinatorState), 'coherenceVerificationReport: unknown | null')
+  expectIncludes('coordinator graph records Coherence Verification evidence first', read(files.pipelineCoordinatorGraph), 'const coherenceVerificationReport =')
   expectIncludes('ff-pipeline defines Persistence Verification evaluator as primary', read(files.pipelinePersistenceVerification), 'export function evaluatePersistenceVerificationRegistration')
   expectIncludes('ff-pipeline keeps legacy Gate 3 assurance evaluator alias', read(files.pipelinePersistenceVerification), 'export const evaluateGate3AssuranceRegistration = evaluatePersistenceVerificationRegistration')
   expectIncludes('ff-pipeline defines Persistence Verification registration input as primary', read(files.pipelinePersistenceVerification), 'export interface PersistenceVerificationRegistrationInput')

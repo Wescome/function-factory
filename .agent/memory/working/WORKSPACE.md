@@ -4,11 +4,44 @@
 Active task: ontology alias-first migration away from primary Gate(x) names.
 
 ## Last update
-2026-05-09T17:33:53Z
+2026-05-09T17:52:49Z
 
 ## Current actions
 
 - In progress: Gate(x) API de-primary pass.
+  - Completed current slice: made function-synthesis `SynthesisResult`
+    require `fidelityVerificationInput` as primary while keeping optional
+    `gate2Input` compatibility.
+  - Completed current slice: changed compiler-generated invariant text, CLI
+    output, and extracted atom subject from primary Gate 1 wording to
+    Coherence Verification.
+  - Completed current slice: made synthesis PR draft and MRP readiness use
+    Coherence Verification status/report fields as primary while keeping
+    `gate1Passed` / `gate1ReportId` compatibility inputs and emitted aliases.
+  - Completed current slice: made runtime verification smoke records use
+    `coherenceVerificationVerdict` as primary while accepting/emitting
+    `gate1Verdict` compatibility.
+  - Completed current slice: added coordinator
+    `coherenceVerificationPassed` / `coherenceVerificationReport` fields and
+    records Coherence Verification pass-through evidence through the existing
+    compatibility `gate-1` graph node name.
+  - Verification passed:
+    - `pnpm --filter @factory/function-synthesis test -- test/synthesize.test.ts test/evidence.test.ts`
+    - `pnpm --filter @factory/compiler test`
+    - `pnpm --filter @factory/compiler typecheck`
+    - `pnpm --filter @factory/schemas test -- src/sdlc.test.ts`
+    - `pnpm --filter @factory/schemas typecheck`
+    - `pnpm --filter @factory/ff-pipeline test -- src/runtime-verification.test.ts src/synthesis-pr-draft.test.ts src/merge-readiness-pack.test.ts`
+    - `pnpm --filter @factory/ff-pipeline test -- src/coordinator/state.test.ts src/coordinator/graph-9node.test.ts src/coordinator/coordinator-9node-wiring.test.ts src/runtime-verification.test.ts`
+    - `pnpm --filter @factory/ff-pipeline typecheck`
+    - `pnpm --filter @factory/ff-pipeline test` rerun passed after one full-workspace load timeout on `/version`
+    - `pnpm -r typecheck`
+    - `pnpm audit:ontology`
+    - `pnpm audit:docs`
+    - `git diff --check`
+  - Full `pnpm -r test` had one ff-pipeline `/version` timeout during the
+    all-workspace run; focused diagnostic and full ff-pipeline rerun both
+    passed, indicating a load-related flake rather than a regression.
   - Completed previous slice: MRP evidence now uses
     `fidelityVerificationReportId` / `fidelityVerificationReportKey` as
     canonical names with `gate2ReportId` / `gate2ReportKey` compatibility.

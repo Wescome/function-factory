@@ -3,7 +3,7 @@
  *
  * Produces one Contract per atom category (acceptance, constraint,
  * nfr), each with `derivedFromAtomIds` containing every atom in that
- * category. This ensures atom_coverage in Gate 1 passes- every atom
+ * category. This ensures atom_coverage in Coherence Verification passes- every atom
  * is referenced by ≥1 downstream artifact (a Contract that derived
  * from it).
  *

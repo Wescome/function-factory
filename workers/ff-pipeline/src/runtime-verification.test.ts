@@ -13,7 +13,7 @@ function makeResult(overrides: Partial<SynthesisSmokeResult> = {}): SynthesisSmo
       planId: 'WG-MOTE4M1R-G7I0',
       pipelineId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
     },
-    gate1Verdict: 'pass',
+    coherenceVerificationVerdict: 'pass',
     atomVerdict: 'success',
     evidence: {
       targetFilesDeployed: ['workers/ff-pipeline/src/runtime-verification.ts'],
@@ -33,6 +33,7 @@ describe('runtime verification synthesis smoke records', () => {
 
     expect(record).toMatchObject({
       lineage: result.lineage,
+      coherenceVerificationVerdict: 'pass',
       gate1Verdict: 'pass',
       atomVerdict: 'success',
       evidence: result.evidence,
@@ -120,11 +121,21 @@ describe('runtime verification synthesis smoke records', () => {
 
   it('rejects invalid verdict enums', () => {
     const result = makeResult()
-    expect(() => recordSynthesisSmokeResult({ ...result, gate1Verdict: 'maybe' })).toThrow(
-      /Gate 1 verdict/i,
+    expect(() => recordSynthesisSmokeResult({ ...result, coherenceVerificationVerdict: 'maybe' })).toThrow(
+      /Coherence Verification verdict/i,
     )
     expect(() => recordSynthesisSmokeResult({ ...result, atomVerdict: 'maybe' })).toThrow(
       /atom verdict/i,
     )
+  })
+
+  it('accepts legacy gate1Verdict smoke inputs as compatibility evidence', () => {
+    const result = makeResult({ gate1Verdict: 'pass' })
+    delete result.coherenceVerificationVerdict
+
+    expect(recordSynthesisSmokeResult(result)).toMatchObject({
+      coherenceVerificationVerdict: 'pass',
+      gate1Verdict: 'pass',
+    })
   })
 })

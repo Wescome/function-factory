@@ -169,6 +169,7 @@ describe('T11: 9-node synthesis graph', () => {
     expect(finalState.semanticReview).toBeDefined()
     expect(finalState.semanticReview).not.toBeNull()
     expect(finalState.compiledPrd).toBeDefined()
+    expect(finalState.coherenceVerificationPassed).toBe(true)
     expect(finalState.gate1Passed).toBe(true)
     expect(finalState.plan).toBeDefined()
     expect(finalState.code).toBeDefined()
@@ -252,6 +253,7 @@ describe('T11: 9-node synthesis graph', () => {
     const state2 = makeState({
       briefingScript: makeStubBriefingScript(),
       semanticReview: makeStubSemanticReview(),
+      coherenceVerificationPassed: true,
       gate1Passed: true,
       compiledPrd: makeUpstreamCompileEvidence(),
     })
@@ -441,25 +443,22 @@ describe('T11: 9-node synthesis graph', () => {
   // T11.8: Gate-1 failure routes to END
   // ────────────────────────────────────────────────────────────
 
-  it('T11.8: gate-1 failure routes to END without proceeding to planner', async () => {
-    // Override the compile node to return a failing gate
-    // We need a custom setup where gate-1 fails
+  it('T11.8: gate-1 compatibility node failure routes to END without proceeding to planner', async () => {
+    // Override the compile node to return failing Coherence Verification evidence.
+    // We need a custom setup where the compatibility node fails.
     const deps = make9NodeDeps()
 
-    // We'll create a graph and manually verify gate-1 failure routing
-    // by overriding the gate1Passed to false via the compile node
-    // The real test is that when gate1Passed is false, we go to END
+    // We'll create a graph and manually verify compatibility-node failure
+    // routing by overriding coherenceVerificationPassed to false.
+    // The real test is that when Coherence Verification is false, we go to END.
 
     // Build a graph with a criticAgent that produces aligned review
-    // but we need gate-1 to fail. Since gate-1 node is built in,
-    // and for now it sets gate1Passed=true, let's test with
-    // the conditional edge logic by checking that gate-1 routes
-    // correctly when gate1Passed is already false in state.
+    // but we need the compatibility node to fail. Since that node is built in
+    // and sets coherenceVerificationPassed=true, this checks the conditional
+    // edge logic by pre-setting the verdict false in state.
 
-    // Actually: let's test the gate-1 conditional edge directly
-    // by providing a state where gate1 should fail.
-    // For the stub implementation, gate-1 always passes.
-    // We test the conditional edge by pre-setting gate1Passed=false.
+    // For the stub implementation, the compatibility node always passes.
+    // We test the conditional edge by pre-setting coherenceVerificationPassed=false.
 
     const graph = buildSynthesisGraph(deps)
     const state = makeState({
@@ -467,8 +466,9 @@ describe('T11: 9-node synthesis graph', () => {
       briefingScript: makeStubBriefingScript(),
       semanticReview: makeStubSemanticReview(),
       compiledPrd: makeUpstreamCompileEvidence(),
+      coherenceVerificationPassed: false,
       gate1Passed: false,
-      // Set a verdict that would cause gate-1 to fail via a custom check
+      // Set a verdict that would cause Coherence Verification to fail via a custom check.
     })
 
     // The graph routes budget-check → planner when briefingScript exists.
@@ -533,23 +533,25 @@ describe('T11: 9-node synthesis graph', () => {
   // T11.10b: gate-1 node records upstream verification, not fake proof
   // ────────────────────────────────────────────────────────────
 
-  it('T11.10b: gate-1 node records non-authoritative upstream Gate 1 evidence', async () => {
+  it('T11.10b: gate-1 node records non-authoritative upstream Coherence Verification evidence', async () => {
     const deps = make9NodeDeps()
     const graph = buildSynthesisGraph(deps)
     const state = makeState()
 
     const finalState = await graph.run(state, { maxSteps: 50 })
 
+    expect(finalState.coherenceVerificationPassed).toBe(true)
+    expect(finalState.coherenceVerificationReport).toBeDefined()
     expect(finalState.gate1Passed).toBe(true)
-    expect(finalState.gate1Report).toBeDefined()
+    expect(finalState.gate1Report).toBe(finalState.coherenceVerificationReport)
 
-    const gate1Report = finalState.gate1Report as Record<string, unknown>
-    expect(gate1Report.source).toBe('workflow-stage-gate-1')
-    expect(gate1Report.evidenceStatus).toBe('upstream_verified_not_recomputed')
-    expect(gate1Report.authoritative).toBe(false)
-    expect(gate1Report.summary).toContain('verified upstream')
-    expect(JSON.stringify(gate1Report)).not.toContain('stub-check')
-    expect(JSON.stringify(gate1Report)).not.toContain('Gate 1 passed (stub)')
+    const coherenceVerificationReport = finalState.coherenceVerificationReport as Record<string, unknown>
+    expect(coherenceVerificationReport.source).toBe('workflow-stage-coherence-verification')
+    expect(coherenceVerificationReport.evidenceStatus).toBe('upstream_verified_not_recomputed')
+    expect(coherenceVerificationReport.authoritative).toBe(false)
+    expect(coherenceVerificationReport.summary).toContain('verified upstream')
+    expect(JSON.stringify(coherenceVerificationReport)).not.toContain('stub-check')
+    expect(JSON.stringify(coherenceVerificationReport)).not.toContain('Gate 1 passed (stub)')
   })
 
   // ────────────────────────────────────────────────────────────

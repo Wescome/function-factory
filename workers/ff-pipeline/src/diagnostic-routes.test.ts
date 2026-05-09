@@ -1673,7 +1673,7 @@ function makeMaterializationAudit(): Record<string, unknown> {
     capabilityId: 'BC-MOTDWSVY-PQOO',
     proposalId: 'FP-MOTDWVR2-W7UN',
     workGraphId: 'WG-MOTE4M1R-G7I0',
-    gate1Passed: true,
+    coherenceVerificationPassed: true,
     atomResults: [
       { atomId: 'atom-001', decision: 'pass', confidence: 0.95, tests: '14/14' },
     ],
@@ -1777,7 +1777,7 @@ function makeCanonicalMRPEvidence(): Record<string, unknown> {
     auditability: {
       prdId: 'PRD-MOTE4M1R-G7I0',
       semanticReviewId: 'SRR-MOTE4M1R-G7I0',
-      gate1ReportId: 'CR-MOTE4M1R-GATE1',
+      coherenceVerificationReportId: 'CR-MOTE4M1R-GATE1',
       gate2ReportId: 'CR-MOTE4M1R-GATE2',
       modelBindings: {
         planner: { provider: 'factory-runtime', model: 'observed' },
