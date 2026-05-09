@@ -186,29 +186,53 @@ export const ONTOLOGY_INSTANCES: OntologyInstance[] = [
   },
 
   // ═══════════════════════════════════════════════════════════════
-  // GATE INSTANCES
+  // VERIFICATION INSTANCES
   // ═══════════════════════════════════════════════════════════════
 
+  {
+    _key: 'CoherenceVerification',
+    uri: 'ff:CoherenceVerification',
+    type: 'Verification',
+    label: 'Coherence Verification',
+    comment: 'Structural completeness: atom coverage, invariant coverage, validation coverage, dependency closure.',
+  },
+  {
+    _key: 'FidelityVerification',
+    uri: 'ff:FidelityVerification',
+    type: 'Verification',
+    label: 'Fidelity Verification',
+    comment: 'Behavioral correspondence: scenario coverage, invariant exercise, validation pass rate.',
+  },
+  {
+    _key: 'PersistenceVerification',
+    uri: 'ff:PersistenceVerification',
+    type: 'Verification',
+    label: 'Persistence Verification',
+    comment: 'Continuous assurance: detector freshness, evidence source liveness, audit pipeline integrity.',
+  },
   {
     _key: 'Gate1',
     uri: 'ff:Gate1',
     type: 'Gate',
-    label: 'Gate 1 — Compile Coverage',
-    comment: 'Structural validation: atom coverage, invariant coverage, validation coverage, dependency closure.',
+    label: 'Gate 1 - Compile Coverage',
+    comment: 'Legacy compatibility alias for Coherence Verification.',
+    legacyAliasOf: 'CoherenceVerification',
   },
   {
     _key: 'Gate2',
     uri: 'ff:Gate2',
     type: 'Gate',
-    label: 'Gate 2 — Simulation Coverage',
-    comment: 'Behavioral validation: scenario coverage, invariant exercise, validation pass rate.',
+    label: 'Gate 2 - Simulation Coverage',
+    comment: 'Legacy compatibility alias for Fidelity Verification.',
+    legacyAliasOf: 'FidelityVerification',
   },
   {
     _key: 'Gate3',
     uri: 'ff:Gate3',
     type: 'Gate',
-    label: 'Gate 3 — Assurance',
-    comment: 'Continuous validation: detector freshness, evidence source liveness, audit pipeline integrity.',
+    label: 'Gate 3 - Assurance',
+    comment: 'Legacy compatibility alias for Persistence Verification.',
+    legacyAliasOf: 'PersistenceVerification',
   },
 
   // ═══════════════════════════════════════════════════════════════
@@ -500,8 +524,8 @@ export const ONTOLOGY_INSTANCES: OntologyInstance[] = [
     _key: 'Stage7_Observe',
     uri: 'ff:Stage7_Observe',
     type: 'PipelineStage',
-    label: 'Stage 7 — Observe',
-    comment: 'Runtime monitoring and Gate 3 checks.',
+    label: 'Stage 7 - Observe',
+    comment: 'Runtime monitoring and Persistence Verification checks.',
   },
   {
     _key: 'Stage8_PR',

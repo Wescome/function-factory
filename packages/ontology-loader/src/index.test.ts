@@ -132,6 +132,7 @@ describe('Ontology data constants', () => {
     expect(keys).toContain('FunctionProposal')
     expect(keys).toContain('WorkGraph')
     expect(keys).toContain('BriefingScript')
+    expect(keys).toContain('Verification')
     expect(keys).toContain('Gate')
     expect(keys).toContain('AgentRole')
     expect(keys).toContain('ConsultationRequestPack')
@@ -212,6 +213,43 @@ describe('Ontology data constants', () => {
       ['Worker', 'Workflow', 'DurableObject', 'Container', 'Queue', 'R2Bucket'].includes(i.type)
     )
     expect(infraInstances.length).toBeGreaterThanOrEqual(7)
+  })
+
+  it('uses ontology-primary Verification instances with legacy Gate aliases', () => {
+    const byKey = new Map(ONTOLOGY_INSTANCES.map(instance => [instance._key, instance]))
+
+    expect(byKey.get('CoherenceVerification')).toMatchObject({
+      type: 'Verification',
+      label: 'Coherence Verification',
+    })
+    expect(byKey.get('FidelityVerification')).toMatchObject({
+      type: 'Verification',
+      label: 'Fidelity Verification',
+    })
+    expect(byKey.get('PersistenceVerification')).toMatchObject({
+      type: 'Verification',
+      label: 'Persistence Verification',
+    })
+    expect(byKey.get('Gate1')?.legacyAliasOf).toBe('CoherenceVerification')
+    expect(byKey.get('Gate2')?.legacyAliasOf).toBe('FidelityVerification')
+    expect(byKey.get('Gate3')?.legacyAliasOf).toBe('PersistenceVerification')
+  })
+
+  it('uses ontology-primary verification names in lifecycle constraints', () => {
+    const lifecycle = ONTOLOGY_CONSTRAINTS.find(c => c._key === 'C14-lifecycle')!
+
+    expect(lifecycle.message).toContain('Fidelity Verification')
+    expect(lifecycle.message).toContain('Persistence Verification')
+    expect(lifecycle.lifecycleRules).toContainEqual({
+      from: 'Implemented',
+      to: 'Verified',
+      requires: 'FidelityVerification',
+    })
+    expect(lifecycle.lifecycleRules).toContainEqual({
+      from: 'Verified',
+      to: 'Monitored',
+      requires: 'PersistenceVerification',
+    })
   })
 
   it('has ArangoCollection instances', () => {

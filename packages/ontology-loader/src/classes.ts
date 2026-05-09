@@ -250,12 +250,20 @@ export const ONTOLOGY_CLASSES: OntologyClass[] = [
     comment: 'Any artifact that constrains, validates, or assures Factory output.',
   },
   {
+    _key: 'Verification',
+    uri: 'ff:Verification',
+    label: 'Verification',
+    superClass: 'GovernanceArtifact',
+    domain: 'governance',
+    comment: 'Fail-closed validation and assurance category. Coherence, Fidelity, and Persistence Verification are the primary ontology terms.',
+  },
+  {
     _key: 'Gate',
     uri: 'ff:Gate',
     label: 'Gate',
-    superClass: 'GovernanceArtifact',
+    superClass: 'Verification',
     domain: 'governance',
-    comment: 'A fail-closed validation checkpoint. Three gates, all required.',
+    comment: 'Legacy compatibility class for numbered gate terminology. New ontology data should use Verification.',
   },
   {
     _key: 'CoverageReport',

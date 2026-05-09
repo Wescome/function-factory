@@ -62,7 +62,9 @@ const files = {
   arangoSeed: 'infra/arangodb/seed.ts',
   arangoVerify: 'infra/arangodb/verify.ts',
   ontologyClasses: 'packages/ontology-loader/src/classes.ts',
+  ontologyConstraints: 'packages/ontology-loader/src/constraints.ts',
   ontologyInstances: 'packages/ontology-loader/src/instances.ts',
+  ontologyProperties: 'packages/ontology-loader/src/properties.ts',
   pipelineIndex: 'workers/ff-pipeline/src/index.ts',
   pipelineWorkflow: 'workers/ff-pipeline/src/pipeline.ts',
   pipelineLifecycle: 'workers/ff-pipeline/src/lifecycle.ts',
@@ -294,6 +296,17 @@ function checkSchemaAliases() {
   expectIncludes('ff-gateway keeps Gate1Report as alias', read(files.gatewayTypes), 'export type Gate1Report = CoherenceVerificationReport')
   expectIncludes('ff-gateway service binding supports Coherence Verification method', read(files.gatewayEnv), 'evaluateCoherenceVerification')
   expectIncludes('ff-gates package description uses Coherence Verification', read(files.ffGatesPackageJson), 'Coherence Verification')
+  expectIncludes('ontology loader defines Verification class as primary', read(files.ontologyClasses), "_key: 'Verification'")
+  expectIncludes('ontology loader marks Gate class legacy', read(files.ontologyClasses), 'Legacy compatibility class for numbered gate terminology')
+  expectIncludes('ontology loader defines Coherence Verification instance', read(files.ontologyInstances), "_key: 'CoherenceVerification'")
+  expectIncludes('ontology loader defines Fidelity Verification instance', read(files.ontologyInstances), "_key: 'FidelityVerification'")
+  expectIncludes('ontology loader defines Persistence Verification instance', read(files.ontologyInstances), "_key: 'PersistenceVerification'")
+  expectIncludes('ontology loader keeps Gate1 as Coherence Verification alias', read(files.ontologyInstances), "legacyAliasOf: 'CoherenceVerification'")
+  expectIncludes('ontology loader keeps Gate2 as Fidelity Verification alias', read(files.ontologyInstances), "legacyAliasOf: 'FidelityVerification'")
+  expectIncludes('ontology loader keeps Gate3 as Persistence Verification alias', read(files.ontologyInstances), "legacyAliasOf: 'PersistenceVerification'")
+  expectIncludes('ontology loader constraints require Fidelity Verification', read(files.ontologyConstraints), "requires: 'FidelityVerification'")
+  expectIncludes('ontology loader constraints require Persistence Verification', read(files.ontologyConstraints), "requires: 'PersistenceVerification'")
+  expectIncludes('ontology loader properties use Coherence Verification language', read(files.ontologyProperties), 'Coherence Verification rejects')
 }
 
 function checkCompilerPathContracts() {

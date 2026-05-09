@@ -250,7 +250,7 @@ export const ONTOLOGY_PROPERTIES: OntologyProperty[] = [
     propertyType: 'object',
     domain: 'Invariant',
     range: 'DetectorSpec',
-    comment: 'An Invariant without a Detector is a wish. Gate 1 rejects.',
+    comment: 'An Invariant without a Detector is a wish. Coherence Verification rejects.',
   },
   {
     _key: 'allowedTransition',

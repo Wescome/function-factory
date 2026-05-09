@@ -4,11 +4,26 @@
 Active task: ontology alias-first migration away from primary Gate(x) names.
 
 ## Last update
-2026-05-09T17:52:49Z
+2026-05-09T20:21:18Z
 
 ## Current actions
 
 - In progress: Gate(x) API de-primary pass.
+  - Completed current slice: made ontology-loader expose `Verification` as
+    the primary governance class, added primary `CoherenceVerification`,
+    `FidelityVerification`, and `PersistenceVerification` ontology instances,
+    and kept `Gate1` / `Gate2` / `Gate3` as legacy aliases through
+    `legacyAliasOf`.
+  - Completed current slice: changed ontology-loader lifecycle constraints
+    and detector-property language to primary Verification names while
+    preserving compatibility data.
+  - Verification passed:
+    - `pnpm --filter @factory/ontology-loader test`
+    - `pnpm --filter @factory/ontology-loader typecheck`
+    - `pnpm audit:ontology`
+    - `pnpm audit:docs`
+    - `pnpm -r typecheck`
+    - `git diff --check`
   - Completed current slice: made function-synthesis `SynthesisResult`
     require `fidelityVerificationInput` as primary while keeping optional
     `gate2Input` compatibility.
