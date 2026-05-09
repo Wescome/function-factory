@@ -30,6 +30,8 @@ const files = {
   aliasTest: 'packages/schemas/src/ontology-aliases.test.ts',
   compiler: 'packages/compiler/src/compile.ts',
   compilerPassCoherenceVerification: 'packages/compiler/src/passes/07-gate-1.ts',
+  compilerAssembleWorkgraph: 'packages/compiler/src/passes/08-assemble-workgraph.ts',
+  compilerTestFixtures: 'packages/compiler/src/passes/_test-fixtures.ts',
   compilerReadme: 'packages/compiler/README.md',
   coverageGatesIndex: 'packages/coverage-gates/src/index.ts',
   coverageGatesChecks: 'packages/coverage-gates/src/checks.ts',
@@ -232,6 +234,9 @@ function checkSchemaAliases() {
   expectIncludes('compiler invokes Coherence Verification pass', read(files.compiler), 'runCoherenceVerificationPass')
   expectIncludes('compiler pass invokes Coherence Verification evaluator', read(files.compilerPassCoherenceVerification), 'runCoherenceVerification')
   expectIncludes('compiler pass emits Coherence Verification report', read(files.compilerPassCoherenceVerification), 'emitCoherenceVerificationReport')
+  expectIncludes('compiler Pass 8 consumes Coherence Verification report', read(files.compilerAssembleWorkgraph), 'coherenceVerificationReport: CoherenceVerificationReport')
+  expectIncludes('compiler fixtures build Coherence Verification reports first', read(files.compilerTestFixtures), 'export function makeCoherenceVerificationReportPassing')
+  expectIncludes('compiler fixtures keep legacy Gate 1 report helper alias', read(files.compilerTestFixtures), 'export const makeGate1ReportPassing = makeCoherenceVerificationReportPassing')
   expectIncludes('function synthesis makes FidelityVerificationInput the primary schema', read(files.functionSynthesisTypes), 'export const FidelityVerificationInput = z.object')
   expectIncludes('function synthesis keeps legacy Gate2Input schema alias', read(files.functionSynthesisTypes), 'export const Gate2Input = FidelityVerificationInput')
   expectIncludes('function synthesis keeps legacy Gate2Input type alias', read(files.functionSynthesisTypes), 'export type Gate2Input = FidelityVerificationInput')

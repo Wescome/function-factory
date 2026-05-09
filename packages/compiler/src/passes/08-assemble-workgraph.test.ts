@@ -6,14 +6,14 @@ import {
   makeAtom,
   makeContract,
   makeDependency,
-  makeGate1ReportPassing,
+  makeCoherenceVerificationReportPassing,
   makeInvariant,
   makePRD,
   makeValidation,
 } from "./_test-fixtures.js"
 
 describe("assembleWorkgraph", () => {
-  it("happy path- passing Gate 1 + intermediates produces a schema-valid WorkGraph", () => {
+  it("happy path- passing Coherence Verification + intermediates produces a schema-valid WorkGraph", () => {
     const prd = makePRD()
     const atoms = [makeAtom()]
     const contracts = [
@@ -42,13 +42,13 @@ describe("assembleWorkgraph", () => {
       invariants,
       deps,
       validations,
-      makeGate1ReportPassing()
+      makeCoherenceVerificationReportPassing()
     )
     expect(WorkGraph.safeParse(wg).success).toBe(true)
     expect(wg.nodes.length).toBe(3 + 2 + 2)
   })
 
-  it("refuses to run on failed Gate 1 (criterion 2)", () => {
+  it("refuses to run on failed Coherence Verification (criterion 2)", () => {
     expect(() =>
       assembleWorkgraph(
         makePRD(),
@@ -57,7 +57,7 @@ describe("assembleWorkgraph", () => {
         [],
         [],
         [],
-        makeGate1ReportPassing({ overall: "fail" })
+        makeCoherenceVerificationReportPassing({ overall: "fail" })
       )
     ).toThrow(/refuses to run/)
   })
@@ -71,7 +71,7 @@ describe("assembleWorkgraph", () => {
       [],
       [],
       [],
-      makeGate1ReportPassing()
+      makeCoherenceVerificationReportPassing()
     )
     expect(wg.id).toBe("WG-META-FOO-BAR")
   })
@@ -87,7 +87,7 @@ describe("assembleWorkgraph", () => {
       [],
       [],
       [],
-      makeGate1ReportPassing()
+      makeCoherenceVerificationReportPassing()
     )
     expect(wg.functionId).toBe("FP-META-CUSTOM-FUNCTION")
   })
@@ -104,7 +104,7 @@ describe("assembleWorkgraph", () => {
       [],
       [],
       [],
-      makeGate1ReportPassing()
+      makeCoherenceVerificationReportPassing()
     )
     expect(wg.nodes.find((n) => n.id === c.id)?.type).toBe("execution")
   })
@@ -121,7 +121,7 @@ describe("assembleWorkgraph", () => {
       [],
       [],
       [],
-      makeGate1ReportPassing()
+      makeCoherenceVerificationReportPassing()
     )
     expect(wg.nodes.find((n) => n.id === c.id)?.type).toBe("control")
   })
@@ -142,7 +142,7 @@ describe("assembleWorkgraph", () => {
       [],
       [],
       [],
-      makeGate1ReportPassing()
+      makeCoherenceVerificationReportPassing()
     )
     expect(wg.nodes.find((n) => n.id === cApi.id)?.type).toBe("interface")
     expect(wg.nodes.find((n) => n.id === cSchema.id)?.type).toBe("interface")
@@ -158,7 +158,7 @@ describe("assembleWorkgraph", () => {
       [inv],
       [],
       [val],
-      makeGate1ReportPassing()
+      makeCoherenceVerificationReportPassing()
     )
     expect(wg.nodes.find((n) => n.id === inv.id)?.type).toBe("control")
     expect(wg.nodes.find((n) => n.id === val.id)?.type).toBe("evidence")
@@ -178,7 +178,7 @@ describe("assembleWorkgraph", () => {
           ),
         ],
         [],
-        makeGate1ReportPassing()
+        makeCoherenceVerificationReportPassing()
       )
     ).toThrow(/not present in node set/)
   })
@@ -197,7 +197,7 @@ describe("assembleWorkgraph", () => {
       [],
       [dep],
       [],
-      makeGate1ReportPassing()
+      makeCoherenceVerificationReportPassing()
     )
     expect(wg.edges.filter((e) => e.from === c1.id && e.to === c2.id).length).toBe(1)
   })
@@ -218,7 +218,7 @@ describe("assembleWorkgraph", () => {
       [inv],
       [],
       [val],
-      makeGate1ReportPassing()
+      makeCoherenceVerificationReportPassing()
     )
     expect(wg.edges.some((e) => e.from === val.id && e.to === inv.id)).toBe(true)
     expect(wg.edges.some((e) => e.from === val.id && e.to === c.id)).toBe(true)
@@ -231,7 +231,7 @@ describe("assembleWorkgraph", () => {
       makeContract({ id: "CONTRACT-META-FOO-B" as ArtifactId }),
       makeContract({ id: "CONTRACT-META-FOO-A" as ArtifactId }),
     ]
-    const report = makeGate1ReportPassing()
+    const report = makeCoherenceVerificationReportPassing()
     const wgA = assembleWorkgraph(prd, [], contracts, [], [], [], report)
     const wgB = assembleWorkgraph(prd, [], contracts, [], [], [], report)
     expect(wgB).toEqual(wgA)
@@ -251,7 +251,7 @@ describe("assembleWorkgraph", () => {
   it("WorkGraph source_refs aggregates PRD + report + intermediates, sorted, deduplicated", () => {
     const prd = makePRD()
     const contract = makeContract()
-    const report = makeGate1ReportPassing()
+    const report = makeCoherenceVerificationReportPassing()
     const wg = assembleWorkgraph(prd, [], [contract], [], [], [], report)
     expect(wg.source_refs).toContain(prd.id)
     expect(wg.source_refs).toContain(report.id)
@@ -274,7 +274,7 @@ describe("assembleWorkgraph", () => {
       invariants,
       [],
       [],
-      makeGate1ReportPassing()
+      makeCoherenceVerificationReportPassing()
     )
     expect(JSON.stringify({ contracts, invariants })).toBe(snapshot)
   })
@@ -288,7 +288,7 @@ describe("assembleWorkgraph", () => {
         [],
         [],
         [],
-        makeGate1ReportPassing()
+        makeCoherenceVerificationReportPassing()
       )
     ).toThrow(/invalid WorkGraph/)
   })

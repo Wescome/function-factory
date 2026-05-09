@@ -4,7 +4,7 @@
 Active task: ontology alias-first migration away from primary Gate(x) names.
 
 ## Last update
-2026-05-09T16:21:32Z
+2026-05-09T17:33:53Z
 
 ## Current actions
 
@@ -27,8 +27,11 @@ Active task: ontology alias-first migration away from primary Gate(x) names.
     `FidelityVerificationVerdict`, `PersistenceVerificationReport`) while
     preserving legacy `Gate1Report`, `Gate2Report`, `Gate2Verdict`, and
     `Gate3Report` compatibility aliases.
-  - Current slice: make `@factory/coverage-gates` Coherence Verification
+  - Completed: made `@factory/coverage-gates` Coherence Verification
     input, runner, and emitter primary while preserving legacy Gate 1 aliases.
+  - Current slice: make compiler Pass 8 consume `CoherenceVerificationReport`
+    by name and make compiler fixtures build Coherence Verification reports
+    first, with legacy `makeGate1ReportPassing` preserved as an alias.
   - `specs/reference/NLAH` remains untouched and untracked by request.
 - Completed: ontology compatibility audit script.
   - Added `scripts/audit-ontology-compat.mjs`.

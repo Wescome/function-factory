@@ -11,10 +11,10 @@ import type { z } from "zod"
 import { DependencyType } from "@factory/schemas"
 import type {
   ArtifactId,
+  CoherenceVerificationReport,
   Contract,
   Dependency,
   DetectorSpec,
-  Gate1Report,
   Invariant,
   PRDDraft,
   RequirementAtom,
@@ -134,9 +134,9 @@ export function makeValidation(
   }
 }
 
-export function makeGate1ReportPassing(
-  overrides: Partial<Gate1Report> = {}
-): Gate1Report {
+export function makeCoherenceVerificationReportPassing(
+  overrides: Partial<CoherenceVerificationReport> = {}
+): CoherenceVerificationReport {
   return {
     id: "CR-PRD-META-FOO-GATE1-2026-04-19T00-00-00-000Z" as ArtifactId,
     source_refs: ["PRD-META-FOO" as ArtifactId],
@@ -169,3 +169,5 @@ export function makeGate1ReportPassing(
     ...overrides,
   }
 }
+
+export const makeGate1ReportPassing = makeCoherenceVerificationReportPassing

@@ -2,11 +2,11 @@
  * Pass 8- assemble WorkGraph.
  *
  * Terminal compiler pass. Consumes validated intermediates from Passes
- * 1-5 plus a passing Gate 1 Coverage Report from Pass 7, produces a
+ * 1-5 plus a passing Coherence Verification report from Pass 7, produces a
  * WorkGraph conforming to the WorkGraph Zod schema. Pure function- no
  * IO, no mutation of inputs, no external state.
  *
- * Fail-closed- throws if the Gate 1 verdict is anything other than
+ * Fail-closed- throws if the Coherence Verification verdict is anything other than
  * `pass`. The orchestrator is responsible for providing a report; Pass
  * 8 at this layer trusts the type signature.
  *
@@ -17,7 +17,7 @@
  *
  * Schema conformance- defensively re-validates the constructed
  * WorkGraph via WorkGraph.safeParse before returning. Matches the
- * belt-and-suspenders pattern in runGate1.
+ * belt-and-suspenders pattern in runCoherenceVerification.
  */
 
 import type { z } from "zod"
@@ -29,7 +29,7 @@ import {
   type ArtifactId,
   type Contract,
   type Dependency,
-  type Gate1Report,
+  type CoherenceVerificationReport,
   type Invariant,
   type PRDDraft,
   type RequirementAtom,
@@ -75,12 +75,12 @@ export function assembleWorkgraph(
   invariants: readonly Invariant[],
   dependencies: readonly Dependency[],
   validations: readonly ValidationSpec[],
-  gate1Report: Gate1Report
+  coherenceVerificationReport: CoherenceVerificationReport
 ): WorkGraph {
-  // Fail-closed precondition- Gate 1 must pass.
-  if (gate1Report.overall !== "pass") {
+  // Fail-closed precondition- Coherence Verification must pass.
+  if (coherenceVerificationReport.overall !== "pass") {
     throw new Error(
-      `Pass 8 refuses to run on a failed Gate 1 verdict. Coverage Report id- ${gate1Report.id}`
+      `Pass 8 refuses to run on a failed Coherence Verification verdict. Coverage Report id- ${coherenceVerificationReport.id}`
     )
   }
 
@@ -172,7 +172,7 @@ export function assembleWorkgraph(
   // Aggregate source_refs- PRD + Coverage Report + every intermediate.
   const refSet = new Set<string>()
   refSet.add(prd.id)
-  refSet.add(gate1Report.id)
+  refSet.add(coherenceVerificationReport.id)
   for (const c of contracts) refSet.add(c.id)
   for (const inv of invariants) refSet.add(inv.id)
   for (const d of dependencies) refSet.add(d.id)
@@ -186,7 +186,7 @@ export function assembleWorkgraph(
     id: workGraphId(prd.id),
     source_refs,
     explicitness: "explicit",
-    rationale: `WorkGraph assembled from validated intermediates of ${prd.id}; Gate 1 verdict ${gate1Report.overall} cited in source_refs`,
+    rationale: `WorkGraph assembled from validated intermediates of ${prd.id}; Coherence Verification verdict ${coherenceVerificationReport.overall} cited in source_refs`,
     functionId: prd.sourceFunctionId,
     nodes,
     edges,
