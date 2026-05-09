@@ -74,6 +74,7 @@ export interface SignalInput {
 
 export interface PipelineResult {
   status: string
+  legacyStatus?: string
   signalId?: string
   pressureId?: string
   capabilityId?: string

@@ -275,7 +275,7 @@ async function runLivePass(
     }
     // Strip test atoms — implementation-only synthesis for mergeable PRs
     boundAtoms = (boundAtoms as Record<string, unknown>[]).filter(a => a.type !== 'test')
-    // Safety net: ensure every atom has binding + implementation for Gate 1
+    // Safety net: ensure every atom has binding + implementation for Coherence Verification.
     boundAtoms = (boundAtoms as Record<string, unknown>[]).map((a, i) => ({
       ...a,
       id: a.id ?? `atom-${String(i + 1).padStart(3, '0')}`,

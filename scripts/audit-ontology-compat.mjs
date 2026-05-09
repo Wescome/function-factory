@@ -292,6 +292,8 @@ function checkSchemaAliases() {
   expectIncludes('ff-pipeline exposes Persistence Verification diagnostic route', read(files.pipelineIndex), '/debug/persistence-verification')
   expectIncludes('ff-pipeline workflow calls Coherence Verification service method', read(files.pipelineWorkflow), 'evaluateCoherenceVerification')
   expectIncludes('ff-pipeline workflow uses Coherence Verification step name', read(files.pipelineWorkflow), "'coherence-verification'")
+  expectIncludes('ff-pipeline workflow emits Coherence Verification failure status primary', read(files.pipelineWorkflow), "const COHERENCE_VERIFICATION_FAILED_STATUS = 'coherence-verification-failed'")
+  expectIncludes('ff-pipeline workflow keeps legacy gate-1 failed status alias', read(files.pipelineWorkflow), "const LEGACY_GATE1_FAILED_STATUS = 'gate-1-failed'")
   expectIncludes('ff-gates exposes Coherence Verification service method', read(files.gatesWorker), 'evaluateCoherenceVerification')
   expectIncludes('ff-gates defines canonical Coherence Verification report interface first', read(files.gatesWorker), 'export interface CoherenceVerificationReport')
   expectIncludes('ff-gates keeps Gate1Report as alias', read(files.gatesWorker), 'export type Gate1Report = CoherenceVerificationReport')

@@ -5,7 +5,7 @@
  *   A) /trigger-synthesis HTTP route (index.ts) — validates input,
  *      calls DO via fetch, sends workflow events on success/failure.
  *   B) Pipeline workflow (pipeline.ts) — queues synthesis to ArangoDB
- *      after Gate 1 pass, waits for event, returns PipelineResult
+ *      after Coherence Verification passes, waits for event, returns PipelineResult
  *      with synthesisResult.
  *
  * Mock targets: ArangoDB client, DO stub, Workflow instance.
@@ -152,7 +152,7 @@ function createMockStep() {
   return step
 }
 
-/** Standard env with passing Gate 1 and stubbed bindings. */
+/** Standard env with passing Coherence Verification and stubbed bindings. */
 function createEnv(overrides?: Record<string, unknown>) {
   return {
     ARANGO_URL: 'http://localhost:8529',
@@ -464,10 +464,10 @@ describe('Stage 6: event-driven synthesis handoff', () => {
     })
   })
 
-  // ── Test 4: Pipeline queues synthesis after Gate 1 pass ──
+  // ── Test 4: Pipeline queues synthesis after Coherence Verification passes ──
 
   describe('pipeline synthesis queueing', () => {
-    it('enqueues to CF Queue with workGraphId and workGraph after Gate 1 pass', async () => {
+    it('enqueues to CF Queue with workGraphId and workGraph after Coherence Verification passes', async () => {
       const mockQueueSend = vi.fn(async () => ({}))
       const { result } = await runPipelineWithSynthesis(
         {
@@ -478,8 +478,8 @@ describe('Stage 6: event-driven synthesis handoff', () => {
         { SYNTHESIS_QUEUE: { send: mockQueueSend } },
       )
 
-      // Pipeline completed past Gate 1
-      expect(result.status).not.toBe('gate-1-failed')
+      // Pipeline completed past Coherence Verification.
+      expect(result.status).not.toBe('coherence-verification-failed')
 
       // Verify CF Queue send was called with correct payload
       expect(mockQueueSend).toHaveBeenCalledOnce()
@@ -491,7 +491,7 @@ describe('Stage 6: event-driven synthesis handoff', () => {
       expect(sentMessage.dryRun).toBe(false)
     })
 
-    it('does not queue synthesis when Gate 1 fails', async () => {
+    it('does not queue synthesis when Coherence Verification fails', async () => {
       const { FactoryPipeline } = await import('./pipeline')
       const step = createMockStep()
 
@@ -519,7 +519,8 @@ describe('Stage 6: event-driven synthesis handoff', () => {
       pipeline.env = env
 
       const result = await pipeline.run({ payload: SIGNAL_PAYLOAD }, step)
-      expect(result.status).toBe('gate-1-failed')
+      expect(result.status).toBe('coherence-verification-failed')
+      expect(result.legacyStatus).toBe('gate-1-failed')
 
       // synthesis_queue should NOT have been written
       const queueSave = mockDb.save.mock.calls.find(
@@ -574,8 +575,9 @@ describe('Stage 6: event-driven synthesis handoff', () => {
       expect(result.capabilityId).toBe('BC-001')
       expect(result.proposalId).toBe('FP-001')
       expect(result.workGraphId).toBe('WG-TEST')
-      expect(result.gate1Report).toBeDefined()
-      expect(result.gate1Report!.passed).toBe(true)
+      expect(result.coherenceVerificationReport).toBeDefined()
+      expect(result.coherenceVerificationReport!.passed).toBe(true)
+      expect(result.gate1Report).toBe(result.coherenceVerificationReport)
       expect(result.synthesisResult).toBeDefined()
     })
 

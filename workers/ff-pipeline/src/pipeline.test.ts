@@ -2,7 +2,7 @@
  * Event-driven Stage 6 handoff tests.
  *
  * Verifies the pipeline's event-driven synthesis pattern:
- *   1. Pipeline queues synthesis request after Gate 1 pass
+ *   1. Pipeline queues synthesis request after Coherence Verification passes
  *   2. Pipeline enters waitForEvent('synthesis-complete')
  *   3. External trigger reads queue, calls DO via HTTP, sends event
  *   4. Pipeline resumes with correct PipelineResult including synthesis verdict
@@ -246,7 +246,7 @@ describe('Stage 6: Event-driven synthesis handoff', () => {
 
   describe('queue-and-wait pattern', () => {
 
-    it('enqueues a synthesis request to CF Queue after Gate 1 passes', async () => {
+    it('enqueues a synthesis request to CF Queue after Coherence Verification passes', async () => {
       const { FactoryPipeline } = await import('./pipeline')
 
       const mockQueueSend = vi.fn(async () => ({}))
@@ -402,7 +402,7 @@ describe('Stage 6: Event-driven synthesis handoff', () => {
       expect(result.synthesisResult!.repairCount).toBe(5)
     })
 
-    it('does not enter synthesis when Gate 1 fails', async () => {
+    it('does not enter synthesis when Coherence Verification fails', async () => {
       const { FactoryPipeline } = await import('./pipeline')
 
       const env = createMockEnv({
@@ -413,7 +413,7 @@ describe('Stage 6: Event-driven synthesis handoff', () => {
             timestamp: '2026-04-25T00:00:00Z',
             workGraphId: 'WG-TEST',
             checks: [{ name: 'lineage', passed: false, detail: 'missing lineage' }],
-            summary: 'Gate 1 failed',
+            summary: 'Coherence Verification failed',
           })),
         },
       })
@@ -434,7 +434,8 @@ describe('Stage 6: Event-driven synthesis handoff', () => {
         mockStep.step,
       )
 
-      expect(result.status).toBe('gate-1-failed')
+      expect(result.status).toBe('coherence-verification-failed')
+      expect(result.legacyStatus).toBe('gate-1-failed')
 
       // Verify synthesis-complete was never waited on
       const synthWait = mockStep.step.waitForEvent.mock.calls.find(
@@ -1167,7 +1168,7 @@ describe('Stage 6: Event-driven synthesis handoff', () => {
 
   describe('enqueue-synthesis step (CF Queue)', () => {
 
-    it('enqueue-synthesis step runs between gate-1 and waitForEvent(synthesis-complete)', async () => {
+    it('enqueue-synthesis step runs after Coherence Verification and before waitForEvent(synthesis-complete)', async () => {
       const { FactoryPipeline } = await import('./pipeline')
 
       const mockQueueSend = vi.fn(async () => ({}))
@@ -1311,7 +1312,7 @@ describe('Stage 6: Event-driven synthesis handoff', () => {
       expect(sentMessage.dryRun).toBe(true)
     })
 
-    it('does not enqueue when Gate 1 fails', async () => {
+    it('does not enqueue when Coherence Verification fails', async () => {
       const { FactoryPipeline } = await import('./pipeline')
 
       const mockQueueSend = vi.fn(async () => ({}))
@@ -1324,7 +1325,7 @@ describe('Stage 6: Event-driven synthesis handoff', () => {
             timestamp: '2026-04-25T00:00:00Z',
             workGraphId: 'WG-TEST',
             checks: [{ name: 'lineage', passed: false, detail: 'broken' }],
-            summary: 'Gate 1 failed',
+            summary: 'Coherence Verification failed',
           })),
         },
       })
@@ -1348,7 +1349,8 @@ describe('Stage 6: Event-driven synthesis handoff', () => {
         mockStep.step,
       )
 
-      expect(result.status).toBe('gate-1-failed')
+      expect(result.status).toBe('coherence-verification-failed')
+      expect(result.legacyStatus).toBe('gate-1-failed')
       expect(mockQueueSend).not.toHaveBeenCalled()
     })
 

@@ -4,11 +4,24 @@
 Active task: ontology alias-first migration away from primary Gate(x) names.
 
 ## Last update
-2026-05-09T20:25:04Z
+2026-05-09T20:28:52Z
 
 ## Current actions
 
 - In progress: Gate(x) API de-primary pass.
+  - Completed current slice: ff-pipeline now emits
+    `coherence-verification-failed` as the primary PipelineResult status for
+    failed Coherence Verification while carrying `legacyStatus:
+    gate-1-failed` as an explicit compatibility alias.
+  - Completed current slice: active Stage 6 tests and compile-stage comments
+    now use Coherence Verification language as primary while preserving
+    persisted `gate-1` storage discriminators and test coverage for legacy
+    status compatibility.
+  - Verification passed:
+    - `pnpm --filter @factory/ff-pipeline test -- src/pipeline.test.ts src/stage6-handoff.test.ts src/queue-bridge.test.ts`
+    - `pnpm --filter @factory/ff-pipeline typecheck`
+    - `pnpm audit:ontology`
+    - `git diff --check`
   - Completed current slice: feedback generation now emits
     `synthesis:coherence-verification-failed` as the primary feedback signal
     subtype while accepting legacy `gate-1-failed` status and carrying

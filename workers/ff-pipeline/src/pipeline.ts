@@ -44,6 +44,9 @@ const DB_STEP_CONFIG = {
   retries: { limit: 3, delay: '2 seconds' as const, backoff: 'exponential' as const },
 }
 
+const COHERENCE_VERIFICATION_FAILED_STATUS = 'coherence-verification-failed'
+const LEGACY_GATE1_FAILED_STATUS = 'gate-1-failed'
+
 function toStep(obj: Record<string, unknown>): Rec {
   return JSON.parse(JSON.stringify(obj)) as Rec
 }
@@ -417,7 +420,8 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
 
       // ── Feedback loop: Coherence Verification failure → new signal ──
       const coherenceVerificationFailResult: PipelineResult = {
-        status: 'gate-1-failed',
+        status: COHERENCE_VERIFICATION_FAILED_STATUS,
+        legacyStatus: LEGACY_GATE1_FAILED_STATUS,
         report: coherenceVerification,
         coherenceVerificationReport: coherenceVerification,
         gate1Report: coherenceVerification,

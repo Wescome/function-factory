@@ -155,7 +155,7 @@ function createMockStep() {
   return { step, stepDoNames }
 }
 
-/** Standard env with passing Gate 1 and stubbed bindings. */
+/** Standard env with passing Coherence Verification and stubbed bindings. */
 function createEnv(overrides?: Record<string, unknown>) {
   return {
     ARANGO_URL: 'http://localhost:8529',
@@ -747,7 +747,7 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
       expect(arangoQueueSave).toBeUndefined()
     })
 
-    it('enqueue-synthesis step runs between gate-1 and waitForEvent(synthesis-complete)', async () => {
+    it('enqueue-synthesis step runs after Coherence Verification and before waitForEvent(synthesis-complete)', async () => {
       const { FactoryPipeline } = await import('./pipeline')
 
       const mockQueueSend = vi.fn(async () => ({}))
