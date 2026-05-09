@@ -72,6 +72,7 @@ const files = {
   pipelineCoordinatorState: 'workers/ff-pipeline/src/coordinator/state.ts',
   pipelineCoordinatorGraph: 'workers/ff-pipeline/src/coordinator/graph.ts',
   pipelineRuntimeVerification: 'workers/ff-pipeline/src/runtime-verification.ts',
+  pipelineGenerateFeedback: 'workers/ff-pipeline/src/stages/generate-feedback.ts',
   pipelineFidelityVerification: 'workers/ff-pipeline/src/gate2-simulation.ts',
   pipelinePersistenceVerification: 'workers/ff-pipeline/src/gate3-assurance.ts',
   pipelineMergeReadinessPack: 'workers/ff-pipeline/src/merge-readiness-pack.ts',
@@ -280,6 +281,9 @@ function checkSchemaAliases() {
   expectIncludes('coordinator state exposes Coherence Verification pass flag', read(files.pipelineCoordinatorState), 'coherenceVerificationPassed: boolean')
   expectIncludes('coordinator state exposes Coherence Verification report field', read(files.pipelineCoordinatorState), 'coherenceVerificationReport: unknown | null')
   expectIncludes('coordinator graph records Coherence Verification evidence first', read(files.pipelineCoordinatorGraph), 'const coherenceVerificationReport =')
+  expectIncludes('feedback signals use Coherence Verification failure subtype primary', read(files.pipelineGenerateFeedback), 'synthesis:coherence-verification-failed')
+  expectIncludes('feedback signals keep legacy gate-1 failed status input', read(files.pipelineGenerateFeedback), "const LEGACY_COHERENCE_VERIFICATION_FAILED_STATUS = 'gate-1-failed'")
+  expectIncludes('feedback signals preserve legacy gate1 failed subtype metadata', read(files.pipelineGenerateFeedback), "const LEGACY_GATE1_FAILED_SUBTYPE = 'synthesis:gate1-failed'")
   expectIncludes('ff-pipeline defines Persistence Verification evaluator as primary', read(files.pipelinePersistenceVerification), 'export function evaluatePersistenceVerificationRegistration')
   expectIncludes('ff-pipeline keeps legacy Gate 3 assurance evaluator alias', read(files.pipelinePersistenceVerification), 'export const evaluateGate3AssuranceRegistration = evaluatePersistenceVerificationRegistration')
   expectIncludes('ff-pipeline defines Persistence Verification registration input as primary', read(files.pipelinePersistenceVerification), 'export interface PersistenceVerificationRegistrationInput')

@@ -7,7 +7,7 @@
  *
  * Signal taxonomy:
  *   - synthesis:atom-failed       — critical atom verdict = fail (auto-approve: true)
- *   - synthesis:gate1-failed      — Gate 1 failed (auto-approve: false)
+ *   - synthesis:coherence-verification-failed — Coherence Verification failed (auto-approve: false)
  *   - synthesis:verdict-fail      — general synthesis failure (auto-approve: false)
  *   - synthesis:low-confidence    — pass but confidence < 0.8 (auto-approve: false)
  *   - synthesis:orl-degradation   — repairCount >= 2 (auto-approve: true)
@@ -39,6 +39,10 @@ export interface FeedbackSignal {
 
 const MAX_FEEDBACK_DEPTH = 3
 const COOLDOWN_MINUTES = 30
+const LEGACY_COHERENCE_VERIFICATION_FAILED_STATUS = 'gate-1-failed'
+const COHERENCE_VERIFICATION_FAILED_STATUS = 'coherence-verification-failed'
+const LEGACY_GATE1_FAILED_SUBTYPE = 'synthesis:gate1-failed'
+const COHERENCE_VERIFICATION_FAILED_SUBTYPE = 'synthesis:coherence-verification-failed'
 
 // ── Internal helpers ─────────────────────────────────────────────────
 
@@ -245,17 +249,28 @@ export async function generateFeedbackSignals(
 
   const candidates: FeedbackSignal[] = []
 
-  // ── Gate 1 failure ──
-  if (status === 'gate-1-failed') {
+  // ── Coherence Verification failure ──
+  if (
+    status === COHERENCE_VERIFICATION_FAILED_STATUS
+    || status === LEGACY_COHERENCE_VERIFICATION_FAILED_STATUS
+  ) {
     candidates.push({
       signal: makeSignal(
-        'synthesis:gate1-failed',
-        `Gate 1 failed: ${workGraphId ?? 'unknown'}`,
-        `Compile coverage gate failed for WorkGraph ${workGraphId}. ` +
+        COHERENCE_VERIFICATION_FAILED_SUBTYPE,
+        `Coherence Verification failed: ${workGraphId ?? 'unknown'}`,
+        `Coherence Verification failed for WorkGraph ${workGraphId}. ` +
         `${(result.report as Record<string, unknown>)?.summary ?? 'No summary'}`,
         sourceRefs,
         feedbackDepth,
-        { workGraphId },
+        {
+          workGraphId,
+          ...(status === LEGACY_COHERENCE_VERIFICATION_FAILED_STATUS
+            ? {
+                legacyStatus: LEGACY_COHERENCE_VERIFICATION_FAILED_STATUS,
+                legacySubtype: LEGACY_GATE1_FAILED_SUBTYPE,
+              }
+            : {}),
+        },
       ),
       autoApprove: false,
     })

@@ -6,7 +6,7 @@
  *
  * Signal taxonomy:
  *   - synthesis:atom-failed       — critical atom verdict = fail (auto-approve: true)
- *   - synthesis:gate1-failed      — Gate 1 failed (auto-approve: false)
+ *   - synthesis:coherence-verification-failed — Coherence Verification failed (auto-approve: false)
  *   - synthesis:verdict-fail      — general synthesis failure (auto-approve: false)
  *   - synthesis:low-confidence    — pass but confidence < 0.8 (auto-approve: false)
  *   - synthesis:orl-degradation   — repairCount >= 2 (auto-approve: true)
@@ -212,8 +212,32 @@ describe('generateFeedbackSignals', () => {
     })
   })
 
-  describe('Gate 1 failure', () => {
-    it('emits gate1-failed signal when status is gate-1-failed', async () => {
+  describe('Coherence Verification failure', () => {
+    it('emits coherence-verification-failed signal when status is coherence-verification-failed', async () => {
+      const db = createMockDb()
+      const ctx = makeCtx({
+        result: {
+          status: 'coherence-verification-failed',
+          signalId: 'SIG-006',
+          workGraphId: 'WG-006',
+          report: {
+            gate: 1,
+            passed: false,
+            summary: 'Missing lineage edges',
+            checks: [{ name: 'lineage', passed: false, detail: 'no edges' }],
+          },
+        },
+      })
+
+      const signals = await generateFeedbackSignals(ctx, db as never)
+
+      const coherenceVerification = signals.find(s => s.signal.subtype === 'synthesis:coherence-verification-failed')
+      expect(coherenceVerification).toBeDefined()
+      expect(coherenceVerification!.autoApprove).toBe(false)
+      expect(coherenceVerification!.signal.title).toContain('Coherence Verification failed')
+    })
+
+    it('accepts legacy gate-1-failed status as compatibility input', async () => {
       const db = createMockDb()
       const ctx = makeCtx({
         result: {
@@ -230,10 +254,11 @@ describe('generateFeedbackSignals', () => {
       })
 
       const signals = await generateFeedbackSignals(ctx, db as never)
+      const coherenceVerification = signals.find(s => s.signal.subtype === 'synthesis:coherence-verification-failed')
 
-      const gate1 = signals.find(s => s.signal.subtype === 'synthesis:gate1-failed')
-      expect(gate1).toBeDefined()
-      expect(gate1!.autoApprove).toBe(false)
+      expect(coherenceVerification).toBeDefined()
+      expect(coherenceVerification!.signal.raw?.legacyStatus).toBe('gate-1-failed')
+      expect(coherenceVerification!.signal.raw?.legacySubtype).toBe('synthesis:gate1-failed')
     })
   })
 

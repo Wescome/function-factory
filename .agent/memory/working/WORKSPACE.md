@@ -4,11 +4,20 @@
 Active task: ontology alias-first migration away from primary Gate(x) names.
 
 ## Last update
-2026-05-09T20:21:18Z
+2026-05-09T20:25:04Z
 
 ## Current actions
 
 - In progress: Gate(x) API de-primary pass.
+  - Completed current slice: feedback generation now emits
+    `synthesis:coherence-verification-failed` as the primary feedback signal
+    subtype while accepting legacy `gate-1-failed` status and carrying
+    `synthesis:gate1-failed` as compatibility metadata.
+  - Verification passed:
+    - `pnpm --filter @factory/ff-pipeline test -- src/stages/generate-feedback.test.ts`
+    - `pnpm --filter @factory/ff-pipeline typecheck`
+    - `pnpm audit:ontology`
+    - `git diff --check`
   - Completed current slice: made ontology-loader expose `Verification` as
     the primary governance class, added primary `CoherenceVerification`,
     `FidelityVerification`, and `PersistenceVerification` ontology instances,
