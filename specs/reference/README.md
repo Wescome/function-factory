@@ -20,6 +20,7 @@ Read these first when grounding work in the architecture.
 | Document | Current status | Role |
 | --- | --- | --- |
 | [`FF-ONTOLOGY-v0.2.md`](FF-ONTOLOGY-v0.2.md) | Newest architecture reference; working document | Ontology anchor for current architecture vocabulary and categorical structure. Use with the compatibility mapping before proposing renames. |
+| [`FF-ONTOLOGY-ADDENDUM-A.md`](FF-ONTOLOGY-ADDENDUM-A.md) | Ontology v0.2 addendum; historical-number concordance | Maps legacy stages, gates, compiler passes, artifact prefixes, and skill files to ontology terms. Use when interpreting numbered source material; do not treat it as approval for physical renames. |
 | [`ONTOLOGY-CURRENT-MAPPING.md`](ONTOLOGY-CURRENT-MAPPING.md) | Current compatibility crosswalk | Maps existing repo terms, paths, packages, verification terms, and runtime concepts to ontology v0.2 aliases while preserving current physical names. |
 | [`ONTOLOGY-COMPATIBILITY-CONTRACT.json`](ONTOLOGY-COMPATIBILITY-CONTRACT.json) | Machine-readable compatibility contract | Lists stable directories, package names, forbidden replacement paths, and forbidden collection identifiers enforced by `pnpm audit:ontology`. |
 | [`ONTOLOGY-RENAME-BLAST-RADIUS.md`](ONTOLOGY-RENAME-BLAST-RADIUS.md) | Pre-refactor assessment | Classifies current-name usage across source, specs, workers, infra, and docs; recommends no physical rename before one-family migration plans exist. |
