@@ -652,16 +652,19 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       ...(atomResults ? { atomResults } : {}),
     }
 
-    await step.do('enqueue-feedback', DB_STEP_CONFIG, async () => {
-      const feedbackDepth = typeof (signal as Rec).raw?.feedbackDepth === 'number'
-        ? (signal as Rec).raw.feedbackDepth as number : 0
-      await this.env.FEEDBACK_QUEUE?.send({
-        result: finalResult,
-        parentSignal: signal,
-        parentFeedbackDepth: feedbackDepth,
+    if (!dryRun) {
+      await step.do('enqueue-feedback', DB_STEP_CONFIG, async () => {
+        const feedbackDepth = typeof (signal as Rec).raw?.feedbackDepth === 'number'
+          ? (signal as Rec).raw.feedbackDepth as number : 0
+        await this.env.FEEDBACK_QUEUE?.send({
+          result: finalResult,
+          parentSignal: signal,
+          parentFeedbackDepth: feedbackDepth,
+          dryRun,
+        })
+        return { enqueued: true }
       })
-      return { enqueued: true }
-    })
+    }
 
     return finalResult
   }

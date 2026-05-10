@@ -1323,6 +1323,52 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
       expect(sentMessage.dryRun).toBe(true)
     })
 
+    it('does not enqueue feedback side effects for dry-run pipeline executions', async () => {
+      const { FactoryPipeline } = await import('./pipeline')
+
+      const mockSynthesisQueueSend = vi.fn(async () => ({}))
+      const mockFeedbackQueueSend = vi.fn(async () => ({}))
+      const env = createMockEnv({
+        SYNTHESIS_QUEUE: { send: mockSynthesisQueueSend },
+        FEEDBACK_QUEUE: { send: mockFeedbackQueueSend },
+      })
+      const mockStep = createMockStep()
+
+      mockStep.step.waitForEvent = vi.fn((name: string) => {
+        if (name === 'architect-approval') {
+          return Promise.resolve({ payload: { decision: 'approved', by: 'test' } })
+        }
+        if (name === 'synthesis-complete') {
+          return Promise.resolve({
+            payload: {
+              verdict: { decision: 'pass', confidence: 0.95, reason: 'ok' },
+              tokenUsage: 100,
+              repairCount: 0,
+            },
+          })
+        }
+        return Promise.reject(new Error(`Unexpected: ${name}`))
+      })
+
+      const pipeline = Object.create(FactoryPipeline.prototype)
+      pipeline.env = env
+
+      await pipeline.run(
+        {
+          instanceId: 'wf-dry-feedback',
+          payload: {
+            signal: { signalType: 'internal', source: 'test', title: 'Test', description: 'Test signal' },
+            dryRun: true,
+          },
+        },
+        mockStep.step,
+      )
+
+      expect(mockSynthesisQueueSend).toHaveBeenCalledOnce()
+      expect(mockFeedbackQueueSend).not.toHaveBeenCalled()
+      expect(mockStep.doCalls.some(call => call.name === 'enqueue-feedback')).toBe(false)
+    })
+
     it('does not enqueue when Coherence Verification fails', async () => {
       const { FactoryPipeline } = await import('./pipeline')
 

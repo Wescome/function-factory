@@ -1,12 +1,44 @@
 # Current Workspace
 
 ## Status
-Active task: Ontology hard-cut physical refactor complete; ready to commit.
+Active task: Production smoke recovery and dry-run side-effect repair complete.
 
 ## Last update
-2026-05-10T22:53:16Z
+2026-05-10T23:25:40Z
 
 ## Current actions
+
+- Completed: production recovery after ontology hard-cut deploy.
+  - Restored Worker-to-Arango connectivity by routing deployed Workers through
+    a detached `cloudflared` quick tunnel to the local ArangoDB instance.
+  - Repaired live collection lookups for canonical ontology names in
+    `ff-gateway`.
+  - Repaired `verification_status` document key generation in `ff-pipeline`.
+  - Provisioned missing Trellis runtime Arango collections.
+  - Verified production health:
+    - `https://ff-pipeline.koales.workers.dev/debug/health` returned healthy.
+    - `https://ff-gateway.koales.workers.dev/health` returned healthy.
+  - Verified live end-to-end dry-run workflows:
+    - `05831858-28c0-4ebf-a205-7ace765eea16` completed with
+      `status: synthesis-passed` and Coherence Verification passed.
+    - After deploying the dry-run side-effect guard,
+      `b884ef79-c8c1-4636-b6b3-a61623e02b16` completed with
+      `status: synthesis-passed` and Coherence Verification passed.
+  - Found and fixed an unsafe dry-run side effect: dry-run synthesis had
+    enqueued feedback and created draft PR #73 from a dry-run stub. PR #73 was
+    closed, PR #72 from the earlier recovery smoke was also closed, and
+    dry-run pipeline executions now skip feedback enqueueing.
+  - Deployed the final `ff-pipeline` fix:
+    - `f92ac59e-26e2-49cd-bb8e-f5698fb66275`
+  - Confirmed the final dry-run smoke did not change the open PR list.
+  - Verification passed for the dry-run side-effect fix:
+    - `pnpm --filter @factory/ff-pipeline test -- src/pipeline.test.ts`
+    - `pnpm --filter @factory/ff-pipeline typecheck`
+    - `pnpm -r typecheck`
+    - `pnpm -r test`
+    - `pnpm audit:docs`
+    - `pnpm audit:ontology`
+    - `git diff --check`
 
 - Completed: ontology hard-cut physical refactor.
   - Architect direction: proceed through the full refactor backlog without

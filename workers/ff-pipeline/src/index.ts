@@ -1650,6 +1650,13 @@ export default {
             result: Record<string, unknown>
             parentSignal: Record<string, unknown>
             parentFeedbackDepth: number
+            dryRun?: boolean
+          }
+
+          if (ctx.dryRun === true) {
+            console.log('[Feedback] Dry-run feedback message skipped')
+            msg.ack()
+            continue
           }
 
           const feedbackSignals = await generateFeedbackSignals(ctx, db as never)
