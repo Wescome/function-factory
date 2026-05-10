@@ -22,18 +22,33 @@ interface QueryEnv {
   ARANGO_PASSWORD?: string
 }
 
-/** Which spec collections exist and their artifact prefix */
+/** Public collection names accepted by the gateway and their Arango collections. */
 const SPEC_COLLECTIONS: Record<string, string> = {
-  pressures: 'PRS',
-  capabilities: 'BC',
-  functions: 'FP',
-  intentSpecifications: 'IS',
-  executableSpecifications: 'ES',
-  invariants: 'INV',
-  verification_reports: 'VR',
+  signals: 'specs_signals',
+  pressures: 'specs_pressures',
+  capabilities: 'specs_capabilities',
+  functions: 'specs_functions',
+  'intent-specifications': 'intent_specifications',
+  intent_specifications: 'intent_specifications',
+  'executable-specifications': 'executable_specifications',
+  executable_specifications: 'executable_specifications',
+  invariants: 'specs_invariants',
+  'verification-reports': 'verification_reports',
+  verification_reports: 'verification_reports',
 }
 
-const NON_PREFIXED_COLLECTIONS = new Set(['execution_artifacts', 'memory_episodic', 'memory_semantic', 'memory_working', 'memory_personal', 'verification_status'])
+const NON_SPEC_COLLECTIONS = new Set([
+  'execution_artifacts',
+  'memory_episodic',
+  'memory_semantic',
+  'memory_working',
+  'memory_personal',
+  'verification_status',
+])
+
+function resolveCollection(collection: string): string {
+  return SPEC_COLLECTIONS[collection] ?? (NON_SPEC_COLLECTIONS.has(collection) ? collection : `specs_${collection}`)
+}
 
 export default class QueryService extends WorkerEntrypoint<QueryEnv> {
   private db!: ArangoClient
@@ -49,8 +64,7 @@ export default class QueryService extends WorkerEntrypoint<QueryEnv> {
 
   /** Get a single spec artifact by collection and key */
   async getSpec(collection: string, key: string): Promise<unknown> {
-    const fullCollection = NON_PREFIXED_COLLECTIONS.has(collection) ? collection : `specs_${collection}`
-    return this.getDb().get(fullCollection, key)
+    return this.getDb().get(resolveCollection(collection), key)
   }
 
   /** List specs in a collection (paginated) */
@@ -59,7 +73,7 @@ export default class QueryService extends WorkerEntrypoint<QueryEnv> {
     opts: { limit?: number; offset?: number } = {},
   ): Promise<{ items: unknown[]; total: number }> {
     const { limit = 25, offset = 0 } = opts
-    const fullCollection = NON_PREFIXED_COLLECTIONS.has(collection) ? collection : `specs_${collection}`
+    const fullCollection = resolveCollection(collection)
     const db = this.getDb()
 
     const items = await db.query(
@@ -86,7 +100,7 @@ export default class QueryService extends WorkerEntrypoint<QueryEnv> {
     key: string,
     maxDepth: number = 10,
   ): Promise<LineageNode[]> {
-    const startId = `specs_${collection}/${key}`
+    const startId = `${resolveCollection(collection)}/${key}`
     const db = this.getDb()
 
     return db.query<LineageNode>(
@@ -109,7 +123,7 @@ export default class QueryService extends WorkerEntrypoint<QueryEnv> {
     key: string,
     maxDepth: number = 5,
   ): Promise<LineageNode[]> {
-    const startId = `specs_${collection}/${key}`
+    const startId = `${resolveCollection(collection)}/${key}`
     const db = this.getDb()
 
     return db.query<LineageNode>(
@@ -158,10 +172,10 @@ export default class QueryService extends WorkerEntrypoint<QueryEnv> {
     }
 
     const collections: Record<string, number> = {}
-    for (const [name] of Object.entries(SPEC_COLLECTIONS)) {
+    for (const [name, collection] of Object.entries(SPEC_COLLECTIONS)) {
       const result = await db.queryOne<{ count: number }>(
         `RETURN { count: LENGTH(@@col) }`,
-        { '@col': `specs_${name}` },
+        { '@col': collection },
       )
       collections[name] = result?.count ?? 0
     }
