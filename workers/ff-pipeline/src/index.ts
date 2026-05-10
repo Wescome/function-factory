@@ -22,7 +22,7 @@ export type {
   PipelineParams,
   PipelineResult,
   SignalInput,
-  Gate1Report,
+  CoherenceVerificationReport,
   SemanticReviewResult,
 } from './types'
 
@@ -548,26 +548,26 @@ export default {
     if ((url.pathname === '/debug/fidelity-verification' || url.pathname === '/debug/gate2-simulate') && request.method === 'POST') {
       try {
         const body = await request.json() as Record<string, unknown>
-        const gate2Simulation = await import('./gate2-simulation.js')
-        let result: import('./gate2-simulation').FidelityVerificationResult
-        const fidelityVerificationInput = body.fidelityVerificationInput ?? body.gate2Input
+        const fidelityVerification = await import('./fidelity-verification.js')
+        let result: import('./fidelity-verification').FidelityVerificationResult
+        const fidelityVerificationInput = body.fidelityVerificationInput ?? body.fidelityVerificationInput
         if (fidelityVerificationInput) {
-          const options: import('./gate2-simulation').AdaptFidelityVerificationInputOptions = {
+          const options: import('./fidelity-verification').AdaptFidelityVerificationInputOptions = {
             prdId: body.prdId as string,
             ...(body.timestamp ? { timestamp: body.timestamp as string } : {}),
             ...(body.sourceRefs ? { sourceRefs: body.sourceRefs as string[] } : {}),
           }
-          result = gate2Simulation.evaluateFidelityVerificationFromContractInput(
-            fidelityVerificationInput as import('./gate2-simulation').FidelityVerificationContractInput,
+          result = fidelityVerification.evaluateFidelityVerificationFromContractInput(
+            fidelityVerificationInput as import('./fidelity-verification').FidelityVerificationContractInput,
             options,
           )
         } else {
-          result = gate2Simulation.evaluateFidelityVerification(body as unknown as import('./gate2-simulation').FidelityVerificationInput)
+          result = fidelityVerification.evaluateFidelityVerification(body as unknown as import('./fidelity-verification').FidelityVerificationInput)
         }
 
         const lifecycleDryRunInput = body.lifecycleDryRun as Record<string, unknown> | undefined
         const lifecycleDryRun = lifecycleDryRunInput
-          ? gate2Simulation.dryRunFidelityAcceptanceTransition({
+          ? fidelityVerification.dryRunFidelityAcceptanceTransition({
             currentState: lifecycleDryRunInput.currentState as import('./lifecycle').LifecycleState,
             report: result.report,
             verdict: result.verdict,
@@ -613,12 +613,12 @@ export default {
     }
 
     // ── Diagnostic: minimal Persistence Verification registration report ──
-    if ((url.pathname === '/debug/persistence-verification' || url.pathname === '/debug/gate3-register') && request.method === 'POST') {
+    if ((url.pathname === '/debug/persistence-verification' || url.pathname === '/debug/persistence-verification') && request.method === 'POST') {
       try {
         const body = await request.json() as Record<string, unknown>
-        const { evaluatePersistenceVerificationRegistration } = await import('./gate3-assurance.js')
+        const { evaluatePersistenceVerificationRegistration } = await import('./persistence-verification.js')
         const report = evaluatePersistenceVerificationRegistration(
-          body as unknown as import('./gate3-assurance').PersistenceVerificationRegistrationInput,
+          body as unknown as import('./persistence-verification').PersistenceVerificationRegistrationInput,
         )
 
         if (body.persist === true) {
@@ -663,7 +663,6 @@ export default {
         const body = await request.json() as {
           functionKey?: unknown
           fidelityVerificationReportKey?: unknown
-          gate2ReportKey?: unknown
           apply?: boolean
           repairAcceptedTransitionEdge?: boolean
         }
@@ -675,9 +674,7 @@ export default {
         const fidelityVerificationReportKey =
           typeof body.fidelityVerificationReportKey === 'string' && body.fidelityVerificationReportKey.trim().length > 0
             ? body.fidelityVerificationReportKey.trim()
-            : typeof body.gate2ReportKey === 'string' && body.gate2ReportKey.trim().length > 0
-              ? body.gate2ReportKey.trim()
-              : undefined
+            : undefined
         if (!fidelityVerificationReportKey) {
           return new Response(JSON.stringify({
             error: 'Missing required field: fidelityVerificationReportKey',
@@ -686,22 +683,22 @@ export default {
 
         const functionKey = body.functionKey.trim()
         const { createClientFromEnv } = await import('@factory/arango-client')
-        const { dryRunFidelityAcceptanceTransition } = await import('./gate2-simulation.js')
+        const { dryRunFidelityAcceptanceTransition } = await import('./fidelity-verification.js')
         const { transitionLifecycle } = await import('./lifecycle.js')
         const db = createClientFromEnv(env)
-        const gate2ReportRecord = await db.queryOne<Record<string, unknown>>(
+        const fidelityVerificationReportRecord = await db.queryOne<Record<string, unknown>>(
           `FOR report IN specs_coverage_reports
              FILTER report._key == @key OR report.id == @key
              LIMIT 1
              RETURN report`,
           { key: fidelityVerificationReportKey },
         )
-        if (!gate2ReportRecord) {
+        if (!fidelityVerificationReportRecord) {
           return new Response(JSON.stringify({
             error: `Fidelity Verification report not found: ${fidelityVerificationReportKey}`,
           }), { status: 404, headers: { 'Content-Type': 'application/json' } })
         }
-        if (gate2ReportRecord.type !== 'gate-2' || gate2ReportRecord.passed !== true) {
+        if (fidelityVerificationReportRecord.type !== 'gate-2' || fidelityVerificationReportRecord.passed !== true) {
           return new Response(JSON.stringify({
             error: `Fidelity Verification report has not passed: ${fidelityVerificationReportKey}`,
           }), { status: 400, headers: { 'Content-Type': 'application/json' } })
@@ -714,8 +711,8 @@ export default {
           }), { status: 404, headers: { 'Content-Type': 'application/json' } })
         }
 
-        const report = gate2ReportRecord.report as import('./gate2-simulation').FidelityVerificationResult['report']
-        const verdict = gate2ReportRecord.verdict as import('./gate2-simulation').FidelityVerificationResult['verdict']
+        const report = fidelityVerificationReportRecord.report as import('./fidelity-verification').FidelityVerificationResult['report']
+        const verdict = fidelityVerificationReportRecord.verdict as import('./fidelity-verification').FidelityVerificationResult['verdict']
         const lifecycleDryRun = dryRunFidelityAcceptanceTransition({
           currentState: (doc.lifecycleState ?? 'proposed') as import('./lifecycle').LifecycleState,
           report,
@@ -729,7 +726,6 @@ export default {
               applied: false,
               functionKey,
               fidelityVerificationReportKey,
-              gate2ReportKey: fidelityVerificationReportKey,
               lifecycleDryRun,
             }, null, 2), { status: 400, headers: { 'Content-Type': 'application/json' } })
           }
@@ -759,7 +755,6 @@ export default {
             from: 'produced',
             to: 'accepted',
             fidelityVerificationReportKey,
-            gate2ReportKey: fidelityVerificationReportKey,
             transition,
           }, null, 2), { status: 200, headers: { 'Content-Type': 'application/json' } })
         }
@@ -769,7 +764,6 @@ export default {
             applied: false,
             functionKey,
             fidelityVerificationReportKey,
-            gate2ReportKey: fidelityVerificationReportKey,
             lifecycleDryRun,
           }, null, 2), { status: 200, headers: { 'Content-Type': 'application/json' } })
         }
@@ -788,7 +782,6 @@ export default {
             from: lifecycleDryRun.from,
             to: 'accepted',
             fidelityVerificationReportKey,
-            gate2ReportKey: fidelityVerificationReportKey,
           }, null, 2), { status: 200, headers: { 'Content-Type': 'application/json' } })
         }
 
@@ -796,7 +789,6 @@ export default {
           applied: false,
           functionKey,
           fidelityVerificationReportKey,
-          gate2ReportKey: fidelityVerificationReportKey,
           lifecycleDryRun,
         }, null, 2), { status: 200, headers: { 'Content-Type': 'application/json' } })
       } catch (err) {
@@ -988,7 +980,6 @@ export default {
           pullNumber?: unknown
           canonicalEvidenceKey?: unknown
           fidelityVerificationReportKey?: unknown
-          gate2ReportKey?: unknown
           createdAt?: string
         }
 
@@ -1057,9 +1048,7 @@ export default {
         }
         const fidelityVerificationReportKey = typeof body.fidelityVerificationReportKey === 'string' && body.fidelityVerificationReportKey.trim().length > 0
           ? body.fidelityVerificationReportKey.trim()
-          : typeof body.gate2ReportKey === 'string' && body.gate2ReportKey.trim().length > 0
-            ? body.gate2ReportKey.trim()
-            : undefined
+          : undefined
         const fidelityVerificationReportRecord = fidelityVerificationReportKey
           ? await db.queryOne<Record<string, unknown>>(
             `FOR report IN specs_coverage_reports
@@ -1107,7 +1096,6 @@ export default {
           canonicalEvidenceKey: evidenceKey,
           ...(fidelityVerificationReportKey ? {
             fidelityVerificationReportKey,
-            gate2ReportKey: fidelityVerificationReportKey,
           } : {}),
           canonical,
           pack: persisted,
@@ -1129,7 +1117,6 @@ export default {
           canonicalEvidence?: unknown
           canonicalEvidenceKey?: string
           fidelityVerificationReportKey?: string
-          gate2ReportKey?: string
           createdAt?: string
         }
 
@@ -1176,9 +1163,7 @@ export default {
           : null
         const fidelityVerificationReportKey = typeof body.fidelityVerificationReportKey === 'string' && body.fidelityVerificationReportKey.trim().length > 0
           ? body.fidelityVerificationReportKey.trim()
-          : typeof body.gate2ReportKey === 'string' && body.gate2ReportKey.trim().length > 0
-            ? body.gate2ReportKey.trim()
-            : undefined
+          : undefined
         const fidelityVerificationReportRecord = fidelityVerificationReportKey
           ? await db.queryOne<Record<string, unknown>>(
             `FOR report IN specs_coverage_reports
@@ -1239,7 +1224,6 @@ export default {
           verdict: (persisted as { verdict?: unknown }).verdict,
           ...(fidelityVerificationReportKey ? {
             fidelityVerificationReportKey,
-            gate2ReportKey: fidelityVerificationReportKey,
           } : {}),
           ...(canonical ? { canonical } : {}),
           pack: persisted,
@@ -1817,7 +1801,7 @@ export default {
                 source: 'factory:infrastructure',
                 subtype: 'infra:atom-dispatch-failure',
                 title: `Atom ${atomId} dispatch failed after ${msg.attempts} attempts`,
-                description: `Queue consumer could not reach AtomExecutor DO for atom ${atomId} in WorkGraph ${workGraphId}: ${errorMessage}`,
+                description: `Queue consumer could not reach AtomExecutor DO for atom ${atomId} in ExecutableSpecification ${workGraphId}: ${errorMessage}`,
                 sourceRefs: [workGraphId],
               }, db).catch(() => {})
             } catch { /* best-effort */ }

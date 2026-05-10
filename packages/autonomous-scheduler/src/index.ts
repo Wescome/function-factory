@@ -664,7 +664,7 @@ export function buildCodexWorkerPrompt(input: unknown): string {
     `Request: ${request.id}`,
     `Role: ${request.role}`,
     `Objective: ${request.objective}`,
-    `WorkGraph: ${request.workgraph.id} / ${request.workgraph.nodeId}`,
+    `ExecutableSpecification: ${request.workgraph.id} / ${request.workgraph.nodeId}`,
     `Repository: ${request.repo.provider}:${request.repo.owner ? `${request.repo.owner}/` : ''}${request.repo.name}`,
     '',
     'Execution policy:',
@@ -2511,7 +2511,7 @@ function extractCodexRefusalReason(command: CommandRunResult): string | undefine
 function buildPullRequestBody(request: AgentRequest, execution: CodexRunnerExecution): string {
   return [
     `Factory request: ${request.id}`,
-    `WorkGraph: ${request.workgraph.id} / ${request.workgraph.nodeId}`,
+    `ExecutableSpecification: ${request.workgraph.id} / ${request.workgraph.nodeId}`,
     `Role: ${request.role}`,
     `Branch: ${execution.branchName}`,
     '',

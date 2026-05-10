@@ -1,8 +1,8 @@
 import {
-  Gate2Report,
-  Gate2Verdict,
-  type Gate2Report as Gate2ReportType,
-  type Gate2Verdict as Gate2VerdictType,
+  FidelityVerificationReport,
+  FidelityVerificationVerdict,
+  type FidelityVerificationReport as FidelityVerificationReportType,
+  type FidelityVerificationVerdict as FidelityVerificationVerdictType,
 } from '@factory/schemas'
 import { validateTransition, type LifecycleState } from './lifecycle'
 
@@ -85,14 +85,14 @@ export interface AdaptFidelityVerificationInputOptions {
 }
 
 export interface FidelityVerificationResult {
-  report: Gate2ReportType
-  verdict: Gate2VerdictType
+  report: FidelityVerificationReportType
+  verdict: FidelityVerificationVerdictType
 }
 
 export interface FidelityVerificationAcceptanceDryRunInput {
   currentState: LifecycleState
-  report: Gate2ReportType
-  verdict: Gate2VerdictType
+  report: FidelityVerificationReportType
+  verdict: FidelityVerificationVerdictType
 }
 
 export interface FidelityVerificationAcceptanceDryRun {
@@ -107,29 +107,12 @@ export interface FidelityVerificationAcceptanceDryRun {
   reason: string
 }
 
-export type Gate2Branch = FidelityVerificationBranch
-export type Gate2ContractInput = FidelityVerificationContractInput
-export type Gate2ContractValidationOutcome = FidelityVerificationContractValidationOutcome
-export type Gate2Invariant = FidelityVerificationInvariant
-export type Gate2Scenario = FidelityVerificationScenario
-export type Gate2ScenarioKind = FidelityVerificationScenarioKind
-export type Gate2SimulationInput = FidelityVerificationInput
-export type Gate2SimulationResult = FidelityVerificationResult
-export type Gate2ValidationOutcome = FidelityVerificationValidationOutcome
-export type Gate2ValidationPriority = FidelityVerificationValidationPriority
-export type Gate2ValidationStatus = FidelityVerificationValidationStatus
-export type Gate2AcceptanceDryRunInput = FidelityVerificationAcceptanceDryRunInput
-export type Gate2AcceptanceDryRun = FidelityVerificationAcceptanceDryRun
-export type AdaptGate2InputOptions = AdaptFidelityVerificationInputOptions
-
 export class FidelityVerificationError extends Error {
   constructor(message: string) {
     super(message)
     this.name = 'FidelityVerificationError'
   }
 }
-
-export const Gate2SimulationError = FidelityVerificationError
 
 function assertNonEmpty(value: unknown, field: string): asserts value is string {
   if (typeof value !== 'string' || value.trim().length === 0) {
@@ -252,7 +235,7 @@ function branchDetail(branch: FidelityVerificationBranch): { workgraph_node: str
 }
 
 function remediation(
-  branchesUnexercised: Gate2ReportType['checks']['scenario_coverage']['branches_unexercised'],
+  branchesUnexercised: FidelityVerificationReportType['checks']['scenario_coverage']['branches_unexercised'],
   invariantsWithoutNegativeTests: string[],
   failingValidations: string[],
 ): string {
@@ -435,9 +418,9 @@ export function evaluateFidelityVerification(input: FidelityVerificationInput): 
   const overall = scenarioCoveragePassed && invariantExercisePassed && requiredValidationPassed ? 'pass' : 'fail'
   const remediationText = remediation(branchesUnexercised, invariantsWithoutNegativeTests, failingValidations)
 
-  const report = Gate2Report.parse({
+  const report = FidelityVerificationReport.parse({
     id: reportId(input.functionId, input.timestamp),
-    gate: 2,
+    verification: "fidelity",
     function_id: input.functionId,
     timestamp: input.timestamp,
     overall,
@@ -475,7 +458,7 @@ export function evaluateFidelityVerification(input: FidelityVerificationInput): 
 
   const scenarioCoverageScore = input.invariants.length === 0 ? 0 : invariantsWithPassingScenario.length / input.invariants.length
   const invariantExerciseRate = input.invariants.length === 0 ? 0 : invariantsWithNegativeScenario.length / input.invariants.length
-  const verdict = Gate2Verdict.parse({
+  const verdict = FidelityVerificationVerdict.parse({
     verdict: overall === 'pass' ? 'accepted' : 'rejected',
     evidence_reviewed: [
       report.id,
@@ -488,8 +471,3 @@ export function evaluateFidelityVerification(input: FidelityVerificationInput): 
 
   return { report, verdict }
 }
-
-export const adaptGate2Input = adaptFidelityVerificationInput
-export const evaluateGate2FromContractInput = evaluateFidelityVerificationFromContractInput
-export const dryRunGate2AcceptanceTransition = dryRunFidelityAcceptanceTransition
-export const evaluateGate2Simulation = evaluateFidelityVerification

@@ -123,7 +123,7 @@ export type FunctionProposal = z.infer<typeof FunctionProposal>
 
 // ─── Intent-to-Executable Compilation (legacy Stage 5) ────────────────
 
-export const PRDDraft = Lineage.extend({
+export const IntentSpecification = Lineage.extend({
   id: ArtifactId.refine((s) => s.startsWith("PRD-"), "PRD IDs must start with PRD-"),
   sourceCapabilityId: ArtifactId,
   sourceFunctionId: ArtifactId,
@@ -135,7 +135,7 @@ export const PRDDraft = Lineage.extend({
   successMetrics: z.array(z.string()).min(1),
   outOfScope: z.array(z.string()).default([]),
 })
-export type PRDDraft = z.infer<typeof PRDDraft>
+export type IntentSpecification = z.infer<typeof IntentSpecification>
 
 export const AtomCategory = z.enum([
   "user_story",
@@ -247,29 +247,29 @@ export const ValidationSpec = Lineage.extend({
 })
 export type ValidationSpec = z.infer<typeof ValidationSpec>
 
-export const WorkGraphNodeType = z.enum(["interface", "execution", "control", "evidence"])
+export const ExecutableSpecificationNodeType = z.enum(["interface", "execution", "control", "evidence"])
 
-export const WorkGraphNode = z.object({
+export const ExecutableSpecificationNode = z.object({
   id: z.string().min(1),
-  type: WorkGraphNodeType,
+  type: ExecutableSpecificationNodeType,
   title: z.string().min(1),
   implements: ArtifactId.optional(),
 })
 
-export const WorkGraphEdge = z.object({
+export const ExecutableSpecificationEdge = z.object({
   from: z.string().min(1),
   to: z.string().min(1),
   condition: z.string().optional(),
   dependencyType: DependencyType.optional(),
 })
 
-export const WorkGraph = Lineage.extend({
-  id: ArtifactId.refine((s) => s.startsWith("WG-"), "WorkGraph IDs must start with WG-"),
+export const ExecutableSpecification = Lineage.extend({
+  id: ArtifactId.refine((s) => s.startsWith("WG-"), "ExecutableSpecification IDs must start with WG-"),
   functionId: ArtifactId,
-  nodes: z.array(WorkGraphNode).min(1),
-  edges: z.array(WorkGraphEdge).default([]),
+  nodes: z.array(ExecutableSpecificationNode).min(1),
+  edges: z.array(ExecutableSpecificationEdge).default([]),
 })
-export type WorkGraph = z.infer<typeof WorkGraph>
+export type ExecutableSpecification = z.infer<typeof ExecutableSpecification>
 
 // ─── Persistence Verification / Trust / Trajectory / Regression ───────
 

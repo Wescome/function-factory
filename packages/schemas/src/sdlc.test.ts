@@ -28,7 +28,6 @@ const baseMergeReadinessPack = {
       },
     ],
     fidelityVerificationReportId: "CR-MOTE4M1R-GATE2",
-    gate2ReportId: "CR-MOTE4M1R-GATE2",
   },
   seHygiene: {
     passed: true,
@@ -51,9 +50,7 @@ const baseMergeReadinessPack = {
     workGraphId: "WG-MOTE4M1R-G7I0",
     semanticReviewId: "SRR-MOTE4M1R-G7I0",
     coherenceVerificationReportId: "CR-MOTE4M1R-GATE1",
-    gate1ReportId: "CR-MOTE4M1R-GATE1",
     fidelityVerificationReportId: "CR-MOTE4M1R-GATE2",
-    gate2ReportId: "CR-MOTE4M1R-GATE2",
     modelBindings: {
       planner: { provider: "factory-runtime", model: "observed" },
     },
@@ -76,7 +73,7 @@ const baseMergeReadinessPack = {
 }
 
 describe("MergeReadinessPack", () => {
-  it("accepts Fidelity Verification report ids alongside Gate 2 compatibility ids", () => {
+  it("accepts Fidelity Verification report ids", () => {
     expect(MergeReadinessPack.safeParse(baseMergeReadinessPack).success).toBe(true)
   })
 })

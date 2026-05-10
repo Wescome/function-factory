@@ -1,7 +1,7 @@
 /**
  * @factory/function-synthesis — public API
  *
- * Synthesizes a compiled WorkGraph + ArchitectureCandidate into a
+ * Synthesizes a compiled ExecutableSpecification + ArchitectureCandidate into a
  * complete Function implementation through a five-role topology
  * with pluggable binding modes.
  */
@@ -26,7 +26,6 @@ export {
   RoleAdherenceEntry,
   RoleAdherenceReport,
   FidelityVerificationInput,
-  Gate2Input,
   SynthesisCandidateSelectionReport,
   PatchProposal,
   SynthesisResult,
@@ -70,7 +69,6 @@ export { resolveDisagreement } from "./disagreement.js"
 export {
   buildTraceLog,
   buildFidelityVerificationInput,
-  buildGate2Input,
   buildCandidateSelectionReport,
 } from "./evidence.js"
 
@@ -86,7 +84,7 @@ export { DefaultCodeEmitter, DryRunCodeEmitter, orchestrate } from "./orchestrat
 
 // ─── Top-level convenience ────────────────────────────────────────────
 
-import type { ArchitectureCandidate, WorkGraph } from "@factory/schemas"
+import type { ArchitectureCandidate, ExecutableSpecification } from "@factory/schemas"
 import type { BindingMode } from "./binding-mode.js"
 import type { SynthesisConfig } from "./orchestrate.js"
 import type { CodeEmitter } from "./orchestrate.js"
@@ -94,12 +92,12 @@ import { orchestrate } from "./orchestrate.js"
 import { DryRunCodeEmitter } from "./orchestrate.js"
 
 /**
- * Synthesize a Function from a compiled WorkGraph and ArchitectureCandidate.
+ * Synthesize a Function from a compiled ExecutableSpecification and ArchitectureCandidate.
  *
  * This is the primary public API entry point.
  */
 export async function synthesize(
-  workGraph: WorkGraph,
+  workGraph: ExecutableSpecification,
   candidate: ArchitectureCandidate,
   bindingMode: BindingMode,
   config: SynthesisConfig,

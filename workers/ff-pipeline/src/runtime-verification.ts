@@ -12,7 +12,6 @@ export interface SynthesisLineage {
 }
 
 export type CoherenceVerificationVerdict = 'pass' | 'fail' | 'pending'
-export type Gate1Verdict = CoherenceVerificationVerdict
 
 export type AtomVerdict = 'success' | 'failure' | 'incomplete'
 
@@ -25,8 +24,7 @@ export interface SynthesisCompletionEvidence {
 
 export interface SynthesisSmokeResult {
   lineage: SynthesisLineage
-  coherenceVerificationVerdict?: CoherenceVerificationVerdict
-  gate1Verdict?: Gate1Verdict
+  coherenceVerificationVerdict: CoherenceVerificationVerdict
   atomVerdict: AtomVerdict
   evidence: SynthesisCompletionEvidence
 }
@@ -35,7 +33,6 @@ export interface RuntimeVerificationRecord {
   id: string
   lineage: SynthesisLineage
   coherenceVerificationVerdict: CoherenceVerificationVerdict
-  gate1Verdict: Gate1Verdict
   atomVerdict: AtomVerdict
   evidence: SynthesisCompletionEvidence
   recordedAt: string
@@ -110,7 +107,7 @@ export function recordSynthesisSmokeResult(result: unknown): RuntimeVerification
   assertNonEmptyString(result.lineage.planId, 'lineage.planId is required')
   assertNonEmptyString(result.lineage.pipelineId, 'lineage.pipelineId is required')
 
-  const coherenceVerificationVerdict = result.coherenceVerificationVerdict ?? result.gate1Verdict
+  const coherenceVerificationVerdict = result.coherenceVerificationVerdict
   if (!COHERENCE_VERIFICATION_VERDICTS.has(coherenceVerificationVerdict as CoherenceVerificationVerdict)) {
     throw new SynthesisValidationError(`Invalid Coherence Verification verdict: ${String(coherenceVerificationVerdict)}`)
   }
@@ -127,7 +124,6 @@ export function recordSynthesisSmokeResult(result: unknown): RuntimeVerification
       pipelineId: result.lineage.pipelineId,
     },
     coherenceVerificationVerdict: coherenceVerificationVerdict as CoherenceVerificationVerdict,
-    gate1Verdict: coherenceVerificationVerdict as Gate1Verdict,
     atomVerdict: result.atomVerdict as AtomVerdict,
     evidence: result.evidence,
     recordedAt: new Date().toISOString(),

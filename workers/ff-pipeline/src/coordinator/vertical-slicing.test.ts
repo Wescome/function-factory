@@ -547,10 +547,10 @@ describe('v5: graph verticalSlicing mode', () => {
 // ────────────────────────────────────────────────────────────
 
 describe('v5: integration — full Phase 1→2→3 with dry-run atoms', () => {
-  it('3-atom WorkGraph (2 independent + 1 dependent) executes correctly', async () => {
+  it('3-atom ExecutableSpecification (2 independent + 1 dependent) executes correctly', async () => {
     const atomDeps = makeDryRunAtomDeps()
 
-    // Build a WorkGraph with 3 atoms and dependencies
+    // Build a ExecutableSpecification with 3 atoms and dependencies
     const workGraph = {
       _key: 'WG-INT',
       id: 'WG-INT',

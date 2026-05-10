@@ -1,5 +1,5 @@
 /**
- * Completeness Certification / Coherence Verification (legacy Pass 7).
+ * Completeness Certification / Coherence Verification.
  *
  * Adapts compiler intermediates into the shape `runCoherenceVerification` consumes,
  * determines Factory mode from the PRD ID (or from an explicit
@@ -30,8 +30,6 @@ export interface CoherenceVerificationPassResult {
   readonly reportPath: string
 }
 
-export type Gate1PassResult = CoherenceVerificationPassResult
-
 export async function runCoherenceVerificationPass(
   intermediates: CompilerIntermediates,
   mode: FactoryMode,
@@ -52,8 +50,6 @@ export async function runCoherenceVerificationPass(
   const reportPath = await emitCoherenceVerificationReport(report, coverageReportsDir)
   return { report, reportPath }
 }
-
-export const runGate1Pass = runCoherenceVerificationPass
 
 /**
  * Determine Factory mode from PRD ID. PRDs whose ID starts with

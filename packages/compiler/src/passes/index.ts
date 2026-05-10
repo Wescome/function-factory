@@ -11,16 +11,12 @@ export { deriveValidations } from "./05-derive-validations.js"
 export { consistencyCheck } from "./06-consistency-check.js"
 export {
   runCoherenceVerificationPass,
-  runGate1Pass,
   determineMode,
   type CoherenceVerificationPassResult,
-  type Gate1PassResult,
-} from "./07-gate-1.js"
+} from "./07-coherence-verification.js"
 export {
   assembleExecutableSpecification,
-  assembleWorkgraph,
-} from "./08-assemble-workgraph.js"
+} from "./08-assemble-executable-specification.js"
 export {
   emitExecutableSpecification,
-  emitWorkgraph,
-} from "./_workgraph-emit.js"
+} from "./_executable-specification-emit.js"

@@ -86,7 +86,7 @@ describe('autonomous scheduler contracts', () => {
     expect(event.details.queue).toBe('jsonl_queue')
   })
 
-  it('rejects requests without WorkGraph lineage', () => {
+  it('rejects requests without ExecutableSpecification lineage', () => {
     const invalid = structuredClone(requestFixture) as Record<string, unknown>
     invalid.workgraph = {
       id: 'WG-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW',

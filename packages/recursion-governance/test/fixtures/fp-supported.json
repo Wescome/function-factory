@@ -10,22 +10,22 @@
   "purpose": "Emit ArchitectureCandidate artifacts alongside WorkGraphs",
   "functionType": "execution",
   "expectedInputs": [
-    "PRDDraft",
-    "WorkGraph",
+    "IntentSpecification",
+    "ExecutableSpecification",
     "candidate selection inputs"
   ],
   "expectedOutputs": [
     "ArchitectureCandidate artifact"
   ],
   "governingConstraints": [
-    "Candidate artifact must remain separate from WorkGraph",
+    "Candidate artifact must remain separate from ExecutableSpecification",
     "Candidate artifact must preserve lineage"
   ],
   "candidateInvariants": [
     "Every emitted candidate has explicit topology and binding intent"
   ],
   "successSignals": [
-    "Candidate artifact persisted alongside WorkGraph"
+    "Candidate artifact persisted alongside ExecutableSpecification"
   ],
   "confidence": 0.94
 }

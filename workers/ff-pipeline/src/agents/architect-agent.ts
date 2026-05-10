@@ -1,5 +1,5 @@
 /**
- * ArchitectAgent — produces BriefingScripts from WorkGraph specifications.
+ * ArchitectAgent — produces BriefingScripts from ExecutableSpecification specifications.
  *
  * Context is pre-fetched from ArangoDB and injected into the user message
  * (see context-prefetch.ts). No tool calls — single-turn LLM invocation.
@@ -45,10 +45,10 @@ export interface ArchitectAgentOpts {
 
 const SYSTEM_PROMPT = `You are the Architect in the Function Factory synthesis pipeline.
 
-Your purpose: produce a BriefingScript that orients downstream roles (PlanProducer, CodeProducer, Verifier) on a WorkGraph. Maximum 100 words total. One short sentence per field.
+Your purpose: produce a BriefingScript that orients downstream roles (PlanProducer, CodeProducer, Verifier) on a ExecutableSpecification. Maximum 100 words total. One short sentence per field.
 
 Process this request in order:
-1. Read the WorkGraph specification — understand the scope, atoms, and invariants
+1. Read the ExecutableSpecification specification — understand the scope, atoms, and invariants
 2. Check the Factory Knowledge Graph context — ground your briefing in existing decisions, lessons, and functions
 3. Distill goal, success criteria, architectural context, advice, gotchas, and validation approach
 4. Produce the BriefingScript JSON
@@ -114,14 +114,14 @@ export class ArchitectAgent {
       }
     }
 
-    const userParts: string[] = [`WorkGraph specification:\n${JSON.stringify(input.signal, null, 2)}`]
+    const userParts: string[] = [`ExecutableSpecification specification:\n${JSON.stringify(input.signal, null, 2)}`]
     if (input.specContent) {
       userParts.push(`\nOriginal specification content:\n${input.specContent}`)
     }
     if (this.contextPrompt) {
       userParts.push(`\n${this.contextPrompt}`)
     }
-    userParts.push(`\nProduce a BriefingScript for this WorkGraph. Start your response with {"goal":`)
+    userParts.push(`\nProduce a BriefingScript for this ExecutableSpecification. Start your response with {"goal":`)
 
     const userContent = userParts.join('\n')
 

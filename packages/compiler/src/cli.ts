@@ -84,7 +84,7 @@ async function main(): Promise<void> {
         `Mode- ${result.mode}\n` +
         `Coverage Report- ${result.reportPath}\n` +
         (result.workgraphPath !== null
-          ? `WorkGraph- ${result.workgraphPath}\n`
+          ? `ExecutableSpecification- ${result.workgraphPath}\n`
           : "") +
         `Atoms- ${result.intermediates.atoms.length}, ` +
         `Contracts- ${result.intermediates.contracts.length}, ` +

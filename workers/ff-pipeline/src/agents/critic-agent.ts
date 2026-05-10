@@ -147,7 +147,7 @@ export class CriticAgent {
     const apiKey = this.semanticReviewApiKey ?? this.apiKey
 
     // BL1 mitigation: only send the fields the semantic reviewer needs.
-    // Sending the full PRD/WorkGraph causes the model to echo the input
+    // Sending the full PRD/ExecutableSpecification causes the model to echo the input
     // back as a function-call structure, exceeding the output token budget.
     const prdSummary = summarizePrdForReview(input.prd)
     const userParts: string[] = [`PRD summary:\n${prdSummary}`]

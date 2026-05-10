@@ -6,7 +6,7 @@ Queryable ontology loading for Factory runtime and agent support.
 
 This package loads the current machine-readable ontology assets into ArangoDB
 collections that agents can query. It supports ontology-grounded execution but
-does not replace current compatibility names such as PRD, WorkGraph, Coverage
+does not replace current compatibility names such as PRD, ExecutableSpecification, Coverage
 Report, or Gate terminology.
 
 The package name `@factory/ontology-loader` remains the stable compatibility

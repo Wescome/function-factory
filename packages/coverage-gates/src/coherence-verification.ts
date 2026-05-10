@@ -13,7 +13,7 @@
  * acceptance criterion 11 and ConOps §3.4.
  */
 
-import type { ArtifactId, CoherenceVerificationReport as CurrentCoherenceVerificationReport } from "@factory/schemas"
+import type { ArtifactId, CoherenceVerificationReport } from "@factory/schemas"
 import { CoherenceVerificationReport as CoherenceVerificationReportSchema } from "@factory/schemas"
 import {
   type CoherenceVerificationInput,
@@ -25,7 +25,8 @@ import {
 } from "./checks.js"
 import { generateRemediation } from "./remediation.js"
 
-export type { CoherenceVerificationInput, Gate1Input } from "./checks.js"
+export type { CoherenceVerificationInput } from "./checks.js"
+export type { CoherenceVerificationReport } from "@factory/schemas"
 
 /**
  * Run Coherence Verification against validated compiler intermediates.
@@ -41,7 +42,7 @@ export type { CoherenceVerificationInput, Gate1Input } from "./checks.js"
 export function runCoherenceVerification(
   input: CoherenceVerificationInput,
   timestamp: string,
-): CurrentCoherenceVerificationReport {
+): CoherenceVerificationReport {
   const atomCoverage = checkAtomCoverage(input)
   const invariantCoverage = checkInvariantCoverage(input)
   const validationCoverage = checkValidationCoverage(input)
@@ -80,7 +81,7 @@ export function runCoherenceVerification(
     source_refs: sourceRefs,
     explicitness: "explicit" as const,
     rationale: `Coherence Verification evaluation for ${input.prdId} in ${input.mode} mode`,
-    gate: 1 as const,
+    verification: "coherence" as const,
     prd_id: input.prdId,
     timestamp,
     overall,
@@ -93,7 +94,7 @@ export function runCoherenceVerification(
     // Coherence Verification produced a report that does not conform to its own output
     // schema. This is an implementation defect, not a specification
     // defect; throwing here surfaces it loudly rather than letting a
-    // malformed report propagate. Per coverage-gate-1 SKILL.md self-
+    // malformed report propagate. Per Coherence Verification self-
     // rewrite hook, a recurring instance of this class of failure would
     // trigger skill revision.
     throw new Error(
@@ -103,12 +104,8 @@ export function runCoherenceVerification(
   return parsed.data
 }
 
-export const runGate1 = runCoherenceVerification
-export type CoherenceVerificationReport = CurrentCoherenceVerificationReport
-export type Gate1Report = CurrentCoherenceVerificationReport
-
 /**
- * Construct the Coverage Report ID per the SKILL.md naming convention-
+ * Construct the Coverage Report ID per the current persisted naming convention-
  * `CR-<PRD-ID>-GATE1-<timestamp>`, with colons and dots in the timestamp
  * replaced by hyphens so the result matches the ArtifactId regex.
  */
@@ -117,7 +114,7 @@ function coverageReportId(prdId: ArtifactId, timestamp: string): ArtifactId {
   return `CR-${prdId}-GATE1-${safeTs}` as ArtifactId
 }
 
-type Checks = CurrentCoherenceVerificationReport["checks"]
+type Checks = CoherenceVerificationReport["checks"]
 
 function allChecksPass(checks: Checks): boolean {
   if (checks.atom_coverage.status !== "pass") return false

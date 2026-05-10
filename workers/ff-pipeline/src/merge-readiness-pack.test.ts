@@ -6,7 +6,6 @@ import {
   MissingCanonicalMRPEvidenceError,
   toCanonicalMergeReadinessPack,
   withFidelityVerificationReportEvidence,
-  withGate2ReportEvidence,
   type CanonicalMRPEvidence,
   type PROutcomeSignalRecord,
 } from './merge-readiness-pack'
@@ -115,7 +114,7 @@ function makeCanonicalEvidence(overrides: CanonicalMRPEvidence = {}): CanonicalM
           result: 'pass',
         },
       ],
-      gate2ReportId: 'CR-MOTE4M1R-GATE2',
+      fidelityVerificationReportId: 'CR-MOTE4M1R-GATE2',
     },
     seHygiene: {
       mentorRuleCompliance: [
@@ -136,7 +135,7 @@ function makeCanonicalEvidence(overrides: CanonicalMRPEvidence = {}): CanonicalM
       prdId: 'PRD-MOTE4M1R-G7I0',
       semanticReviewId: 'SRR-MOTE4M1R-G7I0',
       coherenceVerificationReportId: 'CR-MOTE4M1R-GATE1',
-      gate2ReportId: 'CR-MOTE4M1R-GATE2',
+      fidelityVerificationReportId: 'CR-MOTE4M1R-GATE2',
       modelBindings: {
         planner: { provider: 'factory-runtime', model: 'observed' },
       },
@@ -462,7 +461,7 @@ describe('merge-readiness pack', () => {
             result: 'pass',
           },
         ],
-        gate2ReportId: 'CR-MOTE4M1R-GATE2',
+        fidelityVerificationReportId: 'CR-MOTE4M1R-GATE2',
       },
       seHygiene: {
         mentorRuleCompliance: [
@@ -483,7 +482,7 @@ describe('merge-readiness pack', () => {
         prdId: 'PRD-MOTE4M1R-G7I0',
         semanticReviewId: 'SRR-MOTE4M1R-G7I0',
         coherenceVerificationReportId: 'CR-MOTE4M1R-GATE1',
-        gate2ReportId: 'CR-MOTE4M1R-GATE2',
+        fidelityVerificationReportId: 'CR-MOTE4M1R-GATE2',
         modelBindings: {
           planner: { provider: 'factory-runtime', model: 'observed' },
         },
@@ -508,14 +507,11 @@ describe('merge-readiness pack', () => {
       },
       soundVerification: {
         fidelityVerificationReportId: 'CR-MOTE4M1R-GATE2',
-        gate2ReportId: 'CR-MOTE4M1R-GATE2',
       },
       auditability: {
         workGraphId: 'WG-MOTE4M1R-G7I0',
         coherenceVerificationReportId: 'CR-MOTE4M1R-GATE1',
-        gate1ReportId: 'CR-MOTE4M1R-GATE1',
         fidelityVerificationReportId: 'CR-MOTE4M1R-GATE2',
-        gate2ReportId: 'CR-MOTE4M1R-GATE2',
       },
     })
   })
@@ -527,19 +523,19 @@ describe('merge-readiness pack', () => {
     )
 
     expect(evidence.soundVerification?.fidelityVerificationReportId).toBe('CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z')
-    expect(evidence.soundVerification?.gate2ReportId).toBe('CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z')
+    expect(evidence.soundVerification?.fidelityVerificationReportId).toBe('CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z')
     expect(evidence.auditability?.fidelityVerificationReportId).toBe('CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z')
-    expect(evidence.auditability?.gate2ReportId).toBe('CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z')
+    expect(evidence.auditability?.fidelityVerificationReportId).toBe('CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z')
   })
 
   it('keeps the legacy Gate 2 MRP evidence helper as a compatibility alias', () => {
-    const evidence = withGate2ReportEvidence(
+    const evidence = withFidelityVerificationReportEvidence(
       makeCanonicalEvidence(),
       'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
     )
 
     expect(evidence.soundVerification?.fidelityVerificationReportId).toBe('CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z')
-    expect(evidence.auditability?.gate2ReportId).toBe('CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z')
+    expect(evidence.auditability?.fidelityVerificationReportId).toBe('CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z')
   })
 
   it('rejects empty Fidelity Verification report ids when overlaying canonical MRP evidence', () => {
@@ -581,7 +577,7 @@ describe('merge-readiness pack', () => {
             result: 'pass',
           },
         ],
-        gate2ReportId: 'CR-ABCDE123-GATE2',
+        fidelityVerificationReportId: 'CR-ABCDE123-GATE2',
       },
       seHygiene: {
         mentorRuleCompliance: [
@@ -601,7 +597,7 @@ describe('merge-readiness pack', () => {
         prdId: 'PRD-ABCDE123',
         semanticReviewId: 'SRR-ABCDE123',
         coherenceVerificationReportId: 'CR-ABCDE123-GATE1',
-        gate2ReportId: 'CR-ABCDE123-GATE2',
+        fidelityVerificationReportId: 'CR-ABCDE123-GATE2',
         modelBindings: {
           planner: { provider: 'factory-runtime', model: 'observed' },
         },

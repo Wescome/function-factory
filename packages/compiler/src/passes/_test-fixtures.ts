@@ -17,7 +17,7 @@ import type {
   Dependency,
   DetectorSpec,
   Invariant,
-  PRDDraft,
+  IntentSpecification,
   RequirementAtom,
   ValidationSpec,
 } from "@factory/schemas"
@@ -33,7 +33,7 @@ const defaultDetector: DetectorSpec = {
   incident_tags: ["test"],
 }
 
-export function makePRD(overrides: Partial<PRDDraft> = {}): PRDDraft {
+export function makePRD(overrides: Partial<IntentSpecification> = {}): IntentSpecification {
   return {
     id: "PRD-META-FOO" as ArtifactId,
     source_refs: ["FP-META-FOO" as ArtifactId],
@@ -143,7 +143,7 @@ export function makeCoherenceVerificationReportPassing(
     source_refs: ["PRD-META-FOO" as ArtifactId],
     explicitness: "explicit",
     rationale: "test coverage report",
-    gate: 1,
+    verification: "coherence",
     prd_id: "PRD-META-FOO" as ArtifactId,
     timestamp: "2026-04-19T00:00:00.000Z",
     overall: "pass",
@@ -170,5 +170,3 @@ export function makeCoherenceVerificationReportPassing(
     ...overrides,
   }
 }
-
-export const makeGate1ReportPassing = makeCoherenceVerificationReportPassing

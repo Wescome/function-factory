@@ -62,7 +62,7 @@ function makeMockEnv(overrides?: Partial<PipelineEnv>): PipelineEnv {
     ARANGO_URL: 'http://localhost:8529',
     ARANGO_DATABASE: 'test',
     ARANGO_JWT: 'test-jwt',
-    GATES: { evaluateGate1: vi.fn() },
+    GATES: { evaluateCoherenceVerification: vi.fn() },
     FACTORY_PIPELINE: { create: vi.fn(), get: vi.fn() },
     COORDINATOR: {} as any,
     ATOM_EXECUTOR: {} as any,

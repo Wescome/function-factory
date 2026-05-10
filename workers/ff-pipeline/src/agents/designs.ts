@@ -110,7 +110,7 @@ export const AGENT_DESIGNS: AgentDesign[] = [
       },
     },
     intent: {
-      jtbd: 'When a WorkGraph specification enters Agent Call execution, I want to produce a BriefingScript grounded in architectural decisions and lessons learned, so downstream agents have clear, contextual guidance for synthesis.',
+      jtbd: 'When a ExecutableSpecification specification enters Agent Call execution, I want to produce a BriefingScript grounded in architectural decisions and lessons learned, so downstream agents have clear, contextual guidance for synthesis.',
       produces: 'BriefingScript',
       outputShape: {
         goal: 'string — the primary objective for this synthesis',
@@ -123,7 +123,7 @@ export const AGENT_DESIGNS: AgentDesign[] = [
       successCriteria: [
         'BriefingScript references at least one real decision or lesson from ArangoDB',
         'All 6 required fields present and non-empty',
-        'strategicAdvice addresses the specific domain of the WorkGraph, not generic boilerplate',
+        'strategicAdvice addresses the specific domain of the ExecutableSpecification, not generic boilerplate',
         'knownGotchas sourced from actual LESSONS, not hallucinated',
       ],
     },
@@ -135,7 +135,7 @@ export const AGENT_DESIGNS: AgentDesign[] = [
       maxTokens: 4096,
       maxTurns: 5,
       inputFields: {
-        signal: { type: 'Record<string, unknown>', required: true, description: 'WorkGraph specification object' },
+        signal: { type: 'Record<string, unknown>', required: true, description: 'ExecutableSpecification specification object' },
         specContent: { type: 'string', required: false, description: 'Original specification text from the Signal' },
       },
       outputValidation: {
@@ -146,7 +146,7 @@ export const AGENT_DESIGNS: AgentDesign[] = [
     prompts: {
       system: `You are the Architect agent in the Function Factory synthesis pipeline.
 
-Your job: produce a BriefingScript that guides downstream agents (Planner, Coder, Tester, Verifier) through synthesizing a Function from a WorkGraph specification.
+Your job: produce a BriefingScript that guides downstream agents (Planner, Coder, Tester, Verifier) through synthesizing a Function from a ExecutableSpecification specification.
 
 You have the arango_query tool. USE IT to ground your briefing in real Factory context. Make at least one tool call before producing your briefing. Do not hallucinate context.`,
       outputFormat: `Respond with ONLY a JSON object (no markdown fences, no explanation):
@@ -226,11 +226,11 @@ You have the arango_query tool. USE IT to ground your briefing in real Factory c
       maxTokens: 4096,
       maxTurns: 5,
       inputFields: {
-        'semanticReview.prd': { type: 'Record<string, unknown>', required: true, description: 'PRD or WorkGraph to review' },
+        'semanticReview.prd': { type: 'Record<string, unknown>', required: true, description: 'PRD or ExecutableSpecification to review' },
         'semanticReview.specContent': { type: 'string', required: false, description: 'Original specification for ground truth comparison' },
         'codeReview.code': { type: 'CodeArtifact', required: true, description: 'Code output from Coder' },
         'codeReview.plan': { type: 'Plan', required: true, description: 'Plan the code should implement' },
-        'codeReview.workGraph': { type: 'Record<string, unknown>', required: true, description: 'WorkGraph specification' },
+        'codeReview.workGraph': { type: 'Record<string, unknown>', required: true, description: 'ExecutableSpecification specification' },
         'codeReview.mentorRules': { type: 'string[]', required: false, description: 'Active MentorScript rules' },
       },
       outputValidation: {
@@ -242,7 +242,7 @@ You have the arango_query tool. USE IT to ground your briefing in real Factory c
       system: `You are the Critic agent in the Function Factory synthesis pipeline.
 
 You operate in two modes:
-1. SEMANTIC REVIEW: Compare a PRD/WorkGraph against the original specification. Assess alignment.
+1. SEMANTIC REVIEW: Compare a PRD/ExecutableSpecification against the original specification. Assess alignment.
 2. CODE REVIEW: Review code against the plan, invariants, and active MentorScript rules.
 
 You have the arango_query tool. USE IT to ground every review in real Factory context. Never review against hallucinated expectations — only against what exists in the knowledge graph and the provided specContent.`,
@@ -299,7 +299,7 @@ Always query mentorscript_rules before producing a code review.`,
       },
     },
     intent: {
-      jtbd: 'When a BriefingScript and WorkGraph are available after architect review, I want to decompose the work into executable atoms with clear dependency ordering and implementation guidance, so the Coder has an unambiguous plan.',
+      jtbd: 'When a BriefingScript and ExecutableSpecification are available after architect review, I want to decompose the work into executable atoms with clear dependency ordering and implementation guidance, so the Coder has an unambiguous plan.',
       produces: 'Plan',
       outputShape: {
         approach: 'string — high-level implementation strategy',
@@ -308,7 +308,7 @@ Always query mentorscript_rules before producing a code review.`,
         estimatedComplexity: '"low" | "medium" | "high"',
       },
       successCriteria: [
-        'Every WorkGraph atom has a corresponding plan atom',
+        'Every ExecutableSpecification atom has a corresponding plan atom',
         'Atoms are ordered by dependency (no forward references)',
         'Executor recommendation matches the work type (gdk-agent for V8, sandbox for filesystem, container-openhands for browser)',
         'Repair cycles reference the specific failure and adjust strategy',
@@ -337,7 +337,7 @@ Always query mentorscript_rules before producing a code review.`,
     prompts: {
       system: `You are the Planner agent in the Function Factory synthesis pipeline.
 
-Your job: produce a Plan that decomposes a WorkGraph specification into concrete implementation steps for the Coder agent.
+Your job: produce a Plan that decomposes a ExecutableSpecification specification into concrete implementation steps for the Coder agent.
 
 You have the arango_query tool. USE IT to understand what already exists before planning. Query existing functions, invariants, and dependencies. Do not plan implementations that duplicate existing code.
 
@@ -415,7 +415,7 @@ If this is a repair cycle (repairNotes/resampleReason provided), adjust your str
       maxTokens: 8192,
       maxTurns: 8,
       inputFields: {
-        workGraph: { type: 'Record<string, unknown>', required: true, description: 'WorkGraph specification' },
+        workGraph: { type: 'Record<string, unknown>', required: true, description: 'ExecutableSpecification specification' },
         plan: { type: 'Plan', required: true, description: 'Implementation plan from Planner' },
         specContent: { type: 'string', required: false, description: 'Original specification' },
         repairNotes: { type: 'string', required: false, description: 'Verifier repair notes' },
@@ -430,7 +430,7 @@ If this is a repair cycle (repairNotes/resampleReason provided), adjust your str
     prompts: {
       system: `You are the Coder agent in the Function Factory synthesis pipeline.
 
-Your job: produce a CodeArtifact — a set of file changes that implement the Plan against the WorkGraph specification.
+Your job: produce a CodeArtifact — a set of file changes that implement the Plan against the ExecutableSpecification specification.
 
 You have the arango_query tool. USE IT to query invariants, existing patterns, and mentor rules before writing code. Do not hallucinate patterns or imports.
 
@@ -509,7 +509,7 @@ If this is a repair cycle (repairNotes provided), focus on fixing the specific i
       maxTokens: 4096,
       maxTurns: 5,
       inputFields: {
-        workGraph: { type: 'Record<string, unknown>', required: true, description: 'WorkGraph specification' },
+        workGraph: { type: 'Record<string, unknown>', required: true, description: 'ExecutableSpecification specification' },
         plan: { type: 'Plan', required: true, description: 'Implementation plan' },
         code: { type: 'CodeArtifact', required: true, description: 'Code to test' },
         critique: { type: 'CritiqueReport', required: false, description: 'Critic review results' },
@@ -522,7 +522,7 @@ If this is a repair cycle (repairNotes provided), focus on fixing the specific i
     prompts: {
       system: `You are the Tester agent in the Function Factory synthesis pipeline.
 
-Your job: evaluate the code produced by the Coder against the WorkGraph specification, the Plan, and invariants from the knowledge graph. Produce a TestReport.
+Your job: evaluate the code produced by the Coder against the ExecutableSpecification specification, the Plan, and invariants from the knowledge graph. Produce a TestReport.
 
 You have the arango_query tool. USE IT to query active invariants BEFORE producing your report. Every invariant must have a corresponding test. Do not hallucinate test results.`,
       outputFormat: `Respond with ONLY a JSON object:
@@ -597,7 +597,7 @@ You have the arango_query tool. USE IT to query active invariants BEFORE produci
       maxTokens: 4096,
       maxTurns: 5,
       inputFields: {
-        workGraph: { type: 'Record<string, unknown>', required: true, description: 'WorkGraph specification' },
+        workGraph: { type: 'Record<string, unknown>', required: true, description: 'ExecutableSpecification specification' },
         plan: { type: 'Plan | null', required: true, description: 'Implementation plan' },
         code: { type: 'CodeArtifact | null', required: true, description: 'Code output' },
         critique: { type: 'CritiqueReport | null', required: true, description: 'Code review results' },

@@ -37,7 +37,6 @@ export interface CoherenceVerificationInput {
   readonly validations: readonly ValidationSpec[]
 }
 
-export type Gate1Input = CoherenceVerificationInput
 
 type Checks = CoherenceVerificationReport["checks"]
 type AtomCoverageResult = Checks["atom_coverage"]

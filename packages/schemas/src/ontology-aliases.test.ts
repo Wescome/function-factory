@@ -10,26 +10,22 @@ import {
   VerificationReport,
 } from "./ontology-aliases.js"
 import {
-  CoverageReport,
-  Gate1Report,
-  Gate2Report,
-  Gate2Verdict,
-  Gate3Report,
+  VerificationReport as PrimaryVerificationReport,
 } from "./coverage.js"
-import { Invariant, PRDDraft, WorkGraph } from "./core.js"
+import { Invariant, IntentSpecification as PrimaryIntentSpecification, ExecutableSpecification as PrimaryExecutableSpecification } from "./core.js"
 
 describe("ontology aliases", () => {
-  it("aliases current artifact schemas without replacing compatibility names", () => {
-    expect(IntentSpecification).toBe(PRDDraft)
-    expect(ExecutableSpecification).toBe(WorkGraph)
+  it("exports primary artifact schemas", () => {
+    expect(IntentSpecification).toBe(PrimaryIntentSpecification)
+    expect(ExecutableSpecification).toBe(PrimaryExecutableSpecification)
     expect(InvariantSpecification).toBe(Invariant)
-    expect(VerificationReport).toBe(CoverageReport)
+    expect(VerificationReport).toBe(PrimaryVerificationReport)
   })
 
-  it("aliases current gate report schemas to verification process terms", () => {
-    expect(CoherenceVerificationReport).toBe(Gate1Report)
-    expect(FidelityVerificationReport).toBe(Gate2Report)
-    expect(FidelityVerificationVerdict).toBe(Gate2Verdict)
-    expect(PersistenceVerificationReport).toBe(Gate3Report)
+  it("exports primary verification schemas", () => {
+    expect(CoherenceVerificationReport.shape.verification.value).toBe("coherence")
+    expect(FidelityVerificationReport.shape.verification.value).toBe("fidelity")
+    expect(PersistenceVerificationReport.shape.verification.value).toBe("persistence")
+    expect(FidelityVerificationVerdict.shape.verdict).toBeDefined()
   })
 })

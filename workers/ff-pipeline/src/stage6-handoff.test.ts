@@ -120,7 +120,7 @@ vi.mock('./stages/compile', () => ({
     ...state,
     workGraph: {
       _key: 'WG-TEST',
-      title: 'Test WorkGraph',
+      title: 'Test ExecutableSpecification',
       atoms: [{ id: 'a1', description: 'test atom' }],
       invariants: [],
       dependencies: [],
@@ -160,8 +160,8 @@ function createEnv(overrides?: Record<string, unknown>) {
     ARANGO_JWT: 'test-jwt',
     ENVIRONMENT: 'test',
     GATES: {
-      evaluateGate1: vi.fn(async () => ({
-        gate: 1,
+      evaluateCoherenceVerification: vi.fn(async () => ({
+        verification: "coherence",
         passed: true,
         timestamp: '2026-04-25T00:00:00Z',
         workGraphId: 'WG-TEST',
@@ -504,8 +504,8 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
 
       const env = createEnv({
         GATES: {
-          evaluateGate1: vi.fn(async () => ({
-            gate: 1,
+          evaluateCoherenceVerification: vi.fn(async () => ({
+            verification: "coherence",
             passed: false,
             timestamp: '2026-04-25T00:00:00Z',
             workGraphId: 'WG-TEST',
@@ -577,7 +577,7 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
       expect(result.workGraphId).toBe('WG-TEST')
       expect(result.coherenceVerificationReport).toBeDefined()
       expect(result.coherenceVerificationReport!.passed).toBe(true)
-      expect(result.gate1Report).toBe(result.coherenceVerificationReport)
+      expect(result.coherenceVerificationReport).toBe(result.coherenceVerificationReport)
       expect(result.synthesisResult).toBeDefined()
     })
 

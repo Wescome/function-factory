@@ -383,7 +383,7 @@ describe('Intent-to-Executable compiler transformations', () => {
   })
 
   describe('full pipeline state accumulation', () => {
-    it('running all 8 passes sequentially produces a complete WorkGraph', async () => {
+    it('running all 8 passes sequentially produces a complete ExecutableSpecification', async () => {
       let state: Record<string, unknown> = {
         prd: { _key: 'PRD-001', title: 'Full Pipeline Test', objective: 'Test', invariants: ['Must pass'] },
       }

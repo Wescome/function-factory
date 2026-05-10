@@ -329,7 +329,7 @@ describe("Role prompts", () => {
         expect(prompt).toContain(rule)
       }
 
-      // Contains WorkGraph context
+      // Contains ExecutableSpecification context
       expect(prompt).toContain(workGraph.id)
 
       // Contains candidate context

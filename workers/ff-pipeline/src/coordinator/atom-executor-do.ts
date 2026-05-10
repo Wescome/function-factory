@@ -100,7 +100,7 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
       source: 'factory:infrastructure',
       subtype: 'pipeline:synthesis-timeout',
       title: `Atom ${atomId} exceeded 900s deadline`,
-      description: `AtomExecutor alarm fired: atom ${atomId} in WorkGraph ${workGraphId} exceeded the 900s wall-clock deadline. The atom was interrupted and marked as failed.`,
+      description: `AtomExecutor alarm fired: atom ${atomId} in ExecutableSpecification ${workGraphId} exceeded the 900s wall-clock deadline. The atom was interrupted and marked as failed.`,
       sourceRefs: [workGraphId],
     }, db).catch(() => {}) // best-effort, never block
 
@@ -154,7 +154,7 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
           source: 'factory:infrastructure',
           subtype: 'infra:llm-api-401',
           title: `API key missing for provider "${preflightModel.provider}"`,
-          description: `Pre-flight auth check failed: no API key for provider "${preflightModel.provider}" (model: ${preflightModel.id ?? 'unknown'}). Atom ${payload.atomId} in WorkGraph ${payload.workGraphId} cannot execute.`,
+          description: `Pre-flight auth check failed: no API key for provider "${preflightModel.provider}" (model: ${preflightModel.id ?? 'unknown'}). Atom ${payload.atomId} in ExecutableSpecification ${payload.workGraphId} cannot execute.`,
           sourceRefs: [],
         }, db).catch(() => {}) // best-effort, never block
 

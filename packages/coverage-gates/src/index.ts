@@ -6,17 +6,14 @@
  * Verification land in subsequent PRs.
  *
  * Per whitepaper §6 and ConOps §3.4, verification evaluators are deterministic
- * pure functions over Zod-validated inputs. The `runGate1` orchestrator
- * remains as a legacy compatibility alias. File emission is the one permitted side effect, exposed
- * separately as `emitGate1Report` so callers can compose them as their
- * execution model requires (the compiler's Coherence Verification step composes both; an
- * audit tool inspecting intermediates might run only runCoherenceVerification).
+ * pure functions over Zod-validated inputs. File emission is the one permitted
+ * side effect, exposed separately so callers can compose it as their execution
+ * model requires.
  */
 
-export { runCoherenceVerification, runGate1 } from "./gate-1.js"
+export { runCoherenceVerification } from "./coherence-verification.js"
 export type {
   CoherenceVerificationInput,
   CoherenceVerificationReport,
-  Gate1Input,
-} from "./gate-1.js"
-export { emitCoherenceVerificationReport, emitGate1Report } from "./emit.js"
+} from "./coherence-verification.js"
+export { emitCoherenceVerificationReport } from "./emit.js"

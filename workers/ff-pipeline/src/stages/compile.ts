@@ -217,7 +217,7 @@ async function runDryPass(
       const workGraph = {
         _key: wgKey,
         type: 'workgraph',
-        title: prd?.title ?? 'Dry-run WorkGraph',
+        title: prd?.title ?? 'Dry-run ExecutableSpecification',
         prdId: prdKey,
         atoms: ((state.atoms ?? []) as Record<string, unknown>[]).map(a => ({
           ...a,

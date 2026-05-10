@@ -130,7 +130,7 @@ describe('Ontology data constants', () => {
     expect(keys).toContain('Pressure')
     expect(keys).toContain('BusinessCapability')
     expect(keys).toContain('FunctionProposal')
-    expect(keys).toContain('WorkGraph')
+    expect(keys).toContain('ExecutableSpecification')
     expect(keys).toContain('BriefingScript')
     expect(keys).toContain('Verification')
     expect(keys).toContain('Gate')
@@ -264,7 +264,7 @@ describe('Ontology data constants', () => {
     const pressure = ONTOLOGY_CLASSES.find(c => c._key === 'Pressure')!
     expect(pressure.persistsIn).toBe('specs_pressures')
 
-    const wg = ONTOLOGY_CLASSES.find(c => c._key === 'WorkGraph')!
+    const wg = ONTOLOGY_CLASSES.find(c => c._key === 'ExecutableSpecification')!
     expect(wg.persistsIn).toBe('specs_workgraphs')
   })
 })
@@ -341,9 +341,9 @@ describe('getConstraintsForClass', () => {
     const db = createMockDb()
     await seedOntology(db as any)
 
-    const constraints = await getConstraintsForClass(db as any, 'WorkGraph')
+    const constraints = await getConstraintsForClass(db as any, 'ExecutableSpecification')
     expect(constraints.length).toBeGreaterThan(0)
-    // WorkGraph is targeted by C1 (lineage), C6 (reviewed), C13 (has atoms)
+    // ExecutableSpecification is targeted by C1 (lineage), C6 (reviewed), C13 (has atoms)
     const ids = constraints.map(c => c.constraintId)
     expect(ids).toContain('C1')
     expect(ids).toContain('C6')

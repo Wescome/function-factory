@@ -7,10 +7,10 @@
   "rationale": "Execution gap identified in semantic review capability delta",
   "capabilityId": "BC-META-SEMANTICALLY-REVIEW-PRDS",
   "name": "semantic_review_execution",
-  "purpose": "Execute a semantic review pass between Coherence Verification and WorkGraph emission",
+  "purpose": "Execute a semantic review pass between Coherence Verification and ExecutableSpecification emission",
   "functionType": "execution",
   "expectedInputs": [
-    "PRDDraft",
+    "IntentSpecification",
     "CoherenceVerificationReport",
     "doctrine sources"
   ],
@@ -22,7 +22,7 @@
     "bootstrap human-governed"
   ],
   "candidateInvariants": [
-    "semantic review is required before WorkGraph emission"
+    "semantic review is required before ExecutableSpecification emission"
   ],
   "successSignals": [
     "semantic review verdict persisted"

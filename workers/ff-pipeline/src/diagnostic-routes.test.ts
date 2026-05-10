@@ -77,7 +77,7 @@ function createEnv(overrides?: Record<string, unknown>) {
     ARANGO_DATABASE: 'function_factory_test',
     ARANGO_JWT: 'test-jwt',
     ENVIRONMENT: 'test',
-    GATES: { evaluateGate1: vi.fn() },
+    GATES: { evaluateCoherenceVerification: vi.fn() },
     FACTORY_PIPELINE: {
       create: vi.fn(),
       get: vi.fn(),
@@ -659,7 +659,7 @@ describe('ff-pipeline diagnostic routes', () => {
         type: 'gate-2',
         passed: true,
         report: {
-          gate: 2,
+          verification: "fidelity",
           overall: 'pass',
         },
       })
@@ -685,15 +685,12 @@ describe('ff-pipeline diagnostic routes', () => {
     expect(await jsonBody(response)).toMatchObject({
       persisted: true,
       fidelityVerificationReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
-      gate2ReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
       canonical: {
         soundVerification: {
           fidelityVerificationReportId: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
-          gate2ReportId: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
         },
         auditability: {
           fidelityVerificationReportId: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
-          gate2ReportId: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
         },
       },
     })
@@ -774,7 +771,7 @@ describe('ff-pipeline diagnostic routes', () => {
         id: 'MRP-EVIDENCE-MOTE4M1R',
         canonicalEvidence: expect.objectContaining({
           auditability: expect.objectContaining({
-            gate2ReportId: 'CR-MOTE4M1R-GATE2',
+            fidelityVerificationReportId: 'CR-MOTE4M1R-GATE2',
           }),
         }),
         sourceRefs: ['MRP-MOTE4M1R-G7I0-71', 'SIG-MOTILTZ0-6DGK'],
@@ -921,15 +918,12 @@ describe('ff-pipeline diagnostic routes', () => {
     expect(await jsonBody(response)).toMatchObject({
       persisted: true,
       fidelityVerificationReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
-      gate2ReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
       canonical: {
         soundVerification: {
           fidelityVerificationReportId: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
-          gate2ReportId: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
         },
         auditability: {
           fidelityVerificationReportId: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
-          gate2ReportId: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
         },
       },
     })
@@ -946,7 +940,7 @@ describe('ff-pipeline diagnostic routes', () => {
       new Request('https://ff-pipeline.example.com/debug/gate2-simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(makeGate2SimulationInput()),
+        body: JSON.stringify(makeFidelityVerificationSimulationInput()),
       }),
       createEnv() as never,
       { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
@@ -955,7 +949,7 @@ describe('ff-pipeline diagnostic routes', () => {
     expect(response.status).toBe(200)
     expect(await jsonBody(response)).toMatchObject({
       report: {
-        gate: 2,
+        verification: "fidelity",
         function_id: 'FN-MOTDWVR2-W7UN',
         overall: 'pass',
       },
@@ -967,7 +961,7 @@ describe('ff-pipeline diagnostic routes', () => {
     })
   })
 
-  it('POST /debug/gate2-simulate accepts normalized Gate2Input evidence', async () => {
+  it('POST /debug/gate2-simulate accepts normalized FidelityVerificationInput evidence', async () => {
     const { default: worker } = await import('./index')
 
     const response = await worker.fetch(
@@ -975,7 +969,7 @@ describe('ff-pipeline diagnostic routes', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          gate2Input: makeGate2ContractInput(),
+          fidelityVerificationInput: makeFidelityVerificationContractInput(),
           prdId: 'PRD-META-FUNCTION-SYNTHESIS',
           sourceRefs: ['MRP-MOTE4M1R-G7I0-71'],
         }),
@@ -988,7 +982,7 @@ describe('ff-pipeline diagnostic routes', () => {
     expect(await jsonBody(response)).toMatchObject({
       report: {
         id: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
-        gate: 2,
+        verification: "fidelity",
         function_id: 'FN-MOTDWVR2-W7UN',
         overall: 'pass',
         source_refs: expect.arrayContaining([
@@ -1015,7 +1009,7 @@ describe('ff-pipeline diagnostic routes', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          fidelityVerificationInput: makeGate2ContractInput(),
+          fidelityVerificationInput: makeFidelityVerificationContractInput(),
           prdId: 'PRD-META-FUNCTION-SYNTHESIS',
           sourceRefs: ['MRP-MOTE4M1R-G7I0-71'],
         }),
@@ -1028,7 +1022,7 @@ describe('ff-pipeline diagnostic routes', () => {
     expect(await jsonBody(response)).toMatchObject({
       report: {
         id: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
-        gate: 2,
+        verification: "fidelity",
         function_id: 'FN-MOTDWVR2-W7UN',
         overall: 'pass',
       },
@@ -1046,7 +1040,7 @@ describe('ff-pipeline diagnostic routes', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          fidelityVerificationInput: makeGate2ContractInput(),
+          fidelityVerificationInput: makeFidelityVerificationContractInput(),
           prdId: 'PRD-META-FUNCTION-SYNTHESIS',
           sourceRefs: ['MRP-MOTE4M1R-G7I0-71'],
           persist: true,
@@ -1079,7 +1073,7 @@ describe('ff-pipeline diagnostic routes', () => {
           'WG-META-FUNCTION-SYNTHESIS',
         ]),
         report: expect.objectContaining({
-          gate: 2,
+          verification: "fidelity",
           overall: 'pass',
         }),
         verdict: expect.objectContaining({
@@ -1097,7 +1091,7 @@ describe('ff-pipeline diagnostic routes', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          gate2Input: makeGate2ContractInput(),
+          fidelityVerificationInput: makeFidelityVerificationContractInput(),
           prdId: 'PRD-META-FUNCTION-SYNTHESIS',
           sourceRefs: ['MRP-MOTE4M1R-G7I0-71'],
           lifecycleDryRun: {
@@ -1123,15 +1117,15 @@ describe('ff-pipeline diagnostic routes', () => {
     expect(mockSave).not.toHaveBeenCalled()
   })
 
-  it('POST /debug/gate3-register persists a minimal Persistence Verification blocker report', async () => {
+  it('POST /debug/persistence-verification persists a minimal Persistence Verification blocker report', async () => {
     const { default: worker } = await import('./index')
 
     const response = await worker.fetch(
-      new Request('https://ff-pipeline.example.com/debug/gate3-register', {
+      new Request('https://ff-pipeline.example.com/debug/persistence-verification', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...makeGate3RegistrationInput(),
+          ...makePersistenceVerificationRegistrationInput(),
           persist: true,
         }),
       }),
@@ -1144,7 +1138,7 @@ describe('ff-pipeline diagnostic routes', () => {
       persisted: true,
       coverageReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE3-2026-05-07T22-00-00-000Z',
       report: {
-        gate: 3,
+        verification: "persistence",
         function_id: 'FN-MOTDWVR2-W7UN',
         overall: 'fail',
       },
@@ -1157,7 +1151,7 @@ describe('ff-pipeline diagnostic routes', () => {
         type: 'gate-3',
         passed: false,
         report: expect.objectContaining({
-          gate: 3,
+          verification: "persistence",
           overall: 'fail',
         }),
       }),
@@ -1172,7 +1166,7 @@ describe('ff-pipeline diagnostic routes', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...makeGate3RegistrationInput(),
+          ...makePersistenceVerificationRegistrationInput(),
           persist: true,
         }),
       }),
@@ -1185,7 +1179,7 @@ describe('ff-pipeline diagnostic routes', () => {
       persisted: true,
       persistenceVerificationReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE3-2026-05-07T22-00-00-000Z',
       report: {
-        gate: 3,
+        verification: "persistence",
         function_id: 'FN-MOTDWVR2-W7UN',
         overall: 'fail',
       },
@@ -1194,7 +1188,7 @@ describe('ff-pipeline diagnostic routes', () => {
 
   it('POST /debug/lifecycle-acceptance dry-runs produced to accepted from persisted Fidelity Verification evidence', async () => {
     const { default: worker } = await import('./index')
-    mockQueryOne.mockResolvedValueOnce(makeGate2CoverageReportRecord())
+    mockQueryOne.mockResolvedValueOnce(makeFidelityVerificationCoverageReportRecord())
     mockGet.mockResolvedValueOnce({
       _key: 'FN-MOTDWVR2-W7UN',
       lifecycleState: 'produced',
@@ -1217,7 +1211,6 @@ describe('ff-pipeline diagnostic routes', () => {
     expect(await jsonBody(response)).toMatchObject({
       applied: false,
       fidelityVerificationReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
-      gate2ReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
       lifecycleDryRun: {
         from: 'produced',
         to: 'accepted',
@@ -1233,7 +1226,7 @@ describe('ff-pipeline diagnostic routes', () => {
   it('POST /debug/lifecycle-acceptance can apply produced to accepted from persisted Fidelity Verification evidence', async () => {
     const { default: worker } = await import('./index')
     mockQueryOne
-      .mockResolvedValueOnce(makeGate2CoverageReportRecord())
+      .mockResolvedValueOnce(makeFidelityVerificationCoverageReportRecord())
       .mockResolvedValueOnce({ passed: true })
     mockGet
       .mockResolvedValueOnce({
@@ -1265,7 +1258,6 @@ describe('ff-pipeline diagnostic routes', () => {
       functionKey: 'FN-MOTDWVR2-W7UN',
       to: 'accepted',
       fidelityVerificationReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
-      gate2ReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
     })
     expect(mockUpdate).toHaveBeenCalledWith(
       'specs_functions',
@@ -1286,7 +1278,7 @@ describe('ff-pipeline diagnostic routes', () => {
 
   it('POST /debug/lifecycle-acceptance can repair a missing produced to accepted transition edge', async () => {
     const { default: worker } = await import('./index')
-    mockQueryOne.mockResolvedValueOnce(makeGate2CoverageReportRecord())
+    mockQueryOne.mockResolvedValueOnce(makeFidelityVerificationCoverageReportRecord())
     mockGet.mockResolvedValueOnce({
       _key: 'FN-MOTDWVR2-W7UN',
       lifecycleState: 'accepted',
@@ -1314,7 +1306,6 @@ describe('ff-pipeline diagnostic routes', () => {
       from: 'produced',
       to: 'accepted',
       fidelityVerificationReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
-      gate2ReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
       transition: {
         from: 'produced',
         to: 'accepted',
@@ -1757,7 +1748,7 @@ function makeCanonicalMRPEvidence(): Record<string, unknown> {
           result: 'pass',
         },
       ],
-      gate2ReportId: 'CR-MOTE4M1R-GATE2',
+      fidelityVerificationReportId: 'CR-MOTE4M1R-GATE2',
     },
     seHygiene: {
       mentorRuleCompliance: [
@@ -1778,7 +1769,7 @@ function makeCanonicalMRPEvidence(): Record<string, unknown> {
       prdId: 'PRD-MOTE4M1R-G7I0',
       semanticReviewId: 'SRR-MOTE4M1R-G7I0',
       coherenceVerificationReportId: 'CR-MOTE4M1R-GATE1',
-      gate2ReportId: 'CR-MOTE4M1R-GATE2',
+      fidelityVerificationReportId: 'CR-MOTE4M1R-GATE2',
       modelBindings: {
         planner: { provider: 'factory-runtime', model: 'observed' },
       },
@@ -1789,7 +1780,7 @@ function makeCanonicalMRPEvidence(): Record<string, unknown> {
   }
 }
 
-function makeGate2SimulationInput(): Record<string, unknown> {
+function makeFidelityVerificationSimulationInput(): Record<string, unknown> {
   return {
     functionId: 'FN-MOTDWVR2-W7UN',
     prdId: 'PRD-META-FUNCTION-SYNTHESIS',
@@ -1833,7 +1824,7 @@ function makeGate2SimulationInput(): Record<string, unknown> {
   }
 }
 
-function makeGate2ContractInput(): Record<string, unknown> {
+function makeFidelityVerificationContractInput(): Record<string, unknown> {
   return {
     synthesisRunId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
     functionId: 'FN-MOTDWVR2-W7UN',
@@ -1893,7 +1884,7 @@ function makeGate2ContractInput(): Record<string, unknown> {
   }
 }
 
-function makeGate3RegistrationInput(): Record<string, unknown> {
+function makePersistenceVerificationRegistrationInput(): Record<string, unknown> {
   return {
     functionId: 'FN-MOTDWVR2-W7UN',
     timestamp: '2026-05-07T22:00:00.000Z',
@@ -1925,7 +1916,7 @@ function makeGate3RegistrationInput(): Record<string, unknown> {
   }
 }
 
-function makeGate2CoverageReportRecord(): Record<string, unknown> {
+function makeFidelityVerificationCoverageReportRecord(): Record<string, unknown> {
   return {
     _key: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
     id: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
@@ -1933,7 +1924,7 @@ function makeGate2CoverageReportRecord(): Record<string, unknown> {
     passed: true,
     report: {
       id: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
-      gate: 2,
+      verification: "fidelity",
       function_id: 'FN-MOTDWVR2-W7UN',
       timestamp: '2026-05-07T22:34:30.000Z',
       overall: 'pass',

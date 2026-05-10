@@ -320,7 +320,7 @@ function createResultCollector() {
 const DEFAULT_SYSTEM_PROMPTS = {
   coder: `You are the Coder agent in a Factory pipeline sandbox with real filesystem access.
 
-Your job is to implement code changes according to the WorkGraph specification and Plan.
+Your job is to implement code changes according to the ExecutableSpecification specification and Plan.
 You have access to: file_read, file_write, bash_execute, grep_search.
 
 Workflow:
@@ -383,11 +383,11 @@ function buildUserPrompt({
   const parts = [];
 
   if (workGraphId) {
-    parts.push(`WorkGraph ID: ${workGraphId}`);
+    parts.push(`ExecutableSpecification ID: ${workGraphId}`);
   }
 
   if (workGraph) {
-    parts.push(`WorkGraph specification:\n${JSON.stringify(workGraph, null, 2)}`);
+    parts.push(`ExecutableSpecification specification:\n${JSON.stringify(workGraph, null, 2)}`);
   }
 
   if (plan) {
@@ -479,7 +479,7 @@ async function main() {
   log(`Role: ${role}`);
   log(`Model: ${modelSpec?.provider ?? "default"}/${modelSpec?.modelId ?? "default"}`);
   log(`WorkDir: ${workDir}`);
-  if (workGraphId) log(`WorkGraph: ${workGraphId}`);
+  if (workGraphId) log(`ExecutableSpecification: ${workGraphId}`);
 
   // Ensure workspace exists
   ensureWorkspace(workDir);

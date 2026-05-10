@@ -5,7 +5,7 @@
  * into the synthesis loop. Creates five real agents (one per role) and
  * orchestrates them: Planner -> Coder -> Critic -> (repair) -> Tester -> Verifier.
  *
- * JTBD: When the Factory needs to synthesize a Function from a WorkGraph,
+ * JTBD: When the Factory needs to synthesize a Function from a ExecutableSpecification,
  * I want a binding mode that creates governed agents per role with
  * enforced contracts, so the synthesis topology produces code under
  * strict role discipline.
@@ -13,7 +13,7 @@
  * AC 6, 7, 9, 14, 15
  */
 
-import type { ArchitectureCandidate, WorkGraph } from "@factory/schemas"
+import type { ArchitectureCandidate, ExecutableSpecification } from "@factory/schemas"
 import type { RoleContract } from "./role-contracts.js"
 import type {
   BindingMode,
@@ -71,7 +71,7 @@ export class PiAgentBindingMode implements BindingMode {
   }
 
   async execute(
-    workGraph: WorkGraph,
+    workGraph: ExecutableSpecification,
     candidate: ArchitectureCandidate,
     contracts: readonly RoleContract[],
     context: BindingModeContext,
@@ -100,7 +100,7 @@ export class PiAgentBindingMode implements BindingMode {
     const plannerAgent = agents.get("Planner")
     if (plannerAgent === undefined) throw new Error("Planner agent not found")
     await plannerAgent.prompt(
-      `Produce a plan for WorkGraph ${workGraph.id}. ` +
+      `Produce a plan for ExecutableSpecification ${workGraph.id}. ` +
       `Nodes: ${workGraph.nodes.map((n) => n.id).join(", ")}. ` +
       `Context: repair loop ${context.repairLoopCount}/${context.maxRepairLoops}.`,
     )
@@ -113,7 +113,7 @@ export class PiAgentBindingMode implements BindingMode {
     const coderAgent = agents.get("Coder")
     if (coderAgent === undefined) throw new Error("Coder agent not found")
     await coderAgent.prompt(
-      `Implement the plan for WorkGraph ${workGraph.id}. ` +
+      `Implement the plan for ExecutableSpecification ${workGraph.id}. ` +
       (context.previousCritique !== undefined
         ? `Previous critique: ${context.previousCritique}. `
         : "") +
@@ -128,7 +128,7 @@ export class PiAgentBindingMode implements BindingMode {
     const criticAgent = agents.get("Critic")
     if (criticAgent === undefined) throw new Error("Critic agent not found")
     await criticAgent.prompt(
-      `Review the plan and patches for WorkGraph ${workGraph.id}. ` +
+      `Review the plan and patches for ExecutableSpecification ${workGraph.id}. ` +
       "Identify defects, style issues, and contract violations.",
     )
     roleIterations.push(
@@ -140,7 +140,7 @@ export class PiAgentBindingMode implements BindingMode {
     const testerAgent = agents.get("Tester")
     if (testerAgent === undefined) throw new Error("Tester agent not found")
     await testerAgent.prompt(
-      `Design and execute tests for WorkGraph ${workGraph.id}. ` +
+      `Design and execute tests for ExecutableSpecification ${workGraph.id}. ` +
       "Validate the patches against the plan and critique.",
     )
     roleIterations.push(
@@ -152,7 +152,7 @@ export class PiAgentBindingMode implements BindingMode {
     const verifierAgent = agents.get("Verifier")
     if (verifierAgent === undefined) throw new Error("Verifier agent not found")
     await verifierAgent.prompt(
-      `Review all artifacts for WorkGraph ${workGraph.id}. ` +
+      `Review all artifacts for ExecutableSpecification ${workGraph.id}. ` +
       `Repair loop: ${context.repairLoopCount}/${context.maxRepairLoops}. ` +
       "Decide: pass, patch, resample, interrupt, or fail.",
     )
@@ -212,7 +212,7 @@ export class PiAgentBindingMode implements BindingMode {
    */
   createRoleAgent(
     contract: RoleContract,
-    workGraph: WorkGraph,
+    workGraph: ExecutableSpecification,
     candidate: ArchitectureCandidate,
     toolCallRecords: ToolCallRecord[],
     contractViolations: ContractViolation[],

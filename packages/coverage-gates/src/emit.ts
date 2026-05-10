@@ -2,12 +2,13 @@
  * Coherence Verification report emission.
  *
  * Writes a CoherenceVerificationReport to disk as YAML. Side-effect-bearing module,
- * separated from the pure orchestrator in gate-1.ts per PREFERENCES.md
+ * separated from the pure orchestrator in coherence-verification.ts per
+ * PREFERENCES.md
  * ("Pure functions wherever possible; side effects confined to named
  * integration modules").
  *
- * Filename convention per coverage-gate-1 SKILL.md-
- * `<coverageReportsDir>/CR-<PRD-ID>-GATE1-<timestamp>.yaml`
+ * Filename convention:
+ * `<coverageReportsDir>/<report-id>.yaml`
  */
 
 import { mkdir, writeFile } from "node:fs/promises"
@@ -35,6 +36,3 @@ export async function emitCoherenceVerificationReport(
   await writeFile(filepath, yaml, "utf8")
   return filepath
 }
-
-export const emitGate1Report = emitCoherenceVerificationReport
-export type Gate1Report = CoherenceVerificationReport

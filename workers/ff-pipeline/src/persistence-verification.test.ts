@@ -1,12 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { Gate3Report } from '@factory/schemas'
+import { PersistenceVerificationReport } from '@factory/schemas'
 import {
-  Gate3AssuranceError,
   PersistenceVerificationError,
-  evaluateGate3AssuranceRegistration,
   evaluatePersistenceVerificationRegistration,
   type PersistenceVerificationRegistrationInput,
-} from './gate3-assurance'
+} from './persistence-verification'
 
 function makeInput(overrides: Partial<PersistenceVerificationRegistrationInput> = {}): PersistenceVerificationRegistrationInput {
   return {
@@ -42,17 +40,12 @@ function makeInput(overrides: Partial<PersistenceVerificationRegistrationInput> 
 }
 
 describe('Persistence Verification registration', () => {
-  it('keeps legacy Gate 3 assurance exports as compatibility aliases', () => {
-    expect(Gate3AssuranceError).toBe(PersistenceVerificationError)
-    expect(evaluateGate3AssuranceRegistration).toBe(evaluatePersistenceVerificationRegistration)
-  })
-
   it('emits a failing Persistence Verification report for incomplete assurance registration', () => {
     const report = evaluatePersistenceVerificationRegistration(makeInput())
 
     expect(report).toMatchObject({
       id: 'CR-FN-MOTDWVR2-W7UN-GATE3-2026-05-07T22-00-00-000Z',
-      gate: 3,
+      verification: "persistence",
       function_id: 'FN-MOTDWVR2-W7UN',
       overall: 'fail',
       checks: {
@@ -93,6 +86,6 @@ describe('Persistence Verification registration', () => {
       'MRP-MOTE4M1R-G7I0-71',
       'INV-META-RUNTIME-VERIFICATION-COVERS-SMOKE',
     ]))
-    expect(Gate3Report.safeParse(report).success).toBe(true)
+    expect(PersistenceVerificationReport.safeParse(report).success).toBe(true)
   })
 })

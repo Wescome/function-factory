@@ -1,17 +1,24 @@
+import {
+  CodingDomainAdapterContract,
+  DomainExecutionEvidence,
+  DomainExecutionRequest,
+  ArtifactId,
+} from '@factory/schemas'
+
 // ────────────────────────────────────────────────────────────
-// PipelineWorkGraph — typed WorkGraph as it flows through synthesis
+// PipelineWorkGraph — typed ExecutableSpecification as it flows through synthesis
 // ────────────────────────────────────────────────────────────
 
 /**
- * WorkGraph as it flows through the synthesis pipeline.
- * Extends the canonical Zod-validated shape (packages/schemas WorkGraph)
+ * ExecutableSpecification as it flows through the synthesis pipeline.
+ * Extends the canonical Zod-validated shape (packages/schemas ExecutableSpecification)
  * with ArangoDB document fields and pipeline-specific execution fields.
  *
  * The index signature preserves forward compatibility — the pipeline
  * dynamically adds fields, but known fields are now typed.
  */
 export interface PipelineWorkGraph {
-  // Canonical fields (from @factory/schemas WorkGraph)
+  // Canonical fields (from @factory/schemas ExecutableSpecification)
   id: string
   functionId?: string
   nodes?: WorkGraphNodeShape[]
@@ -169,8 +176,8 @@ export interface GraphState {
   semanticReview: unknown | null
   coherenceVerificationPassed: boolean
   coherenceVerificationReport: unknown | null
-  gate1Passed: boolean
-  gate1Report: unknown | null
+  domainExecutionRequest: DomainExecutionRequest
+  domainExecutionEvidence: DomainExecutionEvidence | null
   compiledPrd: unknown | null
 
   // v4.1: per-atom retry isolation — which atoms need retry (null = retry all)
@@ -197,6 +204,8 @@ export function createInitialState(
   workGraph: PipelineWorkGraph,
   opts?: { maxRepairs?: number; maxTokens?: number; specContent?: string | null },
 ): GraphState {
+  const domainExecutionRequest = buildDomainExecutionRequest(workGraphId, workGraph)
+
   return {
     workGraphId,
     workGraph,
@@ -222,8 +231,8 @@ export function createInitialState(
     semanticReview: null,
     coherenceVerificationPassed: false,
     coherenceVerificationReport: null,
-    gate1Passed: false,
-    gate1Report: null,
+    domainExecutionRequest,
+    domainExecutionEvidence: null,
     compiledPrd: null,
     sandboxName: null,
     freshBackupHandle: null,
@@ -231,4 +240,72 @@ export function createInitialState(
     executionMode: null,
     workspaceReady: false,
   }
+}
+
+function buildDomainExecutionRequest(
+  executableSpecificationId: string,
+  executableSpecification: PipelineWorkGraph,
+): DomainExecutionRequest {
+  const intentSpecificationId = intentSpecificationIdFromExecutableSpecification(
+    executableSpecification,
+  )
+
+  return DomainExecutionRequest.parse({
+    adapterId: CodingDomainAdapterContract.adapterId,
+    functionId: artifactIdOrDerived('FN', executableSpecification.functionId ?? executableSpecificationId),
+    intentSpecificationId,
+    executableSpecificationId: artifactIdOrDerived('WG', executableSpecificationId),
+    runId: `synthesis-${executableSpecificationId}`,
+    mode: 'execute',
+    parameters: {
+      substrate: CodingDomainAdapterContract.substrate,
+    },
+  })
+}
+
+function intentSpecificationIdFromExecutableSpecification(
+  executableSpecification: PipelineWorkGraph,
+): ArtifactId {
+  if (typeof executableSpecification.prdId === 'string' && executableSpecification.prdId.length > 0) {
+    return artifactIdOrDerived('PRD', executableSpecification.prdId)
+  }
+
+  const sourceRefs = executableSpecification.source_refs ?? []
+  const sourceIntentSpecificationId = sourceRefs.find((ref) => ref.startsWith('PRD-'))
+  if (sourceIntentSpecificationId !== undefined) {
+    return artifactIdOrDerived('PRD', sourceIntentSpecificationId)
+  }
+
+  const id = executableSpecification.id
+  const subject = id.startsWith('WG-') ? id.slice(3) : id
+  return artifactIdOrDerived('PRD', `PRD-${subject}`)
+}
+
+function artifactIdOrDerived(prefix: 'FN' | 'PRD' | 'WG', candidate: string): ArtifactId {
+  const parsed = ArtifactId.safeParse(candidate)
+  if (parsed.success) return parsed.data
+
+  const subject = candidate
+    .replace(/^[A-Za-z]+-/, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    || 'UNKNOWN'
+  return ArtifactId.parse(`${prefix}-${subject}`)
+}
+
+export function buildDomainExecutionEvidence(
+  request: DomainExecutionRequest,
+  status: DomainExecutionEvidence['status'],
+  evidenceRefs: readonly string[],
+  observationSummary: string,
+): DomainExecutionEvidence {
+  return DomainExecutionEvidence.parse({
+    adapterId: request.adapterId,
+    executableSpecificationId: request.executableSpecificationId,
+    runId: request.runId,
+    status,
+    evidenceRefs: [...evidenceRefs],
+    observationSummary,
+  })
 }

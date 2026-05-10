@@ -1,6 +1,6 @@
 import {
-  Gate3Report,
-  type Gate3Report as Gate3ReportType,
+  PersistenceVerificationReport,
+  type PersistenceVerificationReport as PersistenceVerificationReportType,
 } from '@factory/schemas'
 
 export interface PersistenceVerificationDetectorRegistration {
@@ -30,19 +30,12 @@ export interface PersistenceVerificationRegistrationInput {
   }
 }
 
-export type Gate3DetectorRegistration = PersistenceVerificationDetectorRegistration
-export type Gate3EvidenceSourceRegistration = PersistenceVerificationEvidenceSourceRegistration
-export type Gate3AssuranceRegistrationInput = PersistenceVerificationRegistrationInput
-export type PersistenceVerificationReport = Gate3ReportType
-
 export class PersistenceVerificationError extends Error {
   constructor(message: string) {
     super(message)
     this.name = 'PersistenceVerificationError'
   }
 }
-
-export const Gate3AssuranceError = PersistenceVerificationError
 
 function assertNonEmpty(value: unknown, field: string): asserts value is string {
   if (typeof value !== 'string' || value.trim().length === 0) {
@@ -69,7 +62,7 @@ function divergencePct(expected: number, observed: number): number {
   return Math.abs(expected - observed) / expected
 }
 
-export function evaluatePersistenceVerificationRegistration(input: PersistenceVerificationRegistrationInput): Gate3ReportType {
+export function evaluatePersistenceVerificationRegistration(input: PersistenceVerificationRegistrationInput): PersistenceVerificationReportType {
   assertNonEmpty(input.functionId, 'functionId')
   assertNonEmpty(input.timestamp, 'timestamp')
   assertArray(input.sourceRefs, 'sourceRefs')
@@ -120,9 +113,9 @@ export function evaluatePersistenceVerificationRegistration(input: PersistenceVe
     ? 'Persistence Verification passed.'
     : 'Register active detectors, restore quiet evidence sources, and reconcile audit-pipeline event divergence before monitored promotion.'
 
-  return Gate3Report.parse({
+  return PersistenceVerificationReport.parse({
     id: reportId(input.functionId, input.timestamp),
-    gate: 3,
+    verification: "persistence",
     function_id: input.functionId,
     timestamp: input.timestamp,
     overall,
@@ -157,5 +150,3 @@ export function evaluatePersistenceVerificationRegistration(input: PersistenceVe
     rationale: 'Persistence Verification report produced from normalized detector and evidence-source registration.',
   })
 }
-
-export const evaluateGate3AssuranceRegistration = evaluatePersistenceVerificationRegistration

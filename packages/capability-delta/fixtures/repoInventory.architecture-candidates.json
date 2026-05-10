@@ -12,20 +12,20 @@
     "Pressure",
     "BusinessCapability",
     "FunctionProposal",
-    "PRDDraft",
+    "IntentSpecification",
     "RequirementAtom",
     "Contract",
     "Invariant",
     "Dependency",
     "ValidationSpec",
-    "WorkGraph",
+    "ExecutableSpecification",
     "TrustSignal",
     "Trajectory",
     "ProblemFrame",
     "Incident",
-    "Gate1Report",
-    "Gate2Report",
-    "Gate3Report",
+    "CoherenceVerificationReport",
+    "FidelityVerificationReport",
+    "PersistenceVerificationReport",
     "CommitTriageReport",
     "CapabilityDelta"
   ],
@@ -54,7 +54,7 @@
     "capabilityDelta": 19
   },
   "notes": [
-    "Intent-to-Executable compiler emits WorkGraph but not ArchitectureCandidate.",
+    "Intent-to-Executable compiler emits ExecutableSpecification but not ArchitectureCandidate.",
     "No AC-* prefix or ArchitectureCandidate schema exists yet.",
     "No candidate topology/binding/tool-policy/convergence-policy artifacts are persisted."
   ]

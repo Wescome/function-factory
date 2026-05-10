@@ -14,7 +14,7 @@ export function emitArchitectureCandidate(input: CandidateEmissionInput): Archit
     id: architectureCandidateIdFromPrdId(sourcePrdId),
     source_refs: [...sourceRefs],
     explicitness: "inferred",
-    rationale: "Derived deterministically from compiled PRD and emitted WorkGraph in the paired-emission bootstrap path.",
+    rationale: "Derived deterministically from compiled PRD and emitted ExecutableSpecification in the paired-emission bootstrap path.",
     sourcePrdId,
     sourceWorkGraphId,
     candidateStatus: "proposed",

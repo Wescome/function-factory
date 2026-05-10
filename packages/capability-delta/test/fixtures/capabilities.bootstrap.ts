@@ -35,7 +35,7 @@ export const bootstrapCapabilities: readonly BusinessCapability[] = [
       "Derived from the documented gap between Coherence Verification success and conceptual correctness.",
     name: "semantically_review_prds",
     purpose:
-      "Perform fail-closed semantic review between Coherence Verification success and WorkGraph emission.",
+      "Perform fail-closed semantic review between Coherence Verification success and ExecutableSpecification emission.",
     addressesPressureIds: ["PRS-META-SEMANTIC-REVIEW-GAP"],
     desiredOutcomes: [
       "Structurally valid but conceptually wrong PRDs are blocked.",
@@ -46,7 +46,7 @@ export const bootstrapCapabilities: readonly BusinessCapability[] = [
       "Bootstrap path remains human-governed."
     ],
     successMetrics: [
-      "Semantic review status is required before WorkGraph emission."
+      "Semantic review status is required before ExecutableSpecification emission."
     ],
     affectedPersonas: ["architect", "critic-agent"],
     strategicPriority: 0.92,
@@ -57,7 +57,7 @@ export const bootstrapCapabilities: readonly BusinessCapability[] = [
     source_refs: ["PRS-META-CANDIDATE-EMISSION-GAP"],
     explicitness: "inferred",
     rationale:
-      "Derived from the whitepaper v2 requirement that Intent-to-Executable compilation emit WorkGraph plus ArchitectureCandidate artifacts.",
+      "Derived from the whitepaper v2 requirement that Intent-to-Executable compilation emit ExecutableSpecification plus ArchitectureCandidate artifacts.",
     name: "emit_architecture_candidates",
     purpose:
       "Emit candidate-bound execution artifacts alongside WorkGraphs at the end of Intent-to-Executable compilation.",
@@ -67,10 +67,10 @@ export const bootstrapCapabilities: readonly BusinessCapability[] = [
       "Intent-to-Executable output aligns with v2 paired-emission doctrine."
     ],
     constraints: [
-      "Must not pollute WorkGraph with runtime-only execution details."
+      "Must not pollute ExecutableSpecification with runtime-only execution details."
     ],
     successMetrics: [
-      "At least one ArchitectureCandidate artifact emitted alongside each eligible WorkGraph."
+      "At least one ArchitectureCandidate artifact emitted alongside each eligible ExecutableSpecification."
     ],
     affectedPersonas: ["architect", "compiler-agent"],
     strategicPriority: 0.94,

@@ -11,7 +11,6 @@ export interface SynthesisMaterializationAudit {
   proposalId: string
   workGraphId: string
   coherenceVerificationPassed?: boolean
-  gate1Passed?: boolean
   atomResults: Array<{
     atomId: string
     decision: string
@@ -46,7 +45,7 @@ export class SynthesisPRDraftError extends Error {
 }
 
 export function auditCoherenceVerificationPassed(audit: SynthesisMaterializationAudit): boolean {
-  return audit.coherenceVerificationPassed ?? audit.gate1Passed ?? false
+  return audit.coherenceVerificationPassed ?? audit.coherenceVerificationPassed ?? false
 }
 
 function assertReadyForPR(audit: SynthesisMaterializationAudit): void {
@@ -82,7 +81,7 @@ export function buildSynthesisPRDraft(audit: SynthesisMaterializationAudit): Syn
     '## Factory Synthesis Materialization',
     '',
     `Pipeline: \`${audit.pipelineId}\``,
-    `WorkGraph: \`${audit.workGraphId}\``,
+    `ExecutableSpecification: \`${audit.workGraphId}\``,
     `Proposal: \`${audit.proposalId}\``,
     `Runtime status: \`${audit.runtimeStatus}\``,
     `Coherence Verification: \`${coherenceVerificationPassed ? 'pass' : 'fail'}\``,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { runCoherenceVerification, runGate1, type CoherenceVerificationInput } from "./gate-1.js"
+import { runCoherenceVerification, type CoherenceVerificationInput } from "./coherence-verification.js"
 import { CoherenceVerificationReport } from "@factory/schemas"
 import {
   makeAtom,
@@ -33,10 +33,6 @@ function passingInput(mode: CoherenceVerificationInput["mode"] = "bootstrap"): C
 }
 
 describe("runCoherenceVerification", () => {
-  it("keeps legacy Gate 1 evaluator as a compatibility alias", () => {
-    expect(runGate1).toBe(runCoherenceVerification)
-  })
-
   it("produces a CoherenceVerificationReport that validates against the Zod schema", () => {
     const report = runCoherenceVerification(passingInput(), TIMESTAMP)
     const parsed = CoherenceVerificationReport.safeParse(report)

@@ -34,7 +34,6 @@ describe('runtime verification synthesis smoke records', () => {
     expect(record).toMatchObject({
       lineage: result.lineage,
       coherenceVerificationVerdict: 'pass',
-      gate1Verdict: 'pass',
       atomVerdict: 'success',
       evidence: result.evidence,
       validationPassed: true,
@@ -129,13 +128,4 @@ describe('runtime verification synthesis smoke records', () => {
     )
   })
 
-  it('accepts legacy gate1Verdict smoke inputs as compatibility evidence', () => {
-    const result = makeResult({ gate1Verdict: 'pass' })
-    delete result.coherenceVerificationVerdict
-
-    expect(recordSynthesisSmokeResult(result)).toMatchObject({
-      coherenceVerificationVerdict: 'pass',
-      gate1Verdict: 'pass',
-    })
-  })
 })

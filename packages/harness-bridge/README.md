@@ -1,24 +1,24 @@
 # @factory/harness-bridge
 
-Harness-agnostic execution bridge that dispatches WorkGraph nodes through pluggable adapters, producing deterministic execution plans and structured ExecutionLog artifacts.
+Harness-agnostic execution bridge that dispatches ExecutableSpecification nodes through pluggable adapters, producing deterministic execution plans and structured ExecutionLog artifacts.
 
 ## Ontology Alias
 
 Ontology v0.2 adopts Natural-Language Agent Harness terminology for runtime
 structure. This package is the current compatibility surface for harness
 adapters over WorkGraphs, which are aliased as `Executable Specifications`.
-The package name and WorkGraph APIs remain unchanged.
+The package name and ExecutableSpecification APIs remain unchanged.
 
 ## Pipeline Position
 
 **Stage:** Cross-cutting Agent Call execution infrastructure (legacy Stage 6)
-**Consumes:** `WG-*` (WorkGraph)
+**Consumes:** `WG-*` (ExecutableSpecification)
 **Produces:** `EL-*` (ExecutionLog artifacts as YAML)
 
 ## Exports
 
-- `derivePlan()` -- Deterministic dispatch plan from a WorkGraph (alphabetical node ordering)
-- `harnessExecute()` -- Orchestrator that validates a WorkGraph, resolves an adapter, dispatches each node, and returns an ExecutionLog
+- `derivePlan()` -- Deterministic dispatch plan from a ExecutableSpecification (alphabetical node ordering)
+- `harnessExecute()` -- Orchestrator that validates a ExecutableSpecification, resolves an adapter, dispatches each node, and returns an ExecutionLog
 - `registerAdapter()` -- Registers a HarnessAdapter in an adapter registry
 - `emitExecutionLog()` -- Writes an ExecutionLog to disk as YAML
 - `dryRunAdapter` -- Reference adapter that simulates execution with status `simulated`
@@ -28,7 +28,7 @@ The package name and WorkGraph APIs remain unchanged.
 
 ## Key Invariants
 
-- WorkGraph is schema-validated at the boundary before any adapter invocation
+- ExecutableSpecification is schema-validated at the boundary before any adapter invocation
 - Missing adapter produces an ExecutionLog with `adapter_unavailable` status, never a thrown exception
 - Per-node adapter failures produce `failed` status; the harness does not retry or roll back
 - Plan fields are deterministic; outcome fields may vary across invocations
@@ -36,5 +36,5 @@ The package name and WorkGraph APIs remain unchanged.
 
 ## Dependencies
 
-- `@factory/schemas` -- `WorkGraph`, `ExecutionLog`, `ExecutionNodeRecord` schemas
+- `@factory/schemas` -- `ExecutableSpecification`, `ExecutionLog`, `ExecutionNodeRecord` schemas
 - `yaml` -- YAML serialization for log emission

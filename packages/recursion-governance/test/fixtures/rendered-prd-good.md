@@ -13,7 +13,7 @@ title: Architecture Candidate Execution Engine
 # Architecture Candidate Execution Engine
 
 ## Problem
-The current Intent-to-Executable compiler emits WorkGraph artifacts, but it does not emit ArchitectureCandidate artifacts that make the execution arrangement explicit before runtime exists.
+The current Intent-to-Executable compiler emits ExecutableSpecification artifacts, but it does not emit ArchitectureCandidate artifacts that make the execution arrangement explicit before runtime exists.
 
 ## Goal
 Implement a deterministic architecture-candidate execution engine that renders explicit candidate artifacts alongside WorkGraphs, capturing candidate execution arrangement without modifying compiler behavior in this bridge step.

@@ -17,7 +17,7 @@ interface ArchitectureCandidate {
   created_at: string;
   source_refs: SourceRef[];
 
-  /** Fingerprint of the WorkGraph this candidate was generated for. */
+  /** Fingerprint of the ExecutableSpecification this candidate was generated for. */
   workgraph_fingerprint: string;
 
   /** Which routing rules produced this candidate. */
@@ -43,7 +43,7 @@ interface ArchitectureCandidate {
   /** When to stop: first pass, verifier required, trace complete. */
   convergence_policy: ConvergencePolicy;
 
-  /** Which node type in the WorkGraph this candidate targets. */
+  /** Which node type in the ExecutableSpecification this candidate targets. */
   node_type_applied: NodeType;
 
   /** Conditions under which this candidate is applicable. */
@@ -157,7 +157,7 @@ function blendedLineageReliability(
  * Acceptance review decides whether the result is accepted.
  */
 declare function search_selectCandidate(
-  workGraph: WorkGraph,
+  workGraph: ExecutableSpecification,
   routingTablePath: string,
   lineageObservationCounts: Record<string, number>
 ): {
@@ -198,7 +198,7 @@ interface DecisionState {
 
   /** C (Context): operational state the role must act within. Set at D0, enriched by Planner. */
   context: {
-    work_graph: WorkGraph;
+    work_graph: ExecutableSpecification;
     target_node_ids: string[];
     edit_scopes: string[];
     repo_context: string;
@@ -272,7 +272,7 @@ declare function execution_enforceWriteDomain(
  *
  * Maps the nine algebra elements:
  *   I <- PRD title + contracts + invariants
- *   C <- WorkGraph + targetNodeIds + editScopes + repoContext
+ *   C <- ExecutableSpecification + targetNodeIds + editScopes + repoContext
  *   P <- Candidate's convergence_policy + tool_policy + model_binding
  *   E <- empty at D0
  *   A <- Candidate scope constraints
@@ -282,7 +282,7 @@ declare function execution_enforceWriteDomain(
  *   T <- { repair_loop_count: 0, max_repair_loops: from candidate }
  */
 declare function execution_buildInitialDecisionState(
-  workGraph: WorkGraph,
+  workGraph: ExecutableSpecification,
   candidate: ArchitectureCandidate,
   prd: PRD
 ): DecisionState;
@@ -534,7 +534,7 @@ interface ConvergencePolicy {
 /**
  * The Execution Context's primary operation.
  *
- * Given a WorkGraph, ArchitectureCandidate, and PRD:
+ * Given a ExecutableSpecification, ArchitectureCandidate, and PRD:
  *   1. Build initial DecisionState (D0) via ACL
  *   2. Admit to runtime (check candidate admissibility, resources, policy)
  *   3. Run the repair loop (five-role topology with DCE at Verifier)
@@ -545,7 +545,7 @@ interface ConvergencePolicy {
  * to the Assurance Context. The boundary is the FidelityVerificationInput ACL.
  */
 declare function execution_runDarkFactory(
-  workGraph: WorkGraph,
+  workGraph: ExecutableSpecification,
   candidate: ArchitectureCandidate,
   prd: PRD
 ): {

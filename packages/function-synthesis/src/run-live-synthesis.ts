@@ -8,7 +8,7 @@
  * JTBD: When the Factory attempts its first autonomous code production,
  * I want a runner that wires real LLM calls into the five-role synthesis
  * topology, so we can observe whether the Factory can produce working
- * code from a WorkGraph specification.
+ * code from a ExecutableSpecification specification.
  *
  * Usage: npx tsx packages/function-synthesis/src/run-live-synthesis.ts
  */
@@ -17,7 +17,7 @@ import { readFileSync, mkdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 
 // ─── YAML Parser (minimal, no dependency) ────────────────────────────
-// The WorkGraph YAML is simple enough to parse with basic string ops.
+// The ExecutableSpecification YAML is simple enough to parse with basic string ops.
 // We need: id, functionId, nodes[], edges[]
 
 function parseSimpleYaml(text: string): Record<string, unknown> {
@@ -108,7 +108,7 @@ function parseSimpleYaml(text: string): Record<string, unknown> {
 
 // ─── Imports from synthesis package ──────────────────────────────────
 
-import type { ArchitectureCandidate, WorkGraph } from "@factory/schemas"
+import type { ArchitectureCandidate, ExecutableSpecification } from "@factory/schemas"
 import type { RoleContract } from "./role-contracts.js"
 import type { BindingMode, BindingModeOutput, BindingModeContext } from "./binding-mode.js"
 import type { RoleName, ToolCallRecord, RoleIterationRecord, PatchProposal } from "./types.js"
@@ -191,7 +191,7 @@ class LivePiAgentBindingMode implements BindingMode {
   }
 
   async execute(
-    workGraph: WorkGraph,
+    workGraph: ExecutableSpecification,
     candidate: ArchitectureCandidate,
     contracts: readonly RoleContract[],
     context: BindingModeContext,
@@ -214,7 +214,7 @@ class LivePiAgentBindingMode implements BindingMode {
         name: "Planner",
         buildPrompt: () =>
           `You are planning the implementation of a commit classification function.\n\n` +
-          `WorkGraph: ${workGraph.id}\n` +
+          `ExecutableSpecification: ${workGraph.id}\n` +
           `Function: ${workGraph.functionId}\n` +
           `Nodes:\n${workGraph.nodes.map((n) => `  - ${n.id}: ${n.title} (${n.type})`).join("\n")}\n\n` +
           `Your task: Produce a detailed implementation plan for a TypeScript commit classifier.\n` +
@@ -458,7 +458,7 @@ class LivePiAgentBindingMode implements BindingMode {
 
 async function main() {
   console.log("=== FIRST LIVE SYNTHESIS ===")
-  console.log(`WorkGraph: WG-V2-CLASSIFY-COMMITS`)
+  console.log(`ExecutableSpecification: WG-V2-CLASSIFY-COMMITS`)
   console.log(`Candidate: Haiku-everywhere`)
   console.log(`Binding mode: PiAgentBindingMode (pi-ai — 22-provider unified API)`)
   console.log(`Output dir: ${OUTPUT_DIR}`)
@@ -479,19 +479,19 @@ async function main() {
   // ─── Ensure output directory ───────────────────────────────────
   mkdirSync(OUTPUT_DIR, { recursive: true })
 
-  // ─── Load WorkGraph ────────────────────────────────────────────
+  // ─── Load ExecutableSpecification ────────────────────────────────────────────
   const wgPath = join(process.cwd(), "specs/workgraphs/WG-V2-CLASSIFY-COMMITS.yaml")
-  console.log(`Loading WorkGraph from: ${wgPath}`)
+  console.log(`Loading ExecutableSpecification from: ${wgPath}`)
   const wgYaml = readFileSync(wgPath, "utf-8")
   const wgRaw = parseSimpleYaml(wgYaml)
 
-  // Build a WorkGraph-shaped object (bypass zod for the runner since
+  // Build a ExecutableSpecification-shaped object (bypass zod for the runner since
   // the YAML doesn't have lineage fields the schema requires)
   const workGraph = {
     id: String(wgRaw.id ?? "WG-V2-CLASSIFY-COMMITS"),
     source_refs: (wgRaw.source_refs as string[]) ?? [],
     explicitness: "explicit" as const,
-    rationale: String(wgRaw.rationale ?? "WorkGraph for classify-commits"),
+    rationale: String(wgRaw.rationale ?? "ExecutableSpecification for classify-commits"),
     functionId: String(wgRaw.functionId ?? "FP-V2-CLASSIFY-COMMITS"),
     nodes: ((wgRaw.nodes as Record<string, unknown>[]) ?? []).map((n) => ({
       id: String(n.id ?? ""),
@@ -504,9 +504,9 @@ async function main() {
       to: String(e.to ?? ""),
       dependencyType: e.dependencyType ? String(e.dependencyType) : undefined,
     })),
-  } as unknown as WorkGraph
+  } as unknown as ExecutableSpecification
 
-  console.log(`WorkGraph loaded: ${workGraph.nodes.length} nodes, ${workGraph.edges.length} edges`)
+  console.log(`ExecutableSpecification loaded: ${workGraph.nodes.length} nodes, ${workGraph.edges.length} edges`)
   console.log("")
 
   // ─── Create Architecture Candidate ─────────────────────────────

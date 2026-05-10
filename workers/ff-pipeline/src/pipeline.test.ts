@@ -128,8 +128,8 @@ function createMockEnv(overrides?: Partial<Record<string, unknown>>) {
     ARANGO_JWT: 'test-jwt',
     ENVIRONMENT: 'test',
     GATES: {
-      evaluateGate1: vi.fn(async () => ({
-        gate: 1,
+      evaluateCoherenceVerification: vi.fn(async () => ({
+        verification: "coherence",
         passed: true,
         timestamp: '2026-04-25T00:00:00Z',
         workGraphId: 'WG-TEST',
@@ -215,7 +215,7 @@ vi.mock('./stages/compile', () => ({
     ...state,
     workGraph: {
       _key: 'WG-TEST',
-      title: 'Test WorkGraph',
+      title: 'Test ExecutableSpecification',
       atoms: [{ id: 'a1', description: 'test atom' }],
       invariants: [],
       dependencies: [],
@@ -407,8 +407,8 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
 
       const env = createMockEnv({
         GATES: {
-          evaluateGate1: vi.fn(async () => ({
-            gate: 1,
+          evaluateCoherenceVerification: vi.fn(async () => ({
+            verification: "coherence",
             passed: false,
             timestamp: '2026-04-25T00:00:00Z',
             workGraphId: 'WG-TEST',
@@ -711,7 +711,7 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
     })
   })
 
-  describe('no WorkGraph edge case', () => {
+  describe('no ExecutableSpecification edge case', () => {
 
     it('returns compile-incomplete when workGraph is null after compilation', async () => {
       // Temporarily override compilePRD to return null workGraph
@@ -1319,8 +1319,8 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
       const env = createMockEnv({
         SYNTHESIS_QUEUE: { send: mockQueueSend },
         GATES: {
-          evaluateGate1: vi.fn(async () => ({
-            gate: 1,
+          evaluateCoherenceVerification: vi.fn(async () => ({
+            verification: "coherence",
             passed: false,
             timestamp: '2026-04-25T00:00:00Z',
             workGraphId: 'WG-TEST',

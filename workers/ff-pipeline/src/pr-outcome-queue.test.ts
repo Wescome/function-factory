@@ -64,7 +64,7 @@ function createEnv() {
     ARANGO_DATABASE: 'test',
     ARANGO_JWT: 'test-jwt',
     ENVIRONMENT: 'test',
-    GATES: { evaluateGate1: vi.fn() },
+    GATES: { evaluateCoherenceVerification: vi.fn() },
     FACTORY_PIPELINE: { create: vi.fn(), get: vi.fn() },
     COORDINATOR: { idFromName: vi.fn(), get: vi.fn() },
     ATOM_EXECUTOR: { idFromName: vi.fn(), get: vi.fn() },

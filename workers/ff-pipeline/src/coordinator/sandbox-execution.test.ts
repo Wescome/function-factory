@@ -123,7 +123,7 @@ function makeState(overrides: Partial<GraphState> = {}): GraphState {
   return {
     ...createInitialState('WG-C11', {
       id: 'WG-C11',
-      title: 'Phase C Test WorkGraph',
+      title: 'Phase C Test ExecutableSpecification',
       atoms: [{ id: 'atom-001', description: 'Implement handler', assignedTo: 'coder' }],
       invariants: [{ id: 'INV-001', condition: 'no crashes', severity: 'critical' }],
       dependencies: [],

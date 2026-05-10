@@ -122,7 +122,6 @@ export interface CanonicalMRPEvidence {
       result: 'pass' | 'fail'
     }>
     fidelityVerificationReportId?: string
-    gate2ReportId?: string
     coveragePercentage?: number
   }
   seHygiene?: {
@@ -151,9 +150,7 @@ export interface CanonicalMRPEvidence {
     prdId?: string
     semanticReviewId?: string
     coherenceVerificationReportId?: string
-    gate1ReportId?: string
     fidelityVerificationReportId?: string
-    gate2ReportId?: string
     sessionTreeId?: string
     modelBindings?: Record<string, { provider: string; model: string }>
     mentorRulesApplied?: string[]
@@ -368,13 +365,6 @@ function canonicalFunctionId(pack: MergeReadinessPack, evidence: CanonicalMRPEvi
   return derived
 }
 
-export function withGate2ReportEvidence(
-  evidence: CanonicalMRPEvidence,
-  gate2ReportId: string,
-): CanonicalMRPEvidence {
-  return withFidelityVerificationReportEvidence(evidence, gate2ReportId)
-}
-
 export function withFidelityVerificationReportEvidence(
   evidence: CanonicalMRPEvidence,
   fidelityVerificationReportId: string,
@@ -385,26 +375,24 @@ export function withFidelityVerificationReportEvidence(
     soundVerification: {
       ...evidence.soundVerification,
       fidelityVerificationReportId,
-      gate2ReportId: fidelityVerificationReportId,
     },
     auditability: {
       ...evidence.auditability,
       fidelityVerificationReportId,
-      gate2ReportId: fidelityVerificationReportId,
     },
   }
 }
 
 function fidelityVerificationReportId(
-  evidence: { fidelityVerificationReportId?: string; gate2ReportId?: string } | undefined,
+  evidence: { fidelityVerificationReportId?: string } | undefined,
 ): string | undefined {
-  return evidence?.fidelityVerificationReportId ?? evidence?.gate2ReportId
+  return evidence?.fidelityVerificationReportId
 }
 
 function coherenceVerificationReportId(
-  evidence: { coherenceVerificationReportId?: string; gate1ReportId?: string } | undefined,
+  evidence: { coherenceVerificationReportId?: string } | undefined,
 ): string | undefined {
-  return evidence?.coherenceVerificationReportId ?? evidence?.gate1ReportId
+  return evidence?.coherenceVerificationReportId
 }
 
 function assertPackReadyForPersistence(pack: MergeReadinessPack): void {
@@ -560,7 +548,6 @@ export function toCanonicalMergeReadinessPack(
       testPlan: evidence.soundVerification?.testPlan,
       newTestCases: evidence.soundVerification?.newTestCases,
       fidelityVerificationReportId: soundVerificationReportId,
-      gate2ReportId: soundVerificationReportId,
       ...(typeof evidence.soundVerification?.coveragePercentage === 'number'
         ? { coveragePercentage: evidence.soundVerification.coveragePercentage }
         : {}),
@@ -582,9 +569,7 @@ export function toCanonicalMergeReadinessPack(
       workGraphId: pack.workGraphId,
       semanticReviewId: evidence.auditability?.semanticReviewId,
       coherenceVerificationReportId: auditabilityCoherenceReportId,
-      gate1ReportId: auditabilityCoherenceReportId,
       fidelityVerificationReportId: auditabilityVerificationReportId,
-      gate2ReportId: auditabilityVerificationReportId,
       ...(evidence.auditability?.sessionTreeId ? { sessionTreeId: evidence.auditability.sessionTreeId } : {}),
       modelBindings: evidence.auditability?.modelBindings,
       mentorRulesApplied: evidence.auditability?.mentorRulesApplied ?? [],

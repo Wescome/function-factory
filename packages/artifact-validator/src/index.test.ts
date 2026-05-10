@@ -92,7 +92,7 @@ describe('C1 — Lineage completeness', () => {
 
   it('skips lineage check for gate_status', () => {
     const result = validateArtifact('gate_status', {
-      _key: 'gate:1:WG-001',
+      _key: 'verification: "coherence":WG-001',
       passed: true,
     })
     const c1Violations = result.violations.filter(

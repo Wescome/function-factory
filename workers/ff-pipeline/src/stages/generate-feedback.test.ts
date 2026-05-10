@@ -221,7 +221,7 @@ describe('generateFeedbackSignals', () => {
           signalId: 'SIG-006',
           workGraphId: 'WG-006',
           report: {
-            gate: 1,
+            verification: "coherence",
             passed: false,
             summary: 'Missing lineage edges',
             checks: [{ name: 'lineage', passed: false, detail: 'no edges' }],
@@ -245,7 +245,7 @@ describe('generateFeedbackSignals', () => {
           signalId: 'SIG-006',
           workGraphId: 'WG-006',
           report: {
-            gate: 1,
+            verification: "coherence",
             passed: false,
             summary: 'Missing lineage edges',
             checks: [{ name: 'lineage', passed: false, detail: 'no edges' }],

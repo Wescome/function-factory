@@ -1,20 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { Gate2Report, Gate2Verdict } from '@factory/schemas'
+import { FidelityVerificationReport, FidelityVerificationVerdict } from '@factory/schemas'
 import {
-  Gate2SimulationError,
   FidelityVerificationError,
-  adaptGate2Input,
   adaptFidelityVerificationInput,
-  dryRunGate2AcceptanceTransition,
   dryRunFidelityAcceptanceTransition,
-  evaluateGate2FromContractInput,
-  evaluateGate2Simulation,
-  evaluateFidelityVerification,
   evaluateFidelityVerificationFromContractInput,
+  evaluateFidelityVerification,
   type FidelityVerificationAcceptanceDryRun,
   type FidelityVerificationContractInput,
   type FidelityVerificationInput,
-} from './gate2-simulation'
+} from './fidelity-verification'
 
 function makeInput(overrides: Partial<FidelityVerificationInput> = {}): FidelityVerificationInput {
   return {
@@ -122,28 +117,7 @@ function makeContractInput(overrides: Partial<FidelityVerificationContractInput>
   }
 }
 
-describe('Gate 2 simulation evaluator', () => {
-  it('keeps legacy Gate 2 exports as compatibility aliases', () => {
-    const dryRun: FidelityVerificationAcceptanceDryRun = {
-      from: 'produced',
-      to: 'accepted',
-      verification: 'fidelity-verification',
-      verificationReport: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-30-00-000Z',
-      gate: 'gate-2',
-      gateReport: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-30-00-000Z',
-      wouldTransition: false,
-      mutationApplied: false,
-      reason: 'fixture',
-    }
-
-    expect(dryRun.gate).toBe('gate-2')
-    expect(Gate2SimulationError).toBe(FidelityVerificationError)
-    expect(adaptGate2Input).toBe(adaptFidelityVerificationInput)
-    expect(evaluateGate2Simulation).toBe(evaluateFidelityVerification)
-    expect(evaluateGate2FromContractInput).toBe(evaluateFidelityVerificationFromContractInput)
-    expect(dryRunGate2AcceptanceTransition).toBe(dryRunFidelityAcceptanceTransition)
-  })
-
+describe('Fidelity Verification evaluator', () => {
   it('adapts normalized FidelityVerificationInput evidence into simulation input', () => {
     const adapted = adaptFidelityVerificationInput(makeContractInput(), {
       prdId: 'PRD-META-FUNCTION-SYNTHESIS',
@@ -273,12 +247,12 @@ describe('Gate 2 simulation evaluator', () => {
     })
   })
 
-  it('emits a passing Gate2Report and accepted verdict when coverage is complete', () => {
+  it('emits a passing FidelityVerificationReport and accepted verdict when coverage is complete', () => {
     const result = evaluateFidelityVerification(makeInput())
 
     expect(result.report).toMatchObject({
       id: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-30-00-000Z',
-      gate: 2,
+      verification: "fidelity",
       function_id: 'FN-MOTDWVR2-W7UN',
       overall: 'pass',
       checks: {
@@ -302,8 +276,8 @@ describe('Gate 2 simulation evaluator', () => {
       scenario_coverage_score: 1,
       invariant_exercise_rate: 1,
     })
-    expect(Gate2Report.safeParse(result.report).success).toBe(true)
-    expect(Gate2Verdict.safeParse(result.verdict).success).toBe(true)
+    expect(FidelityVerificationReport.safeParse(result.report).success).toBe(true)
+    expect(FidelityVerificationVerdict.safeParse(result.verdict).success).toBe(true)
   })
 
   it('fails closed when scenarios, negative tests, or required validations are missing', () => {
@@ -365,7 +339,7 @@ describe('Gate 2 simulation evaluator', () => {
       expect.stringContaining('Add negative scenarios'),
       expect.stringContaining('Fix failing required validations'),
     ]))
-    expect(Gate2Report.safeParse(result.report).success).toBe(true)
-    expect(Gate2Verdict.safeParse(result.verdict).success).toBe(true)
+    expect(FidelityVerificationReport.safeParse(result.report).success).toBe(true)
+    expect(FidelityVerificationVerdict.safeParse(result.verdict).success).toBe(true)
   })
 })

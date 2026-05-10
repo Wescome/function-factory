@@ -117,7 +117,7 @@ function checkConfidence(
 /**
  * C9 — Gate fail-closed.
  *
- * CoverageReport artifacts MUST have a boolean `passed` field.
+ * VerificationReport artifacts MUST have a boolean `passed` field.
  * No ambiguity — explicit pass or fail required.
  */
 function checkGateFailClosed(

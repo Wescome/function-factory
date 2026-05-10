@@ -35,7 +35,7 @@ const FINDING_TEMPLATES: Record<SupportedId, readonly FindingTemplate[]> = {
     { dimension: "execution", status: "missing", statement: "No ArchitectureCandidate emission engine exists", severity: 1, confidence: 0.95 },
     { dimension: "control", status: "missing", statement: "No candidate selection and emission rule set exists", severity: 1, confidence: 0.95 },
     { dimension: "evidence", status: "missing", statement: "No ArchitectureCandidate artifacts or candidate evidence records are emitted", severity: 1, confidence: 0.95 },
-    { dimension: "integration", status: "underutilized", statement: "WorkGraph emission exists but candidate emission is not integrated into Intent-to-Executable compilation", severity: 0.75, confidence: 0.9 },
+    { dimension: "integration", status: "underutilized", statement: "ExecutableSpecification emission exists but candidate emission is not integrated into Intent-to-Executable compilation", severity: 0.75, confidence: 0.9 },
   ],
 }
 

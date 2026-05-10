@@ -18,8 +18,8 @@ import {
 } from "./test-fixtures.js"
 
 describe("synthesize", () => {
-  // AC 1: WorkGraph with 3+ nodes → code files on disk
-  it("AC 1: produces code files from a WorkGraph with 3+ nodes", async () => {
+  // AC 1: ExecutableSpecification with 3+ nodes → code files on disk
+  it("AC 1: produces code files from a ExecutableSpecification with 3+ nodes", async () => {
     const workGraph = makeWorkGraph()
     const candidate = makeCandidate()
     const bindingMode = new StubBindingMode(makePassConfig())
@@ -30,7 +30,7 @@ describe("synthesize", () => {
 
     expect(result.verdict).toBe("pass")
     expect(result.generatedArtifactPaths.length).toBeGreaterThanOrEqual(3)
-    // Each file traces to a WorkGraph node via the plan
+    // Each file traces to a ExecutableSpecification node via the plan
     for (const path of result.generatedArtifactPaths) {
       expect(path).toContain(config.outputDir)
     }
@@ -136,7 +136,7 @@ describe("synthesize", () => {
     expect(failResult.traceLog).toBeTruthy()
     expect(failResult.fidelityVerificationInput).toBeTruthy()
     expect(failResult.candidateSelectionReport).toBeTruthy()
-    expect(passResult.gate2Input).toEqual(passResult.fidelityVerificationInput)
-    expect(failResult.gate2Input).toEqual(failResult.fidelityVerificationInput)
+    expect(passResult.fidelityVerificationInput).toEqual(passResult.fidelityVerificationInput)
+    expect(failResult.fidelityVerificationInput).toEqual(failResult.fidelityVerificationInput)
   })
 })

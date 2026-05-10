@@ -160,7 +160,7 @@ export async function extractLessons(
     lessons.push({
       pattern: 'F1 prose output from agent',
       evidence: `${f1Atoms.length} atoms produced prose instead of JSON: ${f1Atoms.map(([id]) => id).join(', ')}`,
-      recommendation: 'Reduce agent context size. Check if WorkGraph or Plan is too large for the model context window.',
+      recommendation: 'Reduce agent context size. Check if ExecutableSpecification or Plan is too large for the model context window.',
     })
   }
 
@@ -258,7 +258,7 @@ export async function generateFeedbackSignals(
       signal: makeSignal(
         COHERENCE_VERIFICATION_FAILED_SUBTYPE,
         `Coherence Verification failed: ${workGraphId ?? 'unknown'}`,
-        `Coherence Verification failed for WorkGraph ${workGraphId}. ` +
+        `Coherence Verification failed for ExecutableSpecification ${workGraphId}. ` +
         `${(result.report as Record<string, unknown>)?.summary ?? 'No summary'}`,
         sourceRefs,
         feedbackDepth,

@@ -88,7 +88,7 @@ function createEnv(overrides?: Record<string, unknown>) {
     ARANGO_DATABASE: 'test',
     ARANGO_JWT: 'test-jwt',
     ENVIRONMENT: 'test',
-    GATES: { evaluateGate1: vi.fn() },
+    GATES: { evaluateCoherenceVerification: vi.fn() },
     FACTORY_PIPELINE: {
       create: vi.fn(),
       get: vi.fn(async () => ({

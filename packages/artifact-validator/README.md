@@ -25,7 +25,7 @@ rename.
 
 ## Compatibility Notes
 
-- `specs_workgraphs` remains the persisted WorkGraph compatibility collection.
+- `specs_workgraphs` remains the persisted ExecutableSpecification compatibility collection.
 - `specs_coverage_reports` remains the persisted Verification Report
   compatibility collection.
 - Gate report names remain current runtime evidence terms until a dedicated

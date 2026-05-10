@@ -73,7 +73,7 @@ export function topologicalSort(
 
     if (layerAtoms.length === 0) {
       // Cycle detected — break out with remaining atoms in one layer
-      // This should not happen with a well-formed WorkGraph
+      // This should not happen with a well-formed ExecutableSpecification
       layers.push({
         index: layers.length,
         atomIds: [...remaining],

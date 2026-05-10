@@ -3,9 +3,9 @@ import { mkdtemp, rm, readFile, readdir } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { parse as parseYaml } from "yaml"
-import { emitCoherenceVerificationReport, emitGate1Report } from "./emit.js"
-import { runCoherenceVerification } from "./gate-1.js"
-import type { CoherenceVerificationInput } from "./gate-1.js"
+import { emitCoherenceVerificationReport } from "./emit.js"
+import { runCoherenceVerification } from "./coherence-verification.js"
+import type { CoherenceVerificationInput } from "./coherence-verification.js"
 import {
   makeAtom,
   makeContract,
@@ -39,15 +39,11 @@ describe("emitCoherenceVerificationReport", () => {
   let workDir: string
 
   beforeEach(async () => {
-    workDir = await mkdtemp(join(tmpdir(), "gate-1-emit-test-"))
+    workDir = await mkdtemp(join(tmpdir(), "coherence-verification-emit-test-"))
   })
 
   afterEach(async () => {
     await rm(workDir, { recursive: true, force: true })
-  })
-
-  it("keeps legacy Gate 1 report emitter as a compatibility alias", () => {
-    expect(emitGate1Report).toBe(emitCoherenceVerificationReport)
   })
 
   it("writes a YAML file whose name matches <id>.yaml", async () => {
@@ -75,7 +71,7 @@ describe("emitCoherenceVerificationReport", () => {
     const contents = await readFile(path, "utf8")
     const roundtripped = parseYaml(contents)
     expect(roundtripped.id).toBe(report.id)
-    expect(roundtripped.gate).toBe(1)
+    expect(roundtripped.verification).toBe("coherence")
     expect(roundtripped.overall).toBe("pass")
     expect(roundtripped.prd_id).toBe("PRD-META-EMIT-TEST")
     expect(roundtripped.remediation).toBe("no remediation required")
@@ -85,7 +81,7 @@ describe("emitCoherenceVerificationReport", () => {
     const report = runCoherenceVerification(passingInput(), "2026-04-19T00:00:00Z")
     const path = await emitCoherenceVerificationReport(report, workDir)
     const contents = await readFile(path, "utf8")
-    expect(contents).toContain("gate: 1")
+    expect(contents).toContain("verification: coherence")
     expect(contents).toContain("overall: pass")
     expect(contents).toContain("prd_id: PRD-META-EMIT-TEST")
     expect(contents).toContain("atom_coverage:")

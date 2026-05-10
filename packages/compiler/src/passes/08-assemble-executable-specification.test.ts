@@ -1,14 +1,8 @@
 import { describe, it, expect } from "vitest"
 import type { ArtifactId } from "@factory/schemas"
-import { WorkGraph } from "@factory/schemas"
-import {
-  assembleExecutableSpecification,
-  assembleWorkgraph,
-} from "./08-assemble-workgraph.js"
-import {
-  emitExecutableSpecification,
-  emitWorkgraph,
-} from "./_workgraph-emit.js"
+import { ExecutableSpecification } from "@factory/schemas"
+import { assembleExecutableSpecification } from "./08-assemble-executable-specification.js"
+import { emitExecutableSpecification } from "./_executable-specification-emit.js"
 import {
   makeAtom,
   makeContract,
@@ -20,12 +14,7 @@ import {
 } from "./_test-fixtures.js"
 
 describe("Executable Specification Assembly", () => {
-  it("keeps assembleWorkgraph as the compatibility alias for Executable Specification Assembly", () => {
-    expect(assembleWorkgraph).toBe(assembleExecutableSpecification)
-    expect(emitWorkgraph).toBe(emitExecutableSpecification)
-  })
-
-  it("happy path- passing Coherence Verification + intermediates produces a schema-valid WorkGraph", () => {
+  it("happy path- passing Coherence Verification + intermediates produces a schema-valid ExecutableSpecification", () => {
     const prd = makePRD()
     const atoms = [makeAtom()]
     const contracts = [
@@ -56,13 +45,13 @@ describe("Executable Specification Assembly", () => {
       validations,
       makeCoherenceVerificationReportPassing()
     )
-    expect(WorkGraph.safeParse(wg).success).toBe(true)
+    expect(ExecutableSpecification.safeParse(wg).success).toBe(true)
     expect(wg.nodes.length).toBe(3 + 2 + 2)
   })
 
   it("refuses to run on failed Coherence Verification (criterion 2)", () => {
     expect(() =>
-      assembleWorkgraph(
+      assembleExecutableSpecification(
         makePRD(),
         [],
         [makeContract()],
@@ -74,9 +63,9 @@ describe("Executable Specification Assembly", () => {
     ).toThrow(/refuses to run/)
   })
 
-  it("WorkGraph id format- WG-<PRD subject> (criterion 5)", () => {
+  it("ExecutableSpecification id format- WG-<PRD subject> (criterion 5)", () => {
     const prd = makePRD({ id: "PRD-META-FOO-BAR" as ArtifactId })
-    const wg = assembleWorkgraph(
+    const wg = assembleExecutableSpecification(
       prd,
       [],
       [makeContract()],
@@ -92,7 +81,7 @@ describe("Executable Specification Assembly", () => {
     const prd = makePRD({
       sourceFunctionId: "FP-META-CUSTOM-FUNCTION" as ArtifactId,
     })
-    const wg = assembleWorkgraph(
+    const wg = assembleExecutableSpecification(
       prd,
       [],
       [makeContract()],
@@ -109,7 +98,7 @@ describe("Executable Specification Assembly", () => {
       id: "CONTRACT-META-FOO-B" as ArtifactId,
       kind: "behavior",
     })
-    const wg = assembleWorkgraph(
+    const wg = assembleExecutableSpecification(
       makePRD(),
       [],
       [c],
@@ -126,7 +115,7 @@ describe("Executable Specification Assembly", () => {
       id: "CONTRACT-META-FOO-I" as ArtifactId,
       kind: "invariant",
     })
-    const wg = assembleWorkgraph(
+    const wg = assembleExecutableSpecification(
       makePRD(),
       [],
       [c],
@@ -147,7 +136,7 @@ describe("Executable Specification Assembly", () => {
       id: "CONTRACT-META-FOO-SCHEMA" as ArtifactId,
       kind: "schema",
     })
-    const wg = assembleWorkgraph(
+    const wg = assembleExecutableSpecification(
       makePRD(),
       [],
       [cApi, cSchema],
@@ -163,7 +152,7 @@ describe("Executable Specification Assembly", () => {
   it("node type assignment- standalone invariant -> control, validation -> evidence", () => {
     const inv = makeInvariant({ id: "INV-META-FOO-X" as ArtifactId })
     const val = makeValidation({ id: "VAL-META-FOO-X" as ArtifactId })
-    const wg = assembleWorkgraph(
+    const wg = assembleExecutableSpecification(
       makePRD(),
       [],
       [makeContract()],
@@ -178,7 +167,7 @@ describe("Executable Specification Assembly", () => {
 
   it("dangling dependency endpoint throws (criterion 9)", () => {
     expect(() =>
-      assembleWorkgraph(
+      assembleExecutableSpecification(
         makePRD(),
         [],
         [makeContract()],
@@ -195,14 +184,14 @@ describe("Executable Specification Assembly", () => {
     ).toThrow(/not present in node set/)
   })
 
-  it("each Dependency produces one WorkGraphEdge (criterion 10)", () => {
+  it("each Dependency produces one ExecutableSpecificationEdge (criterion 10)", () => {
     const c1 = makeContract({ id: "CONTRACT-META-FOO-A" as ArtifactId })
     const c2 = makeContract({
       id: "CONTRACT-META-FOO-B" as ArtifactId,
       kind: "invariant",
     })
     const dep = makeDependency(c1.id, c2.id)
-    const wg = assembleWorkgraph(
+    const wg = assembleExecutableSpecification(
       makePRD(),
       [],
       [c1, c2],
@@ -223,7 +212,7 @@ describe("Executable Specification Assembly", () => {
       coversContractIds: [c.id],
       coversAtomIds: ["ATOM-META-FOO-DOES-NOT-EXIST" as ArtifactId],
     })
-    const wg = assembleWorkgraph(
+    const wg = assembleExecutableSpecification(
       makePRD(),
       [],
       [c],
@@ -244,11 +233,11 @@ describe("Executable Specification Assembly", () => {
       makeContract({ id: "CONTRACT-META-FOO-A" as ArtifactId }),
     ]
     const report = makeCoherenceVerificationReportPassing()
-    const wgA = assembleWorkgraph(prd, [], contracts, [], [], [], report)
-    const wgB = assembleWorkgraph(prd, [], contracts, [], [], [], report)
+    const wgA = assembleExecutableSpecification(prd, [], contracts, [], [], [], report)
+    const wgB = assembleExecutableSpecification(prd, [], contracts, [], [], [], report)
     expect(wgB).toEqual(wgA)
     // Reorder contracts; output must still be deep-equal post-sort.
-    const wgC = assembleWorkgraph(
+    const wgC = assembleExecutableSpecification(
       prd,
       [],
       [contracts[1]!, contracts[0]!],
@@ -260,11 +249,11 @@ describe("Executable Specification Assembly", () => {
     expect(wgC).toEqual(wgA)
   })
 
-  it("WorkGraph source_refs aggregates PRD + report + intermediates, sorted, deduplicated", () => {
+  it("ExecutableSpecification source_refs aggregates PRD + report + intermediates, sorted, deduplicated", () => {
     const prd = makePRD()
     const contract = makeContract()
     const report = makeCoherenceVerificationReportPassing()
-    const wg = assembleWorkgraph(prd, [], [contract], [], [], [], report)
+    const wg = assembleExecutableSpecification(prd, [], [contract], [], [], [], report)
     expect(wg.source_refs).toContain(prd.id)
     expect(wg.source_refs).toContain(report.id)
     expect(wg.source_refs).toContain(contract.id)
@@ -279,7 +268,7 @@ describe("Executable Specification Assembly", () => {
     const contracts = Object.freeze([makeContract(), makeContract({ id: "CONTRACT-META-FOO-A" as ArtifactId })])
     const invariants = Object.freeze([makeInvariant()])
     const snapshot = JSON.stringify({ contracts, invariants })
-    assembleWorkgraph(
+    assembleExecutableSpecification(
       makePRD(),
       [],
       contracts,
@@ -293,7 +282,7 @@ describe("Executable Specification Assembly", () => {
 
   it("empty nodes throws (criterion 14)", () => {
     expect(() =>
-      assembleWorkgraph(
+      assembleExecutableSpecification(
         makePRD(),
         [],
         [],
@@ -302,6 +291,6 @@ describe("Executable Specification Assembly", () => {
         [],
         makeCoherenceVerificationReportPassing()
       )
-    ).toThrow(/invalid WorkGraph/)
+    ).toThrow(/invalid ExecutableSpecification/)
   })
 })

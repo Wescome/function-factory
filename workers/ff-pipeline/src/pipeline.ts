@@ -382,7 +382,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       return { ok: true }
     })
 
-    // Lineage: WorkGraph → Proposal (written before Coherence Verification so lineage check passes)
+    // Lineage: ExecutableSpecification → Proposal (written before Coherence Verification so lineage check passes)
     await step.do('edge-workgraph-proposal', DB_STEP_CONFIG, async () => {
       await db.saveEdge('lineage_edges', `specs_workgraphs/${wgKey}`, `specs_functions/${proposalKey}`, {
         type: 'compiled-from', createdAt: new Date().toISOString(),
@@ -392,9 +392,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
 
     // ── Coherence Verification: Compile coverage (deterministic) ──
     const coherenceVerification = await step.do('coherence-verification', DB_STEP_CONFIG, async () => {
-      const result = this.env.GATES.evaluateCoherenceVerification
-        ? await this.env.GATES.evaluateCoherenceVerification(compState.workGraph)
-        : await this.env.GATES.evaluateGate1(compState.workGraph)
+      const result = await this.env.GATES.evaluateCoherenceVerification(compState.workGraph)
       return toStep(result as unknown as Record<string, unknown>) as unknown as CoherenceVerificationReport
     }) as unknown as CoherenceVerificationReport
 
@@ -410,7 +408,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
           timestamp: coherenceVerification.timestamp,
         })
         await db.save('gate_status', {
-          _key: `gate:1:${wgKey}-${Date.now().toString(36)}`,
+          _key: `verification: "coherence":${wgKey}-${Date.now().toString(36)}`,
           passed: false,
           report: coherenceVerification,
           timestamp: new Date().toISOString(),
@@ -424,7 +422,6 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
         legacyStatus: LEGACY_GATE1_FAILED_STATUS,
         report: coherenceVerification,
         coherenceVerificationReport: coherenceVerification,
-        gate1Report: coherenceVerification,
         signalId: signalKey,
       }
       await step.do('enqueue-feedback-gate1', DB_STEP_CONFIG, async () => {
@@ -444,7 +441,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     // ── Persist gate pass ──
     await step.do('persist-gate1-pass', DB_STEP_CONFIG, async () => {
       await db.save('gate_status', {
-        _key: `gate:1:${wgKey}-${Date.now().toString(36)}`,
+        _key: `verification: "coherence":${wgKey}-${Date.now().toString(36)}`,
         passed: true,
         report: coherenceVerification,
         timestamp: new Date().toISOString(),
@@ -469,7 +466,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       return {
         status: 'compile-incomplete',
         signalId: signalKey,
-        reason: 'No WorkGraph produced by compilation',
+        reason: 'No ExecutableSpecification produced by compilation',
       }
     }
 
@@ -550,7 +547,6 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
           proposalId: proposalKey,
           workGraphId: wgKey,
           coherenceVerificationReport: coherenceVerification,
-          gate1Report: coherenceVerification,
           synthesisResult: {
             verdict: { decision: 'timeout', confidence: 1.0, reason: 'Atoms did not complete within 30 minutes' },
             tokenUsage: synthPayload.tokenUsage,
@@ -593,7 +589,6 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       proposalId: proposalKey,
       workGraphId: wgKey,
       coherenceVerificationReport: coherenceVerification,
-      gate1Report: coherenceVerification,
       synthesisResult: {
         verdict: finalVerdict,
         tokenUsage: finalTokenUsage,

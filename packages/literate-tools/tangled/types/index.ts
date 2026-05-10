@@ -25,8 +25,8 @@ interface Function {
   /** Tests, scenarios, and property checks that prove contract and invariants hold. */
   validations: Validation[];
 
-  /** The WorkGraph of nodes and edges that realizes it. */
-  implementation: WorkGraph | null;
+  /** The ExecutableSpecification of nodes and edges that realizes it. */
+  implementation: ExecutableSpecification | null;
 
   /** Health, trust, freshness, incident links. */
   runtime_indicators: RuntimeIndicators;
@@ -209,29 +209,29 @@ interface Validation {
 
 // --- Block from line 393 (Part I -- What Is a Function?) ---
 /** CANONICAL-ONLY. Compiled implementation graph. */
-interface WorkGraph {
+interface ExecutableSpecification {
   id: string; // WG-*
   function_id: string;
-  nodes: WorkGraphNode[];
-  edges: WorkGraphEdge[];
+  nodes: ExecutableSpecificationNode[];
+  edges: ExecutableSpecificationEdge[];
   source_refs: SourceRef[];
 }
 
-/** CANONICAL-ONLY. A node in the WorkGraph. */
-interface WorkGraphNode {
+/** CANONICAL-ONLY. A node in the ExecutableSpecification. */
+interface ExecutableSpecificationNode {
   id: string;
   type: NodeType;
   label: string;
 }
 
-/** CANONICAL-ONLY. An edge in the WorkGraph. */
-interface WorkGraphEdge {
+/** CANONICAL-ONLY. An edge in the ExecutableSpecification. */
+interface ExecutableSpecificationEdge {
   from: string;
   to: string;
   label: string;
 }
 
-/** Nine WorkGraph node types. From ratified decisions lines 210-220. */
+/** Nine ExecutableSpecification node types. From ratified decisions lines 210-220. */
 type NodeType =
   | "interface"
   | "domain_model"

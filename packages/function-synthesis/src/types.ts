@@ -187,9 +187,6 @@ export const FidelityVerificationInput = z.object({
 })
 export type FidelityVerificationInput = z.infer<typeof FidelityVerificationInput>
 
-export const Gate2Input = FidelityVerificationInput
-export type Gate2Input = FidelityVerificationInput
-
 // ─── Candidate Selection Report (AC 12) ───────────────────────────────
 // TODO: promote to @factory/schemas
 
@@ -223,7 +220,6 @@ export const SynthesisResult = z.object({
   traceLog: SynthesisTraceLog,
   roleAdherenceReport: RoleAdherenceReport,
   fidelityVerificationInput: FidelityVerificationInput,
-  gate2Input: Gate2Input.optional(),
   candidateSelectionReport: SynthesisCandidateSelectionReport,
   requiresHumanApproval: z.boolean(),
   humanApprovalPayload: HumanApprovalPayload.optional(),

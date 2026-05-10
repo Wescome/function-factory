@@ -3,7 +3,7 @@
  *
  * Verifies that persistSynthesisResult() and buildResult() correctly
  * surface briefingScript, semanticReview, coherenceVerificationReport,
- * gate1Report, and full
+ * coherenceVerificationReport, and full
  * roleHistory to ArangoDB and the SynthesisResult return type.
  *
  * Root cause: 9-node graph nodes write these fields to GraphState
@@ -50,7 +50,7 @@ describe('T13: persistence boundary — persistSynthesisResult', () => {
   it('T13.1c: persistSynthesisResult includes Coherence Verification report fields in synthesis_summary content', () => {
     const synthesisSaveBlock = extractSynthesisSummaryBlock(coordinatorSrc)
     expect(synthesisSaveBlock).toContain('coherenceVerificationReport')
-    expect(synthesisSaveBlock).toContain('gate1Report')
+    expect(synthesisSaveBlock).toContain('coherenceVerificationReport')
   })
 
   it('T13.1d: persistSynthesisResult persists FULL roleHistory with output to ArangoDB', () => {

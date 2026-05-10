@@ -1,58 +1,57 @@
 /**
  * Executable Specification Assembly.
  *
- * Structural Assembly compatibility implementation. The historical repo name
- * is "Pass 8 assemble WorkGraph"; ontology v0.2 reserves Pass 8 for future
- * Instruction Tuning, so this module exposes assembleExecutableSpecification
- * as the primary API and keeps assembleWorkgraph as the compatibility export.
+ * Structural Assembly implementation. Ontology v0.2 reserves Pass 8 for future
+ * Instruction Tuning, so this module exposes Executable Specification Assembly
+ * directly.
  *
  * Consumes validated intermediates plus a passing Coherence Verification
- * report and produces a WorkGraph conforming to the WorkGraph Zod schema.
+ * report and produces a ExecutableSpecification conforming to the ExecutableSpecification Zod schema.
  * Pure function- no IO, no mutation of inputs, no external state.
  *
  * Fail-closed- throws if the Coherence Verification verdict is anything other than
  * `pass`. The orchestrator is responsible for providing a report; this layer
  * trusts the type signature.
  *
- * Determinism- given identical validated inputs, returns a WorkGraph
+ * Determinism- given identical validated inputs, returns a ExecutableSpecification
  * whose serialized content is identical modulo emission timestamp.
  * Node and edge arrays are sorted before emission. No Map or Set
  * iteration order is relied upon.
  *
  * Schema conformance- defensively re-validates the constructed
- * WorkGraph via WorkGraph.safeParse before returning. Matches the
+ * ExecutableSpecification via ExecutableSpecification.safeParse before returning. Matches the
  * belt-and-suspenders pattern in runCoherenceVerification.
  */
 
 import type { z } from "zod"
 import {
-  WorkGraph,
-  WorkGraphEdge,
-  WorkGraphNode,
-  WorkGraphNodeType,
+  ExecutableSpecification,
+  ExecutableSpecificationEdge,
+  ExecutableSpecificationNode,
+  ExecutableSpecificationNodeType,
   type ArtifactId,
   type Contract,
   type Dependency,
   type CoherenceVerificationReport,
   type Invariant,
-  type PRDDraft,
+  type IntentSpecification,
   type RequirementAtom,
   type ValidationSpec,
 } from "@factory/schemas"
-import { workGraphId } from "./_shared.js"
+import { executableSpecificationId } from "./_shared.js"
 
-type WorkGraphNodeT = z.infer<typeof WorkGraphNode>
-type WorkGraphEdgeT = z.infer<typeof WorkGraphEdge>
-type WorkGraphNodeTypeT = z.infer<typeof WorkGraphNodeType>
+type ExecutableSpecificationNodeT = z.infer<typeof ExecutableSpecificationNode>
+type ExecutableSpecificationEdgeT = z.infer<typeof ExecutableSpecificationEdge>
+type ExecutableSpecificationNodeTypeT = z.infer<typeof ExecutableSpecificationNodeType>
 
 /**
- * Deterministic rule set mapping Contract.kind to WorkGraphNodeType.
+ * Deterministic rule set mapping Contract.kind to ExecutableSpecificationNodeType.
  * Behavior contracts describe executable function behavior -> execution.
  * Invariant contracts describe system-level rules -> control.
  * Api and schema contracts describe interface surfaces -> interface.
  * Any other kind is a schema-evolution edge case and throws.
  */
-function typeForContract(contract: Contract): WorkGraphNodeTypeT {
+function typeForContract(contract: Contract): ExecutableSpecificationNodeTypeT {
   switch (contract.kind) {
     case "behavior":
       return "execution"
@@ -73,14 +72,14 @@ function typeForContract(contract: Contract): WorkGraphNodeTypeT {
 }
 
 export function assembleExecutableSpecification(
-  prd: PRDDraft,
+  prd: IntentSpecification,
   atoms: readonly RequirementAtom[],
   contracts: readonly Contract[],
   invariants: readonly Invariant[],
   dependencies: readonly Dependency[],
   validations: readonly ValidationSpec[],
   coherenceVerificationReport: CoherenceVerificationReport
-): WorkGraph {
+): ExecutableSpecification {
   // Fail-closed precondition- Coherence Verification must pass.
   if (coherenceVerificationReport.overall !== "pass") {
     throw new Error(
@@ -89,8 +88,8 @@ export function assembleExecutableSpecification(
   }
 
   // Collect node ids (strings reusing source artifact ids directly;
-  // WorkGraphNode.id is plain z.string(), not ArtifactId).
-  const nodes: WorkGraphNodeT[] = []
+  // ExecutableSpecificationNode.id is plain z.string(), not ArtifactId).
+  const nodes: ExecutableSpecificationNodeT[] = []
   const nodeIdSet = new Set<string>()
 
   // Nodes from contracts- type per the rule set above.
@@ -128,7 +127,7 @@ export function assembleExecutableSpecification(
 
   // Edges from dependencies- one edge per Dependency, preserving type.
   // Each endpoint must resolve to a node in the set built above.
-  const edges: WorkGraphEdgeT[] = []
+  const edges: ExecutableSpecificationEdgeT[] = []
   for (const d of dependencies) {
     if (!nodeIdSet.has(d.from) || !nodeIdSet.has(d.to)) {
       throw new Error(
@@ -186,11 +185,11 @@ export function assembleExecutableSpecification(
   for (const a of atoms) refSet.add(a.id)
   const source_refs = Array.from(refSet).sort() as ArtifactId[]
 
-  const candidate: WorkGraph = {
-    id: workGraphId(prd.id),
+  const candidate: ExecutableSpecification = {
+    id: executableSpecificationId(prd.id),
     source_refs,
     explicitness: "explicit",
-    rationale: `WorkGraph assembled from validated intermediates of ${prd.id}; Coherence Verification verdict ${coherenceVerificationReport.overall} cited in source_refs`,
+    rationale: `ExecutableSpecification assembled from validated intermediates of ${prd.id}; Coherence Verification verdict ${coherenceVerificationReport.overall} cited in source_refs`,
     functionId: prd.sourceFunctionId,
     nodes,
     edges,
@@ -199,13 +198,11 @@ export function assembleExecutableSpecification(
   // Defensive re-validation. TypeScript types guarantee the shape; Zod
   // refinements (e.g., nodes.min(1), WG- prefix) aren't captured in TS
   // types. If this throws, it's an assembly implementation defect.
-  const parsed = WorkGraph.safeParse(candidate)
+  const parsed = ExecutableSpecification.safeParse(candidate)
   if (!parsed.success) {
     throw new Error(
-      `Executable Specification Assembly produced an invalid WorkGraph- ${parsed.error.message}`
+      `Executable Specification Assembly produced an invalid ExecutableSpecification- ${parsed.error.message}`
     )
   }
   return parsed.data
 }
-
-export const assembleWorkgraph = assembleExecutableSpecification

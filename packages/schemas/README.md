@@ -6,7 +6,7 @@ boundary.
 ## Ontology Alias
 
 Ontology v0.2 introduces aliases for several schema-backed artifact families:
-PRD is an `Intent Specification`, WorkGraph is an `Executable Specification`,
+PRD is an `Intent Specification`, ExecutableSpecification is an `Executable Specification`,
 Coverage Report is a `Verification Report`, and Invariant is an
 `Invariant Specification`. The domain-kernel cutover adds `DomainAdapter`
 schemas so repository, branch, pull request, diff, CI check, and deployment
@@ -24,7 +24,7 @@ vocabulary.
 Re-exports from the following modules:
 
 - `lineage` -- `ArtifactId`, `Explicitness`, `Lineage` base schema
-- `core` -- `FactoryMode`, `SignalType`, `BusinessCapability`, `FunctionProposal`, `WorkGraph`, `WorkGraphNode`, `WorkGraphEdge`, and current compatibility artifact schemas from Signal Artifacts through Agent Call execution
+- `core` -- `FactoryMode`, `SignalType`, `BusinessCapability`, `FunctionProposal`, `ExecutableSpecification`, `ExecutableSpecificationNode`, `ExecutableSpecificationEdge`, and current compatibility artifact schemas from Signal Artifacts through Agent Call execution
 - `coverage` -- `CoherenceVerificationReport`, `CoverageVerdict`, `CoverageCheck`
 - `capability-delta` -- `CapabilityDelta`, `CapabilityDeltaFinding`
 - `architecture-candidate` -- `ArchitectureCandidate`
@@ -46,9 +46,9 @@ Re-exports from the following modules:
   maps repository/branch/pull request/diff/CI/deployment terms into kernel
   concepts
 - `ontology-aliases` -- Non-breaking aliases from ontology v0.2 terms to
-  current stable schema names (`IntentSpecification` -> `PRDDraft`,
-  `ExecutableSpecification` -> `WorkGraph`, `VerificationReport` ->
-  `CoverageReport`)
+  current stable schema names (`IntentSpecification` -> `IntentSpecification`,
+  `ExecutableSpecification` -> `ExecutableSpecification`, `VerificationReport` ->
+  `VerificationReport`)
 
 ## Key Invariants
 

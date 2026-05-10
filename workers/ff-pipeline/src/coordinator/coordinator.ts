@@ -4,7 +4,13 @@ import { validateArtifact } from '@factory/artifact-validator'
 import { buildSynthesisGraph } from './graph'
 import type { GraphDeps } from './graph'
 import { createModelBridge } from './model-bridge-do'
-import { createInitialState, type GraphState, type Verdict, type PipelineWorkGraph } from './state'
+import {
+  buildDomainExecutionEvidence,
+  createInitialState,
+  type GraphState,
+  type Verdict,
+  type PipelineWorkGraph,
+} from './state'
 import { makeExecutionRole, type SandboxDeps } from './sandbox-role'
 import { buildSandboxDeps as buildRealSandboxDeps } from './sandbox-deps-factory'
 import { ArchitectAgent } from '../agents/architect-agent'
@@ -20,6 +26,7 @@ import { createCRP } from '../crp'
 import { topologicalSort } from './layer-dispatch'
 import { createLedger } from './completion-ledger'
 import type { AtomResult } from './atom-executor'
+import type { DomainExecutionEvidence, DomainExecutionRequest } from '@factory/schemas'
 
 export interface CoordinatorEnv {
   ARANGO_URL: string
@@ -48,6 +55,8 @@ export interface SynthesisResult {
   roleHistory: { role: string; legacyRole?: string; tokenUsage: number; timestamp: string }[]
   briefingScript?: unknown
   semanticReview?: unknown
+  domainExecutionRequest: DomainExecutionRequest
+  domainExecutionEvidence: DomainExecutionEvidence
 }
 
 export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
@@ -144,7 +153,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
     const workGraphId = snapshot?.workGraphId ?? ctx.name.replace('synth-', '')
     console.warn(
       `[Agent Call execution] Fiber "${ctx.name}" (id=${ctx.id}) recovered after eviction. ` +
-      `WorkGraph=${workGraphId}, age=${Date.now() - ctx.createdAt}ms`,
+      `ExecutableSpecification=${workGraphId}, age=${Date.now() - ctx.createdAt}ms`,
     )
 
     // If there's a stashed state, mark it as interrupted so the next
@@ -579,6 +588,13 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
   }
 
   private buildResult(workGraphId: string, state: GraphState): SynthesisResult {
+    const domainExecutionEvidence = buildDomainExecutionEvidence(
+      state.domainExecutionRequest,
+      state.verdict?.decision === 'pass' ? 'succeeded' : 'failed',
+      [`EA-${workGraphId}-synthesis`],
+      state.verdict?.reason ?? 'No verdict reached',
+    )
+
     return {
       functionId: workGraphId,
       verdict: state.verdict ?? {
@@ -596,6 +612,8 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       })),
       briefingScript: state.briefingScript ?? undefined,
       semanticReview: state.semanticReview ?? undefined,
+      domainExecutionRequest: state.domainExecutionRequest,
+      domainExecutionEvidence,
     }
   }
 
@@ -622,6 +640,13 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       }).catch(() => {})
     }
 
+    const domainExecutionEvidence = buildDomainExecutionEvidence(
+      state.domainExecutionRequest,
+      state.verdict?.decision === 'pass' ? 'succeeded' : 'failed',
+      [`EA-${workGraphId}-synthesis`],
+      state.verdict?.reason ?? 'No verdict reached',
+    )
+
     await db.save('execution_artifacts', {
       _key: `EA-${workGraphId}-synthesis`,
       functionRunId: workGraphId,
@@ -636,7 +661,8 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         briefingScript: state.briefingScript,
         semanticReview: state.semanticReview,
         coherenceVerificationReport: state.coherenceVerificationReport,
-        gate1Report: state.gate1Report,
+        domainExecutionRequest: state.domainExecutionRequest,
+        domainExecutionEvidence,
       }),
       createdAt: new Date().toISOString(),
     }).catch(() => {})

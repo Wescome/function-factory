@@ -8,11 +8,9 @@ import { describe, it, expect } from "vitest"
 import {
   buildTraceLog,
   buildFidelityVerificationInput,
-  buildGate2Input,
   buildCandidateSelectionReport,
   SynthesisTraceLog,
   FidelityVerificationInput,
-  Gate2Input,
   SynthesisCandidateSelectionReport,
 } from "../src/index.js"
 import {
@@ -80,8 +78,8 @@ describe("evidence", () => {
     expect(parsed.success).toBe(true)
     expect(fidelity.validationOutcomes.length).toBeGreaterThan(0)
     expect(fidelity.provenance.bindingModeName).toBe("stub")
-    expect(Gate2Input.safeParse(fidelity).success).toBe(true)
-    expect(buildGate2Input).toBe(buildFidelityVerificationInput)
+    expect(FidelityVerificationInput.safeParse(fidelity).success).toBe(true)
+    expect(buildFidelityVerificationInput).toBe(buildFidelityVerificationInput)
   })
 
   // AC 12: CandidateSelectionReport with distinct candidates

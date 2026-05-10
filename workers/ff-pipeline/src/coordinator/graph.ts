@@ -140,7 +140,7 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
         authoritative: false,
         workGraphId: state.workGraphId,
         upstreamWorkGraphId: state.workGraph._key ?? state.workGraph.id ?? state.workGraphId,
-        reason: 'Workflow compilation already emitted this WorkGraph before Agent Call execution; coordinator records pass-through evidence only.',
+        reason: 'Workflow compilation already emitted this ExecutableSpecification before Agent Call execution; coordinator records pass-through evidence only.',
         timestamp: new Date().toISOString(),
       }
       const updated: Partial<GraphState> = {
@@ -158,9 +158,7 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
     // The real fail-closed Coherence Verification runs in the Workflow before Agent Call execution.
     graph.addNode(COHERENCE_VERIFICATION_NODE, async (state) => {
       const coherenceVerificationReport = {
-        gate: 1,
-        verification: COHERENCE_VERIFICATION_NODE,
-        legacyGate: LEGACY_GATE1_NODE,
+        verification: "coherence",
         passed: true,
         source: 'workflow-stage-coherence-verification',
         evidenceStatus: 'upstream_verified_not_recomputed',
@@ -177,13 +175,10 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
       const updated: Partial<GraphState> = {
         coherenceVerificationPassed: true,
         coherenceVerificationReport,
-        gate1Passed: true,
-        gate1Report: coherenceVerificationReport,
         roleHistory: [
           ...state.roleHistory,
           {
             role: COHERENCE_VERIFICATION_NODE,
-            legacyRole: LEGACY_GATE1_NODE,
             output: coherenceVerificationReport,
             tokenUsage: 0,
             timestamp: new Date().toISOString(),

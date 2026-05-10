@@ -2,7 +2,7 @@
  * Shared test fixtures for function-synthesis tests.
  */
 
-import type { ArchitectureCandidate, WorkGraph } from "@factory/schemas"
+import type { ArchitectureCandidate, ExecutableSpecification } from "@factory/schemas"
 import type { StubBindingModeConfig } from "../src/binding-mode.js"
 import type {
   PatchProposal,
@@ -15,7 +15,7 @@ import type { SynthesisConfig } from "../src/orchestrate.js"
 
 // ─── Work Graph with 3+ nodes (AC 1) ─────────────────────────────────
 
-export function makeWorkGraph(overrides?: Partial<WorkGraph>): WorkGraph {
+export function makeWorkGraph(overrides?: Partial<ExecutableSpecification>): ExecutableSpecification {
   return {
     id: "WG-TEST-SYNTH-001",
     source_refs: ["PRD-TEST-001"],

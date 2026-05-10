@@ -20,14 +20,13 @@ export function contractId(prdId: ArtifactId, tag: string): ArtifactId {
 }
 
 /**
- * Construct a WorkGraph artifact ID from a PRD ID.
+ * Construct a ExecutableSpecification artifact ID from a PRD ID.
  *
  * Canonical format- `WG-${subject}` where `subject` is the PRD ID with
  * the leading `PRD-` stripped. Same derivation pattern as contractId.
- * Used by Executable Specification Assembly (legacy 08-assemble-workgraph)
- * to name WorkGraphs emitted to specs/workgraphs/.
+ * Used by Executable Specification Assembly to name emitted artifacts.
  */
-export function workGraphId(prdId: ArtifactId): ArtifactId {
+export function executableSpecificationId(prdId: ArtifactId): ArtifactId {
   const subject = prdId.replace(/^PRD-/, "")
   return `WG-${subject}` as ArtifactId
 }

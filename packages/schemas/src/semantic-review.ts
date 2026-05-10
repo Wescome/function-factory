@@ -2,7 +2,7 @@
  * Semantic Review Report schema.
  *
  * Output of the Architect Semantic Review pass that runs between
- * structural coverage (Coherence Verification) and WorkGraph emission. Validates
+ * structural coverage (Coherence Verification) and ExecutableSpecification emission. Validates
  * that whitepaper concepts are faithfully represented in the
  * compiled artifact set before planning begins.
  */

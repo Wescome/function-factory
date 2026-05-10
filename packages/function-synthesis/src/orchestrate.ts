@@ -7,7 +7,7 @@
  * AC 1, 2, 3, 4, 5
  */
 
-import type { ArchitectureCandidate, WorkGraph } from "@factory/schemas"
+import type { ArchitectureCandidate, ExecutableSpecification } from "@factory/schemas"
 import type { BindingMode } from "./binding-mode.js"
 import { ALL_ROLE_CONTRACTS } from "./role-contracts.js"
 import {
@@ -87,7 +87,7 @@ export class DryRunCodeEmitter implements CodeEmitter {
 // ─── The Synthesis Loop ───────────────────────────────────────────────
 
 export async function orchestrate(
-  workGraph: WorkGraph,
+  workGraph: ExecutableSpecification,
   candidate: ArchitectureCandidate,
   bindingMode: BindingMode,
   config: SynthesisConfig,
@@ -117,7 +117,7 @@ export async function orchestrate(
   memory.memoryWrite(
     "execution",
     `synthesis-start-${runId}`,
-    `Synthesis started for WorkGraph ${workGraph.id} with candidate ${candidate.id}`,
+    `Synthesis started for ExecutableSpecification ${workGraph.id} with candidate ${candidate.id}`,
     [workGraph.id, candidate.id],
   )
 
@@ -274,7 +274,6 @@ export async function orchestrate(
     traceLog,
     roleAdherenceReport,
     fidelityVerificationInput,
-    gate2Input: fidelityVerificationInput,
     candidateSelectionReport,
     requiresHumanApproval,
     humanApprovalPayload,

@@ -13,7 +13,7 @@ function makeState(overrides: Partial<GraphState> = {}): GraphState {
   return {
     ...createInitialState('WG-T6', {
       id: 'WG-T6',
-      title: 'Test WorkGraph',
+      title: 'Test ExecutableSpecification',
       atoms: [{ id: 'atom-001', description: 'Stub', assignedTo: 'coder' }],
       invariants: [],
       dependencies: [],
@@ -167,7 +167,7 @@ describe('sandboxRole()', () => {
       const task = JSON.parse(taskJson)
 
       expect(task.workGraph).toBeDefined()
-      expect(task.workGraph.title).toBe('Test WorkGraph')
+      expect(task.workGraph.title).toBe('Test ExecutableSpecification')
     })
 
     it('includes repair context when verdict is patch', async () => {

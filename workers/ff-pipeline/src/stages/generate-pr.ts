@@ -92,7 +92,7 @@ export function buildPRBody(input: PRGenerationInput): string {
   // Header
   sections.push(`## Factory-Generated PR`)
   sections.push('')
-  sections.push(`**WorkGraph:** \`${input.workGraphId}\``)
+  sections.push(`**ExecutableSpecification:** \`${input.workGraphId}\``)
   sections.push(`**Proposal:** \`${input.proposalId}\``)
   sections.push(`**Confidence:** ${input.confidence}`)
   sections.push('')

@@ -1,14 +1,43 @@
 # Current Workspace
 
 ## Status
-Active task: coding Domain Adapter contract materialized; pending commit,
-push, and PR checks.
+Active task: hard-cut active ontology names and Domain Adapter runtime routing;
+pending commit, push, and PR checks.
 
 ## Last update
-2026-05-10T16:54:19Z
+2026-05-10T18:25:39Z
 
 ## Current actions
 
+- Completed: active ontology hard-cut for items 1-4, 6, and 7; storage/path
+  migration remains deferred by architect instruction.
+  - Removed active schema aliases for `PRDDraft`, `WorkGraph`, numbered
+    `Gate*` reports/verdicts, and `CoverageReport`; primary schemas now use
+    `IntentSpecification`, `ExecutableSpecification`, and Verification report
+    names.
+  - Renamed active compiler and verification modules from numbered Gate /
+    WorkGraph file names to `coherence-verification`,
+    `assemble-executable-specification`, and
+    `executable-specification-emit`.
+  - Routed coordinator execution state through `DomainExecutionRequest` and
+    `DomainExecutionEvidence` backed by `CodingDomainAdapterContract`.
+  - Removed active Fidelity/Persistence compatibility exports in runtime
+    modules and renamed runtime modules to `fidelity-verification` and
+    `persistence-verification`.
+  - Replaced the ontology audit with a hard-cut audit for active source
+    surfaces while leaving persisted `PRD-*`, `WG-*`, `CR-*`, storage
+    directories, and collection names for the deferred storage/path migration.
+  - Verification passed:
+    - `pnpm audit:docs`
+    - `pnpm audit:ontology`
+    - `pnpm -r typecheck`
+    - `pnpm --filter @factory/ff-pipeline test`
+    - `pnpm --filter @factory/ff-pipeline test -- src/atoms-complete-wiring.test.ts src/diagnostic-routes.test.ts src/queue-bridge.test.ts`
+    - `git diff --check`
+  - `pnpm -r test` passed all non-pipeline packages but hit parallel
+    ff-pipeline test timeouts; rerunning the failed ff-pipeline files
+    standalone passed.
+  - `specs/reference/NLAH` remains untouched and untracked by request.
 - Completed: Coding Domain Adapter contract materialization.
   - Added `packages/schemas/src/coding-domain-adapter.ts` exporting
     `CodingDomainAdapterContract` as a parsed `DomainAdapterContract`.

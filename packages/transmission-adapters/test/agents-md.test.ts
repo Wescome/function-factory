@@ -6,7 +6,7 @@
  * 2. Includes build commands
  * 3. Includes conventions
  * 4. Includes artifact prefixes
- * 5. No Factory-internal vocabulary (no "atom", "WorkGraph", "Pipeline" internals)
+ * 5. No Factory-internal vocabulary (no "atom", "ExecutableSpecification", "Pipeline" internals)
  * 6. Handles optional architectureDescription
  */
 

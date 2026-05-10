@@ -37,10 +37,10 @@ export const ONTOLOGY_PROPERTIES: OntologyProperty[] = [
     uri: 'ff:compiledFrom',
     label: 'Compiled From',
     propertyType: 'object',
-    domain: 'WorkGraph',
+    domain: 'ExecutableSpecification',
     range: 'FunctionProposal',
     superProperty: 'derivesFrom',
-    comment: 'WorkGraph compiled from FunctionProposal.',
+    comment: 'ExecutableSpecification compiled from FunctionProposal.',
   },
   {
     _key: 'synthesizedFrom',
@@ -48,8 +48,8 @@ export const ONTOLOGY_PROPERTIES: OntologyProperty[] = [
     label: 'Synthesized From',
     propertyType: 'object',
     domain: 'ExecutionArtifact',
-    range: 'WorkGraph',
-    comment: 'Execution artifact synthesized from WorkGraph.',
+    range: 'ExecutableSpecification',
+    comment: 'Execution artifact synthesized from ExecutableSpecification.',
   },
 
   // -- Production --
@@ -87,9 +87,9 @@ export const ONTOLOGY_PROPERTIES: OntologyProperty[] = [
     uri: 'ff:reviewedBy',
     label: 'Reviewed By',
     propertyType: 'object',
-    domain: 'WorkGraph | CodeArtifact | PRDDraft',
+    domain: 'ExecutableSpecification | CodeArtifact | IntentSpecification',
     range: 'AgentRole',
-    comment: 'EVERY WorkGraph, CodeArtifact, and PRDDraft MUST be reviewed.',
+    comment: 'EVERY ExecutableSpecification, CodeArtifact, and IntentSpecification MUST be reviewed.',
   },
   {
     _key: 'gateResult',
@@ -97,8 +97,8 @@ export const ONTOLOGY_PROPERTIES: OntologyProperty[] = [
     label: 'Gate Result',
     propertyType: 'object',
     domain: 'Gate',
-    range: 'CoverageReport',
-    comment: 'Gate produces a CoverageReport.',
+    range: 'VerificationReport',
+    comment: 'Gate produces a VerificationReport.',
   },
 
   // -- Governance --
@@ -370,7 +370,7 @@ export const ONTOLOGY_PROPERTIES: OntologyProperty[] = [
     uri: 'ff:passed',
     label: 'Passed',
     propertyType: 'datatype',
-    domain: 'CoverageReport | CritiqueReport | TestReport',
+    domain: 'VerificationReport | CritiqueReport | TestReport',
     range: 'xsd:boolean',
     comment: 'Whether this report passed validation.',
   },

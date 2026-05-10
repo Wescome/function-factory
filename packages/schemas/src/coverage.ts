@@ -2,7 +2,7 @@
  * Coverage Report schemas for Coherence, Fidelity, and Persistence Verification.
  *
  * Coverage Reports are first-class Factory artifacts and are emitted on
- * every gate run, pass or fail. They live in specs/coverage-reports/ and
+ * every verification run, pass or fail. They live in specs/coverage-reports/ and
  * are versioned alongside the artifacts they concern.
  */
 
@@ -20,8 +20,8 @@ export const CoverageCheck = z.object({
 // ─── Coherence Verification ───────────────────────────────────────────
 
 export const CoherenceVerificationReport = Lineage.extend({
-  id: ArtifactId.refine((s) => s.startsWith("CR-"), "CoverageReport IDs must start with CR-"),
-  gate: z.literal(1),
+  id: ArtifactId.refine((s) => s.startsWith("CR-"), "VerificationReport IDs must start with CR-"),
+  verification: z.literal("coherence"),
   prd_id: ArtifactId,
   timestamp: z.string().datetime(),
   overall: CoverageVerdict,
@@ -52,14 +52,11 @@ export const CoherenceVerificationReport = Lineage.extend({
 })
 export type CoherenceVerificationReport = z.infer<typeof CoherenceVerificationReport>
 
-export const Gate1Report = CoherenceVerificationReport
-export type Gate1Report = CoherenceVerificationReport
-
 // ─── Fidelity Verification ───────────────────────────────────────────
 
 export const FidelityVerificationReport = Lineage.extend({
-  id: ArtifactId.refine((s) => s.startsWith("CR-"), "CoverageReport IDs must start with CR-"),
-  gate: z.literal(2),
+  id: ArtifactId.refine((s) => s.startsWith("CR-"), "VerificationReport IDs must start with CR-"),
+  verification: z.literal("fidelity"),
   function_id: ArtifactId,
   timestamp: z.string().datetime(),
   overall: CoverageVerdict,
@@ -87,14 +84,11 @@ export const FidelityVerificationReport = Lineage.extend({
 })
 export type FidelityVerificationReport = z.infer<typeof FidelityVerificationReport>
 
-export const Gate2Report = FidelityVerificationReport
-export type Gate2Report = FidelityVerificationReport
-
 // ─── Persistence Verification ────────────────────────────────────────
 
 export const PersistenceVerificationReport = Lineage.extend({
-  id: ArtifactId.refine((s) => s.startsWith("CR-"), "CoverageReport IDs must start with CR-"),
-  gate: z.literal(3),
+  id: ArtifactId.refine((s) => s.startsWith("CR-"), "VerificationReport IDs must start with CR-"),
+  verification: z.literal("persistence"),
   function_id: ArtifactId,
   timestamp: z.string().datetime(),
   overall: CoverageVerdict,
@@ -134,15 +128,12 @@ export const PersistenceVerificationReport = Lineage.extend({
 })
 export type PersistenceVerificationReport = z.infer<typeof PersistenceVerificationReport>
 
-export const Gate3Report = PersistenceVerificationReport
-export type Gate3Report = PersistenceVerificationReport
-
-export const CoverageReport = z.discriminatedUnion("gate", [
+export const VerificationReport = z.discriminatedUnion("verification", [
   CoherenceVerificationReport,
   FidelityVerificationReport,
   PersistenceVerificationReport,
 ])
-export type CoverageReport = z.infer<typeof CoverageReport>
+export type VerificationReport = z.infer<typeof VerificationReport>
 
 // ─── Fidelity Verification Verdict ──────────────────────────────────
 
@@ -154,9 +145,6 @@ export const FidelityVerificationVerdict = z.object({
   remediation_notes: z.array(z.string()).default([]),
 })
 export type FidelityVerificationVerdict = z.infer<typeof FidelityVerificationVerdict>
-
-export const Gate2Verdict = FidelityVerificationVerdict
-export type Gate2Verdict = FidelityVerificationVerdict
 
 // ─── Coverage Check Failure ─────────────────────────────────────────
 

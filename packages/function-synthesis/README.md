@@ -1,11 +1,11 @@
 # @factory/function-synthesis
 
-Five-role synthesis runtime for turning a compiled WorkGraph and selected
+Five-role synthesis runtime for turning a compiled ExecutableSpecification and selected
 ArchitectureCandidate into Function implementation evidence.
 
 ## Ontology Alias
 
-This package operates on WorkGraph artifacts, which ontology v0.2 aliases as
+This package operates on ExecutableSpecification artifacts, which ontology v0.2 aliases as
 `Executable Specification`. It emits `FidelityVerificationInput` evidence and
 synthesis traces that support `Fidelity Verification`. Numbered simulation
 coverage names are legacy compatibility shims only; new code should use
@@ -16,7 +16,7 @@ name.
 ## Pipeline Position
 
 **Stage:** Worker synthesis process
-**Consumes:** WorkGraph, ArchitectureCandidate, binding mode, synthesis config
+**Consumes:** ExecutableSpecification, ArchitectureCandidate, binding mode, synthesis config
 **Produces:** SynthesisResult, role traces, FidelityVerificationInput,
 candidate-selection evidence, and patch proposals
 

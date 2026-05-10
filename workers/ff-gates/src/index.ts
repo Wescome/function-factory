@@ -3,7 +3,7 @@
  *
  * Coherence Verification — deterministic, fail-closed.
  *
- * Validates a WorkGraph against five coverage criteria using Zod schemas.
+ * Validates a ExecutableSpecification against five coverage criteria using Zod schemas.
  * No LLM calls. No network calls except ArangoDB reads. Target: <10ms.
  *
  * Exposed via WorkerEntrypoint for Service Binding from ff-gateway.
@@ -29,7 +29,7 @@ interface GatesEnv {
 }
 
 export interface CoherenceVerificationReport {
-  gate: 1
+  verification: "coherence"
   passed: boolean
   timestamp: string
   workGraphId: string
@@ -42,9 +42,6 @@ export interface CoherenceVerificationCheck {
   passed: boolean
   detail: string
 }
-
-export type Gate1Report = CoherenceVerificationReport
-export type Gate1Check = CoherenceVerificationCheck
 
 export { GatesService }
 
@@ -59,10 +56,10 @@ class GatesService extends WorkerEntrypoint<GatesEnv> {
   }
 
   /**
-   * Evaluate Coherence Verification on a WorkGraph.
+   * Evaluate Coherence Verification on a ExecutableSpecification.
    *
    * Five checks, all deterministic:
-   * 1. Atom coverage     — every atom in the WorkGraph has an implementation binding
+   * 1. Atom coverage     — every atom in the ExecutableSpecification has an implementation binding
    * 2. Invariant coverage — every invariant has a detector spec
    * 3. Validation coverage — all required Zod schemas parse without error
    * 4. Dependency closure — no dangling references in the dependency graph
@@ -73,7 +70,7 @@ class GatesService extends WorkerEntrypoint<GatesEnv> {
   async evaluateCoherenceVerification(workGraphJson: unknown): Promise<CoherenceVerificationReport> {
     const checks: CoherenceVerificationCheck[] = []
 
-    // Parse the WorkGraph — if it doesn't parse, that's a gate failure
+    // Parse the ExecutableSpecification — if it doesn't parse, that's a gate failure
     const parseResult = this.checkParseable(workGraphJson)
     checks.push(parseResult)
     if (!parseResult.passed) {
@@ -101,10 +98,6 @@ class GatesService extends WorkerEntrypoint<GatesEnv> {
     return this.buildReport(workGraphJson, checks)
   }
 
-  async evaluateGate1(workGraphJson: unknown): Promise<Gate1Report> {
-    return this.evaluateCoherenceVerification(workGraphJson)
-  }
-
   // ── Check implementations ──
 
   private checkParseable(wg: unknown): CoherenceVerificationCheck {
@@ -112,7 +105,7 @@ class GatesService extends WorkerEntrypoint<GatesEnv> {
       return {
         name: 'parseable',
         passed: false,
-        detail: 'WorkGraph is not an object',
+        detail: 'ExecutableSpecification is not an object',
       }
     }
     const obj = wg as Record<string, unknown>
@@ -125,7 +118,7 @@ class GatesService extends WorkerEntrypoint<GatesEnv> {
         detail: `Missing required fields: ${missing.join(', ')}`,
       }
     }
-    return { name: 'parseable', passed: true, detail: 'WorkGraph structure valid' }
+    return { name: 'parseable', passed: true, detail: 'ExecutableSpecification structure valid' }
   }
 
   private checkAtomCoverage(wg: Record<string, unknown>): CoherenceVerificationCheck {
@@ -202,7 +195,7 @@ class GatesService extends WorkerEntrypoint<GatesEnv> {
   private async checkLineageCompleteness(wgId: string): Promise<CoherenceVerificationCheck> {
     const db = this.getDb()
 
-    // Trace back from WorkGraph through lineage edges — should reach a Signal
+    // Trace back from ExecutableSpecification through lineage edges — should reach a Signal
     const path = await db.query<{ depth: number; type: string }>(
       `FOR v, e, p IN 1..10 OUTBOUND @start lineage_edges
          FILTER v.type == 'signal' OR STARTS_WITH(v._key, 'SIG-')
@@ -215,7 +208,7 @@ class GatesService extends WorkerEntrypoint<GatesEnv> {
       return {
         name: 'lineage-completeness',
         passed: false,
-        detail: `WorkGraph ${wgId} has no lineage path to a Signal (checked 10 hops)`,
+        detail: `ExecutableSpecification ${wgId} has no lineage path to a Signal (checked 10 hops)`,
       }
     }
     return {
@@ -228,7 +221,7 @@ class GatesService extends WorkerEntrypoint<GatesEnv> {
   private checkFieldCompleteness(wg: Record<string, unknown>): CoherenceVerificationCheck {
     const missing: string[] = []
 
-    // WorkGraph-level required fields
+    // ExecutableSpecification-level required fields
     const wgRequired = ['title', 'prdId', 'atoms', 'invariants', 'repo']
     for (const f of wgRequired) {
       if (!wg[f]) missing.push(`workGraph.${f}`)
@@ -273,7 +266,7 @@ class GatesService extends WorkerEntrypoint<GatesEnv> {
       : `Coherence Verification FAILED: ${failedNames.join(', ')}`
 
     return {
-      gate: 1,
+      verification: "coherence",
       passed,
       timestamp: new Date().toISOString(),
       workGraphId: wgId,

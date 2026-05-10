@@ -16,10 +16,10 @@ import type {
   FactoryMode,
   CoherenceVerificationReport,
   Invariant,
-  PRDDraft,
+  IntentSpecification,
   RequirementAtom,
   ValidationSpec,
-  WorkGraph,
+  ExecutableSpecification,
 } from "@factory/schemas"
 
 /**
@@ -30,9 +30,9 @@ import type {
 export type { FactoryMode }
 
 /**
- * Output of Pass 0 (normalize). Contains the parsed PRDDraft plus a
+ * Output of Pass 0 (normalize). Contains the parsed IntentSpecification plus a
  * map of section name to raw markdown content and a record of any
- * unrecognized sections the compiler chose not to map to PRDDraft fields.
+ * unrecognized sections the compiler chose not to map to IntentSpecification fields.
  *
  * Unrecognized sections do not block compilation; they are logged so a
  * future pass (or a human reader) can decide what to do with them. In
@@ -40,7 +40,7 @@ export type { FactoryMode }
  * keeps it as a plain list on the NormalizedPRD.
  */
 export interface NormalizedPRD {
-  readonly draft: PRDDraft
+  readonly draft: IntentSpecification
   readonly sections: Readonly<Record<string, string>>
   readonly unrecognizedSections: readonly string[]
   readonly sourceFile: string
@@ -51,7 +51,7 @@ export interface NormalizedPRD {
  * this bundle via its `prdId` and the five artifact arrays.
  */
 export interface CompilerIntermediates {
-  readonly prd: PRDDraft
+  readonly prd: IntentSpecification
   readonly atoms: readonly RequirementAtom[]
   readonly contracts: readonly Contract[]
   readonly invariants: readonly Invariant[]
@@ -73,7 +73,7 @@ export interface CompileResult {
    * Executable Specification Assembly output. Populated when Coherence
    * Verification verdict is `pass`; null when verification failed.
    */
-  readonly workgraph: WorkGraph | null
+  readonly workgraph: ExecutableSpecification | null
   readonly workgraphPath: string | null
 }
 

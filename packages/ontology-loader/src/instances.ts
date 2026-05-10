@@ -28,7 +28,7 @@ export const ONTOLOGY_INSTANCES: OntologyInstance[] = [
     uri: 'ff:PlannerRole',
     type: 'AgentRole',
     label: 'Planner Agent',
-    comment: 'Decomposes WorkGraph into implementation plan.',
+    comment: 'Decomposes ExecutableSpecification into implementation plan.',
     tools: ['FileReadTool', 'GrepSearchTool'],
     permissions: ['ReadOnly'],
     memoryAccess: ['DecisionsMemory', 'LessonsMemory'],
@@ -340,7 +340,7 @@ export const ONTOLOGY_INSTANCES: OntologyInstance[] = [
     uri: 'ff:col_workgraphs',
     type: 'ArangoCollection',
     label: 'specs_workgraphs',
-    comment: 'WorkGraph documents.',
+    comment: 'ExecutableSpecification documents.',
   },
   {
     _key: 'col_invariants',
@@ -511,7 +511,7 @@ export const ONTOLOGY_INSTANCES: OntologyInstance[] = [
     uri: 'ff:Stage5_Compile',
     type: 'PipelineStage',
     label: 'Intent-to-Executable compilation',
-    comment: 'Legacy Stage 5 compatibility label for compiling PRD/Intent Specification into WorkGraph/Executable Specification.',
+    comment: 'Legacy Stage 5 compatibility label for compiling PRD/Intent Specification into ExecutableSpecification/Executable Specification.',
   },
   {
     _key: 'Stage6_Synthesis',

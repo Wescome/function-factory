@@ -5,19 +5,19 @@ Emits ArchitectureCandidate artifacts from compiled PRDs, describing the candida
 ## Pipeline Position
 
 **Stage:** 4.5
-**Consumes:** `PRD-*` (compiled PRD), `WG-*` (emitted WorkGraph)
+**Consumes:** `PRD-*` (compiled PRD), `WG-*` (emitted ExecutableSpecification)
 **Produces:** `AC-*` (ArchitectureCandidate)
 
 ## Exports
 
-- `emitArchitectureCandidate()` -- Creates an ArchitectureCandidate artifact from a PRD and WorkGraph pair with topology, model binding, tool policy, and convergence policy sections
+- `emitArchitectureCandidate()` -- Creates an ArchitectureCandidate artifact from a PRD and ExecutableSpecification pair with topology, model binding, tool policy, and convergence policy sections
 - `renderArchitectureCandidateYaml()` -- Serializes an ArchitectureCandidate to YAML string
 - `architectureCandidateIdFromPrdId()` -- Deterministic ID derivation from PRD-* to AC-*
 
 ## Key Invariants
 
 - Bootstrap candidates use `single_node` topology, `unbound` model binding, `restricted` tool policy, and `manual_review` convergence
-- Every candidate carries full lineage back to its source PRD and WorkGraph
+- Every candidate carries full lineage back to its source PRD and ExecutableSpecification
 - Candidate status is always `proposed` at emission time; promotion happens downstream
 
 ## Dependencies

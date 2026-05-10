@@ -69,7 +69,7 @@ const PIPELINE_STAGES: PipelineStage[] = [
     stage_number: 4.5,
     name: "emit_architecture_candidates",
     context: "Architecture Search",
-    input: "WorkGraph",
+    input: "ExecutableSpecification",
     output: "ArchitectureCandidate[]",
     mode: "blocking",
     packages: ["@factory/architecture-candidates"],
@@ -88,7 +88,7 @@ const PIPELINE_STAGES: PipelineStage[] = [
     name: "compile_proposals_through_eight_narrow_passes",
     context: "Specification",
     input: "FunctionProposal[]",
-    output: "WorkGraph[] + CoverageReport[]",
+    output: "ExecutableSpecification[] + VerificationReport[]",
     mode: "blocking",
     packages: ["@factory/prd-authoring", "@factory/compiler"],
   },
@@ -97,7 +97,7 @@ const PIPELINE_STAGES: PipelineStage[] = [
     name: "evaluate_structural_coverage",
     context: "Assurance",
     input: "CompilerIntermediates",
-    output: "CoverageReport",
+    output: "VerificationReport",
     mode: "blocking",
     packages: ["@factory/coverage-gates"],
   },
@@ -105,7 +105,7 @@ const PIPELINE_STAGES: PipelineStage[] = [
     stage_number: 5.75,
     name: "review_semantic_correctness",
     context: "Assurance",
-    input: "PRD + WorkGraph",
+    input: "PRD + ExecutableSpecification",
     output: "SemanticReviewReport",
     mode: "blocking",
     packages: ["@factory/semantic-review"],
@@ -323,16 +323,16 @@ declare function specification_pass6_deriveValidations(
   invariants: ReadonlyArray<Invariant>
 ): Validation[];
 
-/** Completeness Certification: consistency check -- produces CoverageReport. */
+/** Completeness Certification: consistency check -- produces VerificationReport. */
 declare function specification_pass7_consistencyCheck(
   intermediates: CompilerIntermediates
-): CoverageReport;
+): VerificationReport;
 
 /** Executable Specification Assembly. Only runs if structural_coverage_passed. */
 declare function specification_pass8_assembleWorkGraph(
   prd: PRD,
   intermediates: CompilerIntermediates
-): WorkGraph;
+): ExecutableSpecification;
 
 // --- Block from line 833 (Part II -- How Does a Function Come to Exist?) ---
 /** CANONICAL-ONLY. Transformation outputs bundled for cross-reference. */
@@ -347,7 +347,7 @@ interface CompilerIntermediates {
 
 // --- Block from line 865 (Part II -- How Does a Function Come to Exist?) ---
 /** CANONICAL-ONLY. Output of any coverage evaluation. */
-interface CoverageReport {
+interface VerificationReport {
   id: string; // CR-*
   function_id: string;
   gate: "compile" | "simulation" | "assurance";
@@ -372,7 +372,7 @@ interface CoverageFailure {
  * Coherence Verification: evaluate structural coverage.
  * Runs before Executable Specification Assembly.
  *
- * FAIL-CLOSED: if any check fails, WorkGraph is not emitted.
+ * FAIL-CLOSED: if any check fails, ExecutableSpecification is not emitted.
  * The PRD must be remediated upstream.
  *
  * IMPORTANT: structural_coverage_passed is STRUCTURAL, not SEMANTIC.
@@ -381,7 +381,7 @@ interface CoverageFailure {
  */
 declare function assurance_evaluateStructuralCoverage(
   intermediates: CompilerIntermediates
-): CoverageReport;
+): VerificationReport;
 
 // --- Block from line 914 (Part II -- How Does a Function Come to Exist?) ---
 /** CANONICAL-ONLY. Semantic Review output. */
@@ -400,11 +400,11 @@ interface SemanticReviewReport {
  * In Bootstrap mode: human-in-the-loop (Architect reviews).
  * In Steady-State: LLM-driven evaluation.
  *
- * FAIL-CLOSED: rejected or needs_revision blocks WorkGraph emission.
+ * FAIL-CLOSED: rejected or needs_revision blocks ExecutableSpecification emission.
  */
 declare function assurance_reviewSemanticCorrectness(
   prd: PRD,
-  workGraph: WorkGraph
+  workGraph: ExecutableSpecification
 ): SemanticReviewReport;
 
 // --- Block from line 943 (Part II -- How Does a Function Come to Exist?) ---
@@ -414,14 +414,14 @@ declare function assurance_reviewSemanticCorrectness(
  * Runs: Signals -> Pressures -> Capabilities -> Deltas ->
  *       Proposals -> PRDs -> Compile (8 passes) ->
  *       structural_coverage_passed -> Semantic Review ->
- *       WorkGraph emission
+ *       ExecutableSpecification emission
  *
  * Returns only WorkGraphs that pass both guards.
  */
 declare function specification_compilePipeline(
   signals: ReadonlyArray<Signal>
 ): {
-  workGraphs: WorkGraph[];
-  coverageReports: CoverageReport[];
+  workGraphs: ExecutableSpecification[];
+  coverageReports: VerificationReport[];
   prds: PRD[];
 };

@@ -13,7 +13,7 @@
  */
 
 import { describe, it, expect } from "vitest"
-import { CoherenceVerificationReport, Gate1Report } from "./coverage.js"
+import { CoherenceVerificationReport } from "./coverage.js"
 
 // Minimum valid CoherenceVerificationReport fixture. Reused across tests. Represents a
 // passing Steady-State report (no bootstrap_prefix_check present).
@@ -22,7 +22,7 @@ const baseCoherenceVerificationReport = {
   source_refs: ["PRD-META-GATE-1-COMPILE-COVERAGE"],
   explicitness: "explicit" as const,
   rationale: "test fixture",
-  gate: 1 as const,
+  verification: "coherence" as const,
   prd_id: "PRD-META-GATE-1-COMPILE-COVERAGE",
   timestamp: "2026-04-19T00:00:00Z",
   overall: "pass" as const,
@@ -150,7 +150,7 @@ describe("CoherenceVerificationReport", () => {
     })
 
     it("rejects a CoherenceVerificationReport with gate literal other than 1", () => {
-      const bad = { ...baseCoherenceVerificationReport, gate: 2 as const }
+      const bad = { ...baseCoherenceVerificationReport, verification: "fidelity" as const }
       const result = CoherenceVerificationReport.safeParse(bad)
       expect(result.success).toBe(false)
     })
@@ -161,9 +161,9 @@ describe("CoherenceVerificationReport", () => {
       expect(result.success).toBe(false)
     })
 
-    it("keeps Gate1Report as a compatibility alias", () => {
-      expect(Gate1Report).toBe(CoherenceVerificationReport)
-      expect(Gate1Report.safeParse(baseCoherenceVerificationReport).success).toBe(true)
+    it("keeps CoherenceVerificationReport as a compatibility alias", () => {
+      expect(CoherenceVerificationReport).toBe(CoherenceVerificationReport)
+      expect(CoherenceVerificationReport.safeParse(baseCoherenceVerificationReport).success).toBe(true)
     })
   })
 })

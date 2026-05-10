@@ -7,7 +7,7 @@
  * AC 10, 11, 12, 13
  */
 
-import type { ArchitectureCandidate, WorkGraph } from "@factory/schemas"
+import type { ArchitectureCandidate, ExecutableSpecification } from "@factory/schemas"
 import {
   SynthesisTraceLog,
   FidelityVerificationInput,
@@ -74,8 +74,6 @@ export interface FidelityVerificationInputBuilderInput {
   readonly completedAt: string
 }
 
-export type Gate2InputBuilderInput = FidelityVerificationInputBuilderInput
-
 export function buildFidelityVerificationInput(input: FidelityVerificationInputBuilderInput): FidelityVerificationInput {
   return FidelityVerificationInput.parse({
     synthesisRunId: input.runId,
@@ -100,8 +98,6 @@ export function buildFidelityVerificationInput(input: FidelityVerificationInputB
     },
   })
 }
-
-export const buildGate2Input = buildFidelityVerificationInput
 
 // ─── Candidate Selection Report Builder (AC 12) ──────────────────────
 

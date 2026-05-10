@@ -79,14 +79,6 @@ describe('synthesis PR draft plan', () => {
     expect(() => buildSynthesisPRDraft(makeAudit({ coherenceVerificationPassed: false }))).toThrow(/Coherence Verification/i)
   })
 
-  it('accepts legacy gate1Passed audits as a compatibility input', () => {
-    const audit = makeAudit({ gate1Passed: true })
-    delete audit.coherenceVerificationPassed
-    const draft = buildSynthesisPRDraft(audit)
-
-    expect(draft.body).toContain('Coherence Verification: `pass`')
-  })
-
   it('fails closed when runtime synthesis did not pass', () => {
     expect(() => buildSynthesisPRDraft(makeAudit({ runtimeStatus: 'synthesis-failed' }))).toThrow(
       /synthesis-passed/i,

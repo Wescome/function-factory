@@ -1,7 +1,7 @@
 /**
  * System prompt rendering for each role in the synthesis topology.
  *
- * Renders the system prompt from role contract, WorkGraph, and
+ * Renders the system prompt from role contract, ExecutableSpecification, and
  * ActiveCandidate. Each role's prompt constrains the agent to produce
  * ONLY the role's designated output artifact, and to end with a
  * JSON footer per whitepaper section 3.
@@ -14,7 +14,7 @@
  * AC 6, 7, 15, 16
  */
 
-import type { ArchitectureCandidate, WorkGraph } from "@factory/schemas"
+import type { ArchitectureCandidate, ExecutableSpecification } from "@factory/schemas"
 import type { RoleContract } from "./role-contracts.js"
 
 /**
@@ -22,7 +22,7 @@ import type { RoleContract } from "./role-contracts.js"
  */
 export function renderRolePrompt(
   contract: RoleContract,
-  workGraph: WorkGraph,
+  workGraph: ExecutableSpecification,
   candidate: ArchitectureCandidate,
 ): string {
   const sections: string[] = []
@@ -55,10 +55,10 @@ export function renderRolePrompt(
     "",
   )
 
-  // WorkGraph context
+  // ExecutableSpecification context
   sections.push(
-    "## WorkGraph",
-    `WorkGraph ID: ${workGraph.id}`,
+    "## ExecutableSpecification",
+    `ExecutableSpecification ID: ${workGraph.id}`,
     `Function ID: ${workGraph.functionId}`,
     `Nodes (${workGraph.nodes.length}):`,
     ...workGraph.nodes.map((n) => `  - ${n.id}: ${n.title} (${n.type})`),

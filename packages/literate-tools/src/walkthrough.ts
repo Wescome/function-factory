@@ -5,7 +5,7 @@
  * Function through the complete lifecycle:
  *
  *   Signal -> Pressure -> Capability -> Proposal -> PRD ->
- *   CoherenceVerificationReport -> WorkGraph -> ArchitectureCandidate ->
+ *   CoherenceVerificationReport -> ExecutableSpecification -> ArchitectureCandidate ->
  *   ExecutionTrace -> FidelityVerificationVerdict -> TrustComposite
  *
  * Each step uses schema.parse() so Zod validates the shape. If any
@@ -20,9 +20,9 @@ import {
   Pressure,
   BusinessCapability,
   FunctionProposal,
-  PRDDraft,
+  IntentSpecification,
   CoherenceVerificationReport,
-  WorkGraph,
+  ExecutableSpecification,
   ArchitectureCandidate,
   ExecutionTrace,
   FidelityVerificationVerdict,
@@ -130,9 +130,9 @@ function main(): void {
     })
   )
 
-  // ── Step 5: PRDDraft ────────────────────────────────────────────────
-  const prd = step("PRDDraft (Intent Specification)", () =>
-    PRDDraft.parse({
+  // ── Step 5: IntentSpecification ────────────────────────────────────────────────
+  const prd = step("IntentSpecification (Intent Specification)", () =>
+    IntentSpecification.parse({
       id: "PRD-WALK-001",
       ...lineage([capability.id, proposal.id]),
       sourceCapabilityId: capability.id,
@@ -152,7 +152,7 @@ function main(): void {
     CoherenceVerificationReport.parse({
       id: "CR-WALK-001",
       ...lineage([prd.id]),
-      gate: 1,
+      verification: "coherence",
       prd_id: prd.id,
       timestamp: NOW,
       overall: "pass",
@@ -179,9 +179,9 @@ function main(): void {
     })
   )
 
-  // ── Step 7: WorkGraph ───────────────────────────────────────────────
-  const workGraph = step("WorkGraph (Executable Specification)", () =>
-    WorkGraph.parse({
+  // ── Step 7: ExecutableSpecification ───────────────────────────────────────────────
+  const workGraph = step("ExecutableSpecification (Executable Specification)", () =>
+    ExecutableSpecification.parse({
       id: "WG-WALK-001",
       ...lineage([prd.id, coherenceVerification.id]),
       functionId: proposal.id,

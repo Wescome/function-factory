@@ -108,7 +108,7 @@ function makeUpstreamCompileEvidence() {
     authoritative: false,
     workGraphId: 'WG-T11',
     upstreamWorkGraphId: 'WG-T11',
-    reason: 'Workflow compilation already emitted this WorkGraph before Agent Call execution; coordinator records pass-through evidence only.',
+    reason: 'Workflow compilation already emitted this ExecutableSpecification before Agent Call execution; coordinator records pass-through evidence only.',
     timestamp: new Date().toISOString(),
   }
 }
@@ -170,7 +170,6 @@ describe('T11: 9-node synthesis graph', () => {
     expect(finalState.semanticReview).not.toBeNull()
     expect(finalState.compiledPrd).toBeDefined()
     expect(finalState.coherenceVerificationPassed).toBe(true)
-    expect(finalState.gate1Passed).toBe(true)
     expect(finalState.plan).toBeDefined()
     expect(finalState.code).toBeDefined()
     expect(finalState.critique).toBeDefined()
@@ -254,7 +253,6 @@ describe('T11: 9-node synthesis graph', () => {
       briefingScript: makeStubBriefingScript(),
       semanticReview: makeStubSemanticReview(),
       coherenceVerificationPassed: true,
-      gate1Passed: true,
       compiledPrd: makeUpstreamCompileEvidence(),
     })
     const visited2: string[] = []
@@ -467,7 +465,6 @@ describe('T11: 9-node synthesis graph', () => {
       semanticReview: makeStubSemanticReview(),
       compiledPrd: makeUpstreamCompileEvidence(),
       coherenceVerificationPassed: false,
-      gate1Passed: false,
       // Set a verdict that would cause Coherence Verification to fail via a custom check.
     })
 
@@ -542,12 +539,9 @@ describe('T11: 9-node synthesis graph', () => {
 
     expect(finalState.coherenceVerificationPassed).toBe(true)
     expect(finalState.coherenceVerificationReport).toBeDefined()
-    expect(finalState.gate1Passed).toBe(true)
-    expect(finalState.gate1Report).toBe(finalState.coherenceVerificationReport)
 
     const coherenceVerificationReport = finalState.coherenceVerificationReport as Record<string, unknown>
-    expect(coherenceVerificationReport.verification).toBe('coherence-verification')
-    expect(coherenceVerificationReport.legacyGate).toBe('gate-1')
+    expect(coherenceVerificationReport.verification).toBe('coherence')
     expect(coherenceVerificationReport.source).toBe('workflow-stage-coherence-verification')
     expect(coherenceVerificationReport.evidenceStatus).toBe('upstream_verified_not_recomputed')
     expect(coherenceVerificationReport.authoritative).toBe(false)
@@ -556,7 +550,7 @@ describe('T11: 9-node synthesis graph', () => {
     expect(JSON.stringify(coherenceVerificationReport)).not.toContain('Gate 1 passed (stub)')
 
     const role = finalState.roleHistory.find(entry => entry.role === 'coherence-verification')
-    expect(role?.legacyRole).toBe('gate-1')
+    expect(role?.legacyRole).toBeUndefined()
   })
 
   // ────────────────────────────────────────────────────────────

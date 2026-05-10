@@ -19,7 +19,7 @@ import type { RoleName } from "./types.js"
 
 const readWorkGraph: ToolSchema = {
   name: "readWorkGraph",
-  description: "Read the WorkGraph specification (nodes and edges).",
+  description: "Read the ExecutableSpecification specification (nodes and edges).",
   inputSchema: { type: "object", properties: {} },
   async execute() {
     return { nodes: [], edges: [], id: "stub-wg" }

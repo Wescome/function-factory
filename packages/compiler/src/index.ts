@@ -1,9 +1,9 @@
 /**
  * @factory/compiler
  *
- * Intent-to-Executable compiler- transforms PRDDraft into a Coherence
- * Verification Coverage Report and WorkGraph. Historical pass numbers remain
- * compatibility labels; ontology terms are primary. Current WorkGraph assembly
+ * Intent-to-Executable compiler- transforms IntentSpecification into a Coherence
+ * Verification Coverage Report and ExecutableSpecification. Historical pass numbers remain
+ * compatibility labels; ontology terms are primary. Current ExecutableSpecification assembly
  * is Structural Assembly completion, not future Instruction Tuning.
  */
 

@@ -17,7 +17,7 @@
 
 import { readFile } from "node:fs/promises"
 import { dirname, resolve } from "node:path"
-import type { WorkGraph } from "@factory/schemas"
+import type { ExecutableSpecification } from "@factory/schemas"
 import type { CompileResult, FactoryMode } from "./types.js"
 import {
   assembleExecutableSpecification,
@@ -27,7 +27,7 @@ import {
   deriveInvariants,
   deriveValidations,
   determineMode,
-  emitWorkgraph,
+  emitExecutableSpecification,
   extractAtoms,
   normalize,
   runCoherenceVerificationPass,
@@ -91,10 +91,10 @@ export async function compile(
   )
 
   // Executable Specification Assembly. The historical compatibility label is
-  // "Pass 8 assemble WorkGraph"; ontology Pass 8 is future Instruction Tuning.
+  // "Pass 8 assemble ExecutableSpecification"; ontology Pass 8 is future Instruction Tuning.
   // On failure, workgraph and workgraphPath remain null; the orchestrator still
   // returns with the Coverage Report preserved on disk per ConOps §7.2 step 2.
-  let workgraph: WorkGraph | null = null
+  let workgraph: ExecutableSpecification | null = null
   let workgraphPath: string | null = null
   if (report.overall === "pass") {
     workgraph = assembleExecutableSpecification(
@@ -108,7 +108,7 @@ export async function compile(
     )
     const workgraphsDir =
       options.workgraphsDir ?? defaultWorkgraphsDir(absolutePrdPath)
-    workgraphPath = await emitWorkgraph(workgraph, workgraphsDir)
+    workgraphPath = await emitExecutableSpecification(workgraph, workgraphsDir)
   }
 
   return {
@@ -134,7 +134,7 @@ function defaultCoverageReportsDir(prdAbsolutePath: string): string {
 }
 
 /**
- * Default WorkGraph destination- resolves <repo-root>/specs/workgraphs
+ * Default ExecutableSpecification destination- resolves <repo-root>/specs/workgraphs
  * by walking up from the PRD file. Same walk logic as
  * defaultCoverageReportsDir.
  */
