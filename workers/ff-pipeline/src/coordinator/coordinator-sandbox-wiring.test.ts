@@ -4,14 +4,14 @@
  * Verifies that the coordinator's private buildSandboxDeps() method:
  * 1. When env.SANDBOX is defined, delegates to the real sandbox-deps-factory
  * 2. When env.SANDBOX is undefined, returns throwing stubs (backward compat)
- * 3. Passes currentWorkGraphId through to the real factory
+ * 3. Passes currentExecutableSpecificationId through to the real factory
  *
  * Strategy: Since SynthesisCoordinator extends Agent (cloudflare:workers), it
  * cannot be instantiated in vitest. We verify:
  *   a) Source-level: the coordinator source imports and calls buildRealSandboxDeps
  *   b) Behavioral: the sandbox-deps-factory returns real deps (already tested)
  *   c) Integration: makeExecutionRole with throwing stubs falls back correctly
- *   d) Source-level: currentWorkGraphId is set before buildSandboxDeps is called
+ *   d) Source-level: currentExecutableSpecificationId is set before buildSandboxDeps is called
  */
 import { describe, it, expect, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -44,10 +44,10 @@ describe('T12-wiring: buildSandboxDeps() env.SANDBOX branching', () => {
     expect(coordinatorSrc).toMatch(/buildRealSandboxDeps\(\s*this\.env\.SANDBOX/)
   })
 
-  it('passes this.currentWorkGraphId to buildRealSandboxDeps', () => {
-    // The real factory needs the workGraphId for sandbox naming
+  it('passes this.currentExecutableSpecificationId to buildRealSandboxDeps', () => {
+    // The real factory needs the executableSpecificationId for sandbox naming
     expect(coordinatorSrc).toMatch(
-      /buildRealSandboxDeps\(\s*this\.env\.SANDBOX\s*,\s*this\.currentWorkGraphId\s*\)/,
+      /buildRealSandboxDeps\(\s*this\.env\.SANDBOX\s*,\s*this\.currentExecutableSpecificationId\s*\)/,
     )
   })
 
@@ -78,36 +78,36 @@ describe('T12-wiring: buildSandboxDeps() env.SANDBOX branching', () => {
 })
 
 // ────────────────────────────────────────────────────────────
-// 2. currentWorkGraphId tracking
+// 2. currentExecutableSpecificationId tracking
 // ────────────────────────────────────────────────────────────
 
-describe('T12-wiring: currentWorkGraphId lifecycle', () => {
-  it('declares currentWorkGraphId as a private field', () => {
-    expect(coordinatorSrc).toMatch(/private\s+currentWorkGraphId\s*:\s*string/)
+describe('T12-wiring: currentExecutableSpecificationId lifecycle', () => {
+  it('declares currentExecutableSpecificationId as a private field', () => {
+    expect(coordinatorSrc).toMatch(/private\s+currentExecutableSpecificationId\s*:\s*string/)
   })
 
-  it('initializes currentWorkGraphId with a default value', () => {
+  it('initializes currentExecutableSpecificationId with a default value', () => {
     // Should have a default so buildSandboxDeps never gets undefined
-    expect(coordinatorSrc).toMatch(/currentWorkGraphId\s*:\s*string\s*=\s*['"]/)
+    expect(coordinatorSrc).toMatch(/currentExecutableSpecificationId\s*:\s*string\s*=\s*['"]/)
   })
 
-  it('sets currentWorkGraphId at the start of synthesize()', () => {
-    // In synthesize(), currentWorkGraphId must be set from the workGraph
-    expect(coordinatorSrc).toMatch(/this\.currentWorkGraphId\s*=\s*workGraphId/)
+  it('sets currentExecutableSpecificationId at the start of synthesize()', () => {
+    // In synthesize(), currentExecutableSpecificationId must be set from the executableSpecification
+    expect(coordinatorSrc).toMatch(/this\.currentExecutableSpecificationId\s*=\s*executableSpecificationId/)
   })
 
-  it('currentWorkGraphId is set BEFORE buildSandboxDeps is called', () => {
+  it('currentExecutableSpecificationId is set BEFORE buildSandboxDeps is called', () => {
     // Extract the synthesize method body and verify ordering
     const synthesizeStart = coordinatorSrc.indexOf('async synthesize(')
-    const setWorkGraphId = coordinatorSrc.indexOf('this.currentWorkGraphId = workGraphId', synthesizeStart)
+    const setExecutableSpecificationId = coordinatorSrc.indexOf('this.currentExecutableSpecificationId = executableSpecificationId', synthesizeStart)
     const callBuildDeps = coordinatorSrc.indexOf('this.buildSandboxDeps()', synthesizeStart)
 
     // Both must exist
-    expect(setWorkGraphId).toBeGreaterThan(-1)
+    expect(setExecutableSpecificationId).toBeGreaterThan(-1)
     expect(callBuildDeps).toBeGreaterThan(-1)
 
     // Set must come before use
-    expect(setWorkGraphId).toBeLessThan(callBuildDeps)
+    expect(setExecutableSpecificationId).toBeLessThan(callBuildDeps)
   })
 })
 

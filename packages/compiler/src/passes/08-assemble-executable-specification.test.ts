@@ -291,6 +291,6 @@ describe("Executable Specification Assembly", () => {
         [],
         makeCoherenceVerificationReportPassing()
       )
-    ).toThrow(/invalid ExecutableSpecification/)
+    ).toThrow(/invalid Executable Specification/)
   })
 })

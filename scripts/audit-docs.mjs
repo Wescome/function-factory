@@ -64,7 +64,7 @@ console.log(
 )
 
 if (lineage.virtualRefs > 0) {
-  console.log('note: virtual_refs are non-materialized compiler intermediates accepted by current WorkGraph artifacts')
+  console.log('note: virtual_refs are non-materialized compiler intermediates accepted by current ExecutableSpecification artifacts')
 }
 
 if (lineage.externalSignalRefs > 0) {

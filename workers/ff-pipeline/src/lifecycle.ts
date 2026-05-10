@@ -50,7 +50,6 @@ export interface LifecycleTransition {
   responsible_context?: string // which subsystem owns this transition
   timestamp: string
   verificationReport?: string  // _key of the verification report that authorized this transition
-  gateReport?: string          // legacy compatibility alias for verificationReport
 }
 
 // ── Constants ──────────────────────────────────────────────────────
@@ -74,11 +73,10 @@ export const ALLOWED_TRANSITIONS: Record<LifecycleState, LifecycleState[]> = {
 }
 
 export type VerificationRequirement = 'fidelity-verification' | 'persistence-verification'
-export type LegacyGateRequirement = 'gate-2' | 'gate-3'
 
 export interface VerificationRequirementSpec {
   verification: VerificationRequirement
-  legacyGate: LegacyGateRequirement
+  storageDiscriminator: 'gate-2' | 'gate-3'
 }
 
 /**
@@ -86,13 +84,8 @@ export interface VerificationRequirementSpec {
  * If a target state is in this map, the named verification must have passed.
  */
 export const VERIFICATION_REQUIREMENTS: Partial<Record<LifecycleState, VerificationRequirementSpec>> = {
-  accepted: { verification: 'fidelity-verification', legacyGate: 'gate-2' },
-  monitored: { verification: 'persistence-verification', legacyGate: 'gate-3' },
-}
-
-export const GATE_REQUIREMENTS: Partial<Record<LifecycleState, LegacyGateRequirement>> = {
-  accepted: 'gate-2',
-  monitored: 'gate-3',
+  accepted: { verification: 'fidelity-verification', storageDiscriminator: 'gate-2' },
+  monitored: { verification: 'persistence-verification', storageDiscriminator: 'gate-3' },
 }
 
 // ── Validation ─────────────────────────────────────────────────────
@@ -102,7 +95,6 @@ export const GATE_REQUIREMENTS: Partial<Record<LifecycleState, LegacyGateRequire
  *
  * Returns { valid: true } if the transition is allowed.
  * Returns { valid: true, verificationRequired } if a verification must pass first.
- * Also returns legacy gateRequired for compatibility callers.
  * Returns { valid: false, error } if the transition is forbidden.
  *
  * Same-state transitions are treated as valid (idempotent no-op).
@@ -110,7 +102,7 @@ export const GATE_REQUIREMENTS: Partial<Record<LifecycleState, LegacyGateRequire
 export function validateTransition(
   from: LifecycleState,
   to: LifecycleState,
-): { valid: boolean; error?: string; verificationRequired?: VerificationRequirement; gateRequired?: LegacyGateRequirement } {
+): { valid: boolean; error?: string; verificationRequired?: VerificationRequirement } {
   // Idempotent: same state -> no-op
   if (from === to) {
     return { valid: true }
@@ -129,7 +121,6 @@ export function validateTransition(
     valid: true,
     ...(requirement ? {
       verificationRequired: requirement.verification,
-      gateRequired: requirement.legacyGate,
     } : {}),
   }
 }
@@ -142,12 +133,12 @@ export function validateTransition(
  * 1. Fetches the current document from specs_functions
  * 2. Validates the transition
  * 3. If verification is required, verifies it has passed
- *    (via verificationReport, legacy gateReport, or gate_status query)
+ *    (via verificationReport or gate_status query)
  * 4. Updates the document's lifecycleState field
  * 5. Records the transition in lifecycle_transitions edge collection
  *
  * Throws if the transition is invalid, the document is not found,
- * or a required gate has not passed.
+ * or a required Verification has not passed.
  *
  * Idempotent: transitioning to the current state is a silent no-op.
  */
@@ -160,7 +151,6 @@ export async function transitionLifecycle(
     guard?: string
     responsible_context?: string
     verificationReport?: string
-    gateReport?: string
   },
 ): Promise<void> {
   // 1. Fetch current state
@@ -188,17 +178,21 @@ export async function transitionLifecycle(
 
   // 4. Verification check
   if (validation.verificationRequired) {
-    const reportKey = opts.verificationReport ?? opts.gateReport
+    const reportKey = opts.verificationReport
     if (!reportKey) {
       throw new Error(
         `Transition ${from} -> ${to} requires ${validation.verificationRequired} pass. ` +
         `Provide a verificationReport key.`,
       )
     }
+    const requirement = VERIFICATION_REQUIREMENTS[to]
+    if (!requirement) {
+      throw new Error(`Missing verification requirement for ${to}`)
+    }
 
     // Verify the required verification actually passed. Older paths write
     // gate_status; diagnostic evidence writes schema-validated records to
-    // specs_coverage_reports with legacy gate-* storage discriminators.
+    // specs_coverage_reports with deferred gate-* storage discriminators.
     const gateStatus = await db.queryOne<{ passed: boolean }>(
       `LET gateStatus = FIRST(
          FOR g IN gate_status
@@ -209,17 +203,17 @@ export async function transitionLifecycle(
          FOR report IN specs_coverage_reports
            FILTER report._key == @key OR report.id == @key
            RETURN {
-             passed: report.passed == true
-               OR (report.type == @verificationRequired AND report.report.overall == "pass")
-               OR (report.type == @gateRequired AND report.report.overall == "pass")
-               OR (report.gate == TO_NUMBER(SUBSTITUTE(@gateRequired, "gate-", "")) AND report.overall == "pass")
+               passed: report.passed == true
+                 OR (report.type == @verificationRequired AND report.report.overall == "pass")
+               OR (report.type == @storageDiscriminator AND report.report.overall == "pass")
+               OR (report.gate == TO_NUMBER(SUBSTITUTE(@storageDiscriminator, "gate-", "")) AND report.overall == "pass")
            }
        )
        RETURN gateStatus != null ? gateStatus : coverageReport`,
       {
         key: reportKey,
         verificationRequired: validation.verificationRequired,
-        gateRequired: validation.gateRequired,
+        storageDiscriminator: requirement.storageDiscriminator,
       },
     )
 
@@ -247,9 +241,8 @@ export async function transitionLifecycle(
     timestamp: new Date().toISOString(),
     ...(opts.guard ? { guard: opts.guard } : {}),
     ...(opts.responsible_context ? { responsible_context: opts.responsible_context } : {}),
-    ...(opts.verificationReport || opts.gateReport ? {
-      verificationReport: opts.verificationReport ?? opts.gateReport,
-      gateReport: opts.gateReport ?? opts.verificationReport,
+    ...(opts.verificationReport ? {
+      verificationReport: opts.verificationReport,
     } : {}),
   }
 

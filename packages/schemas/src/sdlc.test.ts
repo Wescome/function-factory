@@ -5,7 +5,7 @@ const baseMergeReadinessPack = {
   _key: "MRP-MOTE4M1R-G7I0-71",
   id: "MRP-MOTE4M1R-G7I0-71",
   functionId: "FN-MOTDWVR2-W7UN",
-  workGraphId: "WG-MOTE4M1R-G7I0",
+  executableSpecificationId: "WG-MOTE4M1R-G7I0",
   pipelineInstanceId: "b1b51f73-416d-4d87-90a5-9ccaa12bec76",
   functionalCompleteness: {
     passed: true,
@@ -47,7 +47,7 @@ const baseMergeReadinessPack = {
   },
   auditability: {
     prdId: "PRD-MOTE4M1R-G7I0",
-    workGraphId: "WG-MOTE4M1R-G7I0",
+    executableSpecificationId: "WG-MOTE4M1R-G7I0",
     semanticReviewId: "SRR-MOTE4M1R-G7I0",
     coherenceVerificationReportId: "CR-MOTE4M1R-GATE1",
     fidelityVerificationReportId: "CR-MOTE4M1R-GATE2",

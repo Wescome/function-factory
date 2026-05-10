@@ -15,17 +15,17 @@ function makeInput(overrides: Partial<FidelityVerificationInput> = {}): Fidelity
   return {
     functionId: 'FN-MOTDWVR2-W7UN',
     prdId: 'PRD-META-FUNCTION-SYNTHESIS',
-    workGraphId: 'WG-META-FUNCTION-SYNTHESIS',
+    executableSpecificationId: 'WG-META-FUNCTION-SYNTHESIS',
     candidateId: 'AC-META-ARCHITECTURE-CANDIDATE-EXECUTION',
     timestamp: '2026-05-07T21:30:00.000Z',
     sourceRefs: ['MRP-MOTE4M1R-G7I0-71'],
     branches: [
-      { workgraphNode: 'atom-001', edge: 'success' },
+      { executableSpecificationNode: 'atom-001', edge: 'success' },
     ],
     invariants: [
       {
         id: 'INV-META-RUNTIME-VERIFICATION-COVERS-SMOKE',
-        workgraphNode: 'atom-001',
+        executableSpecificationNode: 'atom-001',
       },
     ],
     scenarios: [
@@ -33,7 +33,7 @@ function makeInput(overrides: Partial<FidelityVerificationInput> = {}): Fidelity
         id: 'SCN-RUNTIME-VERIFICATION-PASS',
         kind: 'positive',
         passed: true,
-        coversBranches: [{ workgraphNode: 'atom-001', edge: 'success' }],
+        coversBranches: [{ executableSpecificationNode: 'atom-001', edge: 'success' }],
         coversInvariants: ['INV-META-RUNTIME-VERIFICATION-COVERS-SMOKE'],
       },
       {
@@ -60,7 +60,7 @@ function makeContractInput(overrides: Partial<FidelityVerificationContractInput>
   return {
     synthesisRunId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
     functionId: 'FN-MOTDWVR2-W7UN',
-    workGraphId: 'WG-META-FUNCTION-SYNTHESIS',
+    executableSpecificationId: 'WG-META-FUNCTION-SYNTHESIS',
     architectureCandidateId: 'AC-META-ARCHITECTURE-CANDIDATE-EXECUTION',
     artifactPaths: ['workers/ff-pipeline/src/runtime-verification.ts'],
     validationOutcomes: [
@@ -72,12 +72,12 @@ function makeContractInput(overrides: Partial<FidelityVerificationContractInput>
           priority: 'required',
           invariantIds: ['INV-META-RUNTIME-VERIFICATION-COVERS-SMOKE'],
           branches: [
-            { workgraphNode: 'atom-001', edge: 'success' },
+            { executableSpecificationNode: 'atom-001', edge: 'success' },
           ],
           invariants: [
             {
               id: 'INV-META-RUNTIME-VERIFICATION-COVERS-SMOKE',
-              workgraphNode: 'atom-001',
+              executableSpecificationNode: 'atom-001',
             },
           ],
           scenarios: [
@@ -85,7 +85,7 @@ function makeContractInput(overrides: Partial<FidelityVerificationContractInput>
               id: 'SCN-RUNTIME-VERIFICATION-PASS',
               kind: 'positive',
               passed: true,
-              coversBranches: [{ workgraphNode: 'atom-001', edge: 'success' }],
+              coversBranches: [{ executableSpecificationNode: 'atom-001', edge: 'success' }],
               coversInvariants: ['INV-META-RUNTIME-VERIFICATION-COVERS-SMOKE'],
             },
             {
@@ -127,17 +127,17 @@ describe('Fidelity Verification evaluator', () => {
     expect(adapted).toMatchObject({
       functionId: 'FN-MOTDWVR2-W7UN',
       prdId: 'PRD-META-FUNCTION-SYNTHESIS',
-      workGraphId: 'WG-META-FUNCTION-SYNTHESIS',
+      executableSpecificationId: 'WG-META-FUNCTION-SYNTHESIS',
       candidateId: 'AC-META-ARCHITECTURE-CANDIDATE-EXECUTION',
       timestamp: '2026-05-07T21:33:20.000Z',
       sourceRefs: ['MRP-MOTE4M1R-G7I0-71'],
       branches: [
-        { workgraphNode: 'atom-001', edge: 'success' },
+        { executableSpecificationNode: 'atom-001', edge: 'success' },
       ],
       invariants: [
         {
           id: 'INV-META-RUNTIME-VERIFICATION-COVERS-SMOKE',
-          workgraphNode: 'atom-001',
+          executableSpecificationNode: 'atom-001',
         },
       ],
       scenarios: [
@@ -180,11 +180,11 @@ describe('Fidelity Verification evaluator', () => {
           details: {
             priority: 'required',
             invariantIds: ['INV-META-RUNTIME-VERIFICATION-COVERS-SMOKE'],
-            branches: [{ workgraphNode: 'atom-001', edge: 'success' }],
+            branches: [{ executableSpecificationNode: 'atom-001', edge: 'success' }],
             invariants: [
               {
                 id: 'INV-META-RUNTIME-VERIFICATION-COVERS-SMOKE',
-                workgraphNode: 'atom-001',
+                executableSpecificationNode: 'atom-001',
               },
             ],
           },
@@ -210,8 +210,6 @@ describe('Fidelity Verification evaluator', () => {
       to: 'accepted',
       verification: 'fidelity-verification',
       verificationReport: result.report.id,
-      gate: 'gate-2',
-      gateReport: result.report.id,
       wouldTransition: true,
       mutationApplied: false,
       reason: 'Fidelity Verification report passed and verdict accepted; produced -> accepted is authorized.',
@@ -239,8 +237,6 @@ describe('Fidelity Verification evaluator', () => {
       to: 'accepted',
       verification: 'fidelity-verification',
       verificationReport: result.report.id,
-      gate: 'gate-2',
-      gateReport: result.report.id,
       wouldTransition: false,
       mutationApplied: false,
       reason: 'Fidelity Verification report did not pass; produced -> accepted is blocked.',
@@ -308,7 +304,7 @@ describe('Fidelity Verification evaluator', () => {
           status: 'fail',
           branches_unexercised: [
             {
-              workgraph_node: 'atom-001',
+              executableSpecification_node: 'atom-001',
               edge: 'success',
               reason: 'no passing scenario exercises this branch',
             },

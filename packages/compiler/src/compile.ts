@@ -1,5 +1,6 @@
 /**
- * Compile orchestrator- reads a PRD file, runs the compatibility pass pipeline,
+ * Compile orchestrator- reads an Intent Specification file, runs the
+ * transformation pipeline,
  * emits a Coherence Verification Coverage Report, and returns the aggregate result.
  *
  * IO is confined to this module (reading the PRD file, writing the
@@ -38,8 +39,8 @@ export interface CompileOptions {
   readonly mode?: FactoryMode
   /** Destination directory for Coverage Reports. Default- <repo>/specs/coverage-reports. */
   readonly coverageReportsDir?: string
-  /** Destination directory for WorkGraphs. Default- <repo>/specs/workgraphs. */
-  readonly workgraphsDir?: string
+  /** Destination directory for Executable Specifications. Default- <repo>/specs/workgraphs. */
+  readonly executableSpecificationDir?: string
   /** ISO-8601 timestamp for the Coverage Report. Default- current wall clock. */
   readonly timestamp?: string
 }
@@ -51,7 +52,7 @@ export async function compile(
   const absolutePrdPath = resolve(prdPath)
   const raw = await readFile(absolutePrdPath, "utf8")
 
-  // Compatibility passes 0-5 produce the intermediates bundle.
+  // Transformations 0-5 produce the intermediates bundle.
   const normalized = normalize(raw, absolutePrdPath)
   const atoms = extractAtoms(normalized)
   const contracts = deriveContracts(normalized, atoms)
@@ -74,7 +75,7 @@ export async function compile(
     validations,
   }
 
-  // Completeness preflight compatibility slot (legacy Pass 6, MVP no-op).
+  // Completeness preflight slot (legacy Pass 6, MVP no-op).
   consistencyCheck(intermediates)
 
   // Completeness Certification / Coherence Verification (legacy Pass 7).
@@ -90,14 +91,14 @@ export async function compile(
     coverageReportsDir
   )
 
-  // Executable Specification Assembly. The historical compatibility label is
-  // "Pass 8 assemble ExecutableSpecification"; ontology Pass 8 is future Instruction Tuning.
-  // On failure, workgraph and workgraphPath remain null; the orchestrator still
+  // Executable Specification Assembly. The historical Pass 8 label names
+  // structural assembly; ontology Pass 8 is future Instruction Tuning.
+  // On failure, executableSpecification and executableSpecificationPath remain null; the orchestrator still
   // returns with the Coverage Report preserved on disk per ConOps §7.2 step 2.
-  let workgraph: ExecutableSpecification | null = null
-  let workgraphPath: string | null = null
+  let executableSpecification: ExecutableSpecification | null = null
+  let executableSpecificationPath: string | null = null
   if (report.overall === "pass") {
-    workgraph = assembleExecutableSpecification(
+    executableSpecification = assembleExecutableSpecification(
       normalized.draft,
       atoms,
       contracts,
@@ -106,9 +107,9 @@ export async function compile(
       validations,
       report
     )
-    const workgraphsDir =
-      options.workgraphsDir ?? defaultWorkgraphsDir(absolutePrdPath)
-    workgraphPath = await emitExecutableSpecification(workgraph, workgraphsDir)
+    const executableSpecificationDir =
+      options.executableSpecificationDir ?? defaultWorkgraphsDir(absolutePrdPath)
+    executableSpecificationPath = await emitExecutableSpecification(executableSpecification, executableSpecificationDir)
   }
 
   return {
@@ -116,8 +117,8 @@ export async function compile(
     reportPath,
     intermediates,
     mode,
-    workgraph,
-    workgraphPath,
+    executableSpecification,
+    executableSpecificationPath,
   }
 }
 
@@ -134,7 +135,7 @@ function defaultCoverageReportsDir(prdAbsolutePath: string): string {
 }
 
 /**
- * Default ExecutableSpecification destination- resolves <repo-root>/specs/workgraphs
+ * Default Executable Specification destination- resolves <repo-root>/specs/workgraphs
  * by walking up from the PRD file. Same walk logic as
  * defaultCoverageReportsDir.
  */

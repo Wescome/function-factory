@@ -6,7 +6,7 @@ export interface PipelineEnv {
   ARANGO_PASSWORD?: string
 
   GATES: {
-    evaluateCoherenceVerification(workGraph: unknown): Promise<CoherenceVerificationReport>
+    evaluateCoherenceVerification(executableSpecification: unknown): Promise<CoherenceVerificationReport>
   }
 
   FACTORY_PIPELINE: {
@@ -73,12 +73,11 @@ export interface SignalInput {
 
 export interface PipelineResult {
   status: string
-  legacyStatus?: string
   signalId?: string
   pressureId?: string
   capabilityId?: string
   proposalId?: string
-  workGraphId?: string
+  executableSpecificationId?: string
   coherenceVerificationReport?: CoherenceVerificationReport
   report?: unknown
   reason?: string
@@ -94,7 +93,7 @@ export interface CoherenceVerificationReport {
   verification: "coherence"
   passed: boolean
   timestamp: string
-  workGraphId: string
+  executableSpecificationId: string
   checks: { name: string; passed: boolean; detail: string }[]
   summary: string
 }

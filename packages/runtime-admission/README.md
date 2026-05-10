@@ -18,7 +18,7 @@ ExecutableSpecification, `WG-*`, `RAD-*`, and `@factory/runtime-admission`.
 
 - `evaluateRuntimeAdmission()` -- Produces an allow or deny RuntimeAdmissionArtifact based on bootstrap mode and selection decision
 - `renderRuntimeAdmissionYaml()` -- Serializes a RuntimeAdmissionArtifact to YAML string
-- `runtimeAdmissionIdFromWorkGraphId()` -- Deterministic ID derivation from WG-* to RAD-*
+- `runtimeAdmissionIdFromExecutableSpecificationId()` -- Deterministic ID derivation from WG-* to RAD-*
 
 ## Key Invariants
 

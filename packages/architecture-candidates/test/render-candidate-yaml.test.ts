@@ -6,7 +6,7 @@ describe("renderArchitectureCandidateYaml", () => {
   it("renders deterministic yaml", () => {
     const candidate = emitArchitectureCandidate({
       sourcePrdId: "PRD-META-ARCHITECTURE-CANDIDATE-EXECUTION",
-      sourceWorkGraphId: "WG-META-ARCHITECTURE-CANDIDATE-EXECUTION",
+      sourceExecutableSpecificationId: "WG-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       sourceRefs: [
         "DEL-META-EMIT-ARCHITECTURE-CANDIDATES",
         "FP-META-ARCHITECTURE-CANDIDATE-EXECUTION",

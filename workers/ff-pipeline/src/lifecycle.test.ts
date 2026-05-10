@@ -18,7 +18,6 @@ import {
   transitionLifecycle,
   ALLOWED_TRANSITIONS,
   VERIFICATION_REQUIREMENTS,
-  GATE_REQUIREMENTS,
   type LifecycleState,
 } from './lifecycle'
 
@@ -67,11 +66,10 @@ describe('validateTransition', () => {
     expect(result.valid).toBe(true)
   })
 
-  it('allows produced -> accepted and returns verificationRequired with legacy gateRequired', () => {
+  it('allows produced -> accepted and returns verificationRequired', () => {
     const result = validateTransition('produced', 'accepted')
     expect(result.valid).toBe(true)
     expect(result.verificationRequired).toBe('fidelity-verification')
-    expect(result.gateRequired).toBe('gate-2')
   })
 
   it('allows produced -> retired', () => {
@@ -79,11 +77,10 @@ describe('validateTransition', () => {
     expect(result.valid).toBe(true)
   })
 
-  it('allows accepted -> monitored and returns verificationRequired with legacy gateRequired', () => {
+  it('allows accepted -> monitored and returns verificationRequired', () => {
     const result = validateTransition('accepted', 'monitored')
     expect(result.valid).toBe(true)
     expect(result.verificationRequired).toBe('persistence-verification')
-    expect(result.gateRequired).toBe('gate-3')
   })
 
   it('allows accepted -> retired', () => {
@@ -181,14 +178,14 @@ describe('VERIFICATION_REQUIREMENTS', () => {
   it('accepted requires Fidelity Verification', () => {
     expect(VERIFICATION_REQUIREMENTS.accepted).toEqual({
       verification: 'fidelity-verification',
-      legacyGate: 'gate-2',
+      storageDiscriminator: 'gate-2',
     })
   })
 
   it('monitored requires Persistence Verification', () => {
     expect(VERIFICATION_REQUIREMENTS.monitored).toEqual({
       verification: 'persistence-verification',
-      legacyGate: 'gate-3',
+      storageDiscriminator: 'gate-3',
     })
   })
 
@@ -196,10 +193,6 @@ describe('VERIFICATION_REQUIREMENTS', () => {
     expect(VERIFICATION_REQUIREMENTS.proposed).toBeUndefined()
   })
 
-  it('keeps GATE_REQUIREMENTS as a legacy compatibility map', () => {
-    expect(GATE_REQUIREMENTS.accepted).toBe('gate-2')
-    expect(GATE_REQUIREMENTS.monitored).toBe('gate-3')
-  })
 })
 
 // ────────────────────────────────────────────────────────────
@@ -325,7 +318,7 @@ describe('transitionLifecycle', () => {
       {
         key: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
         verificationRequired: 'fidelity-verification',
-        gateRequired: 'gate-2',
+        storageDiscriminator: 'gate-2',
       },
     )
     expect(db.update).toHaveBeenCalledWith(
@@ -360,7 +353,7 @@ describe('transitionLifecycle', () => {
     )
   })
 
-  it('includes verificationReport and legacy gateReport in transition edge when provided', async () => {
+  it('includes verificationReport in transition edge when provided', async () => {
     db.get.mockResolvedValue({
       _key: 'FP-002',
       lifecycleState: 'produced',
@@ -378,30 +371,6 @@ describe('transitionLifecycle', () => {
       expect.any(String),
       expect.objectContaining({
         verificationReport: 'CR-G2-WG-002',
-        gateReport: 'CR-G2-WG-002',
-      }),
-    )
-  })
-
-  it('accepts legacy gateReport transition evidence as compatibility input', async () => {
-    db.get.mockResolvedValue({
-      _key: 'FP-002',
-      lifecycleState: 'produced',
-    })
-    db.queryOne.mockResolvedValue({ passed: true })
-
-    await transitionLifecycle(db as any, 'FP-002', 'accepted', {
-      trigger: 'gate-2-pass',
-      gateReport: 'CR-G2-WG-002',
-    })
-
-    expect(db.saveEdge).toHaveBeenCalledWith(
-      'lifecycle_transitions',
-      expect.any(String),
-      expect.any(String),
-      expect.objectContaining({
-        verificationReport: 'CR-G2-WG-002',
-        gateReport: 'CR-G2-WG-002',
       }),
     )
   })

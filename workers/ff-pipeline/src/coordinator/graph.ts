@@ -1,7 +1,7 @@
 import { StateGraph, END } from './graph-runner'
 import { ROLE_CONTRACTS } from './contracts'
 import type { RoleName } from './contracts'
-import type { GraphState, Plan, Verdict, CritiqueReport, TestReport, CodeArtifact, PipelineWorkGraph } from './state'
+import type { GraphState, Plan, Verdict, CritiqueReport, TestReport, CodeArtifact, PipelineExecutableSpecification } from './state'
 import type { BriefingScript } from '../agents/architect-agent'
 import type { CoderInput } from '../agents/coder-agent'
 import type { PlannerInput } from '../agents/planner-agent'
@@ -9,7 +9,6 @@ import type { TesterInput } from '../agents/tester-agent'
 import type { SemanticReviewResult } from '../types'
 
 export const COHERENCE_VERIFICATION_NODE = 'coherence-verification'
-export const LEGACY_GATE1_NODE = 'gate-1'
 
 export interface GraphDeps {
   callModel: (taskKind: string, system: string, user: string) => Promise<string>
@@ -20,7 +19,7 @@ export interface GraphDeps {
 
   // ── 9-node extensions (SS8) ──
   /** When provided, enables the architect pipeline (architect -> semantic-critic -> compile -> coherence-verification). */
-  architectAgent?: { produceBriefingScript: (input: { signal: PipelineWorkGraph; specContent?: string }) => Promise<BriefingScript> }
+  architectAgent?: { produceBriefingScript: (input: { signal: PipelineExecutableSpecification; specContent?: string }) => Promise<BriefingScript> }
   /** When provided, the planner node calls PlannerAgent instead of callModel. */
   plannerAgent?: { producePlan: (input: PlannerInput) => Promise<Plan> }
   /** When provided, the coder node calls CoderAgent instead of callModel. Priority: executionRole > coderAgent > callModel. */
@@ -28,8 +27,8 @@ export interface GraphDeps {
 
   /** When provided, enables semantic-critic and code-critic nodes. */
   criticAgent?: {
-    semanticReview: (input: { prd: PipelineWorkGraph; specContent?: string }) => Promise<SemanticReviewResult>
-    codeReview: (input: { code: unknown; plan: unknown; workGraph: PipelineWorkGraph; mentorRules?: string[] }) => Promise<CritiqueReport>
+    semanticReview: (input: { prd: PipelineExecutableSpecification; specContent?: string }) => Promise<SemanticReviewResult>
+    codeReview: (input: { code: unknown; plan: unknown; executableSpecification: PipelineExecutableSpecification; mentorRules?: string[] }) => Promise<CritiqueReport>
   }
   /** When provided, the tester node uses the real TesterAgent (gdk-agent agentLoop) instead of callModel. */
   testerAgent?: { runTests: (input: TesterInput) => Promise<TestReport> }
@@ -78,7 +77,7 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
     // architect — calls ArchitectAgent.produceBriefingScript()
     graph.addNode('architect', async (state) => {
       const briefingScript = await deps.architectAgent!.produceBriefingScript({
-        signal: state.workGraph,
+        signal: state.executableSpecification,
         ...(state.specContent ? { specContent: state.specContent } : {}),
       })
       const updated: Partial<GraphState> = {
@@ -100,7 +99,7 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
       let review: SemanticReviewResult
       try {
         review = await deps.criticAgent!.semanticReview({
-          prd: state.workGraph,
+          prd: state.executableSpecification,
           ...(state.specContent ? { specContent: state.specContent } : {}),
         })
       } catch (err) {
@@ -138,8 +137,8 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
         source: 'stage-6-upstream-compile-evidence',
         evidenceStatus: 'upstream_verified_not_recomputed',
         authoritative: false,
-        workGraphId: state.workGraphId,
-        upstreamWorkGraphId: state.workGraph._key ?? state.workGraph.id ?? state.workGraphId,
+        executableSpecificationId: state.executableSpecificationId,
+        upstreamExecutableSpecificationId: state.executableSpecification._key ?? state.executableSpecification.id ?? state.executableSpecificationId,
         reason: 'Workflow compilation already emitted this ExecutableSpecification before Agent Call execution; coordinator records pass-through evidence only.',
         timestamp: new Date().toISOString(),
       }
@@ -164,7 +163,7 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
         evidenceStatus: 'upstream_verified_not_recomputed',
         authoritative: false,
         timestamp: new Date().toISOString(),
-        workGraphId: state.workGraphId,
+        executableSpecificationId: state.executableSpecificationId,
         checks: [{
           name: 'upstream-coherence-verification-required',
           passed: true,
@@ -197,7 +196,7 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
         const critique = await deps.criticAgent!.codeReview({
           code: state.code,
           plan: state.plan,
-          workGraph: state.workGraph,
+          executableSpecification: state.executableSpecification,
           mentorRules: mentorRules.map(r => `${r.ruleId}: ${r.rule}`),
         })
         const updated: Partial<GraphState> = {
@@ -234,7 +233,7 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
     if (roleName === 'planner' && deps.plannerAgent) {
       graph.addNode(roleName, async (state) => {
         const plannerInput: PlannerInput = {
-          workGraph: state.workGraph,
+          executableSpecification: state.executableSpecification,
           briefingScript: (state.briefingScript ?? {}) as Record<string, unknown>,
           ...(state.specContent ? { specContent: state.specContent } : {}),
           ...(state.verdict?.decision === 'patch' && state.verdict.notes ? {
@@ -273,7 +272,7 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
     if (roleName === 'coder' && deps.coderAgent) {
       graph.addNode(roleName, async (state) => {
         const coderInput: CoderInput = {
-          workGraph: state.workGraph,
+          executableSpecification: state.executableSpecification,
           plan: state.plan!,
           ...(state.specContent ? { specContent: state.specContent } : {}),
           ...(state.verdict?.decision === 'patch' && state.verdict.notes ? {
@@ -303,7 +302,7 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
     if (roleName === 'tester' && deps.testerAgent) {
       graph.addNode(roleName, async (state) => {
         const testerInput: TesterInput = {
-          workGraph: state.workGraph,
+          executableSpecification: state.executableSpecification,
           plan: state.plan ?? {},
           code: state.code ?? {},
           ...(state.critique ? { critique: state.critique } : {}),
@@ -329,7 +328,7 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
     if (roleName === 'verifier' && deps.verifierAgent) {
       graph.addNode(roleName, async (state) => {
         const verdict = await deps.verifierAgent!.verify({
-          workGraph: state.workGraph,
+          executableSpecification: state.executableSpecification,
           plan: state.plan,
           code: state.code,
           critique: state.critique,
@@ -500,12 +499,12 @@ function buildRoleMessage(
   mentorRules: { ruleId: string; rule: string }[],
 ): string {
   const base: Record<string, unknown> = {
-    workGraphId: state.workGraphId,
-    workGraph: {
-      title: state.workGraph.title,
-      atoms: state.workGraph.atoms,
-      invariants: state.workGraph.invariants,
-      dependencies: state.workGraph.dependencies,
+    executableSpecificationId: state.executableSpecificationId,
+    executableSpecification: {
+      title: state.executableSpecification.title,
+      atoms: state.executableSpecification.atoms,
+      invariants: state.executableSpecification.invariants,
+      dependencies: state.executableSpecification.dependencies,
     },
     repairCount: state.repairCount,
     maxRepairs: state.maxRepairs,

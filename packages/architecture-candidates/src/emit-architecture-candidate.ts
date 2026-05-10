@@ -3,12 +3,12 @@ import { architectureCandidateIdFromPrdId } from "./ids.js"
 
 export interface CandidateEmissionInput {
   readonly sourcePrdId: string
-  readonly sourceWorkGraphId: string
+  readonly sourceExecutableSpecificationId: string
   readonly sourceRefs: readonly string[]
 }
 
 export function emitArchitectureCandidate(input: CandidateEmissionInput): ArchitectureCandidate {
-  const { sourcePrdId, sourceWorkGraphId, sourceRefs } = input
+  const { sourcePrdId, sourceExecutableSpecificationId, sourceRefs } = input
 
   return {
     id: architectureCandidateIdFromPrdId(sourcePrdId),
@@ -16,7 +16,7 @@ export function emitArchitectureCandidate(input: CandidateEmissionInput): Archit
     explicitness: "inferred",
     rationale: "Derived deterministically from compiled PRD and emitted ExecutableSpecification in the paired-emission bootstrap path.",
     sourcePrdId,
-    sourceWorkGraphId,
+    sourceExecutableSpecificationId,
     candidateStatus: "proposed",
     topology: {
       shape: "single_node",

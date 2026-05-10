@@ -29,7 +29,7 @@ export interface ConsultationRequestPack {
   confidence: number            // the low confidence that triggered it
   context: string               // what the agent was trying to do
   agentRole: string             // which agent role produced it
-  workGraphId: string           // which synthesis run
+  executableSpecificationId: string           // which synthesis run
   createdAt: string
   resolvedAt?: string
   resolution?: string           // VCR content when resolved
@@ -63,7 +63,7 @@ export async function createCRP(
     confidence: number
     context: string
     agentRole: string
-    workGraphId: string
+    executableSpecificationId: string
   },
 ): Promise<ConsultationRequestPack> {
   const crp: ConsultationRequestPack = {
@@ -75,7 +75,7 @@ export async function createCRP(
     confidence: opts.confidence,
     context: opts.context,
     agentRole: opts.agentRole,
-    workGraphId: opts.workGraphId,
+    executableSpecificationId: opts.executableSpecificationId,
     createdAt: new Date().toISOString(),
   }
 

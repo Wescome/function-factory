@@ -4,7 +4,7 @@ import { ArtifactId, Lineage } from "./lineage.js"
 export const EffectorRealization = Lineage.extend({
   id: ArtifactId.refine((s) => s.startsWith("EFFR-"), "EffectorRealization IDs must start with EFFR-"),
   sourceEffectorId: ArtifactId,
-  sourceWorkGraphId: ArtifactId,
+  sourceExecutableSpecificationId: ArtifactId,
   sourceArchitectureCandidateId: ArtifactId,
   sourceSelectionId: ArtifactId,
   sourceAdmissionId: ArtifactId,

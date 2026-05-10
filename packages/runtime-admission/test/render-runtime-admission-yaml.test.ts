@@ -5,7 +5,7 @@ import { renderRuntimeAdmissionYaml } from "../src/render-runtime-admission-yaml
 describe("renderRuntimeAdmissionYaml", () => {
   it("renders deterministic yaml", () => {
     const result = evaluateRuntimeAdmission({
-      sourceWorkGraphId: "WG-META-ARCHITECTURE-CANDIDATE-EXECUTION",
+      sourceExecutableSpecificationId: "WG-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       sourceArchitectureCandidateId: "AC-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       sourceSelectionId: "ACS-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       selectionDecision: "selected",

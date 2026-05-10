@@ -97,14 +97,14 @@ import { DryRunCodeEmitter } from "./orchestrate.js"
  * This is the primary public API entry point.
  */
 export async function synthesize(
-  workGraph: ExecutableSpecification,
+  executableSpecification: ExecutableSpecification,
   candidate: ArchitectureCandidate,
   bindingMode: BindingMode,
   config: SynthesisConfig,
   codeEmitter?: CodeEmitter,
 ): Promise<import("./types.js").SynthesisResult> {
   return orchestrate(
-    workGraph,
+    executableSpecification,
     candidate,
     bindingMode,
     config,

@@ -5,7 +5,7 @@ describe("selectCandidate", () => {
   it("selects the bootstrap candidate at the default threshold", () => {
     const selection = selectCandidate({
       candidateId: "AC-META-ARCHITECTURE-CANDIDATE-EXECUTION",
-      sourceWorkGraphId: "WG-META-ARCHITECTURE-CANDIDATE-EXECUTION",
+      sourceExecutableSpecificationId: "WG-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       sourceRefs: [
         "PRD-META-ARCHITECTURE-CANDIDATE-EXECUTION",
         "AC-META-ARCHITECTURE-CANDIDATE-EXECUTION",

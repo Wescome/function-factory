@@ -32,7 +32,7 @@ export interface CoherenceVerificationReport {
   verification: "coherence"
   passed: boolean
   timestamp: string
-  workGraphId: string
+  executableSpecificationId: string
   checks: CoherenceVerificationCheck[]
   summary: string
 }
@@ -67,17 +67,17 @@ class GatesService extends WorkerEntrypoint<GatesEnv> {
    *
    * Fail-closed: if ANY check fails, gate fails.
    */
-  async evaluateCoherenceVerification(workGraphJson: unknown): Promise<CoherenceVerificationReport> {
+  async evaluateCoherenceVerification(executableSpecificationJson: unknown): Promise<CoherenceVerificationReport> {
     const checks: CoherenceVerificationCheck[] = []
 
     // Parse the ExecutableSpecification — if it doesn't parse, that's a gate failure
-    const parseResult = this.checkParseable(workGraphJson)
+    const parseResult = this.checkParseable(executableSpecificationJson)
     checks.push(parseResult)
     if (!parseResult.passed) {
-      return this.buildReport(workGraphJson, checks)
+      return this.buildReport(executableSpecificationJson, checks)
     }
 
-    const wg = workGraphJson as Record<string, unknown>
+    const wg = executableSpecificationJson as Record<string, unknown>
     const wgId = (wg._key ?? wg.id ?? 'unknown') as string
 
     // 1. Atom coverage
@@ -95,7 +95,7 @@ class GatesService extends WorkerEntrypoint<GatesEnv> {
     // 5. Schema field completeness
     checks.push(this.checkFieldCompleteness(wg))
 
-    return this.buildReport(workGraphJson, checks)
+    return this.buildReport(executableSpecificationJson, checks)
   }
 
   // ── Check implementations ──
@@ -224,7 +224,7 @@ class GatesService extends WorkerEntrypoint<GatesEnv> {
     // ExecutableSpecification-level required fields
     const wgRequired = ['title', 'prdId', 'atoms', 'invariants', 'repo']
     for (const f of wgRequired) {
-      if (!wg[f]) missing.push(`workGraph.${f}`)
+      if (!wg[f]) missing.push(`executableSpecification.${f}`)
     }
 
     // Spot-check first atom for required fields
@@ -269,7 +269,7 @@ class GatesService extends WorkerEntrypoint<GatesEnv> {
       verification: "coherence",
       passed,
       timestamp: new Date().toISOString(),
-      workGraphId: wgId,
+      executableSpecificationId: wgId,
       checks,
       summary,
     }

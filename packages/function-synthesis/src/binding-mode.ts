@@ -35,7 +35,7 @@ export interface BindingModeOutput {
 export interface BindingMode {
   readonly name: string
   execute(
-    workGraph: ExecutableSpecification,
+    executableSpecification: ExecutableSpecification,
     candidate: ArchitectureCandidate,
     contracts: readonly RoleContract[],
     context: BindingModeContext,
@@ -74,7 +74,7 @@ export class StubBindingMode implements BindingMode {
   constructor(private readonly config: StubBindingModeConfig) {}
 
   async execute(
-    _workGraph: ExecutableSpecification,
+    _executableSpecification: ExecutableSpecification,
     _candidate: ArchitectureCandidate,
     _contracts: readonly RoleContract[],
     _context: BindingModeContext,

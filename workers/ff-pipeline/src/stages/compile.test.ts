@@ -224,7 +224,7 @@ describe('Intent-to-Executable compiler transformations', () => {
       expect(modelCalls).toHaveLength(0)
     })
 
-    it('assembly pass produces a workGraph with all fields merged', async () => {
+    it('assembly pass produces a executableSpecification with all fields merged', async () => {
       const state = {
         prd: basePrd,
         atoms: [
@@ -239,11 +239,11 @@ describe('Intent-to-Executable compiler transformations', () => {
       }
 
       const result = await compilePRD('assembly', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
-      const wg = result.workGraph as Record<string, unknown>
+      const wg = result.executableSpecification as Record<string, unknown>
 
       expect(wg).toBeDefined()
       expect(wg._key).toMatch(/^WG-/)
-      expect(wg.type).toBe('workgraph')
+      expect(wg.type).toBe('executableSpecification')
       expect(wg.prdId).toBe('PRD-001')
       expect(wg.dependencies).toEqual(state.dependencies)
       expect(wg.invariants).toEqual(state.invariants)
@@ -258,7 +258,7 @@ describe('Intent-to-Executable compiler transformations', () => {
       expect(atom1?.implementation).toBe('bound')
     })
 
-    it('assembly pass saves workGraph to db', async () => {
+    it('assembly pass saves executableSpecification to db', async () => {
       const state = {
         prd: basePrd,
         atoms: [{ id: 'atom-001', type: 'implementation', title: 'A', description: 'B' }],
@@ -271,7 +271,7 @@ describe('Intent-to-Executable compiler transformations', () => {
 
       await compilePRD('assembly', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
       expect(mockDb.save).toHaveBeenCalledWith('specs_workgraphs', expect.objectContaining({
-        type: 'workgraph',
+        type: 'executableSpecification',
         prdId: 'PRD-001',
       }))
     })
@@ -280,7 +280,7 @@ describe('Intent-to-Executable compiler transformations', () => {
       const state = {
         prd: basePrd,
         atoms: [{ id: 'atom-001' }],
-        workGraph: { _key: 'WG-001', atoms: [{ id: 'atom-001', binding: { type: 'code' } }] },
+        executableSpecification: { _key: 'WG-001', atoms: [{ id: 'atom-001', binding: { type: 'code' } }] },
       }
 
       await compilePRD('verification', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
@@ -290,7 +290,7 @@ describe('Intent-to-Executable compiler transformations', () => {
     it('verification dry-run returns verified: true', async () => {
       const state = {
         prd: basePrd,
-        workGraph: { _key: 'WG-001', atoms: [{ id: 'atom-001', binding: { type: 'code' } }] },
+        executableSpecification: { _key: 'WG-001', atoms: [{ id: 'atom-001', binding: { type: 'code' } }] },
       }
 
       const result = await compilePRD('verification', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, true)
@@ -326,7 +326,7 @@ describe('Intent-to-Executable compiler transformations', () => {
       }
 
       const result = await compilePRD('assembly', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
-      const wg = result.workGraph as Record<string, unknown>
+      const wg = result.executableSpecification as Record<string, unknown>
       const atoms = wg.atoms as Record<string, unknown>[]
 
       // Test atoms are stripped in assembly — only impl and config remain
@@ -352,7 +352,7 @@ describe('Intent-to-Executable compiler transformations', () => {
       }
 
       const result = await compilePRD('assembly', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
-      const wg = result.workGraph as Record<string, unknown>
+      const wg = result.executableSpecification as Record<string, unknown>
       const atoms = wg.atoms as Record<string, unknown>[]
 
       expect(atoms[0]?.critical).toBe(true) // fail-safe: unknown type is critical
@@ -392,9 +392,9 @@ describe('Intent-to-Executable compiler transformations', () => {
         state = await compilePRD(passName, state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
       }
 
-      // After all passes, state should have workGraph
-      expect(state.workGraph).toBeDefined()
-      const wg = state.workGraph as Record<string, unknown>
+      // After all passes, state should have executableSpecification
+      expect(state.executableSpecification).toBeDefined()
+      const wg = state.executableSpecification as Record<string, unknown>
       expect(wg._key).toMatch(/^WG-/)
 
       // Should have called LLM exactly 6 times (not 8 — assembly and verification are deterministic)

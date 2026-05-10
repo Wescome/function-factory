@@ -20,7 +20,7 @@ export function contractId(prdId: ArtifactId, tag: string): ArtifactId {
 }
 
 /**
- * Construct a ExecutableSpecification artifact ID from a PRD ID.
+ * Construct an Executable Specification artifact ID from a PRD ID.
  *
  * Canonical format- `WG-${subject}` where `subject` is the PRD ID with
  * the leading `PRD-` stripped. Same derivation pattern as contractId.

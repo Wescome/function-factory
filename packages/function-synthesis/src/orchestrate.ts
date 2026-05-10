@@ -87,7 +87,7 @@ export class DryRunCodeEmitter implements CodeEmitter {
 // ─── The Synthesis Loop ───────────────────────────────────────────────
 
 export async function orchestrate(
-  workGraph: ExecutableSpecification,
+  executableSpecification: ExecutableSpecification,
   candidate: ArchitectureCandidate,
   bindingMode: BindingMode,
   config: SynthesisConfig,
@@ -117,8 +117,8 @@ export async function orchestrate(
   memory.memoryWrite(
     "execution",
     `synthesis-start-${runId}`,
-    `Synthesis started for ExecutableSpecification ${workGraph.id} with candidate ${candidate.id}`,
-    [workGraph.id, candidate.id],
+    `Synthesis started for ExecutableSpecification ${executableSpecification.id} with candidate ${candidate.id}`,
+    [executableSpecification.id, candidate.id],
   )
 
   // Main synthesis loop
@@ -126,7 +126,7 @@ export async function orchestrate(
     const available = availableDecisions(decisionState)
 
     const output = await bindingMode.execute(
-      workGraph,
+      executableSpecification,
       candidate,
       ALL_ROLE_CONTRACTS,
       {
@@ -199,7 +199,7 @@ export async function orchestrate(
   // Build evidence (AC 10, 11, 12, 13 — always emitted regardless of outcome)
   const traceLog = buildTraceLog({
     runId,
-    workGraphId: workGraph.id,
+    executableSpecificationId: executableSpecification.id,
     architectureCandidateId: candidate.id,
     bindingModeName: bindingMode.name,
     roleIterations: allRoleIterations,
@@ -214,7 +214,7 @@ export async function orchestrate(
   const fidelityVerificationInput = buildFidelityVerificationInput({
     runId,
     functionId: config.functionId,
-    workGraphId: workGraph.id,
+    executableSpecificationId: executableSpecification.id,
     architectureCandidateId: candidate.id,
     artifactPaths: emittedPaths,
     validationOutcomes: latestValidationOutcomes,
@@ -236,7 +236,7 @@ export async function orchestrate(
     runId,
     candidate,
     objectiveScores: { synthesis: terminalVerdict === "pass" ? 1.0 : 0.0 },
-    selectionReason: `Candidate ${candidate.id} selected for synthesis of ${workGraph.id}`,
+    selectionReason: `Candidate ${candidate.id} selected for synthesis of ${executableSpecification.id}`,
   })
 
   // Role adherence check (AC 6, 7, 9)

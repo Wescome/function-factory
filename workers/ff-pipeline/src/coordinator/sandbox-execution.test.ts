@@ -182,10 +182,10 @@ describe('Phase C: sandbox task JSON schema', () => {
 
     // Must contain core fields for sandbox session
     expect(task.role).toBe('coder')
-    expect(task.workGraphId).toBe('WG-C11')
-    expect(task.workGraph).toBeDefined()
-    expect(task.workGraph.atoms).toHaveLength(1)
-    expect(task.workGraph.invariants).toHaveLength(1)
+    expect(task.executableSpecificationId).toBe('WG-C11')
+    expect(task.executableSpecification).toBeDefined()
+    expect(task.executableSpecification.atoms).toHaveLength(1)
+    expect(task.executableSpecification.invariants).toHaveLength(1)
     expect(task.plan).toBeDefined()
     expect(task.prompt).toBeDefined()
   })

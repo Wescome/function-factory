@@ -7,7 +7,7 @@ export function renderRuntimeAdmissionYaml(admission: RuntimeAdmissionArtifact):
     ...admission.source_refs.map((r) => `  - ${r}`),
     `explicitness: ${admission.explicitness}`,
     `rationale: ${admission.rationale}`,
-    `sourceWorkGraphId: ${admission.sourceWorkGraphId}`,
+    `sourceExecutableSpecificationId: ${admission.sourceExecutableSpecificationId}`,
     `sourceArchitectureCandidateId: ${admission.sourceArchitectureCandidateId}`,
     `sourceSelectionId: ${admission.sourceSelectionId}`,
     `decision: ${admission.decision}`,

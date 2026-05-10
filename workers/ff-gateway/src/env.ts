@@ -10,7 +10,7 @@
 import type { CoherenceVerificationReport } from './types.js'
 
 interface GatesBinding {
-  evaluateCoherenceVerification(workGraph: unknown): Promise<CoherenceVerificationReport>
+  evaluateCoherenceVerification(executableSpecification: unknown): Promise<CoherenceVerificationReport>
 }
 
 interface QueryBinding {

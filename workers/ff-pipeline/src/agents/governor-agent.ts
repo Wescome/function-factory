@@ -235,7 +235,7 @@ export async function prefetchGovernorContext(db: ArangoClient): Promise<Governo
           status: p.status,
           signalId: p.signalId,
           functionId: p.functionId,
-          workGraphId: p.workGraphId,
+          executableSpecificationId: p.executableSpecificationId,
           createdAt: p.createdAt,
           completedAt: p.completedAt,
           verdict: p.verdict
@@ -297,7 +297,7 @@ export async function prefetchGovernorContext(db: ArangoClient): Promise<Governo
         LIMIT 10
         RETURN {
           _key: l._key,
-          workGraphId: l.workGraphId,
+          executableSpecificationId: l.executableSpecificationId,
           totalAtoms: l.totalAtoms,
           completedAtoms: l.completedAtoms,
           status: l.status,
@@ -402,7 +402,7 @@ export function formatGovernorContextForPrompt(ctx: GovernorContext): string {
     parts.push(`\n### In-Flight Synthesis (${ctx.completion_ledgers.length})`)
     for (const l of ctx.completion_ledgers) {
       parts.push(
-        `- ${l.workGraphId}: ${l.completedAtoms}/${l.totalAtoms} atoms ` +
+        `- ${l.executableSpecificationId}: ${l.completedAtoms}/${l.totalAtoms} atoms ` +
         `(${l.status})`,
       )
     }
@@ -431,7 +431,7 @@ You run every 15 minutes inside Cloudflare. Your job: keep the Factory running w
 
 DECISION CLASSIFICATION (evaluate in this order, first match wins):
 
-1. AUTO-TRIGGER: signal.source === 'factory:feedback-loop' AND feedbackDepth < 3 AND autoApprove === true AND no cooldown violation (same workGraphId+subtype within 30 min)
+1. AUTO-TRIGGER: signal.source === 'factory:feedback-loop' AND feedbackDepth < 3 AND autoApprove === true AND no cooldown violation (same executableSpecificationId+subtype within 30 min)
    -> action: "trigger_pipeline"
 
 2. AUTO-APPROVE: pipeline waiting at architect-approval AND signal.autoApprove === true AND signal.source === 'factory:feedback-loop' AND subtype in ['synthesis:atom-failed', 'synthesis:orl-degradation']
@@ -440,7 +440,7 @@ DECISION CLASSIFICATION (evaluate in this order, first match wins):
 3. STALE: signal pending > 7 days, no auto-trigger match
    -> action: "archive_signal"
 
-4. DUPLICATE: same workGraphId+subtype as another pending signal within 30 min
+4. DUPLICATE: same executableSpecificationId+subtype as another pending signal within 30 min
    -> action: "deduplicate_signal"
 
 5. ESCALATION-REQUIRED: any escalation trigger met (see below)

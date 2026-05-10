@@ -9,7 +9,7 @@ export const RuntimeAdmissionArtifact = Lineage.extend({
     (s) => s.startsWith("RAD-"),
     "RuntimeAdmissionArtifact IDs must start with RAD-"
   ),
-  sourceWorkGraphId: ArtifactId,
+  sourceExecutableSpecificationId: ArtifactId,
   sourceArchitectureCandidateId: ArtifactId,
   sourceSelectionId: ArtifactId,
   decision: RuntimeAdmissionDecision,
@@ -22,7 +22,7 @@ export const ExecutionStart = Lineage.extend({
     (s) => s.startsWith("EXS-"),
     "ExecutionStart IDs must start with EXS-"
   ),
-  sourceWorkGraphId: ArtifactId,
+  sourceExecutableSpecificationId: ArtifactId,
   sourceArchitectureCandidateId: ArtifactId,
   sourceSelectionId: ArtifactId,
   sourceAdmissionId: ArtifactId,
@@ -36,7 +36,7 @@ export const ExecutionResult = Lineage.extend({
     (s) => s.startsWith("EXR-"),
     "ExecutionResult IDs must start with EXR-"
   ),
-  sourceWorkGraphId: ArtifactId,
+  sourceExecutableSpecificationId: ArtifactId,
   sourceArchitectureCandidateId: ArtifactId,
   sourceSelectionId: ArtifactId,
   sourceAdmissionId: ArtifactId,

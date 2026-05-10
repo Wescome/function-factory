@@ -3,7 +3,7 @@ import { effectorIdFromNodeId } from "./ids.js"
 import { assertToolPolicyAllows } from "./assert-tool-policy.js"
 
 export function emitEffectorArtifact(input: {
-  sourceWorkGraphId: string
+  sourceExecutableSpecificationId: string
   sourceArchitectureCandidateId: string
   sourceSelectionId: string
   sourceAdmissionId: string
@@ -22,7 +22,7 @@ export function emitEffectorArtifact(input: {
     source_refs: [...input.sourceRefs],
     explicitness: "inferred",
     rationale: "Controlled effector emitted deterministically under bootstrap tool policy.",
-    sourceWorkGraphId: input.sourceWorkGraphId,
+    sourceExecutableSpecificationId: input.sourceExecutableSpecificationId,
     sourceArchitectureCandidateId: input.sourceArchitectureCandidateId,
     sourceSelectionId: input.sourceSelectionId,
     sourceAdmissionId: input.sourceAdmissionId,

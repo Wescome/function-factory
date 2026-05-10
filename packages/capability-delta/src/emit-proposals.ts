@@ -98,7 +98,7 @@ const PROPOSAL_TEMPLATES: Record<SupportedId, readonly ProposalTemplate[]> = {
       id: "FP-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       rationale: "Execution gap identified in architecture-candidate capability delta",
       name: "architecture_candidate_execution",
-      purpose: "Emit ArchitectureCandidate artifacts alongside WorkGraphs",
+      purpose: "Emit ArchitectureCandidate artifacts alongside ExecutableSpecifications",
       functionType: "execution",
       expectedInputs: ["IntentSpecification", "ExecutableSpecification", "candidate selection inputs"],
       expectedOutputs: ["ArchitectureCandidate artifact"],

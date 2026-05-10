@@ -21,7 +21,7 @@ export interface PROutcomeLineage {
   pressureId?: string
   capabilityId?: string
   proposalId: string
-  workGraphId: string
+  executableSpecificationId: string
 }
 
 export interface PROutcomePullRequest {
@@ -145,7 +145,7 @@ function assertPositiveInteger(value: unknown, message: string): asserts value i
 function assertInput(input: PROutcomeInput): void {
   assertNonEmpty(input.lineage.pipelineId, 'lineage.pipelineId is required')
   assertNonEmpty(input.lineage.proposalId, 'lineage.proposalId is required')
-  assertNonEmpty(input.lineage.workGraphId, 'lineage.workGraphId is required')
+  assertNonEmpty(input.lineage.executableSpecificationId, 'lineage.executableSpecificationId is required')
   assertPositiveInteger(input.pullRequest.number, 'pullRequest.number is required')
   assertNonEmpty(input.pullRequest.url, 'pullRequest.url is required')
   assertNonEmpty(input.pullRequest.title, 'pullRequest.title is required')
@@ -189,7 +189,7 @@ function sourceRefs(lineage: PROutcomeLineage): string[] {
   if (lineage.pressureId) refs.push(`PRS:${lineage.pressureId}`)
   if (lineage.capabilityId) refs.push(`BC:${lineage.capabilityId}`)
   refs.push(`FN:${lineage.proposalId}`)
-  refs.push(`WG:${lineage.workGraphId}`)
+  refs.push(`WG:${lineage.executableSpecificationId}`)
   return refs
 }
 
@@ -315,7 +315,7 @@ function rawPayload(input: PROutcomeInput, outcome: NormalizedPROutcome): Record
   return {
     pipelineId: input.lineage.pipelineId,
     proposalId: input.lineage.proposalId,
-    workGraphId: input.lineage.workGraphId,
+    executableSpecificationId: input.lineage.executableSpecificationId,
     pr: {
       number: input.pullRequest.number,
       url: input.pullRequest.url,
@@ -366,7 +366,7 @@ function makeSignal(
 export function buildPROutcomeSignals(input: PROutcomeInput): FeedbackSignal[] {
   const outcome = normalizePROutcome(input)
   const pr = input.pullRequest
-  const wg = input.lineage.workGraphId
+  const wg = input.lineage.executableSpecificationId
   const signals: FeedbackSignal[] = []
 
   if (outcome.ciState === 'failed') {

@@ -73,8 +73,8 @@ export interface CompileResult {
    * Executable Specification Assembly output. Populated when Coherence
    * Verification verdict is `pass`; null when verification failed.
    */
-  readonly workgraph: ExecutableSpecification | null
-  readonly workgraphPath: string | null
+  readonly executableSpecification: ExecutableSpecification | null
+  readonly executableSpecificationPath: string | null
 }
 
 /**

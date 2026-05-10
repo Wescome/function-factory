@@ -65,7 +65,7 @@ export const FidelityVerificationReport = Lineage.extend({
       branches_unexercised: z
         .array(
           z.object({
-            workgraph_node: z.string(),
+            executableSpecification_node: z.string(),
             edge: z.string().optional(),
             reason: z.string(),
           })

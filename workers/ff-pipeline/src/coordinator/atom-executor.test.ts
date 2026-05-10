@@ -8,7 +8,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { validateCodeLanguage, executeAtomSlice } from './atom-executor'
 import type { AtomSlice, AtomExecutorDeps } from './atom-executor'
-import type { CodeArtifact, PipelineWorkGraph } from './state'
+import type { CodeArtifact, PipelineExecutableSpecification } from './state'
 
 // ── validateCodeLanguage unit tests ────────────────────────────
 
@@ -231,7 +231,7 @@ describe('executeAtomSlice language gate', () => {
       atomSpec: { id: 'atom-lang-test', description: 'test', assignedTo: 'coder' },
       upstreamArtifacts: {},
       sharedContext: {
-        workGraphId: 'WG-LANG',
+        executableSpecificationId: 'WG-LANG',
         specContent: null,
         briefingScript: {},
       },

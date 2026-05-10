@@ -28,7 +28,7 @@ const SPEC_COLLECTIONS: Record<string, string> = {
   capabilities: 'BC',
   functions: 'FP',
   prds: 'PRD',
-  workgraphs: 'WG',
+  executableSpecifications: 'WG',
   invariants: 'INV',
   coverage_reports: 'CR',
 }

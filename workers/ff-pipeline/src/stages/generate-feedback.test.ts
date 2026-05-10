@@ -51,7 +51,7 @@ function makeCtx(overrides?: Partial<FeedbackContext>): FeedbackContext {
       pressureId: 'PRS-001',
       capabilityId: 'BC-001',
       proposalId: 'FP-001',
-      workGraphId: 'WG-001',
+      executableSpecificationId: 'WG-001',
       synthesisResult: {
         verdict: { decision: 'pass', confidence: 0.95, reason: 'All roles passed' },
         tokenUsage: 4200,
@@ -101,7 +101,7 @@ describe('generateFeedbackSignals', () => {
           pressureId: 'PRS-002',
           capabilityId: 'BC-002',
           proposalId: 'FP-002',
-          workGraphId: 'WG-002',
+          executableSpecificationId: 'WG-002',
           synthesisResult: {
             verdict: { decision: 'pass', confidence: 0.65, reason: 'Passed with low confidence' },
             tokenUsage: 3000,
@@ -131,7 +131,7 @@ describe('generateFeedbackSignals', () => {
           pressureId: 'PRS-003',
           capabilityId: 'BC-003',
           proposalId: 'FP-003',
-          workGraphId: 'WG-003',
+          executableSpecificationId: 'WG-003',
           synthesisResult: {
             verdict: { decision: 'fail', confidence: 0.9, reason: '2 critical atoms failed' },
             tokenUsage: 8000,
@@ -167,7 +167,7 @@ describe('generateFeedbackSignals', () => {
           pressureId: 'PRS-004',
           capabilityId: 'BC-004',
           proposalId: 'FP-004',
-          workGraphId: 'WG-004',
+          executableSpecificationId: 'WG-004',
           synthesisResult: {
             verdict: { decision: 'pass', confidence: 0.85, reason: 'Passed after repairs' },
             tokenUsage: 10000,
@@ -195,7 +195,7 @@ describe('generateFeedbackSignals', () => {
           pressureId: 'PRS-005',
           capabilityId: 'BC-005',
           proposalId: 'FP-005',
-          workGraphId: 'WG-005',
+          executableSpecificationId: 'WG-005',
           synthesisResult: {
             verdict: { decision: 'fail', confidence: 1.0, reason: 'Repair cap exceeded' },
             tokenUsage: 12000,
@@ -219,7 +219,7 @@ describe('generateFeedbackSignals', () => {
         result: {
           status: 'coherence-verification-failed',
           signalId: 'SIG-006',
-          workGraphId: 'WG-006',
+          executableSpecificationId: 'WG-006',
           report: {
             verification: "coherence",
             passed: false,
@@ -237,29 +237,6 @@ describe('generateFeedbackSignals', () => {
       expect(coherenceVerification!.signal.title).toContain('Coherence Verification failed')
     })
 
-    it('accepts legacy gate-1-failed status as compatibility input', async () => {
-      const db = createMockDb()
-      const ctx = makeCtx({
-        result: {
-          status: 'gate-1-failed',
-          signalId: 'SIG-006',
-          workGraphId: 'WG-006',
-          report: {
-            verification: "coherence",
-            passed: false,
-            summary: 'Missing lineage edges',
-            checks: [{ name: 'lineage', passed: false, detail: 'no edges' }],
-          },
-        },
-      })
-
-      const signals = await generateFeedbackSignals(ctx, db as never)
-      const coherenceVerification = signals.find(s => s.signal.subtype === 'synthesis:coherence-verification-failed')
-
-      expect(coherenceVerification).toBeDefined()
-      expect(coherenceVerification!.signal.raw?.legacyStatus).toBe('gate-1-failed')
-      expect(coherenceVerification!.signal.raw?.legacySubtype).toBe('synthesis:gate1-failed')
-    })
   })
 
   describe('loop prevention: depth >= 3', () => {
@@ -329,7 +306,7 @@ describe('generateFeedbackSignals', () => {
         result: {
           status: 'synthesis-fail',
           signalId: 'SIG-010',
-          workGraphId: 'WG-010',
+          executableSpecificationId: 'WG-010',
           synthesisResult: {
             verdict: { decision: 'fail', confidence: 0.9, reason: '2 atoms failed' },
             tokenUsage: 8000,

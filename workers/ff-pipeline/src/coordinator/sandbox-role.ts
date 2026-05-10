@@ -76,9 +76,9 @@ export function sandboxRole(
     // ── 1. Workspace preparation (coder only, when not ready) ──
     if (role === 'coder' && !state.workspaceReady) {
       await deps.prepareWorkspace({
-        repoUrl: state.workGraph.repoUrl ?? '',
-        ref: state.workGraph.ref ?? 'HEAD',
-        branch: state.workGraph.branch ?? 'main',
+        repoUrl: state.executableSpecification.repoUrl ?? '',
+        ref: state.executableSpecification.ref ?? 'HEAD',
+        branch: state.executableSpecification.branch ?? 'main',
       })
     }
 
@@ -97,12 +97,12 @@ export function sandboxRole(
     const contract = ROLE_CONTRACTS[role]
     const taskPayload: Record<string, unknown> = {
       role,
-      workGraphId: state.workGraphId,
-      workGraph: {
-        title: state.workGraph.title,
-        atoms: state.workGraph.atoms,
-        invariants: state.workGraph.invariants,
-        dependencies: state.workGraph.dependencies,
+      executableSpecificationId: state.executableSpecificationId,
+      executableSpecification: {
+        title: state.executableSpecification.title,
+        atoms: state.executableSpecification.atoms,
+        invariants: state.executableSpecification.invariants,
+        dependencies: state.executableSpecification.dependencies,
       },
       plan: state.plan,
       prompt: contract.systemPrompt,
@@ -352,7 +352,7 @@ async function fallbackToCoderAgent(
   config: ExecutionRoleConfig,
 ): Promise<Partial<GraphState>> {
   const code = await config.coderAgent!.produceCode({
-    workGraph: state.workGraph,
+    executableSpecification: state.executableSpecification,
     plan: state.plan,
     ...(state.verdict?.decision === 'patch' && state.verdict.notes ? {
       repairNotes: state.verdict.notes,
@@ -382,7 +382,7 @@ async function fallbackToTesterAgent(
   config: ExecutionRoleConfig,
 ): Promise<Partial<GraphState>> {
   const tests = await config.testerAgent!.runTests({
-    workGraph: state.workGraph,
+    executableSpecification: state.executableSpecification,
     plan: state.plan ?? {},
     code: state.code ?? {},
     ...(state.critique ? { critique: state.critique } : {}),
@@ -413,12 +413,12 @@ async function fallbackToCallModel(
 
   const mentorRules = await config.fetchMentorRules()
   const userMessage = JSON.stringify({
-    workGraphId: state.workGraphId,
-    workGraph: {
-      title: state.workGraph.title,
-      atoms: state.workGraph.atoms,
-      invariants: state.workGraph.invariants,
-      dependencies: state.workGraph.dependencies,
+    executableSpecificationId: state.executableSpecificationId,
+    executableSpecification: {
+      title: state.executableSpecification.title,
+      atoms: state.executableSpecification.atoms,
+      invariants: state.executableSpecification.invariants,
+      dependencies: state.executableSpecification.dependencies,
     },
     plan: state.plan,
     repairCount: state.repairCount,

@@ -7,7 +7,7 @@ import { scoreCandidate } from "./score-candidate.js"
 
 export interface CandidateSelectionInput {
   readonly candidateId: string
-  readonly sourceWorkGraphId: string
+  readonly sourceExecutableSpecificationId: string
   readonly sourceRefs: readonly string[]
   readonly threshold?: number
 }
@@ -28,7 +28,7 @@ export function selectCandidate(
     rationale:
       "Derived deterministically from ArchitectureCandidate scorecard and bootstrap threshold policy.",
     sourceArchitectureCandidateId: input.candidateId,
-    sourceWorkGraphId: input.sourceWorkGraphId,
+    sourceExecutableSpecificationId: input.sourceExecutableSpecificationId,
     decision,
     threshold,
     scorecard,

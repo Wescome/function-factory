@@ -101,13 +101,13 @@ describe('v5.1: completion-ledger', () => {
         'atom-3': { id: 'atom-3', description: 'API', dependencies: [{ atomId: 'atom-1' }, { atomId: 'atom-2' }] },
       }
       const sharedContext = {
-        workGraphId: 'WG-001',
+        executableSpecificationId: 'WG-001',
         specContent: null as string | null,
         briefingScript: { goal: 'test' } as unknown,
       }
 
       await createLedger(db as never, {
-        workGraphId: 'WG-001',
+        executableSpecificationId: 'WG-001',
         workflowId: 'wf-123',
         totalAtoms: 3,
         layers,
@@ -148,7 +148,7 @@ describe('v5.1: completion-ledger', () => {
           'atom-2': { id: 'atom-2' },
           'atom-3': { id: 'atom-3', dependencies: [{ atomId: 'atom-1' }, { atomId: 'atom-2' }] },
         },
-        sharedContext: { workGraphId: 'WG-001', specContent: null, briefingScript: {} },
+        sharedContext: { executableSpecificationId: 'WG-001', specContent: null, briefingScript: {} },
         pendingAtoms: ['atom-3'],
         phase: 'executing',
       }
@@ -173,7 +173,7 @@ describe('v5.1: completion-ledger', () => {
         atomResults: {},
         layers: [{ index: 0, atomIds: ['atom-only'] }],
         allAtomSpecs: { 'atom-only': { id: 'atom-only' } },
-        sharedContext: { workGraphId: 'WG-002', specContent: null, briefingScript: {} },
+        sharedContext: { executableSpecificationId: 'WG-002', specContent: null, briefingScript: {} },
         pendingAtoms: [],
         phase: 'executing',
       }
@@ -207,7 +207,7 @@ describe('v5.1: completion-ledger', () => {
           'atom-2': { id: 'atom-2' },
           'atom-3': { id: 'atom-3', dependencies: [{ atomId: 'atom-1' }, { atomId: 'atom-2' }] },
         },
-        sharedContext: { workGraphId: 'WG-001', specContent: null, briefingScript: {} },
+        sharedContext: { executableSpecificationId: 'WG-001', specContent: null, briefingScript: {} },
         pendingAtoms: ['atom-3'],
         phase: 'executing',
       }
@@ -234,7 +234,7 @@ describe('v5.1: completion-ledger', () => {
           'atom-2': { id: 'atom-2' },
           'atom-3': { id: 'atom-3', dependencies: [{ atomId: 'atom-1' }, { atomId: 'atom-2' }] },
         },
-        sharedContext: { workGraphId: 'WG-001', specContent: null, briefingScript: {} },
+        sharedContext: { executableSpecificationId: 'WG-001', specContent: null, briefingScript: {} },
         pendingAtoms: ['atom-3'],
         phase: 'executing',
       }
@@ -259,7 +259,7 @@ describe('v5.1: completion-ledger', () => {
           'atom-1': { id: 'atom-1' },
           'atom-2': { id: 'atom-2' },
         },
-        sharedContext: { workGraphId: 'WG-001', specContent: null, briefingScript: {} },
+        sharedContext: { executableSpecificationId: 'WG-001', specContent: null, briefingScript: {} },
         pendingAtoms: ['atom-2'],
         phase: 'executing',
       }
@@ -283,7 +283,7 @@ describe('v5.1: completion-ledger', () => {
           'atom-1': { id: 'atom-1' },
           'atom-2': { id: 'atom-2' },
         },
-        sharedContext: { workGraphId: 'WG-003', specContent: null, briefingScript: {} },
+        sharedContext: { executableSpecificationId: 'WG-003', specContent: null, briefingScript: {} },
         pendingAtoms: ['atom-1', 'atom-2'],
         phase: 'executing',
       }
@@ -306,7 +306,7 @@ describe('v5.1: completion-ledger', () => {
         },
         layers: [{ index: 0, atomIds: ['atom-1', 'atom-2'] }],
         allAtomSpecs: {},
-        sharedContext: { workGraphId: 'WG-001', specContent: null, briefingScript: {} },
+        sharedContext: { executableSpecificationId: 'WG-001', specContent: null, briefingScript: {} },
         pendingAtoms: [],
         phase: 'complete',
       }
@@ -328,7 +328,7 @@ describe('v5.1: completion-ledger', () => {
           { index: 1, atomIds: ['atom-3'] },
         ],
         allAtomSpecs: {},
-        sharedContext: { workGraphId: 'WG-001', specContent: null, briefingScript: {} },
+        sharedContext: { executableSpecificationId: 'WG-001', specContent: null, briefingScript: {} },
         pendingAtoms: ['atom-3'],
         phase: 'executing',
       }

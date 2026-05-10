@@ -160,24 +160,24 @@ describe("compile- end-to-end against PRD-META-GATE-1-COMPILE-COVERAGE", () => {
       expect(resultB.report.overall).toBe(resultA.report.overall)
       expect(resultB.report.checks).toEqual(resultA.report.checks)
       expect(resultB.report.source_refs).toEqual(resultA.report.source_refs)
-      // Executable Specification Assembly determinism- ExecutableSpecification deep-equal across compiles.
-      expect(resultB.workgraph).toEqual(resultA.workgraph)
+      // Executable Specification Assembly determinism- Executable Specification deep-equal across compiles.
+      expect(resultB.executableSpecification).toEqual(resultA.executableSpecification)
     } finally {
       await rm(workDir2, { recursive: true, force: true })
     }
   })
 
-  it("Executable Specification Assembly emits a ExecutableSpecification with WG-<PRD subject> id on passing Coherence Verification", async () => {
+  it("Executable Specification Assembly emits an Executable Specification with WG-<PRD subject> id on passing Coherence Verification", async () => {
     const result = await compile(prdPath, {
       timestamp: "2026-04-19T00:00:00Z",
       coverageReportsDir,
     })
     expect(result.report.overall).toBe("pass")
-    expect(result.workgraph).not.toBeNull()
-    expect(result.workgraphPath).not.toBeNull()
-    expect(result.workgraph!.id).toBe("WG-META-GATE-1-COMPILE-COVERAGE")
-    expect(result.workgraph!.functionId).toBe("FP-META-GATE-1-COMPILE-COVERAGE")
-    expect(ExecutableSpecification.safeParse(result.workgraph).success).toBe(true)
+    expect(result.executableSpecification).not.toBeNull()
+    expect(result.executableSpecificationPath).not.toBeNull()
+    expect(result.executableSpecification!.id).toBe("WG-META-GATE-1-COMPILE-COVERAGE")
+    expect(result.executableSpecification!.functionId).toBe("FP-META-GATE-1-COMPILE-COVERAGE")
+    expect(ExecutableSpecification.safeParse(result.executableSpecification).success).toBe(true)
   })
 
   it("Executable Specification Assembly ExecutableSpecification file on disk roundtrips through YAML", async () => {
@@ -185,11 +185,11 @@ describe("compile- end-to-end against PRD-META-GATE-1-COMPILE-COVERAGE", () => {
       timestamp: "2026-04-19T00:00:00Z",
       coverageReportsDir,
     })
-    expect(result.workgraphPath).not.toBeNull()
-    const onDisk = await readFile(result.workgraphPath!, "utf8")
+    expect(result.executableSpecificationPath).not.toBeNull()
+    const onDisk = await readFile(result.executableSpecificationPath!, "utf8")
     expect(onDisk.length).toBeGreaterThan(0)
     const roundtrip = parseYaml(onDisk)
-    expect(roundtrip.id).toBe(result.workgraph!.id)
+    expect(roundtrip.id).toBe(result.executableSpecification!.id)
     expect(roundtrip.functionId).toBe("FP-META-GATE-1-COMPILE-COVERAGE")
     expect(roundtrip.nodes.length).toBeGreaterThan(0)
   })
@@ -199,6 +199,6 @@ describe("compile- end-to-end against PRD-META-GATE-1-COMPILE-COVERAGE", () => {
       timestamp: "2026-04-19T00:00:00Z",
       coverageReportsDir,
     })
-    expect(result.workgraph!.nodes.length).toBeGreaterThanOrEqual(1)
+    expect(result.executableSpecification!.nodes.length).toBeGreaterThanOrEqual(1)
   })
 })

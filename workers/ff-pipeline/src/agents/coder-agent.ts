@@ -18,7 +18,7 @@ import { resolveAgentModel } from './resolve-model'
 import { processAgentOutput, extractAssistantText, buildTelemetryEntry, CODE_ARTIFACT_SCHEMA } from './output-reliability'
 
 export interface CoderInput {
-  workGraph: Record<string, unknown>
+  executableSpecification: Record<string, unknown>
   plan: Plan
   specContent?: string
   repairNotes?: string
@@ -103,18 +103,18 @@ export class CoderAgent {
     const model = this.modelOverride ?? resolveAgentModel('coder')
 
     // Extract only the current atom's spec + relevant interfaces to reduce BL1 context pressure.
-    // Sending the FULL workGraph causes models to produce prose instead of JSON (F1 failures).
-    const atoms = (input.workGraph.atoms as Record<string, unknown>[]) ?? []
+    // Sending the FULL executableSpecification causes models to produce prose instead of JSON (F1 failures).
+    const atoms = (input.executableSpecification.atoms as Record<string, unknown>[]) ?? []
     const currentAtom = atoms.find((a: any) => a.id === input.plan?.atoms?.[0]?.id) ?? atoms[0]
     const relevantContext = {
       atom: currentAtom,
-      title: input.workGraph.title,
-      invariants: input.workGraph.invariants,
+      title: input.executableSpecification.title,
+      invariants: input.executableSpecification.invariants,
     }
 
     const userParts: string[] = [
       `Plan:\n${JSON.stringify(input.plan, null, 2)}`,
-      `\nWorkGraph atom specification:\n${JSON.stringify(relevantContext, null, 2)}`,
+      `\nExecutableSpecification atom specification:\n${JSON.stringify(relevantContext, null, 2)}`,
     ]
 
     if (input.specContent) {

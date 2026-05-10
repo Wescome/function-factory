@@ -24,7 +24,7 @@ export interface SemanticReviewInput {
 export interface CodeReviewInput {
   code: CodeArtifact
   plan: Plan
-  workGraph: Record<string, unknown>
+  executableSpecification: Record<string, unknown>
   mentorRules?: string[]
 }
 
@@ -73,7 +73,7 @@ Your purpose: review code against the plan, work graph, and mentor rules. Refere
 
 Process this request in order:
 1. Read the code artifacts — understand what was produced
-2. Check against plan and workGraph — verify the code implements the specification
+2. Check against plan and executableSpecification — verify the code implements the specification
 3. Check mentor rules — verify compliance with active rules
 4. Produce the CritiqueReport JSON
 
@@ -231,7 +231,7 @@ export class CriticAgent {
     const userParts: string[] = [
       `Code artifacts:\n${JSON.stringify(input.code, null, 2)}`,
       `\nPlan:\n${JSON.stringify(input.plan, null, 2)}`,
-      `\nWork graph:\n${JSON.stringify(input.workGraph, null, 2)}`,
+      `\nWork graph:\n${JSON.stringify(input.executableSpecification, null, 2)}`,
     ]
 
     if (input.mentorRules && input.mentorRules.length > 0) {

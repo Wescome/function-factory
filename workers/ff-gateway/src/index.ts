@@ -95,8 +95,8 @@ export default {
 
       // ── Coherence Verification ──
       if (method === 'POST' && (path === '/coherence-verification' || path === '/gate/1')) {
-        const workGraph = await request.json()
-        const report = await env.GATES.evaluateCoherenceVerification(workGraph)
+        const executableSpecification = await request.json()
+        const report = await env.GATES.evaluateCoherenceVerification(executableSpecification)
         const status = report.passed ? 200 : 422
         return json(report, status)
       }

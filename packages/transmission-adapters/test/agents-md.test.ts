@@ -35,7 +35,7 @@ const fullInput: AgentsMdInput = {
     'BC-*': 'Capabilities',
     'FN-*': 'Functions',
     'PRD-*': 'PRDs',
-    'WG-*': 'WorkGraphs',
+    'WG-*': 'ExecutableSpecifications',
     'INV-*': 'Invariants',
     'CR-*': 'Coverage Reports',
   },
@@ -165,7 +165,7 @@ describe('agents-md substrate', () => {
       expect(result).not.toMatch(/\bRequirementAtom\b/)
       expect(result).not.toMatch(/\bCodeArtifact\b/)
       expect(result).not.toMatch(/\bGraphState\b/)
-      expect(result).not.toMatch(/\bPipelineWorkGraph\b/)
+      expect(result).not.toMatch(/\bPipelineExecutableSpecification\b/)
       expect(result).not.toMatch(/\bCoderAgent\b/)
       expect(result).not.toMatch(/\bCoderInput\b/)
       expect(result).not.toMatch(/\bFactorySpecification\b/)

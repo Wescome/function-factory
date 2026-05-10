@@ -91,7 +91,7 @@ describe('TesterAgent', () => {
       const agent = new TesterAgent({ db, apiKey: 'test-key', dryRun: true })
 
       const result = await agent.runTests({
-        workGraph: SAMPLE_WORKGRAPH,
+        executableSpecification: SAMPLE_WORKGRAPH,
         plan: SAMPLE_PLAN,
         code: SAMPLE_CODE,
       })
@@ -110,7 +110,7 @@ describe('TesterAgent', () => {
       const agent = new TesterAgent({ db, apiKey: 'test-key', dryRun: true })
 
       await agent.runTests({
-        workGraph: SAMPLE_WORKGRAPH,
+        executableSpecification: SAMPLE_WORKGRAPH,
         plan: SAMPLE_PLAN,
         code: SAMPLE_CODE,
       })
@@ -198,7 +198,7 @@ describe('TesterAgent', () => {
       const agent = new TesterAgent({ db, apiKey: 'test-key', dryRun: true })
 
       const result = await agent.runTests({
-        workGraph: SAMPLE_WORKGRAPH,
+        executableSpecification: SAMPLE_WORKGRAPH,
         plan: SAMPLE_PLAN,
         code: SAMPLE_CODE,
         // critique intentionally omitted
@@ -212,7 +212,7 @@ describe('TesterAgent', () => {
       const agent = new TesterAgent({ db, apiKey: 'test-key', dryRun: true })
 
       const result = await agent.runTests({
-        workGraph: SAMPLE_WORKGRAPH,
+        executableSpecification: SAMPLE_WORKGRAPH,
         plan: SAMPLE_PLAN,
         code: SAMPLE_CODE,
         critique: {
@@ -257,7 +257,7 @@ describe('TesterAgent', () => {
       })
 
       const result = await agent.runTests({
-        workGraph: SAMPLE_WORKGRAPH,
+        executableSpecification: SAMPLE_WORKGRAPH,
         plan: SAMPLE_PLAN,
         code: SAMPLE_CODE,
       })
@@ -290,7 +290,7 @@ describe('TesterAgent', () => {
       })
 
       const result = await agent.runTests({
-        workGraph: SAMPLE_WORKGRAPH,
+        executableSpecification: SAMPLE_WORKGRAPH,
         plan: SAMPLE_PLAN,
         code: SAMPLE_CODE,
       })
@@ -317,7 +317,7 @@ describe('TesterAgent', () => {
 
       await expect(
         agent.runTests({
-          workGraph: SAMPLE_WORKGRAPH,
+          executableSpecification: SAMPLE_WORKGRAPH,
           plan: SAMPLE_PLAN,
           code: SAMPLE_CODE,
         }),

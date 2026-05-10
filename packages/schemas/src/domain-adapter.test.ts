@@ -68,7 +68,6 @@ describe("DomainExecutionRequest", () => {
     })
 
     expect(parsed.executableSpecificationId).toBe("WG-META-EXAMPLE")
-    expect("workGraphId" in parsed).toBe(false)
   })
 })
 
@@ -85,6 +84,6 @@ describe("DomainExecutionEvidence", () => {
 
     expect(parsed.status).toBe("succeeded")
     expect(parsed.evidenceRefs).toHaveLength(2)
-    expect("workGraphId" in parsed).toBe(false)
+    expect(parsed.executableSpecificationId).toBe("WG-META-EXAMPLE")
   })
 })

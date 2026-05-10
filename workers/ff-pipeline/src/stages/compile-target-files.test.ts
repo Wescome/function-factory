@@ -164,7 +164,7 @@ describe('compile assembly: atoms carry targetFiles from binding.target (discrep
       )
     }
 
-    const wg = state.workGraph as Record<string, unknown>
+    const wg = state.executableSpecification as Record<string, unknown>
     expect(wg).toBeDefined()
 
     const atoms = wg.atoms as Record<string, unknown>[]
@@ -216,7 +216,7 @@ describe('compile assembly: atoms carry targetFiles from binding.target (discrep
       false,
     )
 
-    const wg = result.workGraph as Record<string, unknown>
+    const wg = result.executableSpecification as Record<string, unknown>
     const atoms = wg.atoms as Record<string, unknown>[]
     const atom = atoms.find(a => a.id === 'atom-tbd')
 
@@ -263,7 +263,7 @@ describe('compile assembly: atoms carry targetFiles from binding.target (discrep
       false,
     )
 
-    const wg = result.workGraph as Record<string, unknown>
+    const wg = result.executableSpecification as Record<string, unknown>
     const atoms = wg.atoms as Record<string, unknown>[]
     const atom = atoms.find(a => a.id === 'atom-multi')
 
@@ -301,7 +301,7 @@ describe('compile assembly: atoms carry targetFiles from binding.target (discrep
       true,  // dry-run
     )
 
-    const wg = result.workGraph as Record<string, unknown>
+    const wg = result.executableSpecification as Record<string, unknown>
     const atoms = wg.atoms as Record<string, unknown>[]
     const atom = atoms.find(a => a.id === 'atom-dry')
 
@@ -417,7 +417,7 @@ describe('end-to-end: compile produces atoms that resolveTargetFiles can consume
       )
     }
 
-    const wg = state.workGraph as Record<string, unknown>
+    const wg = state.executableSpecification as Record<string, unknown>
     const atoms = wg.atoms as Record<string, unknown>[]
 
     // Import the standalone resolveTargetFiles (after Engineer extracts it)

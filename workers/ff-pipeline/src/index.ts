@@ -118,13 +118,13 @@ export default {
     if (url.pathname === '/trigger-synthesis' && request.method === 'POST') {
       const body = await request.json() as {
         workflowId?: string
-        workGraphId?: string
-        workGraph?: import('./coordinator/state').PipelineWorkGraph
+        executableSpecificationId?: string
+        executableSpecification?: import('./coordinator/state').PipelineExecutableSpecification
         dryRun?: boolean
       }
 
-      if (!body.workflowId || !body.workGraphId || !body.workGraph) {
-        return new Response(JSON.stringify({ error: 'Missing required fields: workflowId, workGraphId, workGraph' }), {
+      if (!body.workflowId || !body.executableSpecificationId || !body.executableSpecification) {
+        return new Response(JSON.stringify({ error: 'Missing required fields: workflowId, executableSpecificationId, executableSpecification' }), {
           status: 400,
           headers: { 'Content-Type': 'application/json' },
         })
@@ -132,18 +132,18 @@ export default {
 
       // Fire-and-forget: DO work + event sending happens in background
       const workflow = await env.FACTORY_PIPELINE.get(body.workflowId)
-      const workGraphId = body.workGraphId
-      const workGraph = body.workGraph
+      const executableSpecificationId = body.executableSpecificationId
+      const executableSpecification = body.executableSpecification
       const dryRun = body.dryRun ?? false
 
       ctx.waitUntil((async () => {
         try {
-          const doId = env.COORDINATOR.idFromName(`synth-${workGraphId}`)
+          const doId = env.COORDINATOR.idFromName(`synth-${executableSpecificationId}`)
           const stub = env.COORDINATOR.get(doId)
           const doResponse = await stub.fetch(new Request('https://do/synthesize', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ workGraph, dryRun }),
+            body: JSON.stringify({ executableSpecification, dryRun }),
           }))
 
           const result = await doResponse.json() as {
@@ -173,7 +173,7 @@ export default {
         }
       })())
 
-      return new Response(JSON.stringify({ accepted: true, workGraphId }), {
+      return new Response(JSON.stringify({ accepted: true, executableSpecificationId }), {
         status: 202,
         headers: { 'Content-Type': 'application/json' },
       })
@@ -313,7 +313,7 @@ export default {
           {
             signalTitle: `PR from pipeline ${body.pipelineId}`,
             proposalId: output.proposalId as string ?? 'unknown',
-            workGraphId: output.workGraphId as string ?? 'unknown',
+            executableSpecificationId: output.executableSpecificationId as string ?? 'unknown',
             atomResults: (output.atomResults ?? {}) as any,
             sourceRefs: [],
             confidence: (output.synthesisResult as any)?.verdict?.confidence ?? 0,
@@ -332,10 +332,10 @@ export default {
     if (url.pathname === '/debug/pr-outcome' && request.method === 'GET') {
       try {
         const pullNumber = Number(url.searchParams.get('pullNumber') ?? '')
-        const workGraphId = url.searchParams.get('workGraphId') ?? ''
-        if (!Number.isInteger(pullNumber) || pullNumber <= 0 || !workGraphId) {
+        const executableSpecificationId = url.searchParams.get('executableSpecificationId') ?? ''
+        if (!Number.isInteger(pullNumber) || pullNumber <= 0 || !executableSpecificationId) {
           return new Response(JSON.stringify({
-            error: 'Missing required query params: pullNumber, workGraphId',
+            error: 'Missing required query params: pullNumber, executableSpecificationId',
           }), { status: 400, headers: { 'Content-Type': 'application/json' } })
         }
 
@@ -346,11 +346,11 @@ export default {
              FILTER s.source == 'factory:pr-outcome'
              FILTER LIKE(s.subtype, 'synthesis:pr-%')
              FILTER s.raw.pr.number == @pullNumber
-             FILTER s.raw.workGraphId == @workGraphId
+             FILTER s.raw.executableSpecificationId == @executableSpecificationId
              SORT s.createdAt DESC
              LIMIT 1
              RETURN s`,
-          { pullNumber, workGraphId },
+          { pullNumber, executableSpecificationId },
         )
         const signal = rows[0] ?? null
         return new Response(JSON.stringify({
@@ -377,7 +377,7 @@ export default {
             pressureId?: string
             capabilityId?: string
             proposalId?: string
-            workGraphId?: string
+            executableSpecificationId?: string
           }
         }
 
@@ -388,7 +388,7 @@ export default {
               ...(body.lineage.pressureId ? { pressureId: body.lineage.pressureId } : {}),
               ...(body.lineage.capabilityId ? { capabilityId: body.lineage.capabilityId } : {}),
               proposalId: body.lineage.proposalId ?? '',
-              workGraphId: body.lineage.workGraphId ?? '',
+              executableSpecificationId: body.lineage.executableSpecificationId ?? '',
             }
           : undefined
 
@@ -397,8 +397,8 @@ export default {
           const { fetchPROutcomeFromGitHub, ingestPROutcomeSignals } = await import('./stages/pr-outcome-signal.js')
 
           const outcome = body.outcome ?? await (async () => {
-            if (!body.pullNumber || !lineage?.pipelineId || !lineage.proposalId || !lineage.workGraphId) {
-              throw new Error('Missing required fields: pullNumber, lineage.pipelineId, lineage.proposalId, lineage.workGraphId')
+            if (!body.pullNumber || !lineage?.pipelineId || !lineage.proposalId || !lineage.executableSpecificationId) {
+              throw new Error('Missing required fields: pullNumber, lineage.pipelineId, lineage.proposalId, lineage.executableSpecificationId')
             }
             if (!env.GITHUB_TOKEN) {
               throw new Error('GITHUB_TOKEN binding unavailable')
@@ -418,14 +418,14 @@ export default {
             accepted: true,
             processed: true,
             pullNumber: outcome.pullRequest.number,
-            workGraphId: outcome.lineage.workGraphId,
+            executableSpecificationId: outcome.lineage.executableSpecificationId,
             records,
           }), { headers: { 'Content-Type': 'application/json' } })
         }
 
-        if (!body.pullNumber || !body.lineage?.pipelineId || !body.lineage.proposalId || !body.lineage.workGraphId) {
+        if (!body.pullNumber || !body.lineage?.pipelineId || !body.lineage.proposalId || !body.lineage.executableSpecificationId) {
           return new Response(JSON.stringify({
-            error: 'Missing required fields: pullNumber, lineage.pipelineId, lineage.proposalId, lineage.workGraphId',
+            error: 'Missing required fields: pullNumber, lineage.pipelineId, lineage.proposalId, lineage.executableSpecificationId',
           }), { status: 400, headers: { 'Content-Type': 'application/json' } })
         }
 
@@ -444,7 +444,7 @@ export default {
         return new Response(JSON.stringify({
           accepted: true,
           pullNumber: body.pullNumber,
-          workGraphId: lineage!.workGraphId,
+          executableSpecificationId: lineage!.executableSpecificationId,
         }), { status: 202, headers: { 'Content-Type': 'application/json' } })
       } catch (err) {
         return new Response(JSON.stringify({
@@ -478,7 +478,7 @@ export default {
              FILTER s.raw.pr.merged != true
              FILTER s.raw.pipelineId != null
              FILTER s.raw.proposalId != null
-             FILTER s.raw.workGraphId != null
+             FILTER s.raw.executableSpecificationId != null
              SORT s.createdAt DESC
              COLLECT pullNumber = s.raw.pr.number INTO grouped
              LET latest = FIRST(grouped[*].s)
@@ -487,7 +487,7 @@ export default {
           { limit },
         )
 
-        const candidates: Array<{ pullNumber: number; workGraphId: string; lastSignalKey: string }> = []
+        const candidates: Array<{ pullNumber: number; executableSpecificationId: string; lastSignalKey: string }> = []
         const skipped: Array<{ lastSignalKey: string; reason: string }> = []
         for (const row of rows) {
           const raw = row.raw as Record<string, unknown> | undefined
@@ -496,14 +496,14 @@ export default {
           const pullNumber = pr?.number
           const pipelineId = raw?.pipelineId
           const proposalId = raw?.proposalId
-          const workGraphId = raw?.workGraphId
+          const executableSpecificationId = raw?.executableSpecificationId
           const lastSignalKey = typeof row._key === 'string' ? row._key : 'unknown'
 
           if (
             typeof pullNumber !== 'number'
             || typeof pipelineId !== 'string'
             || typeof proposalId !== 'string'
-            || typeof workGraphId !== 'string'
+            || typeof executableSpecificationId !== 'string'
           ) {
             skipped.push({ lastSignalKey, reason: 'missing required lineage or pullNumber' })
             continue
@@ -519,7 +519,7 @@ export default {
             ...(idFromRefs('PRS') ? { pressureId: idFromRefs('PRS') } : {}),
             ...(idFromRefs('BC') ? { capabilityId: idFromRefs('BC') } : {}),
             proposalId,
-            workGraphId,
+            executableSpecificationId,
           }
 
           await env.FEEDBACK_QUEUE.send({
@@ -527,7 +527,7 @@ export default {
             pullNumber,
             lineage,
           })
-          candidates.push({ pullNumber, workGraphId, lastSignalKey })
+          candidates.push({ pullNumber, executableSpecificationId, lastSignalKey })
         }
 
         return new Response(JSON.stringify({
@@ -545,7 +545,7 @@ export default {
     }
 
     // ── Diagnostic: pure Fidelity Verification evaluator ──
-    if ((url.pathname === '/debug/fidelity-verification' || url.pathname === '/debug/gate2-simulate') && request.method === 'POST') {
+    if (url.pathname === '/debug/fidelity-verification' && request.method === 'POST') {
       try {
         const body = await request.json() as Record<string, unknown>
         const fidelityVerification = await import('./fidelity-verification.js')
@@ -734,10 +734,10 @@ export default {
           const transition = {
             from: 'produced',
             to: 'accepted',
-            trigger: 'gate-2-pass',
-            guard: 'gate-2',
+            trigger: 'fidelity-verification-pass',
+            guard: 'fidelity-verification',
             responsible_context: 'ff-pipeline:debug-lifecycle-acceptance-repair',
-            gateReport: fidelityVerificationReportKey,
+            verificationReport: fidelityVerificationReportKey,
             timestamp: repairedAt,
           }
           await db.ensureCollection('lifecycle_transitions')
@@ -770,10 +770,10 @@ export default {
 
         if (body.apply === true) {
           await transitionLifecycle(db as never, functionKey, 'accepted', {
-            trigger: 'gate-2-pass',
-            guard: 'gate-2',
+            trigger: 'fidelity-verification-pass',
+            guard: 'fidelity-verification',
             responsible_context: 'ff-pipeline:debug-lifecycle-acceptance',
-            gateReport: fidelityVerificationReportKey,
+            verificationReport: fidelityVerificationReportKey,
           })
 
           return new Response(JSON.stringify({
@@ -1000,10 +1000,10 @@ export default {
         }
 
         const audit = body.audit as import('./synthesis-pr-draft').SynthesisMaterializationAudit
-        const workGraphId = audit.workGraphId
-        if (typeof workGraphId !== 'string' || workGraphId.trim().length === 0) {
+        const executableSpecificationId = audit.executableSpecificationId
+        if (typeof executableSpecificationId !== 'string' || executableSpecificationId.trim().length === 0) {
           return new Response(JSON.stringify({
-            error: 'audit.workGraphId is required',
+            error: 'audit.executableSpecificationId is required',
           }), { status: 400, headers: { 'Content-Type': 'application/json' } })
         }
 
@@ -1020,16 +1020,16 @@ export default {
              FILTER s.source == 'factory:pr-outcome'
              FILTER LIKE(s.subtype, 'synthesis:pr-%')
              FILTER s.raw.pr.number == @pullNumber
-             FILTER s.raw.workGraphId == @workGraphId
+             FILTER s.raw.executableSpecificationId == @executableSpecificationId
              SORT s.raw.observedAt DESC, s.createdAt DESC
              LIMIT 1
              RETURN s`,
-          { pullNumber: body.pullNumber, workGraphId },
+          { pullNumber: body.pullNumber, executableSpecificationId },
         )
         const prOutcomeSignal = prOutcomeSignals[0] ?? null
         if (!prOutcomeSignal) {
           return new Response(JSON.stringify({
-            error: `PR outcome signal not found for PR #${body.pullNumber} and ${workGraphId}`,
+            error: `PR outcome signal not found for PR #${body.pullNumber} and ${executableSpecificationId}`,
           }), { status: 404, headers: { 'Content-Type': 'application/json' } })
         }
 
@@ -1394,7 +1394,7 @@ export default {
 
         // v5.1: phase1-complete messages are informational — ack and continue
         if (body.type === 'phase1-complete') {
-          console.log(`[Agent Call execution] Phase 1 complete for ${body.workGraphId}: ${body.atomCount} atoms in ${body.layerCount} layers`)
+          console.log(`[Agent Call execution] Phase 1 complete for ${body.executableSpecificationId}: ${body.atomCount} atoms in ${body.layerCount} layers`)
           msg.ack()
           continue
         }
@@ -1430,8 +1430,8 @@ export default {
 
       // ── atom-results queue: AtomExecutor DO completion → ledger update → Phase 3 ──
       if (batch.queue === 'atom-results') {
-        const { workGraphId, atomId, result, workflowId } = msg.body as {
-          workGraphId: string
+        const { executableSpecificationId, atomId, result, workflowId } = msg.body as {
+          executableSpecificationId: string
           atomId: string
           result: {
             atomId: string
@@ -1454,7 +1454,7 @@ export default {
           db.setValidator(validateArtifact)
 
           // Record this atom's result in the completion ledger
-          const ledger = await recordAtomResult(db as never, workGraphId, atomId, result as never)
+          const ledger = await recordAtomResult(db as never, executableSpecificationId, atomId, result as never)
           console.log(`[Agent Call execution] Atom ${atomId} complete (${result.verdict.decision}) — ${ledger.completedAtoms}/${ledger.totalAtoms} atoms done`)
 
           // Check if dependent atoms are now ready to dispatch
@@ -1474,7 +1474,7 @@ export default {
 
               await (env.SYNTHESIS_QUEUE as unknown as { send(body: unknown): Promise<void> }).send({
                 type: 'atom-execute',
-                workGraphId,
+                executableSpecificationId,
                 workflowId: workflowId ?? ledger.workflowId,
                 atomId: readyAtomId,
                 atomSpec: ledger.allAtomSpecs[readyAtomId],
@@ -1567,11 +1567,11 @@ export default {
           const errorMessage = err instanceof Error ? err.message : String(err)
           console.error(`[Agent Call execution] atom-results processing failed for atom ${atomId}: ${errorMessage}`)
           // Tier 1 signal: infra:arango-connection-failure (console-only — DB may be down)
-          console.error(`[INFRA SIGNAL] infra:arango-connection-failure: atom-results processing failed for atom ${atomId} in ${workGraphId}: ${errorMessage}`)
+          console.error(`[INFRA SIGNAL] infra:arango-connection-failure: atom-results processing failed for atom ${atomId} in ${executableSpecificationId}: ${errorMessage}`)
           if (msg.attempts >= 4) {
-            console.error(`[Agent Call execution] atom-results exhausted retries for atom ${atomId} in ${workGraphId}`)
+            console.error(`[Agent Call execution] atom-results exhausted retries for atom ${atomId} in ${executableSpecificationId}`)
             // Tier 1 signal: infra:queue-retry-exhausted — atom-results dead letter
-            console.error(`[INFRA SIGNAL] infra:queue-retry-exhausted: atom-results message for atom ${atomId} in ${workGraphId} exhausted ${msg.attempts} attempts`)
+            console.error(`[INFRA SIGNAL] infra:queue-retry-exhausted: atom-results message for atom ${atomId} in ${executableSpecificationId} exhausted ${msg.attempts} attempts`)
             msg.ack()
           } else {
             msg.retry()
@@ -1693,7 +1693,7 @@ export default {
                   {
                     signalTitle: fs.signal.title,
                     proposalId: feedbackBody.result.proposalId as string,
-                    workGraphId: feedbackBody.result.workGraphId as string,
+                    executableSpecificationId: feedbackBody.result.executableSpecificationId as string,
                     atomResults: (feedbackBody.result.atomResults ?? {}) as Record<string, {
                       atomId: string
                       verdict: { decision: string }
@@ -1748,8 +1748,8 @@ export default {
 
       // v5.1: atom-execute messages — dispatch to AtomExecutor DO
       if (body.type === 'atom-execute') {
-        const { workGraphId, workflowId, atomId, atomSpec, sharedContext, upstreamArtifacts, maxRetries, dryRun } = body as {
-          workGraphId: string
+        const { executableSpecificationId, workflowId, atomId, atomSpec, sharedContext, upstreamArtifacts, maxRetries, dryRun } = body as {
+          executableSpecificationId: string
           workflowId: string
           atomId: string
           atomSpec: Record<string, unknown>
@@ -1760,11 +1760,11 @@ export default {
         }
 
         try {
-          const doId = env.ATOM_EXECUTOR.idFromName(`atom-${workGraphId}-${atomId}`)
+          const doId = env.ATOM_EXECUTOR.idFromName(`atom-${executableSpecificationId}-${atomId}`)
           const stub = env.ATOM_EXECUTOR.get(doId)
           const doPayload = JSON.stringify({
             atomId, atomSpec, sharedContext, upstreamArtifacts,
-            workflowId, workGraphId, maxRetries: maxRetries ?? 3, dryRun: dryRun ?? false,
+            workflowId, executableSpecificationId, maxRetries: maxRetries ?? 3, dryRun: dryRun ?? false,
           })
 
           // In-process retry: absorb transient DO connectivity blips before burning a queue retry
@@ -1790,7 +1790,7 @@ export default {
           const errorMessage = err instanceof Error ? err.message : String(err)
           console.error(`[Agent Call execution] atom-execute dispatch failed for atom ${atomId}: ${errorMessage}`)
           if (msg.attempts >= 6) {
-            console.error(`[INFRA SIGNAL] infra:queue-retry-exhausted: atom-execute dispatch for atom ${atomId} in ${workGraphId} exhausted ${msg.attempts} attempts`)
+            console.error(`[INFRA SIGNAL] infra:queue-retry-exhausted: atom-execute dispatch for atom ${atomId} in ${executableSpecificationId} exhausted ${msg.attempts} attempts`)
             // Structured signal to ArangoDB so Governor can see dispatch failures
             try {
               const { ingestSignal } = await import('./stages/ingest-signal.js')
@@ -1801,15 +1801,15 @@ export default {
                 source: 'factory:infrastructure',
                 subtype: 'infra:atom-dispatch-failure',
                 title: `Atom ${atomId} dispatch failed after ${msg.attempts} attempts`,
-                description: `Queue consumer could not reach AtomExecutor DO for atom ${atomId} in ExecutableSpecification ${workGraphId}: ${errorMessage}`,
-                sourceRefs: [workGraphId],
+                description: `Queue consumer could not reach AtomExecutor DO for atom ${atomId} in ExecutableSpecification ${executableSpecificationId}: ${errorMessage}`,
+                sourceRefs: [executableSpecificationId],
               }, db).catch(() => {})
             } catch { /* best-effort */ }
             // Publish failure result to atom-results queue so ledger is updated
             try {
               if (env.ATOM_RESULTS) {
                 await (env.ATOM_RESULTS as unknown as { send(body: unknown): Promise<void> }).send({
-                  workGraphId, atomId,
+                  executableSpecificationId, atomId,
                   result: {
                     atomId,
                     verdict: { decision: 'fail', confidence: 1.0, reason: `Atom dispatch failed after ${msg.attempts} attempts: ${errorMessage}` },
@@ -1830,10 +1830,10 @@ export default {
       }
 
       // ── synthesis-queue: original coordinator dispatch ──
-      const { workflowId, workGraphId, workGraph, dryRun, specContent } = body as {
+      const { workflowId, executableSpecificationId, executableSpecification, dryRun, specContent } = body as {
         workflowId: string
-        workGraphId: string
-        workGraph: Record<string, unknown>
+        executableSpecificationId: string
+        executableSpecification: Record<string, unknown>
         dryRun?: boolean
         specContent?: string
       }
@@ -1842,13 +1842,13 @@ export default {
         // Fire-and-forget: dispatch to DO with workflowId, then ack immediately.
         // The DO publishes results to SYNTHESIS_RESULTS queue on completion.
         // This eliminates the queue visibility timeout problem (CF Queues ~30s).
-        const doId = env.COORDINATOR.idFromName(`synth-${workGraphId}`)
+        const doId = env.COORDINATOR.idFromName(`synth-${executableSpecificationId}`)
         const stub = env.COORDINATOR.get(doId)
         await stub.fetch(new Request('https://do/synthesize', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            workGraph,
+            executableSpecification,
             dryRun: dryRun ?? false,
             workflowId,
             ...(specContent ? { specContent } : {}),
@@ -1880,7 +1880,7 @@ export default {
             console.error(`Failed to send failure event for workflow ${workflowId}: sendEvent error: ${sendErrMsg} (original error: ${errorMessage})`)
           }
           // Tier 1 signal: infra:queue-retry-exhausted — synthesis-queue coordinator dispatch dead letter
-          console.error(`[INFRA SIGNAL] infra:queue-retry-exhausted: synthesis-queue dispatch for workflow ${workflowId} (workGraph ${workGraphId}) exhausted ${msg.attempts} attempts: ${errorMessage}`)
+          console.error(`[INFRA SIGNAL] infra:queue-retry-exhausted: synthesis-queue dispatch for workflow ${workflowId} (executableSpecification ${executableSpecificationId}) exhausted ${msg.attempts} attempts: ${errorMessage}`)
           msg.ack() // Remove from queue even though dispatch failed
         } else {
           msg.retry()

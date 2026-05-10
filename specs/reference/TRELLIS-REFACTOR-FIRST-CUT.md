@@ -1,6 +1,6 @@
 # Trellis Refactor First Cut
 
-**Status:** Active refactor backlog
+**Status:** First cut implemented; storage/path migration deferred
 **Date:** 2026-05-10
 **Source references:** `DOMAIN-FACTORY-KERNEL.md`,
 `ONTOLOGY-CURRENT-MAPPING.md`, `.agent/memory/semantic/DECISIONS.md`
@@ -14,27 +14,26 @@ frame. Persisted artifact IDs, storage buckets, ArangoDB collections, and live
 runtime evidence are still deferred migration surfaces, but active architecture
 work should not add new dual names or new Gate-number APIs.
 
-## Current Active Residue
+## First-Cut Result
 
-The next refactor commits should remove these active-source residues in small
-behavior-preserving slices:
+The first refactor commits removed these active-source residues while leaving
+persisted artifact IDs, storage buckets, and ArangoDB collections stable:
 
 | Surface | Current residue | Target |
 | --- | --- | --- |
-| Coordinator state | `PipelineWorkGraph`, `WorkGraphNodeShape`, `WorkGraphEdgeShape`, `currentWorkGraphId`, `workGraph` parameters | `PipelineExecutableSpecification`, executable-spec node/edge shapes, executable-specification state fields |
-| Lifecycle API | `gateReport`, `gateRequired`, `GATE_REQUIREMENTS`, `LegacyGateRequirement` | Verification-only report and requirement fields |
-| Runtime statuses | `legacyStatus`, `gate-1-failed` metadata | Coherence Verification failure status only |
-| Worker diagnostics | `/debug/gate2-simulate` and numbered gate route comments | `/debug/fidelity-verification` primary route only |
-| Function synthesis tools | `readWorkGraph` | `readExecutableSpecification` |
-| Cross-package source fields | `sourceWorkGraphId` | `sourceExecutableSpecificationId` |
-| Compiler comments and options | PRD/WorkGraph path wording in active APIs | Intent Specification / Executable Specification wording |
+| Coordinator state | WorkGraph-shaped type and field names | `PipelineExecutableSpecification`, executable-spec node/edge shapes, executable-specification state fields |
+| Lifecycle API | numbered gate compatibility evidence fields | Verification-only report and requirement fields |
+| Runtime statuses | numbered gate compatibility failure status metadata | Coherence Verification failure status only |
+| Worker diagnostics | numbered Fidelity Verification diagnostic route alias | `/debug/fidelity-verification` only |
+| Function synthesis tools | `readExecutableSpecification` | `readExecutableSpecification` |
+| Cross-package source fields | `sourceExecutableSpecificationId` | `sourceExecutableSpecificationId` |
+| Compiler comments and options | PRD/ExecutableSpecification path wording in active APIs | Intent Specification / Executable Specification wording |
 | Reference guardrails | Compatibility contract framing | Hard-cutover constraints and explicit migration backlog |
 
 ## Cutover Rules
 
-1. Do not add new `Gate1`, `Gate2`, `Gate3`, `gate1`, `gate2`, or `gate3`
-   active APIs.
-2. Do not add new `WorkGraph` active APIs outside historical artifacts or
+1. Do not add new numbered Gate active APIs.
+2. Do not add new WorkGraph active APIs outside historical artifacts or
    deferred persisted-storage migration code.
 3. Do not add new `PRDDraft` active APIs; use `IntentSpecification`.
 4. Do not add new `CoverageReport` active APIs; use Verification Report
@@ -44,25 +43,26 @@ behavior-preserving slices:
 6. Every code slice must update `pnpm audit:ontology` so the old name cannot
    re-enter the active surface.
 
-## First Code Slice
+## First Code Slice Completed
 
-Start with the coordinator executable-specification rename:
+Completed scope:
 
-1. Rename active TypeScript types:
-   - `PipelineWorkGraph` -> `PipelineExecutableSpecification`
-   - `WorkGraphNodeShape` -> `ExecutableSpecificationNodeShape`
-   - `WorkGraphEdgeShape` -> `ExecutableSpecificationEdgeShape`
-2. Rename coordinator state fields where they are not persisted external
-   contracts:
-   - `currentWorkGraphId` -> `currentExecutableSpecificationId`
-   - local `workGraph` parameters -> `executableSpecification`
-3. Preserve only persisted `WG-*`, `specs/workgraphs`, and
+1. Active coordinator TypeScript types and state fields now use Executable
+   Specification names.
+2. Lifecycle transitions require and persist `verificationReport` only.
+3. Runtime Coherence Verification failures emit only
+   `coherence-verification-failed`.
+4. Fidelity Verification diagnostics are served only from
+   `/debug/fidelity-verification`.
+5. Function synthesis tools use `readExecutableSpecification`.
+6. Cross-package lineage fields use `sourceExecutableSpecificationId`.
+7. Compiler active options and comments use Intent Specification /
+   Executable Specification wording.
+8. `pnpm audit:ontology` enforces the removed active names.
+9. Preserve only persisted `WG-*`, `specs/workgraphs`, and
    `specs_workgraphs` identifiers until the storage/path migration slice.
-4. Add audit checks for the removed active names.
-5. Run focused coordinator tests, `pnpm audit:ontology`, and
-   `pnpm -r typecheck`.
 
-## Out Of Scope For First Code Slice
+## Out Of Scope
 
 - No storage bucket rename.
 - No ArangoDB collection rename.

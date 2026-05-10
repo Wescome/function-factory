@@ -6,7 +6,7 @@ import {
 } from '@factory/schemas'
 
 // ────────────────────────────────────────────────────────────
-// PipelineWorkGraph — typed ExecutableSpecification as it flows through synthesis
+// PipelineExecutableSpecification — typed ExecutableSpecification as it flows through synthesis
 // ────────────────────────────────────────────────────────────
 
 /**
@@ -17,12 +17,12 @@ import {
  * The index signature preserves forward compatibility — the pipeline
  * dynamically adds fields, but known fields are now typed.
  */
-export interface PipelineWorkGraph {
+export interface PipelineExecutableSpecification {
   // Canonical fields (from @factory/schemas ExecutableSpecification)
   id: string
   functionId?: string
-  nodes?: WorkGraphNodeShape[]
-  edges?: WorkGraphEdgeShape[]
+  nodes?: ExecutableSpecificationNodeShape[]
+  edges?: ExecutableSpecificationEdgeShape[]
   source_refs?: string[]
   explicitness?: string
   rationale?: string
@@ -48,7 +48,7 @@ export interface PipelineWorkGraph {
   [key: string]: unknown
 }
 
-export interface WorkGraphNodeShape {
+export interface ExecutableSpecificationNodeShape {
   id: string
   type: string
   title?: string
@@ -56,7 +56,7 @@ export interface WorkGraphNodeShape {
   implements?: string
 }
 
-export interface WorkGraphEdgeShape {
+export interface ExecutableSpecificationEdgeShape {
   from: string
   to: string
   condition?: string
@@ -155,8 +155,8 @@ export interface Verdict {
 
 export interface GraphState {
   [key: string]: unknown
-  workGraphId: string
-  workGraph: PipelineWorkGraph
+  executableSpecificationId: string
+  executableSpecification: PipelineExecutableSpecification
 
   plan: Plan | null
   code: CodeArtifact | null
@@ -164,7 +164,7 @@ export interface GraphState {
   tests: TestReport | null
   verdict: Verdict | null
 
-  roleHistory: { role: string; legacyRole?: string; output: unknown; tokenUsage: number; timestamp: string }[]
+  roleHistory: { role: string; output: unknown; tokenUsage: number; timestamp: string }[]
 
   repairCount: number
   tokenUsage: number
@@ -200,15 +200,15 @@ export interface GraphState {
 }
 
 export function createInitialState(
-  workGraphId: string,
-  workGraph: PipelineWorkGraph,
+  executableSpecificationId: string,
+  executableSpecification: PipelineExecutableSpecification,
   opts?: { maxRepairs?: number; maxTokens?: number; specContent?: string | null },
 ): GraphState {
-  const domainExecutionRequest = buildDomainExecutionRequest(workGraphId, workGraph)
+  const domainExecutionRequest = buildDomainExecutionRequest(executableSpecificationId, executableSpecification)
 
   return {
-    workGraphId,
-    workGraph,
+    executableSpecificationId,
+    executableSpecification,
     plan: null,
     code: null,
     critique: null,
@@ -244,7 +244,7 @@ export function createInitialState(
 
 function buildDomainExecutionRequest(
   executableSpecificationId: string,
-  executableSpecification: PipelineWorkGraph,
+  executableSpecification: PipelineExecutableSpecification,
 ): DomainExecutionRequest {
   const intentSpecificationId = intentSpecificationIdFromExecutableSpecification(
     executableSpecification,
@@ -264,7 +264,7 @@ function buildDomainExecutionRequest(
 }
 
 function intentSpecificationIdFromExecutableSpecification(
-  executableSpecification: PipelineWorkGraph,
+  executableSpecification: PipelineExecutableSpecification,
 ): ArtifactId {
   if (typeof executableSpecification.prdId === 'string' && executableSpecification.prdId.length > 0) {
     return artifactIdOrDerived('PRD', executableSpecification.prdId)

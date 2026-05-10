@@ -194,7 +194,7 @@ describe('T12: agent shape satisfies GraphDeps', () => {
     }
 
     const result = await depsShape!.produceCode({
-      workGraph: { test: true },
+      executableSpecification: { test: true },
       plan: { approach: 'test', atoms: [], executorRecommendation: 'gdk-agent', estimatedComplexity: 'low' },
     })
     expect(result.files).toBeDefined()
@@ -214,7 +214,7 @@ describe('T12: agent shape satisfies GraphDeps', () => {
     const result = await depsShape!.codeReview({
       code: { files: [], summary: 'test', testsIncluded: false },
       plan: { approach: 'test', atoms: [], executorRecommendation: 'gdk-agent', estimatedComplexity: 'low' },
-      workGraph: { id: 'test-wg', test: true },
+      executableSpecification: { id: 'test-wg', test: true },
       mentorRules: [],
     })
     expect(result.passed).toBe(true)

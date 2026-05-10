@@ -15,7 +15,7 @@ import type { SynthesisConfig } from "../src/orchestrate.js"
 
 // ─── Work Graph with 3+ nodes (AC 1) ─────────────────────────────────
 
-export function makeWorkGraph(overrides?: Partial<ExecutableSpecification>): ExecutableSpecification {
+export function makeExecutableSpecification(overrides?: Partial<ExecutableSpecification>): ExecutableSpecification {
   return {
     id: "WG-TEST-SYNTH-001",
     source_refs: ["PRD-TEST-001"],
@@ -44,7 +44,7 @@ export function makeCandidate(overrides?: Partial<ArchitectureCandidate>): Archi
     explicitness: "explicit" as const,
     rationale: "Test architecture candidate",
     sourcePrdId: "PRD-TEST-001",
-    sourceWorkGraphId: "WG-TEST-SYNTH-001",
+    sourceExecutableSpecificationId: "WG-TEST-SYNTH-001",
     candidateStatus: "selected" as const,
     topology: {
       shape: "linear_chain" as const,
@@ -73,19 +73,19 @@ export function makePatchProposals(): PatchProposal[] {
     {
       targetPath: "src/core.ts",
       content: "export function core() { return 'core'; }",
-      workGraphNodeId: "node-1",
+      executableSpecificationNodeId: "node-1",
       rationale: "Implements core module from node-1",
     },
     {
       targetPath: "src/validation.ts",
       content: "export function validate() { return true; }",
-      workGraphNodeId: "node-2",
+      executableSpecificationNodeId: "node-2",
       rationale: "Implements validation from node-2",
     },
     {
       targetPath: "test/core.test.ts",
       content: "import { test } from 'vitest'; test('core', () => {});",
-      workGraphNodeId: "node-3",
+      executableSpecificationNodeId: "node-3",
       rationale: "Implements test suite from node-3",
     },
   ]
@@ -116,7 +116,7 @@ export function makeRoleIterations(): RoleIterationRecord[] {
     {
       role: "Planner",
       iteration: 0,
-      inputFields: ["workGraph", "activeCandidate", "repoContract"],
+      inputFields: ["executableSpecification", "activeCandidate", "repoContract"],
       outputFields: ["plan"],
       toolCalls: [],
       durationMs: 100,
@@ -124,7 +124,7 @@ export function makeRoleIterations(): RoleIterationRecord[] {
     {
       role: "Coder",
       iteration: 0,
-      inputFields: ["plan", "workGraph", "activeCandidate"],
+      inputFields: ["plan", "executableSpecification", "activeCandidate"],
       outputFields: ["patchProposals"],
       toolCalls: [],
       durationMs: 200,
@@ -132,7 +132,7 @@ export function makeRoleIterations(): RoleIterationRecord[] {
     {
       role: "Critic",
       iteration: 0,
-      inputFields: ["plan", "patchProposals", "workGraph"],
+      inputFields: ["plan", "patchProposals", "executableSpecification"],
       outputFields: ["critique"],
       toolCalls: [],
       durationMs: 150,
@@ -140,7 +140,7 @@ export function makeRoleIterations(): RoleIterationRecord[] {
     {
       role: "Tester",
       iteration: 0,
-      inputFields: ["plan", "patchProposals", "critique", "workGraph"],
+      inputFields: ["plan", "patchProposals", "critique", "executableSpecification"],
       outputFields: ["validationOutcomes"],
       toolCalls: [],
       durationMs: 300,

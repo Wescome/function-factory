@@ -1,15 +1,39 @@
 # Current Workspace
 
 ## Status
-Active task: Trellis refactor hard-cut; first commit in progress to remove
-compatibility-as-strategy framing and set the executable-specification code
-slice backlog.
+Active task: Trellis refactor hard-cut; items 1-8 implemented and verified.
 
 ## Last update
-2026-05-10T18:38:01Z
+2026-05-10T21:03:30Z
 
 ## Current actions
 
+- Completed: Trellis hard-cut items 1-8.
+  - Cut active coordinator, runtime, lifecycle, diagnostics, function
+    synthesis, cross-package source fields, and compiler wording to Executable
+    Specification / Verification terminology.
+  - Removed active compatibility fields and aliases:
+    numbered gate lifecycle report/requirement aliases, legacy runtime status,
+    legacy coordinator role metadata, and the old Fidelity Verification
+    diagnostic route alias.
+  - Kept persisted `WG-*`, `specs/workgraphs`, `specs_workgraphs`,
+    `gate_status`, and `type: gate-*` storage discriminators unchanged as
+    deferred storage/path migration surfaces.
+  - Tightened `pnpm audit:ontology` so removed active names cannot re-enter.
+  - Verification passed:
+    - `pnpm --filter @factory/ff-pipeline typecheck`
+    - `pnpm --filter @factory/compiler typecheck`
+    - `pnpm --filter @factory/function-synthesis typecheck`
+    - `pnpm --filter @factory/ff-pipeline test -- src/lifecycle.test.ts src/fidelity-verification.test.ts src/diagnostic-routes.test.ts src/pipeline.test.ts src/stage6-handoff.test.ts src/stages/generate-feedback.test.ts src/stages/step-timeout.test.ts src/coordinator/graph-9node.test.ts src/coordinator/state.test.ts`
+    - `pnpm --filter @factory/compiler test`
+    - `pnpm --filter @factory/function-synthesis test`
+    - `pnpm --filter @factory/schemas test`
+    - `pnpm -r typecheck`
+    - `pnpm -r test`
+    - `pnpm audit:docs`
+    - `pnpm audit:ontology`
+    - `git diff --check`
+  - `specs/reference/NLAH` remains untouched and untracked by request.
 - Completed: Trellis first-cut refactor checkpoint.
   - Renamed the ontology audit implementation from
     `scripts/audit-ontology-compat.mjs` to

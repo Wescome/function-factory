@@ -117,7 +117,7 @@ function makeInput(overrides?: Partial<PRGenerationInput>): PRGenerationInput {
   return {
     signalTitle: 'PR candidate: WG-001',
     proposalId: 'FP-001',
-    workGraphId: 'WG-001',
+    executableSpecificationId: 'WG-001',
     atomResults: {
       'atom-1': {
         atomId: 'atom-1',

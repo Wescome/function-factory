@@ -226,7 +226,7 @@ describe('v5: executeAtomSlice', () => {
       atomSpec: { id: 'atom-001', description: 'Test atom' },
       upstreamArtifacts: {},
       sharedContext: {
-        workGraphId: 'WG-TEST',
+        executableSpecificationId: 'WG-TEST',
         specContent: null,
         briefingScript: makeStubBriefingScript(),
       },
@@ -250,7 +250,7 @@ describe('v5: executeAtomSlice', () => {
       atomSpec: { id: 'atom-002', description: 'Needs retry' },
       upstreamArtifacts: {},
       sharedContext: {
-        workGraphId: 'WG-TEST',
+        executableSpecificationId: 'WG-TEST',
         specContent: null,
         briefingScript: makeStubBriefingScript(),
       },
@@ -282,7 +282,7 @@ describe('v5: executeAtomSlice', () => {
       atomSpec: { id: 'atom-003', description: 'Always fails' },
       upstreamArtifacts: {},
       sharedContext: {
-        workGraphId: 'WG-TEST',
+        executableSpecificationId: 'WG-TEST',
         specContent: null,
         briefingScript: makeStubBriefingScript(),
       },
@@ -311,7 +311,7 @@ describe('v5: executeAtomSlice', () => {
       atomSpec: { id: 'atom-004', description: 'Immediate fail' },
       upstreamArtifacts: {},
       sharedContext: {
-        workGraphId: 'WG-TEST',
+        executableSpecificationId: 'WG-TEST',
         specContent: null,
         briefingScript: makeStubBriefingScript(),
       },
@@ -344,7 +344,7 @@ describe('v5: executeLayer', () => {
       atomSpecs,
       new Map(), // no completed artifacts
       deps,
-      { workGraphId: 'WG-LAYER', specContent: null, briefingScript: makeStubBriefingScript() },
+      { executableSpecificationId: 'WG-LAYER', specContent: null, briefingScript: makeStubBriefingScript() },
       { maxRetries: 3, dryRun: false },
     )
 
@@ -383,7 +383,7 @@ describe('v5: executeLayer', () => {
       atomSpecs,
       completedArtifacts,
       deps,
-      { workGraphId: 'WG-DEP', specContent: null, briefingScript: makeStubBriefingScript() },
+      { executableSpecificationId: 'WG-DEP', specContent: null, briefingScript: makeStubBriefingScript() },
       { maxRetries: 3, dryRun: false },
     )
 
@@ -551,7 +551,7 @@ describe('v5: integration — full Phase 1→2→3 with dry-run atoms', () => {
     const atomDeps = makeDryRunAtomDeps()
 
     // Build a ExecutableSpecification with 3 atoms and dependencies
-    const workGraph = {
+    const executableSpecification = {
       _key: 'WG-INT',
       id: 'WG-INT',
       title: 'Integration Test',
@@ -573,7 +573,7 @@ describe('v5: integration — full Phase 1→2→3 with dry-run atoms', () => {
         if (taskKind === 'planner') {
           return JSON.stringify({
             approach: 'Implementation plan',
-            atoms: workGraph.atoms,
+            atoms: executableSpecification.atoms,
             executorRecommendation: 'gdk-agent',
             estimatedComplexity: 'low',
           })
@@ -593,15 +593,15 @@ describe('v5: integration — full Phase 1→2→3 with dry-run atoms', () => {
     }
 
     const graph = buildSynthesisGraph(graphDeps)
-    const initialState = createInitialState('WG-INT', workGraph)
+    const initialState = createInitialState('WG-INT', executableSpecification)
 
     // Phase 1: run graph (stops after planner)
     const phase1State = await graph.run(initialState, { maxSteps: 50 })
     expect(phase1State.plan).not.toBeNull()
 
     // Phase 2: topological sort + layer execution
-    const atoms = workGraph.atoms
-    const deps_list = workGraph.dependencies
+    const atoms = executableSpecification.atoms
+    const deps_list = executableSpecification.dependencies
     const layers = topologicalSort(atoms, deps_list)
 
     // Should produce 2 layers: [atom-1, atom-2] and [atom-3]
@@ -623,7 +623,7 @@ describe('v5: integration — full Phase 1→2→3 with dry-run atoms', () => {
         completedArtifacts,
         atomDeps,
         {
-          workGraphId: 'WG-INT',
+          executableSpecificationId: 'WG-INT',
           specContent: null,
           briefingScript: phase1State.briefingScript as unknown,
         },
@@ -699,7 +699,7 @@ describe('v5: integration — full Phase 1→2→3 with dry-run atoms', () => {
       atomSpecs,
       new Map(),
       deps,
-      { workGraphId: 'WG-MIXED', specContent: null, briefingScript: makeStubBriefingScript() },
+      { executableSpecificationId: 'WG-MIXED', specContent: null, briefingScript: makeStubBriefingScript() },
       { maxRetries: 3, dryRun: false },
     )
 

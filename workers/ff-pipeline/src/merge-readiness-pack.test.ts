@@ -21,7 +21,7 @@ function makeAudit(overrides: Partial<SynthesisMaterializationAudit> = {}): Synt
     pressureId: 'PRS-MOTDWQ0T-S55Y',
     capabilityId: 'BC-MOTDWSVY-PQOO',
     proposalId: 'FP-MOTDWVR2-W7UN',
-    workGraphId: 'WG-MOTE4M1R-G7I0',
+    executableSpecificationId: 'WG-MOTE4M1R-G7I0',
     coherenceVerificationPassed: true,
     atomResults: [
       { atomId: 'atom-001', decision: 'pass', confidence: 0.95, tests: '14/14' },
@@ -66,7 +66,7 @@ function makeOutcome(overrides: Partial<PROutcomeSignalRecord> = {}): PROutcomeS
     raw: {
       pipelineId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
       proposalId: 'FP-MOTDWVR2-W7UN',
-      workGraphId: 'WG-MOTE4M1R-G7I0',
+      executableSpecificationId: 'WG-MOTE4M1R-G7I0',
       pr: {
         number: 71,
         url: 'https://github.com/Wescome/function-factory/pull/71',
@@ -168,7 +168,7 @@ describe('merge-readiness pack', () => {
       id: 'MRP-MOTE4M1R-G7I0-71',
       proposalId: 'FP-MOTDWVR2-W7UN',
       functionId: 'FN-MOTDWVR2-W7UN',
-      workGraphId: 'WG-MOTE4M1R-G7I0',
+      executableSpecificationId: 'WG-MOTE4M1R-G7I0',
       pipelineId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
       readinessVerdict: 'ready',
       createdAt: '2026-05-06T04:00:00Z',
@@ -225,11 +225,11 @@ describe('merge-readiness pack', () => {
       prOutcomeSignal: makeOutcome({
         raw: {
           ...makeOutcome().raw,
-          workGraphId: 'WG-DIFFERENT',
+          executableSpecificationId: 'WG-DIFFERENT',
         },
       }),
       createdAt: '2026-05-06T04:00:00Z',
-    })).toThrow(/workGraphId/i)
+    })).toThrow(/executableSpecificationId/i)
   })
 
   it('fails closed when required lineage is missing', () => {
@@ -496,7 +496,7 @@ describe('merge-readiness pack', () => {
       _key: 'MRP-MOTE4M1R-G7I0-71',
       id: 'MRP-MOTE4M1R-G7I0-71',
       functionId: 'FN-MOTDWVR2-W7UN',
-      workGraphId: 'WG-MOTE4M1R-G7I0',
+      executableSpecificationId: 'WG-MOTE4M1R-G7I0',
       pipelineInstanceId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
       verdict: 'merge-ready',
       ciEvidence: {
@@ -509,7 +509,7 @@ describe('merge-readiness pack', () => {
         fidelityVerificationReportId: 'CR-MOTE4M1R-GATE2',
       },
       auditability: {
-        workGraphId: 'WG-MOTE4M1R-G7I0',
+        executableSpecificationId: 'WG-MOTE4M1R-G7I0',
         coherenceVerificationReportId: 'CR-MOTE4M1R-GATE1',
         fidelityVerificationReportId: 'CR-MOTE4M1R-GATE2',
       },

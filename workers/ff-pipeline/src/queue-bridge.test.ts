@@ -116,10 +116,10 @@ vi.mock('./stages/semantic-review', () => ({
 }))
 
 vi.mock('./stages/compile', () => ({
-  PASS_NAMES: ['atoms', 'contracts', 'invariants', 'validations', 'dependencies', 'schedule', 'budget', 'workgraph'],
+  PASS_NAMES: ['atoms', 'contracts', 'invariants', 'validations', 'dependencies', 'schedule', 'budget', 'executableSpecification'],
   compilePRD: vi.fn(async (_pass: string, state: Record<string, unknown>) => ({
     ...state,
-    workGraph: {
+    executableSpecification: {
       _key: 'WG-TEST',
       title: 'Test ExecutableSpecification',
       atoms: [{ id: 'a1', description: 'test atom' }],
@@ -167,7 +167,7 @@ function createEnv(overrides?: Record<string, unknown>) {
         verification: "coherence",
         passed: true,
         timestamp: '2026-04-25T00:00:00Z',
-        workGraphId: 'WG-TEST',
+        executableSpecificationId: 'WG-TEST',
         checks: [{ name: 'lineage', passed: true, detail: 'ok' }],
         summary: 'All checks passed',
       })),
@@ -255,7 +255,7 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
   describe('queue consumer (queue() handler) — fire-and-forget', () => {
 
-    it('dispatches to DO via stub.fetch with workGraph, dryRun, and workflowId (no callbackUrl)', async () => {
+    it('dispatches to DO via stub.fetch with executableSpecification, dryRun, and workflowId (no callbackUrl)', async () => {
       const { default: worker } = await import('./index')
 
       const mockDoFetch = vi.fn(async () => new Response('{}', {
@@ -271,8 +271,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       const msg = createMockMessage({
         workflowId: 'wf-123',
-        workGraphId: 'WG-TEST',
-        workGraph: { _key: 'WG-TEST', title: 'Test', atoms: [] },
+        executableSpecificationId: 'WG-TEST',
+        executableSpecification: { _key: 'WG-TEST', title: 'Test', atoms: [] },
         dryRun: false,
       })
 
@@ -288,7 +288,7 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
       expect(new URL(fetchArg.url).pathname).toBe('/synthesize')
 
       const fetchBody = await new Request(fetchArg).json() as Record<string, unknown>
-      expect(fetchBody.workGraph).toBeDefined()
+      expect(fetchBody.executableSpecification).toBeDefined()
       expect(fetchBody.dryRun).toBe(false)
       // Queue fallback: workflowId is passed, callbackUrl is NOT (DO uses Queue instead)
       expect(fetchBody.workflowId).toBe('wf-123')
@@ -312,8 +312,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       const msg = createMockMessage({
         workflowId: 'wf-123',
-        workGraphId: 'WG-TEST',
-        workGraph: { _key: 'WG-TEST' },
+        executableSpecificationId: 'WG-TEST',
+        executableSpecification: { _key: 'WG-TEST' },
         dryRun: false,
       })
 
@@ -353,8 +353,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       const msg = createMockMessage({
         workflowId: 'wf-123',
-        workGraphId: 'WG-TEST',
-        workGraph: { _key: 'WG-TEST' },
+        executableSpecificationId: 'WG-TEST',
+        executableSpecification: { _key: 'WG-TEST' },
         dryRun: false,
       })
 
@@ -367,7 +367,7 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
       expect(mockSendEvent).not.toHaveBeenCalled()
     })
 
-    it('uses env.COORDINATOR.idFromName with synth-{workGraphId} naming', async () => {
+    it('uses env.COORDINATOR.idFromName with synth-{executableSpecificationId} naming', async () => {
       const { default: worker } = await import('./index')
 
       const mockIdFromName = vi.fn(() => 'do-synth-WG-CUSTOM')
@@ -384,8 +384,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       const msg = createMockMessage({
         workflowId: 'wf-456',
-        workGraphId: 'WG-CUSTOM',
-        workGraph: { _key: 'WG-CUSTOM' },
+        executableSpecificationId: 'WG-CUSTOM',
+        executableSpecification: { _key: 'WG-CUSTOM' },
         dryRun: true,
       })
 
@@ -413,8 +413,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       const msg = createMockMessage({
         workflowId: 'wf-789',
-        workGraphId: 'WG-DRY',
-        workGraph: { _key: 'WG-DRY' },
+        executableSpecificationId: 'WG-DRY',
+        executableSpecification: { _key: 'WG-DRY' },
         dryRun: true,
       })
 
@@ -445,8 +445,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       const msg = createMockMessage({
         workflowId: 'wf-789',
-        workGraphId: 'WG-NODRY',
-        workGraph: { _key: 'WG-NODRY' },
+        executableSpecificationId: 'WG-NODRY',
+        executableSpecification: { _key: 'WG-NODRY' },
         // dryRun intentionally omitted
       })
 
@@ -480,8 +480,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       const msg = createMockMessage({
         workflowId: 'wf-err',
-        workGraphId: 'WG-ERR',
-        workGraph: { _key: 'WG-ERR' },
+        executableSpecificationId: 'WG-ERR',
+        executableSpecification: { _key: 'WG-ERR' },
         dryRun: false,
       }, 1) // first attempt
 
@@ -519,8 +519,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
       // attempts = 3 means this is the final attempt (max_retries: 2 = 3 total attempts)
       const msg = createMockMessage({
         workflowId: 'wf-maxretry',
-        workGraphId: 'WG-MAXRETRY',
-        workGraph: { _key: 'WG-MAXRETRY' },
+        executableSpecificationId: 'WG-MAXRETRY',
+        executableSpecification: { _key: 'WG-MAXRETRY' },
         dryRun: false,
       }, 3)
 
@@ -556,7 +556,7 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
   describe('pipeline enqueue-synthesis step', () => {
 
-    it('sends message to SYNTHESIS_QUEUE with workflowId, workGraphId, workGraph, dryRun', async () => {
+    it('sends message to SYNTHESIS_QUEUE with workflowId, executableSpecificationId, executableSpecification, dryRun', async () => {
       const { FactoryPipeline } = await import('./pipeline')
 
       const mockQueueSend = vi.fn(async () => ({}))
@@ -602,9 +602,9 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
       const calls = mockQueueSend.mock.calls as unknown[][]
       const sentMessage = calls[0]![0] as Record<string, unknown>
       expect(sentMessage.workflowId).toBe('wf-enqueue-test')
-      expect(sentMessage.workGraphId).toBe('WG-TEST')
-      expect(sentMessage.workGraph).toBeDefined()
-      expect((sentMessage.workGraph as Record<string, unknown>)._key).toBe('WG-TEST')
+      expect(sentMessage.executableSpecificationId).toBe('WG-TEST')
+      expect(sentMessage.executableSpecification).toBeDefined()
+      expect((sentMessage.executableSpecification as Record<string, unknown>)._key).toBe('WG-TEST')
       expect(sentMessage.dryRun).toBe(false)
     })
 
@@ -833,8 +833,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       const msg = createMockMessage({
         workflowId: 'wf-logbug',
-        workGraphId: 'WG-LOGBUG',
-        workGraph: { _key: 'WG-LOGBUG' },
+        executableSpecificationId: 'WG-LOGBUG',
+        executableSpecification: { _key: 'WG-LOGBUG' },
         dryRun: false,
       }, 3) // max retries exhausted
 
@@ -882,8 +882,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       const msg = createMockMessage({
         workflowId: 'wf-status-log',
-        workGraphId: 'WG-STATUSLOG',
-        workGraph: { _key: 'WG-STATUSLOG' },
+        executableSpecificationId: 'WG-STATUSLOG',
+        executableSpecification: { _key: 'WG-STATUSLOG' },
         dryRun: false,
       }, 3)
 
@@ -1228,8 +1228,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workflowId: 'wf-123',
-          workGraphId: 'WG-TEST',
-          workGraph: { _key: 'WG-TEST' },
+          executableSpecificationId: 'WG-TEST',
+          executableSpecification: { _key: 'WG-TEST' },
           dryRun: false,
         }),
       })
@@ -1259,11 +1259,11 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       const msg = createMockMessage({
         type: 'atom-execute',
-        workGraphId: 'WG-ATOM',
+        executableSpecificationId: 'WG-ATOM',
         workflowId: 'wf-atom-1',
         atomId: 'atom-001',
         atomSpec: { id: 'atom-001', description: 'Test atom' },
-        sharedContext: { workGraphId: 'WG-ATOM', specContent: null, briefingScript: {} },
+        sharedContext: { executableSpecificationId: 'WG-ATOM', specContent: null, briefingScript: {} },
         upstreamArtifacts: {},
         maxRetries: 3,
         dryRun: true,
@@ -1282,13 +1282,13 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       const fetchBody = await new Request(fetchArg).json() as Record<string, unknown>
       expect(fetchBody.atomId).toBe('atom-001')
-      expect(fetchBody.workGraphId).toBe('WG-ATOM')
+      expect(fetchBody.executableSpecificationId).toBe('WG-ATOM')
 
       // Message acked
       expect(msg.ack).toHaveBeenCalledOnce()
     })
 
-    it('uses idFromName with atom-{workGraphId}-{atomId}', async () => {
+    it('uses idFromName with atom-{executableSpecificationId}-{atomId}', async () => {
       const { default: worker } = await import('./index')
 
       const mockIdFromName = vi.fn(() => 'atom-do-id')
@@ -1303,7 +1303,7 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       const msg = createMockMessage({
         type: 'atom-execute',
-        workGraphId: 'WG-NAME',
+        executableSpecificationId: 'WG-NAME',
         workflowId: 'wf-1',
         atomId: 'atom-xyz',
         atomSpec: {},
@@ -1335,7 +1335,7 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       const msg = createMockMessage({
         type: 'atom-execute',
-        workGraphId: 'WG-ERR',
+        executableSpecificationId: 'WG-ERR',
         workflowId: 'wf-err',
         atomId: 'atom-err',
         atomSpec: {},
@@ -1370,7 +1370,7 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       const msg = createMockMessage({
         type: 'atom-execute',
-        workGraphId: 'WG-MAXRETRY',
+        executableSpecificationId: 'WG-MAXRETRY',
         workflowId: 'wf-maxretry',
         atomId: 'atom-dead',
         atomSpec: {},
@@ -1390,7 +1390,7 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       const sentMsg = (mockAtomResultsSend.mock.calls[0] as unknown as [Record<string, unknown>])[0]
       expect(sentMsg.atomId).toBe('atom-dead')
-      expect(sentMsg.workGraphId).toBe('WG-MAXRETRY')
+      expect(sentMsg.executableSpecificationId).toBe('WG-MAXRETRY')
       const result = sentMsg.result as Record<string, unknown>
       const verdict = result.verdict as Record<string, unknown>
       expect(verdict.decision).toBe('fail')
@@ -1420,7 +1420,7 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
       const msg = createMockMessage({
         type: 'phase1-complete',
         workflowId: 'wf-p1',
-        workGraphId: 'WG-P1',
+        executableSpecificationId: 'WG-P1',
         atomCount: 3,
         layerCount: 2,
       })

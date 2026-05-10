@@ -106,8 +106,8 @@ function makeUpstreamCompileEvidence() {
     source: 'stage-6-upstream-compile-evidence',
     evidenceStatus: 'upstream_verified_not_recomputed',
     authoritative: false,
-    workGraphId: 'WG-T11',
-    upstreamWorkGraphId: 'WG-T11',
+    executableSpecificationId: 'WG-T11',
+    upstreamExecutableSpecificationId: 'WG-T11',
     reason: 'Workflow compilation already emitted this ExecutableSpecification before Agent Call execution; coordinator records pass-through evidence only.',
     timestamp: new Date().toISOString(),
   }
@@ -550,7 +550,6 @@ describe('T11: 9-node synthesis graph', () => {
     expect(JSON.stringify(coherenceVerificationReport)).not.toContain('Gate 1 passed (stub)')
 
     const role = finalState.roleHistory.find(entry => entry.role === 'coherence-verification')
-    expect(role?.legacyRole).toBeUndefined()
   })
 
   // ────────────────────────────────────────────────────────────
@@ -574,10 +573,10 @@ describe('T11: 9-node synthesis graph', () => {
   })
 
   // ────────────────────────────────────────────────────────────
-  // T11.12: architect node receives workGraph signal
+  // T11.12: architect node receives executableSpecification signal
   // ────────────────────────────────────────────────────────────
 
-  it('T11.12: architect node passes workGraph as signal to produceBriefingScript', async () => {
+  it('T11.12: architect node passes executableSpecification as signal to produceBriefingScript', async () => {
     const architectAgent = {
       produceBriefingScript: vi.fn().mockResolvedValue(makeStubBriefingScript()),
     }

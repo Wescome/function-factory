@@ -15,7 +15,7 @@ import { resolveAgentModel } from './resolve-model'
 import { processAgentOutput, extractAssistantText, buildTelemetryEntry, VERDICT_SCHEMA } from './output-reliability'
 
 export interface VerifierInput {
-  workGraph: Record<string, unknown>
+  executableSpecification: Record<string, unknown>
   plan: Plan | null
   code: CodeArtifact | null
   critique: CritiqueReport | null
@@ -45,7 +45,7 @@ const SYSTEM_PROMPT = `You are the Verifier in the Function Factory synthesis pi
 Your purpose: make the FINAL decision on whether a synthesized Function is ready. Reference only decisions, lessons, invariants, and rules from the provided Factory Knowledge Graph context.
 
 Process this request in order:
-1. Read the synthesis artifacts — workGraph, plan, code, critique, and test results
+1. Read the synthesis artifacts — executableSpecification, plan, code, critique, and test results
 2. Check the Factory Knowledge Graph context — ground your verdict in real data
 3. Apply the decision criteria — match evidence to the correct verdict category
 4. Produce the Verdict JSON
@@ -175,7 +175,7 @@ export class VerifierAgent {
 
   private buildUserMessage(input: VerifierInput): string {
     return JSON.stringify({
-      workGraph: input.workGraph,
+      executableSpecification: input.executableSpecification,
       plan: input.plan,
       code: input.code ? { summary: input.code.summary, fileCount: input.code.files.length, testsIncluded: input.code.testsIncluded } : null,
       critique: input.critique ? { passed: input.critique.passed, issueCount: input.critique.issues.length, assessment: input.critique.overallAssessment } : null,

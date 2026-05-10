@@ -103,7 +103,7 @@ function makeOutcome() {
       pressureId: 'PRS-MOTDWQ0T-S55Y',
       capabilityId: 'BC-MOTDWSVY-PQOO',
       proposalId: 'FP-MOTDWVR2-W7UN',
-      workGraphId: 'WG-MOTE4M1R-G7I0',
+      executableSpecificationId: 'WG-MOTE4M1R-G7I0',
     },
     pullRequest: {
       number: 71,

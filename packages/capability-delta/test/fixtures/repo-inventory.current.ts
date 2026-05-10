@@ -39,7 +39,7 @@ export const repoInventoryCurrent: RepoInventory = {
     capabilities: 4,
     functions: 4,
     prds: 4,
-    workgraphs: 4,
+    executableSpecifications: 4,
     coverageReports: 9,
     deltas: 0
   },

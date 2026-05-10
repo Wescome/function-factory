@@ -122,7 +122,7 @@ describe('sandboxRole()', () => {
       const task = JSON.parse(taskJson)
 
       expect(task.role).toBe('coder')
-      expect(task.workGraphId).toBe('WG-T6')
+      expect(task.executableSpecificationId).toBe('WG-T6')
       expect(task.plan).toBeTruthy()
       expect(task.prompt).toBeDefined()
     })
@@ -157,7 +157,7 @@ describe('sandboxRole()', () => {
       expect(task.code).toBeDefined()
     })
 
-    it('includes workGraph context in task JSON', async () => {
+    it('includes executableSpecification context in task JSON', async () => {
       const state = makeState({ workspaceReady: true })
       const node = sandboxRole('coder', sandboxDeps, persistState)
 
@@ -166,8 +166,8 @@ describe('sandboxRole()', () => {
       const taskJson = (sandboxDeps.execInSandbox as ReturnType<typeof vi.fn>).mock.calls[0]![0]
       const task = JSON.parse(taskJson)
 
-      expect(task.workGraph).toBeDefined()
-      expect(task.workGraph.title).toBe('Test ExecutableSpecification')
+      expect(task.executableSpecification).toBeDefined()
+      expect(task.executableSpecification.title).toBe('Test ExecutableSpecification')
     })
 
     it('includes repair context when verdict is patch', async () => {

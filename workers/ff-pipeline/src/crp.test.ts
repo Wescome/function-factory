@@ -36,7 +36,7 @@ describe('CRP auto-generation (C7)', () => {
       confidence: 0.45,
       context: 'Coder produced low-confidence output during synthesis',
       agentRole: 'coder',
-      workGraphId: 'WG-001',
+      executableSpecificationId: 'WG-001',
     })
 
     expect(crp.type).toBe('crp')
@@ -46,7 +46,7 @@ describe('CRP auto-generation (C7)', () => {
     expect(crp.confidence).toBe(0.45)
     expect(crp.context).toBe('Coder produced low-confidence output during synthesis')
     expect(crp.agentRole).toBe('coder')
-    expect(crp.workGraphId).toBe('WG-001')
+    expect(crp.executableSpecificationId).toBe('WG-001')
     expect(crp.createdAt).toBeTruthy()
     expect(typeof crp.createdAt).toBe('string')
   })
@@ -58,7 +58,7 @@ describe('CRP auto-generation (C7)', () => {
       confidence: 0.5,
       context: 'test',
       agentRole: 'coder',
-      workGraphId: 'WG-001',
+      executableSpecificationId: 'WG-001',
     })
 
     expect(crp._key).toMatch(/^CRP-/)
@@ -72,7 +72,7 @@ describe('CRP auto-generation (C7)', () => {
       confidence: 0.3,
       context: 'test',
       agentRole: 'verifier',
-      workGraphId: 'WG-002',
+      executableSpecificationId: 'WG-002',
     })
 
     expect(db.save).toHaveBeenCalledTimes(1)
@@ -84,7 +84,7 @@ describe('CRP auto-generation (C7)', () => {
         relatedArtifact: 'EA-WG-002-code',
         confidence: 0.3,
         agentRole: 'verifier',
-        workGraphId: 'WG-002',
+        executableSpecificationId: 'WG-002',
       }),
     )
   })
@@ -96,7 +96,7 @@ describe('CRP auto-generation (C7)', () => {
       confidence: 0.5,
       context: 'first',
       agentRole: 'coder',
-      workGraphId: 'WG-001',
+      executableSpecificationId: 'WG-001',
     })
 
     const crp2 = await createCRP(db as any, {
@@ -105,7 +105,7 @@ describe('CRP auto-generation (C7)', () => {
       confidence: 0.4,
       context: 'second',
       agentRole: 'tester',
-      workGraphId: 'WG-001',
+      executableSpecificationId: 'WG-001',
     })
 
     expect(crp1._key).not.toBe(crp2._key)
@@ -118,7 +118,7 @@ describe('CRP auto-generation (C7)', () => {
       confidence: 0.6,
       context: 'test',
       agentRole: 'coder',
-      workGraphId: 'WG-001',
+      executableSpecificationId: 'WG-001',
     })
 
     expect(crp.resolvedAt).toBeUndefined()
@@ -133,7 +133,7 @@ describe('CRP auto-generation (C7)', () => {
       confidence: 0.5,
       context: 'test',
       agentRole: 'coder',
-      workGraphId: 'WG-001',
+      executableSpecificationId: 'WG-001',
     })
     const after = new Date().toISOString()
 
@@ -153,7 +153,7 @@ describe('CRP auto-generation (C7)', () => {
       confidence: 0.5,
       context: 'test',
       agentRole: 'coder',
-      workGraphId: 'WG-001',
+      executableSpecificationId: 'WG-001',
     })).resolves.toBeDefined()
   })
 })

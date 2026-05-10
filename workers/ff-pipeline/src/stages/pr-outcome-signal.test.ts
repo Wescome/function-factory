@@ -15,7 +15,7 @@ function makeInput(overrides?: Partial<PROutcomeInput>): PROutcomeInput {
       pressureId: 'PRS-MOTDWQ0T-S55Y',
       capabilityId: 'BC-MOTDWSVY-PQOO',
       proposalId: 'FP-MOTDWVR2-W7UN',
-      workGraphId: 'WG-MOTE4M1R-G7I0',
+      executableSpecificationId: 'WG-MOTE4M1R-G7I0',
     },
     pullRequest: {
       number: 71,
@@ -122,7 +122,7 @@ describe('buildPROutcomeSignals', () => {
     expect(signal!.signal.raw).toMatchObject({
       pipelineId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
       proposalId: 'FP-MOTDWVR2-W7UN',
-      workGraphId: 'WG-MOTE4M1R-G7I0',
+      executableSpecificationId: 'WG-MOTE4M1R-G7I0',
       pr: {
         number: 71,
         url: 'https://github.com/Wescome/function-factory/pull/71',

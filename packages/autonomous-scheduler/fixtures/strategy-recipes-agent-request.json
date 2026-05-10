@@ -2,7 +2,7 @@
   "schemaVersion": "factory.agent-request.v0",
   "id": "AR-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW",
   "createdAt": "2026-04-30T14:00:00.000Z",
-  "workgraph": {
+  "executableSpecification": {
     "id": "WG-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW",
     "nodeId": "first-product-view",
     "sourcePrdId": "PRD-STRATEGY-RECIPES-UX-V1-1",

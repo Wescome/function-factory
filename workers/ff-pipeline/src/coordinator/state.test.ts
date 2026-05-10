@@ -13,8 +13,8 @@ describe('createInitialState', () => {
   it('returns required base fields with correct defaults', () => {
     const state = createInitialState(wgId, wg)
 
-    expect(state.workGraphId).toBe(wgId)
-    expect(state.workGraph).toBe(wg)
+    expect(state.executableSpecificationId).toBe(wgId)
+    expect(state.executableSpecification).toBe(wg)
     expect(state.plan).toBeNull()
     expect(state.code).toBeNull()
     expect(state.critique).toBeNull()

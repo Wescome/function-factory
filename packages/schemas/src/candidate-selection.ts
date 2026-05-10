@@ -29,7 +29,7 @@ export const ArchitectureCandidateSelection = Lineage.extend({
     "ArchitectureCandidateSelection IDs must start with ACS-"
   ),
   sourceArchitectureCandidateId: ArtifactId,
-  sourceWorkGraphId: ArtifactId,
+  sourceExecutableSpecificationId: ArtifactId,
   decision: CandidateSelectionDecision,
   threshold: z.number().min(0).max(1),
   scorecard: CandidateScorecard,

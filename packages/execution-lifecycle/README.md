@@ -23,7 +23,7 @@ surfaces.
 - `assertExecutionStartAllowed()` -- Guard: EXS requires RAD decision = allow
 - `assertTraceAllowed()` -- Guard: EXT requires existing EXS
 - `assertResultAllowed()` -- Guard: EXR requires existing EXS
-- `executionStartIdFromWorkGraphId()`, `executionTraceIdFromWorkGraphId()`, `executionResultIdFromWorkGraphId()` -- Deterministic ID generators
+- `executionStartIdFromExecutableSpecificationId()`, `executionTraceIdFromExecutableSpecificationId()`, `executionResultIdFromExecutableSpecificationId()` -- Deterministic ID generators
 
 ## Key Invariants
 

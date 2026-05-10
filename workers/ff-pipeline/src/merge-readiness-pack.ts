@@ -29,7 +29,7 @@ export interface PROutcomeSignalRecord {
 export interface PROutcomeRaw {
   pipelineId?: unknown
   proposalId?: unknown
-  workGraphId?: unknown
+  executableSpecificationId?: unknown
   pr?: {
     number?: unknown
     url?: unknown
@@ -65,7 +65,7 @@ export interface MergeReadinessPack {
   type: 'merge_readiness_pack'
   proposalId: string
   functionId: string
-  workGraphId: string
+  executableSpecificationId: string
   pipelineId: string
   sourceRefs: string[]
   materializedFiles: SynthesisMaterializationAudit['materializedFiles']
@@ -222,7 +222,7 @@ function assertAuditLineage(audit: SynthesisMaterializationAudit): void {
   assertNonEmpty(audit.pressureId, 'audit.pressureId')
   assertNonEmpty(audit.capabilityId, 'audit.capabilityId')
   assertNonEmpty(audit.proposalId, 'audit.proposalId')
-  assertNonEmpty(audit.workGraphId, 'audit.workGraphId')
+  assertNonEmpty(audit.executableSpecificationId, 'audit.executableSpecificationId')
 }
 
 function assertOutcomeSignal(signal: PROutcomeSignalRecord): asserts signal is PROutcomeSignalRecord & { raw: PROutcomeRaw } {
@@ -245,8 +245,8 @@ function assertLineageMatches(audit: SynthesisMaterializationAudit, raw: PROutco
   if (raw.proposalId !== audit.proposalId) {
     throw new MergeReadinessPackError('prOutcomeSignal.raw.proposalId must match audit.proposalId')
   }
-  if (raw.workGraphId !== audit.workGraphId) {
-    throw new MergeReadinessPackError('prOutcomeSignal.raw.workGraphId must match audit.workGraphId')
+  if (raw.executableSpecificationId !== audit.executableSpecificationId) {
+    throw new MergeReadinessPackError('prOutcomeSignal.raw.executableSpecificationId must match audit.executableSpecificationId')
   }
 }
 
@@ -256,13 +256,13 @@ function sourceRefs(audit: SynthesisMaterializationAudit, prOutcomeSignalId: str
     audit.pressureId,
     audit.capabilityId,
     audit.proposalId,
-    audit.workGraphId,
+    audit.executableSpecificationId,
     prOutcomeSignalId,
   ]
 }
 
-function makePackId(workGraphId: string, pullNumber: number): string {
-  return `MRP-${workGraphId.replace(/^WG-/, '')}-${pullNumber}`
+function makePackId(executableSpecificationId: string, pullNumber: number): string {
+  return `MRP-${executableSpecificationId.replace(/^WG-/, '')}-${pullNumber}`
 }
 
 function criterion(
@@ -405,7 +405,7 @@ function assertPackReadyForPersistence(pack: MergeReadinessPack): void {
   }
   assertNonEmpty(pack.proposalId, 'pack.proposalId')
   assertNonEmpty(pack.functionId, 'pack.functionId')
-  assertNonEmpty(pack.workGraphId, 'pack.workGraphId')
+  assertNonEmpty(pack.executableSpecificationId, 'pack.executableSpecificationId')
   assertNonEmpty(pack.pipelineId, 'pack.pipelineId')
   assertNonEmpty(pack.createdAt, 'pack.createdAt')
   assertNonEmpty(pack.verdictRationale, 'pack.verdictRationale')
@@ -482,11 +482,11 @@ export function buildMergeReadinessPack(input: BuildMergeReadinessPackInput): Me
   const readinessVerdict: ReadinessVerdict = criteria.every(item => item.passed) ? 'ready' : 'blocked'
 
   return {
-    id: makePackId(audit.workGraphId, raw.pr.number),
+    id: makePackId(audit.executableSpecificationId, raw.pr.number),
     type: 'merge_readiness_pack',
     proposalId: audit.proposalId,
     functionId,
-    workGraphId: audit.workGraphId,
+    executableSpecificationId: audit.executableSpecificationId,
     pipelineId: audit.pipelineId,
     sourceRefs: sourceRefs(audit, prOutcomeSignal._key),
     materializedFiles: audit.materializedFiles,
@@ -537,7 +537,7 @@ export function toCanonicalMergeReadinessPack(
     _key: pack.id,
     id: pack.id,
     functionId,
-    workGraphId: pack.workGraphId,
+    executableSpecificationId: pack.executableSpecificationId,
     pipelineInstanceId: pack.pipelineId,
     functionalCompleteness: {
       passed: pack.criteria.find(item => item.name === 'functional-completeness')?.passed ?? false,
@@ -566,7 +566,7 @@ export function toCanonicalMergeReadinessPack(
     },
     auditability: {
       prdId: evidence.auditability?.prdId,
-      workGraphId: pack.workGraphId,
+      executableSpecificationId: pack.executableSpecificationId,
       semanticReviewId: evidence.auditability?.semanticReviewId,
       coherenceVerificationReportId: auditabilityCoherenceReportId,
       fidelityVerificationReportId: auditabilityVerificationReportId,

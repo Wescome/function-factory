@@ -9,7 +9,7 @@ import {
   createInitialState,
   type GraphState,
   type Verdict,
-  type PipelineWorkGraph,
+  type PipelineExecutableSpecification,
 } from './state'
 import { makeExecutionRole, type SandboxDeps } from './sandbox-role'
 import { buildSandboxDeps as buildRealSandboxDeps } from './sandbox-deps-factory'
@@ -52,7 +52,7 @@ export interface SynthesisResult {
   verdict: Verdict
   tokenUsage: number
   repairCount: number
-  roleHistory: { role: string; legacyRole?: string; tokenUsage: number; timestamp: string }[]
+  roleHistory: { role: string; tokenUsage: number; timestamp: string }[]
   briefingScript?: unknown
   semanticReview?: unknown
   domainExecutionRequest: DomainExecutionRequest
@@ -61,7 +61,7 @@ export interface SynthesisResult {
 
 export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
   private db: ArangoClient | null = null
-  private currentWorkGraphId: string = 'unknown'
+  private currentExecutableSpecificationId: string = 'unknown'
   private configLoader: HotConfigLoader | null = null
   private configSeeded = false
 
@@ -92,7 +92,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
     const url = new URL(request.url)
     if (url.pathname === '/synthesize' && request.method === 'POST') {
       const body = await request.json() as {
-        workGraph: PipelineWorkGraph
+        executableSpecification: PipelineExecutableSpecification
         dryRun?: boolean
         specContent?: string
         workflowId?: string
@@ -101,7 +101,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       // Store workflowId in DO storage so alarm handler can also publish results
       if (body.workflowId) await this.ctx.storage.put('__workflowId', body.workflowId)
 
-      const result = await this.synthesize(body.workGraph, {
+      const result = await this.synthesize(body.executableSpecification, {
         dryRun: body.dryRun ?? false,
         ...(body.specContent ? { specContent: body.specContent } : {}),
       })
@@ -127,7 +127,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
     if (completed) return
 
     const state = await this.ctx.storage.get<GraphState>('graphState')
-    const workGraphId = (state?.workGraphId ?? await this.ctx.storage.get<string>('workGraphId')) || 'unknown'
+    const executableSpecificationId = (state?.executableSpecificationId ?? await this.ctx.storage.get<string>('executableSpecificationId')) || 'unknown'
     const timedOutState: GraphState = {
       ...(state ?? createInitialState('unknown', { id: 'unknown' })),
       verdict: {
@@ -141,7 +141,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
     await this.ctx.storage.put('__completed', true)
 
     // Notify the Workflow via callback so it doesn't hang at waitForEvent
-    await this.notifyCallback(this.buildResult(workGraphId, timedOutState))
+    await this.notifyCallback(this.buildResult(executableSpecificationId, timedOutState))
   }
 
   /**
@@ -149,11 +149,11 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
    * and finds an interrupted synthesis fiber in SQLite.
    */
   override async onFiberRecovered(ctx: FiberRecoveryContext): Promise<void> {
-    const snapshot = ctx.snapshot as { workGraphId?: string; state?: GraphState } | null
-    const workGraphId = snapshot?.workGraphId ?? ctx.name.replace('synth-', '')
+    const snapshot = ctx.snapshot as { executableSpecificationId?: string; state?: GraphState } | null
+    const executableSpecificationId = snapshot?.executableSpecificationId ?? ctx.name.replace('synth-', '')
     console.warn(
       `[Agent Call execution] Fiber "${ctx.name}" (id=${ctx.id}) recovered after eviction. ` +
-      `ExecutableSpecification=${workGraphId}, age=${Date.now() - ctx.createdAt}ms`,
+      `ExecutableSpecification=${executableSpecificationId}, age=${Date.now() - ctx.createdAt}ms`,
     )
 
     // If there's a stashed state, mark it as interrupted so the next
@@ -171,21 +171,21 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       await this.ctx.storage.put('__completed', true)
 
       // Notify the Workflow via Queue so it doesn't hang at waitForEvent
-      await this.notifyCallback(this.buildResult(workGraphId, interruptedState))
+      await this.notifyCallback(this.buildResult(executableSpecificationId, interruptedState))
     }
   }
 
   @callable()
   async synthesize(
-    workGraph: PipelineWorkGraph,
+    executableSpecification: PipelineExecutableSpecification,
     opts?: { dryRun?: boolean; specContent?: string },
   ): Promise<SynthesisResult> {
-    const workGraphId = (workGraph._key ?? workGraph.id ?? 'unknown') as string
-    this.currentWorkGraphId = workGraphId
+    const executableSpecificationId = (executableSpecification._key ?? executableSpecification.id ?? 'unknown') as string
+    this.currentExecutableSpecificationId = executableSpecificationId
     const dryRun = opts?.dryRun ?? false
 
     const persisted = await this.ctx.storage.get<GraphState>('graphState')
-    const initialState = persisted ?? createInitialState(workGraphId, workGraph, {
+    const initialState = persisted ?? createInitialState(executableSpecificationId, executableSpecification, {
       ...(opts?.specContent ? { specContent: opts.specContent } : {}),
     })
 
@@ -195,12 +195,12 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         persisted?.verdict?.decision === 'interrupt') {
       await this.ctx.storage.deleteAlarm()
       await this.ctx.storage.put('__completed', true)
-      return this.buildResult(workGraphId, persisted)
+      return this.buildResult(executableSpecificationId, persisted)
     }
 
     // Wrap synthesis in runFiber for crash recovery.
     // If the DO is evicted mid-synthesis, onFiberRecovered fires on restart.
-    return this.runFiber(`synth-${workGraphId}`, async (fiberCtx: FiberContext) => {
+    return this.runFiber(`synth-${executableSpecificationId}`, async (fiberCtx: FiberContext) => {
       const callModel = dryRun
         ? this.dryRunModelBridge()
         : createModelBridge(this.env as unknown as import('../providers').ProviderEnv)
@@ -208,7 +208,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       const persistState = async (state: GraphState, _role?: string) => {
         await this.ctx.storage.put('graphState', state)
         // Checkpoint into fiber for crash recovery
-        fiberCtx.stash({ workGraphId, state })
+        fiberCtx.stash({ executableSpecificationId, state })
       }
 
       const fetchMentorRules = async () => {
@@ -346,7 +346,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       // Set wall-clock alarm — survives I/O suspension and DO hibernation
       await this.ctx.storage.put('__completed', false)
       await this.ctx.storage.put('__alarm_fired', false)
-      const atomCount = (workGraph.atoms as unknown[] | undefined)?.length ?? 0
+      const atomCount = (executableSpecification.atoms as unknown[] | undefined)?.length ?? 0
       // v5: shorter Phase 1 (5 nodes) + parallel Phase 2, so less total serial time
       const timeoutMs = Math.max(900_000, 900_000 + atomCount * 30_000)
       await this.ctx.storage.setAlarm(Date.now() + timeoutMs)
@@ -372,7 +372,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         }
         await this.ctx.storage.delete('graphState')
         await this.ctx.storage.put('__completed', true)
-        return this.buildResult(workGraphId, failState)
+        return this.buildResult(executableSpecificationId, failState)
       }
 
       // Phase 1 may have ended early (budget exceeded, semantic miscast, Coherence Verification fail)
@@ -380,14 +380,14 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         await this.ctx.storage.deleteAlarm()
         await this.ctx.storage.put('__completed', true)
         await this.ctx.storage.delete('graphState')
-        await this.persistSynthesisResult(workGraphId, finalState)
-        return this.buildResult(workGraphId, finalState)
+        await this.persistSynthesisResult(executableSpecificationId, finalState)
+        return this.buildResult(executableSpecificationId, finalState)
       }
 
       // ── Phase 2: dispatch atoms to queue (event-driven, coordinator exits) ──
       try {
-        const wgAtoms = finalState.workGraph.atoms ?? []
-        const wgDeps = finalState.workGraph.dependencies ?? []
+        const wgAtoms = finalState.executableSpecification.atoms ?? []
+        const wgDeps = finalState.executableSpecification.dependencies ?? []
         const layers = topologicalSort(wgAtoms, wgDeps)
 
         console.log(`[Agent Call execution] Phase 2 dispatch: ${wgAtoms.length} atoms in ${layers.length} layers`)
@@ -399,7 +399,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         }
 
         const sharedContext = {
-          workGraphId,
+          executableSpecificationId,
           specContent: finalState.specContent ?? null,
           briefingScript: finalState.briefingScript,
         }
@@ -409,7 +409,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         // Create completion ledger in ArangoDB
         const db = this.getDb()
         await createLedger(db as never, {
-          workGraphId,
+          executableSpecificationId,
           workflowId: workflowId ?? '',
           totalAtoms: wgAtoms.length,
           layers,
@@ -423,7 +423,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
           for (const atomId of layer0.atomIds) {
             await this.env.SYNTHESIS_QUEUE.send({
               type: 'atom-execute',
-              workGraphId,
+              executableSpecificationId,
               workflowId: workflowId ?? '',
               atomId,
               atomSpec: allAtomSpecs[atomId],
@@ -449,7 +449,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         await this.ctx.storage.delete('graphState')
 
         // Persist Phase 1 result
-        await this.persistSynthesisResult(workGraphId, {
+        await this.persistSynthesisResult(executableSpecificationId, {
           ...finalState,
           verdict: null, // Phase 1 complete, Phase 2 dispatched
         })
@@ -459,14 +459,14 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
           await this.env.SYNTHESIS_RESULTS.send({
             type: 'phase1-complete',
             workflowId,
-            workGraphId,
+            executableSpecificationId,
             atomCount: wgAtoms.length,
             layerCount: layers.length,
           })
         }
 
         return {
-          functionId: workGraphId,
+          functionId: executableSpecificationId,
           verdict: {
             decision: 'dispatched' as const,
             confidence: 1.0,
@@ -476,7 +476,6 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
           repairCount: 0,
         roleHistory: finalState.roleHistory.map(r => ({
           role: r.role,
-          ...(r.legacyRole ? { legacyRole: r.legacyRole } : {}),
           tokenUsage: r.tokenUsage,
           timestamp: r.timestamp,
         })),
@@ -494,9 +493,9 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       await this.ctx.storage.deleteAlarm()
       await this.ctx.storage.put('__completed', true)
       await this.ctx.storage.delete('graphState')
-      await this.persistSynthesisResult(workGraphId, finalState)
+      await this.persistSynthesisResult(executableSpecificationId, finalState)
 
-      return this.buildResult(workGraphId, finalState)
+      return this.buildResult(executableSpecificationId, finalState)
     })
   }
 
@@ -541,7 +540,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
    */
   private buildSandboxDeps(): SandboxDeps {
     if (this.env.SANDBOX) {
-      return buildRealSandboxDeps(this.env.SANDBOX, this.currentWorkGraphId)
+      return buildRealSandboxDeps(this.env.SANDBOX, this.currentExecutableSpecificationId)
     }
     // No SANDBOX binding — return stubs that throw so makeExecutionRole
     // falls back to callModel (callModel fallback equivalent)
@@ -587,16 +586,16 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
     }
   }
 
-  private buildResult(workGraphId: string, state: GraphState): SynthesisResult {
+  private buildResult(executableSpecificationId: string, state: GraphState): SynthesisResult {
     const domainExecutionEvidence = buildDomainExecutionEvidence(
       state.domainExecutionRequest,
       state.verdict?.decision === 'pass' ? 'succeeded' : 'failed',
-      [`EA-${workGraphId}-synthesis`],
+      [`EA-${executableSpecificationId}-synthesis`],
       state.verdict?.reason ?? 'No verdict reached',
     )
 
     return {
-      functionId: workGraphId,
+      functionId: executableSpecificationId,
       verdict: state.verdict ?? {
         decision: 'fail',
         confidence: 0,
@@ -606,7 +605,6 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       repairCount: state.repairCount,
       roleHistory: state.roleHistory.map(r => ({
         role: r.role,
-        ...(r.legacyRole ? { legacyRole: r.legacyRole } : {}),
         tokenUsage: r.tokenUsage,
         timestamp: r.timestamp,
       })),
@@ -617,13 +615,13 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
     }
   }
 
-  private async persistSynthesisResult(workGraphId: string, state: GraphState): Promise<void> {
+  private async persistSynthesisResult(executableSpecificationId: string, state: GraphState): Promise<void> {
     const db = this.getDb()
 
     if (state.code) {
       await db.save('execution_artifacts', {
-        _key: `EA-${workGraphId}-code`,
-        functionRunId: workGraphId,
+        _key: `EA-${executableSpecificationId}-code`,
+        functionRunId: executableSpecificationId,
         type: 'code',
         content: JSON.stringify(state.code),
         createdAt: new Date().toISOString(),
@@ -632,8 +630,8 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
 
     if (state.tests) {
       await db.save('execution_artifacts', {
-        _key: `EA-${workGraphId}-tests`,
-        functionRunId: workGraphId,
+        _key: `EA-${executableSpecificationId}-tests`,
+        functionRunId: executableSpecificationId,
         type: 'test_report',
         content: JSON.stringify(state.tests),
         createdAt: new Date().toISOString(),
@@ -643,13 +641,13 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
     const domainExecutionEvidence = buildDomainExecutionEvidence(
       state.domainExecutionRequest,
       state.verdict?.decision === 'pass' ? 'succeeded' : 'failed',
-      [`EA-${workGraphId}-synthesis`],
+      [`EA-${executableSpecificationId}-synthesis`],
       state.verdict?.reason ?? 'No verdict reached',
     )
 
     await db.save('execution_artifacts', {
-      _key: `EA-${workGraphId}-synthesis`,
-      functionRunId: workGraphId,
+      _key: `EA-${executableSpecificationId}-synthesis`,
+      functionRunId: executableSpecificationId,
       type: 'synthesis_summary',
       content: JSON.stringify({
         verdict: state.verdict,
@@ -668,9 +666,9 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
     }).catch(() => {})
 
     await db.save('memory_episodic', {
-      _key: `ep-synth-${workGraphId}`,
+      _key: `ep-synth-${executableSpecificationId}`,
       action: `stage-6-${state.verdict?.decision ?? 'unknown'}`,
-      functionId: workGraphId,
+      functionId: executableSpecificationId,
       detail: {
         verdict: state.verdict?.decision,
         repairCount: state.repairCount,
@@ -686,12 +684,12 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
     // Check verdict confidence — if < 0.7 and not a clean pass, create CRP
     if (state.verdict && state.verdict.confidence < 0.7 && state.verdict.decision !== 'pass') {
       await createCRP(db, {
-        artifactKey: `EA-${workGraphId}-synthesis`,
+        artifactKey: `EA-${executableSpecificationId}-synthesis`,
         collection: 'execution_artifacts',
         confidence: state.verdict.confidence,
         context: `Synthesis verdict: ${state.verdict.decision} — ${state.verdict.reason}`,
         agentRole: 'verifier',
-        workGraphId,
+        executableSpecificationId,
       })
     }
 
@@ -699,12 +697,12 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
     const semReview = state.semanticReview as { confidence?: number } | null
     if (semReview && typeof semReview.confidence === 'number' && semReview.confidence < 0.7) {
       await createCRP(db, {
-        artifactKey: `EA-${workGraphId}-semantic-review`,
+        artifactKey: `EA-${executableSpecificationId}-semantic-review`,
         collection: 'execution_artifacts',
         confidence: semReview.confidence,
         context: 'Semantic review produced low-confidence result',
         agentRole: 'critic',
-        workGraphId,
+        executableSpecificationId,
       })
     }
   }

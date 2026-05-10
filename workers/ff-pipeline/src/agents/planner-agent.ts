@@ -15,7 +15,7 @@ import type { Plan } from '../coordinator/state'
 import { processAgentOutput, extractAssistantText, buildTelemetryEntry, PLAN_SCHEMA } from './output-reliability'
 
 export interface PlannerInput {
-  workGraph: Record<string, unknown>
+  executableSpecification: Record<string, unknown>
   briefingScript: Record<string, unknown>
   specContent?: string
   repairNotes?: string
@@ -85,7 +85,7 @@ export class PlannerAgent {
     const model = this.modelOverride ?? resolveAgentModel('planner')
 
     const userParts: string[] = [
-      `ExecutableSpecification specification:\n${JSON.stringify(input.workGraph, null, 2)}`,
+      `ExecutableSpecification specification:\n${JSON.stringify(input.executableSpecification, null, 2)}`,
       `\nBriefing from Architect:\n${JSON.stringify(input.briefingScript, null, 2)}`,
     ]
 

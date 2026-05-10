@@ -103,7 +103,7 @@ function makeInput(overrides?: Partial<PRGenerationInput>): PRGenerationInput {
   return {
     signalTitle: 'PR candidate: guard test',
     proposalId: 'FP-GUARD',
-    workGraphId: 'WG-GUARD',
+    executableSpecificationId: 'WG-GUARD',
     atomResults: {},
     sourceRefs: ['SIG:SIG-GUARD'],
     confidence: 0.9,

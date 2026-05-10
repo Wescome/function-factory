@@ -180,7 +180,7 @@ function main(): void {
   )
 
   // ── Step 7: ExecutableSpecification ───────────────────────────────────────────────
-  const workGraph = step("ExecutableSpecification (Executable Specification)", () =>
+  const executableSpecification = step("ExecutableSpecification (Executable Specification)", () =>
     ExecutableSpecification.parse({
       id: "WG-WALK-001",
       ...lineage([prd.id, coherenceVerification.id]),
@@ -201,9 +201,9 @@ function main(): void {
   const candidate = step("ArchitectureCandidate (Agent Call execution architecture)", () =>
     ArchitectureCandidate.parse({
       id: "AC-WALK-001",
-      ...lineage([workGraph.id, prd.id]),
+      ...lineage([executableSpecification.id, prd.id]),
       sourcePrdId: prd.id,
-      sourceWorkGraphId: workGraph.id,
+      sourceExecutableSpecificationId: executableSpecification.id,
       candidateStatus: "selected",
       topology: { shape: "linear_chain", summary: "Signal -> ... -> TrustComposite linear pipeline" },
       modelBinding: { bindingMode: "fixed", summary: "Deterministic validation — no model needed" },
@@ -216,9 +216,9 @@ function main(): void {
   const selection = step("CandidateSelection (intermediate)", () =>
     ArchitectureCandidateSelection.parse({
       id: "ACS-WALK-001",
-      ...lineage([candidate.id, workGraph.id]),
+      ...lineage([candidate.id, executableSpecification.id]),
       sourceArchitectureCandidateId: candidate.id,
-      sourceWorkGraphId: workGraph.id,
+      sourceExecutableSpecificationId: executableSpecification.id,
       decision: "selected",
       threshold: 0.5,
       scorecard: {
@@ -237,8 +237,8 @@ function main(): void {
   const admission = step("RuntimeAdmission (intermediate)", () =>
     RuntimeAdmissionArtifact.parse({
       id: "RAD-WALK-001",
-      ...lineage([candidate.id, selection.id, workGraph.id]),
-      sourceWorkGraphId: workGraph.id,
+      ...lineage([candidate.id, selection.id, executableSpecification.id]),
+      sourceExecutableSpecificationId: executableSpecification.id,
       sourceArchitectureCandidateId: candidate.id,
       sourceSelectionId: selection.id,
       decision: "allow",
@@ -249,8 +249,8 @@ function main(): void {
   const execStart = step("ExecutionStart (intermediate)", () =>
     ExecutionStart.parse({
       id: "EXS-WALK-001",
-      ...lineage([admission.id, candidate.id, selection.id, workGraph.id]),
-      sourceWorkGraphId: workGraph.id,
+      ...lineage([admission.id, candidate.id, selection.id, executableSpecification.id]),
+      sourceExecutableSpecificationId: executableSpecification.id,
       sourceArchitectureCandidateId: candidate.id,
       sourceSelectionId: selection.id,
       sourceAdmissionId: admission.id,
@@ -263,8 +263,8 @@ function main(): void {
   const trace = step("ExecutionTrace (Agent Call execution trace)", () =>
     ExecutionTrace.parse({
       id: "EXT-WALK-001",
-      ...lineage([workGraph.id, candidate.id, selection.id, admission.id, execStart.id]),
-      sourceWorkGraphId: workGraph.id,
+      ...lineage([executableSpecification.id, candidate.id, selection.id, admission.id, execStart.id]),
+      sourceExecutableSpecificationId: executableSpecification.id,
       sourceArchitectureCandidateId: candidate.id,
       sourceSelectionId: selection.id,
       sourceAdmissionId: admission.id,

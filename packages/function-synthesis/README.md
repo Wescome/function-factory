@@ -29,7 +29,7 @@ candidate-selection evidence, and patch proposals
 
 ## Compatibility Notes
 
-- `synthesize(workGraph, candidate, bindingMode, config)` remains the primary
+- `synthesize(executableSpecification, candidate, bindingMode, config)` remains the primary
   compatibility API.
 - `Gate2Input` remains as a temporary legacy export that points at
   `FidelityVerificationInput`.

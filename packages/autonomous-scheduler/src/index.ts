@@ -67,7 +67,7 @@ export type QueueEventType = (typeof QUEUE_EVENT_TYPES)[number]
 export type CommandRunPhase = 'preflight' | 'codex' | 'commit' | 'verification' | 'pull_request'
 type NonEmptyReadonlyArray<T> = readonly [T, ...T[]]
 
-export interface WorkGraphHandle {
+export interface ExecutableSpecificationHandle {
   id: string
   nodeId: string
   sourcePrdId?: string
@@ -117,7 +117,7 @@ export interface AgentRequest {
   schemaVersion: typeof AGENT_REQUEST_SCHEMA_VERSION
   id: string
   createdAt: string
-  workgraph: WorkGraphHandle
+  executableSpecification: ExecutableSpecificationHandle
   role: AgentRole
   objective: string
   prompt: string
@@ -306,7 +306,7 @@ export interface SchedulerRunManifest {
   resultId: string
   status: AgentResultStatus
   repo: RepoTarget
-  workgraph: WorkGraphHandle
+  executableSpecification: ExecutableSpecificationHandle
   branchName?: string
   prUrl?: string
   files: {
@@ -479,7 +479,7 @@ export function validateAgentRequest(input: unknown): AgentRequest {
   )
   const id = prefixedString(value(data, 'id'), 'AR-', 'id', issues)
   const createdAt = isoString(value(data, 'createdAt'), 'createdAt', issues)
-  const workgraph = parseWorkGraph(record(value(data, 'workgraph'), 'workgraph', issues), issues)
+  const executableSpecification = parseExecutableSpecification(record(value(data, 'executableSpecification'), 'executableSpecification', issues), issues)
   const role = oneOf(value(data, 'role'), AGENT_ROLES, 'role', issues)
   const objective = nonEmptyString(value(data, 'objective'), 'objective', issues)
   const prompt = nonEmptyString(value(data, 'prompt'), 'prompt', issues)
@@ -506,7 +506,7 @@ export function validateAgentRequest(input: unknown): AgentRequest {
     schemaVersion,
     id,
     createdAt,
-    workgraph,
+    executableSpecification,
     role,
     objective,
     prompt,
@@ -664,7 +664,7 @@ export function buildCodexWorkerPrompt(input: unknown): string {
     `Request: ${request.id}`,
     `Role: ${request.role}`,
     `Objective: ${request.objective}`,
-    `ExecutableSpecification: ${request.workgraph.id} / ${request.workgraph.nodeId}`,
+    `ExecutableSpecification: ${request.executableSpecification.id} / ${request.executableSpecification.nodeId}`,
     `Repository: ${request.repo.provider}:${request.repo.owner ? `${request.repo.owner}/` : ''}${request.repo.name}`,
     '',
     'Execution policy:',
@@ -1088,7 +1088,7 @@ export async function writeRepoTrackedRunManifest(
     resultId: result.id,
     status: result.status,
     repo: request.repo,
-    workgraph: request.workgraph,
+    executableSpecification: request.executableSpecification,
     files: {
       request: requestFile,
       execution: executionFile,
@@ -1635,7 +1635,7 @@ export class JsonlAgentQueue {
     await this.appendEvent('request.enqueued', request.id, {
       role: request.role,
       repo: request.repo.name,
-      workgraph: request.workgraph.id,
+      executableSpecification: request.executableSpecification.id,
     })
 
     return request
@@ -1846,19 +1846,19 @@ export class JsonlAgentQueue {
   }
 }
 
-function parseWorkGraph(data: Record<string, unknown>, issues: string[]): WorkGraphHandle {
-  const id = prefixedString(value(data, 'id'), 'WG-', 'workgraph.id', issues)
-  const nodeId = nonEmptyString(value(data, 'nodeId'), 'workgraph.nodeId', issues)
-  const sourcePrdId = optionalPrefixedString(value(data, 'sourcePrdId'), 'PRD-', 'workgraph.sourcePrdId', issues)
-  const sourceRefs = nonEmptyStringArray(value(data, 'sourceRefs'), 'workgraph.sourceRefs', issues)
+function parseExecutableSpecification(data: Record<string, unknown>, issues: string[]): ExecutableSpecificationHandle {
+  const id = prefixedString(value(data, 'id'), 'WG-', 'executableSpecification.id', issues)
+  const nodeId = nonEmptyString(value(data, 'nodeId'), 'executableSpecification.nodeId', issues)
+  const sourcePrdId = optionalPrefixedString(value(data, 'sourcePrdId'), 'PRD-', 'executableSpecification.sourcePrdId', issues)
+  const sourceRefs = nonEmptyStringArray(value(data, 'sourceRefs'), 'executableSpecification.sourceRefs', issues)
 
   if (sourceRefs.length === 0) {
-    issues.push('workgraph.sourceRefs must not be empty')
+    issues.push('executableSpecification.sourceRefs must not be empty')
   }
 
-  const workgraph: WorkGraphHandle = { id, nodeId, sourceRefs }
-  if (sourcePrdId) workgraph.sourcePrdId = sourcePrdId
-  return workgraph
+  const executableSpecification: ExecutableSpecificationHandle = { id, nodeId, sourceRefs }
+  if (sourcePrdId) executableSpecification.sourcePrdId = sourcePrdId
+  return executableSpecification
 }
 
 function parseRepo(data: Record<string, unknown>, issues: string[]): RepoTarget {
@@ -2511,7 +2511,7 @@ function extractCodexRefusalReason(command: CommandRunResult): string | undefine
 function buildPullRequestBody(request: AgentRequest, execution: CodexRunnerExecution): string {
   return [
     `Factory request: ${request.id}`,
-    `ExecutableSpecification: ${request.workgraph.id} / ${request.workgraph.nodeId}`,
+    `ExecutableSpecification: ${request.executableSpecification.id} / ${request.executableSpecification.nodeId}`,
     `Role: ${request.role}`,
     `Branch: ${execution.branchName}`,
     '',

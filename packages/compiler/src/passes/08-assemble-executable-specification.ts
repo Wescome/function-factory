@@ -6,20 +6,22 @@
  * directly.
  *
  * Consumes validated intermediates plus a passing Coherence Verification
- * report and produces a ExecutableSpecification conforming to the ExecutableSpecification Zod schema.
+ * report and produces an Executable Specification conforming to the
+ * ExecutableSpecification Zod schema.
  * Pure function- no IO, no mutation of inputs, no external state.
  *
  * Fail-closed- throws if the Coherence Verification verdict is anything other than
  * `pass`. The orchestrator is responsible for providing a report; this layer
  * trusts the type signature.
  *
- * Determinism- given identical validated inputs, returns a ExecutableSpecification
+ * Determinism- given identical validated inputs, returns an Executable
+ * Specification
  * whose serialized content is identical modulo emission timestamp.
  * Node and edge arrays are sorted before emission. No Map or Set
  * iteration order is relied upon.
  *
  * Schema conformance- defensively re-validates the constructed
- * ExecutableSpecification via ExecutableSpecification.safeParse before returning. Matches the
+ * Executable Specification via ExecutableSpecification.safeParse before returning. Matches the
  * belt-and-suspenders pattern in runCoherenceVerification.
  */
 
@@ -201,7 +203,7 @@ export function assembleExecutableSpecification(
   const parsed = ExecutableSpecification.safeParse(candidate)
   if (!parsed.success) {
     throw new Error(
-      `Executable Specification Assembly produced an invalid ExecutableSpecification- ${parsed.error.message}`
+      `Executable Specification Assembly produced an invalid Executable Specification- ${parsed.error.message}`
     )
   }
   return parsed.data

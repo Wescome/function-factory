@@ -21,7 +21,7 @@ export type { TestReport } from '../coordinator/state'
 import type { TestReport } from '../coordinator/state'
 
 export interface TesterInput {
-  workGraph: Record<string, unknown>
+  executableSpecification: Record<string, unknown>
   plan: Plan | Record<string, unknown>
   code: CodeArtifact | Record<string, unknown>
   critique?: CritiqueReport | Record<string, unknown>
@@ -99,7 +99,7 @@ export class TesterAgent {
     const model = this.modelOverride ?? resolveAgentModel('tester')
 
     const userParts: string[] = [
-      `ExecutableSpecification specification:\n${JSON.stringify(input.workGraph, null, 2)}`,
+      `ExecutableSpecification specification:\n${JSON.stringify(input.executableSpecification, null, 2)}`,
       `\nPlan:\n${JSON.stringify(input.plan, null, 2)}`,
       `\nCode artifacts:\n${JSON.stringify(input.code, null, 2)}`,
     ]

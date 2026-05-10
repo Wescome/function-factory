@@ -17,8 +17,8 @@ import type { RoleName } from "./types.js"
 
 // ─── Tool Definitions ────────────────────────────────────────────────
 
-const readWorkGraph: ToolSchema = {
-  name: "readWorkGraph",
+const readExecutableSpecification: ToolSchema = {
+  name: "readExecutableSpecification",
   description: "Read the ExecutableSpecification specification (nodes and edges).",
   inputSchema: { type: "object", properties: {} },
   async execute() {
@@ -172,10 +172,10 @@ const writeDecision: ToolSchema = {
 // ─── Role → Tool mapping ─────────────────────────────────────────────
 
 const ROLE_TOOLS: Record<RoleName, readonly ToolSchema[]> = {
-  Planner: [readWorkGraph, readRepoContract, readValidationOutcomes],
-  Coder: [readPlan, readWorkGraph, readRepoContext, writeFile, readFile],
-  Critic: [readPlan, readPatches, readWorkGraph, readSpecEnvelope, readRepoContract],
-  Tester: [readPlan, readPatches, readCritique, readWorkGraph, runTest, readToolResults],
+  Planner: [readExecutableSpecification, readRepoContract, readValidationOutcomes],
+  Coder: [readPlan, readExecutableSpecification, readRepoContext, writeFile, readFile],
+  Critic: [readPlan, readPatches, readExecutableSpecification, readSpecEnvelope, readRepoContract],
+  Tester: [readPlan, readPatches, readCritique, readExecutableSpecification, runTest, readToolResults],
   Verifier: [readAll, writeDecision],
 }
 
@@ -197,7 +197,7 @@ export function getAllowedToolNames(role: RoleName): ReadonlySet<string> {
  * All tool schemas (for reference/testing).
  */
 export const ALL_TOOLS: Record<string, ToolSchema> = {
-  readWorkGraph,
+  readExecutableSpecification,
   readRepoContract,
   readValidationOutcomes,
   readPlan,

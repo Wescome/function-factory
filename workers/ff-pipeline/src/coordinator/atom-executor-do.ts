@@ -42,13 +42,13 @@ interface ExecuteAtomPayload {
   atomId: string
   atomSpec: Record<string, unknown>
   sharedContext: {
-    workGraphId: string
+    executableSpecificationId: string
     specContent: string | null
     briefingScript: unknown
   }
   upstreamArtifacts: Record<string, unknown>
   workflowId: string
-  workGraphId: string
+  executableSpecificationId: string
   maxRetries: number
   dryRun: boolean
 }
@@ -74,7 +74,7 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
     if (completed) return
 
     const atomId = await this.ctx.storage.get<string>('__atomId') ?? 'unknown'
-    const workGraphId = await this.ctx.storage.get<string>('__workGraphId') ?? 'unknown'
+    const executableSpecificationId = await this.ctx.storage.get<string>('__executableSpecificationId') ?? 'unknown'
     const workflowId = await this.ctx.storage.get<string>('__workflowId')
 
     const interruptResult: AtomResult = {
@@ -100,12 +100,12 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
       source: 'factory:infrastructure',
       subtype: 'pipeline:synthesis-timeout',
       title: `Atom ${atomId} exceeded 900s deadline`,
-      description: `AtomExecutor alarm fired: atom ${atomId} in ExecutableSpecification ${workGraphId} exceeded the 900s wall-clock deadline. The atom was interrupted and marked as failed.`,
-      sourceRefs: [workGraphId],
+      description: `AtomExecutor alarm fired: atom ${atomId} in ExecutableSpecification ${executableSpecificationId} exceeded the 900s wall-clock deadline. The atom was interrupted and marked as failed.`,
+      sourceRefs: [executableSpecificationId],
     }, db).catch(() => {}) // best-effort, never block
 
     // Publish interrupt result to queue
-    await this.publishResult(workGraphId, atomId, interruptResult, workflowId)
+    await this.publishResult(executableSpecificationId, atomId, interruptResult, workflowId)
   }
 
   private async handleExecuteAtom(request: Request): Promise<Response> {
@@ -145,7 +145,7 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
 
         await this.ctx.storage.put('atomResult', failResult)
         await this.ctx.storage.put('__completed', true)
-        await this.publishResult(payload.workGraphId, payload.atomId, failResult, payload.workflowId)
+        await this.publishResult(payload.executableSpecificationId, payload.atomId, failResult, payload.workflowId)
 
         // Tier 1 signal: infra:llm-api-401 — API key missing for provider
         const db = createClientFromEnv(this.env)
@@ -154,7 +154,7 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
           source: 'factory:infrastructure',
           subtype: 'infra:llm-api-401',
           title: `API key missing for provider "${preflightModel.provider}"`,
-          description: `Pre-flight auth check failed: no API key for provider "${preflightModel.provider}" (model: ${preflightModel.id ?? 'unknown'}). Atom ${payload.atomId} in ExecutableSpecification ${payload.workGraphId} cannot execute.`,
+          description: `Pre-flight auth check failed: no API key for provider "${preflightModel.provider}" (model: ${preflightModel.id ?? 'unknown'}). Atom ${payload.atomId} in ExecutableSpecification ${payload.executableSpecificationId} cannot execute.`,
           sourceRefs: [],
         }, db).catch(() => {}) // best-effort, never block
 
@@ -166,7 +166,7 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
 
     // Store metadata for alarm handler
     await this.ctx.storage.put('__atomId', payload.atomId)
-    await this.ctx.storage.put('__workGraphId', payload.workGraphId)
+    await this.ctx.storage.put('__executableSpecificationId', payload.executableSpecificationId)
     await this.ctx.storage.put('__workflowId', payload.workflowId)
     await this.ctx.storage.put('__completed', false)
 
@@ -201,7 +201,7 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
 
     // Publish to ATOM_RESULTS queue
     await this.publishResult(
-      payload.workGraphId,
+      payload.executableSpecificationId,
       payload.atomId,
       result,
       payload.workflowId,
@@ -213,7 +213,7 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
   }
 
   private async publishResult(
-    workGraphId: string,
+    executableSpecificationId: string,
     atomId: string,
     result: AtomResult,
     workflowId?: string | null,
@@ -221,7 +221,7 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
     try {
       if (this.env.ATOM_RESULTS) {
         await this.env.ATOM_RESULTS.send({
-          workGraphId,
+          executableSpecificationId,
           atomId,
           result,
           workflowId: workflowId ?? null,

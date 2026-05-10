@@ -9,7 +9,7 @@ export interface SynthesisCodeFile {
 
 export interface SynthesisArtifactApplyContext {
   pipelineId: string
-  workGraphId: string
+  executableSpecificationId: string
   appliedBy: string
 }
 
@@ -30,7 +30,7 @@ export interface SynthesisArtifactAuditFile {
 
 export interface SynthesisArtifactApplyAudit {
   pipelineId: string
-  workGraphId: string
+  executableSpecificationId: string
   appliedBy: string
   appliedAt: string
   validationPassed: true
@@ -186,7 +186,7 @@ export async function applySynthesisCodeFiles(
 
   return {
     pipelineId: context.pipelineId,
-    workGraphId: context.workGraphId,
+    executableSpecificationId: context.executableSpecificationId,
     appliedBy: context.appliedBy,
     appliedAt: ops.now?.() ?? new Date().toISOString(),
     validationPassed: true,

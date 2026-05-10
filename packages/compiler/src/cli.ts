@@ -83,8 +83,8 @@ async function main(): Promise<void> {
         `PRD- ${result.intermediates.prd.id}\n` +
         `Mode- ${result.mode}\n` +
         `Coverage Report- ${result.reportPath}\n` +
-        (result.workgraphPath !== null
-          ? `ExecutableSpecification- ${result.workgraphPath}\n`
+        (result.executableSpecificationPath !== null
+          ? `Executable Specification- ${result.executableSpecificationPath}\n`
           : "") +
         `Atoms- ${result.intermediates.atoms.length}, ` +
         `Contracts- ${result.intermediates.contracts.length}, ` +

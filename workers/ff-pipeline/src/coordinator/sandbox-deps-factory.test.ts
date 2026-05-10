@@ -92,9 +92,9 @@ describe('T12: buildSandboxDeps() — real @cloudflare/sandbox wiring', () => {
   // ── 1. execInSandbox ──────────────────────────────────────
 
   describe('execInSandbox', () => {
-    it('calls getSandbox with the binding and a sandbox name derived from workGraphId', async () => {
+    it('calls getSandbox with the binding and a sandbox name derived from executableSpecificationId', async () => {
       const deps = makeDeps()
-      const taskJson = JSON.stringify({ role: 'coder', workGraphId: 'WG-test-001' })
+      const taskJson = JSON.stringify({ role: 'coder', executableSpecificationId: 'WG-test-001' })
 
       await deps.execInSandbox(taskJson)
 
@@ -358,7 +358,7 @@ describe('T12: buildSandboxDeps() — real @cloudflare/sandbox wiring', () => {
   // ── 5. All deps use the same sandbox name pattern ─────────
 
   describe('sandbox naming', () => {
-    it('all deps produce sandbox name "synth-{workGraphId}"', async () => {
+    it('all deps produce sandbox name "synth-{executableSpecificationId}"', async () => {
       const deps = buildSandboxDeps(fakeSandboxBinding, 'WG-custom-42')
 
       // Call each method

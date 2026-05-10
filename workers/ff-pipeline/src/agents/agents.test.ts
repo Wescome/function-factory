@@ -246,7 +246,7 @@ describe('CriticAgent.codeReview', () => {
       const result = await agent.codeReview({
         code: sampleCode,
         plan: samplePlan,
-        workGraph: { id: 'WG-001' },
+        executableSpecification: { id: 'WG-001' },
       })
 
       expect(result.passed).toBe(true)
@@ -263,7 +263,7 @@ describe('CriticAgent.codeReview', () => {
       const result = await agent.codeReview({
         code: sampleCode,
         plan: samplePlan,
-        workGraph: { id: 'WG-001' },
+        executableSpecification: { id: 'WG-001' },
       })
 
       expect(result.passed).toBe(true)
@@ -313,7 +313,7 @@ describe('CriticAgent.codeReview', () => {
       const result = await agent.codeReview({
         code: sampleCode,
         plan: samplePlan,
-        workGraph: { id: 'WG-002' },
+        executableSpecification: { id: 'WG-002' },
       })
 
       // Verify CritiqueReport shape
@@ -339,7 +339,7 @@ describe('CriticAgent.codeReview', () => {
       const result = await agent.codeReview({
         code: sampleCode,
         plan: samplePlan,
-        workGraph: { id: 'WG-001' },
+        executableSpecification: { id: 'WG-001' },
         mentorRules: ['No global state', 'All functions must be pure'],
       })
 

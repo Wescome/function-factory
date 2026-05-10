@@ -32,7 +32,7 @@ export interface FileChangeV2 {
 export interface PRGenerationInput {
   signalTitle: string
   proposalId: string
-  workGraphId: string
+  executableSpecificationId: string
   atomResults: Record<string, {
     atomId: string
     verdict: { decision: string }
@@ -92,7 +92,7 @@ export function buildPRBody(input: PRGenerationInput): string {
   // Header
   sections.push(`## Factory-Generated PR`)
   sections.push('')
-  sections.push(`**ExecutableSpecification:** \`${input.workGraphId}\``)
+  sections.push(`**ExecutableSpecification:** \`${input.executableSpecificationId}\``)
   sections.push(`**Proposal:** \`${input.proposalId}\``)
   sections.push(`**Confidence:** ${input.confidence}`)
   sections.push('')

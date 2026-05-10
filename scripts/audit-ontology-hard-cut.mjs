@@ -64,7 +64,13 @@ const activeRoots = [
 
 const forbiddenPatterns = [
   [/\bPRDDraft\b/g, 'PRDDraft active API'],
-  [/\bWorkGraph(Node|Edge|NodeType)?\b/g, 'WorkGraph active API'],
+  [/\bPipelineWorkGraph\b/g, 'PipelineWorkGraph active API'],
+  [/\bWorkGraph(Node|Edge|NodeType|NodeShape|EdgeShape)?\b/g, 'WorkGraph active API'],
+  [/\bworkGraph(Id)?\b/g, 'workGraph active field/API'],
+  [/\bworkgraph\b/g, 'workgraph active field/API'],
+  [/\bcurrentWorkGraphId\b/g, 'currentWorkGraphId active field/API'],
+  [/\bsourceWorkGraphId\b/g, 'sourceWorkGraphId active field/API'],
+  [/\breadWorkGraph\b/g, 'readWorkGraph active tool/API'],
   [/\bGate[123](?!-)/g, 'Gate numbered active API'],
   [/\bgate[123][A-Z_a-z]/g, 'gate numbered active field/API'],
   [/\brunGate1\b/g, 'runGate1 active API'],
@@ -73,6 +79,14 @@ const forbiddenPatterns = [
   [/\bGate2Verdict\b/g, 'Gate2Verdict active API'],
   [/\bCoverageReport\b/g, 'CoverageReport active type/API'],
   [/\bGate[123]Report\b/g, 'Gate report active type/API'],
+  [/\bgateReport\b/g, 'gateReport compatibility field'],
+  [/\bgateRequired\b/g, 'gateRequired compatibility field'],
+  [/\bGATE_REQUIREMENTS\b/g, 'GATE_REQUIREMENTS compatibility map'],
+  [/\bLegacyGateRequirement\b/g, 'LegacyGateRequirement compatibility type'],
+  [/\blegacyStatus\b/g, 'legacyStatus compatibility field'],
+  [/\blegacyRole\b/g, 'legacyRole compatibility field'],
+  [/\bgate-1-failed\b/g, 'gate-1-failed compatibility status'],
+  [/\/debug\/gate2-simulate\b/g, 'gate2 diagnostic compatibility route'],
 ]
 
 const allowedFragments = [
@@ -88,8 +102,6 @@ const allowedFragments = [
   'specs_prds',
   'specs_workgraphs',
   'specs_coverage_reports',
-  'workGraphId',
-  'workGraph',
   'prdId',
   'gate_status',
   'gate-1',

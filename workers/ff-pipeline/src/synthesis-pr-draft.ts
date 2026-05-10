@@ -9,7 +9,7 @@ export interface SynthesisMaterializationAudit {
   pressureId: string
   capabilityId: string
   proposalId: string
-  workGraphId: string
+  executableSpecificationId: string
   coherenceVerificationPassed?: boolean
   atomResults: Array<{
     atomId: string
@@ -34,7 +34,7 @@ export interface SynthesisPRDraft {
   body: string
   sourceRefs: string[]
   proposalId: string
-  workGraphId: string
+  executableSpecificationId: string
 }
 
 export class SynthesisPRDraftError extends Error {
@@ -74,14 +74,14 @@ export function buildSynthesisPRDraft(audit: SynthesisMaterializationAudit): Syn
     audit.pressureId,
     audit.capabilityId,
     audit.proposalId,
-    audit.workGraphId,
+    audit.executableSpecificationId,
   ]
 
   const body: string[] = [
     '## Factory Synthesis Materialization',
     '',
     `Pipeline: \`${audit.pipelineId}\``,
-    `ExecutableSpecification: \`${audit.workGraphId}\``,
+    `ExecutableSpecification: \`${audit.executableSpecificationId}\``,
     `Proposal: \`${audit.proposalId}\``,
     `Runtime status: \`${audit.runtimeStatus}\``,
     `Coherence Verification: \`${coherenceVerificationPassed ? 'pass' : 'fail'}\``,
@@ -112,12 +112,12 @@ export function buildSynthesisPRDraft(audit: SynthesisMaterializationAudit): Syn
   ]
 
   return {
-    title: `[Factory] Materialize ${audit.workGraphId} synthesis artifact`,
+    title: `[Factory] Materialize ${audit.executableSpecificationId} synthesis artifact`,
     branchName: buildBranchName(audit.proposalId),
     baseBranch: 'main',
     body: body.join('\n'),
     sourceRefs,
     proposalId: audit.proposalId,
-    workGraphId: audit.workGraphId,
+    executableSpecificationId: audit.executableSpecificationId,
   }
 }

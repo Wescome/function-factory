@@ -106,10 +106,10 @@ vi.mock('./semantic-review', () => ({
 }))
 
 vi.mock('./compile', () => ({
-  PASS_NAMES: ['atoms', 'contracts', 'invariants', 'validations', 'dependencies', 'schedule', 'budget', 'workgraph'],
+  PASS_NAMES: ['atoms', 'contracts', 'invariants', 'validations', 'dependencies', 'schedule', 'budget', 'executableSpecification'],
   compilePRD: vi.fn(async (_pass: string, state: Record<string, unknown>) => ({
     ...state,
-    workGraph: {
+    executableSpecification: {
       _key: 'WG-TEST',
       title: 'Test ExecutableSpecification',
       atoms: [{ id: 'a1', description: 'test atom' }],
@@ -137,7 +137,7 @@ function createMockEnv() {
         verification: "coherence",
         passed: true,
         timestamp: '2026-05-04T00:00:00Z',
-        workGraphId: 'WG-TEST',
+        executableSpecificationId: 'WG-TEST',
         checks: [{ name: 'lineage', passed: true, detail: 'ok' }],
         summary: 'All checks passed',
       })),
@@ -232,12 +232,12 @@ describe('Step timeout configuration', () => {
     'edge-proposal-capability',
     'lifecycle-proposed',
     'persist-intent-anchors',
-    'edge-workgraph-proposal',
-    'persist-gate1-pass',
+    'edge-executableSpecification-proposal',
+    'persist-coherence-verification-pass',
     'lifecycle-designed',
     'enqueue-synthesis',
     'lifecycle-in-progress',
-    'edge-synthesis-workgraph',
+    'edge-synthesis-executableSpecification',
     'lifecycle-produced',
     'enqueue-feedback',
   ]

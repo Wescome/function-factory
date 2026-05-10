@@ -117,10 +117,10 @@ vi.mock('../stages/semantic-review', () => ({
 }))
 
 vi.mock('../stages/compile', () => ({
-  PASS_NAMES: ['atoms', 'contracts', 'invariants', 'validations', 'dependencies', 'schedule', 'budget', 'workgraph'],
+  PASS_NAMES: ['atoms', 'contracts', 'invariants', 'validations', 'dependencies', 'schedule', 'budget', 'executableSpecification'],
   compilePRD: vi.fn(async (_pass: string, state: Record<string, unknown>) => ({
     ...state,
-    workGraph: {
+    executableSpecification: {
       _key: 'WG-SPEC',
       title: 'Test ExecutableSpecification',
       atoms: [{ id: 'a1', description: 'test atom' }],
@@ -160,7 +160,7 @@ function createEnv(overrides?: Record<string, unknown>) {
         verification: "coherence",
         passed: true,
         timestamp: '2026-04-26T00:00:00Z',
-        workGraphId: 'WG-SPEC',
+        executableSpecificationId: 'WG-SPEC',
         checks: [{ name: 'lineage', passed: true, detail: 'ok' }],
         summary: 'All checks passed',
       })),
@@ -613,8 +613,8 @@ describe('specContent threading: pipeline -> queue -> DO -> graph nodes', () => 
 
       const msg = createMockMessage({
         workflowId: 'wf-spec-q',
-        workGraphId: 'WG-SPECQ',
-        workGraph: { _key: 'WG-SPECQ', title: 'Test' },
+        executableSpecificationId: 'WG-SPECQ',
+        executableSpecification: { _key: 'WG-SPECQ', title: 'Test' },
         dryRun: false,
         specContent: 'The system SHALL thread specContent through the queue.',
       })
@@ -660,8 +660,8 @@ describe('specContent threading: pipeline -> queue -> DO -> graph nodes', () => 
 
       const msg = createMockMessage({
         workflowId: 'wf-nospec-q',
-        workGraphId: 'WG-NOSPECQ',
-        workGraph: { _key: 'WG-NOSPECQ', title: 'Test' },
+        executableSpecificationId: 'WG-NOSPECQ',
+        executableSpecification: { _key: 'WG-NOSPECQ', title: 'Test' },
         dryRun: false,
         // specContent intentionally omitted
       })

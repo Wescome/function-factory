@@ -8,7 +8,7 @@ import {
 
 export function emitEffectorRealization(input: {
   sourceEffectorId: string
-  sourceWorkGraphId: string
+  sourceExecutableSpecificationId: string
   sourceArchitectureCandidateId: string
   sourceSelectionId: string
   sourceAdmissionId: string
@@ -29,7 +29,7 @@ export function emitEffectorRealization(input: {
     explicitness: "inferred",
     rationale: "Effector realization emitted deterministically under bootstrap safe_execute policy.",
     sourceEffectorId: input.sourceEffectorId,
-    sourceWorkGraphId: input.sourceWorkGraphId,
+    sourceExecutableSpecificationId: input.sourceExecutableSpecificationId,
     sourceArchitectureCandidateId: input.sourceArchitectureCandidateId,
     sourceSelectionId: input.sourceSelectionId,
     sourceAdmissionId: input.sourceAdmissionId,

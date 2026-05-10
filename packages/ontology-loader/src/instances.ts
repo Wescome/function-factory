@@ -336,8 +336,8 @@ export const ONTOLOGY_INSTANCES: OntologyInstance[] = [
     comment: 'PRD Draft documents.',
   },
   {
-    _key: 'col_workgraphs',
-    uri: 'ff:col_workgraphs',
+    _key: 'col_executableSpecifications',
+    uri: 'ff:col_executableSpecifications',
     type: 'ArangoCollection',
     label: 'specs_workgraphs',
     comment: 'ExecutableSpecification documents.',

@@ -26,7 +26,7 @@ describe("evidence", () => {
   it("AC 10: builds a SynthesisTraceLog that parses with Zod", () => {
     const traceLog = buildTraceLog({
       runId: "SYN-TEST-001",
-      workGraphId: "WG-TEST-001",
+      executableSpecificationId: "WG-TEST-001",
       architectureCandidateId: "AC-TEST-001",
       bindingModeName: "stub",
       roleIterations: makeRoleIterations(),
@@ -56,7 +56,7 @@ describe("evidence", () => {
     const fidelity = buildFidelityVerificationInput({
       runId: "SYN-TEST-002",
       functionId: "FP-TEST-001",
-      workGraphId: "WG-TEST-001",
+      executableSpecificationId: "WG-TEST-001",
       architectureCandidateId: "AC-TEST-001",
       artifactPaths: ["/output/src/core.ts"],
       validationOutcomes: makeValidationOutcomes(),

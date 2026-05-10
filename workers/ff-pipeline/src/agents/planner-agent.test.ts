@@ -75,7 +75,7 @@ describe('PlannerAgent', () => {
       const agent = new PlannerAgent({ db, apiKey: 'test-key', dryRun: true })
 
       const input: PlannerInput = {
-        workGraph: SAMPLE_WORKGRAPH,
+        executableSpecification: SAMPLE_WORKGRAPH,
         briefingScript: SAMPLE_BRIEFING_SCRIPT,
       }
 
@@ -194,7 +194,7 @@ describe('PlannerAgent', () => {
       })
 
       const input: PlannerInput = {
-        workGraph: SAMPLE_WORKGRAPH,
+        executableSpecification: SAMPLE_WORKGRAPH,
         briefingScript: SAMPLE_BRIEFING_SCRIPT,
       }
 
@@ -219,7 +219,7 @@ describe('PlannerAgent', () => {
       })
 
       const input: PlannerInput = {
-        workGraph: SAMPLE_WORKGRAPH,
+        executableSpecification: SAMPLE_WORKGRAPH,
         briefingScript: SAMPLE_BRIEFING_SCRIPT,
         resampleReason: 'Previous approach was too complex',
       }
@@ -241,7 +241,7 @@ describe('PlannerAgent', () => {
       })
 
       const input: PlannerInput = {
-        workGraph: SAMPLE_WORKGRAPH,
+        executableSpecification: SAMPLE_WORKGRAPH,
         briefingScript: SAMPLE_BRIEFING_SCRIPT,
         repairNotes: 'Fix the token refresh logic',
         previousPlan: VALID_PLAN,
@@ -264,7 +264,7 @@ describe('PlannerAgent', () => {
       })
 
       const input: PlannerInput = {
-        workGraph: SAMPLE_WORKGRAPH,
+        executableSpecification: SAMPLE_WORKGRAPH,
         briefingScript: SAMPLE_BRIEFING_SCRIPT,
       }
 

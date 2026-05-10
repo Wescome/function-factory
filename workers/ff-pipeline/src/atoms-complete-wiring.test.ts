@@ -199,7 +199,7 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
       },
       layers: [],
       allAtomSpecs: {},
-      sharedContext: { workGraphId: 'WG-DONE', specContent: null, briefingScript: {} },
+      sharedContext: { executableSpecificationId: 'WG-DONE', specContent: null, briefingScript: {} },
       pendingAtoms: [],
       phase: 'complete',
     }
@@ -220,7 +220,7 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
     })
 
     const msg = createMockMessage({
-      workGraphId: 'WG-DONE',
+      executableSpecificationId: 'WG-DONE',
       atomId: 'atom-2',
       result: {
         atomId: 'atom-2',
@@ -292,7 +292,7 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
         'atom-1': { id: 'atom-1', type: 'implementation', critical: true },
         'atom-2': { id: 'atom-2', type: 'implementation', critical: true },
       },
-      sharedContext: { workGraphId: 'WG-FAIL', specContent: null, briefingScript: {} },
+      sharedContext: { executableSpecificationId: 'WG-FAIL', specContent: null, briefingScript: {} },
       pendingAtoms: [],
       phase: 'complete',
     }
@@ -313,7 +313,7 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
     })
 
     const msg = createMockMessage({
-      workGraphId: 'WG-FAIL',
+      executableSpecificationId: 'WG-FAIL',
       atomId: 'atom-2',
       result: {
         atomId: 'atom-2',
@@ -400,7 +400,7 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
         'atom-3': { id: 'atom-3', type: 'test', critical: false },
         'atom-4': { id: 'atom-4', type: 'implementation', critical: true },
       },
-      sharedContext: { workGraphId: 'WG-CRIT', specContent: null, briefingScript: {} },
+      sharedContext: { executableSpecificationId: 'WG-CRIT', specContent: null, briefingScript: {} },
       pendingAtoms: [],
       phase: 'complete',
     }
@@ -421,7 +421,7 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
     })
 
     const msg = createMockMessage({
-      workGraphId: 'WG-CRIT',
+      executableSpecificationId: 'WG-CRIT',
       atomId: 'atom-4',
       result: {
         atomId: 'atom-4',
@@ -515,7 +515,7 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
         'atom-3': { id: 'atom-3', type: 'implementation', critical: true },
         'atom-4': { id: 'atom-4', type: 'config', critical: false },
       },
-      sharedContext: { workGraphId: 'WG-NONCRIT', specContent: null, briefingScript: {} },
+      sharedContext: { executableSpecificationId: 'WG-NONCRIT', specContent: null, briefingScript: {} },
       pendingAtoms: [],
       phase: 'complete',
     }
@@ -536,7 +536,7 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
     })
 
     const msg = createMockMessage({
-      workGraphId: 'WG-NONCRIT',
+      executableSpecificationId: 'WG-NONCRIT',
       atomId: 'atom-4',
       result: {
         atomId: 'atom-4',
@@ -593,7 +593,7 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
       },
       layers: [],
       allAtomSpecs: {},
-      sharedContext: { workGraphId: 'WG-FALLBACK', specContent: null, briefingScript: {} },
+      sharedContext: { executableSpecificationId: 'WG-FALLBACK', specContent: null, briefingScript: {} },
       pendingAtoms: [],
       phase: 'complete',
     }
@@ -618,7 +618,7 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
     })
 
     const msg = createMockMessage({
-      workGraphId: 'WG-FALLBACK',
+      executableSpecificationId: 'WG-FALLBACK',
       atomId: 'atom-1',
       result: {
         atomId: 'atom-1',
@@ -679,7 +679,7 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
       },
       layers: [],
       allAtomSpecs: {},
-      sharedContext: { workGraphId: 'WG-PARTIAL', specContent: null, briefingScript: {} },
+      sharedContext: { executableSpecificationId: 'WG-PARTIAL', specContent: null, briefingScript: {} },
       pendingAtoms: ['atom-2', 'atom-3'],
       phase: 'executing',
     }
@@ -700,7 +700,7 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
     })
 
     const msg = createMockMessage({
-      workGraphId: 'WG-PARTIAL',
+      executableSpecificationId: 'WG-PARTIAL',
       atomId: 'atom-1',
       result: {
         atomId: 'atom-1',

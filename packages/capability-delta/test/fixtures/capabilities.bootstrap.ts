@@ -60,7 +60,7 @@ export const bootstrapCapabilities: readonly BusinessCapability[] = [
       "Derived from the whitepaper v2 requirement that Intent-to-Executable compilation emit ExecutableSpecification plus ArchitectureCandidate artifacts.",
     name: "emit_architecture_candidates",
     purpose:
-      "Emit candidate-bound execution artifacts alongside WorkGraphs at the end of Intent-to-Executable compilation.",
+      "Emit candidate-bound execution artifacts alongside ExecutableSpecifications at the end of Intent-to-Executable compilation.",
     addressesPressureIds: ["PRS-META-CANDIDATE-EMISSION-GAP"],
     desiredOutcomes: [
       "Execution arrangement becomes explicit before runtime exists.",

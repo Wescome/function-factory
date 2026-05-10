@@ -1,7 +1,8 @@
 # @factory/compiler
 
-Intent-to-Executable compilation package that transforms a PRD into compiler
-intermediates, runs Coherence Verification, and emits a ExecutableSpecification. Historical
+Intent-to-Executable compilation package that transforms an Intent
+Specification into compiler intermediates, runs Coherence Verification, and
+emits an Executable Specification. Historical
 pass numbers are reference documentation only; ontology terms are primary.
 
 ## Ontology Alias
@@ -16,11 +17,11 @@ Specification, and Verification terminology.
 
 **Stage:** Intent-to-Executable compilation (legacy Stage 5)
 **Consumes:** `PRD-*` (PRD markdown files)
-**Produces:** `CR-*` (Coherence Verification Coverage Reports), `WG-*` (WorkGraphs)
+**Produces:** `CR-*` (Coherence Verification Reports), `WG-*` (Executable Specifications)
 
 ## Exports
 
-- `compile()` -- Orchestrator that reads an Intent Specification file, runs the transformation pipeline, emits a Verification Report and ExecutableSpecification, and returns the aggregate result
+- `compile()` -- Orchestrator that reads an Intent Specification file, runs the transformation pipeline, emits a Verification Report and Executable Specification, and returns the aggregate result
 - `CompileOptions` type -- Override factory mode, output directories, and timestamp
 - `CompileResult`, `CompilerIntermediates`, `FactoryMode`, `NormalizedPRD` types
 
@@ -34,8 +35,8 @@ Specification, and Verification terminology.
 - Structural Assembly subdivision (legacy Pass 5): `deriveValidations` -- Derive validation rules
 - Completeness preflight slot (legacy Pass 6): `consistencyCheck` -- Cross-check intermediates
 - Completeness Certification / Coherence Verification: `runCoherenceVerificationPass` -- Coherence Verification via @factory/coverage-gates
-- Executable Specification Assembly: `assembleExecutableSpecification` / `emitExecutableSpecification` -- Assemble and emit the ExecutableSpecification
-- Ontology Pass 8: Instruction Tuning -- future, not implemented by current ExecutableSpecification assembly
+- Executable Specification Assembly: `assembleExecutableSpecification` / `emitExecutableSpecification` -- Assemble and emit the Executable Specification
+- Ontology Pass 8: Instruction Tuning -- future, not implemented by current Executable Specification assembly
 
 ## Key Invariants
 

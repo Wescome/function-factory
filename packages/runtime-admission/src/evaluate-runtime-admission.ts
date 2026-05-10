@@ -1,8 +1,8 @@
 import type { RuntimeAdmissionArtifact } from "@factory/schemas"
-import { runtimeAdmissionIdFromWorkGraphId } from "./ids.js"
+import { runtimeAdmissionIdFromExecutableSpecificationId } from "./ids.js"
 
 export interface RuntimeAdmissionInput {
-  readonly sourceWorkGraphId: string
+  readonly sourceExecutableSpecificationId: string
   readonly sourceArchitectureCandidateId: string
   readonly sourceSelectionId: string
   readonly selectionDecision: "selected" | "rejected"
@@ -14,7 +14,7 @@ export function evaluateRuntimeAdmission(
   input: RuntimeAdmissionInput
 ): RuntimeAdmissionArtifact {
   const {
-    sourceWorkGraphId,
+    sourceExecutableSpecificationId,
     sourceArchitectureCandidateId,
     sourceSelectionId,
     selectionDecision,
@@ -24,11 +24,11 @@ export function evaluateRuntimeAdmission(
 
   if (!bootstrapMode) {
     return {
-      id: runtimeAdmissionIdFromWorkGraphId(sourceWorkGraphId, "deny"),
+      id: runtimeAdmissionIdFromExecutableSpecificationId(sourceExecutableSpecificationId, "deny"),
       source_refs: [...sourceRefs],
       explicitness: "inferred",
       rationale: "Runtime admission denied because bootstrap runtime mode is not active.",
-      sourceWorkGraphId,
+      sourceExecutableSpecificationId,
       sourceArchitectureCandidateId,
       sourceSelectionId,
       decision: "deny",
@@ -38,11 +38,11 @@ export function evaluateRuntimeAdmission(
 
   if (selectionDecision !== "selected") {
     return {
-      id: runtimeAdmissionIdFromWorkGraphId(sourceWorkGraphId, "deny"),
+      id: runtimeAdmissionIdFromExecutableSpecificationId(sourceExecutableSpecificationId, "deny"),
       source_refs: [...sourceRefs],
       explicitness: "inferred",
       rationale: "Runtime admission denied because linked ArchitectureCandidate selection is not selected.",
-      sourceWorkGraphId,
+      sourceExecutableSpecificationId,
       sourceArchitectureCandidateId,
       sourceSelectionId,
       decision: "deny",
@@ -51,11 +51,11 @@ export function evaluateRuntimeAdmission(
   }
 
   return {
-    id: runtimeAdmissionIdFromWorkGraphId(sourceWorkGraphId, "allow"),
+    id: runtimeAdmissionIdFromExecutableSpecificationId(sourceExecutableSpecificationId, "allow"),
     source_refs: [...sourceRefs],
     explicitness: "inferred",
     rationale: "Runtime admission allowed because bootstrap mode is active and linked ArchitectureCandidate is selected.",
-    sourceWorkGraphId,
+    sourceExecutableSpecificationId,
     sourceArchitectureCandidateId,
     sourceSelectionId,
     decision: "allow",

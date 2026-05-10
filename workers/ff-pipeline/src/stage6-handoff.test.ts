@@ -115,10 +115,10 @@ vi.mock('./stages/semantic-review', () => ({
 }))
 
 vi.mock('./stages/compile', () => ({
-  PASS_NAMES: ['atoms', 'contracts', 'invariants', 'validations', 'dependencies', 'schedule', 'budget', 'workgraph'],
+  PASS_NAMES: ['atoms', 'contracts', 'invariants', 'validations', 'dependencies', 'schedule', 'budget', 'executableSpecification'],
   compilePRD: vi.fn(async (_pass: string, state: Record<string, unknown>) => ({
     ...state,
-    workGraph: {
+    executableSpecification: {
       _key: 'WG-TEST',
       title: 'Test ExecutableSpecification',
       atoms: [{ id: 'a1', description: 'test atom' }],
@@ -164,7 +164,7 @@ function createEnv(overrides?: Record<string, unknown>) {
         verification: "coherence",
         passed: true,
         timestamp: '2026-04-25T00:00:00Z',
-        workGraphId: 'WG-TEST',
+        executableSpecificationId: 'WG-TEST',
         checks: [{ name: 'lineage', passed: true, detail: 'ok' }],
         summary: 'All checks passed',
       })),
@@ -255,8 +255,8 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          workGraphId: 'WG-TEST',
-          workGraph: { _key: 'WG-TEST' },
+          executableSpecificationId: 'WG-TEST',
+          executableSpecification: { _key: 'WG-TEST' },
         }),
       })
 
@@ -267,7 +267,7 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
       expect(body.error).toContain('Missing required fields')
     })
 
-    it('returns 400 when workGraphId is missing', async () => {
+    it('returns 400 when executableSpecificationId is missing', async () => {
       const { default: worker } = await import('./index')
       const env = createEnv()
       const ctx = createMockCtx()
@@ -277,7 +277,7 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workflowId: 'wf-123',
-          workGraph: { _key: 'WG-TEST' },
+          executableSpecification: { _key: 'WG-TEST' },
         }),
       })
 
@@ -285,7 +285,7 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
       expect(response.status).toBe(400)
     })
 
-    it('returns 400 when workGraph is missing', async () => {
+    it('returns 400 when executableSpecification is missing', async () => {
       const { default: worker } = await import('./index')
       const env = createEnv()
       const ctx = createMockCtx()
@@ -295,7 +295,7 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workflowId: 'wf-123',
-          workGraphId: 'WG-TEST',
+          executableSpecificationId: 'WG-TEST',
         }),
       })
 
@@ -358,8 +358,8 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workflowId: 'wf-123',
-          workGraphId: 'WG-TEST',
-          workGraph: { _key: 'WG-TEST', title: 'Test' },
+          executableSpecificationId: 'WG-TEST',
+          executableSpecification: { _key: 'WG-TEST', title: 'Test' },
           dryRun: false,
         }),
       })
@@ -429,8 +429,8 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workflowId: 'wf-123',
-          workGraphId: 'WG-TEST',
-          workGraph: { _key: 'WG-TEST' },
+          executableSpecificationId: 'WG-TEST',
+          executableSpecification: { _key: 'WG-TEST' },
         }),
       })
 
@@ -467,7 +467,7 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
   // ── Test 4: Pipeline queues synthesis after Coherence Verification passes ──
 
   describe('pipeline synthesis queueing', () => {
-    it('enqueues to CF Queue with workGraphId and workGraph after Coherence Verification passes', async () => {
+    it('enqueues to CF Queue with executableSpecificationId and executableSpecification after Coherence Verification passes', async () => {
       const mockQueueSend = vi.fn(async () => ({}))
       const { result } = await runPipelineWithSynthesis(
         {
@@ -485,9 +485,9 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
       expect(mockQueueSend).toHaveBeenCalledOnce()
       const calls = mockQueueSend.mock.calls as unknown[][]
       const sentMessage = calls[0]![0] as Record<string, unknown>
-      expect(sentMessage.workGraphId).toBe('WG-TEST')
-      expect(sentMessage.workGraph).toBeDefined()
-      expect((sentMessage.workGraph as Record<string, unknown>)._key).toBe('WG-TEST')
+      expect(sentMessage.executableSpecificationId).toBe('WG-TEST')
+      expect(sentMessage.executableSpecification).toBeDefined()
+      expect((sentMessage.executableSpecification as Record<string, unknown>)._key).toBe('WG-TEST')
       expect(sentMessage.dryRun).toBe(false)
     })
 
@@ -508,7 +508,7 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
             verification: "coherence",
             passed: false,
             timestamp: '2026-04-25T00:00:00Z',
-            workGraphId: 'WG-TEST',
+            executableSpecificationId: 'WG-TEST',
             checks: [{ name: 'lineage', passed: false, detail: 'broken' }],
             summary: 'Failed',
           })),
@@ -520,7 +520,6 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
 
       const result = await pipeline.run({ payload: SIGNAL_PAYLOAD }, step)
       expect(result.status).toBe('coherence-verification-failed')
-      expect(result.legacyStatus).toBe('gate-1-failed')
 
       // synthesis_queue should NOT have been written
       const queueSave = mockDb.save.mock.calls.find(
@@ -574,7 +573,7 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
       expect(result.pressureId).toBe('PRS-001')
       expect(result.capabilityId).toBe('BC-001')
       expect(result.proposalId).toBe('FP-001')
-      expect(result.workGraphId).toBe('WG-TEST')
+      expect(result.executableSpecificationId).toBe('WG-TEST')
       expect(result.coherenceVerificationReport).toBeDefined()
       expect(result.coherenceVerificationReport!.passed).toBe(true)
       expect(result.coherenceVerificationReport).toBe(result.coherenceVerificationReport)

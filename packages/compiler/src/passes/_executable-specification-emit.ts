@@ -12,11 +12,11 @@ import type { ExecutableSpecification } from "@factory/schemas"
 
 export async function emitExecutableSpecification(
   executableSpecification: ExecutableSpecification,
-  executableSpecificationsDir: string
+  executableSpecificationDir: string
 ): Promise<string> {
-  await mkdir(executableSpecificationsDir, { recursive: true })
+  await mkdir(executableSpecificationDir, { recursive: true })
   const filename = `${executableSpecification.id}.yaml`
-  const filepath = join(executableSpecificationsDir, filename)
+  const filepath = join(executableSpecificationDir, filename)
   const yaml = stringifyYaml(executableSpecification)
   await writeFile(filepath, yaml, "utf8")
   return filepath

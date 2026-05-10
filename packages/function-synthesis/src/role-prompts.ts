@@ -22,7 +22,7 @@ import type { RoleContract } from "./role-contracts.js"
  */
 export function renderRolePrompt(
   contract: RoleContract,
-  workGraph: ExecutableSpecification,
+  executableSpecification: ExecutableSpecification,
   candidate: ArchitectureCandidate,
 ): string {
   const sections: string[] = []
@@ -58,12 +58,12 @@ export function renderRolePrompt(
   // ExecutableSpecification context
   sections.push(
     "## ExecutableSpecification",
-    `ExecutableSpecification ID: ${workGraph.id}`,
-    `Function ID: ${workGraph.functionId}`,
-    `Nodes (${workGraph.nodes.length}):`,
-    ...workGraph.nodes.map((n) => `  - ${n.id}: ${n.title} (${n.type})`),
-    `Edges (${workGraph.edges.length}):`,
-    ...workGraph.edges.map((e) => `  - ${e.from} -> ${e.to}`),
+    `ExecutableSpecification ID: ${executableSpecification.id}`,
+    `Function ID: ${executableSpecification.functionId}`,
+    `Nodes (${executableSpecification.nodes.length}):`,
+    ...executableSpecification.nodes.map((n) => `  - ${n.id}: ${n.title} (${n.type})`),
+    `Edges (${executableSpecification.edges.length}):`,
+    ...executableSpecification.edges.map((e) => `  - ${e.from} -> ${e.to}`),
     "",
   )
 

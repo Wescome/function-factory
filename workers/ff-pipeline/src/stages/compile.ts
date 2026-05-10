@@ -214,9 +214,9 @@ async function runDryPass(
     case 'assembly': {
       const wgKey = `WG-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
       const prdKey = (state.prd as Record<string, unknown>)?._key ?? 'unknown'
-      const workGraph = {
+      const executableSpecification = {
         _key: wgKey,
-        type: 'workgraph',
+        type: 'executableSpecification',
         title: prd?.title ?? 'Dry-run ExecutableSpecification',
         prdId: prdKey,
         atoms: ((state.atoms ?? []) as Record<string, unknown>[]).map(a => ({
@@ -235,8 +235,8 @@ async function runDryPass(
         compiledBy: 'dry-run',
         createdAt: new Date().toISOString(),
       }
-      await db.save('specs_workgraphs', workGraph)
-      return { ...state, workGraph }
+      await db.save('specs_workgraphs', executableSpecification)
+      return { ...state, executableSpecification }
     }
 
     case 'verification':

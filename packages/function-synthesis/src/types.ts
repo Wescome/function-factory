@@ -115,7 +115,7 @@ export type HumanApprovalPayload = z.infer<typeof HumanApprovalPayload>
 
 export const SynthesisTraceLog = z.object({
   runId: z.string().min(1),
-  workGraphId: z.string().min(1),
+  executableSpecificationId: z.string().min(1),
   architectureCandidateId: z.string().min(1),
   bindingModeName: z.string().min(1),
   roleIterations: z.array(RoleIterationRecord),
@@ -166,7 +166,7 @@ export type RoleAdherenceReport = z.infer<typeof RoleAdherenceReport>
 export const FidelityVerificationInput = z.object({
   synthesisRunId: z.string().min(1),
   functionId: z.string().min(1),
-  workGraphId: z.string().min(1),
+  executableSpecificationId: z.string().min(1),
   architectureCandidateId: z.string().min(1),
   artifactPaths: z.array(z.string()),
   validationOutcomes: z.array(ValidationOutcome),
@@ -206,7 +206,7 @@ export type SynthesisCandidateSelectionReport = z.infer<typeof SynthesisCandidat
 export const PatchProposal = z.object({
   targetPath: z.string().min(1),
   content: z.string(),
-  workGraphNodeId: z.string().min(1),
+  executableSpecificationNodeId: z.string().min(1),
   rationale: z.string().min(1),
 })
 export type PatchProposal = z.infer<typeof PatchProposal>

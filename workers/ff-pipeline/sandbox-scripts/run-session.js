@@ -364,8 +364,8 @@ Rules:
 function buildUserPrompt({
   role,
   rawPrompt,
-  workGraphId,
-  workGraph,
+  executableSpecificationId,
+  executableSpecification,
   plan,
   code,
   critique,
@@ -378,16 +378,16 @@ function buildUserPrompt({
   maxRepairs,
 }) {
   // If there's a raw prompt and no structured context, use the raw prompt
-  if (rawPrompt && !workGraph) return rawPrompt;
+  if (rawPrompt && !executableSpecification) return rawPrompt;
 
   const parts = [];
 
-  if (workGraphId) {
-    parts.push(`ExecutableSpecification ID: ${workGraphId}`);
+  if (executableSpecificationId) {
+    parts.push(`ExecutableSpecification ID: ${executableSpecificationId}`);
   }
 
-  if (workGraph) {
-    parts.push(`ExecutableSpecification specification:\n${JSON.stringify(workGraph, null, 2)}`);
+  if (executableSpecification) {
+    parts.push(`ExecutableSpecification specification:\n${JSON.stringify(executableSpecification, null, 2)}`);
   }
 
   if (plan) {
@@ -460,8 +460,8 @@ async function main() {
     commandPolicy,
     apiKey,
     // Phase C: rich task context from sandboxRole
-    workGraphId,
-    workGraph,
+    executableSpecificationId,
+    executableSpecification,
     plan,
     code,
     critique,
@@ -479,7 +479,7 @@ async function main() {
   log(`Role: ${role}`);
   log(`Model: ${modelSpec?.provider ?? "default"}/${modelSpec?.modelId ?? "default"}`);
   log(`WorkDir: ${workDir}`);
-  if (workGraphId) log(`ExecutableSpecification: ${workGraphId}`);
+  if (executableSpecificationId) log(`ExecutableSpecification: ${executableSpecificationId}`);
 
   // Ensure workspace exists
   ensureWorkspace(workDir);
@@ -550,13 +550,13 @@ async function main() {
   };
 
   // ── Build user prompt from task context ──
-  // Phase C: construct a rich prompt from workGraph, plan, code, etc.
+  // Phase C: construct a rich prompt from executableSpecification, plan, code, etc.
   // Falls back to rawPrompt if no structured context provided
   const userPrompt = buildUserPrompt({
     role,
     rawPrompt,
-    workGraphId,
-    workGraph,
+    executableSpecificationId,
+    executableSpecification,
     plan,
     code,
     critique,

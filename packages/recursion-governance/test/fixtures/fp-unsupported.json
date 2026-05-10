@@ -7,7 +7,7 @@
   "rationale": "Execution gap identified in architecture-candidate capability delta",
   "capabilityId": "BC-META-EMIT-ARCHITECTURE-CANDIDATES",
   "name": "architecture_candidate_execution",
-  "purpose": "Emit ArchitectureCandidate artifacts alongside WorkGraphs",
+  "purpose": "Emit ArchitectureCandidate artifacts alongside ExecutableSpecifications",
   "functionType": "execution",
   "expectedInputs": [
     "IntentSpecification",

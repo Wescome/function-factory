@@ -239,7 +239,7 @@ describe('ff-pipeline diagnostic routes', () => {
             pressureId: 'PRS-MOTDWQ0T-S55Y',
             capabilityId: 'BC-MOTDWSVY-PQOO',
             proposalId: 'FP-MOTDWVR2-W7UN',
-            workGraphId: 'WG-MOTE4M1R-G7I0',
+            executableSpecificationId: 'WG-MOTE4M1R-G7I0',
           },
         }),
       }),
@@ -251,7 +251,7 @@ describe('ff-pipeline diagnostic routes', () => {
     expect(await jsonBody(response)).toMatchObject({
       accepted: true,
       pullNumber: 71,
-      workGraphId: 'WG-MOTE4M1R-G7I0',
+      executableSpecificationId: 'WG-MOTE4M1R-G7I0',
     })
     expect(send).toHaveBeenCalledWith({
       type: 'pr-outcome',
@@ -262,7 +262,7 @@ describe('ff-pipeline diagnostic routes', () => {
         pressureId: 'PRS-MOTDWQ0T-S55Y',
         capabilityId: 'BC-MOTDWSVY-PQOO',
         proposalId: 'FP-MOTDWVR2-W7UN',
-        workGraphId: 'WG-MOTE4M1R-G7I0',
+        executableSpecificationId: 'WG-MOTE4M1R-G7I0',
       },
     })
   })
@@ -283,7 +283,7 @@ describe('ff-pipeline diagnostic routes', () => {
               pressureId: 'PRS-MOTDWQ0T-S55Y',
               capabilityId: 'BC-MOTDWSVY-PQOO',
               proposalId: 'FP-MOTDWVR2-W7UN',
-              workGraphId: 'WG-MOTE4M1R-G7I0',
+              executableSpecificationId: 'WG-MOTE4M1R-G7I0',
             },
             pullRequest: {
               number: 71,
@@ -314,7 +314,7 @@ describe('ff-pipeline diagnostic routes', () => {
       accepted: true,
       processed: true,
       pullNumber: 71,
-      workGraphId: 'WG-MOTE4M1R-G7I0',
+      executableSpecificationId: 'WG-MOTE4M1R-G7I0',
       records: [
         {
           subtype: 'synthesis:pr-ci-passed',
@@ -362,7 +362,7 @@ describe('ff-pipeline diagnostic routes', () => {
 
     expect(response.status).toBe(400)
     expect(await jsonBody(response)).toMatchObject({
-      error: 'Missing required fields: pullNumber, lineage.pipelineId, lineage.proposalId, lineage.workGraphId',
+      error: 'Missing required fields: pullNumber, lineage.pipelineId, lineage.proposalId, lineage.executableSpecificationId',
     })
     expect(send).not.toHaveBeenCalled()
   })
@@ -378,7 +378,7 @@ describe('ff-pipeline diagnostic routes', () => {
         raw: {
           pipelineId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
           proposalId: 'FP-MOTDWVR2-W7UN',
-          workGraphId: 'WG-MOTE4M1R-G7I0',
+          executableSpecificationId: 'WG-MOTE4M1R-G7I0',
           pr: {
             number: 71,
             url: 'https://github.com/Wescome/function-factory/pull/71',
@@ -399,7 +399,7 @@ describe('ff-pipeline diagnostic routes', () => {
     ])
 
     const response = await worker.fetch(
-      new Request('https://ff-pipeline.example.com/debug/pr-outcome?pullNumber=71&workGraphId=WG-MOTE4M1R-G7I0'),
+      new Request('https://ff-pipeline.example.com/debug/pr-outcome?pullNumber=71&executableSpecificationId=WG-MOTE4M1R-G7I0'),
       createEnv() as never,
       { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
     )
@@ -412,7 +412,7 @@ describe('ff-pipeline diagnostic routes', () => {
         subtype: 'synthesis:pr-ci-passed',
         raw: {
           pipelineId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
-          workGraphId: 'WG-MOTE4M1R-G7I0',
+          executableSpecificationId: 'WG-MOTE4M1R-G7I0',
           pr: {
             number: 71,
             url: 'https://github.com/Wescome/function-factory/pull/71',
@@ -426,7 +426,7 @@ describe('ff-pipeline diagnostic routes', () => {
     })
     expect(mockQuery).toHaveBeenCalledWith(
       expect.stringContaining('synthesis:pr-'),
-      { pullNumber: 71, workGraphId: 'WG-MOTE4M1R-G7I0' },
+      { pullNumber: 71, executableSpecificationId: 'WG-MOTE4M1R-G7I0' },
     )
   })
 
@@ -446,7 +446,7 @@ describe('ff-pipeline diagnostic routes', () => {
         raw: {
           pipelineId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
           proposalId: 'FP-MOTDWVR2-W7UN',
-          workGraphId: 'WG-MOTE4M1R-G7I0',
+          executableSpecificationId: 'WG-MOTE4M1R-G7I0',
           pr: {
             number: 71,
             state: 'OPEN',
@@ -475,7 +475,7 @@ describe('ff-pipeline diagnostic routes', () => {
       candidates: [
         {
           pullNumber: 71,
-          workGraphId: 'WG-MOTE4M1R-G7I0',
+          executableSpecificationId: 'WG-MOTE4M1R-G7I0',
           lastSignalKey: 'SIG-MOTILTZ0-6DGK',
         },
       ],
@@ -489,7 +489,7 @@ describe('ff-pipeline diagnostic routes', () => {
         pressureId: 'PRS-MOTDWQ0T-S55Y',
         capabilityId: 'BC-MOTDWSVY-PQOO',
         proposalId: 'FP-MOTDWVR2-W7UN',
-        workGraphId: 'WG-MOTE4M1R-G7I0',
+        executableSpecificationId: 'WG-MOTE4M1R-G7I0',
       },
     })
     expect(mockQuery).toHaveBeenCalledWith(
@@ -560,7 +560,7 @@ describe('ff-pipeline diagnostic routes', () => {
       pack: {
         id: 'MRP-MOTE4M1R-G7I0-71',
         functionId: 'FN-MOTDWVR2-W7UN',
-        workGraphId: 'WG-MOTE4M1R-G7I0',
+        executableSpecificationId: 'WG-MOTE4M1R-G7I0',
         ciEvidence: {
           status: 'passed',
           checksPassed: ['Factory PR Gate', 'Typecheck', 'Test'],
@@ -643,7 +643,7 @@ describe('ff-pipeline diagnostic routes', () => {
         functionId: 'FN-MOTDWVR2-W7UN',
         verdict: 'merge-ready',
         auditability: {
-          workGraphId: 'WG-MOTE4M1R-G7I0',
+          executableSpecificationId: 'WG-MOTE4M1R-G7I0',
         },
       },
     })
@@ -869,7 +869,7 @@ describe('ff-pipeline diagnostic routes', () => {
     })
     expect(mockQuery).toHaveBeenCalledWith(
       expect.stringContaining('factory:pr-outcome'),
-      { pullNumber: 71, workGraphId: 'WG-MOTE4M1R-G7I0' },
+      { pullNumber: 71, executableSpecificationId: 'WG-MOTE4M1R-G7I0' },
     )
     expect(mockQueryOne).toHaveBeenCalledWith(
       expect.stringContaining('merge_readiness_evidence'),
@@ -933,11 +933,11 @@ describe('ff-pipeline diagnostic routes', () => {
     ])
   })
 
-  it('POST /debug/gate2-simulate returns a Fidelity Verification report and verdict', async () => {
+  it('POST /debug/fidelity-verification returns a Fidelity Verification report and verdict', async () => {
     const { default: worker } = await import('./index')
 
     const response = await worker.fetch(
-      new Request('https://ff-pipeline.example.com/debug/gate2-simulate', {
+      new Request('https://ff-pipeline.example.com/debug/fidelity-verification', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(makeFidelityVerificationSimulationInput()),
@@ -961,11 +961,11 @@ describe('ff-pipeline diagnostic routes', () => {
     })
   })
 
-  it('POST /debug/gate2-simulate accepts normalized FidelityVerificationInput evidence', async () => {
+  it('POST /debug/fidelity-verification accepts normalized FidelityVerificationInput evidence', async () => {
     const { default: worker } = await import('./index')
 
     const response = await worker.fetch(
-      new Request('https://ff-pipeline.example.com/debug/gate2-simulate', {
+      new Request('https://ff-pipeline.example.com/debug/fidelity-verification', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1083,11 +1083,11 @@ describe('ff-pipeline diagnostic routes', () => {
     )
   })
 
-  it('POST /debug/gate2-simulate can dry-run Fidelity Verification lifecycle acceptance without mutation', async () => {
+  it('POST /debug/fidelity-verification can dry-run Fidelity Verification lifecycle acceptance without mutation', async () => {
     const { default: worker } = await import('./index')
 
     const response = await worker.fetch(
-      new Request('https://ff-pipeline.example.com/debug/gate2-simulate', {
+      new Request('https://ff-pipeline.example.com/debug/fidelity-verification', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1108,10 +1108,10 @@ describe('ff-pipeline diagnostic routes', () => {
       lifecycleDryRun: {
         from: 'produced',
         to: 'accepted',
-        gate: 'gate-2',
+        verification: 'fidelity-verification',
         wouldTransition: true,
         mutationApplied: false,
-        gateReport: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+        verificationReport: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
       },
     })
     expect(mockSave).not.toHaveBeenCalled()
@@ -1214,7 +1214,7 @@ describe('ff-pipeline diagnostic routes', () => {
       lifecycleDryRun: {
         from: 'produced',
         to: 'accepted',
-        gate: 'gate-2',
+        verification: 'fidelity-verification',
         wouldTransition: true,
         mutationApplied: false,
       },
@@ -1271,7 +1271,7 @@ describe('ff-pipeline diagnostic routes', () => {
       expect.objectContaining({
         from: 'produced',
         to: 'accepted',
-        gateReport: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
+        verificationReport: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
       }),
     )
   })
@@ -1309,7 +1309,7 @@ describe('ff-pipeline diagnostic routes', () => {
       transition: {
         from: 'produced',
         to: 'accepted',
-        gateReport: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
+        verificationReport: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
         responsible_context: 'ff-pipeline:debug-lifecycle-acceptance-repair',
       },
     })
@@ -1321,7 +1321,7 @@ describe('ff-pipeline diagnostic routes', () => {
       expect.objectContaining({
         from: 'produced',
         to: 'accepted',
-        gateReport: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
+        verificationReport: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
       }),
     )
     expect(mockUpdate).not.toHaveBeenCalled()
@@ -1663,7 +1663,7 @@ function makeMaterializationAudit(): Record<string, unknown> {
     pressureId: 'PRS-MOTDWQ0T-S55Y',
     capabilityId: 'BC-MOTDWSVY-PQOO',
     proposalId: 'FP-MOTDWVR2-W7UN',
-    workGraphId: 'WG-MOTE4M1R-G7I0',
+    executableSpecificationId: 'WG-MOTE4M1R-G7I0',
     coherenceVerificationPassed: true,
     atomResults: [
       { atomId: 'atom-001', decision: 'pass', confidence: 0.95, tests: '14/14' },
@@ -1701,7 +1701,7 @@ function makePROutcomeSignal(): Record<string, unknown> {
     raw: {
       pipelineId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
       proposalId: 'FP-MOTDWVR2-W7UN',
-      workGraphId: 'WG-MOTE4M1R-G7I0',
+      executableSpecificationId: 'WG-MOTE4M1R-G7I0',
       pr: {
         number: 71,
         url: 'https://github.com/Wescome/function-factory/pull/71',
@@ -1784,17 +1784,17 @@ function makeFidelityVerificationSimulationInput(): Record<string, unknown> {
   return {
     functionId: 'FN-MOTDWVR2-W7UN',
     prdId: 'PRD-META-FUNCTION-SYNTHESIS',
-    workGraphId: 'WG-META-FUNCTION-SYNTHESIS',
+    executableSpecificationId: 'WG-META-FUNCTION-SYNTHESIS',
     candidateId: 'AC-META-ARCHITECTURE-CANDIDATE-EXECUTION',
     timestamp: '2026-05-07T21:30:00.000Z',
     sourceRefs: ['MRP-MOTE4M1R-G7I0-71'],
     branches: [
-      { workgraphNode: 'atom-001', edge: 'success' },
+      { executableSpecificationNode: 'atom-001', edge: 'success' },
     ],
     invariants: [
       {
         id: 'INV-META-RUNTIME-VERIFICATION-COVERS-SMOKE',
-        workgraphNode: 'atom-001',
+        executableSpecificationNode: 'atom-001',
       },
     ],
     scenarios: [
@@ -1802,7 +1802,7 @@ function makeFidelityVerificationSimulationInput(): Record<string, unknown> {
         id: 'SCN-RUNTIME-VERIFICATION-PASS',
         kind: 'positive',
         passed: true,
-        coversBranches: [{ workgraphNode: 'atom-001', edge: 'success' }],
+        coversBranches: [{ executableSpecificationNode: 'atom-001', edge: 'success' }],
         coversInvariants: ['INV-META-RUNTIME-VERIFICATION-COVERS-SMOKE'],
       },
       {
@@ -1828,7 +1828,7 @@ function makeFidelityVerificationContractInput(): Record<string, unknown> {
   return {
     synthesisRunId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
     functionId: 'FN-MOTDWVR2-W7UN',
-    workGraphId: 'WG-META-FUNCTION-SYNTHESIS',
+    executableSpecificationId: 'WG-META-FUNCTION-SYNTHESIS',
     architectureCandidateId: 'AC-META-ARCHITECTURE-CANDIDATE-EXECUTION',
     artifactPaths: ['workers/ff-pipeline/src/runtime-verification.ts'],
     validationOutcomes: [
@@ -1840,12 +1840,12 @@ function makeFidelityVerificationContractInput(): Record<string, unknown> {
           priority: 'required',
           invariantIds: ['INV-META-RUNTIME-VERIFICATION-COVERS-SMOKE'],
           branches: [
-            { workgraphNode: 'atom-001', edge: 'success' },
+            { executableSpecificationNode: 'atom-001', edge: 'success' },
           ],
           invariants: [
             {
               id: 'INV-META-RUNTIME-VERIFICATION-COVERS-SMOKE',
-              workgraphNode: 'atom-001',
+              executableSpecificationNode: 'atom-001',
             },
           ],
           scenarios: [
@@ -1853,7 +1853,7 @@ function makeFidelityVerificationContractInput(): Record<string, unknown> {
               id: 'SCN-RUNTIME-VERIFICATION-PASS',
               kind: 'positive',
               passed: true,
-              coversBranches: [{ workgraphNode: 'atom-001', edge: 'success' }],
+              coversBranches: [{ executableSpecificationNode: 'atom-001', edge: 'success' }],
               coversInvariants: ['INV-META-RUNTIME-VERIFICATION-COVERS-SMOKE'],
             },
             {

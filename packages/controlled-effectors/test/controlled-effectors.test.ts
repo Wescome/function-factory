@@ -5,7 +5,7 @@ import { buildExecutionNodeRecord } from "../src/enrich-trace-records.js"
 describe("controlled effectors", () => {
   it("emits a simulated allowed effector artifact", () => {
     const eff = emitEffectorArtifact({
-      sourceWorkGraphId: "WG-META-ARCHITECTURE-CANDIDATE-EXECUTION",
+      sourceExecutableSpecificationId: "WG-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       sourceArchitectureCandidateId: "AC-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       sourceSelectionId: "ACS-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       sourceAdmissionId: "RAD-META-ARCHITECTURE-CANDIDATE-EXECUTION-ALLOW",
@@ -27,7 +27,7 @@ describe("controlled effectors", () => {
   it("fails closed when restricted policy blocks tool_call", () => {
     expect(() =>
       emitEffectorArtifact({
-        sourceWorkGraphId: "WG-META-ARCHITECTURE-CANDIDATE-EXECUTION",
+        sourceExecutableSpecificationId: "WG-META-ARCHITECTURE-CANDIDATE-EXECUTION",
         sourceArchitectureCandidateId: "AC-META-ARCHITECTURE-CANDIDATE-EXECUTION",
         sourceSelectionId: "ACS-META-ARCHITECTURE-CANDIDATE-EXECUTION",
         sourceAdmissionId: "RAD-META-ARCHITECTURE-CANDIDATE-EXECUTION-ALLOW",

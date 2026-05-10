@@ -23,7 +23,7 @@ import {
 
 export interface TraceLogInput {
   readonly runId: string
-  readonly workGraphId: string
+  readonly executableSpecificationId: string
   readonly architectureCandidateId: string
   readonly bindingModeName: string
   readonly roleIterations: readonly RoleIterationRecord[]
@@ -38,7 +38,7 @@ export interface TraceLogInput {
 export function buildTraceLog(input: TraceLogInput): SynthesisTraceLog {
   return SynthesisTraceLog.parse({
     runId: input.runId,
-    workGraphId: input.workGraphId,
+    executableSpecificationId: input.executableSpecificationId,
     architectureCandidateId: input.architectureCandidateId,
     bindingModeName: input.bindingModeName,
     roleIterations: [...input.roleIterations],
@@ -56,7 +56,7 @@ export function buildTraceLog(input: TraceLogInput): SynthesisTraceLog {
 export interface FidelityVerificationInputBuilderInput {
   readonly runId: string
   readonly functionId: string
-  readonly workGraphId: string
+  readonly executableSpecificationId: string
   readonly architectureCandidateId: string
   readonly artifactPaths: readonly string[]
   readonly validationOutcomes: readonly ValidationOutcome[]
@@ -78,7 +78,7 @@ export function buildFidelityVerificationInput(input: FidelityVerificationInputB
   return FidelityVerificationInput.parse({
     synthesisRunId: input.runId,
     functionId: input.functionId,
-    workGraphId: input.workGraphId,
+    executableSpecificationId: input.executableSpecificationId,
     architectureCandidateId: input.architectureCandidateId,
     artifactPaths: [...input.artifactPaths],
     validationOutcomes: [...input.validationOutcomes],

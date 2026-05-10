@@ -8,7 +8,7 @@ export function renderArchitectureCandidateYaml(candidate: ArchitectureCandidate
     `explicitness: ${candidate.explicitness}`,
     `rationale: ${candidate.rationale}`,
     `sourcePrdId: ${candidate.sourcePrdId}`,
-    `sourceWorkGraphId: ${candidate.sourceWorkGraphId}`,
+    `sourceExecutableSpecificationId: ${candidate.sourceExecutableSpecificationId}`,
     `candidateStatus: ${candidate.candidateStatus}`,
     "topology:",
     `  shape: ${candidate.topology.shape}`,

@@ -45,7 +45,6 @@ const DB_STEP_CONFIG = {
 }
 
 const COHERENCE_VERIFICATION_FAILED_STATUS = 'coherence-verification-failed'
-const LEGACY_GATE1_FAILED_STATUS = 'gate-1-failed'
 
 function toStep(obj: Record<string, unknown>): Rec {
   return JSON.parse(JSON.stringify(obj)) as Rec
@@ -195,7 +194,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
           confidence: reviewConfidence,
           context: `Semantic review alignment: ${review.alignment}`,
           agentRole: 'critic',
-          workGraphId: proposalKey,
+          executableSpecificationId: proposalKey,
         })
         return { ok: true }
       })
@@ -276,7 +275,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
         specContent: signalSpecContent,
       },
       fileContexts: compileFileContexts.fileContexts ?? [],
-      workGraph: null,
+      executableSpecification: null,
     }
 
     let intentViolation = false
@@ -370,7 +369,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       }
     }
 
-    const wgKey = (compState.workGraph as { _key?: string })?._key ?? 'unknown'
+    const wgKey = (compState.executableSpecification as { _key?: string })?._key ?? 'unknown'
 
     // ── Phase D: Lifecycle → designed (after compilation) ──
     await step.do('lifecycle-designed', DB_STEP_CONFIG, async () => {
@@ -383,7 +382,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     })
 
     // Lineage: ExecutableSpecification → Proposal (written before Coherence Verification so lineage check passes)
-    await step.do('edge-workgraph-proposal', DB_STEP_CONFIG, async () => {
+    await step.do('edge-executableSpecification-proposal', DB_STEP_CONFIG, async () => {
       await db.saveEdge('lineage_edges', `specs_workgraphs/${wgKey}`, `specs_functions/${proposalKey}`, {
         type: 'compiled-from', createdAt: new Date().toISOString(),
       })
@@ -392,12 +391,12 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
 
     // ── Coherence Verification: Compile coverage (deterministic) ──
     const coherenceVerification = await step.do('coherence-verification', DB_STEP_CONFIG, async () => {
-      const result = await this.env.GATES.evaluateCoherenceVerification(compState.workGraph)
+      const result = await this.env.GATES.evaluateCoherenceVerification(compState.executableSpecification)
       return toStep(result as unknown as Record<string, unknown>) as unknown as CoherenceVerificationReport
     }) as unknown as CoherenceVerificationReport
 
     if (!coherenceVerification.passed) {
-      await step.do('persist-gate1-failure', DB_STEP_CONFIG, async () => {
+      await step.do('persist-coherence-verification-failure', DB_STEP_CONFIG, async () => {
         await db.save('specs_coverage_reports', {
           _key: `CR-G1-${wgKey}-${Date.now().toString(36)}`,
           type: 'gate-1',
@@ -419,12 +418,11 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       // ── Feedback loop: Coherence Verification failure → new signal ──
       const coherenceVerificationFailResult: PipelineResult = {
         status: COHERENCE_VERIFICATION_FAILED_STATUS,
-        legacyStatus: LEGACY_GATE1_FAILED_STATUS,
         report: coherenceVerification,
         coherenceVerificationReport: coherenceVerification,
         signalId: signalKey,
       }
-      await step.do('enqueue-feedback-gate1', DB_STEP_CONFIG, async () => {
+      await step.do('enqueue-feedback-coherence-verification', DB_STEP_CONFIG, async () => {
         const feedbackDepth = typeof (signal as Rec).raw?.feedbackDepth === 'number'
           ? (signal as Rec).raw.feedbackDepth as number : 0
         await this.env.FEEDBACK_QUEUE?.send({
@@ -439,7 +437,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     }
 
     // ── Persist gate pass ──
-    await step.do('persist-gate1-pass', DB_STEP_CONFIG, async () => {
+    await step.do('persist-coherence-verification-pass', DB_STEP_CONFIG, async () => {
       await db.save('gate_status', {
         _key: `verification: "coherence":${wgKey}-${Date.now().toString(36)}`,
         passed: true,
@@ -462,7 +460,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     // CF Workflows CANNOT communicate with DOs during step.do().
     // Instead: queue a synthesis request, wait for an external trigger
     // to call the DO via HTTP and send the result back as a workflow event.
-    if (!compState.workGraph) {
+    if (!compState.executableSpecification) {
       return {
         status: 'compile-incomplete',
         signalId: signalKey,
@@ -470,7 +468,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       }
     }
 
-    const wg = compState.workGraph as { _key?: string; [k: string]: unknown }
+    const wg = compState.executableSpecification as { _key?: string; [k: string]: unknown }
 
     // Enqueue synthesis request to CF Queue.
     // The queue consumer (queue() handler) will call the DO and send
@@ -481,8 +479,8 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     await step.do('enqueue-synthesis', DB_STEP_CONFIG, async () => {
       await this.env.SYNTHESIS_QUEUE.send({
         workflowId: event.instanceId,
-        workGraphId: wgKey,
-        workGraph: wg,
+        executableSpecificationId: wgKey,
+        executableSpecification: wg,
         dryRun,
         ...(specContent ? { specContent } : {}),
       })
@@ -545,7 +543,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
           pressureId: pressureKey,
           capabilityId: capabilityKey,
           proposalId: proposalKey,
-          workGraphId: wgKey,
+          executableSpecificationId: wgKey,
           coherenceVerificationReport: coherenceVerification,
           synthesisResult: {
             verdict: { decision: 'timeout', confidence: 1.0, reason: 'Atoms did not complete within 30 minutes' },
@@ -556,8 +554,8 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       }
     }
 
-    // Lineage: execution artifact -> workgraph
-    await step.do('edge-synthesis-workgraph', DB_STEP_CONFIG, async () => {
+    // Lineage: execution artifact -> executableSpecification
+    await step.do('edge-synthesis-executableSpecification', DB_STEP_CONFIG, async () => {
       await db.saveEdge('lineage_edges',
         `execution_artifacts/EA-${wgKey}-synthesis`,
         `specs_workgraphs/${wgKey}`,
@@ -587,7 +585,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       pressureId: pressureKey,
       capabilityId: capabilityKey,
       proposalId: proposalKey,
-      workGraphId: wgKey,
+      executableSpecificationId: wgKey,
       coherenceVerificationReport: coherenceVerification,
       synthesisResult: {
         verdict: finalVerdict,

@@ -230,7 +230,7 @@ You have the arango_query tool. USE IT to ground your briefing in real Factory c
         'semanticReview.specContent': { type: 'string', required: false, description: 'Original specification for ground truth comparison' },
         'codeReview.code': { type: 'CodeArtifact', required: true, description: 'Code output from Coder' },
         'codeReview.plan': { type: 'Plan', required: true, description: 'Plan the code should implement' },
-        'codeReview.workGraph': { type: 'Record<string, unknown>', required: true, description: 'ExecutableSpecification specification' },
+        'codeReview.executableSpecification': { type: 'Record<string, unknown>', required: true, description: 'ExecutableSpecification specification' },
         'codeReview.mentorRules': { type: 'string[]', required: false, description: 'Active MentorScript rules' },
       },
       outputValidation: {
@@ -322,7 +322,7 @@ Always query mentorscript_rules before producing a code review.`,
       maxTokens: 4096,
       maxTurns: 5,
       inputFields: {
-        workGraph: { type: 'Record<string, unknown>', required: true, description: 'Compiled specification' },
+        executableSpecification: { type: 'Record<string, unknown>', required: true, description: 'Compiled specification' },
         briefingScript: { type: 'BriefingScript', required: true, description: 'Architect guidance' },
         specContent: { type: 'string', required: false, description: 'Original specification text' },
         repairNotes: { type: 'string', required: false, description: 'Verifier notes on what to fix (patch cycle)' },
@@ -415,7 +415,7 @@ If this is a repair cycle (repairNotes/resampleReason provided), adjust your str
       maxTokens: 8192,
       maxTurns: 8,
       inputFields: {
-        workGraph: { type: 'Record<string, unknown>', required: true, description: 'ExecutableSpecification specification' },
+        executableSpecification: { type: 'Record<string, unknown>', required: true, description: 'ExecutableSpecification specification' },
         plan: { type: 'Plan', required: true, description: 'Implementation plan from Planner' },
         specContent: { type: 'string', required: false, description: 'Original specification' },
         repairNotes: { type: 'string', required: false, description: 'Verifier repair notes' },
@@ -509,7 +509,7 @@ If this is a repair cycle (repairNotes provided), focus on fixing the specific i
       maxTokens: 4096,
       maxTurns: 5,
       inputFields: {
-        workGraph: { type: 'Record<string, unknown>', required: true, description: 'ExecutableSpecification specification' },
+        executableSpecification: { type: 'Record<string, unknown>', required: true, description: 'ExecutableSpecification specification' },
         plan: { type: 'Plan', required: true, description: 'Implementation plan' },
         code: { type: 'CodeArtifact', required: true, description: 'Code to test' },
         critique: { type: 'CritiqueReport', required: false, description: 'Critic review results' },
@@ -597,7 +597,7 @@ You have the arango_query tool. USE IT to query active invariants BEFORE produci
       maxTokens: 4096,
       maxTurns: 5,
       inputFields: {
-        workGraph: { type: 'Record<string, unknown>', required: true, description: 'ExecutableSpecification specification' },
+        executableSpecification: { type: 'Record<string, unknown>', required: true, description: 'ExecutableSpecification specification' },
         plan: { type: 'Plan | null', required: true, description: 'Implementation plan' },
         code: { type: 'CodeArtifact | null', required: true, description: 'Code output' },
         critique: { type: 'CritiqueReport | null', required: true, description: 'Code review results' },

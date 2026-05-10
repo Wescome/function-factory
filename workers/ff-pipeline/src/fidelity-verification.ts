@@ -11,13 +11,13 @@ export type FidelityVerificationValidationPriority = 'required' | 'recommended'
 export type FidelityVerificationValidationStatus = 'pass' | 'fail'
 
 export interface FidelityVerificationBranch {
-  workgraphNode: string
+  executableSpecificationNode: string
   edge?: string
 }
 
 export interface FidelityVerificationInvariant {
   id: string
-  workgraphNode: string
+  executableSpecificationNode: string
 }
 
 export interface FidelityVerificationScenario {
@@ -38,7 +38,7 @@ export interface FidelityVerificationValidationOutcome {
 export interface FidelityVerificationInput {
   functionId: string
   prdId: string
-  workGraphId: string
+  executableSpecificationId: string
   candidateId: string
   timestamp: string
   sourceRefs: string[]
@@ -58,7 +58,7 @@ export interface FidelityVerificationContractValidationOutcome {
 export interface FidelityVerificationContractInput {
   synthesisRunId: string
   functionId: string
-  workGraphId: string
+  executableSpecificationId: string
   architectureCandidateId: string
   artifactPaths: string[]
   validationOutcomes: FidelityVerificationContractValidationOutcome[]
@@ -100,8 +100,6 @@ export interface FidelityVerificationAcceptanceDryRun {
   to: 'accepted'
   verification: 'fidelity-verification'
   verificationReport: string
-  gate: 'gate-2'
-  gateReport: string
   wouldTransition: boolean
   mutationApplied: false
   reason: string
@@ -157,12 +155,12 @@ function requireStringArray(value: unknown, field: string): string[] {
 
 function readBranch(value: unknown, field: string): FidelityVerificationBranch {
   const branch = requireRecord(value, field)
-  assertNonEmpty(branch.workgraphNode, `${field}.workgraphNode`)
+  assertNonEmpty(branch.executableSpecificationNode, `${field}.executableSpecificationNode`)
   if (branch.edge !== undefined && typeof branch.edge !== 'string') {
     throw new FidelityVerificationError(`${field}.edge must be a string`)
   }
   return {
-    workgraphNode: branch.workgraphNode,
+    executableSpecificationNode: branch.executableSpecificationNode,
     ...(branch.edge ? { edge: branch.edge } : {}),
   }
 }
@@ -170,10 +168,10 @@ function readBranch(value: unknown, field: string): FidelityVerificationBranch {
 function readInvariant(value: unknown, field: string): FidelityVerificationInvariant {
   const invariant = requireRecord(value, field)
   assertNonEmpty(invariant.id, `${field}.id`)
-  assertNonEmpty(invariant.workgraphNode, `${field}.workgraphNode`)
+  assertNonEmpty(invariant.executableSpecificationNode, `${field}.executableSpecificationNode`)
   return {
     id: invariant.id,
-    workgraphNode: invariant.workgraphNode,
+    executableSpecificationNode: invariant.executableSpecificationNode,
   }
 }
 
@@ -203,7 +201,7 @@ function pushUniqueBranch(branches: FidelityVerificationBranch[], branch: Fideli
 }
 
 function pushUniqueInvariant(invariants: FidelityVerificationInvariant[], invariant: FidelityVerificationInvariant): void {
-  if (!invariants.some(existing => existing.id === invariant.id && existing.workgraphNode === invariant.workgraphNode)) {
+  if (!invariants.some(existing => existing.id === invariant.id && existing.executableSpecificationNode === invariant.executableSpecificationNode)) {
     invariants.push(invariant)
   }
 }
@@ -223,12 +221,12 @@ function unique(values: string[]): string[] {
 }
 
 function sameBranch(left: FidelityVerificationBranch, right: FidelityVerificationBranch): boolean {
-  return left.workgraphNode === right.workgraphNode && (left.edge ?? '') === (right.edge ?? '')
+  return left.executableSpecificationNode === right.executableSpecificationNode && (left.edge ?? '') === (right.edge ?? '')
 }
 
-function branchDetail(branch: FidelityVerificationBranch): { workgraph_node: string; edge?: string; reason: string } {
+function branchDetail(branch: FidelityVerificationBranch): { executableSpecification_node: string; edge?: string; reason: string } {
   const detail = {
-    workgraph_node: branch.workgraphNode,
+    executableSpecification_node: branch.executableSpecificationNode,
     reason: 'no passing scenario exercises this branch',
   }
   return branch.edge ? { ...detail, edge: branch.edge } : detail
@@ -258,7 +256,7 @@ export function adaptFidelityVerificationInput(
 ): FidelityVerificationInput {
   assertNonEmpty(input.functionId, 'functionId')
   assertNonEmpty(options.prdId, 'prdId')
-  assertNonEmpty(input.workGraphId, 'workGraphId')
+  assertNonEmpty(input.executableSpecificationId, 'executableSpecificationId')
   assertNonEmpty(input.architectureCandidateId, 'architectureCandidateId')
   assertNonEmpty(input.provenance?.completedAt, 'provenance.completedAt')
   assertNonEmptyArray(input.validationOutcomes, 'validationOutcomes')
@@ -315,7 +313,7 @@ export function adaptFidelityVerificationInput(
   return {
     functionId: input.functionId,
     prdId: options.prdId,
-    workGraphId: input.workGraphId,
+    executableSpecificationId: input.executableSpecificationId,
     candidateId: input.architectureCandidateId,
     timestamp: options.timestamp ?? input.provenance.completedAt,
     sourceRefs: options.sourceRefs ?? [],
@@ -343,8 +341,6 @@ export function dryRunFidelityAcceptanceTransition(
       to: 'accepted',
       verification: 'fidelity-verification',
       verificationReport: input.report.id,
-      gate: 'gate-2',
-      gateReport: input.report.id,
       wouldTransition: false,
       mutationApplied: false,
       reason: validation.error ?? `${input.currentState} -> accepted is not authorized.`,
@@ -357,8 +353,6 @@ export function dryRunFidelityAcceptanceTransition(
       to: 'accepted',
       verification: 'fidelity-verification',
       verificationReport: input.report.id,
-      gate: 'gate-2',
-      gateReport: input.report.id,
       wouldTransition: false,
       mutationApplied: false,
       reason: 'Fidelity Verification report did not pass; produced -> accepted is blocked.',
@@ -370,8 +364,6 @@ export function dryRunFidelityAcceptanceTransition(
     to: 'accepted',
     verification: 'fidelity-verification',
     verificationReport: input.report.id,
-    gate: 'gate-2',
-    gateReport: input.report.id,
     wouldTransition: true,
     mutationApplied: false,
     reason: 'Fidelity Verification report passed and verdict accepted; produced -> accepted is authorized.',
@@ -381,7 +373,7 @@ export function dryRunFidelityAcceptanceTransition(
 export function evaluateFidelityVerification(input: FidelityVerificationInput): FidelityVerificationResult {
   assertNonEmpty(input.functionId, 'functionId')
   assertNonEmpty(input.prdId, 'prdId')
-  assertNonEmpty(input.workGraphId, 'workGraphId')
+  assertNonEmpty(input.executableSpecificationId, 'executableSpecificationId')
   assertNonEmpty(input.candidateId, 'candidateId')
   assertNonEmpty(input.timestamp, 'timestamp')
   assertNonEmptyArray(input.sourceRefs, 'sourceRefs')
@@ -446,7 +438,7 @@ export function evaluateFidelityVerification(input: FidelityVerificationInput): 
     source_refs: unique([
       input.functionId,
       input.prdId,
-      input.workGraphId,
+      input.executableSpecificationId,
       input.candidateId,
       ...input.sourceRefs,
       ...invariantsWithoutNegativeTests,

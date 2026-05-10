@@ -70,9 +70,9 @@ describe('T9: runFiber crash recovery', () => {
     expect(coordinatorSrc).toMatch(/this\.runFiber\(/)
   })
 
-  it('runFiber is called with a fiber name containing the workGraphId', () => {
-    // The fiber name should identify which workGraph is being synthesized
-    expect(coordinatorSrc).toMatch(/this\.runFiber\(\s*`synth-\$\{workGraphId\}`/)
+  it('runFiber is called with a fiber name containing the executableSpecificationId', () => {
+    // The fiber name should identify which executableSpecification is being synthesized
+    expect(coordinatorSrc).toMatch(/this\.runFiber\(\s*`synth-\$\{executableSpecificationId\}`/)
   })
 
   it('uses ctx.stash() for checkpointing state inside fiber', () => {

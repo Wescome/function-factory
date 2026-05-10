@@ -102,7 +102,7 @@ describe('ADR-005 v4.1 (Queue fallback): Coordinator callback wiring', () => {
   describe('alarm handler: calls notifyCallback on timeout', () => {
 
     it('alarm handler calls notifyCallback with interrupt verdict', () => {
-      expect(coordinatorSrc).toContain('await this.notifyCallback(this.buildResult(workGraphId, timedOutState))')
+      expect(coordinatorSrc).toContain('await this.notifyCallback(this.buildResult(executableSpecificationId, timedOutState))')
     })
 
     it('alarm handler sets __completed before calling callback', () => {

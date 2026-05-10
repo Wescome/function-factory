@@ -14,7 +14,7 @@ function makeAudit(overrides: Partial<SynthesisMaterializationAudit> = {}): Synt
     pressureId: 'PRS-MOTDWQ0T-S55Y',
     capabilityId: 'BC-MOTDWSVY-PQOO',
     proposalId: 'FP-MOTDWVR2-W7UN',
-    workGraphId: 'WG-MOTE4M1R-G7I0',
+    executableSpecificationId: 'WG-MOTE4M1R-G7I0',
     coherenceVerificationPassed: true,
     atomResults: [
       { atomId: 'atom-001', decision: 'pass', confidence: 0.95, tests: '14/14' },
@@ -50,7 +50,7 @@ describe('synthesis PR draft plan', () => {
       title: '[Factory] Materialize WG-MOTE4M1R-G7I0 synthesis artifact',
       branchName: 'factory/fp-motdwvr2-w7un',
       baseBranch: 'main',
-      workGraphId: 'WG-MOTE4M1R-G7I0',
+      executableSpecificationId: 'WG-MOTE4M1R-G7I0',
       proposalId: 'FP-MOTDWVR2-W7UN',
     })
     expect(draft.body).toContain('Pipeline: `b1b51f73-416d-4d87-90a5-9ccaa12bec76`')

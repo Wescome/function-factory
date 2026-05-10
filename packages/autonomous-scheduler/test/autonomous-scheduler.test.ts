@@ -47,7 +47,7 @@ describe('autonomous scheduler contracts', () => {
     expect(request.repo.name).toBe('strategy-recipes')
     expect(request.branch.mode).toBe('new_pr_branch')
     expect(request.policy.autonomyMode).toBe('branch_pr')
-    expect(request.workgraph.sourceRefs).toContain('Strategy_Recipes_UX_Architecture_v1.1.md')
+    expect(request.executableSpecification.sourceRefs).toContain('Strategy_Recipes_UX_Architecture_v1.1.md')
   })
 
   it('validates the current Strategy.Recipes dogfood next-slice request fixture', () => {
@@ -88,13 +88,13 @@ describe('autonomous scheduler contracts', () => {
 
   it('rejects requests without ExecutableSpecification lineage', () => {
     const invalid = structuredClone(requestFixture) as Record<string, unknown>
-    invalid.workgraph = {
+    invalid.executableSpecification = {
       id: 'WG-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW',
       nodeId: 'first-product-view',
       sourceRefs: [],
     }
 
-    expectValidationIssues(() => validateAgentRequest(invalid), ['workgraph.sourceRefs must not be empty'])
+    expectValidationIssues(() => validateAgentRequest(invalid), ['executableSpecification.sourceRefs must not be empty'])
   })
 
   it('rejects broad or absolute allowed paths', () => {
