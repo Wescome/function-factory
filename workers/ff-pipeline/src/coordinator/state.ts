@@ -157,7 +157,7 @@ export interface GraphState {
   tests: TestReport | null
   verdict: Verdict | null
 
-  roleHistory: { role: string; output: unknown; tokenUsage: number; timestamp: string }[]
+  roleHistory: { role: string; legacyRole?: string; output: unknown; tokenUsage: number; timestamp: string }[]
 
   repairCount: number
   tokenUsage: number

@@ -741,7 +741,7 @@ describe('specContent threading: pipeline -> queue -> DO -> graph nodes', () => 
 
       expect(visited).toEqual([
         'budget-check', 'architect', 'semantic-critic', 'compile',
-        'gate-1', 'planner', 'coder', 'code-critic', 'tester', 'verifier',
+        'coherence-verification', 'planner', 'coder', 'code-critic', 'tester', 'verifier',
       ])
       expect(finalState.verdict?.decision).toBe('pass')
       expect(finalState.specContent).toBeNull()

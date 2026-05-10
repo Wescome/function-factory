@@ -127,6 +127,8 @@ describe('Gate 2 simulation evaluator', () => {
     const dryRun: FidelityVerificationAcceptanceDryRun = {
       from: 'produced',
       to: 'accepted',
+      verification: 'fidelity-verification',
+      verificationReport: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-30-00-000Z',
       gate: 'gate-2',
       gateReport: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-30-00-000Z',
       wouldTransition: false,
@@ -232,6 +234,8 @@ describe('Gate 2 simulation evaluator', () => {
     })).toEqual({
       from: 'produced',
       to: 'accepted',
+      verification: 'fidelity-verification',
+      verificationReport: result.report.id,
       gate: 'gate-2',
       gateReport: result.report.id,
       wouldTransition: true,
@@ -259,6 +263,8 @@ describe('Gate 2 simulation evaluator', () => {
     })).toMatchObject({
       from: 'produced',
       to: 'accepted',
+      verification: 'fidelity-verification',
+      verificationReport: result.report.id,
       gate: 'gate-2',
       gateReport: result.report.id,
       wouldTransition: false,

@@ -143,7 +143,7 @@ function buildMigrationPlan(
   const monitoredBlock: FunctionIdentityMigrationOperation = {
     action: 'block_monitored_promotion',
     targetKey: input.functionId,
-    reason: 'Gate 3 active monitoring is still required before monitored promotion.',
+    reason: 'Persistence Verification active monitoring is still required before monitored promotion.',
   }
 
   if (functionDocumentFound) {

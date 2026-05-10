@@ -45,7 +45,7 @@ export interface SynthesisResult {
   verdict: Verdict
   tokenUsage: number
   repairCount: number
-  roleHistory: { role: string; tokenUsage: number; timestamp: string }[]
+  roleHistory: { role: string; legacyRole?: string; tokenUsage: number; timestamp: string }[]
   briefingScript?: unknown
   semanticReview?: unknown
 }
@@ -344,7 +344,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
 
       let finalState: GraphState
       try {
-        // ── Phase 1: serial planning graph (architect → critic → compile → gate-1 → planner) ──
+        // ── Phase 1: serial planning graph (architect -> critic -> compile -> coherence-verification -> planner) ──
         finalState = await graph.run(initialState, {
           onNodeStart: (name, state) => {
             console.log(`[Stage 6] Phase 1: ${name} starting (tokens ${state.tokenUsage})`)
@@ -366,7 +366,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         return this.buildResult(workGraphId, failState)
       }
 
-      // Phase 1 may have ended early (budget exceeded, semantic miscast, gate-1 fail)
+      // Phase 1 may have ended early (budget exceeded, semantic miscast, Coherence Verification fail)
       if (finalState.verdict) {
         await this.ctx.storage.deleteAlarm()
         await this.ctx.storage.put('__completed', true)
@@ -465,11 +465,12 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
           },
           tokenUsage: finalState.tokenUsage,
           repairCount: 0,
-          roleHistory: finalState.roleHistory.map(r => ({
-            role: r.role,
-            tokenUsage: r.tokenUsage,
-            timestamp: r.timestamp,
-          })),
+        roleHistory: finalState.roleHistory.map(r => ({
+          role: r.role,
+          ...(r.legacyRole ? { legacyRole: r.legacyRole } : {}),
+          tokenUsage: r.tokenUsage,
+          timestamp: r.timestamp,
+        })),
           ...(finalState.briefingScript != null ? { briefingScript: finalState.briefingScript } : {}),
           ...(finalState.semanticReview != null ? { semanticReview: finalState.semanticReview } : {}),
         } as unknown as SynthesisResult
@@ -589,6 +590,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       repairCount: state.repairCount,
       roleHistory: state.roleHistory.map(r => ({
         role: r.role,
+        ...(r.legacyRole ? { legacyRole: r.legacyRole } : {}),
         tokenUsage: r.tokenUsage,
         timestamp: r.timestamp,
       })),
@@ -633,6 +635,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         roleHistory: state.roleHistory,
         briefingScript: state.briefingScript,
         semanticReview: state.semanticReview,
+        coherenceVerificationReport: state.coherenceVerificationReport,
         gate1Report: state.gate1Report,
       }),
       createdAt: new Date().toISOString(),

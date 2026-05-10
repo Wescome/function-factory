@@ -2,10 +2,10 @@
  * T11: 9-node synthesis graph tests.
  *
  * Tests the extended graph topology:
- *   budget-check → architect → semantic-critic → compile → gate-1
+ *   budget-check → architect → semantic-critic → compile → coherence-verification
  *   → planner → coder → code-critic → tester → verifier (with repair loop)
  *
- * The architect pipeline (architect → semantic-critic → compile → gate-1)
+ * The architect pipeline (architect → semantic-critic → compile → coherence-verification)
  * runs ONCE. Repair loops only re-run the inner loop
  * (planner → coder → code-critic → tester → verifier).
  */
@@ -152,7 +152,7 @@ describe('T11: 9-node synthesis graph', () => {
       'architect',
       'semantic-critic',
       'compile',
-      'gate-1',
+      'coherence-verification',
       'planner',
       'coder',
       'code-critic',
@@ -440,24 +440,24 @@ describe('T11: 9-node synthesis graph', () => {
   })
 
   // ────────────────────────────────────────────────────────────
-  // T11.8: Gate-1 failure routes to END
+  // T11.8: Coherence Verification repair-path routing
   // ────────────────────────────────────────────────────────────
 
-  it('T11.8: gate-1 compatibility node failure routes to END without proceeding to planner', async () => {
+  it('T11.8: coherence-verification repair path skips upstream verification replay', async () => {
     // Override the compile node to return failing Coherence Verification evidence.
     // We need a custom setup where the compatibility node fails.
     const deps = make9NodeDeps()
 
-    // We'll create a graph and manually verify compatibility-node failure
+    // We'll create a graph and manually verify verification-node failure
     // routing by overriding coherenceVerificationPassed to false.
     // The real test is that when Coherence Verification is false, we go to END.
 
     // Build a graph with a criticAgent that produces aligned review
-    // but we need the compatibility node to fail. Since that node is built in
+    // but we need the verification node to fail. Since that node is built in
     // and sets coherenceVerificationPassed=true, this checks the conditional
     // edge logic by pre-setting the verdict false in state.
 
-    // For the stub implementation, the compatibility node always passes.
+    // For the stub implementation, the verification node always passes.
     // We test the conditional edge by pre-setting coherenceVerificationPassed=false.
 
     const graph = buildSynthesisGraph(deps)
@@ -472,9 +472,9 @@ describe('T11: 9-node synthesis graph', () => {
     })
 
     // The graph routes budget-check → planner when briefingScript exists.
-    // Gate-1 failure is about the architect pipeline path.
-    // Let's test the full path with a modified gate-1 node.
-    // Since the stub gate-1 always passes, this test validates the edge exists.
+    // Coherence Verification failure is about the architect pipeline path.
+    // Let's test the full path with a modified coherence-verification node.
+    // Since the stub coherence-verification always passes, this test validates the edge exists.
     const visited: string[] = []
     await graph.run(state, {
       maxSteps: 50,
@@ -482,7 +482,7 @@ describe('T11: 9-node synthesis graph', () => {
     })
 
     // With briefingScript already set, it skips to planner (repair path)
-    // Gate-1 node is only hit during architect pipeline
+    // Coherence Verification is only hit during the architect pipeline.
     expect(visited[0]).toBe('budget-check')
     expect(visited[1]).toBe('planner')
   })
@@ -530,10 +530,10 @@ describe('T11: 9-node synthesis graph', () => {
   })
 
   // ────────────────────────────────────────────────────────────
-  // T11.10b: gate-1 node records upstream verification, not fake proof
+  // T11.10b: coherence-verification node records upstream verification, not fake proof
   // ────────────────────────────────────────────────────────────
 
-  it('T11.10b: gate-1 node records non-authoritative upstream Coherence Verification evidence', async () => {
+  it('T11.10b: coherence-verification node records non-authoritative upstream Coherence Verification evidence', async () => {
     const deps = make9NodeDeps()
     const graph = buildSynthesisGraph(deps)
     const state = makeState()
@@ -546,12 +546,17 @@ describe('T11: 9-node synthesis graph', () => {
     expect(finalState.gate1Report).toBe(finalState.coherenceVerificationReport)
 
     const coherenceVerificationReport = finalState.coherenceVerificationReport as Record<string, unknown>
+    expect(coherenceVerificationReport.verification).toBe('coherence-verification')
+    expect(coherenceVerificationReport.legacyGate).toBe('gate-1')
     expect(coherenceVerificationReport.source).toBe('workflow-stage-coherence-verification')
     expect(coherenceVerificationReport.evidenceStatus).toBe('upstream_verified_not_recomputed')
     expect(coherenceVerificationReport.authoritative).toBe(false)
     expect(coherenceVerificationReport.summary).toContain('verified upstream')
     expect(JSON.stringify(coherenceVerificationReport)).not.toContain('stub-check')
     expect(JSON.stringify(coherenceVerificationReport)).not.toContain('Gate 1 passed (stub)')
+
+    const role = finalState.roleHistory.find(entry => entry.role === 'coherence-verification')
+    expect(role?.legacyRole).toBe('gate-1')
   })
 
   // ────────────────────────────────────────────────────────────

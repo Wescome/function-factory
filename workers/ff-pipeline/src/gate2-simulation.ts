@@ -98,6 +98,8 @@ export interface FidelityVerificationAcceptanceDryRunInput {
 export interface FidelityVerificationAcceptanceDryRun {
   from: LifecycleState
   to: 'accepted'
+  verification: 'fidelity-verification'
+  verificationReport: string
   gate: 'gate-2'
   gateReport: string
   wouldTransition: boolean
@@ -356,6 +358,8 @@ export function dryRunFidelityAcceptanceTransition(
     return {
       from: input.currentState,
       to: 'accepted',
+      verification: 'fidelity-verification',
+      verificationReport: input.report.id,
       gate: 'gate-2',
       gateReport: input.report.id,
       wouldTransition: false,
@@ -368,6 +372,8 @@ export function dryRunFidelityAcceptanceTransition(
     return {
       from: input.currentState,
       to: 'accepted',
+      verification: 'fidelity-verification',
+      verificationReport: input.report.id,
       gate: 'gate-2',
       gateReport: input.report.id,
       wouldTransition: false,
@@ -379,6 +385,8 @@ export function dryRunFidelityAcceptanceTransition(
   return {
     from: input.currentState,
     to: 'accepted',
+    verification: 'fidelity-verification',
+    verificationReport: input.report.id,
     gate: 'gate-2',
     gateReport: input.report.id,
     wouldTransition: true,

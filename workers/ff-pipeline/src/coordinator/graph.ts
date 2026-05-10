@@ -8,6 +8,9 @@ import type { PlannerInput } from '../agents/planner-agent'
 import type { TesterInput } from '../agents/tester-agent'
 import type { SemanticReviewResult } from '../types'
 
+export const COHERENCE_VERIFICATION_NODE = 'coherence-verification'
+export const LEGACY_GATE1_NODE = 'gate-1'
+
 export interface GraphDeps {
   callModel: (taskKind: string, system: string, user: string) => Promise<string>
   persistState: (state: GraphState, role: string) => Promise<void>
@@ -16,7 +19,7 @@ export interface GraphDeps {
   executionRole?: (role: 'coder' | 'tester') => (state: GraphState) => Promise<Partial<GraphState>>
 
   // ── 9-node extensions (SS8) ──
-  /** When provided, enables the architect pipeline (architect → semantic-critic → compile → gate-1). */
+  /** When provided, enables the architect pipeline (architect -> semantic-critic -> compile -> coherence-verification). */
   architectAgent?: { produceBriefingScript: (input: { signal: PipelineWorkGraph; specContent?: string }) => Promise<BriefingScript> }
   /** When provided, the planner node calls PlannerAgent instead of callModel. */
   plannerAgent?: { producePlan: (input: PlannerInput) => Promise<Plan> }
@@ -151,11 +154,13 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
       return updated
     })
 
-    // gate-1 — compatibility node name; records pass-through Coherence Verification evidence.
+    // Coherence Verification records pass-through upstream evidence.
     // The real fail-closed Coherence Verification runs in the Workflow before Stage 6.
-    graph.addNode('gate-1', async (state) => {
+    graph.addNode(COHERENCE_VERIFICATION_NODE, async (state) => {
       const coherenceVerificationReport = {
         gate: 1,
+        verification: COHERENCE_VERIFICATION_NODE,
+        legacyGate: LEGACY_GATE1_NODE,
         passed: true,
         source: 'workflow-stage-coherence-verification',
         evidenceStatus: 'upstream_verified_not_recomputed',
@@ -176,10 +181,16 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
         gate1Report: coherenceVerificationReport,
         roleHistory: [
           ...state.roleHistory,
-          { role: 'gate-1', output: coherenceVerificationReport, tokenUsage: 0, timestamp: new Date().toISOString() },
+          {
+            role: COHERENCE_VERIFICATION_NODE,
+            legacyRole: LEGACY_GATE1_NODE,
+            output: coherenceVerificationReport,
+            tokenUsage: 0,
+            timestamp: new Date().toISOString(),
+          },
         ],
       }
-      await deps.persistState({ ...state, ...updated } as GraphState, 'gate-1')
+      await deps.persistState({ ...state, ...updated } as GraphState, COHERENCE_VERIFICATION_NODE)
       return updated
     })
 
@@ -400,8 +411,8 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
     // v5: Phase 1 only — graph stops after planner
     // Architect pipeline edges
     graph.addEdge('architect', 'semantic-critic')
-    graph.addEdge('compile', 'gate-1')
-    graph.addEdge('gate-1', 'planner')
+    graph.addEdge('compile', COHERENCE_VERIFICATION_NODE)
+    graph.addEdge(COHERENCE_VERIFICATION_NODE, 'planner')
 
     // Planner goes to END — Phase 2 handled by coordinator via layer-dispatch
     graph.addEdge('planner', END)
@@ -425,8 +436,8 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
   } else if (has9Node) {
     // Architect pipeline edges
     graph.addEdge('architect', 'semantic-critic')
-    graph.addEdge('compile', 'gate-1')
-    graph.addEdge('gate-1', 'planner')
+    graph.addEdge('compile', COHERENCE_VERIFICATION_NODE)
+    graph.addEdge(COHERENCE_VERIFICATION_NODE, 'planner')
 
     // Inner loop edges
     graph.addEdge('planner', 'coder')

@@ -2,7 +2,8 @@
  * T13: Persistence boundary tests — TDD.
  *
  * Verifies that persistSynthesisResult() and buildResult() correctly
- * surface briefingScript, semanticReview, gate1Report, and full
+ * surface briefingScript, semanticReview, coherenceVerificationReport,
+ * gate1Report, and full
  * roleHistory to ArangoDB and the SynthesisResult return type.
  *
  * Root cause: 9-node graph nodes write these fields to GraphState
@@ -46,8 +47,9 @@ describe('T13: persistence boundary — persistSynthesisResult', () => {
     expect(synthesisSaveBlock).toContain('semanticReview')
   })
 
-  it('T13.1c: persistSynthesisResult includes gate1Report in synthesis_summary content', () => {
+  it('T13.1c: persistSynthesisResult includes Coherence Verification report fields in synthesis_summary content', () => {
     const synthesisSaveBlock = extractSynthesisSummaryBlock(coordinatorSrc)
+    expect(synthesisSaveBlock).toContain('coherenceVerificationReport')
     expect(synthesisSaveBlock).toContain('gate1Report')
   })
 

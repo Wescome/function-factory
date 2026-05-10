@@ -12,9 +12,9 @@
  *   implemented → produced
  *   verified → accepted
  *
- * Gate requirements (from factory-shapes.ttl C14, updated):
- *   Produced -> Accepted requires Gate 2 pass
- *   Accepted -> Monitored requires Gate 3 active
+ * Verification requirements (from factory-shapes.ttl C14, updated):
+ *   Produced -> Accepted requires Fidelity Verification pass
+ *   Accepted -> Monitored requires Persistence Verification active
  *
  * Transitions are IDEMPOTENT: transitioning to the current state is a no-op.
  *
@@ -49,7 +49,8 @@ export interface LifecycleTransition {
   guard?: string               // named precondition from canonical transition table
   responsible_context?: string // which subsystem owns this transition
   timestamp: string
-  gateReport?: string          // _key of the gate report that authorized this transition
+  verificationReport?: string  // _key of the verification report that authorized this transition
+  gateReport?: string          // legacy compatibility alias for verificationReport
 }
 
 // ── Constants ──────────────────────────────────────────────────────
@@ -72,11 +73,24 @@ export const ALLOWED_TRANSITIONS: Record<LifecycleState, LifecycleState[]> = {
   retired: [],
 }
 
+export type VerificationRequirement = 'fidelity-verification' | 'persistence-verification'
+export type LegacyGateRequirement = 'gate-2' | 'gate-3'
+
+export interface VerificationRequirementSpec {
+  verification: VerificationRequirement
+  legacyGate: LegacyGateRequirement
+}
+
 /**
- * Gate requirements for target states.
- * If a target state is in this map, the named gate must have passed.
+ * Verification requirements for target states.
+ * If a target state is in this map, the named verification must have passed.
  */
-export const GATE_REQUIREMENTS: Partial<Record<LifecycleState, string>> = {
+export const VERIFICATION_REQUIREMENTS: Partial<Record<LifecycleState, VerificationRequirementSpec>> = {
+  accepted: { verification: 'fidelity-verification', legacyGate: 'gate-2' },
+  monitored: { verification: 'persistence-verification', legacyGate: 'gate-3' },
+}
+
+export const GATE_REQUIREMENTS: Partial<Record<LifecycleState, LegacyGateRequirement>> = {
   accepted: 'gate-2',
   monitored: 'gate-3',
 }
@@ -87,7 +101,8 @@ export const GATE_REQUIREMENTS: Partial<Record<LifecycleState, string>> = {
  * Validate a lifecycle state transition.
  *
  * Returns { valid: true } if the transition is allowed.
- * Returns { valid: true, gateRequired } if a gate must pass first.
+ * Returns { valid: true, verificationRequired } if a verification must pass first.
+ * Also returns legacy gateRequired for compatibility callers.
  * Returns { valid: false, error } if the transition is forbidden.
  *
  * Same-state transitions are treated as valid (idempotent no-op).
@@ -95,7 +110,7 @@ export const GATE_REQUIREMENTS: Partial<Record<LifecycleState, string>> = {
 export function validateTransition(
   from: LifecycleState,
   to: LifecycleState,
-): { valid: boolean; error?: string; gateRequired?: string } {
+): { valid: boolean; error?: string; verificationRequired?: VerificationRequirement; gateRequired?: LegacyGateRequirement } {
   // Idempotent: same state -> no-op
   if (from === to) {
     return { valid: true }
@@ -109,8 +124,14 @@ export function validateTransition(
     }
   }
 
-  const gateRequired = GATE_REQUIREMENTS[to]
-  return { valid: true, ...(gateRequired ? { gateRequired } : {}) }
+  const requirement = VERIFICATION_REQUIREMENTS[to]
+  return {
+    valid: true,
+    ...(requirement ? {
+      verificationRequired: requirement.verification,
+      gateRequired: requirement.legacyGate,
+    } : {}),
+  }
 }
 
 // ── State transition ───────────────────────────────────────────────
@@ -120,7 +141,8 @@ export function validateTransition(
  *
  * 1. Fetches the current document from specs_functions
  * 2. Validates the transition
- * 3. If a gate is required, verifies it has passed (via gateReport or gate_status query)
+ * 3. If verification is required, verifies it has passed
+ *    (via verificationReport, legacy gateReport, or gate_status query)
  * 4. Updates the document's lifecycleState field
  * 5. Records the transition in lifecycle_transitions edge collection
  *
@@ -137,6 +159,7 @@ export async function transitionLifecycle(
     trigger: string
     guard?: string
     responsible_context?: string
+    verificationReport?: string
     gateReport?: string
   },
 ): Promise<void> {
@@ -163,17 +186,19 @@ export async function transitionLifecycle(
     throw new Error(validation.error)
   }
 
-  // 4. Gate check
-  if (validation.gateRequired) {
-    if (!opts.gateReport) {
+  // 4. Verification check
+  if (validation.verificationRequired) {
+    const reportKey = opts.verificationReport ?? opts.gateReport
+    if (!reportKey) {
       throw new Error(
-        `Transition ${from} -> ${to} requires ${validation.gateRequired} gate pass. ` +
-        `Provide a gateReport key.`,
+        `Transition ${from} -> ${to} requires ${validation.verificationRequired} pass. ` +
+        `Provide a verificationReport key.`,
       )
     }
 
-    // Verify gate actually passed. Older paths write gate_status; diagnostic
-    // Gate 2 evidence writes schema-validated records to specs_coverage_reports.
+    // Verify the required verification actually passed. Older paths write
+    // gate_status; diagnostic evidence writes schema-validated records to
+    // specs_coverage_reports with legacy gate-* storage discriminators.
     const gateStatus = await db.queryOne<{ passed: boolean }>(
       `LET gateStatus = FIRST(
          FOR g IN gate_status
@@ -185,17 +210,22 @@ export async function transitionLifecycle(
            FILTER report._key == @key OR report.id == @key
            RETURN {
              passed: report.passed == true
+               OR (report.type == @verificationRequired AND report.report.overall == "pass")
                OR (report.type == @gateRequired AND report.report.overall == "pass")
                OR (report.gate == TO_NUMBER(SUBSTITUTE(@gateRequired, "gate-", "")) AND report.overall == "pass")
            }
        )
        RETURN gateStatus != null ? gateStatus : coverageReport`,
-      { key: opts.gateReport, gateRequired: validation.gateRequired },
+      {
+        key: reportKey,
+        verificationRequired: validation.verificationRequired,
+        gateRequired: validation.gateRequired,
+      },
     )
 
     if (!gateStatus?.passed) {
       throw new Error(
-        `Gate ${validation.gateRequired} has not passed for report ${opts.gateReport}. ` +
+        `Verification ${validation.verificationRequired} has not passed for report ${reportKey}. ` +
         `Cannot transition ${from} -> ${to}.`,
       )
     }
@@ -217,7 +247,10 @@ export async function transitionLifecycle(
     timestamp: new Date().toISOString(),
     ...(opts.guard ? { guard: opts.guard } : {}),
     ...(opts.responsible_context ? { responsible_context: opts.responsible_context } : {}),
-    ...(opts.gateReport ? { gateReport: opts.gateReport } : {}),
+    ...(opts.verificationReport || opts.gateReport ? {
+      verificationReport: opts.verificationReport ?? opts.gateReport,
+      gateReport: opts.gateReport ?? opts.verificationReport,
+    } : {}),
   }
 
   await db.saveEdge(

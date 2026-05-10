@@ -404,7 +404,7 @@ describe('v4.1 Commit 2: Per-atom retry isolation', () => {
     // Two full loops: first pass (10 nodes) + repair (6 nodes: budget-check -> planner -> coder -> code-critic -> tester -> verifier)
     expect(visited).toEqual([
       // First pass
-      'budget-check', 'architect', 'semantic-critic', 'compile', 'gate-1',
+      'budget-check', 'architect', 'semantic-critic', 'compile', 'coherence-verification',
       'planner', 'coder', 'code-critic', 'tester', 'verifier',
       // Repair loop
       'budget-check', 'planner', 'coder', 'code-critic', 'tester', 'verifier',

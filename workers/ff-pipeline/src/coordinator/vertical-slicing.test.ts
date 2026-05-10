@@ -447,13 +447,13 @@ describe('v5: graph verticalSlicing mode', () => {
       onNodeStart: (name) => visited.push(name),
     })
 
-    // Phase 1 only: budget-check → architect → semantic-critic → compile → gate-1 → planner
+    // Phase 1 only: budget-check → architect → semantic-critic → compile → coherence-verification → planner
     expect(visited).toEqual([
       'budget-check',
       'architect',
       'semantic-critic',
       'compile',
-      'gate-1',
+      'coherence-verification',
       'planner',
     ])
 
@@ -532,7 +532,7 @@ describe('v5: graph verticalSlicing mode', () => {
       'architect',
       'semantic-critic',
       'compile',
-      'gate-1',
+      'coherence-verification',
       'planner',
       'coder',
       'code-critic',

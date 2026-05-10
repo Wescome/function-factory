@@ -4,11 +4,24 @@
 Active task: ontology alias-first migration away from primary Gate(x) names.
 
 ## Last update
-2026-05-09T20:28:52Z
+2026-05-10T14:00:24Z
 
 ## Current actions
 
 - In progress: Gate(x) API de-primary pass.
+  - Completed current slice: lifecycle guards now use
+    `VERIFICATION_REQUIREMENTS`, `verificationRequired`, and
+    `verificationReport` as primary while preserving `GATE_REQUIREMENTS`,
+    `gateRequired`, and `gateReport` as compatibility aliases.
+  - Completed current slice: coordinator graph now uses
+    `coherence-verification` as the primary node name and records
+    `legacyRole: gate-1` plus legacy `gate1*` state fields for compatibility.
+  - Verification passed:
+    - `pnpm --filter @factory/ff-pipeline test -- src/lifecycle.test.ts src/gate2-simulation.test.ts src/function-identity.test.ts`
+    - `pnpm --filter @factory/ff-pipeline test -- src/coordinator/graph-9node.test.ts src/coordinator/coordinator-9node-wiring.test.ts src/coordinator/vertical-slicing.test.ts src/coordinator/atom-retry.test.ts src/coordinator/spec-content-threading.test.ts src/coordinator/coordinator-persistence-boundary.test.ts`
+    - `pnpm --filter @factory/ff-pipeline typecheck`
+    - `pnpm audit:ontology`
+    - `git diff --check`
   - Completed current slice: ff-pipeline now emits
     `coherence-verification-failed` as the primary PipelineResult status for
     failed Coherence Verification while carrying `legacyStatus:
