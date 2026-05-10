@@ -8,9 +8,10 @@ normalization through workgraph assembly.
 
 This package implements compilation transformations from the ontology v0.2
 `Intent Specification` alias to the `Executable Specification` alias. The
-stable compatibility names remain PRD, WorkGraph, Gate 1 artifact IDs, and
-`@factory/compiler`. New code should prefer Coherence Verification APIs;
-numbered Gate 1 APIs remain legacy compatibility shims.
+stable compatibility names remain PRD, WorkGraph, legacy compile-coverage
+artifact IDs, and `@factory/compiler`. New code should prefer Coherence
+Verification APIs; numbered compile-coverage APIs remain legacy compatibility
+shims.
 
 ## Pipeline Position
 

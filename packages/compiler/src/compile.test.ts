@@ -12,7 +12,7 @@ import { mkdtemp, readFile, rm, writeFile, mkdir } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { parse as parseYaml } from "yaml"
-import { CoherenceVerificationReport, Gate1Report, WorkGraph } from "@factory/schemas"
+import { CoherenceVerificationReport, WorkGraph } from "@factory/schemas"
 import { compile } from "./compile.js"
 
 // Path to the real meta-PRD; resolved from the monorepo root.
@@ -59,7 +59,6 @@ describe("compile- end-to-end against PRD-META-GATE-1-COMPILE-COVERAGE", () => {
     })
     const parsed = CoherenceVerificationReport.safeParse(result.report)
     expect(parsed.success).toBe(true)
-    expect(Gate1Report.safeParse(result.report).success).toBe(true)
   })
 
   it("emits the Coverage Report as YAML to the configured directory", async () => {

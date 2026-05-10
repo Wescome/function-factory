@@ -160,6 +160,12 @@ function checkCompatibilityContractManifest() {
     checkExists(`compatibility contract runtime collection scan file ${runtimeFile}`, runtimeFile)
   }
 
+  expectArrayIncludes('compatibility contract keeps legacy gate-2 discriminator explicit', contract.stableRuntimeDiscriminators, 'gate-2')
+  expectArrayIncludes('compatibility contract keeps legacy gateReport explicit', contract.stableRuntimeDiscriminators, 'gateReport')
+  expectArrayIncludes('compatibility contract records Coherence Verification primary runtime alias', contract.primaryRuntimeAliases, 'coherence-verification')
+  expectArrayIncludes('compatibility contract records Fidelity Verification primary runtime alias', contract.primaryRuntimeAliases, 'fidelity-verification')
+  expectArrayIncludes('compatibility contract records verificationReport primary runtime alias', contract.primaryRuntimeAliases, 'verificationReport')
+
   expectArrayIncludes('compatibility contract forbids specs_intent_specifications', contract.forbiddenOntologyCollectionTargets, 'specs_intent_specifications')
   expectArrayIncludes('compatibility contract forbids specs_executable_specifications', contract.forbiddenOntologyCollectionTargets, 'specs_executable_specifications')
   expectArrayIncludes('compatibility contract forbids specs_verification_reports', contract.forbiddenOntologyCollectionTargets, 'specs_verification_reports')
@@ -386,7 +392,7 @@ function checkPackageAliasReadmes() {
   expectIncludes('artifact validator README retains specs_workgraphs collection', read(files.artifactValidatorReadme), 'specs_workgraphs')
   expectIncludes('artifact validator README retains specs_coverage_reports collection', read(files.artifactValidatorReadme), 'specs_coverage_reports')
   expectIncludes('compiler README documents Coherence Verification pass', read(files.compilerReadme), 'runCoherenceVerificationPass')
-  expectIncludes('compiler README marks numbered gate terms legacy', read(files.compilerReadme), 'legacy compatibility shims')
+  expectIncludes('compiler README marks numbered verification terms legacy', read(files.compilerReadme), 'numbered compile-coverage APIs remain legacy compatibility')
   expectIncludes('function synthesis README retains WorkGraph compatibility term', read(files.functionSynthesisReadme), 'WorkGraph')
   expectIncludes('function synthesis README documents FidelityVerificationInput', read(files.functionSynthesisReadme), 'FidelityVerificationInput')
   expectIncludes('function synthesis README marks numbered gate terms legacy', read(files.functionSynthesisReadme), 'legacy compatibility shims')
@@ -502,7 +508,7 @@ function checkRefactorReadinessChecklist() {
     'ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md',
     'aliases alone are insufficient',
     'dual-read compatibility',
-    'live worker, MRP, lifecycle, and Gate evidence',
+    'live worker, MRP, lifecycle, and Verification evidence',
     'pnpm audit:docs',
     'pnpm audit:ontology',
     'Repository Audit',

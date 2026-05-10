@@ -21,11 +21,11 @@ Ontology v0.2 is indexed in
 [`specs/reference/FF-ONTOLOGY-v0.2.md`](specs/reference/FF-ONTOLOGY-v0.2.md).
 Use
 [`specs/reference/ONTOLOGY-CURRENT-MAPPING.md`](specs/reference/ONTOLOGY-CURRENT-MAPPING.md)
-as the compatibility crosswalk: current names such as PRD, WorkGraph, Gate 1,
-Gate 2, Gate 3, and Coverage Report remain stable physical names while
-ontology terms such as Intent Specification, Executable Specification,
-Coherence Verification, Fidelity Verification, Persistence Verification, and
-Verification Report are interpretive aliases.
+as the compatibility crosswalk: ontology terms such as Intent Specification,
+Executable Specification, Coherence Verification, Fidelity Verification,
+Persistence Verification, and Verification Report are primary; current PRD,
+WorkGraph, Coverage Report, and legacy numbered verification names remain
+stable compatibility surfaces.
 
 ## Repository layout
 
@@ -40,7 +40,7 @@ Verification Report are interpretive aliases.
 packages/                       # TypeScript monorepo (pnpm workspaces)
   schemas/                      # Canonical Zod schemas for every Factory object
   compiler/                     # Stage 5: PRD → WorkGraph; ontology alias: Intent → Executable Specification
-  coverage-gates/               # §6: Gate 1/2/3; aliases: Coherence/Fidelity/Persistence Verification
+  coverage-gates/               # §6: Coherence/Fidelity/Persistence Verification
   assurance-graph/              # §5: incident propagation via typed dependencies
   runtime/                      # Stage 7: trust, invariant health, regression
   autonomous-scheduler/          # Stage 6 boundary: WorkGraph → AgentRequest → evidence
@@ -53,7 +53,7 @@ specs/                          # Factory artifacts (Factory-built-by-Factory)
   prds/                         # Stage 5 input; ontology alias: Intent Specifications
   workgraphs/                   # Stage 5 output; ontology alias: Executable Specifications
   invariants/                   # Invariant + detector specs; ontology alias: Invariant Specifications
-  coverage-reports/             # Gate 1/2/3 outputs; ontology alias: Verification Reports
+  coverage-reports/             # Verification Reports
 ```
 
 ## Bootstrap loop
@@ -83,7 +83,7 @@ The Factory's own operational history *is* the proof that the Factory works.
   Factory artifact, so `source_refs` may be empty. See the
   `lineage-preservation` skill for the audit carve-out.
 - **Every invariant has a named detector.** Invariants without detectors are
-  wishes and are rejected at Gate 1.
+  wishes and are rejected by Coherence Verification.
 - **Every commit is attributable to a Function ID.** Commit messages use the
   format `FN-XXX: summary` or `GATE-N: summary` or `META: summary`.
 - **Coverage Reports are first-class artifacts.** They live in

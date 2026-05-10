@@ -41,9 +41,9 @@ adds interpretive aliases without moving artifacts:
 | `specs/prds/`, `PRD-*` | Intent Specification |
 | `specs/workgraphs/`, `WG-*` | Executable Specification |
 | `specs/coverage-reports/`, `CR-*` | Verification Report |
-| Gate 1 | Coherence Verification |
-| Gate 2 | Fidelity Verification |
-| Gate 3 | Persistence Verification |
+| Compile Coverage | Coherence Verification |
+| Simulation Coverage | Fidelity Verification |
+| Assurance Coverage | Persistence Verification |
 | `specs/invariants/`, `INV-*` | Invariant Specification |
 
 Use the current names in paths, schemas, IDs, and APIs unless a separate

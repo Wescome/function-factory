@@ -117,11 +117,11 @@ async function factoryLoop(
       // EXECUTION CONTEXT (Stage 6)
       // ACL: buildInitialDecisionState runs inside
       // ACL: bundleEvidenceForAcceptanceReview runs inside
-      const { traceLog, adherenceReport, gate2Input } =
+      const { traceLog, adherenceReport, fidelityVerificationInput } =
         execution_runDarkFactory(workGraph, candidate, prd);
 
       // ASSURANCE CONTEXT: Acceptance Review (scenarios_cover_invariants)
-      const verdict = assurance_evaluateAcceptanceReview(gate2Input);
+      const verdict = assurance_evaluateAcceptanceReview(fidelityVerificationInput);
       if (verdict.overall === "fail") continue;
 
       // Function promoted to monitored

@@ -7,9 +7,9 @@ ArchitectureCandidate into Function implementation evidence.
 
 This package operates on WorkGraph artifacts, which ontology v0.2 aliases as
 `Executable Specification`. It emits `FidelityVerificationInput` evidence and
-synthesis traces that support `Fidelity Verification`. Numbered Gate 2 names
-are legacy compatibility shims only; new code should use Fidelity Verification
-terms.
+synthesis traces that support `Fidelity Verification`. Numbered simulation
+coverage names are legacy compatibility shims only; new code should use
+Fidelity Verification terms.
 The package name `@factory/function-synthesis` remains the stable compatibility
 name.
 

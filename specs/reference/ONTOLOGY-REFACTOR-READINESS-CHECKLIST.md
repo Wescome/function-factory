@@ -26,7 +26,7 @@ stable compatibility contracts.
   collection or runtime storage name changes.
 - The proposal includes write compatibility or an explicit cutover plan for
   generated and runtime artifacts.
-- The proposal includes live worker, MRP, lifecycle, and Gate evidence
+- The proposal includes live worker, MRP, lifecycle, and Verification evidence
   validation when worker or persisted evidence terms are touched.
 
 ## Required Green Checks
@@ -47,7 +47,7 @@ stable compatibility contracts.
 - `packages/schemas/src/core.ts`
 - ArangoDB collection renames
 - Worker route or Service Binding renames
-- Gate 2, MRP, lifecycle, or accepted Function evidence term replacement
+- Fidelity Verification, MRP, lifecycle, or accepted Function evidence term replacement
 
 ## Audit-Enforced Non-Starters
 

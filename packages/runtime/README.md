@@ -1,6 +1,6 @@
 # @factory/runtime
 
-Trust scoring and invariant health monitoring for deployed Functions. Planned to provide the runtime evaluation layer that feeds Gate 3 monitoring.
+Trust scoring and invariant health monitoring for deployed Functions. Planned to provide the runtime evaluation layer that feeds Persistence Verification monitoring.
 
 ## Ontology Alias
 

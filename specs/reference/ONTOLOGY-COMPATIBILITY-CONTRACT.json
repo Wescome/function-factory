@@ -92,6 +92,28 @@
     "workers/ff-pipeline/src/stages/compile.ts",
     "workers/ff-gates/src/index.ts"
   ],
+  "stableRuntimeDiscriminators": [
+    "gate-1",
+    "gate-2",
+    "gate-3",
+    "gate-1-failed",
+    "CR-*-GATE1-*",
+    "CR-*-GATE2-*",
+    "CR-*-GATE3-*",
+    "gateReport",
+    "gate1Report",
+    "gate2Report",
+    "gate3Report"
+  ],
+  "primaryRuntimeAliases": [
+    "coherence-verification",
+    "fidelity-verification",
+    "persistence-verification",
+    "coherenceVerificationReport",
+    "fidelityVerificationReport",
+    "persistenceVerificationReport",
+    "verificationReport"
+  ],
   "forbiddenOntologyCollectionTargets": [
     "specs_intent_specifications",
     "specs_executable_specifications",

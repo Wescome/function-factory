@@ -4,11 +4,33 @@
 Active task: ontology alias-first migration away from primary Gate(x) names.
 
 ## Last update
-2026-05-10T14:00:24Z
+2026-05-10T14:09:16Z
 
 ## Current actions
 
 - In progress: Gate(x) API de-primary pass.
+  - Completed current slice: public package tests and active README surfaces
+    now lead with Coherence/Fidelity/Persistence Verification terminology;
+    exact `Gate*` names remain only as explicit compatibility API names.
+  - Completed current slice: literate canonical reference and generated
+    tangled output now use `FidelityVerificationInput` and
+    `fidelityVerificationInput` as primary; no `Gate2`/`gate2` residue remains
+    in `packages/literate-tools/src`, `packages/literate-tools/tangled`, or
+    `specs/reference/literate-canonical-reference.md`.
+  - Completed current slice: ontology compatibility contract now explicitly
+    lists stable legacy runtime discriminators and primary runtime aliases
+    before any persisted storage rename.
+  - Verification passed:
+    - `pnpm --filter @factory/schemas test -- src/coverage.test.ts`
+    - `pnpm --filter @factory/compiler test -- src/compile.test.ts`
+    - `pnpm --filter @factory/coverage-gates test`
+    - `pnpm --filter @factory/literate-tools tangle`
+    - `pnpm --filter @factory/literate-tools test`
+    - `pnpm --filter @factory/literate-tools walkthrough`
+    - `pnpm audit:docs`
+    - `pnpm audit:ontology`
+    - `pnpm -r typecheck`
+    - `git diff --check`
   - Completed current slice: lifecycle guards now use
     `VERIFICATION_REQUIREMENTS`, `verificationRequired`, and
     `verificationReport` as primary while preserving `GATE_REQUIREMENTS`,

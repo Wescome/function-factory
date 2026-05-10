@@ -60,8 +60,8 @@ instructions for the coding agent that will refactor the repo.
 
 Every name in this document follows three principles confirmed by the principal:
 
-1. **Names describe WHAT happens, not WHERE it goes.** Not
-   `execution_prepareGate2Input` but `execution_bundleEvidenceForAcceptanceReview`.
+1. **Names describe WHAT happens, not WHERE it goes.** Use
+   `execution_bundleEvidenceForAcceptanceReview`, not a destination-numbered handoff.
    No jargon that requires external lookup.
 
 2. **State machines are explicit typed artifacts.** The Function lifecycle is a
@@ -74,14 +74,14 @@ Every name in this document follows three principles confirmed by the principal:
 
 ### Terminology Mapping
 
-The source documents use "Gate 1", "Gate 2", "Gate 3". This document replaces
-that terminology with descriptive guard names throughout:
+The source documents used numbered guard names. This document replaces that
+terminology with descriptive guard names throughout:
 
 | Old Name | New Name | What It Guards |
 |----------|----------|---------------|
-| Gate 1 | `structural_coverage_passed` | WorkGraph emission from the compiler |
-| Gate 2 | `scenarios_cover_invariants` | Lifecycle transition from `produced` to `accepted` |
-| Gate 3 | `evidence_base_intact` | Continuous health of monitored Functions |
+| Compile Coverage | `structural_coverage_passed` | WorkGraph emission from the compiler |
+| Simulation Coverage | `scenarios_cover_invariants` | Lifecycle transition from `produced` to `accepted` |
+| Assurance Coverage | `evidence_base_intact` | Continuous health of monitored Functions |
 
 ---
 
@@ -204,7 +204,7 @@ in this table, the implementation is wrong. The table IS the test oracle.
  * triggered by a named event, guarded by a named condition.
  *
  * Naming principle 2: the trigger and guard describe what happens
- * in plain language. "Gate 2" becomes "scenarios_cover_invariants".
+ * in plain language.
  */
 interface LifecycleTransition {
   from: FunctionLifecycleState;
@@ -321,7 +321,7 @@ Notice what this table enforces:
   `planned` (Architect approval) and `in_progress` (Dark Factory admission).
 
 - A Function cannot reach `monitored` without passing acceptance review
-  (`scenarios_cover_invariants`). This is the guard formerly called "Gate 2".
+  (`scenarios_cover_invariants`). This is Fidelity Verification.
 
 - Regression is not a terminal state. A regressed Function can re-enter
   `in_progress` through remediation.
@@ -1622,7 +1622,7 @@ The Execution Context composes all of the above into a single operation:
  *   5. Bundle evidence for acceptance review via ACL
  *
  * This function does NOT evaluate acceptance review -- that belongs
- * to the Assurance Context. The boundary is the Gate2Input ACL.
+ * to the Assurance Context. The boundary is the FidelityVerificationInput ACL.
  */
 declare function execution_runDarkFactory(
   workGraph: WorkGraph,
@@ -1631,7 +1631,7 @@ declare function execution_runDarkFactory(
 ): {
   traceLog: Stage6TraceLog;
   adherenceReport: RoleAdherenceReport;
-  gate2Input: Gate2Input;
+  fidelityVerificationInput: FidelityVerificationInput;
 };
 ```
 
@@ -1741,7 +1741,7 @@ be marked as unresolvable -- no silent substitution is permitted.
  *
  * In routing-table defaults, aliases are acceptable.
  * In emitted ArchitectureCandidates, resolved versions are REQUIRED.
- * In Stage6TraceLogs and Gate2Inputs, resolved versions are REQUIRED.
+ * In Stage6TraceLogs and FidelityVerificationInputs, resolved versions are REQUIRED.
  */
 interface ResolvedModelIdentifier {
   provider: string;
@@ -1760,7 +1760,7 @@ interface ResolvedModelIdentifier {
 
 Stage 6 produces raw execution artifacts. But the Assurance Context does not
 consume raw artifacts -- it consumes a normalized evidence bundle. The ACL
-between Execution and Assurance translates Stage6TraceLog into a Gate2Input:
+between Execution and Assurance translates Stage6TraceLog into a FidelityVerificationInput:
 
 ```typescript
 /**
@@ -1768,7 +1768,7 @@ between Execution and Assurance translates Stage6TraceLog into a Gate2Input:
  * Bundle Stage 6 output into a normalized evidence package
  * for acceptance review.
  *
- * This was formerly called "handToGate2" or "prepareGate2Input".
+ * This was formerly called a destination-numbered handoff.
  * Renamed per naming principle 1: describes what happens, not where it goes.
  *
  * Pure function: given input A, expect output B. No mocking required.
@@ -1776,10 +1776,10 @@ between Execution and Assurance translates Stage6TraceLog into a Gate2Input:
 declare function execution_bundleEvidenceForAcceptanceReview(
   traceLog: Stage6TraceLog,
   adherenceReport: RoleAdherenceReport
-): Gate2Input;
+): FidelityVerificationInput;
 ```
 
-The Gate2Input type is the contract between Execution and Assurance:
+The FidelityVerificationInput type is the contract between Execution and Assurance:
 
 ```typescript
 /**
@@ -1790,7 +1790,7 @@ The Gate2Input type is the contract between Execution and Assurance:
  * raw harness transcripts -- those are drill-down evidence,
  * not the contract.
  */
-interface Gate2Input {
+interface FidelityVerificationInput {
   id: string;
   function_id: string;
   prd_id: string;
@@ -1829,7 +1829,7 @@ interface Gate2Input {
 }
 ```
 
-### Acceptance Review (formerly "Gate 2")
+### Fidelity Verification Acceptance Review
 
 The acceptance review evaluates whether the implementation actually exercises
 its specification. This is the guard `scenarios_cover_invariants`.
@@ -1848,7 +1848,7 @@ Three checks, all required, all fail-closed:
 ```typescript
 /** CANONICAL-ONLY. Acceptance review verdict. */
 interface AcceptanceReviewVerdict {
-  gate2_input_id: string;
+  fidelity_verification_input_id: string;
   scenario_coverage: boolean;
   invariant_exercise: boolean;
   required_validation_pass_rate: number;
@@ -1863,7 +1863,7 @@ interface AcceptanceReviewVerdict {
  * FAIL-CLOSED: Function stays in produced state, cannot promote.
  */
 declare function assurance_evaluateAcceptanceReview(
-  gate2Input: Gate2Input
+  fidelityVerificationInput: FidelityVerificationInput
 ): AcceptanceReviewVerdict;
 ```
 
@@ -2649,7 +2649,7 @@ in this canonical reference are marked CANONICAL-ONLY.
 | `RoleAdherenceEntry` | Ratified lines 469-473 | Per-role compliance |
 | `ContractSurfaceCheck` | Ratified lines 463-467 | Per-surface check |
 | `ContractSurface` | Ratified lines 456-461 | Four contract surfaces |
-| `Gate2Input` | Ratified lines 490-528 | Evidence bundle for acceptance |
+| `FidelityVerificationInput` | Ratified lines 490-528 | Evidence bundle for acceptance |
 
 ### Assurance Context
 
@@ -2711,7 +2711,7 @@ translates one vocabulary into the other.
 
 **Function:** `execution_bundleEvidenceForAcceptanceReview`
 **Bridges:** Execution -> Assurance
-**Transforms:** Stage6TraceLog + RoleAdherenceReport -> Gate2Input
+**Transforms:** Stage6TraceLog + RoleAdherenceReport -> FidelityVerificationInput
 **Why:** The Assurance Context evaluates normalized evidence bundles, not raw
 harness transcripts. The ACL extracts terminal decisions, collects artifact paths,
 summarizes evidence, and preserves provenance.
@@ -2780,7 +2780,7 @@ stages in a different order, the implementation is wrong.
 
 Throughout the codebase, replace:
 - "Gate 1" with `structural_coverage_passed` (the guard condition)
-- "Gate 2" with `scenarios_cover_invariants` (the guard condition)
+- Fidelity Verification with `scenarios_cover_invariants` (the guard condition)
 - "Gate 3" with `evidence_base_intact` (the guard condition)
 
 ### Naming Conventions
@@ -2874,11 +2874,11 @@ async function factoryLoop(
       // EXECUTION CONTEXT (Stage 6)
       // ACL: buildInitialDecisionState runs inside
       // ACL: bundleEvidenceForAcceptanceReview runs inside
-      const { traceLog, adherenceReport, gate2Input } =
+      const { traceLog, adherenceReport, fidelityVerificationInput } =
         execution_runDarkFactory(workGraph, candidate, prd);
 
       // ASSURANCE CONTEXT: Acceptance Review (scenarios_cover_invariants)
-      const verdict = assurance_evaluateAcceptanceReview(gate2Input);
+      const verdict = assurance_evaluateAcceptanceReview(fidelityVerificationInput);
       if (verdict.overall === "fail") continue;
 
       // Function promoted to monitored

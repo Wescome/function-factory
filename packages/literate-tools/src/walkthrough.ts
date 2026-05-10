@@ -5,8 +5,8 @@
  * Function through the complete lifecycle:
  *
  *   Signal -> Pressure -> Capability -> Proposal -> PRD ->
- *   CoverageReport -> WorkGraph -> ArchitectureCandidate ->
- *   ExecutionTrace -> Gate2Verdict -> TrustComposite
+ *   CoherenceVerificationReport -> WorkGraph -> ArchitectureCandidate ->
+ *   ExecutionTrace -> FidelityVerificationVerdict -> TrustComposite
  *
  * Each step uses schema.parse() so Zod validates the shape. If any
  * parse fails, the walkthrough fails with a clear error — proving
@@ -21,11 +21,11 @@ import {
   BusinessCapability,
   FunctionProposal,
   PRDDraft,
-  Gate1Report,
+  CoherenceVerificationReport,
   WorkGraph,
   ArchitectureCandidate,
   ExecutionTrace,
-  Gate2Verdict,
+  FidelityVerificationVerdict,
   TrustComposite,
   ArchitectureCandidateSelection,
   RuntimeAdmissionArtifact,
@@ -147,9 +147,9 @@ function main(): void {
     })
   )
 
-  // ── Step 6: Gate1Report (CoverageReport) ────────────────────────────
-  const gate1 = step("Gate1Report (Gate 1 - Compile coverage)", () =>
-    Gate1Report.parse({
+  // ── Step 6: CoherenceVerificationReport ────────────────────────────
+  const coherenceVerification = step("CoherenceVerificationReport (compile coverage)", () =>
+    CoherenceVerificationReport.parse({
       id: "CR-WALK-001",
       ...lineage([prd.id]),
       gate: 1,
@@ -183,7 +183,7 @@ function main(): void {
   const workGraph = step("WorkGraph (Stage 5 - Work decomposition)", () =>
     WorkGraph.parse({
       id: "WG-WALK-001",
-      ...lineage([prd.id, gate1.id]),
+      ...lineage([prd.id, coherenceVerification.id]),
       functionId: proposal.id,
       nodes: [
         { id: "node-1", type: "interface", title: "Signal intake interface" },
@@ -277,9 +277,9 @@ function main(): void {
     })
   )
 
-  // ── Step 10: Gate2Verdict ───────────────────────────────────────────
-  step("Gate2Verdict (Gate 2 - Acceptance)", () =>
-    Gate2Verdict.parse({
+  // ── Step 10: FidelityVerificationVerdict ───────────────────────────
+  step("FidelityVerificationVerdict (Acceptance Review)", () =>
+    FidelityVerificationVerdict.parse({
       verdict: "accepted",
       evidence_reviewed: ["EXT-WALK-001", "CR-WALK-001"],
       scenario_coverage_score: 1.0,

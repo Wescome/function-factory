@@ -22,7 +22,7 @@ Re-exports from the following modules:
 
 - `lineage` -- `ArtifactId`, `Explicitness`, `Lineage` base schema
 - `core` -- `FactoryMode`, `SignalType`, `BusinessCapability`, `FunctionProposal`, `WorkGraph`, `WorkGraphNode`, `WorkGraphEdge`, and all Stage 1-6 artifact schemas
-- `coverage` -- `Gate1Report`, `CoverageVerdict`, `CoverageCheck`
+- `coverage` -- `CoherenceVerificationReport`, `CoverageVerdict`, `CoverageCheck`
 - `capability-delta` -- `CapabilityDelta`, `CapabilityDeltaFinding`
 - `architecture-candidate` -- `ArchitectureCandidate`
 - `candidate-selection` -- `ArchitectureCandidateSelection`, `CandidateScorecard`, `CandidateSelectionDecision`

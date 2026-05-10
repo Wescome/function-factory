@@ -20,9 +20,9 @@ explicit rename decision.
 | --- | --- | --- | --- |
 | PRD | Intent Specification | Stable compatibility name | `PRD-*` IDs and `specs/prds/` remain current. |
 | WorkGraph | Executable Specification | Stable compatibility name | `WG-*` IDs and `specs/workgraphs/` remain current. |
-| Gate 1 | Coherence Verification | Stable compatibility name | Compile coverage remains the live implementation name. |
-| Gate 2 | Fidelity Verification | Stable compatibility name | Simulation coverage remains the live implementation name. |
-| Gate 3 | Persistence Verification | Stable compatibility name | Assurance coverage remains the live implementation name. |
+| Compile coverage numbered compatibility term | Coherence Verification | Stable compatibility name | Existing numbered APIs and IDs remain compatibility surfaces only. |
+| Simulation coverage numbered compatibility term | Fidelity Verification | Stable compatibility name | Existing numbered APIs and IDs remain compatibility surfaces only. |
+| Assurance coverage numbered compatibility term | Persistence Verification | Stable compatibility name | Existing numbered APIs and IDs remain compatibility surfaces only. |
 | Coverage Report | Verification Report | Stable compatibility name | `CR-*` IDs and `specs/coverage-reports/` remain current. |
 | FunctionProposal | Function Proposal | Aligned | `FP-*` remains the proposal identity prefix. |
 | Function | Function | Aligned | `FN-*` remains the executable unit identity prefix. |
@@ -40,7 +40,7 @@ explicit rename decision.
 | `specs/prds/` | Intent Specification | Keep path. Alias in docs only. |
 | `specs/workgraphs/` | Executable Specification | Keep path. WorkGraphs are compiler output and must not be hand-authored. |
 | `specs/invariants/` | Invariant Specification | Keep path. Detector completeness rules remain unchanged. |
-| `specs/coverage-reports/` | Verification Report | Keep path. Gate-specific report schemas remain current. |
+| `specs/coverage-reports/` | Verification Report | Keep path. Verification report schemas keep legacy aliases. |
 | `specs/reference/` | Architecture/reference corpus | Keep path. Ontology v0.2 and stale-baseline plan live here. |
 | `specs/ontology/` | Machine-readable ontology and shapes | Keep path. Current TTL/SHACL-like files are implementation assets. |
 
@@ -64,9 +64,9 @@ explicit rename decision.
 
 | Current implementation | Ontology alias | Current authority |
 | --- | --- | --- |
-| Gate 1 compile coverage | Coherence Verification | `@factory/coverage-gates`, compiler Gate 1 reports, `specs/coverage-reports/` |
-| Gate 2 simulation coverage | Fidelity Verification | `workers/ff-pipeline/src/gate2-simulation.ts` and persisted Gate 2 reports |
-| Gate 3 assurance coverage | Persistence Verification | Minimal blocker registration exists; monitored promotion remains out of scope here |
+| Compile coverage | Coherence Verification | `@factory/coverage-gates`, compiler reports, `specs/coverage-reports/` |
+| Simulation coverage | Fidelity Verification | `workers/ff-pipeline/src/gate2-simulation.ts` and persisted Fidelity Verification reports |
+| Assurance coverage | Persistence Verification | Minimal blocker registration exists; monitored promotion remains out of scope here |
 | `Gate1Report`, `Gate2Report`, `Gate3Report` | Verification Report variants | Existing schemas remain compatibility APIs |
 | Merge Readiness Pack (MRP) | Readiness evidence overlay | Current runtime concept, not replaced by ontology v0.2 |
 | Function identity diagnostic | Lineage and identity consistency check | Current runtime concept, not replaced by ontology v0.2 |
@@ -80,9 +80,9 @@ Current repo state is materially ahead of that baseline:
 | Runtime concept | Current state | Mapping consequence |
 | --- | --- | --- |
 | `FN-MOTDWVR2-W7UN` | Materialized and accepted in live runtime evidence | Do not rename or rematerialize as part of ontology grounding. |
-| PR #71 evidence | Live worker, Gate 2, MRP, lifecycle, and identity diagnostics exercised | Treat as authoritative current-state evidence. |
+| PR #71 evidence | Live worker, Fidelity Verification, MRP, lifecycle, and identity diagnostics exercised | Treat as authoritative current-state evidence. |
 | Worker pipeline | Active under `workers/ff-pipeline/` | Keep paths stable until compatibility checks exist. |
-| Gate 2 reports | Persisted in `specs_coverage_reports` live storage | Current Gate 2 naming remains compatibility API. |
+| Fidelity Verification reports | Persisted in `specs_coverage_reports` live storage | Current legacy storage discriminators remain compatibility API. |
 | MRP records | Active merge-readiness evidence | Keep MRP terminology unless a separate ontology extension replaces it. |
 | Function proposal/runtime split | `FP-*` proposal identity and `FN-*` function identity both matter | Preserve both identities and their lineage edge. |
 
@@ -103,8 +103,8 @@ Current repo state is materially ahead of that baseline:
   compatibility APIs.
 - Do not edit `.agent/AGENTS.md`, `.agent/skills/*`, protected schema modules,
   or directory names in this ontology-alignment pass.
-- Do not promote any Function to `monitored` from this roadmap. Gate 3 active
-  monitoring remains a separate runtime workstream.
+- Do not promote any Function to `monitored` from this roadmap. Persistence
+  Verification active monitoring remains a separate runtime workstream.
 
 ## Physical Rename Decision
 
@@ -139,7 +139,7 @@ time, start from `ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md`, and include:
 4. Package tests for affected exports.
 5. Full `pnpm -r typecheck`.
 6. Reference search for stale paths and stale ontology aliases.
-7. Explicit confirmation that live worker, MRP, lifecycle, and Gate evidence
+7. Explicit confirmation that live worker, MRP, lifecycle, and Verification evidence
    references remain valid.
 8. Green remote `Repository Audit`, `Test`, `Typecheck`, and Factory PR Gate
    checks.

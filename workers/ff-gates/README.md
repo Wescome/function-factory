@@ -22,7 +22,7 @@ the `/gate/1` gateway route remain legacy compatibility shims.
 
 ## Compatibility Notes
 
-- Do not add new numbered Gate 1 APIs. Add ontology-named aliases first, keep
+- Do not add new numbered compile-coverage APIs. Add ontology-named aliases first, keep
   legacy shims in place, and require a one-family rename proposal before any
   physical rename.
 - This worker performs deterministic validation only; report persistence shapes

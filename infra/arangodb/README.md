@@ -7,7 +7,7 @@ for the Function Factory runtime store.
 
 This directory owns persisted collection contracts. Ontology v0.2 aliases PRD
 as `Intent Specification`, WorkGraph as `Executable Specification`, Coverage
-Report as `Verification Report`, and Gate 3 as `Persistence Verification`.
+Report as `Verification Report`, and assurance coverage as `Persistence Verification`.
 
 The physical collection names remain stable compatibility names. Do not rename
 collections from ontology terminology alone.

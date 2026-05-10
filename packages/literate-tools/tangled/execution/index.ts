@@ -542,7 +542,7 @@ interface ConvergencePolicy {
  *   5. Bundle evidence for acceptance review via ACL
  *
  * This function does NOT evaluate acceptance review -- that belongs
- * to the Assurance Context. The boundary is the Gate2Input ACL.
+ * to the Assurance Context. The boundary is the FidelityVerificationInput ACL.
  */
 declare function execution_runDarkFactory(
   workGraph: WorkGraph,
@@ -551,7 +551,7 @@ declare function execution_runDarkFactory(
 ): {
   traceLog: Stage6TraceLog;
   adherenceReport: RoleAdherenceReport;
-  gate2Input: Gate2Input;
+  fidelityVerificationInput: FidelityVerificationInput;
 };
 
 // --- Block from line 1693 (Part III -- How Does a Function Get Built?) ---
@@ -594,7 +594,7 @@ interface EvaluationContext {
  *
  * In routing-table defaults, aliases are acceptable.
  * In emitted ArchitectureCandidates, resolved versions are REQUIRED.
- * In Stage6TraceLogs and Gate2Inputs, resolved versions are REQUIRED.
+ * In Stage6TraceLogs and FidelityVerificationInputs, resolved versions are REQUIRED.
  */
 interface ResolvedModelIdentifier {
   provider: string;

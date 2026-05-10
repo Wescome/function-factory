@@ -9,7 +9,7 @@
  * Bundle Stage 6 output into a normalized evidence package
  * for acceptance review.
  *
- * This was formerly called "handToGate2" or "prepareGate2Input".
+ * This was formerly called a destination-numbered handoff.
  * Renamed per naming principle 1: describes what happens, not where it goes.
  *
  * Pure function: given input A, expect output B. No mocking required.
@@ -17,7 +17,7 @@
 declare function execution_bundleEvidenceForAcceptanceReview(
   traceLog: Stage6TraceLog,
   adherenceReport: RoleAdherenceReport
-): Gate2Input;
+): FidelityVerificationInput;
 
 // --- Block from line 1784 (Part IV -- How Does a Function Prove Itself?) ---
 /**
@@ -28,7 +28,7 @@ declare function execution_bundleEvidenceForAcceptanceReview(
  * raw harness transcripts -- those are drill-down evidence,
  * not the contract.
  */
-interface Gate2Input {
+interface FidelityVerificationInput {
   id: string;
   function_id: string;
   prd_id: string;
@@ -69,7 +69,7 @@ interface Gate2Input {
 // --- Block from line 1848 (Part IV -- How Does a Function Prove Itself?) ---
 /** CANONICAL-ONLY. Acceptance review verdict. */
 interface AcceptanceReviewVerdict {
-  gate2_input_id: string;
+  fidelity_verification_input_id: string;
   scenario_coverage: boolean;
   invariant_exercise: boolean;
   required_validation_pass_rate: number;
@@ -84,5 +84,5 @@ interface AcceptanceReviewVerdict {
  * FAIL-CLOSED: Function stays in produced state, cannot promote.
  */
 declare function assurance_evaluateAcceptanceReview(
-  gate2Input: Gate2Input
+  fidelityVerificationInput: FidelityVerificationInput
 ): AcceptanceReviewVerdict;

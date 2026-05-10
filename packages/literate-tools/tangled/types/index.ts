@@ -56,7 +56,7 @@ type FunctionLifecycleState =
  * triggered by a named event, guarded by a named condition.
  *
  * Naming principle 2: the trigger and guard describe what happens
- * in plain language. "Gate 2" becomes "scenarios_cover_invariants".
+ * in plain language.
  */
 interface LifecycleTransition {
   from: FunctionLifecycleState;

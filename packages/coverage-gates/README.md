@@ -2,17 +2,17 @@
 
 Fail-closed verification evaluators for the Factory pipeline. The canonical
 ontology name for the implemented evaluator is `Coherence Verification`; the
-numbered Gate 1 names remain legacy compatibility shims.
+numbered compile-coverage names remain legacy compatibility shims.
 
 ## Ontology Alias
 
-Ontology v0.2 names the three gate classes as verification processes:
+Ontology v0.2 names the three coverage classes as verification processes:
 
-| Current name | Ontology alias |
+| Compatibility name | Ontology alias |
 | --- | --- |
-| Gate 1 / Compile Coverage Gate | Coherence Verification |
-| Gate 2 / Simulation Coverage Gate | Fidelity Verification |
-| Gate 3 / Assurance Coverage Gate | Persistence Verification |
+| Compile Coverage | Coherence Verification |
+| Simulation Coverage | Fidelity Verification |
+| Assurance Coverage | Persistence Verification |
 
 The package name remains a stable compatibility name. New code should prefer
 `runCoherenceVerification`, `emitCoherenceVerificationReport`, and
@@ -42,13 +42,13 @@ The package name remains a stable compatibility name. New code should prefer
 
 ## Key Invariants
 
-- Gate evaluators are deterministic pure functions over Zod-validated inputs
-- Coverage Reports are emitted on every gate run, pass or fail
-- Pure/IO split: `runGate1` has no side effects; `emitGate1Report` handles disk writes
+- Verification evaluators are deterministic pure functions over Zod-validated inputs
+- Coverage Reports are emitted on every verification run, pass or fail
+- Pure/IO split: `runCoherenceVerification` has no side effects; `emitCoherenceVerificationReport` handles disk writes
 - Bootstrap mode adds a fifth check (bootstrap prefix); steady-state mode runs four checks
 - Remediation advice is generated for every failing check
 
 ## Dependencies
 
-- `@factory/schemas` -- `Gate1Report`, `ArtifactId`, coverage schemas
+- `@factory/schemas` -- `CoherenceVerificationReport`, `ArtifactId`, coverage schemas
 - `yaml` -- YAML serialization for report emission
