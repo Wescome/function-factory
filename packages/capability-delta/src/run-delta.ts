@@ -48,10 +48,10 @@ async function main(): Promise<void> {
     process.stdout.write(`FunctionProposal: ${fpPath}\n`)
   }
 
-  process.stdout.write(`\nStage 4 complete. ${1} delta + ${proposals.length} proposals persisted.\n`)
+  process.stdout.write(`\nFunction Proposal decomposition complete. ${1} delta + ${proposals.length} proposals persisted.\n`)
 }
 
 void main().catch((err) => {
-  process.stderr.write(`Stage 4 error: ${(err as Error).message}\n`)
+  process.stderr.write(`Function Proposal decomposition error: ${(err as Error).message}\n`)
   process.exit(1)
 })

@@ -90,7 +90,7 @@ describe('ADR-005 v4.1 (Queue fallback): Coordinator callback wiring', () => {
     })
 
     it('catches queue publish errors without crashing synthesis', () => {
-      expect(coordinatorSrc).toContain('[Stage 6] Result queue publish failed')
+      expect(coordinatorSrc).toContain('[Agent Call execution] Result queue publish failed')
     })
 
     it('handles missing SYNTHESIS_RESULTS binding gracefully', () => {

@@ -3,10 +3,10 @@
 // Blocks: 3
 // Generated: deterministic
 // DO NOT EDIT — edit the literate reference and re-run tangle.
-// --- Block from line 1765 (Part IV -- How Does a Function Prove Itself?) ---
+// --- Block from line 1769 (Part IV -- How Does a Function Prove Itself?) ---
 /**
  * ACL: Execution -> Assurance.
- * Bundle Stage 6 output into a normalized evidence package
+ * Bundle Agent Call execution output into a normalized evidence package
  * for acceptance review.
  *
  * This was formerly called a destination-numbered handoff.
@@ -19,7 +19,7 @@ declare function execution_bundleEvidenceForAcceptanceReview(
   adherenceReport: RoleAdherenceReport
 ): FidelityVerificationInput;
 
-// --- Block from line 1784 (Part IV -- How Does a Function Prove Itself?) ---
+// --- Block from line 1788 (Part IV -- How Does a Function Prove Itself?) ---
 /**
  * Normalized evidence bundle for acceptance review.
  * From ratified decisions lines 490-528.
@@ -66,7 +66,7 @@ interface FidelityVerificationInput {
   };
 }
 
-// --- Block from line 1848 (Part IV -- How Does a Function Prove Itself?) ---
+// --- Block from line 1852 (Part IV -- How Does a Function Prove Itself?) ---
 /** CANONICAL-ONLY. Acceptance review verdict. */
 interface AcceptanceReviewVerdict {
   fidelity_verification_input_id: string;
@@ -78,7 +78,7 @@ interface AcceptanceReviewVerdict {
 }
 
 /**
- * Stage 7 (entry): Evaluate acceptance review.
+ * Fidelity Verification entry: evaluate acceptance review.
  * Before lifecycle transition from produced -> accepted.
  *
  * FAIL-CLOSED: Function stays in produced state, cannot promote.

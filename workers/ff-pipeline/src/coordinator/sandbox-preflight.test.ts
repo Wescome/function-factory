@@ -32,7 +32,7 @@ describe('Phase 5 sandbox preflight', () => {
     expect(wranglerConfig).toMatch(/"bucket_name":\s*"ff-workspaces"/)
   })
 
-  it('declares the Stage 6 queue bridge bindings', () => {
+  it('declares the Agent Call execution queue bridge bindings', () => {
     for (const binding of ['SYNTHESIS_QUEUE', 'SYNTHESIS_RESULTS', 'ATOM_RESULTS']) {
       expect(wranglerConfig).toContain(`"binding": "${binding}"`)
     }

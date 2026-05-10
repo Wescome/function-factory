@@ -1,14 +1,14 @@
 /**
- * Pass 6- consistency check.
+ * Completeness preflight slot (legacy Pass 6)- consistency check.
  *
  * Cross-reference validation across the compiler intermediates- every
  * artifact ID referenced anywhere should resolve to an artifact emitted
  * by Passes 1–5, every lineage chain should be acyclic, no invariant
  * should cite a contract that does not exist, etc.
  *
- * The MVP performs no checks. Coherence Verification (Pass 7) re-verifies dependency
+ * The MVP performs no checks. Coherence Verification re-verifies dependency
  * closure and atom coverage independently, so structural gaps that
- * Pass 6 would otherwise catch will still surface in the Coverage
+ * this compatibility slot would otherwise catch will still surface in the Coverage
  * Report. The pass exists in the pipeline for structural completeness
  * and to reserve the slot for richer checks once the compiler produces
  * more complex intermediates.

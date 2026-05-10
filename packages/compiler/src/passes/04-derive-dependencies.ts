@@ -1,5 +1,5 @@
 /**
- * Pass 4- derive dependencies.
+ * Structural Assembly dependency resolution (legacy Pass 4)- derive dependencies.
  *
  * The MVP emits no typed-edge dependencies. Coherence Verification's dependency_closure
  * check passes vacuously on an empty dependency set- there are no

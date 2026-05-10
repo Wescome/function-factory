@@ -1,5 +1,5 @@
 /**
- * Stage 5 compiler pass tests.
+ * Intent-to-Executable compiler transformation tests.
  *
  * Validates:
  *   1. Each live pass sends MINIMAL context to the LLM (not full state)
@@ -70,7 +70,7 @@ import { compilePRD, PASS_NAMES } from './compile'
 import type { ArangoClient } from '@factory/arango-client'
 import type { PipelineEnv } from '../types'
 
-describe('Stage 5 compiler passes', () => {
+describe('Intent-to-Executable compiler transformations', () => {
   beforeEach(() => {
     modelCalls.length = 0
     vi.clearAllMocks()

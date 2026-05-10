@@ -382,7 +382,7 @@ export const ONTOLOGY_CLASSES: OntologyClass[] = [
     uri: 'ff:ExecutionArtifact',
     label: 'Execution Artifact',
     domain: 'execution',
-    comment: 'Any artifact produced during Stage 6 synthesis.',
+    comment: 'Any artifact produced during Agent Call execution synthesis.',
   },
   {
     _key: 'BriefingScript',

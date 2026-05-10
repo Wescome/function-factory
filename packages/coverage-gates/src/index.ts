@@ -9,7 +9,7 @@
  * pure functions over Zod-validated inputs. The `runGate1` orchestrator
  * remains as a legacy compatibility alias. File emission is the one permitted side effect, exposed
  * separately as `emitGate1Report` so callers can compose them as their
- * execution model requires (the compiler in Pass 7 composes both; an
+ * execution model requires (the compiler's Coherence Verification step composes both; an
  * audit tool inspecting intermediates might run only runCoherenceVerification).
  */
 

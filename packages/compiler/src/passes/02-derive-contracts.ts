@@ -1,5 +1,5 @@
 /**
- * Pass 2- derive contracts.
+ * Binding (legacy Pass 2)- derive contracts.
  *
  * Produces one Contract per atom category (acceptance, constraint,
  * nfr), each with `derivedFromAtomIds` containing every atom in that

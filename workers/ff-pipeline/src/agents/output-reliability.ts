@@ -362,7 +362,7 @@ export async function processAgentOutput<T>(
       }
     : schema
 
-  // ── Stage 1: Guard (F7) ──────────────────────────────────
+  // ── ORL step 1: Guard (F7) ────────────────────────────────
   if (!raw || !raw.trim()) {
     // F7: null/empty response
     if (opts?.repairFn) {
@@ -403,7 +403,7 @@ export async function processAgentOutput<T>(
     }
   }
 
-  // ── Stage 2: Parse ───────────────────────────────────────
+  // ── ORL step 2: Parse ─────────────────────────────────────
   const parseResult = extractJSON(raw)
 
   if (!parseResult) {
@@ -448,7 +448,7 @@ export async function processAgentOutput<T>(
 
   const parsed = parseResult.json
 
-  // ── Stage 3: Detect Tool Calls (F6) ──────────────────────
+  // ── ORL step 3: Detect Tool Calls (F6) ────────────────────
   if (opts?.availableTools && opts.availableTools.length > 0 && typeof parsed === 'object' && parsed !== null) {
     const toolCalls = detectTextToolCalls(
       typeof parsed === 'string' ? parsed : JSON.stringify(parsed),
@@ -469,7 +469,7 @@ export async function processAgentOutput<T>(
     }
   }
 
-  // ── Stage 4 & 5: Validate + Coerce ──────────────────────
+  // ── ORL steps 4 and 5: Validate + Coerce ──────────────────
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
     // Parsed something but it's not an object — wrong shape
     if (opts?.repairFn) {

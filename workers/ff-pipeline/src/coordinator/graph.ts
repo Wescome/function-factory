@@ -93,7 +93,7 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
     })
 
     // semantic-critic — calls CriticAgent.semanticReview()
-    // Pipeline.ts already runs semantic review pre-synthesis (Stage 5.5).
+    // Pipeline.ts already runs semantic review pre-synthesis.
     // This is a redundant check that catches drift during synthesis.
     // If the LLM can't produce a valid SemanticReview, auto-pass.
     graph.addNode('semantic-critic', async (state) => {
@@ -132,7 +132,7 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
     })
 
     // compile — records pass-through evidence.
-    // The real compiler runs in Workflow Stage 5 before synthesis is enqueued.
+    // The real Intent-to-Executable compiler runs before synthesis is enqueued.
     graph.addNode('compile', async (state) => {
       const compiledPrd = {
         source: 'stage-6-upstream-compile-evidence',
@@ -140,7 +140,7 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
         authoritative: false,
         workGraphId: state.workGraphId,
         upstreamWorkGraphId: state.workGraph._key ?? state.workGraph.id ?? state.workGraphId,
-        reason: 'Workflow Stage 5 already compiled this WorkGraph before Stage 6; coordinator records pass-through evidence only.',
+        reason: 'Workflow compilation already emitted this WorkGraph before Agent Call execution; coordinator records pass-through evidence only.',
         timestamp: new Date().toISOString(),
       }
       const updated: Partial<GraphState> = {
@@ -155,7 +155,7 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
     })
 
     // Coherence Verification records pass-through upstream evidence.
-    // The real fail-closed Coherence Verification runs in the Workflow before Stage 6.
+    // The real fail-closed Coherence Verification runs in the Workflow before Agent Call execution.
     graph.addNode(COHERENCE_VERIFICATION_NODE, async (state) => {
       const coherenceVerificationReport = {
         gate: 1,
@@ -172,7 +172,7 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
           passed: true,
           detail: 'Workflow Coherence Verification passed before synthesis enqueue; coordinator does not recompute Coherence Verification.',
         }],
-        summary: 'Coherence Verification verified upstream before Stage 6; coordinator recorded pass-through evidence.',
+        summary: 'Coherence Verification verified upstream before Agent Call execution; coordinator recorded pass-through evidence.',
       }
       const updated: Partial<GraphState> = {
         coherenceVerificationPassed: true,

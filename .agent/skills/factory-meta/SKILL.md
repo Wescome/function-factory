@@ -24,10 +24,10 @@ how to produce Factory artifacts that describe the Factory itself.
 
 ## When to invoke
 
-- Writing the first Signals (`specs/signals/SIG-META-*.yaml`) — Stage 1
+- Writing the first Signal Artifacts (`specs/signals/SIG-META-*.yaml`) — legacy Stage 1
   origin artifacts whose `source` field names the internal origin
   (whitepaper, ConOps, architect correction, build event, agent trace).
-- Writing the first Pressures (`specs/pressures/PRS-META-*.yaml`) — Stage 2
+- Writing the first Pressure Artifacts (`specs/pressures/PRS-META-*.yaml`) — legacy Stage 2
   forcing functions derived from the Signals above.
 - Writing Capabilities that describe what the Factory must be able to do
   (`specs/capabilities/BC-META-*.yaml`).
@@ -42,11 +42,11 @@ how to produce Factory artifacts that describe the Factory itself.
    Function IDs, FunctionProposal IDs, PRD IDs, WorkGraph IDs. The `META`
    prefix signals bootstrap-phase artifacts and lets the Factory later
    distinguish its own construction lineage from first-customer lineage.
-   Gate 1 enforces the META- prefix on every artifact ID during Bootstrap
+   Coherence Verification enforces the META- prefix on every artifact ID during Bootstrap
    mode per ConOps §4.1.
 
 2. **Source signals are internal and materialized.** During bootstrap,
-   Stage 1 signals come from build events, agent traces, test results,
+   Signal Artifacts come from build events, agent traces, test results,
    architect corrections, and the whitepaper itself — not from
    market/customer/competitor telemetry. The `source` field in an
    ExternalSignal names the internal origin (e.g., `arch-review`,
@@ -78,7 +78,7 @@ how to produce Factory artifacts that describe the Factory itself.
    - BC-META-ENFORCE-COVERAGE-GATES
 
 5. **Each Capability yields the execution/control/evidence triple.**
-   Per whitepaper §3 Stage 3 guardrail #2. Integration Functions appear
+   Per the Function Proposal decomposition guardrail. Integration Functions appear
    when Capability requires external substrate (git, CI, Dropbox, etc.).
 
 6. **Coverage Reports are the primary v0 output.** A Coverage Report on a
@@ -107,7 +107,7 @@ how to produce Factory artifacts that describe the Factory itself.
 
 ## External-vertical Functions
 
-External-vertical Functions may be proposed once Bootstrap-stage-5-complete is reached. Bootstrap-stage-5-complete is defined as- every meta-PRD in `specs/prds/` has an emitted WorkGraph in `specs/workgraphs/` produced by a full Passes 0–8 compile. At that state, the Factory's Stage 5 pipeline is architecturally complete and external-vertical Function proposals are permitted.
+External-vertical Functions may be proposed once bootstrap compilation is complete. Bootstrap compilation complete is defined as- every meta-PRD in `specs/prds/` has an emitted WorkGraph in `specs/workgraphs/` produced by the compatibility pass pipeline through Executable Specification Assembly. At that state, the Factory's Intent-to-Executable compilation path is architecturally complete and external-vertical Function proposals are permitted.
 
 Proposals should reference the chosen v-number vertical (recorded in DECISIONS.md) for consistency with the Architect's selection. Divergent verticals may be proposed only with an explicit DECISIONS entry documenting the rationale.
 
@@ -115,7 +115,7 @@ Proposals should reference the chosen v-number vertical (recorded in DECISIONS.m
 
 1. **Non-self-referential content.** The Function's inputs are not Factory `specs/`. A Function that reads the Factory's own artifacts re-exercises self-referential compile loops already proven in Bootstrap; it does not extend the generality claim.
 
-2. **External integration boundary.** The Function targets a runtime surface outside the Factory (external CLI, web API, filesystem beyond `specs/`, database, etc.). This forces the Stage 6 coding swarm to emit code that faces real integration constraints rather than abstract ones.
+2. **External integration boundary.** The Function targets a runtime surface outside the Factory (external CLI, web API, filesystem beyond `specs/`, database, etc.). This forces Agent Call orchestration to emit code that faces real integration constraints rather than abstract ones.
 
 3. **Domain-specific invariants.** The Function's invariants derive from its subject matter, not from whitepaper discipline. A Function whose only invariants are "determinism holds," "fail-closed applies," "lineage preserved" fails this criterion — those are Factory-wide invariants, not domain-specific ones. The Function must carry invariants that would be nonsensical on a different subject.
 
@@ -123,10 +123,10 @@ Verticals that satisfy all three extend the Factory's proof surface; verticals t
 
 ## Self-rewrite hook
 
-After every 5 meta-artifact creations OR on any Gate 1 failure traceable
+After every 5 meta-artifact creations OR on any Coherence Verification failure traceable
 to meta-content:
 1. Read the last 5 meta entries in `.agent/memory/episodic/AGENT_LEARNINGS.jsonl`
-2. Check for recurring Gate 1 failures or Coverage Report patterns
+2. Check for recurring Coherence Verification failures or Coverage Report patterns
 3. If a pattern exists, update the anti-patterns section above
 4. Commit: `META: skill-update: factory-meta, {one-line reason}`
 

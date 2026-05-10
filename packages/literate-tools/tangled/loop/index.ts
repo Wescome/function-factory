@@ -3,7 +3,7 @@
 // Blocks: 4
 // Generated: deterministic
 // DO NOT EDIT — edit the literate reference and re-run tangle.
-// --- Block from line 2307 (Part VII -- How Does the Code Get Organized?) ---
+// --- Block from line 2312 (Part VII -- How Does the Code Get Organized?) ---
 /**
  * The MemoryProvider interface. All repositories implement this.
  * From memory-substrate Section 3.4.
@@ -44,7 +44,7 @@ interface MemoryProvider {
   walkLineage(artifactId: string, depth?: number): Promise<LineageChain>;
 }
 
-// --- Block from line 2411 (Part VII -- How Does the Code Get Organized?) ---
+// --- Block from line 2416 (Part VII -- How Does the Code Get Organized?) ---
 /**
  * Canonical projection for cross-version lineage scoring.
  * From ratified decisions Section 8.
@@ -69,7 +69,7 @@ declare function readArchitectureCandidate(
   raw: unknown
 ): CanonicalCandidateView;
 
-// --- Block from line 2447 (Part VII -- How Does the Code Get Organized?) ---
+// --- Block from line 2452 (Part VII -- How Does the Code Get Organized?) ---
 /**
  * Routing table validation report.
  * From ratified decisions Section 11.
@@ -83,7 +83,7 @@ interface RoutingTableLintReport {
   generated_at: string;
 }
 
-// --- Block from line 2843 (Appendix C -- For the Coding Agent) ---
+// --- Block from line 2848 (Appendix C -- For the Coding Agent) ---
 /**
  * The Function Factory's closed-loop compiler.
  *
@@ -114,7 +114,7 @@ async function factoryLoop(
         workGraph, "config/routing-table.yaml", {}
       );
 
-      // EXECUTION CONTEXT (Stage 6)
+      // EXECUTION CONTEXT (Agent Call execution)
       // ACL: buildInitialDecisionState runs inside
       // ACL: bundleEvidenceForAcceptanceReview runs inside
       const { traceLog, adherenceReport, fidelityVerificationInput } =

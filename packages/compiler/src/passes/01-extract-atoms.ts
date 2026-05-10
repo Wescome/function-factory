@@ -1,5 +1,5 @@
 /**
- * Pass 1- extract atoms.
+ * Decomposition (legacy Pass 1)- extract atoms.
  *
  * Turns each list item in the PRD's acceptanceCriteria, constraints,
  * and successMetrics sections into a RequirementAtom. Out-of-scope

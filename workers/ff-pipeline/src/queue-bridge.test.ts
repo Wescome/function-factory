@@ -1,5 +1,5 @@
 /**
- * CF Queue bridge tests for Stage 6 synthesis.
+ * CF Queue bridge tests for Agent Call execution synthesis.
  *
  * Tests the Queue-based synthesis bridge (replacing HTTP trigger):
  *   A) Queue consumer (queue() handler in index.ts) — receives message,
@@ -83,7 +83,7 @@ vi.mock('@factory/artifact-validator', () => ({
   validateArtifact: () => ({ valid: true, violations: [] }),
 }))
 
-// ─── Stage stubs (isolate Stage 6 from Stages 1-5) ───
+// ─── Compatibility stage stubs (isolate Agent Call execution from upstream transformations) ───
 
 vi.mock('./stages/ingest-signal', () => ({
   ingestSignal: vi.fn(async () => ({ _key: 'SIG-001', signalType: 'internal', title: 'test' })),
@@ -239,7 +239,7 @@ const mockGlobalFetch = vi.fn(async () => new Response(JSON.stringify({ ok: true
 
 // ─── Tests ───
 
-describe('CF Queue bridge for Stage 6 synthesis', () => {
+describe('CF Queue bridge for Agent Call execution synthesis', () => {
   beforeEach(() => {
     mockDb.save.mockClear()
     mockDb.saveEdge.mockClear()

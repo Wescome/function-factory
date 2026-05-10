@@ -13,7 +13,7 @@ export function emitFeedbackSignal(input: {
     "explicitness: inferred",
     "rationale: Derived deterministically from an observation artifact for bootstrap feedback reinjection.",
     "type: meta_feedback",
-    "source: Stage 7 Observability & Feedback",
+    "source: Persistence Verification Observability & Feedback",
     `title: Feedback signal derived from ${input.observationId}`,
     "description: >",
     `  ${input.deltaSummary}`,

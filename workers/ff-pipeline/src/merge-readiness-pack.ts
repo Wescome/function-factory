@@ -315,7 +315,7 @@ function deriveFunctionIdFromProposalId(proposalId: string): string | null {
 function requireFunctionIdFromProposalId(proposalId: string, field: string): string {
   const functionId = deriveFunctionIdFromProposalId(proposalId)
   if (!functionId) {
-    throw new MergeReadinessPackError(`${field} must start with FP- for Stage 8 functionId derivation`)
+    throw new MergeReadinessPackError(`${field} must start with FP- for Merge Readiness functionId derivation`)
   }
   return functionId
 }
@@ -363,7 +363,7 @@ function canonicalVerdict(pack: MergeReadinessPack): CanonicalMergeReadinessPack
 function canonicalFunctionId(pack: MergeReadinessPack, evidence: CanonicalMRPEvidence): string {
   const derived = requireFunctionIdFromProposalId(pack.proposalId, 'pack.proposalId')
   if (isNonEmptyString(evidence.functionId) && evidence.functionId !== derived) {
-    throw new MergeReadinessPackError('evidence.functionId must match the Stage 8 functionId derived from pack.proposalId')
+    throw new MergeReadinessPackError('evidence.functionId must match the Merge Readiness functionId derived from pack.proposalId')
   }
   return derived
 }

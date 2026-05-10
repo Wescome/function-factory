@@ -617,7 +617,7 @@ describe('ff-pipeline diagnostic routes', () => {
     expect(mockSave).toHaveBeenCalledOnce()
   })
 
-  it('POST /debug/mrp can return canonical MRP with Stage 8 derived functionId', async () => {
+  it('POST /debug/mrp can return canonical MRP with Merge Readiness derived functionId', async () => {
     const { default: worker } = await import('./index')
 
     const response = await worker.fetch(
@@ -806,7 +806,7 @@ describe('ff-pipeline diagnostic routes', () => {
 
     expect(response.status).toBe(400)
     expect(await jsonBody(response)).toMatchObject({
-      error: expect.stringContaining('evidence.functionId must match the Stage 8 functionId'),
+      error: expect.stringContaining('evidence.functionId must match the Merge Readiness functionId'),
     })
     expect(mockSave).not.toHaveBeenCalled()
   })
@@ -880,7 +880,7 @@ describe('ff-pipeline diagnostic routes', () => {
     )
   })
 
-  it('POST /debug/mrp-auto can overlay persisted Fidelity Verification evidence during Stage 8 assembly', async () => {
+  it('POST /debug/mrp-auto can overlay persisted Fidelity Verification evidence during Merge Readiness assembly', async () => {
     const { default: worker } = await import('./index')
     mockQuery.mockResolvedValueOnce([
       {
@@ -939,7 +939,7 @@ describe('ff-pipeline diagnostic routes', () => {
     ])
   })
 
-  it('POST /debug/gate2-simulate returns a Gate 2 simulation report and verdict', async () => {
+  it('POST /debug/gate2-simulate returns a Fidelity Verification report and verdict', async () => {
     const { default: worker } = await import('./index')
 
     const response = await worker.fetch(
@@ -1089,7 +1089,7 @@ describe('ff-pipeline diagnostic routes', () => {
     )
   })
 
-  it('POST /debug/gate2-simulate can dry-run Gate 2 lifecycle acceptance without mutation', async () => {
+  it('POST /debug/gate2-simulate can dry-run Fidelity Verification lifecycle acceptance without mutation', async () => {
     const { default: worker } = await import('./index')
 
     const response = await worker.fetch(
@@ -1123,7 +1123,7 @@ describe('ff-pipeline diagnostic routes', () => {
     expect(mockSave).not.toHaveBeenCalled()
   })
 
-  it('POST /debug/gate3-register persists a minimal Gate 3 assurance blocker report', async () => {
+  it('POST /debug/gate3-register persists a minimal Persistence Verification blocker report', async () => {
     const { default: worker } = await import('./index')
 
     const response = await worker.fetch(

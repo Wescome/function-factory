@@ -16,5 +16,11 @@ export {
   type CoherenceVerificationPassResult,
   type Gate1PassResult,
 } from "./07-gate-1.js"
-export { assembleWorkgraph } from "./08-assemble-workgraph.js"
-export { emitWorkgraph } from "./_workgraph-emit.js"
+export {
+  assembleExecutableSpecification,
+  assembleWorkgraph,
+} from "./08-assemble-workgraph.js"
+export {
+  emitExecutableSpecification,
+  emitWorkgraph,
+} from "./_workgraph-emit.js"

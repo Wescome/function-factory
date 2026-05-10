@@ -4,7 +4,7 @@ Guards against unbounded self-modification by evaluating whether the Factory may
 
 ## Pipeline Position
 
-**Stage:** Cross-cutting (governs Stage 4-5 self-authoring loops)
+**Stage:** Cross-cutting (governs Function Proposal to Intent Specification self-authoring loops; legacy Stage 4-5)
 **Consumes:** `FP-*` (FunctionProposal), governance policy, authoring context
 **Produces:** `RGD-*` (GovernanceDecisionArtifact as YAML)
 

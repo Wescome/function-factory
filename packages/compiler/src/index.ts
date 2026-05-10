@@ -1,12 +1,10 @@
 /**
  * @factory/compiler
  *
- * Stage 5 compiler- transforms PRDDraft into a Coherence Verification Coverage Report
- * (and, in a future PR, a WorkGraph). Eight narrow passes per the
- * `prd-compiler` SKILL; Pass 7 is Coherence Verification from @factory/coverage-gates.
- *
- * MVP scope- Passes 0–7. Pass 8 (assemble_workgraph) is not implemented
- * in this PR; the Coverage Report is the bootstrap proof.
+ * Intent-to-Executable compiler- transforms PRDDraft into a Coherence
+ * Verification Coverage Report and WorkGraph. Historical pass numbers remain
+ * compatibility labels; ontology terms are primary. Current WorkGraph assembly
+ * is Structural Assembly completion, not future Instruction Tuning.
  */
 
 export { compile } from "./compile.js"

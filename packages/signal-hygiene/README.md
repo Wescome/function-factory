@@ -5,7 +5,7 @@ Normalizes, deduplicates, and weights raw signals before they re-enter the pipel
 ## Pipeline Position
 
 **Stage:** 7.25
-**Consumes:** Raw signals (from Stage 7 observability feedback)
+**Consumes:** Raw signals (from Persistence Verification / observability feedback)
 **Produces:** `SNB-*` (SignalNormalizationArtifact batches)
 
 ## Exports

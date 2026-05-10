@@ -2,7 +2,8 @@
 
 **Status:** Current-state compatibility crosswalk
 **Date:** 2026-05-08
-**Source references:** `FF-ONTOLOGY-v0.2.md`, `FF-REFACTORING-PLAN.md`,
+**Source references:** `FF-ONTOLOGY-v0.2.md`, `FF-ONTOLOGY-ADDENDUM-A.md`,
+`FF-REFACTORING-PLAN.md`,
 `.agent/memory/semantic/DECISIONS.md`,
 `.agent/memory/working/WORKSPACE.md`
 
@@ -28,6 +29,100 @@ explicit rename decision.
 | Function | Function | Aligned | `FN-*` remains the executable unit identity prefix. |
 | Invariant | Invariant Specification | Stable compatibility name | `INV-*` IDs and `specs/invariants/` remain current. |
 | Contract | Execution Contract | Partial alias | `CONTRACT-*` artifacts remain current; Pan-aligned term is interpretive. |
+
+## Legacy Pipeline Stage Concordance
+
+`FF-ONTOLOGY-ADDENDUM-A.md` maps legacy numbered stages to ontology terms.
+The numbered labels remain compatibility labels for interpreting historical
+ConOps, memory, and skill material. Active docs and new code should lead with
+the ontology category and include the numbered label only when it clarifies a
+legacy interface.
+
+| Legacy label | Ontology term | Current compatibility surface |
+| --- | --- | --- |
+| Stage 1 | Signal Artifact collection | `specs/signals/`, `SIG-*`, `ExternalSignal` |
+| Stage 2 | Pressure Artifact interpretation | `specs/pressures/`, `PRS-*`, `Pressure` |
+| Stage 3 | Capability Artifact scoping | `specs/capabilities/`, `BC-*`, `BusinessCapability` |
+| Stage 4 | Function Proposal decomposition | `specs/functions/`, `FP-*`, `FunctionProposal` |
+| Stage 5 input | Intent Specification authoring | `specs/prds/`, `PRD-*`, `PRDDraft` |
+| Stage 5 output | Executable Specification compilation | `specs/workgraphs/`, `WG-*`, `WorkGraph` |
+| Stage 6 | Agent Call execution / orchestration | `workers/ff-pipeline`, synthesis coordinator, agent role execution |
+| Stage 7 | Persistence Verification / continuous assurance | runtime monitoring, detector freshness, regression evidence |
+
+## Legacy Coverage Gate Concordance
+
+| Legacy label | Ontology term | Current compatibility surface |
+| --- | --- | --- |
+| Gate 1 | Coherence Verification | `Gate1Report`, `runGate1`, `gate-1`, `CR-*-GATE1-*` |
+| Gate 2a | Fidelity Verification (learned) | simulated acceptance / model-assisted behavioral correspondence |
+| Gate 2b | Fidelity Verification (deterministic) | deterministic scenario, invariant, and validation-result checks |
+| Gate 2 | Fidelity Verification compatibility umbrella | `Gate2Report`, `Gate2Input`, `gate-2`, `CR-*-GATE2-*` |
+| Gate 3 | Persistence Verification | `Gate3Report`, `gate-3`, `CR-*-GATE3-*` |
+
+## Legacy Compiler Pass Concordance
+
+The current compiler has a live compatibility implementation name conflict:
+the repo historically implemented `Pass 8` as WorkGraph assembly, while
+`FF-ONTOLOGY-ADDENDUM-A.md` reserves `Pass 8` for future Instruction Tuning.
+Until a physical rename lands, current `08-assemble-workgraph.ts`,
+`assembleWorkgraph`, and `emitWorkgraph` remain compatibility names for the
+Structural Assembly completion step. New code should prefer
+`assembleExecutableSpecification` and `emitExecutableSpecification`.
+
+| Legacy label | Ontology term | Current compatibility surface |
+| --- | --- | --- |
+| Pass 1 | Decomposition | `extractAtoms` |
+| Pass 2 | Binding | `deriveContracts` |
+| Pass 3 | Obligation Extraction | `deriveInvariants` |
+| Pass 4 | Structural Assembly (dependency resolution) | `deriveDependencies` |
+| Pass 5 | Structural Assembly (validation wiring) | `deriveValidations` |
+| Pass 6 | Structural Assembly (graph construction / consistency reservation) | `consistencyCheck` plus current assembly compatibility flow |
+| Pass 7 | Completeness Certification / Coherence Verification | `runCoherenceVerificationPass`, legacy `runGate1Pass` |
+| Current repo Pass 8 | Structural Assembly completion compatibility label | `assembleWorkgraph`, `emitWorkgraph`, `08-assemble-workgraph.ts` |
+| Ontology Pass 8 | Instruction Tuning (future) | Not implemented; do not use current WorkGraph assembly as this category |
+
+## Artifact ID Prefix Concordance
+
+These prefixes are stable implementation identifiers, not ontology names.
+
+| Prefix | Ontology category |
+| --- | --- |
+| `PRS-*` | Pressure Artifact |
+| `BC-*` | Capability Artifact |
+| `FP-*` / `FN-*` | Function Proposal / Function identity records |
+| `PRD-*` | Intent Specification |
+| `WG-*` | Executable Specification |
+| `INV-*` | Invariant Specification |
+| `CR-*` | Verification Report |
+
+## Skill File Concordance
+
+Skill filenames remain stable compatibility names until a separate
+charter/harness migration lands.
+
+| Legacy skill file | Ontology role | Charter or harness |
+| --- | --- | --- |
+| `factory-meta/SKILL.md` | Factory bootstrap harness skill | Harness |
+| `prd-compiler/SKILL.md` | Compilation harness skill | Harness |
+| `coverage-gate-1/SKILL.md` | Coherence Verification enforcement | Charter |
+| `coverage-gate-2/SKILL.md` | Fidelity Verification enforcement | Charter |
+| `coverage-gate-3/SKILL.md` | Persistence Verification enforcement | Charter |
+| `invariant-authoring/SKILL.md` | Invariant authoring harness skill | Harness |
+| `lineage-preservation/SKILL.md` | Lineage discipline enforcement | Charter |
+| `memory-manager/SKILL.md` | Memory management harness skill | Harness |
+
+## Post-v0.2 Stage Extensions
+
+The current repo contains later numbered labels that are outside Addendum A's
+original Stage 1-7 scope. They are compatibility labels for repo-local process
+extensions until the ontology receives a v0.3/addendum-B update.
+
+| Current compatibility label | Ontology interpretation | Current surface |
+| --- | --- | --- |
+| Stage 8 | Merge Readiness / PR Handoff / Function identity materialization | MRP assembly, PR draft evidence, `FP-*` to `FN-*` materialization |
+| Stage 8.5 | Selection-bias correction overlay | `packages/selection-bias`, historical adaptation notes |
+| Stage 9 | Meta-Governance / policy evolution | `packages/meta-governance`, governance proposal artifacts |
+| Stage 10 | Policy Activation / rollback control | `packages/policy-activation`, activation artifacts |
 
 ## Artifact Buckets
 

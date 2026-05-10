@@ -24,7 +24,7 @@ export function emitArchitectureCandidate(input: CandidateEmissionInput): Archit
     },
     modelBinding: {
       bindingMode: "unbound",
-      summary: "Runtime model binding is not selected in Stage 5.5 bootstrap emission.",
+      summary: "Runtime model binding is not selected in bootstrap architecture-candidate emission.",
     },
     toolPolicy: {
       mode: "restricted",

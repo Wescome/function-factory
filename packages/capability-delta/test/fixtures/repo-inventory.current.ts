@@ -56,7 +56,7 @@ export const repoInventoryCurrent: RepoInventory = {
     capabilityDelta: 0
   },
   notes: [
-    "Gate 2 and Gate 3 report schemas exist without runnable implementations.",
+    "Fidelity Verification and Persistence Verification report schemas exist without runnable implementations.",
     "ArchitectureCandidate schema and AC-* artifact family are absent.",
     "CapabilityDelta engine does not yet exist."
   ]

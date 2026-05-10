@@ -1,8 +1,8 @@
 # @factory/compiler
 
-Stage 5 compiler that transforms a PRD into compiler intermediates, runs
-Coherence Verification, and emits a WorkGraph. Eight narrow passes from
-normalization through workgraph assembly.
+Intent-to-Executable compilation package that transforms a PRD into compiler
+intermediates, runs Coherence Verification, and emits a WorkGraph. Historical
+pass numbers remain compatibility labels; ontology terms are primary.
 
 ## Ontology Alias
 
@@ -15,28 +15,30 @@ shims.
 
 ## Pipeline Position
 
-**Stage:** 5
+**Stage:** Intent-to-Executable compilation (legacy Stage 5)
 **Consumes:** `PRD-*` (PRD markdown files)
 **Produces:** `CR-*` (Coherence Verification Coverage Reports), `WG-*` (WorkGraphs)
 
 ## Exports
 
-- `compile()` -- Orchestrator that reads a PRD file, runs Passes 0-8, emits a Coverage Report and WorkGraph, and returns the aggregate result
+- `compile()` -- Orchestrator that reads a PRD file, runs the compatibility pass pipeline, emits a Coverage Report and WorkGraph, and returns the aggregate result
 - `CompileOptions` type -- Override factory mode, output directories, and timestamp
 - `CompileResult`, `CompilerIntermediates`, `FactoryMode`, `NormalizedPRD` types
 
-### Passes (via `@factory/compiler/passes`)
+### Transformations (via `@factory/compiler/passes`)
 
-- Pass 0: `normalize` -- Parse PRD markdown and YAML frontmatter
-- Pass 1: `extractAtoms` -- Derive atomic work units
-- Pass 2: `deriveContracts` -- Derive interface contracts
-- Pass 3: `deriveInvariants` -- Derive system invariants
-- Pass 4: `deriveDependencies` -- Derive dependency graph
-- Pass 5: `deriveValidations` -- Derive validation rules
-- Pass 6: `consistencyCheck` -- Cross-check intermediates
-- Pass 7: `runCoherenceVerificationPass` -- Coherence Verification via @factory/coverage-gates
-- Pass 7 compatibility: `runGate1Pass` -- legacy compatibility shim
-- Pass 8: `assembleWorkgraph` / `emitWorkgraph` -- Assemble and emit the WorkGraph
+- Compatibility Pass 0: `normalize` -- Parse PRD markdown and YAML frontmatter
+- Decomposition (legacy Pass 1): `extractAtoms` -- Derive atomic work units
+- Binding (legacy Pass 2): `deriveContracts` -- Derive interface contracts
+- Obligation Extraction (legacy Pass 3): `deriveInvariants` -- Derive system invariants
+- Structural Assembly subdivision (legacy Pass 4): `deriveDependencies` -- Derive dependency graph
+- Structural Assembly subdivision (legacy Pass 5): `deriveValidations` -- Derive validation rules
+- Completeness preflight slot (legacy Pass 6): `consistencyCheck` -- Cross-check intermediates
+- Completeness Certification / Coherence Verification (legacy Pass 7): `runCoherenceVerificationPass` -- Coherence Verification via @factory/coverage-gates
+- Legacy Pass 7 compatibility: `runGate1Pass` -- legacy compatibility shim
+- Executable Specification Assembly: `assembleExecutableSpecification` / `emitExecutableSpecification` -- Assemble and emit the WorkGraph
+- Legacy Pass 8 compatibility: `assembleWorkgraph` / `emitWorkgraph` -- compatibility aliases for Executable Specification Assembly
+- Ontology Pass 8: Instruction Tuning -- future, not implemented by current WorkGraph assembly
 
 ## Key Invariants
 

@@ -5,7 +5,7 @@ Computes candidate reliability from observation history and derives a bounded se
 ## Pipeline Position
 
 **Stage:** 8.5
-**Consumes:** Observation match/deviation counts, drift indicator from Stage 8
+**Consumes:** Observation match/deviation counts, drift indicator from Merge Readiness / PR Handoff
 **Produces:** `CRL-*` (CandidateReliability), `SBI-*` (SelectionBiasInput)
 
 ## Exports

@@ -1,5 +1,5 @@
 /**
- * Pass 3- derive invariants.
+ * Obligation Extraction (legacy Pass 3)- derive invariants.
  *
  * Each constraint-category atom that expresses a persistent property
  * (rather than a one-shot requirement) becomes an Invariant with a
@@ -10,7 +10,7 @@
  *
  * For atoms that do not match any template, no invariant is emitted
  * from that atom. The remaining invariants are still coverage-complete
- * via the constraint-category Contract from Pass 2; the atom is
+ * via the constraint-category Contract from Binding (legacy Pass 2); the atom is
  * "covered" without needing an invariant derived from it specifically.
  *
  * Invariant ID prefix- INV-, refined by the Invariant schema.

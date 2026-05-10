@@ -1,5 +1,5 @@
 /**
- * Compile orchestrator- reads a PRD file, runs Passes 0–7 in order,
+ * Compile orchestrator- reads a PRD file, runs the compatibility pass pipeline,
  * emits a Coherence Verification Coverage Report, and returns the aggregate result.
  *
  * IO is confined to this module (reading the PRD file, writing the
@@ -20,7 +20,7 @@ import { dirname, resolve } from "node:path"
 import type { WorkGraph } from "@factory/schemas"
 import type { CompileResult, FactoryMode } from "./types.js"
 import {
-  assembleWorkgraph,
+  assembleExecutableSpecification,
   consistencyCheck,
   deriveContracts,
   deriveDependencies,
@@ -51,7 +51,7 @@ export async function compile(
   const absolutePrdPath = resolve(prdPath)
   const raw = await readFile(absolutePrdPath, "utf8")
 
-  // Passes 0–5- produce the intermediates bundle.
+  // Compatibility passes 0-5 produce the intermediates bundle.
   const normalized = normalize(raw, absolutePrdPath)
   const atoms = extractAtoms(normalized)
   const contracts = deriveContracts(normalized, atoms)
@@ -74,10 +74,10 @@ export async function compile(
     validations,
   }
 
-  // Pass 6- consistency check (MVP no-op).
+  // Completeness preflight compatibility slot (legacy Pass 6, MVP no-op).
   consistencyCheck(intermediates)
 
-  // Pass 7- Coherence Verification.
+  // Completeness Certification / Coherence Verification (legacy Pass 7).
   const mode = options.mode ?? determineMode(normalized.draft.id)
   const timestamp = options.timestamp ?? new Date().toISOString()
   const coverageReportsDir =
@@ -90,14 +90,14 @@ export async function compile(
     coverageReportsDir
   )
 
-  // Pass 8- assemble WorkGraph from validated intermediates if Coherence
-  // Verification passed. On failure, workgraph and workgraphPath remain null;
-  // the orchestrator still returns with the Coverage Report preserved
-  // on disk per ConOps §7.2 step 2.
+  // Executable Specification Assembly. The historical compatibility label is
+  // "Pass 8 assemble WorkGraph"; ontology Pass 8 is future Instruction Tuning.
+  // On failure, workgraph and workgraphPath remain null; the orchestrator still
+  // returns with the Coverage Report preserved on disk per ConOps §7.2 step 2.
   let workgraph: WorkGraph | null = null
   let workgraphPath: string | null = null
   if (report.overall === "pass") {
-    workgraph = assembleWorkgraph(
+    workgraph = assembleExecutableSpecification(
       normalized.draft,
       atoms,
       contracts,

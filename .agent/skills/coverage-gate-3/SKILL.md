@@ -16,11 +16,12 @@ constraints:
 category: factory-core
 ---
 
-# Assurance Coverage Gate (Gate 3)
+# Persistence Verification
 
 Runs continuously on every Function that has reached `monitored` status.
-Verifies that the runtime evidence base under the Function has not silently
-decayed.
+Legacy `coverage-gate-3` and Gate 3 names remain compatibility triggers.
+Persistence Verification verifies that the runtime evidence base under the
+Function has not silently decayed.
 
 ## Inputs (continuous)
 
@@ -53,7 +54,7 @@ fail.
 
 ## Output
 
-A rolling `AssuranceCoverageReport` updated continuously at
+A rolling Persistence Verification report updated continuously at
 `specs/coverage-reports/CR-<FN-ID>-GATE3-latest.yaml` with versioned
 history in `CR-<FN-ID>-GATE3-history.jsonl`:
 
@@ -104,14 +105,14 @@ remediation: |
   gaming. Freshness thresholds are set based on invariant impact; do not
   loosen them to suppress signal.
 - **Recovering from assurance regressed without re-running the relevant
-  Gate 2 scenarios.** If evidence was missing for a period, the Function's
-  behavior during that period is unverified. Treat as if it had been in
-  `regressed` state.
+  Fidelity Verification scenarios.** If evidence was missing for a period,
+  the Function's behavior during that period is unverified. Treat as if it had
+  been in `regressed` state.
 
 ## Self-rewrite hook
 
-After every 100 Gate 3 runs OR on any incident traceable to a coverage
-miss this gate should have caught:
+After every 100 Persistence Verification runs OR on any incident traceable to
+a coverage miss this verification should have caught:
 1. Review the rolling history.
 2. If a class of miss keeps slipping through, propose a tighter threshold
    or additional check.

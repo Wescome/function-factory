@@ -53,7 +53,7 @@
     "capabilityDelta": 11
   },
   "notes": [
-    "Gate 1 exists but no semantic review runner exists between Gate 1 and WorkGraph emission.",
+    "Coherence Verification exists but no semantic review runner exists between Coherence Verification and WorkGraph emission.",
     "No SemanticReviewReport schema or SRR-* artifact family exists yet.",
     "ArchitectureCandidate schema and AC-* artifact family are still absent."
   ]

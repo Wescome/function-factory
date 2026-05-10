@@ -5,7 +5,7 @@
  * types. This module declares the types used at pass boundaries. Every
  * pass output that represents a Factory artifact is typed to the
  * corresponding Zod-inferred type from `@factory/schemas` so the Zod
- * schemas remain the single source of truth and Pass 7 (Coherence Verification) can
+ * schemas remain the single source of truth and Coherence Verification can
  * consume them directly.
  */
 
@@ -47,7 +47,7 @@ export interface NormalizedPRD {
 }
 
 /**
- * The aggregated output of all passes. Pass 7 (Coherence Verification) consumes
+ * The aggregated output of all transformations. Coherence Verification consumes
  * this bundle via its `prdId` and the five artifact arrays.
  */
 export interface CompilerIntermediates {
@@ -70,8 +70,8 @@ export interface CompileResult {
   readonly intermediates: CompilerIntermediates
   readonly mode: FactoryMode
   /**
-   * Pass 8 output. Populated when Coherence Verification verdict is `pass`;
-   * null when verification failed (Pass 8 is skipped per ConOps §7.2 step 2).
+   * Executable Specification Assembly output. Populated when Coherence
+   * Verification verdict is `pass`; null when verification failed.
    */
   readonly workgraph: WorkGraph | null
   readonly workgraphPath: string | null

@@ -2,7 +2,7 @@
  * Semantic Grounding Tests (TDD — RED phase)
  *
  * Tests for the minimum viable pipeline semantic grounding fix.
- * specContent threads through the pipeline so Stage 4 and the Critic
+ * specContent threads through the pipeline so Function Proposal decomposition and the Critic
  * have access to the original specification content.
  *
  * Test order follows the approved design:
@@ -244,7 +244,7 @@ describe('Semantic Grounding: specContent threading', () => {
 // Test 3: proposeFunction includes specContent in LLM prompt
 // ═══════════════════════════════════════════════════════════════════
 
-describe('Semantic Grounding: Stage 4 prompt enrichment', () => {
+describe('Semantic Grounding: Function Proposal prompt enrichment', () => {
   let db: ReturnType<typeof createMockDb>
   let env: ReturnType<typeof createMockEnv>
 
@@ -300,10 +300,10 @@ describe('Semantic Grounding: Stage 4 prompt enrichment', () => {
 
 
 // ═══════════════════════════════════════════════════════════════════
-// Test 3b: Stage 4 uses SPEC_GROUNDED_PROMPT for full decomposition
+// Test 3b: Function Proposal decomposition uses SPEC_GROUNDED_PROMPT
 // ═══════════════════════════════════════════════════════════════════
 
-describe('Semantic Grounding: Stage 4 full-spec decomposition', () => {
+describe('Semantic Grounding: Function Proposal full-spec decomposition', () => {
   let db: ReturnType<typeof createMockDb>
   let env: ReturnType<typeof createMockEnv>
 

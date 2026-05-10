@@ -17,10 +17,10 @@ import { ArtifactId, Lineage } from "./lineage.js"
 
 /**
  * Factory operating mode. `bootstrap` is the Factory-built-by-Factory phase
- * where Gate 1's bootstrap_prefix_check runs and every artifact ID in
+ * where Coherence Verification's bootstrap_prefix_check runs and every artifact ID in
  * compiler intermediates must carry the META- qualifier (ConOps §4.1
  * Rule 2). `steady_state` is post-bootstrap operation where the prefix
- * check is skipped and Gate 1 runs only the four core coverage checks.
+ * check is skipped and Coherence Verification runs only the four core coverage checks.
  *
  * Canonical definition. Every downstream package that distinguishes
  * Bootstrap from Steady-State imports from here. Do not redeclare.
@@ -28,7 +28,7 @@ import { ArtifactId, Lineage } from "./lineage.js"
 export const FactoryMode = z.enum(["bootstrap", "steady_state"])
 export type FactoryMode = z.infer<typeof FactoryMode>
 
-// ─── Stage 1 — Signals ───────────────────────────────────────────────
+// ─── Signal Artifacts (legacy Stage 1) ────────────────────────────────
 
 export const SignalType = z.enum([
   "market",
@@ -56,7 +56,7 @@ export const ExternalSignal = Lineage.extend({
 })
 export type ExternalSignal = z.infer<typeof ExternalSignal>
 
-// ─── Stage 2 — Pressures (Forcing Functions) ─────────────────────────
+// ─── Pressure Artifacts (legacy Stage 2) ──────────────────────────────
 
 export const PressureCategory = z.enum([
   "growth",
@@ -85,7 +85,7 @@ export const Pressure = Lineage.extend({
 })
 export type Pressure = z.infer<typeof Pressure>
 
-// ─── Stage 3 — Business Capabilities ─────────────────────────────────
+// ─── Capability Artifacts (legacy Stage 3) ────────────────────────────
 
 export const BusinessCapability = Lineage.extend({
   id: ArtifactId.refine((s) => s.startsWith("BC-"), "Capability IDs must start with BC-"),
@@ -101,7 +101,7 @@ export const BusinessCapability = Lineage.extend({
 })
 export type BusinessCapability = z.infer<typeof BusinessCapability>
 
-// ─── Stage 4 — Function Proposals ────────────────────────────────────
+// ─── Function Proposal Decomposition (legacy Stage 4) ─────────────────
 
 export const FunctionType = z.enum(["execution", "control", "evidence", "integration"])
 export type FunctionType = z.infer<typeof FunctionType>
@@ -121,7 +121,7 @@ export const FunctionProposal = Lineage.extend({
 })
 export type FunctionProposal = z.infer<typeof FunctionProposal>
 
-// ─── Stage 5 — PRD, atoms, contracts, invariants, dependencies, validations, WorkGraph
+// ─── Intent-to-Executable Compilation (legacy Stage 5) ────────────────
 
 export const PRDDraft = Lineage.extend({
   id: ArtifactId.refine((s) => s.startsWith("PRD-"), "PRD IDs must start with PRD-"),
@@ -174,7 +174,7 @@ export const InvariantScope = z.enum(["entity", "workflow", "system"])
 export const ViolationImpact = z.enum(["low", "medium", "high"])
 
 /**
- * Detector spec. An Invariant without one of these is rejected at Gate 1.
+ * Detector spec. An Invariant without one of these is rejected by Coherence Verification.
  */
 export const DetectorSpec = z.object({
   name: z.string().min(1),
@@ -271,7 +271,7 @@ export const WorkGraph = Lineage.extend({
 })
 export type WorkGraph = z.infer<typeof WorkGraph>
 
-// ─── Stage 7 — Trust, Trajectory, Regression ──────────────────────────
+// ─── Persistence Verification / Trust / Trajectory / Regression ───────
 
 export const FunctionLifecycle = z.enum([
   "proposed",

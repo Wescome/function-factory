@@ -11,29 +11,32 @@ Triggers: "bootstrap", "factory about the factory", "meta function",
 "self-application"
 
 ## prd-compiler
-The eight-pass compiler that transforms PRDs into WorkGraphs. Stage 5 of the
-Factory pipeline.
+Compilation harness that transforms Intent Specifications (PRDs) into
+Executable Specifications (WorkGraphs). Historical pass and Stage 5 labels
+remain compatibility triggers.
 Triggers: "compile PRD", "compile spec", "generate WorkGraph", "Stage 5",
 "run the compiler"
 
 ## coverage-gate-1
-Compile Coverage Gate. Runs between `consistency_check` and
-`assemble_workgraph`. Verifies atom coverage, invariant coverage, validation
-coverage, and dependency closure. Fails closed.
+Coherence Verification charter. Runs before Executable Specification assembly.
+Verifies atom coverage, invariant coverage, validation coverage, and dependency
+closure. Fails closed. `coverage-gate-1` and Gate 1 remain compatibility names.
 Triggers: "Gate 1", "compile coverage", "compile gate", "coverage check
 before workgraph"
 
 ## coverage-gate-2
-Simulation Coverage Gate. Runs in Stage 7 before `verified` → `monitored`
-transition. Verifies scenario coverage, invariant exercise, and required-
-validation pass rate.
+Fidelity Verification charter. Runs before lifecycle promotion beyond verified
+execution evidence. Verifies scenario coverage, invariant exercise, and
+required-validation pass rate. `coverage-gate-2` and Gate 2 remain
+compatibility names.
 Triggers: "Gate 2", "simulation coverage", "promote to monitored",
 "scenario coverage"
 
 ## coverage-gate-3
-Assurance Coverage Gate. Runs continuously. Verifies detector freshness,
-evidence source liveness, and audit pipeline integrity. Transitions Functions
-to `assurance regressed` on failure.
+Persistence Verification charter. Runs continuously. Verifies detector
+freshness, evidence source liveness, and audit pipeline integrity. Transitions
+Functions to `assurance regressed` on failure. `coverage-gate-3` and Gate 3
+remain compatibility names.
 Triggers: "Gate 3", "assurance coverage", "detector freshness", "monitoring
 liveness"
 

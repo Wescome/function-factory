@@ -12,17 +12,18 @@ preconditions:
   - "Digital Twin Universe scenarios are configured"
   - "required validations have run"
 constraints:
-  - "no promotion to monitored without gate pass"
+  - "no promotion to monitored without Fidelity Verification pass"
   - "negative tests must exist for every invariant"
   - "100% required validation pass rate is required"
 category: factory-core
 ---
 
-# Simulation Coverage Gate (Gate 2)
+# Fidelity Verification
 
-Runs in Stage 7, between the `verified` and `monitored` lifecycle states.
-Verifies that the Function's scenario suite actually exercises its
-specification in practice, not just in isolation.
+Runs before monitored promotion. Legacy `coverage-gate-2` and Gate 2 names
+remain compatibility triggers. Fidelity Verification verifies that the
+Function's scenario suite actually exercises its specification in practice,
+not just in isolation.
 
 ## Inputs
 
@@ -82,8 +83,8 @@ remediation: |
 
 ## Behavior
 
-- **On pass:** Function transitions from `verified` to `monitored`. Gate 3
-  monitoring activates immediately.
+- **On pass:** Function transitions from `verified` to `monitored`.
+  Persistence Verification monitoring activates immediately.
 - **On fail:** Function stays in `verified`. It is deployable (the harness
   can run it) but it is not governed (the trust computation refuses to
   certify it). Remediation is additive — add scenarios, add negative tests,
@@ -96,13 +97,13 @@ remediation: |
 - **Marking positive-only test suites as sufficient.** Never. The existence
   of a negative test is a hard requirement for every invariant.
 - **Lowering a validation priority from required to recommended to pass
-  the gate.** This is a scope violation. Requirements are requirements.
+  the verification.** This is a scope violation. Requirements are requirements.
   Surface to architect if a requirement seems wrong.
 
 ## Self-rewrite hook
 
-After every 10 Gate 2 runs OR on any runtime regression traceable to
-coverage this gate should have caught:
+After every 10 Fidelity Verification runs OR on any runtime regression
+traceable to coverage this verification should have caught:
 1. Review recent Coverage Reports.
 2. If a class of coverage miss keeps slipping through, propose an
    additional check or tighter threshold.

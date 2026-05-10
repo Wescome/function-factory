@@ -3,7 +3,7 @@
 // Blocks: 4
 // Generated: deterministic
 // DO NOT EDIT — edit the literate reference and re-run tangle.
-// --- Block from line 1901 (Part V -- How Does a Function Stay Healthy?) ---
+// --- Block from line 1905 (Part V -- How Does a Function Stay Healthy?) ---
 /** CANONICAL-ONLY. Continuous monitoring report per function. */
 interface EvidenceMonitoringReport {
   function_id: string;
@@ -26,7 +26,7 @@ declare function assurance_sweepEvidenceIntegrity(
   functionId: string
 ): EvidenceMonitoringReport;
 
-// --- Block from line 1929 (Part V -- How Does a Function Stay Healthy?) ---
+// --- Block from line 1933 (Part V -- How Does a Function Stay Healthy?) ---
 /** CANONICAL-ONLY. Five-dimensional trust composite. */
 interface TrustComposite {
   correctness: Score;    // weight 0.30 -- does it do what the contract says
@@ -48,7 +48,7 @@ declare function assurance_composeTrust(
   gateHistory: GateHistory
 ): TrustComposite;
 
-// --- Block from line 1956 (Part V -- How Does a Function Stay Healthy?) ---
+// --- Block from line 1960 (Part V -- How Does a Function Stay Healthy?) ---
 /** CANONICAL-ONLY. Per-invariant health score. */
 interface InvariantHealth {
   invariant_id: string;
@@ -59,7 +59,7 @@ interface InvariantHealth {
   monitoring_staleness_hours: number;
 }
 
-// --- Block from line 1982 (Part V -- How Does a Function Stay Healthy?) ---
+// --- Block from line 1986 (Part V -- How Does a Function Stay Healthy?) ---
 /**
  * Propagate an incident through the assurance dependency graph.
  *

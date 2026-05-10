@@ -1,5 +1,5 @@
 /**
- * Pass 5- derive validations.
+ * Structural Assembly validation wiring (legacy Pass 5)- derive validations.
  *
  * For each Invariant, emit a ValidationSpec whose `coversInvariantIds`
  * contains the invariant's ID. This ensures Coherence Verification's invariant_coverage
@@ -7,7 +7,7 @@
  *
  * Each emitted validation also backmaps to the source atom(s) via
  * `coversAtomIds`, reinforcing atom coverage via a second path (in
- * addition to contracts from Pass 2).
+ * addition to contracts from Binding).
  *
  * Validation kind is "property" for all MVP-emitted validations — each
  * asserts an invariant holds as a property of the compiled system.

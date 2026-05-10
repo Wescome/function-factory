@@ -108,7 +108,7 @@ function makeUpstreamCompileEvidence() {
     authoritative: false,
     workGraphId: 'WG-T11',
     upstreamWorkGraphId: 'WG-T11',
-    reason: 'Workflow Stage 5 already compiled this WorkGraph before Stage 6; coordinator records pass-through evidence only.',
+    reason: 'Workflow compilation already emitted this WorkGraph before Agent Call execution; coordinator records pass-through evidence only.',
     timestamp: new Date().toISOString(),
   }
 }
@@ -526,7 +526,7 @@ describe('T11: 9-node synthesis graph', () => {
     expect(compiledPrd.source).toBe('stage-6-upstream-compile-evidence')
     expect(compiledPrd.evidenceStatus).toBe('upstream_verified_not_recomputed')
     expect(compiledPrd.authoritative).toBe(false)
-    expect(compiledPrd.reason).toContain('Stage 5 already compiled')
+    expect(compiledPrd.reason).toContain('Workflow compilation already emitted')
   })
 
   // ────────────────────────────────────────────────────────────

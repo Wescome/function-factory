@@ -11,7 +11,7 @@ The package name and WorkGraph APIs remain unchanged.
 
 ## Pipeline Position
 
-**Stage:** Cross-cutting (Stage 6 execution infrastructure)
+**Stage:** Cross-cutting Agent Call execution infrastructure (legacy Stage 6)
 **Consumes:** `WG-*` (WorkGraph)
 **Produces:** `EL-*` (ExecutionLog artifacts as YAML)
 

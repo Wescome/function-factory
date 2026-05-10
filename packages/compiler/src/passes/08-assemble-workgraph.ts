@@ -1,14 +1,18 @@
 /**
- * Pass 8- assemble WorkGraph.
+ * Executable Specification Assembly.
  *
- * Terminal compiler pass. Consumes validated intermediates from Passes
- * 1-5 plus a passing Coherence Verification report from Pass 7, produces a
- * WorkGraph conforming to the WorkGraph Zod schema. Pure function- no
- * IO, no mutation of inputs, no external state.
+ * Structural Assembly compatibility implementation. The historical repo name
+ * is "Pass 8 assemble WorkGraph"; ontology v0.2 reserves Pass 8 for future
+ * Instruction Tuning, so this module exposes assembleExecutableSpecification
+ * as the primary API and keeps assembleWorkgraph as the compatibility export.
+ *
+ * Consumes validated intermediates plus a passing Coherence Verification
+ * report and produces a WorkGraph conforming to the WorkGraph Zod schema.
+ * Pure function- no IO, no mutation of inputs, no external state.
  *
  * Fail-closed- throws if the Coherence Verification verdict is anything other than
- * `pass`. The orchestrator is responsible for providing a report; Pass
- * 8 at this layer trusts the type signature.
+ * `pass`. The orchestrator is responsible for providing a report; this layer
+ * trusts the type signature.
  *
  * Determinism- given identical validated inputs, returns a WorkGraph
  * whose serialized content is identical modulo emission timestamp.
@@ -60,7 +64,7 @@ function typeForContract(contract: Contract): WorkGraphNodeTypeT {
     default: {
       const _exhaustive: never = contract.kind
       throw new Error(
-        `Pass 8- unrecognized Contract.kind on ${contract.id}- ${String(
+        `Executable Specification Assembly- unrecognized Contract.kind on ${contract.id}- ${String(
           _exhaustive
         )}`
       )
@@ -68,7 +72,7 @@ function typeForContract(contract: Contract): WorkGraphNodeTypeT {
   }
 }
 
-export function assembleWorkgraph(
+export function assembleExecutableSpecification(
   prd: PRDDraft,
   atoms: readonly RequirementAtom[],
   contracts: readonly Contract[],
@@ -80,7 +84,7 @@ export function assembleWorkgraph(
   // Fail-closed precondition- Coherence Verification must pass.
   if (coherenceVerificationReport.overall !== "pass") {
     throw new Error(
-      `Pass 8 refuses to run on a failed Coherence Verification verdict. Coverage Report id- ${coherenceVerificationReport.id}`
+      `Executable Specification Assembly refuses to run on a failed Coherence Verification verdict. Coverage Report id- ${coherenceVerificationReport.id}`
     )
   }
 
@@ -128,7 +132,7 @@ export function assembleWorkgraph(
   for (const d of dependencies) {
     if (!nodeIdSet.has(d.from) || !nodeIdSet.has(d.to)) {
       throw new Error(
-        `Pass 8- dependency ${d.id} references artifact id not present in node set (from- ${d.from}, to- ${d.to})`
+        `Executable Specification Assembly- dependency ${d.id} references artifact id not present in node set (from- ${d.from}, to- ${d.to})`
       )
     }
     edges.push({
@@ -194,12 +198,14 @@ export function assembleWorkgraph(
 
   // Defensive re-validation. TypeScript types guarantee the shape; Zod
   // refinements (e.g., nodes.min(1), WG- prefix) aren't captured in TS
-  // types. If this throws, it's a Pass 8 implementation defect.
+  // types. If this throws, it's an assembly implementation defect.
   const parsed = WorkGraph.safeParse(candidate)
   if (!parsed.success) {
     throw new Error(
-      `Pass 8 produced an invalid WorkGraph- ${parsed.error.message}`
+      `Executable Specification Assembly produced an invalid WorkGraph- ${parsed.error.message}`
     )
   }
   return parsed.data
 }
+
+export const assembleWorkgraph = assembleExecutableSpecification

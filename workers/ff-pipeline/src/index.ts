@@ -212,7 +212,7 @@ export default {
         })
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err)
-        console.error(`[Stage 6] /synthesis-callback error: ${errorMessage}`)
+        console.error(`[Agent Call execution] /synthesis-callback error: ${errorMessage}`)
         return new Response(JSON.stringify({ error: errorMessage }), {
           status: 500,
           headers: { 'Content-Type': 'application/json' },
@@ -1410,7 +1410,7 @@ export default {
 
         // v5.1: phase1-complete messages are informational — ack and continue
         if (body.type === 'phase1-complete') {
-          console.log(`[Stage 6] Phase 1 complete for ${body.workGraphId}: ${body.atomCount} atoms in ${body.layerCount} layers`)
+          console.log(`[Agent Call execution] Phase 1 complete for ${body.workGraphId}: ${body.atomCount} atoms in ${body.layerCount} layers`)
           msg.ack()
           continue
         }
@@ -1430,10 +1430,10 @@ export default {
           msg.ack()
         } catch (err) {
           const errorMessage = err instanceof Error ? err.message : String(err)
-          console.error(`[Stage 6] synthesis-results relay failed for workflow ${workflowId}: ${errorMessage}`)
+          console.error(`[Agent Call execution] synthesis-results relay failed for workflow ${workflowId}: ${errorMessage}`)
           if (msg.attempts >= 4) {
             // max_retries: 3 = 4 total attempts. Give up and ack to prevent infinite retry.
-            console.error(`[Stage 6] synthesis-results exhausted retries for workflow ${workflowId}`)
+            console.error(`[Agent Call execution] synthesis-results exhausted retries for workflow ${workflowId}`)
             // Tier 1 signal: infra:queue-retry-exhausted — synthesis-results dead letter
             console.error(`[INFRA SIGNAL] infra:queue-retry-exhausted: synthesis-results message for workflow ${workflowId} exhausted ${msg.attempts} attempts`)
             msg.ack()
@@ -1471,7 +1471,7 @@ export default {
 
           // Record this atom's result in the completion ledger
           const ledger = await recordAtomResult(db as never, workGraphId, atomId, result as never)
-          console.log(`[Stage 6] Atom ${atomId} complete (${result.verdict.decision}) — ${ledger.completedAtoms}/${ledger.totalAtoms} atoms done`)
+          console.log(`[Agent Call execution] Atom ${atomId} complete (${result.verdict.decision}) — ${ledger.completedAtoms}/${ledger.totalAtoms} atoms done`)
 
           // Check if dependent atoms are now ready to dispatch
           const readyAtoms = getReadyAtoms(ledger)
@@ -1499,13 +1499,13 @@ export default {
                 maxRetries: 3,
                 dryRun: false,
               })
-              console.log(`[Stage 6] Dispatched dependent atom ${readyAtomId} (deps satisfied)`)
+              console.log(`[Agent Call execution] Dispatched dependent atom ${readyAtomId} (deps satisfied)`)
             }
           }
 
           // Check if ALL atoms are complete → run Phase 3
           if (isComplete(ledger)) {
-            console.log(`[Stage 6] All ${ledger.totalAtoms} atoms complete — running Phase 3`)
+            console.log(`[Agent Call execution] All ${ledger.totalAtoms} atoms complete — running Phase 3`)
 
             const atomResults = Object.values(ledger.atomResults)
             const allPassed = atomResults.every((r) => r.verdict.decision === 'pass')
@@ -1544,7 +1544,7 @@ export default {
                       reason: `${failedAtoms.length}/${atomResults.length} atoms failed: ${failedAtoms.map((a) => a.atomId).join(', ')}`,
                     }
 
-            console.log(`[Stage 6] Phase 3: ${allPassed ? 'PASS' : 'FAIL'} — ${atomResults.length} atoms, ${failedAtoms.length} failed`)
+            console.log(`[Agent Call execution] Phase 3: ${allPassed ? 'PASS' : 'FAIL'} — ${atomResults.length} atoms, ${failedAtoms.length} failed`)
 
             // Send atoms-complete event directly to the Workflow so it receives
             // the final Phase 2+3 verdict (not just the Phase 1 "dispatched" result)
@@ -1564,7 +1564,7 @@ export default {
                 })
               } catch (sendErr) {
                 const sendErrMsg = sendErr instanceof Error ? sendErr.message : String(sendErr)
-                console.error(`[Stage 6] Failed to send atoms-complete event for workflow ${targetWorkflowId}: ${sendErrMsg}`)
+                console.error(`[Agent Call execution] Failed to send atoms-complete event for workflow ${targetWorkflowId}: ${sendErrMsg}`)
                 // Fall back to SYNTHESIS_RESULTS queue so the result isn't lost
                 if (env.SYNTHESIS_RESULTS) {
                   await (env.SYNTHESIS_RESULTS as unknown as { send(body: unknown): Promise<void> }).send({
@@ -1581,11 +1581,11 @@ export default {
           msg.ack()
         } catch (err) {
           const errorMessage = err instanceof Error ? err.message : String(err)
-          console.error(`[Stage 6] atom-results processing failed for atom ${atomId}: ${errorMessage}`)
+          console.error(`[Agent Call execution] atom-results processing failed for atom ${atomId}: ${errorMessage}`)
           // Tier 1 signal: infra:arango-connection-failure (console-only — DB may be down)
           console.error(`[INFRA SIGNAL] infra:arango-connection-failure: atom-results processing failed for atom ${atomId} in ${workGraphId}: ${errorMessage}`)
           if (msg.attempts >= 4) {
-            console.error(`[Stage 6] atom-results exhausted retries for atom ${atomId} in ${workGraphId}`)
+            console.error(`[Agent Call execution] atom-results exhausted retries for atom ${atomId} in ${workGraphId}`)
             // Tier 1 signal: infra:queue-retry-exhausted — atom-results dead letter
             console.error(`[INFRA SIGNAL] infra:queue-retry-exhausted: atom-results message for atom ${atomId} in ${workGraphId} exhausted ${msg.attempts} attempts`)
             msg.ack()
@@ -1804,7 +1804,7 @@ export default {
           msg.ack()
         } catch (err) {
           const errorMessage = err instanceof Error ? err.message : String(err)
-          console.error(`[Stage 6] atom-execute dispatch failed for atom ${atomId}: ${errorMessage}`)
+          console.error(`[Agent Call execution] atom-execute dispatch failed for atom ${atomId}: ${errorMessage}`)
           if (msg.attempts >= 6) {
             console.error(`[INFRA SIGNAL] infra:queue-retry-exhausted: atom-execute dispatch for atom ${atomId} in ${workGraphId} exhausted ${msg.attempts} attempts`)
             // Structured signal to ArangoDB so Governor can see dispatch failures
@@ -1835,7 +1835,7 @@ export default {
                 })
               }
             } catch (pubErr) {
-              console.error(`[Stage 6] Failed to publish atom failure for ${atomId}: ${pubErr instanceof Error ? pubErr.message : String(pubErr)}`)
+              console.error(`[Agent Call execution] Failed to publish atom failure for ${atomId}: ${pubErr instanceof Error ? pubErr.message : String(pubErr)}`)
             }
             msg.ack()
           } else {

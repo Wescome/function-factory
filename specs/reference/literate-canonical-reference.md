@@ -160,10 +160,10 @@ The states, in the order a Function typically passes through them:
 - **planned** -- An Architect has approved the Function for implementation.
   Resources can be allocated.
 
-- **in_progress** -- The Dark Factory (Stage 6) is actively building the Function.
+- **in_progress** -- Agent Call execution is actively building the Function.
   A WorkGraph is being executed.
 
-- **produced** -- Stage 6 completed successfully. Code exists on disk. But the
+- **produced** -- Agent Call execution completed successfully. Code exists on disk. But the
   code has not yet proven that it covers its invariants.
 
 - **accepted** -- Acceptance review passed. Scenarios cover invariants. Test pass
@@ -625,7 +625,7 @@ const PIPELINE_STAGES: PipelineStage[] = [
 ];
 ```
 
-### Stage 1: Signals Arrive
+### Signal Artifacts Arrive
 
 The pipeline begins with raw evidence from the world. A Signal is not yet a
 problem. It is raw material. Normalization ensures signals are comparable by
@@ -654,7 +654,7 @@ typed Signals. No interpretation occurs -- only schema conformance:
 
 ```typescript
 /**
- * Stage 1: Normalize raw signals into canonical schema.
+ * Signal Artifact collection: normalize raw signals into canonical schema.
  * Pure function. No interpretation, only conformance.
  */
 declare function specification_normalizeSignals(
@@ -667,7 +667,7 @@ declare function specification_normalizeSignals(
 ): Signal[];
 ```
 
-### Stage 2: Signals Cluster into Pressures
+### Pressure Artifacts: Signals Cluster Into Pressures
 
 Signals cluster into Pressures. A Pressure is a forcing function -- the `F(t)` term
 in a driven dynamical system. It is not a feature, a requirement, or a project. It
@@ -694,7 +694,7 @@ interface Pressure {
 }
 ```
 
-### Stage 3: Pressures Map to Capabilities
+### Capability Artifacts: Pressures Map To Capabilities
 
 A Capability is the organization's durable ability to respond to a Pressure.
 Three guardrails are enforced: (1) do not jump from signal to feature, (2)
@@ -715,7 +715,7 @@ interface Capability {
 }
 ```
 
-### Stage 4: Capability Delta and Function Proposals
+### Function Proposal Decomposition: Capability Delta and Proposals
 
 For each capability, the Factory computes what is missing, degraded, or
 underutilized. The delta generates typed Function proposals:
@@ -743,11 +743,12 @@ interface FunctionProposal {
 }
 ```
 
-### Stage 5: The Compiler
+### Intent-to-Executable Compilation
 
-Each Function proposal gets drafted into a PRD and compiled through eight narrow
-passes. This is non-negotiable #2: each pass does exactly one thing. Collapsing
-passes destroys debuggability.
+Each Function proposal gets drafted into an Intent Specification (PRD) and
+compiled into an Executable Specification (WorkGraph). Historical pass numbers
+remain compatibility labels. This is non-negotiable #2: each transformation
+does exactly one thing. Collapsing transformations destroys debuggability.
 
 ```typescript
 /** CANONICAL-ONLY. Product Requirements Document. */
@@ -763,14 +764,14 @@ interface PRD {
   source_refs: SourceRef[];
 }
 
-/** CANONICAL-ONLY. Single requirement extracted by Pass 2. */
+/** CANONICAL-ONLY. Single requirement extracted by Decomposition. */
 interface Atom {
   id: string;
   content: string;
   source_refs: SourceRef[];
 }
 
-/** CANONICAL-ONLY. Inter-node dependency from Pass 5. */
+/** CANONICAL-ONLY. Inter-node dependency from Structural Assembly. */
 interface Dependency {
   from_node: string;
   to_node: string;
@@ -778,36 +779,36 @@ interface Dependency {
 }
 ```
 
-The eight passes form a Pipe-and-Filter pipeline (ADR-001). Each pass is a pure
-function (Functional Core / Imperative Shell, ADR-004):
+The compatibility passes form a Pipe-and-Filter pipeline (ADR-001). Each
+transformation is a pure function (Functional Core / Imperative Shell, ADR-004):
 
 ```typescript
 /** Pass 0: Normalize PRD text, resolve ambiguity, fail closed. */
 declare function specification_pass0_normalize(prd: PRD): PRD;
 
-/** Pass 2: Extract requirement atoms. One atom = one semantic claim. */
+/** Decomposition compatibility step: Extract requirement atoms. */
 declare function specification_pass2_extractAtoms(prd: PRD): Atom[];
 
-/** Pass 3: Derive contracts (signature, preconditions, postconditions). */
+/** Binding: Derive contracts (signature, preconditions, postconditions). */
 declare function specification_pass3_deriveContracts(
   prd: PRD,
   atoms: ReadonlyArray<Atom>
 ): Contract[];
 
-/** Pass 4: Derive invariants with detector specs. */
+/** Obligation Extraction: Derive invariants with detector specs. */
 declare function specification_pass4_deriveInvariants(
   prd: PRD,
   atoms: ReadonlyArray<Atom>,
   contracts: ReadonlyArray<Contract>
 ): Invariant[];
 
-/** Pass 5: Derive dependencies between nodes. */
+/** Structural Assembly: Derive dependencies between nodes. */
 declare function specification_pass5_deriveDependencies(
   prd: PRD,
   contracts: ReadonlyArray<Contract>
 ): Dependency[];
 
-/** Pass 6: Derive validations with backmaps to atoms/contracts/invariants. */
+/** Structural Assembly: Derive validations with backmaps to atoms/contracts/invariants. */
 declare function specification_pass6_deriveValidations(
   prd: PRD,
   atoms: ReadonlyArray<Atom>,
@@ -815,12 +816,12 @@ declare function specification_pass6_deriveValidations(
   invariants: ReadonlyArray<Invariant>
 ): Validation[];
 
-/** Pass 7: Consistency check -- produces CoverageReport. */
+/** Completeness Certification: consistency check -- produces CoverageReport. */
 declare function specification_pass7_consistencyCheck(
   intermediates: CompilerIntermediates
 ): CoverageReport;
 
-/** Pass 8: Assemble WorkGraph. Only runs if structural_coverage_passed. */
+/** Executable Specification Assembly. Only runs if structural_coverage_passed. */
 declare function specification_pass8_assembleWorkGraph(
   prd: PRD,
   intermediates: CompilerIntermediates
@@ -830,7 +831,7 @@ declare function specification_pass8_assembleWorkGraph(
 The compiler intermediates bundle all pass outputs:
 
 ```typescript
-/** CANONICAL-ONLY. All pass outputs bundled for cross-pass reference. */
+/** CANONICAL-ONLY. Transformation outputs bundled for cross-reference. */
 interface CompilerIntermediates {
   prd: PRD;
   atoms: Atom[];
@@ -841,10 +842,11 @@ interface CompilerIntermediates {
 }
 ```
 
-### The Structural Coverage Guard (formerly "Gate 1")
+### Coherence Verification
 
-Between Pass 7 and Pass 8, the structural coverage guard runs. This is the
-cheapest gate -- it catches specification defects before any code is generated.
+Before Executable Specification Assembly, Coherence Verification runs. This is
+the cheapest verification -- it catches specification defects before any code is
+generated.
 
 Four checks, all required, all fail-closed:
 
@@ -887,24 +889,24 @@ The guard function:
 
 ```typescript
 /**
- * Stage 5.5: Evaluate structural coverage.
- * Runs between Pass 7 and Pass 8.
+ * Coherence Verification: evaluate structural coverage.
+ * Runs before Executable Specification Assembly.
  *
  * FAIL-CLOSED: if any check fails, WorkGraph is not emitted.
  * The PRD must be remediated upstream.
  *
  * IMPORTANT: structural_coverage_passed is STRUCTURAL, not SEMANTIC.
  * A PRD can pass all four checks and still be conceptually wrong.
- * That is why Semantic Review (Stage 5.75) exists.
+ * That is why Semantic Review exists.
  */
 declare function assurance_evaluateStructuralCoverage(
   intermediates: CompilerIntermediates
 ): CoverageReport;
 ```
 
-### Semantic Review (Stage 5.75)
+### Semantic Review
 
-Between the structural coverage guard and Pass 8, the Semantic Review runs.
+Between Coherence Verification and Executable Specification Assembly, the Semantic Review runs.
 This addresses a proven limitation: structural coverage passing does not imply
 conceptual correctness. The HARNESS-EXECUTE retraction proved that a PRD can
 pass all four structural checks and still be conceptually wrong.
@@ -921,7 +923,7 @@ interface SemanticReviewReport {
 }
 
 /**
- * Stage 5.75: Review semantic correctness.
+ * Semantic Review: review semantic correctness.
  *
  * In Bootstrap mode: human-in-the-loop (Architect reviews).
  * In Steady-State: LLM-driven evaluation.
@@ -968,7 +970,7 @@ Before the Dark Factory can build a Function, the Factory must decide HOW to
 build it. Which models for which roles? What topology? What tool permissions?
 
 This is the Architecture Search context. It takes a WorkGraph and produces an
-ArchitectureCandidate -- a complete configuration for how Stage 6 will execute.
+ArchitectureCandidate -- a complete configuration for how Agent Call execution will run.
 
 The ArchitectureCandidate is one of the most important types in the Factory.
 It specifies everything about HOW the Dark Factory will work:
@@ -1046,7 +1048,7 @@ interface ArchitectureCandidate {
 The supporting types for the candidate:
 
 ```typescript
-/** Five Stage 6 roles. From ratified decisions lines 202-208. */
+/** Five Agent Call execution roles. From ratified decisions lines 202-208. */
 type RoleName = "planner" | "coder" | "critic" | "tester" | "verifier";
 
 /** Valid five-role configurations. From ratified decisions lines 222-230. */
@@ -1190,7 +1192,7 @@ cognitive runtime paper. Each element maps to concrete Factory types:
 
 ```typescript
 /**
- * The decision algebra as Stage 6's shared state.
+ * The decision algebra as Agent Call execution's shared state.
  *
  * CANONICAL-ONLY. From integration whitepaper Section 3.
  *
@@ -1350,7 +1352,7 @@ declare function execution_runRepairLoop(
 
 #### Decision-Conditioned Escalation at the Verifier
 
-The Verifier makes the most consequential decision in Stage 6. Rather than a
+The Verifier makes the most consequential decision in Agent Call execution. Rather than a
 binary `requiresHumanApproval` flag, DCE provides a continuous calibrated score:
 
 ```typescript
@@ -1396,10 +1398,11 @@ type DisagreementClass =
   | "governance";       // scope conflict, human required
 ```
 
-#### What Stage 6 Produces
+#### What Agent Call Execution Produces
 
-Stage 6 produces two artifacts: a Stage6TraceLog (complete execution record)
-and a RoleAdherenceReport (post-hoc validation of write-domain discipline).
+Agent Call execution produces two artifacts: a Stage6TraceLog compatibility
+record (complete execution record) and a RoleAdherenceReport (post-hoc
+validation of write-domain discipline).
 
 ```typescript
 /**
@@ -1663,7 +1666,7 @@ The reducers enforce discipline:
 - **IncrementReducer**: only increments are valid. Protects T.
 
 Each role iteration's read/write record is a partial decision state diff: D_before
-and D_after. Stage 6 replay becomes algebraic verification:
+and D_after. Agent Call execution replay becomes algebraic verification:
 
   D_final = N_m . N_{m-1} . ... . N_1(D_0)
 
@@ -1741,7 +1744,7 @@ be marked as unresolvable -- no silent substitution is permitted.
  *
  * In routing-table defaults, aliases are acceptable.
  * In emitted ArchitectureCandidates, resolved versions are REQUIRED.
- * In Stage6TraceLogs and FidelityVerificationInputs, resolved versions are REQUIRED.
+ * In execution trace logs and FidelityVerificationInputs, resolved versions are REQUIRED.
  */
 interface ResolvedModelIdentifier {
   provider: string;
@@ -1758,14 +1761,15 @@ interface ResolvedModelIdentifier {
 
 ### The Evidence Bundle ACL
 
-Stage 6 produces raw execution artifacts. But the Assurance Context does not
-consume raw artifacts -- it consumes a normalized evidence bundle. The ACL
-between Execution and Assurance translates Stage6TraceLog into a FidelityVerificationInput:
+Agent Call execution produces raw execution artifacts. But the Assurance
+Context does not consume raw artifacts -- it consumes a normalized evidence
+bundle. The ACL between Execution and Assurance translates the execution trace
+into a FidelityVerificationInput:
 
 ```typescript
 /**
  * ACL: Execution -> Assurance.
- * Bundle Stage 6 output into a normalized evidence package
+ * Bundle Agent Call execution output into a normalized evidence package
  * for acceptance review.
  *
  * This was formerly called a destination-numbered handoff.
@@ -1857,7 +1861,7 @@ interface AcceptanceReviewVerdict {
 }
 
 /**
- * Stage 7 (entry): Evaluate acceptance review.
+ * Fidelity Verification entry: evaluate acceptance review.
  * Before lifecycle transition from produced -> accepted.
  *
  * FAIL-CLOSED: Function stays in produced state, cannot promote.
@@ -1878,7 +1882,7 @@ cases, deployment means an external runtime.
 
 ## Part V -- How Does a Function Stay Healthy?
 
-### Continuous Evidence Monitoring (formerly "Gate 3")
+### Persistence Verification
 
 The structural coverage guard and acceptance review are one-shot gates. The
 evidence monitoring guard is different. It runs continuously, as a property of
@@ -2015,8 +2019,9 @@ declare function assurance_propagateIncident(
 
 ### Trajectory Detection: The Loop Closes
 
-The Factory is not a one-way pipeline. Stage 7's runtime observations feed back
-into Stage 1 as new Signals. This is where the loop closes.
+The Factory is not a one-way pipeline. Persistence Verification runtime
+observations feed back into Signal Artifact collection as new Signals. This is
+where the loop closes.
 
 ```typescript
 /** CANONICAL-ONLY. Drift pattern observed in a monitored Function. */
@@ -2061,7 +2066,7 @@ interface FunctionBirthScore {
 
 /**
  * Score birth proposals. High-scoring proposals above the birth
- * gate threshold are auto-drafted into PRDs and enter Stage 5.
+ * gate threshold are auto-drafted into PRDs and enter Intent-to-Executable compilation.
  */
 declare function observability_scoreBirthProposals(
   trajectories: ReadonlyArray<Trajectory>
@@ -2108,7 +2113,7 @@ artifact carries lineage back to the Pressure that birthed it. Trajectory-driven
 birth is disabled in Bootstrap mode -- the loop is open, not closed. Signals come
 from external sources or human-authored PRDs only.
 
-### Adaptation: Pressure Recalibration (Stage 8)
+### Adaptation: Pressure Recalibration
 
 The Factory recalibrates Pressure weights based on observed outcomes:
 
@@ -2128,7 +2133,7 @@ declare function adaptation_recalibratePressures(
 ): RecalibratedPressure[];
 ```
 
-### Adaptation: Selection Bias Correction (Stage 8.5)
+### Adaptation: Selection Bias Correction
 
 The Factory detects systematic over-selection of candidate families:
 
@@ -2151,7 +2156,7 @@ declare function adaptation_detectSelectionBias(
 ): BiasReport;
 ```
 
-### Meta-Governance: Policy Evolution (Stage 9)
+### Meta-Governance: Policy Evolution
 
 The Factory detects when its own governance policies are under stress:
 
@@ -2174,7 +2179,7 @@ declare function governance_evaluatePolicyStress(
 ): PolicyStressReport;
 ```
 
-### Policy Activation (Stage 10)
+### Policy Activation
 
 Policy changes follow three amendment classes:
 
@@ -2269,8 +2274,8 @@ boundaries:
 - `@factory/stage-6-coordinator` -- P2 priority
 - `@factory/semantic-review` -- P5 priority
 - `@factory/learning` -- P7 priority
-- `@factory/gate-2-runner` -- acceptance review runner
-- `@factory/gate-3-runner` -- continuous monitoring runner
+- `@factory/fidelity-verification-runner` -- acceptance review runner
+- `@factory/persistence-verification-runner` -- continuous monitoring runner
 - (pipeline-bus replaced by LangGraph.js)
 
 **Pi-mono packages (external):**
@@ -2372,7 +2377,7 @@ LangGraph.js checkpointing provides crash recovery.
 The Factory's learning system follows the CEF paper's five-plane discipline:
 "execute online, learn offline."
 
-**Plane 1 (Runtime execution):** Stage 6 executes with a frozen candidate.
+**Plane 1 (Runtime execution):** Agent Call execution runs with a frozen candidate.
 No candidate mutates during execution.
 
 **Plane 2 (Telemetry capture):** Stage6TraceLogs record every detail.
@@ -2485,8 +2490,8 @@ Edge collections: `evaluates`, `escalates_to`, `monitors`, `governs`, `produces`
 ```
 START -> normalize_signals -> cluster_pressures -> map_capabilities
       -> compute_delta -> generate_proposals -> draft_prds
-      -> compile (Passes 0-7) -> structural_coverage_guard
-      -> semantic_review -> assemble_workgraph (Pass 8)
+      -> compile (compatibility passes) -> structural_coverage_guard
+      -> semantic_review -> assemble_workgraph (Executable Specification Assembly)
       -> select_candidate -> admit_to_execution
       -> [async] run_dark_factory_subgraph
       -> acceptance_review -> promote_to_monitored
@@ -2494,7 +2499,7 @@ START -> normalize_signals -> cluster_pressures -> map_capabilities
       -> trajectory_detection -> birth_gate -> [loop to draft_prds]
 ```
 
-**Graph 2: Dark Factory sub-graph** (Stage 6, with repair loops):
+**Graph 2: Dark Factory sub-graph** (Agent Call execution, with repair loops):
 
 ```
 candidate_start -> planner -> coder -> critic -> tester -> verifier
@@ -2512,11 +2517,11 @@ The Factory deploys as five components on Railway:
 
 | Component | What | Scaling |
 |-----------|------|---------|
-| **Pipeline Orchestrator** | Stages 1-5, 7.25, 8, 8.5, 9, 10. Compiler passes. structural_coverage_passed. | 1 instance (leader-elected) |
-| **Execution Workers** | Stage 6 Dark Factory. Five-role topology via pi-agent-core. | N workers, scale-to-zero, max 8 |
-| **Observation Engine** | Stage 7 continuous. Trust, acceptance review, evidence monitoring, feedback. | 1-2 instances |
+| **Pipeline Orchestrator** | Signal collection through Intent-to-Executable compilation, Persistence Verification feedback, Merge Readiness, adaptation, and governance compatibility labels. | 1 instance (leader-elected) |
+| **Execution Workers** | Agent Call execution / Dark Factory. Five-role topology via pi-agent-core. | N workers, scale-to-zero, max 8 |
+| **Observation Engine** | Persistence Verification continuous trust, acceptance review, evidence monitoring, feedback. | 1-2 instances |
 | **API Gateway** | Signal intake, Architect review UI, dashboard, artifact retrieval. | 1 instance (auto-scaled) |
-| **Semantic Reviewer** | Between structural_coverage_passed and Pass 8. LLM-driven in Steady-State. | 1 instance (burst to 2) |
+| **Semantic Reviewer** | Between structural_coverage_passed and Executable Specification Assembly. LLM-driven in Steady-State. | 1 instance (burst to 2) |
 
 **Cost model at 50 Functions/month:**
 
@@ -2561,7 +2566,7 @@ Push detail into `.agent/` subtree for progressive disclosure.
 | `assurance_evaluateStructuralCoverage` | `@factory/coverage-gates` | II |
 | `assurance_reviewSemanticCorrectness` | `@factory/semantic-review` | II |
 | `assurance_evaluateAcceptanceReview` | `@factory/coverage-gates` | IV |
-| `assurance_sweepEvidenceIntegrity` | `@factory/gate-3-runner` | V |
+| `assurance_sweepEvidenceIntegrity` | `@factory/persistence-verification-runner` | V |
 | `assurance_composeTrust` | `@factory/runtime` | V |
 | `assurance_propagateIncident` | `@factory/assurance-graph` | V |
 | `observability_detectTrajectories` | `@factory/observability-feedback` | VI |
@@ -2584,7 +2589,7 @@ in this canonical reference are marked CANONICAL-ONLY.
 
 | Type | Source | Description |
 |------|--------|-------------|
-| `RoleName` | Ratified lines 202-208 | Five Stage 6 roles |
+| `RoleName` | Ratified lines 202-208 | Five Agent Call execution roles |
 | `NodeType` | Ratified lines 210-220 | Nine WorkGraph node types |
 | `RoleTopology` | Ratified lines 222-230 | Seven valid role configurations |
 | `ComplianceVerdict` | Ratified line 232 | pass, fail, unknown |
@@ -2779,9 +2784,9 @@ stages in a different order, the implementation is wrong.
 ### Guards Replace Gate Numbers
 
 Throughout the codebase, replace:
-- "Gate 1" with `structural_coverage_passed` (the guard condition)
+- "Gate 1" compatibility wording with `structural_coverage_passed` (the guard condition)
 - Fidelity Verification with `scenarios_cover_invariants` (the guard condition)
-- "Gate 3" with `evidence_base_intact` (the guard condition)
+- "Gate 3" compatibility wording with `evidence_base_intact` (the guard condition)
 
 ### Naming Conventions
 
@@ -2817,7 +2822,7 @@ Refactoring Spec and its coding agent: zero-design-decision execution.
 ### Pattern Discipline
 
 - Compiler passes (Stages 1-5): Pipe-and-Filter + Functional Core / Imperative Shell
-- Stage 6 (Dark Factory): Event-Driven Architecture + Saga Pattern
+- Agent Call execution (Dark Factory): Event-Driven Architecture + Saga Pattern
 - Stages 7-10 (Feedback): Event-Driven Architecture + Event Sourcing (telemetry only)
 - Within bounded contexts: Vertical Slice
 - Storage boundary: Repository Pattern
@@ -2871,7 +2876,7 @@ async function factoryLoop(
         workGraph, "config/routing-table.yaml", {}
       );
 
-      // EXECUTION CONTEXT (Stage 6)
+      // EXECUTION CONTEXT (Agent Call execution)
       // ACL: buildInitialDecisionState runs inside
       // ACL: bundleEvidenceForAcceptanceReview runs inside
       const { traceLog, adherenceReport, fidelityVerificationInput } =

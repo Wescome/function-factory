@@ -1,6 +1,7 @@
 # @factory/schemas
 
-Canonical Zod schema definitions for every Factory artifact, shared across all pipeline stages.
+Canonical Zod schema definitions for every Factory artifact, shared across all
+ontology categories and compatibility pipeline labels.
 
 ## Ontology Alias
 
@@ -21,7 +22,7 @@ APIs until a separate schema/API alias pass is approved and typechecked.
 Re-exports from the following modules:
 
 - `lineage` -- `ArtifactId`, `Explicitness`, `Lineage` base schema
-- `core` -- `FactoryMode`, `SignalType`, `BusinessCapability`, `FunctionProposal`, `WorkGraph`, `WorkGraphNode`, `WorkGraphEdge`, and all Stage 1-6 artifact schemas
+- `core` -- `FactoryMode`, `SignalType`, `BusinessCapability`, `FunctionProposal`, `WorkGraph`, `WorkGraphNode`, `WorkGraphEdge`, and current compatibility artifact schemas from Signal Artifacts through Agent Call execution
 - `coverage` -- `CoherenceVerificationReport`, `CoverageVerdict`, `CoverageCheck`
 - `capability-delta` -- `CapabilityDelta`, `CapabilityDeltaFinding`
 - `architecture-candidate` -- `ArchitectureCandidate`

@@ -2,7 +2,8 @@
  * Test fixture factories for compiler-pass tests.
  *
  * Private to the passes/ directory (leading underscore). Produces
- * minimal schema-valid artifacts that Pass 8 (and future passes)
+ * minimal schema-valid artifacts that Executable Specification Assembly
+ * (legacy Pass 8) and future transformations
  * can be tested against without reaching for the full compile
  * pipeline.
  */

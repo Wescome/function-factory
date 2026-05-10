@@ -62,7 +62,7 @@ function main(): void {
   })
 
   // ── Step 1: ExternalSignal ──────────────────────────────────────────
-  const signal = step("ExternalSignal (Stage 1 - Signal intake)", () =>
+  const signal = step("ExternalSignal (Signal Artifact intake)", () =>
     ExternalSignal.parse({
       id: "SIG-WALK-001",
       ...lineage([]),
@@ -78,7 +78,7 @@ function main(): void {
   )
 
   // ── Step 2: Pressure ────────────────────────────────────────────────
-  const pressure = step("Pressure (Stage 2 - Forcing function)", () =>
+  const pressure = step("Pressure (Pressure Artifact interpretation)", () =>
     Pressure.parse({
       id: "PRS-WALK-001",
       ...lineage([signal.id]),
@@ -96,7 +96,7 @@ function main(): void {
   )
 
   // ── Step 3: BusinessCapability ──────────────────────────────────────
-  const capability = step("BusinessCapability (Stage 3 - Capability)", () =>
+  const capability = step("BusinessCapability (Capability Artifact scoping)", () =>
     BusinessCapability.parse({
       id: "BC-WALK-001",
       ...lineage([pressure.id]),
@@ -113,7 +113,7 @@ function main(): void {
   )
 
   // ── Step 4: FunctionProposal ────────────────────────────────────────
-  const proposal = step("FunctionProposal (Stage 4 - Proposal)", () =>
+  const proposal = step("FunctionProposal (Function Proposal decomposition)", () =>
     FunctionProposal.parse({
       id: "FP-WALK-001",
       ...lineage([capability.id]),
@@ -131,7 +131,7 @@ function main(): void {
   )
 
   // ── Step 5: PRDDraft ────────────────────────────────────────────────
-  const prd = step("PRDDraft (Stage 5 - PRD specification)", () =>
+  const prd = step("PRDDraft (Intent Specification)", () =>
     PRDDraft.parse({
       id: "PRD-WALK-001",
       ...lineage([capability.id, proposal.id]),
@@ -180,7 +180,7 @@ function main(): void {
   )
 
   // ── Step 7: WorkGraph ───────────────────────────────────────────────
-  const workGraph = step("WorkGraph (Stage 5 - Work decomposition)", () =>
+  const workGraph = step("WorkGraph (Executable Specification)", () =>
     WorkGraph.parse({
       id: "WG-WALK-001",
       ...lineage([prd.id, coherenceVerification.id]),
@@ -198,7 +198,7 @@ function main(): void {
   )
 
   // ── Step 8: ArchitectureCandidate ───────────────────────────────────
-  const candidate = step("ArchitectureCandidate (Stage 6 - Architecture)", () =>
+  const candidate = step("ArchitectureCandidate (Agent Call execution architecture)", () =>
     ArchitectureCandidate.parse({
       id: "AC-WALK-001",
       ...lineage([workGraph.id, prd.id]),
@@ -260,7 +260,7 @@ function main(): void {
   )
 
   // ── Step 9: ExecutionTrace ──────────────────────────────────────────
-  const trace = step("ExecutionTrace (Stage 6 - Trace log)", () =>
+  const trace = step("ExecutionTrace (Agent Call execution trace)", () =>
     ExecutionTrace.parse({
       id: "EXT-WALK-001",
       ...lineage([workGraph.id, candidate.id, selection.id, admission.id, execStart.id]),
@@ -289,7 +289,7 @@ function main(): void {
   )
 
   // ── Step 11: TrustComposite ─────────────────────────────────────────
-  step("TrustComposite (Stage 7 - Trust measurement)", () =>
+  step("TrustComposite (Persistence Verification trust measurement)", () =>
     TrustComposite.parse({
       correctness: 0.95,
       compliance: 0.90,

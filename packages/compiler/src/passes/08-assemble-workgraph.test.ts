@@ -1,7 +1,14 @@
 import { describe, it, expect } from "vitest"
 import type { ArtifactId } from "@factory/schemas"
 import { WorkGraph } from "@factory/schemas"
-import { assembleWorkgraph } from "./08-assemble-workgraph.js"
+import {
+  assembleExecutableSpecification,
+  assembleWorkgraph,
+} from "./08-assemble-workgraph.js"
+import {
+  emitExecutableSpecification,
+  emitWorkgraph,
+} from "./_workgraph-emit.js"
 import {
   makeAtom,
   makeContract,
@@ -12,7 +19,12 @@ import {
   makeValidation,
 } from "./_test-fixtures.js"
 
-describe("assembleWorkgraph", () => {
+describe("Executable Specification Assembly", () => {
+  it("keeps assembleWorkgraph as the compatibility alias for Executable Specification Assembly", () => {
+    expect(assembleWorkgraph).toBe(assembleExecutableSpecification)
+    expect(emitWorkgraph).toBe(emitExecutableSpecification)
+  })
+
   it("happy path- passing Coherence Verification + intermediates produces a schema-valid WorkGraph", () => {
     const prd = makePRD()
     const atoms = [makeAtom()]
@@ -35,7 +47,7 @@ describe("assembleWorkgraph", () => {
         "CONTRACT-META-FOO-INVARIANT" as ArtifactId
       ),
     ]
-    const wg = assembleWorkgraph(
+    const wg = assembleExecutableSpecification(
       prd,
       atoms,
       contracts,

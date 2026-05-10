@@ -3,7 +3,7 @@
 // Blocks: 22
 // Generated: deterministic
 // DO NOT EDIT — edit the literate reference and re-run tangle.
-// --- Block from line 976 (Part III -- How Does a Function Get Built?) ---
+// --- Block from line 978 (Part III -- How Does a Function Get Built?) ---
 /**
  * Complete configuration for a Dark Factory execution.
  * From ratified decisions lines 342-367.
@@ -72,8 +72,8 @@ interface ArchitectureCandidate {
   supersedes_candidate_id?: string | null;
 }
 
-// --- Block from line 1048 (Part III -- How Does a Function Get Built?) ---
-/** Five Stage 6 roles. From ratified decisions lines 202-208. */
+// --- Block from line 1050 (Part III -- How Does a Function Get Built?) ---
+/** Five Agent Call execution roles. From ratified decisions lines 202-208. */
 type RoleName = "planner" | "coder" | "critic" | "tester" | "verifier";
 
 /** Valid five-role configurations. From ratified decisions lines 222-230. */
@@ -100,7 +100,7 @@ interface RoutingRuleRef {
   rule_id: string;
 }
 
-// --- Block from line 1085 (Part III -- How Does a Function Get Built?) ---
+// --- Block from line 1087 (Part III -- How Does a Function Get Built?) ---
 /** Six binary admissibility checks. From ratified decisions lines 307-315. */
 interface HardFilterResults {
   hard_constraint_compliance: ComplianceVerdict;
@@ -114,7 +114,7 @@ interface HardFilterResults {
 
 type ComplianceVerdict = "pass" | "fail" | "unknown";
 
-// --- Block from line 1102 (Part III -- How Does a Function Get Built?) ---
+// --- Block from line 1104 (Part III -- How Does a Function Get Built?) ---
 /** Nine scoring axes with weights. From ratified decisions lines 247-259. */
 type ObjectiveAxis =
   | "correctness_proxy"       // 0.30
@@ -133,7 +133,7 @@ interface ObjectiveScores {
   weights: Record<ObjectiveAxis, Score>;
 }
 
-// --- Block from line 1127 (Part III -- How Does a Function Get Built?) ---
+// --- Block from line 1129 (Part III -- How Does a Function Get Built?) ---
 /**
  * Cold-start lineage blending. From ratified decisions.
  * Prevents fake precision when evidence is scarce.
@@ -147,7 +147,7 @@ function blendedLineageReliability(
   return ((prior * k) + (observed * n)) / (k + n);
 }
 
-// --- Block from line 1144 (Part III -- How Does a Function Get Built?) ---
+// --- Block from line 1146 (Part III -- How Does a Function Get Built?) ---
 /**
  * Architecture Search: emit candidates, filter, score, select.
  *
@@ -177,9 +177,9 @@ interface CandidateSelectionReport {
   evaluated_at: string;
 }
 
-// --- Block from line 1191 (Part III -- How Does a Function Get Built?) ---
+// --- Block from line 1193 (Part III -- How Does a Function Get Built?) ---
 /**
- * The decision algebra as Stage 6's shared state.
+ * The decision algebra as Agent Call execution's shared state.
  *
  * CANONICAL-ONLY. From integration whitepaper Section 3.
  *
@@ -249,7 +249,7 @@ interface DecisionState {
   };
 }
 
-// --- Block from line 1279 (Part III -- How Does a Function Get Built?) ---
+// --- Block from line 1281 (Part III -- How Does a Function Get Built?) ---
 /**
  * Enforce write-domain discipline. Throws on unauthorized writes.
  *
@@ -262,7 +262,7 @@ declare function execution_enforceWriteDomain(
   proposedUpdate: Partial<DecisionState>
 ): void;
 
-// --- Block from line 1298 (Part III -- How Does a Function Get Built?) ---
+// --- Block from line 1300 (Part III -- How Does a Function Get Built?) ---
 /**
  * ACL: Specification + Search -> Execution.
  * Build the initial DecisionState (D0) from upstream artifacts.
@@ -287,7 +287,7 @@ declare function execution_buildInitialDecisionState(
   prd: PRD
 ): DecisionState;
 
-// --- Block from line 1330 (Part III -- How Does a Function Get Built?) ---
+// --- Block from line 1332 (Part III -- How Does a Function Get Built?) ---
 /**
  * The repair loop sub-graph:
  *
@@ -307,7 +307,7 @@ declare function execution_runRepairLoop(
   traceLog: Stage6TraceLog;
 };
 
-// --- Block from line 1356 (Part III -- How Does a Function Get Built?) ---
+// --- Block from line 1358 (Part III -- How Does a Function Get Built?) ---
 /**
  * DCE composite escalation score.
  *
@@ -335,7 +335,7 @@ declare function execution_evaluateEscalationScore(
   }
 ): TerminalDecision;
 
-// --- Block from line 1388 (Part III -- How Does a Function Get Built?) ---
+// --- Block from line 1390 (Part III -- How Does a Function Get Built?) ---
 /**
  * Three classes of disagreement between Verifier and acceptance review.
  * From ratified decisions.
@@ -345,7 +345,7 @@ type DisagreementClass =
   | "architectural"     // wrong candidate family, new selection required
   | "governance";       // scope conflict, human required
 
-// --- Block from line 1404 (Part III -- How Does a Function Get Built?) ---
+// --- Block from line 1407 (Part III -- How Does a Function Get Built?) ---
 /**
  * Complete execution record. From ratified decisions lines 424-452.
  * Every role iteration, every tool call, every resample branch.
@@ -372,7 +372,7 @@ interface Stage6TraceLog {
   terminal_decision: TerminalDecision;
 }
 
-// --- Block from line 1434 (Part III -- How Does a Function Get Built?) ---
+// --- Block from line 1437 (Part III -- How Does a Function Get Built?) ---
 /** From ratified decisions lines 382-392. */
 interface RoleIterationRecord {
   role: RoleName;
@@ -437,7 +437,7 @@ interface HumanApprovalPayload {
   notes?: string;
 }
 
-// --- Block from line 1502 (Part III -- How Does a Function Get Built?) ---
+// --- Block from line 1505 (Part III -- How Does a Function Get Built?) ---
 /** From ratified decisions lines 475-486. */
 interface RoleAdherenceReport {
   id: string; // RAR-*
@@ -468,7 +468,7 @@ type ContractSurface =
   | "do_not"
   | "output_semantics";
 
-// --- Block from line 1540 (Part III -- How Does a Function Get Built?) ---
+// --- Block from line 1543 (Part III -- How Does a Function Get Built?) ---
 /**
  * Per-role model configuration within a candidate.
  * From package-contracts Section 3.2.
@@ -491,7 +491,7 @@ interface ProductionModelBinding {
   costCeiling: number;
 }
 
-// --- Block from line 1566 (Part III -- How Does a Function Get Built?) ---
+// --- Block from line 1569 (Part III -- How Does a Function Get Built?) ---
 /** Nine tool categories. From ratified decisions lines 272-282. */
 interface ToolPolicy {
   read_repo: ToolPermission;
@@ -510,7 +510,7 @@ interface ToolPermission {
   notes?: string;
 }
 
-// --- Block from line 1588 (Part III -- How Does a Function Get Built?) ---
+// --- Block from line 1591 (Part III -- How Does a Function Get Built?) ---
 /** From ratified decisions lines 284-297. */
 interface InferenceConfig {
   samples_per_role: Record<RoleName, number>;
@@ -530,7 +530,7 @@ interface ConvergencePolicy {
   max_resample_branches: number;
 }
 
-// --- Block from line 1613 (Part III -- How Does a Function Get Built?) ---
+// --- Block from line 1616 (Part III -- How Does a Function Get Built?) ---
 /**
  * The Execution Context's primary operation.
  *
@@ -554,7 +554,7 @@ declare function execution_runDarkFactory(
   fidelityVerificationInput: FidelityVerificationInput;
 };
 
-// --- Block from line 1693 (Part III -- How Does a Function Get Built?) ---
+// --- Block from line 1696 (Part III -- How Does a Function Get Built?) ---
 /**
  * Determine the current system mode based on governance metrics.
  */
@@ -576,7 +576,7 @@ interface AmendmentRecord {
   applied_at: string;
 }
 
-// --- Block from line 1721 (Part III -- How Does a Function Get Built?) ---
+// --- Block from line 1724 (Part III -- How Does a Function Get Built?) ---
 /** From ratified decisions lines 323-330. */
 interface EvaluationContext {
   harness_command: string;
@@ -587,14 +587,14 @@ interface EvaluationContext {
   evaluated_at: string;
 }
 
-// --- Block from line 1737 (Part III -- How Does a Function Get Built?) ---
+// --- Block from line 1740 (Part III -- How Does a Function Get Built?) ---
 /**
  * Resolved model reference after resolution.
  * From ratified decisions Section 9.
  *
  * In routing-table defaults, aliases are acceptable.
  * In emitted ArchitectureCandidates, resolved versions are REQUIRED.
- * In Stage6TraceLogs and FidelityVerificationInputs, resolved versions are REQUIRED.
+ * In execution trace logs and FidelityVerificationInputs, resolved versions are REQUIRED.
  */
 interface ResolvedModelIdentifier {
   provider: string;

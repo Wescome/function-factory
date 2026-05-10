@@ -110,7 +110,7 @@ export const AGENT_DESIGNS: AgentDesign[] = [
       },
     },
     intent: {
-      jtbd: 'When a WorkGraph specification enters Stage 6, I want to produce a BriefingScript grounded in architectural decisions and lessons learned, so downstream agents have clear, contextual guidance for synthesis.',
+      jtbd: 'When a WorkGraph specification enters Agent Call execution, I want to produce a BriefingScript grounded in architectural decisions and lessons learned, so downstream agents have clear, contextual guidance for synthesis.',
       produces: 'BriefingScript',
       outputShape: {
         goal: 'string — the primary objective for this synthesis',

@@ -1,14 +1,51 @@
 # Current Workspace
 
 ## Status
-Active task: ontology alias-first migration away from primary Gate(x) names.
+Active task: completed ontology addendum and legacy-number concordance backlog;
+pending commit, push, and PR checks.
 
 ## Last update
-2026-05-10T14:09:16Z
+2026-05-10T14:57:53Z
 
 ## Current actions
 
-- In progress: Gate(x) API de-primary pass.
+- Completed: Addendum A/B pre-refactor concordance pass.
+  - Added `specs/reference/ONTOLOGY-ADDENDUM-B-STAGE-EXTENSIONS.md` for
+    Stage 8 Merge Readiness / PR Handoff, Stage 8.5 Selection-Bias Correction,
+    Stage 9 Meta-Governance, and Stage 10 Policy Activation.
+  - Expanded `specs/reference/ONTOLOGY-CURRENT-MAPPING.md` and
+    `specs/reference/ONTOLOGY-COMPATIBILITY-CONTRACT.json` with legacy Stage
+    1-10, Gate 2a/2b, compiler pass, artifact-prefix, skill-file, and
+    runtime-discriminator concordance.
+  - Documented the Pass 8 conflict: current compiler Pass 8 remains a
+    Structural Assembly / Executable Specification Assembly compatibility
+    label; ontology Pass 8 Instruction Tuning remains future work.
+  - Made active docs, agent guidance, compiler comments, literate source, and
+    selected runtime labels ontology-primary while preserving compatibility
+    APIs, paths, package names, persisted discriminators, and historical
+    artifacts.
+  - Added compiler aliases `assembleExecutableSpecification` and
+    `emitExecutableSpecification`, preserving `assembleWorkgraph` and
+    `emitWorkgraph` as compatibility aliases with tests.
+  - Expanded `pnpm audit:ontology` to enforce Addendum A/B concordance and
+    active terminology surfaces.
+  - Verification passed:
+    - `pnpm --filter @factory/literate-tools tangle`
+    - `pnpm audit:docs`
+    - `pnpm audit:ontology`
+    - `pnpm --filter @factory/compiler test`
+    - `pnpm --filter @factory/literate-tools test`
+    - `pnpm --filter @factory/literate-tools walkthrough`
+    - `pnpm --filter @factory/capability-delta test`
+    - `pnpm --filter @factory/prd-authoring test`
+    - `pnpm --filter @factory/ontology-loader test`
+    - `pnpm --filter @factory/schemas test -- src/coverage.test.ts src/sdlc.test.ts`
+    - `pnpm --filter @factory/ff-pipeline test -- src/merge-readiness-pack.test.ts src/diagnostic-routes.test.ts src/pipeline.test.ts src/stage6-handoff.test.ts src/queue-bridge.test.ts src/coordinator/graph-9node.test.ts src/coordinator/coordinator-callback.test.ts src/stages/compile.test.ts src/stages/semantic-grounding.test.ts src/coordinator/sandbox-preflight.test.ts`
+    - `pnpm -r typecheck`
+    - `pnpm -r test`
+    - `git diff --check`
+  - `specs/reference/NLAH` remains untouched and untracked by request.
+- Completed: Gate(x) API de-primary pass.
   - Completed current slice: public package tests and active README surfaces
     now lead with Coherence/Fidelity/Persistence Verification terminology;
     exact `Gate*` names remain only as explicit compatibility API names.

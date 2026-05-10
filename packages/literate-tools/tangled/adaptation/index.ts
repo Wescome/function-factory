@@ -3,7 +3,7 @@
 // Blocks: 7
 // Generated: deterministic
 // DO NOT EDIT — edit the literate reference and re-run tangle.
-// --- Block from line 2021 (Part VI -- How Does the Factory Get Smarter?) ---
+// --- Block from line 2026 (Part VI -- How Does the Factory Get Smarter?) ---
 /** CANONICAL-ONLY. Drift pattern observed in a monitored Function. */
 interface Trajectory {
   function_id: string;
@@ -24,7 +24,7 @@ declare function observability_detectTrajectories(
   observations: ReadonlyArray<Observation>
 ): Trajectory[];
 
-// --- Block from line 2048 (Part VI -- How Does the Factory Get Smarter?) ---
+// --- Block from line 2053 (Part VI -- How Does the Factory Get Smarter?) ---
 /** CANONICAL-ONLY. Proposal ranking. */
 interface FunctionBirthScore {
   proposal: FunctionProposal;
@@ -40,13 +40,13 @@ interface FunctionBirthScore {
 
 /**
  * Score birth proposals. High-scoring proposals above the birth
- * gate threshold are auto-drafted into PRDs and enter Stage 5.
+ * gate threshold are auto-drafted into PRDs and enter Intent-to-Executable compilation.
  */
 declare function observability_scoreBirthProposals(
   trajectories: ReadonlyArray<Trajectory>
 ): FunctionBirthScore[];
 
-// --- Block from line 2075 (Part VI -- How Does the Factory Get Smarter?) ---
+// --- Block from line 2080 (Part VI -- How Does the Factory Get Smarter?) ---
 /** CANONICAL-ONLY. Runtime observation from a deployed Function. */
 interface Observation {
   id: string;
@@ -74,7 +74,7 @@ declare function observability_reinjectionToSignal(
   observation: Observation
 ): Signal;
 
-// --- Block from line 2115 (Part VI -- How Does the Factory Get Smarter?) ---
+// --- Block from line 2120 (Part VI -- How Does the Factory Get Smarter?) ---
 /** CANONICAL-ONLY. Adjusted pressure with rationale. */
 interface RecalibratedPressure {
   pressure_id: string;
@@ -89,7 +89,7 @@ declare function adaptation_recalibratePressures(
   currentPressureWeights: Record<string, Score>
 ): RecalibratedPressure[];
 
-// --- Block from line 2135 (Part VI -- How Does the Factory Get Smarter?) ---
+// --- Block from line 2140 (Part VI -- How Does the Factory Get Smarter?) ---
 /** CANONICAL-ONLY. Detected selection bias patterns. */
 interface BiasReport {
   detected_patterns: string[];
@@ -107,7 +107,7 @@ declare function adaptation_detectSelectionBias(
   }>
 ): BiasReport;
 
-// --- Block from line 2158 (Part VI -- How Does the Factory Get Smarter?) ---
+// --- Block from line 2163 (Part VI -- How Does the Factory Get Smarter?) ---
 /** CANONICAL-ONLY. Policy stress indicators. */
 interface PolicyStressIndicator {
   policy_id: string;
@@ -125,7 +125,7 @@ declare function governance_evaluatePolicyStress(
   metrics: GovernanceMetrics
 ): PolicyStressReport;
 
-// --- Block from line 2190 (Part VI -- How Does the Factory Get Smarter?) ---
+// --- Block from line 2195 (Part VI -- How Does the Factory Get Smarter?) ---
 /** CANONICAL-ONLY. Policy change action. */
 interface PolicyAction {
   type: "activate" | "rollback" | "amend";

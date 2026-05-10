@@ -1,9 +1,9 @@
 /**
- * WorkGraph emission IO wrapper.
+ * Executable Specification emission IO wrapper.
  *
- * Separated from Pass 8's pure assembly so the pure function remains
- * testable without filesystem side effects. Same separation pattern
- * as packages/coverage-gates/src/emit.ts.
+ * Separated from pure Structural Assembly so the pure function remains
+ * testable without filesystem side effects. The historical emitWorkgraph name
+ * remains as a compatibility export.
  */
 
 import { mkdir, writeFile } from "node:fs/promises"
@@ -22,3 +22,5 @@ export async function emitWorkgraph(
   await writeFile(filepath, yaml, "utf8")
   return filepath
 }
+
+export const emitExecutableSpecification = emitWorkgraph

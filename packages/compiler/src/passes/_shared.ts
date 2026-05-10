@@ -8,8 +8,8 @@ import type { ArtifactId } from "@factory/schemas"
  * semantic label (typically the uppercased atom category- `CONSTRAINT`,
  * `ACCEPTANCE`, `NFR`).
  *
- * Pass 2 (02-derive-contracts) uses this to emit contract IDs.
- * Pass 3 (03-derive-invariants) uses the same function to reconstruct
+ * Binding (legacy 02-derive-contracts) uses this to emit contract IDs.
+ * Obligation Extraction (legacy 03-derive-invariants) uses the same function to reconstruct
  * the lookup string when joining invariants to their constraint
  * contract. One helper eliminates the drift risk that existed when
  * emission and lookup were two independent template-literal sites.
@@ -24,8 +24,8 @@ export function contractId(prdId: ArtifactId, tag: string): ArtifactId {
  *
  * Canonical format- `WG-${subject}` where `subject` is the PRD ID with
  * the leading `PRD-` stripped. Same derivation pattern as contractId.
- * Used by Pass 8 (08-assemble-workgraph) to name WorkGraphs emitted to
- * specs/workgraphs/.
+ * Used by Executable Specification Assembly (legacy 08-assemble-workgraph)
+ * to name WorkGraphs emitted to specs/workgraphs/.
  */
 export function workGraphId(prdId: ArtifactId): ArtifactId {
   const subject = prdId.replace(/^PRD-/, "")

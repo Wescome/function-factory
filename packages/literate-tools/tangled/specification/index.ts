@@ -194,7 +194,7 @@ type Score = number;
 
 // --- Block from line 655 (Part II -- How Does a Function Come to Exist?) ---
 /**
- * Stage 1: Normalize raw signals into canonical schema.
+ * Signal Artifact collection: normalize raw signals into canonical schema.
  * Pure function. No interpretation, only conformance.
  */
 declare function specification_normalizeSignals(
@@ -261,7 +261,7 @@ interface FunctionProposal {
   source_refs: SourceRef[];
 }
 
-// --- Block from line 752 (Part II -- How Does a Function Come to Exist?) ---
+// --- Block from line 753 (Part II -- How Does a Function Come to Exist?) ---
 /** CANONICAL-ONLY. Product Requirements Document. */
 interface PRD {
   id: string; // PRD-*
@@ -275,47 +275,47 @@ interface PRD {
   source_refs: SourceRef[];
 }
 
-/** CANONICAL-ONLY. Single requirement extracted by Pass 2. */
+/** CANONICAL-ONLY. Single requirement extracted by Decomposition. */
 interface Atom {
   id: string;
   content: string;
   source_refs: SourceRef[];
 }
 
-/** CANONICAL-ONLY. Inter-node dependency from Pass 5. */
+/** CANONICAL-ONLY. Inter-node dependency from Structural Assembly. */
 interface Dependency {
   from_node: string;
   to_node: string;
   source_refs: SourceRef[];
 }
 
-// --- Block from line 784 (Part II -- How Does a Function Come to Exist?) ---
+// --- Block from line 785 (Part II -- How Does a Function Come to Exist?) ---
 /** Pass 0: Normalize PRD text, resolve ambiguity, fail closed. */
 declare function specification_pass0_normalize(prd: PRD): PRD;
 
-/** Pass 2: Extract requirement atoms. One atom = one semantic claim. */
+/** Decomposition compatibility step: Extract requirement atoms. */
 declare function specification_pass2_extractAtoms(prd: PRD): Atom[];
 
-/** Pass 3: Derive contracts (signature, preconditions, postconditions). */
+/** Binding: Derive contracts (signature, preconditions, postconditions). */
 declare function specification_pass3_deriveContracts(
   prd: PRD,
   atoms: ReadonlyArray<Atom>
 ): Contract[];
 
-/** Pass 4: Derive invariants with detector specs. */
+/** Obligation Extraction: Derive invariants with detector specs. */
 declare function specification_pass4_deriveInvariants(
   prd: PRD,
   atoms: ReadonlyArray<Atom>,
   contracts: ReadonlyArray<Contract>
 ): Invariant[];
 
-/** Pass 5: Derive dependencies between nodes. */
+/** Structural Assembly: Derive dependencies between nodes. */
 declare function specification_pass5_deriveDependencies(
   prd: PRD,
   contracts: ReadonlyArray<Contract>
 ): Dependency[];
 
-/** Pass 6: Derive validations with backmaps to atoms/contracts/invariants. */
+/** Structural Assembly: Derive validations with backmaps to atoms/contracts/invariants. */
 declare function specification_pass6_deriveValidations(
   prd: PRD,
   atoms: ReadonlyArray<Atom>,
@@ -323,19 +323,19 @@ declare function specification_pass6_deriveValidations(
   invariants: ReadonlyArray<Invariant>
 ): Validation[];
 
-/** Pass 7: Consistency check -- produces CoverageReport. */
+/** Completeness Certification: consistency check -- produces CoverageReport. */
 declare function specification_pass7_consistencyCheck(
   intermediates: CompilerIntermediates
 ): CoverageReport;
 
-/** Pass 8: Assemble WorkGraph. Only runs if structural_coverage_passed. */
+/** Executable Specification Assembly. Only runs if structural_coverage_passed. */
 declare function specification_pass8_assembleWorkGraph(
   prd: PRD,
   intermediates: CompilerIntermediates
 ): WorkGraph;
 
-// --- Block from line 832 (Part II -- How Does a Function Come to Exist?) ---
-/** CANONICAL-ONLY. All pass outputs bundled for cross-pass reference. */
+// --- Block from line 833 (Part II -- How Does a Function Come to Exist?) ---
+/** CANONICAL-ONLY. Transformation outputs bundled for cross-reference. */
 interface CompilerIntermediates {
   prd: PRD;
   atoms: Atom[];
@@ -345,7 +345,7 @@ interface CompilerIntermediates {
   validations: Validation[];
 }
 
-// --- Block from line 863 (Part II -- How Does a Function Come to Exist?) ---
+// --- Block from line 865 (Part II -- How Does a Function Come to Exist?) ---
 /** CANONICAL-ONLY. Output of any coverage evaluation. */
 interface CoverageReport {
   id: string; // CR-*
@@ -367,23 +367,23 @@ interface CoverageFailure {
   source_ref: SourceRef;
 }
 
-// --- Block from line 888 (Part II -- How Does a Function Come to Exist?) ---
+// --- Block from line 890 (Part II -- How Does a Function Come to Exist?) ---
 /**
- * Stage 5.5: Evaluate structural coverage.
- * Runs between Pass 7 and Pass 8.
+ * Coherence Verification: evaluate structural coverage.
+ * Runs before Executable Specification Assembly.
  *
  * FAIL-CLOSED: if any check fails, WorkGraph is not emitted.
  * The PRD must be remediated upstream.
  *
  * IMPORTANT: structural_coverage_passed is STRUCTURAL, not SEMANTIC.
  * A PRD can pass all four checks and still be conceptually wrong.
- * That is why Semantic Review (Stage 5.75) exists.
+ * That is why Semantic Review exists.
  */
 declare function assurance_evaluateStructuralCoverage(
   intermediates: CompilerIntermediates
 ): CoverageReport;
 
-// --- Block from line 912 (Part II -- How Does a Function Come to Exist?) ---
+// --- Block from line 914 (Part II -- How Does a Function Come to Exist?) ---
 /** CANONICAL-ONLY. Semantic Review output. */
 interface SemanticReviewReport {
   id: string; // SRR-*
@@ -395,7 +395,7 @@ interface SemanticReviewReport {
 }
 
 /**
- * Stage 5.75: Review semantic correctness.
+ * Semantic Review: review semantic correctness.
  *
  * In Bootstrap mode: human-in-the-loop (Architect reviews).
  * In Steady-State: LLM-driven evaluation.
@@ -407,7 +407,7 @@ declare function assurance_reviewSemanticCorrectness(
   workGraph: WorkGraph
 ): SemanticReviewReport;
 
-// --- Block from line 941 (Part II -- How Does a Function Come to Exist?) ---
+// --- Block from line 943 (Part II -- How Does a Function Come to Exist?) ---
 /**
  * The Specification Context's primary operation.
  *

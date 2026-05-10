@@ -1,5 +1,5 @@
 /**
- * Runtime verification records for deployed Stage 6 synthesis smoke results.
+ * Runtime verification records for deployed Agent Call execution smoke results.
  *
  * This module materializes the code artifact produced by real-mode synthesis
  * for WG-MOTE4M1R-G7I0, with local repo style and explicit validation.

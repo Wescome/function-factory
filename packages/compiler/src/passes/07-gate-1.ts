@@ -1,5 +1,5 @@
 /**
- * Pass 7- Coherence Verification.
+ * Completeness Certification / Coherence Verification (legacy Pass 7).
  *
  * Adapts compiler intermediates into the shape `runCoherenceVerification` consumes,
  * determines Factory mode from the PRD ID (or from an explicit

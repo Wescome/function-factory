@@ -1,5 +1,5 @@
 /**
- * Stage 6 event-driven handoff tests.
+ * Agent Call execution event-driven handoff tests.
  *
  * Tests the two halves of the synthesis bridge:
  *   A) /trigger-synthesis HTTP route (index.ts) — validates input,
@@ -82,7 +82,7 @@ vi.mock('@factory/artifact-validator', () => ({
   validateArtifact: () => ({ valid: true, violations: [] }),
 }))
 
-// ─── Stage stubs (isolate Stage 6 from Stages 1-5) ───
+// ─── Compatibility stage stubs (isolate Agent Call execution from upstream transformations) ───
 
 vi.mock('./stages/ingest-signal', () => ({
   ingestSignal: vi.fn(async () => ({ _key: 'SIG-001', signalType: 'internal', title: 'test' })),
@@ -231,7 +231,7 @@ const mockGlobalFetch = vi.fn(async () => new Response(JSON.stringify({ ok: true
 
 // ─── Tests ───
 
-describe('Stage 6: event-driven synthesis handoff', () => {
+describe('Agent Call execution: event-driven synthesis handoff', () => {
   beforeEach(() => {
     mockDb.save.mockClear()
     mockDb.saveEdge.mockClear()

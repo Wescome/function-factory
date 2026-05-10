@@ -10,7 +10,11 @@ const checks = []
 
 const files = {
   packageJson: 'package.json',
+  rootReadme: 'README.md',
   ciWorkflow: '.github/workflows/ci.yml',
+  agentMap: '.agent/AGENTS.md',
+  skillIndex: '.agent/skills/_index.md',
+  semanticLessons: '.agent/memory/semantic/LESSONS.md',
   schemaIndex: 'packages/schemas/src/index.ts',
   schemaPackageJson: 'packages/schemas/package.json',
   coverageSchema: 'packages/schemas/src/coverage.ts',
@@ -34,6 +38,9 @@ const files = {
   compilerPassCoherenceVerification: 'packages/compiler/src/passes/07-gate-1.ts',
   compilerDeriveInvariants: 'packages/compiler/src/passes/03-derive-invariants.ts',
   compilerAssembleWorkgraph: 'packages/compiler/src/passes/08-assemble-workgraph.ts',
+  compilerWorkgraphEmit: 'packages/compiler/src/passes/_workgraph-emit.ts',
+  compilerPassIndex: 'packages/compiler/src/passes/index.ts',
+  compilerAssemblyTest: 'packages/compiler/src/passes/08-assemble-workgraph.test.ts',
   compilerTestFixtures: 'packages/compiler/src/passes/_test-fixtures.ts',
   compilerReadme: 'packages/compiler/README.md',
   coverageGatesIndex: 'packages/coverage-gates/src/index.ts',
@@ -53,6 +60,8 @@ const files = {
   specsReadme: 'specs/README.md',
   referenceReadme: 'specs/reference/README.md',
   compatibilityContract: 'specs/reference/ONTOLOGY-COMPATIBILITY-CONTRACT.json',
+  addendumA: 'specs/reference/FF-ONTOLOGY-ADDENDUM-A.md',
+  addendumB: 'specs/reference/ONTOLOGY-ADDENDUM-B-STAGE-EXTENSIONS.md',
   mapping: 'specs/reference/ONTOLOGY-CURRENT-MAPPING.md',
   blastRadius: 'specs/reference/ONTOLOGY-RENAME-BLAST-RADIUS.md',
   renameTemplate: 'specs/reference/ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md',
@@ -94,8 +103,10 @@ checkNoUnapprovedOntologyRenameTargets()
 checkNoUnapprovedOntologyCollectionTargets()
 checkCiGate()
 checkSchemaAliases()
+checkLegacyNumberConcordance()
 checkCompilerPathContracts()
 checkDocsSurfaces()
+checkActiveTerminologySurfaces()
 checkPackageAliasReadmes()
 checkWorkerAliasReadmes()
 checkInfraAliasReadmes()
@@ -165,6 +176,18 @@ function checkCompatibilityContractManifest() {
   expectArrayIncludes('compatibility contract records Coherence Verification primary runtime alias', contract.primaryRuntimeAliases, 'coherence-verification')
   expectArrayIncludes('compatibility contract records Fidelity Verification primary runtime alias', contract.primaryRuntimeAliases, 'fidelity-verification')
   expectArrayIncludes('compatibility contract records verificationReport primary runtime alias', contract.primaryRuntimeAliases, 'verificationReport')
+
+  expectEqual('compatibility contract links legacy number concordance', contract.legacyNumberConcordance?.source, files.addendumA)
+  expectEqual('compatibility contract links stage extension concordance', contract.legacyNumberConcordance?.stageExtensions, files.addendumB)
+  expectEqual('compatibility contract links current mapping for concordance', contract.legacyNumberConcordance?.currentMapping, files.mapping)
+  expectEqual('compatibility contract maps Stage 1', contract.legacyNumberConcordance?.stageLabels?.['Stage 1'], 'Signal Artifact collection')
+  expectEqual('compatibility contract maps Stage 7', contract.legacyNumberConcordance?.stageLabels?.['Stage 7'], 'Persistence Verification / continuous assurance')
+  expectEqual('compatibility contract maps Stage 8 extension', contract.legacyNumberConcordance?.stageLabels?.['Stage 8'], 'Merge Readiness / PR Handoff / Function identity materialization')
+  expectEqual('compatibility contract maps Stage 9 extension', contract.legacyNumberConcordance?.stageLabels?.['Stage 9'], 'Meta-Governance / policy evolution')
+  expectEqual('compatibility contract maps Gate 2a', contract.legacyNumberConcordance?.gateLabels?.['Gate 2a'], 'Fidelity Verification (learned)')
+  expectEqual('compatibility contract maps Gate 2b', contract.legacyNumberConcordance?.gateLabels?.['Gate 2b'], 'Fidelity Verification (deterministic)')
+  expectEqual('compatibility contract maps current repo Pass 8 compatibility', contract.legacyNumberConcordance?.compilerPassLabels?.['Current repo Pass 8'], 'Structural Assembly completion compatibility label')
+  expectEqual('compatibility contract maps ontology Pass 8 future', contract.legacyNumberConcordance?.compilerPassLabels?.['Ontology Pass 8'], 'Instruction Tuning (future)')
 
   expectArrayIncludes('compatibility contract forbids specs_intent_specifications', contract.forbiddenOntologyCollectionTargets, 'specs_intent_specifications')
   expectArrayIncludes('compatibility contract forbids specs_executable_specifications', contract.forbiddenOntologyCollectionTargets, 'specs_executable_specifications')
@@ -253,7 +276,13 @@ function checkSchemaAliases() {
   expectIncludes('compiler generated invariants use Coherence Verification report name', read(files.compilerDeriveInvariants), 'Coherence Verification produces byte-identical CoherenceVerificationReport')
   expectIncludes('compiler extracted atoms use Coherence Verification subject', read(files.compilerExtractAtoms), 'subject: "Coherence Verification"')
   expectIncludes('compiler CLI prints Coherence Verification verdict', read(files.compilerCli), 'Coherence Verification- ${result.report.overall.toUpperCase()}')
-  expectIncludes('compiler Pass 8 consumes Coherence Verification report', read(files.compilerAssembleWorkgraph), 'coherenceVerificationReport: CoherenceVerificationReport')
+  expectIncludes('compiler assembly consumes Coherence Verification report', read(files.compilerAssembleWorkgraph), 'coherenceVerificationReport: CoherenceVerificationReport')
+  expectIncludes('compiler exposes Executable Specification assembly alias', read(files.compilerAssembleWorkgraph), 'export function assembleExecutableSpecification')
+  expectIncludes('compiler keeps assembleWorkgraph compatibility alias', read(files.compilerAssembleWorkgraph), 'export const assembleWorkgraph = assembleExecutableSpecification')
+  expectIncludes('compiler exposes Executable Specification emit alias', read(files.compilerWorkgraphEmit), 'export const emitExecutableSpecification = emitWorkgraph')
+  expectIncludes('compiler pass index exports Executable Specification assembly', read(files.compilerPassIndex), 'assembleExecutableSpecification')
+  expectIncludes('compiler assembly tests alias compatibility', read(files.compilerAssemblyTest), 'expect(assembleWorkgraph).toBe(assembleExecutableSpecification)')
+  expectIncludes('compiler assembly docs mark ontology Pass 8 future', read(files.compilerAssembleWorkgraph), 'ontology v0.2 reserves Pass 8 for future')
   expectIncludes('compiler fixtures build Coherence Verification reports first', read(files.compilerTestFixtures), 'export function makeCoherenceVerificationReportPassing')
   expectIncludes('compiler fixtures keep legacy Gate 1 report helper alias', read(files.compilerTestFixtures), 'export const makeGate1ReportPassing = makeCoherenceVerificationReportPassing')
   expectIncludes('function synthesis makes FidelityVerificationInput the primary schema', read(files.functionSynthesisTypes), 'export const FidelityVerificationInput = z.object')
@@ -339,6 +368,64 @@ function checkCompilerPathContracts() {
   expectIncludes('coverage gate emitter retains coverage report default path', coverageEmit, 'specs/coverage-reports')
 }
 
+function checkLegacyNumberConcordance() {
+  const addendumA = read(files.addendumA)
+  const addendumB = read(files.addendumB)
+  const mapping = read(files.mapping)
+  const referenceReadme = read(files.referenceReadme)
+
+  expectIncludes('reference index links Addendum A', referenceReadme, 'FF-ONTOLOGY-ADDENDUM-A.md')
+  expectIncludes('reference index links Addendum B', referenceReadme, 'ONTOLOGY-ADDENDUM-B-STAGE-EXTENSIONS.md')
+  expectIncludes('reference index documents legacy number policy', referenceReadme, '## Legacy Number Policy')
+
+  const addendumATerms = [
+    '## Pipeline Stages',
+    'Stage 1 | Signal Artifact',
+    'Stage 7 | Persistence Verification',
+    'Gate 2a | Fidelity Verification',
+    'Gate 2b | Fidelity Verification',
+    'Pass 8 | Instruction Tuning',
+    'FP- / FN- | Function Proposal',
+    'coverage-gate-1/SKILL.md | Coherence verification enforcement',
+  ]
+
+  for (const term of addendumATerms) {
+    expectIncludes(`Addendum A contains ${term}`, addendumA, term)
+  }
+
+  const mappingTerms = [
+    '## Legacy Pipeline Stage Concordance',
+    '| Stage 1 | Signal Artifact collection |',
+    '| Stage 7 | Persistence Verification / continuous assurance |',
+    '## Legacy Coverage Gate Concordance',
+    '| Gate 2a | Fidelity Verification (learned) |',
+    '| Gate 2b | Fidelity Verification (deterministic) |',
+    '## Legacy Compiler Pass Concordance',
+    '| Current repo Pass 8 | Structural Assembly completion compatibility label |',
+    '| Ontology Pass 8 | Instruction Tuning (future) |',
+    '## Artifact ID Prefix Concordance',
+    '## Skill File Concordance',
+    '## Post-v0.2 Stage Extensions',
+  ]
+
+  for (const term of mappingTerms) {
+    expectIncludes(`current mapping contains ${term}`, mapping, term)
+  }
+
+  const addendumBTerms = [
+    '# Ontology Addendum B: Repo-Local Stage Extensions',
+    '| Stage 8 | Merge Readiness / PR Handoff / Function identity materialization |',
+    '| Stage 8.5 | Selection-bias correction overlay |',
+    '| Stage 9 | Meta-Governance / policy evolution |',
+    '| Stage 10 | Policy Activation / rollback control |',
+    'not new ontology categories yet',
+  ]
+
+  for (const term of addendumBTerms) {
+    expectIncludes(`Addendum B contains ${term}`, addendumB, term)
+  }
+}
+
 function checkDocsSurfaces() {
   const specsReadme = read(files.specsReadme)
   const referenceReadme = read(files.referenceReadme)
@@ -374,6 +461,30 @@ function checkDocsSurfaces() {
   expectIncludes('current mapping links compatibility contract manifest', mapping, 'ONTOLOGY-COMPATIBILITY-CONTRACT.json')
 }
 
+function checkActiveTerminologySurfaces() {
+  const rootReadme = read(files.rootReadme)
+  const agentMap = read(files.agentMap)
+  const skillIndex = read(files.skillIndex)
+  const lessons = read(files.semanticLessons)
+  const compilerReadme = read(files.compilerReadme)
+
+  expectIncludes('root README leads with Intent-to-Executable compilation', rootReadme, 'Intent → Executable Specification compilation')
+  expectIncludes('root README labels Signal Artifacts primary', rootReadme, 'Signal Artifacts (legacy Stage 1')
+  expectIncludes('root README labels Persistence Verification primary', rootReadme, 'Persistence Verification, trust')
+  expectIncludes('agent map uses Coherence Verification primary', agentMap, 'fails Coherence')
+  expectIncludes('agent map uses Fidelity Verification primary', agentMap, 'without Fidelity')
+  expectIncludes('agent map uses Persistence Verification primary', agentMap, 'active Persistence')
+  expectIncludes('skill index uses Compilation harness primary', skillIndex, 'Compilation harness')
+  expectIncludes('skill index uses Coherence Verification charter primary', skillIndex, 'Coherence Verification charter')
+  expectIncludes('skill index uses Fidelity Verification charter primary', skillIndex, 'Fidelity Verification charter')
+  expectIncludes('skill index uses Persistence Verification charter primary', skillIndex, 'Persistence Verification charter')
+  expectIncludes('lessons use compiler transformation discipline', lessons, 'compiler transformation discipline')
+  expectIncludes('lessons map future Instruction Tuning', lessons, 'future Instruction Tuning')
+  expectIncludes('compiler README marks historical pass numbers compatibility', compilerReadme, 'pass numbers remain compatibility labels')
+  expectIncludes('compiler README documents Executable Specification Assembly', compilerReadme, 'Executable Specification Assembly')
+  expectIncludes('compiler README documents ontology Pass 8 as future', compilerReadme, 'Ontology Pass 8: Instruction Tuning -- future')
+}
+
 function checkPackageAliasReadmes() {
   const packageReadmes = [
     [files.artifactValidatorReadme, '@factory/artifact-validator', 'constraint enforcement'],
@@ -392,7 +503,8 @@ function checkPackageAliasReadmes() {
   expectIncludes('artifact validator README retains specs_workgraphs collection', read(files.artifactValidatorReadme), 'specs_workgraphs')
   expectIncludes('artifact validator README retains specs_coverage_reports collection', read(files.artifactValidatorReadme), 'specs_coverage_reports')
   expectIncludes('compiler README documents Coherence Verification pass', read(files.compilerReadme), 'runCoherenceVerificationPass')
-  expectIncludes('compiler README marks numbered verification terms legacy', read(files.compilerReadme), 'numbered compile-coverage APIs remain legacy compatibility')
+  expectIncludes('compiler README marks pass numbers legacy', read(files.compilerReadme), 'pass numbers remain compatibility labels')
+  expectIncludes('compiler README documents Executable Specification Assembly alias', read(files.compilerReadme), 'assembleExecutableSpecification')
   expectIncludes('function synthesis README retains WorkGraph compatibility term', read(files.functionSynthesisReadme), 'WorkGraph')
   expectIncludes('function synthesis README documents FidelityVerificationInput', read(files.functionSynthesisReadme), 'FidelityVerificationInput')
   expectIncludes('function synthesis README marks numbered gate terms legacy', read(files.functionSynthesisReadme), 'legacy compatibility shims')

@@ -114,6 +114,42 @@
     "persistenceVerificationReport",
     "verificationReport"
   ],
+  "legacyNumberConcordance": {
+    "source": "specs/reference/FF-ONTOLOGY-ADDENDUM-A.md",
+    "stageExtensions": "specs/reference/ONTOLOGY-ADDENDUM-B-STAGE-EXTENSIONS.md",
+    "currentMapping": "specs/reference/ONTOLOGY-CURRENT-MAPPING.md",
+    "stageLabels": {
+      "Stage 1": "Signal Artifact collection",
+      "Stage 2": "Pressure Artifact interpretation",
+      "Stage 3": "Capability Artifact scoping",
+      "Stage 4": "Function Proposal decomposition",
+      "Stage 5 input": "Intent Specification authoring",
+      "Stage 5 output": "Executable Specification compilation",
+      "Stage 6": "Agent Call execution / orchestration",
+      "Stage 7": "Persistence Verification / continuous assurance",
+      "Stage 8": "Merge Readiness / PR Handoff / Function identity materialization",
+      "Stage 8.5": "Selection-bias correction overlay",
+      "Stage 9": "Meta-Governance / policy evolution",
+      "Stage 10": "Policy Activation / rollback control"
+    },
+    "gateLabels": {
+      "Gate 1": "Coherence Verification",
+      "Gate 2a": "Fidelity Verification (learned)",
+      "Gate 2b": "Fidelity Verification (deterministic)",
+      "Gate 3": "Persistence Verification"
+    },
+    "compilerPassLabels": {
+      "Pass 1": "Decomposition",
+      "Pass 2": "Binding",
+      "Pass 3": "Obligation Extraction",
+      "Pass 4": "Structural Assembly (dependency resolution)",
+      "Pass 5": "Structural Assembly (validation wiring)",
+      "Pass 6": "Structural Assembly (graph construction)",
+      "Pass 7": "Completeness Certification / Coherence Verification",
+      "Current repo Pass 8": "Structural Assembly completion compatibility label",
+      "Ontology Pass 8": "Instruction Tuning (future)"
+    }
+  },
   "forbiddenOntologyCollectionTargets": [
     "specs_intent_specifications",
     "specs_executable_specifications",

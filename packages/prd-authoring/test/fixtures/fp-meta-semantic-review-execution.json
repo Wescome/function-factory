@@ -7,11 +7,11 @@
   "rationale": "Execution gap identified in semantic review capability delta",
   "capabilityId": "BC-META-SEMANTICALLY-REVIEW-PRDS",
   "name": "semantic_review_execution",
-  "purpose": "Execute a semantic review pass between Gate 1 and WorkGraph emission",
+  "purpose": "Execute a semantic review pass between Coherence Verification and WorkGraph emission",
   "functionType": "execution",
   "expectedInputs": [
     "PRDDraft",
-    "Gate1Report",
+    "CoherenceVerificationReport",
     "doctrine sources"
   ],
   "expectedOutputs": [

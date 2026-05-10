@@ -143,7 +143,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
     const snapshot = ctx.snapshot as { workGraphId?: string; state?: GraphState } | null
     const workGraphId = snapshot?.workGraphId ?? ctx.name.replace('synth-', '')
     console.warn(
-      `[Stage 6] Fiber "${ctx.name}" (id=${ctx.id}) recovered after eviction. ` +
+      `[Agent Call execution] Fiber "${ctx.name}" (id=${ctx.id}) recovered after eviction. ` +
       `WorkGraph=${workGraphId}, age=${Date.now() - ctx.createdAt}ms`,
     )
 
@@ -347,7 +347,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         // ── Phase 1: serial planning graph (architect -> critic -> compile -> coherence-verification -> planner) ──
         finalState = await graph.run(initialState, {
           onNodeStart: (name, state) => {
-            console.log(`[Stage 6] Phase 1: ${name} starting (tokens ${state.tokenUsage})`)
+            console.log(`[Agent Call execution] Phase 1: ${name} starting (tokens ${state.tokenUsage})`)
           },
           maxSteps: 20,
         })
@@ -381,7 +381,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         const wgDeps = finalState.workGraph.dependencies ?? []
         const layers = topologicalSort(wgAtoms, wgDeps)
 
-        console.log(`[Stage 6] Phase 2 dispatch: ${wgAtoms.length} atoms in ${layers.length} layers`)
+        console.log(`[Agent Call execution] Phase 2 dispatch: ${wgAtoms.length} atoms in ${layers.length} layers`)
 
         const allAtomSpecs: Record<string, Record<string, unknown>> = {}
         for (const atom of wgAtoms) {
@@ -424,7 +424,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
               dryRun,
             })
           }
-          console.log(`[Stage 6] Phase 2 dispatch: ${layer0.atomIds.length} Layer 0 atoms dispatched to queue`)
+          console.log(`[Agent Call execution] Phase 2 dispatch: ${layer0.atomIds.length} Layer 0 atoms dispatched to queue`)
         }
 
         // Coordinator exits — does NOT wait for atoms.
@@ -574,7 +574,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         })
       }
     } catch (err) {
-      console.error(`[Stage 6] Result queue publish failed: ${err instanceof Error ? err.message : String(err)}`)
+      console.error(`[Agent Call execution] Result queue publish failed: ${err instanceof Error ? err.message : String(err)}`)
     }
   }
 

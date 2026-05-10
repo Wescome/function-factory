@@ -1,5 +1,5 @@
 /**
- * Event-driven Stage 6 handoff tests.
+ * Event-driven Agent Call execution handoff tests.
  *
  * Verifies the pipeline's event-driven synthesis pattern:
  *   1. Pipeline queues synthesis request after Coherence Verification passes
@@ -168,7 +168,7 @@ function createMockEnv(overrides?: Partial<Record<string, unknown>>) {
 const sharedMockDb = createMockDb()
 
 // ─── Minimal stage stubs ───
-// We mock all upstream stages so we can isolate the Stage 6 handoff behavior.
+// We mock all upstream transformations so we can isolate the Agent Call execution handoff behavior.
 // The pipeline imports are mocked at module level.
 
 vi.mock('@factory/arango-client', () => ({
@@ -233,7 +233,7 @@ const mockFetch = vi.fn(async () => new Response(JSON.stringify({ ok: true }), {
 
 // ─── Tests ───
 
-describe('Stage 6: Event-driven synthesis handoff', () => {
+describe('Agent Call execution: event-driven synthesis handoff', () => {
 
   beforeEach(() => {
     globalThis.fetch = mockFetch as unknown as typeof fetch

@@ -19,7 +19,7 @@ Compares execution expectations against realized outcomes, emits observation art
 
 - Observation outcome is deterministic: exact string match = `matched_expectation`, otherwise `deviated`
 - Feedback signals carry the observation ID in their lineage and tag the outcome type
-- Signal type is always `meta_feedback` with source "Stage 7 Observability & Feedback"
+- Signal type is always `meta_feedback` with source "Persistence Verification Observability & Feedback"
 - Feedback confidence is fixed at 0.95 for bootstrap signals
 
 ## Dependencies

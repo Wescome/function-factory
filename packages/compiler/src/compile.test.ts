@@ -160,14 +160,14 @@ describe("compile- end-to-end against PRD-META-GATE-1-COMPILE-COVERAGE", () => {
       expect(resultB.report.overall).toBe(resultA.report.overall)
       expect(resultB.report.checks).toEqual(resultA.report.checks)
       expect(resultB.report.source_refs).toEqual(resultA.report.source_refs)
-      // Pass 8 determinism- WorkGraph deep-equal across compiles.
+      // Executable Specification Assembly determinism- WorkGraph deep-equal across compiles.
       expect(resultB.workgraph).toEqual(resultA.workgraph)
     } finally {
       await rm(workDir2, { recursive: true, force: true })
     }
   })
 
-  it("Pass 8- emits a WorkGraph with WG-<PRD subject> id on passing Coherence Verification", async () => {
+  it("Executable Specification Assembly emits a WorkGraph with WG-<PRD subject> id on passing Coherence Verification", async () => {
     const result = await compile(prdPath, {
       timestamp: "2026-04-19T00:00:00Z",
       coverageReportsDir,
@@ -180,7 +180,7 @@ describe("compile- end-to-end against PRD-META-GATE-1-COMPILE-COVERAGE", () => {
     expect(WorkGraph.safeParse(result.workgraph).success).toBe(true)
   })
 
-  it("Pass 8- WorkGraph file on disk roundtrips through YAML", async () => {
+  it("Executable Specification Assembly WorkGraph file on disk roundtrips through YAML", async () => {
     const result = await compile(prdPath, {
       timestamp: "2026-04-19T00:00:00Z",
       coverageReportsDir,
@@ -194,7 +194,7 @@ describe("compile- end-to-end against PRD-META-GATE-1-COMPILE-COVERAGE", () => {
     expect(roundtrip.nodes.length).toBeGreaterThan(0)
   })
 
-  it("Pass 8- WorkGraph has non-empty nodes array (schema refinement)", async () => {
+  it("Executable Specification Assembly WorkGraph has non-empty nodes array (schema refinement)", async () => {
     const result = await compile(prdPath, {
       timestamp: "2026-04-19T00:00:00Z",
       coverageReportsDir,

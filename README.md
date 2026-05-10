@@ -39,19 +39,19 @@ stable compatibility surfaces.
 
 packages/                       # TypeScript monorepo (pnpm workspaces)
   schemas/                      # Canonical Zod schemas for every Factory object
-  compiler/                     # Stage 5: PRD → WorkGraph; ontology alias: Intent → Executable Specification
+  compiler/                     # Intent → Executable Specification compilation
   coverage-gates/               # §6: Coherence/Fidelity/Persistence Verification
   assurance-graph/              # §5: incident propagation via typed dependencies
-  runtime/                      # Stage 7: trust, invariant health, regression
-  autonomous-scheduler/          # Stage 6 boundary: WorkGraph → AgentRequest → evidence
+  runtime/                      # Persistence Verification, trust, invariant health, regression
+  autonomous-scheduler/          # Agent Call orchestration boundary: WorkGraph → AgentRequest → evidence
 
 specs/                          # Factory artifacts (Factory-built-by-Factory)
-  signals/                      # Stage 1 input (ExternalSignal, SIG-*)
-  pressures/                    # Stage 2 output
-  capabilities/                 # Stage 3 output
-  functions/                    # Stage 4 output (FunctionProposals)
-  prds/                         # Stage 5 input; ontology alias: Intent Specifications
-  workgraphs/                   # Stage 5 output; ontology alias: Executable Specifications
+  signals/                      # Signal Artifacts (legacy Stage 1, ExternalSignal, SIG-*)
+  pressures/                    # Pressure Artifacts (legacy Stage 2)
+  capabilities/                 # Capability Artifacts (legacy Stage 3)
+  functions/                    # Function Proposals and Function records (legacy Stage 4)
+  prds/                         # Intent Specifications (legacy Stage 5 input)
+  workgraphs/                   # Executable Specifications (legacy Stage 5 output)
   invariants/                   # Invariant + detector specs; ontology alias: Invariant Specifications
   coverage-reports/             # Verification Reports
 ```
@@ -66,7 +66,7 @@ specs/                          # Factory artifacts (Factory-built-by-Factory)
 4. Generate FunctionProposals for each Capability's execution/control/evidence
    triple.
 5. Draft PRDs per FunctionProposal.
-6. Run the compiler (Stage 5) against each PRD — even when incomplete, it
+6. Run Intent-to-Executable compilation against each PRD — even when incomplete, it
    emits Coverage Reports that tell you what's missing.
 7. Execute the resulting WorkGraphs via Claude Code or another harness, with
    strict lineage logging into `.agent/memory/episodic/`.
@@ -78,14 +78,15 @@ The Factory's own operational history *is* the proof that the Factory works.
 ## Conventions
 
 - **Every artifact carries a source-references field.** No exceptions for
-  downstream artifacts. Stage 1 Signals are the asymmetric case — their
+  downstream artifacts. Signal Artifacts (`SIG-*`, legacy Stage 1) are the asymmetric case — their
   upstream is an external artifact (cited in the `source` field), not a
   Factory artifact, so `source_refs` may be empty. See the
   `lineage-preservation` skill for the audit carve-out.
 - **Every invariant has a named detector.** Invariants without detectors are
   wishes and are rejected by Coherence Verification.
 - **Every commit is attributable to a Function ID.** Commit messages use the
-  format `FN-XXX: summary` or `GATE-N: summary` or `META: summary`.
+  format `FN-XXX: summary` or `META: summary`; legacy `GATE-N: summary`
+  remains accepted for compatibility work on numbered verification surfaces.
 - **Coverage Reports are first-class artifacts.** They live in
   `specs/coverage-reports/` and are versioned alongside code.
 - **Memory is markdown. Skills are markdown. The harness is a thin conductor.**

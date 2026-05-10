@@ -34,10 +34,11 @@ the Function ID it implements.
 
 ## Factory-specific conventions
 
-- **Artifact IDs.** Pressures `PRS-*`, Capabilities `BC-*`, Functions `FN-*`,
-  PRDs `PRD-*`, WorkGraphs `WG-*`, Invariants `INV-*`, Coverage Reports
-  `CR-*`, Trajectories `TRJ-*`, ProblemFrames `PF-*`, FunctionProposals
-  `FP-*`, Incidents `INC-*`.
+- **Artifact IDs.** Prefixes are stable implementation identifiers, not
+  ontology names. Pressures `PRS-*`, Capabilities `BC-*`, Functions `FN-*`,
+  PRDs/Intent Specifications `PRD-*`, WorkGraphs/Executable Specifications
+  `WG-*`, Invariants `INV-*`, Verification Reports `CR-*`, Trajectories
+  `TRJ-*`, ProblemFrames `PF-*`, FunctionProposals `FP-*`, Incidents `INC-*`.
 - **Lineage fields.** Every artifact has a `source_refs` array. It must be
   populated with the IDs of every upstream artifact that contributed to it.
   No exceptions.
@@ -62,13 +63,18 @@ the Function ID it implements.
    permission seems wrong rather than bypassing it.
 5. **When a skill's self-rewrite hook fires, propose conservative edits only.**
    Aggressive rewrites ossify into ossified mistakes.
-6. **Never generate a WorkGraph that fails Gate 1.** The Compile Coverage Gate
-   is the entry point to the rest of the system. A failed Gate 1 means the
-   PRD is incomplete; go back upstream, do not proceed.
-7. **Never promote a Function from `verified` to `monitored` without Gate 2
-   passing.** Simulation coverage is a hard precondition.
-8. **Never mark a Function `monitored` without active Gate 3 monitoring.**
-   Detector freshness is continuous; silence is a regression.
+6. **Never generate a WorkGraph/Executable Specification that fails Coherence
+   Verification.** Legacy Gate 1 compatibility names still appear in reports
+   and APIs, but the ontology term is primary. A failed Coherence Verification
+   means the PRD/Intent Specification is incomplete; go back upstream, do not
+   proceed.
+7. **Never promote a Function from `verified` to `monitored` without Fidelity
+   Verification passing.** Legacy Gate 2 compatibility names still appear in
+   reports and APIs. Fidelity evidence is a hard precondition.
+8. **Never mark a Function `monitored` without active Persistence
+   Verification monitoring.** Legacy Gate 3 compatibility names still appear
+   in reports and APIs. Detector freshness is continuous; silence is a
+   regression.
 
 ## Bootstrap state
 

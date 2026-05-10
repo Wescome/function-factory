@@ -15,7 +15,7 @@ describe("contractId", () => {
     )
   })
 
-  it("produces exactly what Pass 2 was producing for the meta-PRD before the refactor", () => {
+  it("produces exactly what Binding was producing for the meta-PRD before the refactor", () => {
     expect(
       contractId(
         "PRD-META-GATE-1-COMPILE-COVERAGE" as ArtifactId,

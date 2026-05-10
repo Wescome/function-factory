@@ -18,6 +18,33 @@ architecture-proving), password reset (an illustrative example from source
 material, not a real candidate).
 **Status:** Active.
 
+## 2026-05-10: Current compiler Pass 8 is a Structural Assembly compatibility label
+
+**Decision:** Treat the current repository's `Pass 8` WorkGraph assembly
+surface as a legacy compatibility implementation name for Structural Assembly
+completion, not as the ontology's future Instruction Tuning category.
+`packages/compiler/src/passes/08-assemble-workgraph.ts`,
+`assembleWorkgraph`, and `emitWorkgraph` remain stable compatibility surfaces
+until a one-family physical rename proposal is approved. New code should prefer
+the ontology-primary aliases `assembleExecutableSpecification` and
+`emitExecutableSpecification`.
+
+**Rationale:** `FF-ONTOLOGY-ADDENDUM-A.md` maps Passes 4-6 to Structural
+Assembly and reserves Pass 8 for future Instruction Tuning. The live compiler,
+historical PRDs, tests, and emitted WorkGraphs already use `Pass 8` to mean
+WorkGraph assembly. Reinterpreting that label silently would make the ontology
+exercise ambiguous; physically renaming it immediately would create avoidable
+churn across compiler tests, docs, and historical artifacts.
+
+**Consequences:** Active documentation must explain the conflict explicitly.
+Audits must prove that current WorkGraph assembly is documented as a
+compatibility label and that Instruction Tuning remains unimplemented. Any
+future physical rename must follow the ontology rename proposal template,
+preserve compatibility aliases, and prove affected tests, docs audits,
+typecheck, and PR checks remain green.
+
+**Status:** Active.
+
 ## 2026-04-18: Function as the canonical executable unit
 **Decision:** Use `Function` as the single-word name for the core executable
 unit. All other candidates (Capability, Instrument, Decision-Capability,

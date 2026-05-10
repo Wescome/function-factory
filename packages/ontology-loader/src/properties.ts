@@ -300,7 +300,7 @@ export const ONTOLOGY_PROPERTIES: OntologyProperty[] = [
     propertyType: 'datatype',
     domain: 'Thing',
     range: 'xsd:string',
-    comment: 'Array of upstream artifact IDs. Empty only for Stage 1 Signals.',
+    comment: 'Array of upstream artifact IDs. Empty only for Signal Artifacts (legacy Stage 1).',
   },
   {
     _key: 'explicitness',

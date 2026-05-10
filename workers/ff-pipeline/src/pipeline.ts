@@ -83,13 +83,13 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     const params = event.payload
     const dryRun = params.dryRun ?? false
 
-    // ── Stage 1: Signal ingestion ──
+    // ── Signal Artifact collection (legacy Stage 1) ──
     const signal = await step.do('ingest-signal', DB_STEP_CONFIG, async () => {
       return toStep(await ingestSignal(params.signal, db))
     })
     const signalKey = signal._key as string
 
-    // ── Stage 2: Pressure synthesis ──
+    // ── Pressure Artifact interpretation (legacy Stage 2) ──
     const pressure = await step.do('synthesize-pressure', AI_STEP_CONFIG, async () => {
       return toStep(await synthesizePressure(signal as Record<string, unknown>, db, this.env, dryRun))
     })
@@ -103,7 +103,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       return { ok: true }
     })
 
-    // ── Stage 3: Capability mapping ──
+    // ── Capability Artifact scoping (legacy Stage 3) ──
     const capability = await step.do('map-capability', AI_STEP_CONFIG, async () => {
       return toStep(await mapCapability(pressure as Record<string, unknown>, db, this.env, dryRun))
     })
@@ -117,7 +117,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       return { ok: true }
     })
 
-    // ── Stage 4: Function proposal ──
+    // ── Function Proposal decomposition (legacy Stage 4) ──
     const proposal = await step.do('propose-function', AI_STEP_CONFIG, async () => {
       return toStep(await proposeFunction(capability as Record<string, unknown>, db, this.env, dryRun))
     })
@@ -203,7 +203,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
 
     if (review.alignment === 'miscast') {
       // Log the miscast but continue — the semantic review is advisory during bootstrap.
-      // Coherence Verification is the structural verification. The Critic catches drift from Stage 2-4 reframing.
+      // Coherence Verification is structural verification. The Critic catches drift from Pressure/Capability/Proposal reframing.
       // TODO: make this configurable via hot-config (strict mode vs advisory mode)
       console.warn(`[Pipeline] Semantic review: miscast (${review.rationale?.slice(0, 100)}). Continuing to compilation.`)
     }
@@ -243,7 +243,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       })
     }
 
-    // ── Stage 5: PRD compilation (8 passes) with inter-pass probing ──
+    // ── Intent-to-Executable compilation with inter-transformation probing ──
     //
     // C1+SE-1 resolution: probed passes (decompose, dependency, invariant) run
     // a compile-verify loop with distinct step names per remediation attempt.
@@ -461,7 +461,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       return { persisted: true }
     })
 
-    // ── Stage 6: Function synthesis (event-driven handoff) ──
+    // ── Agent Call execution / Function synthesis (event-driven handoff) ──
     // CF Workflows CANNOT communicate with DOs during step.do().
     // Instead: queue a synthesis request, wait for an external trigger
     // to call the DO via HTTP and send the result back as a workflow event.

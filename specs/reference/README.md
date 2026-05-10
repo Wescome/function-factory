@@ -21,6 +21,7 @@ Read these first when grounding work in the architecture.
 | --- | --- | --- |
 | [`FF-ONTOLOGY-v0.2.md`](FF-ONTOLOGY-v0.2.md) | Newest architecture reference; working document | Ontology anchor for current architecture vocabulary and categorical structure. Use with the compatibility mapping before proposing renames. |
 | [`FF-ONTOLOGY-ADDENDUM-A.md`](FF-ONTOLOGY-ADDENDUM-A.md) | Ontology v0.2 addendum; historical-number concordance | Maps legacy stages, gates, compiler passes, artifact prefixes, and skill files to ontology terms. Use when interpreting numbered source material; do not treat it as approval for physical renames. |
+| [`ONTOLOGY-ADDENDUM-B-STAGE-EXTENSIONS.md`](ONTOLOGY-ADDENDUM-B-STAGE-EXTENSIONS.md) | Repo-local stage extension concordance | Maps current Stage 8/8.5/9/10 compatibility labels to primary process interpretations until the ontology receives a later revision. |
 | [`ONTOLOGY-CURRENT-MAPPING.md`](ONTOLOGY-CURRENT-MAPPING.md) | Current compatibility crosswalk | Maps existing repo terms, paths, packages, verification terms, and runtime concepts to ontology v0.2 aliases while preserving current physical names. |
 | [`ONTOLOGY-COMPATIBILITY-CONTRACT.json`](ONTOLOGY-COMPATIBILITY-CONTRACT.json) | Machine-readable compatibility contract | Lists stable directories, package names, forbidden replacement paths, and forbidden collection identifiers enforced by `pnpm audit:ontology`. |
 | [`ONTOLOGY-RENAME-BLAST-RADIUS.md`](ONTOLOGY-RENAME-BLAST-RADIUS.md) | Pre-refactor assessment | Classifies current-name usage across source, specs, workers, infra, and docs; recommends no physical rename before one-family migration plans exist. |
@@ -105,6 +106,16 @@ replace the typed internal artifact graph (`PRS-*`, `BC-*`, `FP-*`, `PRD-*`,
 `WG-*`, `INV-*`, `CR-*`) or its `source_refs` lineage. The current strategic
 reference for this boundary is
 [`ONTOLOGICAL-SELF-SENSING-2026-05-03.md`](ONTOLOGICAL-SELF-SENSING-2026-05-03.md).
+
+## Legacy Number Policy
+
+Historical source documents, prior handoffs, decision entries, episodic memory,
+and archived ConOps material may contain legacy stage, gate, and pass numbers.
+Do not rewrite them just to modernize vocabulary. Use
+[`FF-ONTOLOGY-ADDENDUM-A.md`](FF-ONTOLOGY-ADDENDUM-A.md) and
+[`ONTOLOGY-ADDENDUM-B-STAGE-EXTENSIONS.md`](ONTOLOGY-ADDENDUM-B-STAGE-EXTENSIONS.md)
+to interpret those numbers. Active docs and new code should lead with ontology
+terms and keep numbered labels only as explicit compatibility names.
 
 ## Known Friction To Resolve Later
 

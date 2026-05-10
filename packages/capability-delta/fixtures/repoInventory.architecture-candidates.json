@@ -54,7 +54,7 @@
     "capabilityDelta": 19
   },
   "notes": [
-    "Stage 5 compiler emits WorkGraph but not ArchitectureCandidate.",
+    "Intent-to-Executable compiler emits WorkGraph but not ArchitectureCandidate.",
     "No AC-* prefix or ArchitectureCandidate schema exists yet.",
     "No candidate topology/binding/tool-policy/convergence-policy artifacts are persisted."
   ]

@@ -8,30 +8,30 @@ triggers:
   - "coverage check before workgraph"
 tools: [bash, view]
 preconditions:
-  - "compiler Pass 0–6 have completed"
+  - "compiler transformations before Coherence Verification have completed"
 constraints:
   - "fail closed on any coverage miss"
   - "emit Coverage Report to specs/coverage-reports/ even on pass"
-  - "do not emit WorkGraph if gate fails"
+  - "do not emit WorkGraph/Executable Specification if verification fails"
   - "during Bootstrap mode, additionally verify META- prefix on PRD ID and every artifact ID referenced in compiler intermediates"
 category: factory-core
 ---
 
-# Compile Coverage Gate (Gate 1)
+# Coherence Verification
 
-Runs between Pass 7 (consistency_check) and Pass 8 (assemble_workgraph) of
-the Stage 5 compiler. Verifies that the compiled specification is
-internally complete before any WorkGraph is emitted. During Bootstrap
-mode, additionally enforces the META- prefix rule from ConOps §4.1
-Rule 2.
+Runs before Executable Specification Assembly. Legacy `coverage-gate-1` and
+Gate 1 names remain compatibility triggers. Coherence Verification verifies
+that the compiled specification is internally complete before any WorkGraph is
+emitted. During Bootstrap mode, additionally enforces the META- prefix rule
+from ConOps §4.1 Rule 2.
 
 ## Inputs
 
-- RequirementAtom[] from Pass 1
-- Contract[] from Pass 2
-- Invariant[] from Pass 3
-- Dependency[] from Pass 4
-- ValidationSpec[] from Pass 5
+- RequirementAtom[] from Decomposition (legacy Pass 1)
+- Contract[] from Binding (legacy Pass 2)
+- Invariant[] from Obligation Extraction (legacy Pass 3)
+- Dependency[] from Structural Assembly dependency resolution (legacy Pass 4)
+- ValidationSpec[] from Structural Assembly validation wiring (legacy Pass 5)
 - PRD ID of the compilation target
 - Factory mode (`bootstrap` | `steady_state`) — determines whether
   check #5 runs
@@ -56,7 +56,7 @@ something and nothing in the compiled output addresses it.
 Every Invariant must have:
 - ≥1 ValidationSpec whose `coversInvariantIds` includes this invariant's ID.
 - ≥1 detector spec (compile-time: must be present and well-formed; runtime
-  liveness is Gate 3's concern).
+  liveness is Persistence Verification's concern).
 
 An invariant without a validation is untested. An invariant without a
 detector is a wish. Both are required.
@@ -74,7 +74,7 @@ artifact IDs. Dangling dependencies mean the graph is incomplete.
 
 ### 5. Bootstrap prefix check (Bootstrap mode only)
 During Bootstrap, every Factory artifact must carry the `META-` qualifier
-in its ID per ConOps §4.1 Rule 2. Gate 1 verifies that:
+in its ID per ConOps §4.1 Rule 2. Coherence Verification verifies that:
 
 - The PRD ID being compiled matches the pattern `PRD-META-*`.
 - Every artifact ID referenced in the compiler intermediates — atom IDs,
@@ -91,8 +91,8 @@ and a lineage defect- it means the compiler intermediates reference an
 artifact that does not exist under the Bootstrap discipline.
 
 This check is skipped entirely when Factory mode is `steady_state`, and
-the `bootstrap_prefix_check` field is absent from Gate1Reports emitted
-outside Bootstrap.
+the `bootstrap_prefix_check` field is absent from legacy Gate1Report
+compatibility outputs emitted outside Bootstrap.
 
 ## Output
 
@@ -131,7 +131,7 @@ remediation: |
 ## Behavior
 
 - **On pass:** emit Coverage Report with `overall: pass`. Proceed to
-  Pass 8.
+  Executable Specification Assembly.
 - **On fail:** emit Coverage Report with `overall: fail` and `remediation`
   populated. Halt compiler. Do not emit WorkGraph. The PRD must be
   remediated upstream (new atoms added, invariants given detectors,
@@ -147,8 +147,8 @@ remediation: |
   design. A soft warning that ships anyway is identical to not having the
   gate.
 - **Auto-generating placeholder validations to pass the gate.** Never.
-  Gate 1 failure is a specification defect, not a compiler defect; do not
-  paper over it.
+  Coherence Verification failure is a specification defect, not a compiler
+  defect; do not paper over it.
 - **Emitting a WorkGraph on partial pass.** Never. All active coverage
   checks must pass; a majority is not enough, and the set of active
   checks is mode-dependent.
@@ -161,8 +161,8 @@ remediation: |
 
 ## Self-rewrite hook
 
-After every 10 Gate 1 runs OR on any downstream failure traceable to a
-coverage miss that this gate should have caught:
+After every 10 Coherence Verification runs OR on any downstream failure
+traceable to a coverage miss that this verification should have caught:
 1. Review recent Coverage Reports.
 2. If a class of coverage miss keeps slipping through, propose an
    additional check.

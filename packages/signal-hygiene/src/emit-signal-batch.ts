@@ -12,7 +12,7 @@ export function emitSignalBatch(input: {
     id: signalBatchIdFromRunId(input.runId),
     source_refs: [...input.sourceRefs],
     explicitness: "inferred",
-    rationale: "Signal normalization batch emitted deterministically from Stage 7.25 hygiene pass.",
+    rationale: "Signal normalization batch emitted deterministically from Persistence Verification signal hygiene.",
     normalizedSignals: input.normalizedSignals,
     duplicateSignalIds: input.duplicateSignalIds,
     weightingPolicyId: SIGNAL_WEIGHTING_POLICY_ID,
