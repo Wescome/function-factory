@@ -93,7 +93,7 @@ describe('C1 — Lineage completeness', () => {
 
   it('skips lineage check for verification_status', () => {
     const result = validateArtifact('verification_status', {
-      _key: 'verification: "coherence":ES-001',
+      _key: 'verification-coherence-ES-001',
       passed: true,
     })
     const c1Violations = result.violations.filter(

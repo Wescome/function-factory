@@ -51,6 +51,12 @@ function toStep(obj: Record<string, unknown>): Rec {
   return JSON.parse(JSON.stringify(obj)) as Rec
 }
 
+function verificationStatusKey(family: string, artifactKey: string): string {
+  const safeFamily = family.replace(/[^A-Za-z0-9_-]/g, '-')
+  const safeArtifactKey = artifactKey.replace(/[^A-Za-z0-9_-]/g, '-')
+  return `verification-${safeFamily}-${safeArtifactKey}-${Date.now().toString(36)}`
+}
+
 /**
  * C2 resolution: extract only the fields added by the current pass.
  * The probe receives the delta, not the full accumulated state.
@@ -399,7 +405,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     if (!coherenceVerification.passed) {
       await step.do('persist-coherence-verification-failure', DB_STEP_CONFIG, async () => {
         await db.save('verification_reports', {
-          _key: `VR-G1-${executableSpecificationKey}-${Date.now().toString(36)}`,
+          _key: `VR-COHERENCE-${executableSpecificationKey}-${Date.now().toString(36)}`,
           type: 'coherence-verification',
           passed: coherenceVerification.passed,
           summary: coherenceVerification.summary,
@@ -408,7 +414,9 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
           timestamp: coherenceVerification.timestamp,
         })
         await db.save('verification_status', {
-          _key: `verification: "coherence":${executableSpecificationKey}-${Date.now().toString(36)}`,
+          _key: verificationStatusKey('coherence', executableSpecificationKey),
+          family: 'coherence',
+          artifactKey: executableSpecificationKey,
           passed: false,
           report: coherenceVerification,
           timestamp: new Date().toISOString(),
@@ -440,13 +448,15 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     // ── Persist gate pass ──
     await step.do('persist-coherence-verification-pass', DB_STEP_CONFIG, async () => {
       await db.save('verification_status', {
-        _key: `verification: "coherence":${executableSpecificationKey}-${Date.now().toString(36)}`,
+        _key: verificationStatusKey('coherence', executableSpecificationKey),
+        family: 'coherence',
+        artifactKey: executableSpecificationKey,
         passed: true,
         report: coherenceVerification,
         timestamp: new Date().toISOString(),
       })
       await db.save('verification_reports', {
-        _key: `VR-G1-${executableSpecificationKey}-${Date.now().toString(36)}`,
+        _key: `VR-COHERENCE-${executableSpecificationKey}-${Date.now().toString(36)}`,
         type: 'coherence-verification',
         passed: coherenceVerification.passed,
         summary: coherenceVerification.summary,
