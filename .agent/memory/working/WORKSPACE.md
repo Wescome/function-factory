@@ -1,13 +1,33 @@
 # Current Workspace
 
 ## Status
-Active task: Trellis refactor hard-cut; items 1-8 implemented and verified.
+Active task: Trellis Execution Packet and Instruction Tuning specs drafted,
+reviewed, and verified.
 
 ## Last update
-2026-05-10T21:03:30Z
+2026-05-10T21:21:00Z
 
 ## Current actions
 
+- Completed: Trellis Execution Packet and Instruction Tuning reference specs.
+  - Added `specs/reference/TRELLIS-EXECUTION-PACKET.md` defining the persistent
+    `TEP-*` packet artifact, packet hash rules, runtime profile, adapter
+    binding, role graph, tool policy, evidence plan, repair policy, lifecycle
+    pathway, execution result, packet audit, validation invariants, and
+    required negative tests.
+  - Added `specs/reference/INSTRUCTION-TUNING-SPEC.md` defining the
+    Coherence Verification-passed Executable Specification -> Trellis
+    Execution Packet transformation, typed emitted/blocked result union,
+    transformation steps, fail-closed diagnostics, determinism rules,
+    uncertainty handling, and implementation slices.
+  - Indexed both docs from `specs/reference/README.md`.
+  - Ran parallel architecture and systems-engineering critic reviews; folded
+    their blocking findings into the specs before verification.
+  - Verification passed:
+    - `pnpm audit:docs`
+    - `pnpm audit:ontology`
+    - `git diff --check`
+  - `specs/reference/NLAH` remains untouched and untracked by request.
 - Completed: Trellis hard-cut items 1-8.
   - Cut active coordinator, runtime, lifecycle, diagnostics, function
     synthesis, cross-package source fields, and compiler wording to Executable
