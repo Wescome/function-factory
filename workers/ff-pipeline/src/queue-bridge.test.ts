@@ -202,12 +202,38 @@ const SIGNAL_PAYLOAD = {
   signal: { signalType: 'internal' as const, source: 'test', title: 'Test', description: 'Test signal' },
 }
 
+function sampleTrellisExecutionPacket(executableSpecificationId = 'WG-TEST') {
+  const subject = executableSpecificationId.replace(/^WG-/, '')
+  return {
+    id: `TEP-${subject}`,
+    executableSpecificationId,
+    audit: { packetHash: `hash-${subject}` },
+  }
+}
+
 /** Create a mock CF Queue message. */
 function createMockMessage(body: unknown, attempts = 1) {
+  const messageBody = body && typeof body === 'object' && !Array.isArray(body)
+    ? {
+        ...(body as Record<string, unknown>),
+        ...(
+          'workflowId' in (body as Record<string, unknown>)
+          && 'executableSpecificationId' in (body as Record<string, unknown>)
+          && 'executableSpecification' in (body as Record<string, unknown>)
+          && !('trellisExecutionPacket' in (body as Record<string, unknown>))
+            ? {
+                trellisExecutionPacket: sampleTrellisExecutionPacket(
+                  (body as Record<string, unknown>).executableSpecificationId as string,
+                ),
+              }
+            : {}
+        ),
+      }
+    : body
   return {
     id: `msg-${Date.now()}`,
     timestamp: new Date(),
-    body,
+    body: messageBody,
     attempts,
     ack: vi.fn(),
     retry: vi.fn(),
@@ -1230,6 +1256,7 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
           workflowId: 'wf-123',
           executableSpecificationId: 'WG-TEST',
           executableSpecification: { _key: 'WG-TEST' },
+          trellisExecutionPacket: sampleTrellisExecutionPacket('WG-TEST'),
           dryRun: false,
         }),
       })

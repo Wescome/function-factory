@@ -60,5 +60,7 @@ export const DomainExecutionEvidence = z.object({
   status: DomainExecutionStatus,
   evidenceRefs: z.array(z.string().min(1)).min(1),
   observationSummary: z.string().min(1),
+  packetId: ArtifactId.optional(),
+  packetHash: z.string().min(1).optional(),
 })
 export type DomainExecutionEvidence = z.infer<typeof DomainExecutionEvidence>

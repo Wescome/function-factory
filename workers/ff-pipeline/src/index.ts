@@ -120,11 +120,12 @@ export default {
         workflowId?: string
         executableSpecificationId?: string
         executableSpecification?: import('./coordinator/state').PipelineExecutableSpecification
+        trellisExecutionPacket?: unknown
         dryRun?: boolean
       }
 
-      if (!body.workflowId || !body.executableSpecificationId || !body.executableSpecification) {
-        return new Response(JSON.stringify({ error: 'Missing required fields: workflowId, executableSpecificationId, executableSpecification' }), {
+      if (!body.workflowId || !body.executableSpecificationId || !body.executableSpecification || !body.trellisExecutionPacket) {
+        return new Response(JSON.stringify({ error: 'Missing required fields: workflowId, executableSpecificationId, executableSpecification, trellisExecutionPacket' }), {
           status: 400,
           headers: { 'Content-Type': 'application/json' },
         })
@@ -134,6 +135,7 @@ export default {
       const workflow = await env.FACTORY_PIPELINE.get(body.workflowId)
       const executableSpecificationId = body.executableSpecificationId
       const executableSpecification = body.executableSpecification
+      const trellisExecutionPacket = body.trellisExecutionPacket
       const dryRun = body.dryRun ?? false
 
       ctx.waitUntil((async () => {
@@ -143,7 +145,7 @@ export default {
           const doResponse = await stub.fetch(new Request('https://do/synthesize', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ executableSpecification, dryRun }),
+            body: JSON.stringify({ executableSpecification, trellisExecutionPacket, dryRun }),
           }))
 
           const result = await doResponse.json() as {
@@ -713,6 +715,24 @@ export default {
 
         const report = fidelityVerificationReportRecord.report as import('./fidelity-verification').FidelityVerificationResult['report']
         const verdict = fidelityVerificationReportRecord.verdict as import('./fidelity-verification').FidelityVerificationResult['verdict']
+        const reportSourceRefs = [
+          ...(
+            Array.isArray(fidelityVerificationReportRecord.source_refs)
+              ? fidelityVerificationReportRecord.source_refs
+              : []
+          ),
+          ...(
+            Array.isArray((report as { source_refs?: unknown }).source_refs)
+              ? (report as { source_refs: unknown[] }).source_refs
+              : []
+          ),
+        ].filter((ref): ref is string => typeof ref === 'string')
+        const packetId = reportSourceRefs.find(ref => ref.startsWith('TEP-'))
+        if (!packetId) {
+          return new Response(JSON.stringify({
+            error: `Fidelity Verification report is missing Trellis packet lineage: ${fidelityVerificationReportKey}`,
+          }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+        }
         const lifecycleDryRun = dryRunFidelityAcceptanceTransition({
           currentState: (doc.lifecycleState ?? 'proposed') as import('./lifecycle').LifecycleState,
           report,
@@ -738,6 +758,7 @@ export default {
             guard: 'fidelity-verification',
             responsible_context: 'ff-pipeline:debug-lifecycle-acceptance-repair',
             verificationReport: fidelityVerificationReportKey,
+            packetId,
             timestamp: repairedAt,
           }
           await db.ensureCollection('lifecycle_transitions')
@@ -774,6 +795,7 @@ export default {
             guard: 'fidelity-verification',
             responsible_context: 'ff-pipeline:debug-lifecycle-acceptance',
             verificationReport: fidelityVerificationReportKey,
+            packetId,
           })
 
           return new Response(JSON.stringify({
@@ -1830,15 +1852,19 @@ export default {
       }
 
       // ── synthesis-queue: original coordinator dispatch ──
-      const { workflowId, executableSpecificationId, executableSpecification, dryRun, specContent } = body as {
+      const { workflowId, executableSpecificationId, executableSpecification, trellisExecutionPacket, dryRun, specContent } = body as {
         workflowId: string
         executableSpecificationId: string
         executableSpecification: Record<string, unknown>
+        trellisExecutionPacket: Record<string, unknown>
         dryRun?: boolean
         specContent?: string
       }
 
       try {
+        if (!trellisExecutionPacket) {
+          throw new Error('trellisExecutionPacket is required for synthesis queue dispatch')
+        }
         // Fire-and-forget: dispatch to DO with workflowId, then ack immediately.
         // The DO publishes results to SYNTHESIS_RESULTS queue on completion.
         // This eliminates the queue visibility timeout problem (CF Queues ~30s).
@@ -1849,6 +1875,7 @@ export default {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             executableSpecification,
+            trellisExecutionPacket,
             dryRun: dryRun ?? false,
             workflowId,
             ...(specContent ? { specContent } : {}),

@@ -17,6 +17,8 @@ function makeInput(overrides: Partial<FidelityVerificationInput> = {}): Fidelity
     prdId: 'PRD-META-FUNCTION-SYNTHESIS',
     executableSpecificationId: 'WG-META-FUNCTION-SYNTHESIS',
     candidateId: 'AC-META-ARCHITECTURE-CANDIDATE-EXECUTION',
+    packetId: 'TEP-META-FUNCTION-SYNTHESIS',
+    packetHash: 'sha256:packet-hash',
     timestamp: '2026-05-07T21:30:00.000Z',
     sourceRefs: ['MRP-MOTE4M1R-G7I0-71'],
     branches: [
@@ -62,6 +64,8 @@ function makeContractInput(overrides: Partial<FidelityVerificationContractInput>
     functionId: 'FN-MOTDWVR2-W7UN',
     executableSpecificationId: 'WG-META-FUNCTION-SYNTHESIS',
     architectureCandidateId: 'AC-META-ARCHITECTURE-CANDIDATE-EXECUTION',
+    packetId: 'TEP-META-FUNCTION-SYNTHESIS',
+    packetHash: 'sha256:packet-hash',
     artifactPaths: ['workers/ff-pipeline/src/runtime-verification.ts'],
     validationOutcomes: [
       {
@@ -129,6 +133,8 @@ describe('Fidelity Verification evaluator', () => {
       prdId: 'PRD-META-FUNCTION-SYNTHESIS',
       executableSpecificationId: 'WG-META-FUNCTION-SYNTHESIS',
       candidateId: 'AC-META-ARCHITECTURE-CANDIDATE-EXECUTION',
+      packetId: 'TEP-META-FUNCTION-SYNTHESIS',
+      packetHash: 'sha256:packet-hash',
       timestamp: '2026-05-07T21:33:20.000Z',
       sourceRefs: ['MRP-MOTE4M1R-G7I0-71'],
       branches: [
@@ -267,6 +273,11 @@ describe('Fidelity Verification evaluator', () => {
         },
       },
     })
+    expect(result.report.source_refs).toContain('TEP-META-FUNCTION-SYNTHESIS')
+    expect(result.report.checks.scenario_coverage.details).toContainEqual({
+      packetId: 'TEP-META-FUNCTION-SYNTHESIS',
+      packetHash: 'sha256:packet-hash',
+    })
     expect(result.verdict).toMatchObject({
       verdict: 'accepted',
       scenario_coverage_score: 1,
@@ -337,5 +348,12 @@ describe('Fidelity Verification evaluator', () => {
     ]))
     expect(FidelityVerificationReport.safeParse(result.report).success).toBe(true)
     expect(FidelityVerificationVerdict.safeParse(result.verdict).success).toBe(true)
+  })
+
+  it('rejects verification input missing packet lineage', () => {
+    expect(() => evaluateFidelityVerification({
+      ...makeInput(),
+      packetId: '',
+    })).toThrow(new FidelityVerificationError('packetId is required'))
   })
 })

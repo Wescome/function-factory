@@ -86,4 +86,20 @@ describe("DomainExecutionEvidence", () => {
     expect(parsed.evidenceRefs).toHaveLength(2)
     expect(parsed.executableSpecificationId).toBe("WG-META-EXAMPLE")
   })
+
+  it("can bind execution evidence to a Trellis packet", () => {
+    const parsed = DomainExecutionEvidence.parse({
+      adapterId: "adapter.coding",
+      executableSpecificationId: "WG-META-EXAMPLE",
+      runId: "run-1",
+      status: "succeeded",
+      evidenceRefs: ["ci:test:pass"],
+      observationSummary: "Coding adapter execution produced passing evidence.",
+      packetId: "TEP-FN-META-EXAMPLE-WG-META-EXAMPLE",
+      packetHash: "hash-packet",
+    })
+
+    expect(parsed.packetId).toBe("TEP-FN-META-EXAMPLE-WG-META-EXAMPLE")
+    expect(parsed.packetHash).toBe("hash-packet")
+  })
 })

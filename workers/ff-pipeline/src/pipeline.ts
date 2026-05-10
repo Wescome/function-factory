@@ -20,6 +20,7 @@ import { appendDriftEntry } from './stages/drift-ledger'
 import { loadCrystallizerEnabled } from './config/crystallizer-config'
 import { createCRP } from './crp'
 import { transitionLifecycle } from './lifecycle'
+import { buildTrellisPacketForSynthesis } from './trellis-instruction-tuning'
 import type {
   CoherenceVerificationReport,
   PipelineEnv,
@@ -469,6 +470,51 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     }
 
     const wg = compState.executableSpecification as { _key?: string; [k: string]: unknown }
+    const instructionTuning = await step.do('instruction-tuning', DB_STEP_CONFIG, async () => {
+      return toStep(buildTrellisPacketForSynthesis({
+        executableSpecificationId: wgKey,
+        executableSpecification: wg,
+        proposal: proposal as Record<string, unknown>,
+        generatedAt: new Date().toISOString(),
+      }) as unknown as Record<string, unknown>)
+    })
+
+    if (instructionTuning.status !== 'emitted') {
+      await step.do('persist-instruction-tuning-blocked', DB_STEP_CONFIG, async () => {
+        await db.save('specs_coverage_reports', {
+          _key: `CR-INSTRUCTION-TUNING-${wgKey}-${Date.now().toString(36)}`,
+          type: 'instruction-tuning',
+          passed: false,
+          summary: 'Instruction Tuning blocked Trellis packet emission.',
+          checks: instructionTuning.diagnostics ?? [],
+          sourceRefs: [`WG:${wgKey}`],
+          source_refs: [wgKey],
+          timestamp: new Date().toISOString(),
+        })
+        return { persisted: true }
+      })
+      return {
+        status: 'instruction-tuning-blocked',
+        signalId: signalKey,
+        executableSpecificationId: wgKey,
+        reason: 'Instruction Tuning could not emit a certified Trellis Execution Packet.',
+        diagnostics: instructionTuning.diagnostics,
+      } as PipelineResult
+    }
+
+    const trellisExecutionPacket = instructionTuning.packet as Record<string, unknown>
+
+    await step.do('persist-trellis-execution-packet', DB_STEP_CONFIG, async () => {
+      await db.save('trellis_execution_packets', {
+        ...trellisExecutionPacket,
+        _key: trellisExecutionPacket.id,
+        source_refs: trellisExecutionPacket.source_refs,
+      })
+      await db.saveEdge('lineage_edges', `trellis_execution_packets/${trellisExecutionPacket.id as string}`, `specs_workgraphs/${wgKey}`, {
+        type: 'tuned-from', createdAt: new Date().toISOString(),
+      })
+      return { persisted: true }
+    })
 
     // Enqueue synthesis request to CF Queue.
     // The queue consumer (queue() handler) will call the DO and send
@@ -481,6 +527,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
         workflowId: event.instanceId,
         executableSpecificationId: wgKey,
         executableSpecification: wg,
+        trellisExecutionPacket,
         dryRun,
         ...(specContent ? { specContent } : {}),
       })

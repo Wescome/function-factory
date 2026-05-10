@@ -1,6 +1,6 @@
 # Trellis Implementation Plan
 
-**Status:** Active implementation roadmap
+**Status:** Implemented through packet runtime and Verification integration
 **Date:** 2026-05-10
 **Source references:** `TRELLIS-EXECUTION-PACKET.md`,
 `INSTRUCTION-TUNING-SPEC.md`, `DOMAIN-FACTORY-KERNEL.md`,
@@ -10,6 +10,12 @@ This plan implements Trellis as the packet-driven harness layer below the
 Factory compiler. It deliberately avoids physical storage/path renames until
 the Trellis Execution Packet and Instruction Tuning path are implemented,
 verified, and audited.
+
+Implementation note, 2026-05-10: phases 1-9 are now materialized in active
+schemas, compiler, worker runtime, packet persistence, and Verification
+lineage. Phase 10 hardening is represented by the focused test/audit commands
+listed in the workspace memory and should be rerun before any physical
+storage/path/package refactor.
 
 ## Goal
 

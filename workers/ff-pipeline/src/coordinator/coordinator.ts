@@ -26,7 +26,13 @@ import { createCRP } from '../crp'
 import { topologicalSort } from './layer-dispatch'
 import { createLedger } from './completion-ledger'
 import type { AtomResult } from './atom-executor'
-import type { DomainExecutionEvidence, DomainExecutionRequest } from '@factory/schemas'
+import {
+  TrellisExecutionPacket,
+  certifyTrellisExecutionPacket,
+  type DomainExecutionEvidence,
+  type DomainExecutionRequest,
+  type TrellisExecutionPacket as TrellisExecutionPacketType,
+} from '@factory/schemas'
 
 export interface CoordinatorEnv {
   ARANGO_URL: string
@@ -55,6 +61,9 @@ export interface SynthesisResult {
   roleHistory: { role: string; tokenUsage: number; timestamp: string }[]
   briefingScript?: unknown
   semanticReview?: unknown
+  trellisExecutionPacket: TrellisExecutionPacketType | null
+  packetId: string | null
+  packetHash: string | null
   domainExecutionRequest: DomainExecutionRequest
   domainExecutionEvidence: DomainExecutionEvidence
 }
@@ -93,9 +102,30 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
     if (url.pathname === '/synthesize' && request.method === 'POST') {
       const body = await request.json() as {
         executableSpecification: PipelineExecutableSpecification
+        trellisExecutionPacket?: unknown
         dryRun?: boolean
         specContent?: string
         workflowId?: string
+      }
+      const packetParse = TrellisExecutionPacket.safeParse(body.trellisExecutionPacket)
+      if (!packetParse.success) {
+        return new Response(JSON.stringify({
+          error: 'Missing or invalid trellisExecutionPacket',
+          issues: packetParse.error.issues,
+        }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+      const certification = certifyTrellisExecutionPacket(packetParse.data)
+      if (!certification.valid) {
+        return new Response(JSON.stringify({
+          error: 'trellisExecutionPacket certification failed',
+          diagnostics: certification.diagnostics,
+        }), {
+          status: 422,
+          headers: { 'Content-Type': 'application/json' },
+        })
       }
 
       // Store workflowId in DO storage so alarm handler can also publish results
@@ -104,6 +134,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       const result = await this.synthesize(body.executableSpecification, {
         dryRun: body.dryRun ?? false,
         ...(body.specContent ? { specContent: body.specContent } : {}),
+        trellisExecutionPacket: packetParse.data,
       })
 
       // If callback info was provided, notify the Worker (fire-and-forget pattern).
@@ -178,24 +209,39 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
   @callable()
   async synthesize(
     executableSpecification: PipelineExecutableSpecification,
-    opts?: { dryRun?: boolean; specContent?: string },
+    opts?: {
+      dryRun?: boolean
+      specContent?: string
+      trellisExecutionPacket?: TrellisExecutionPacketType
+    },
   ): Promise<SynthesisResult> {
     const executableSpecificationId = (executableSpecification._key ?? executableSpecification.id ?? 'unknown') as string
     this.currentExecutableSpecificationId = executableSpecificationId
     const dryRun = opts?.dryRun ?? false
+    if (!opts?.trellisExecutionPacket) {
+      throw new Error('trellisExecutionPacket is required for synthesis')
+    }
 
     const persisted = await this.ctx.storage.get<GraphState>('graphState')
-    const initialState = persisted ?? createInitialState(executableSpecificationId, executableSpecification, {
+    const restoredState = persisted && !persisted.trellisExecutionPacket
+      ? {
+          ...persisted,
+          trellisExecutionPacket: opts.trellisExecutionPacket,
+          domainExecutionRequest: opts.trellisExecutionPacket.adapter.executionRequest,
+        }
+      : persisted
+    const initialState = restoredState ?? createInitialState(executableSpecificationId, executableSpecification, {
       ...(opts?.specContent ? { specContent: opts.specContent } : {}),
+      trellisExecutionPacket: opts.trellisExecutionPacket,
     })
 
     // Already completed — return cached result
-    if (persisted?.verdict?.decision === 'pass' ||
-        persisted?.verdict?.decision === 'fail' ||
-        persisted?.verdict?.decision === 'interrupt') {
+    if (restoredState?.verdict?.decision === 'pass' ||
+        restoredState?.verdict?.decision === 'fail' ||
+        restoredState?.verdict?.decision === 'interrupt') {
       await this.ctx.storage.deleteAlarm()
       await this.ctx.storage.put('__completed', true)
-      return this.buildResult(executableSpecificationId, persisted)
+      return this.buildResult(executableSpecificationId, restoredState)
     }
 
     // Wrap synthesis in runFiber for crash recovery.
@@ -400,6 +446,8 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
 
         const sharedContext = {
           executableSpecificationId,
+          packetId: finalState.trellisExecutionPacket?.id,
+          packetHash: finalState.trellisExecutionPacket?.audit.packetHash,
           specContent: finalState.specContent ?? null,
           briefingScript: finalState.briefingScript,
         }
@@ -481,6 +529,17 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         })),
           ...(finalState.briefingScript != null ? { briefingScript: finalState.briefingScript } : {}),
           ...(finalState.semanticReview != null ? { semanticReview: finalState.semanticReview } : {}),
+          trellisExecutionPacket: finalState.trellisExecutionPacket,
+          packetId: finalState.trellisExecutionPacket?.id,
+          packetHash: finalState.trellisExecutionPacket?.audit.packetHash,
+          domainExecutionRequest: finalState.domainExecutionRequest,
+          domainExecutionEvidence: buildDomainExecutionEvidence(
+            finalState.domainExecutionRequest,
+            'succeeded',
+            [`EA-${executableSpecificationId}-phase1`],
+            'Phase 1 complete; atom execution dispatched',
+            finalState.trellisExecutionPacket,
+          ),
         } as unknown as SynthesisResult
       } catch (err) {
         const reason = err instanceof Error ? err.message : 'Phase 2 dispatch failed'
@@ -592,6 +651,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       state.verdict?.decision === 'pass' ? 'succeeded' : 'failed',
       [`EA-${executableSpecificationId}-synthesis`],
       state.verdict?.reason ?? 'No verdict reached',
+      state.trellisExecutionPacket,
     )
 
     return {
@@ -610,6 +670,9 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       })),
       briefingScript: state.briefingScript ?? undefined,
       semanticReview: state.semanticReview ?? undefined,
+      trellisExecutionPacket: state.trellisExecutionPacket,
+      packetId: state.trellisExecutionPacket?.id ?? null,
+      packetHash: state.trellisExecutionPacket?.audit.packetHash ?? null,
       domainExecutionRequest: state.domainExecutionRequest,
       domainExecutionEvidence,
     }
@@ -643,6 +706,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       state.verdict?.decision === 'pass' ? 'succeeded' : 'failed',
       [`EA-${executableSpecificationId}-synthesis`],
       state.verdict?.reason ?? 'No verdict reached',
+      state.trellisExecutionPacket,
     )
 
     await db.save('execution_artifacts', {
@@ -661,6 +725,9 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         coherenceVerificationReport: state.coherenceVerificationReport,
         domainExecutionRequest: state.domainExecutionRequest,
         domainExecutionEvidence,
+        trellisExecutionPacket: state.trellisExecutionPacket,
+        packetId: state.trellisExecutionPacket?.id,
+        packetHash: state.trellisExecutionPacket?.audit.packetHash,
       }),
       createdAt: new Date().toISOString(),
     }).catch(() => {})
@@ -674,6 +741,8 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         repairCount: state.repairCount,
         tokenUsage: state.tokenUsage,
         rolesExecuted: state.roleHistory.length,
+        packetId: state.trellisExecutionPacket?.id,
+        packetHash: state.trellisExecutionPacket?.audit.packetHash,
       },
       timestamp: new Date().toISOString(),
       pain_score: state.verdict?.decision === 'fail' ? 8 : state.verdict?.decision === 'pass' ? 1 : 5,

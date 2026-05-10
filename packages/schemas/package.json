@@ -12,7 +12,9 @@
     "./coverage": "./src/coverage.ts",
     "./domain-adapter": "./src/domain-adapter.ts",
     "./coding-domain-adapter": "./src/coding-domain-adapter.ts",
-    "./ontology-aliases": "./src/ontology-aliases.ts"
+    "./ontology-aliases": "./src/ontology-aliases.ts",
+    "./trellis-execution-packet": "./src/trellis-execution-packet.ts",
+    "./trellis-canonical-json": "./src/trellis-canonical-json.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

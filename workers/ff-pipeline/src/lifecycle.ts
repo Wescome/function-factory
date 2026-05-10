@@ -151,6 +151,7 @@ export async function transitionLifecycle(
     guard?: string
     responsible_context?: string
     verificationReport?: string
+    packetId?: string
   },
 ): Promise<void> {
   // 1. Fetch current state
@@ -185,6 +186,11 @@ export async function transitionLifecycle(
         `Provide a verificationReport key.`,
       )
     }
+    if (!opts.packetId) {
+      throw new Error(
+        `Transition ${from} -> ${to} requires packetId lineage for ${validation.verificationRequired}.`,
+      )
+    }
     const requirement = VERIFICATION_REQUIREMENTS[to]
     if (!requirement) {
       throw new Error(`Missing verification requirement for ${to}`)
@@ -193,11 +199,11 @@ export async function transitionLifecycle(
     // Verify the required verification actually passed. Older paths write
     // gate_status; diagnostic evidence writes schema-validated records to
     // specs_coverage_reports with deferred gate-* storage discriminators.
-    const gateStatus = await db.queryOne<{ passed: boolean }>(
-      `LET gateStatus = FIRST(
+    const gateStatus = await db.queryOne<{ passed: boolean; source_refs?: string[] }>(
+       `LET gateStatus = FIRST(
          FOR g IN gate_status
            FILTER g._key == @key OR g.report._key == @key
-           RETURN { passed: g.passed }
+           RETURN { passed: g.passed, source_refs: NOT_NULL(g.report.source_refs, g.source_refs, []) }
        )
        LET coverageReport = FIRST(
          FOR report IN specs_coverage_reports
@@ -207,6 +213,8 @@ export async function transitionLifecycle(
                  OR (report.type == @verificationRequired AND report.report.overall == "pass")
                OR (report.type == @storageDiscriminator AND report.report.overall == "pass")
                OR (report.gate == TO_NUMBER(SUBSTITUTE(@storageDiscriminator, "gate-", "")) AND report.overall == "pass")
+             ,
+             source_refs: NOT_NULL(report.source_refs, report.report.source_refs, [])
            }
        )
        RETURN gateStatus != null ? gateStatus : coverageReport`,
@@ -221,6 +229,11 @@ export async function transitionLifecycle(
       throw new Error(
         `Verification ${validation.verificationRequired} has not passed for report ${reportKey}. ` +
         `Cannot transition ${from} -> ${to}.`,
+      )
+    }
+    if (!gateStatus.source_refs?.includes(opts.packetId)) {
+      throw new Error(
+        `Verification ${validation.verificationRequired} report ${reportKey} is not tied to packet ${opts.packetId}.`,
       )
     }
   }
@@ -244,6 +257,7 @@ export async function transitionLifecycle(
     ...(opts.verificationReport ? {
       verificationReport: opts.verificationReport,
     } : {}),
+    ...(opts.packetId ? { packetId: opts.packetId } : {}),
   }
 
   await db.saveEdge(

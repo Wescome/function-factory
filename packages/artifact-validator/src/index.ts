@@ -36,6 +36,7 @@ const LINEAGE_COLLECTIONS = new Set([
   'specs_functions',
   'specs_workgraphs',
   'specs_coverage_reports',
+  'trellis_execution_packets',
 ])
 
 // ── Secret patterns (C15) ───────────────────────────────────────────

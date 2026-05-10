@@ -40,6 +40,8 @@ export interface FidelityVerificationInput {
   prdId: string
   executableSpecificationId: string
   candidateId: string
+  packetId: string
+  packetHash: string
   timestamp: string
   sourceRefs: string[]
   branches: FidelityVerificationBranch[]
@@ -60,6 +62,8 @@ export interface FidelityVerificationContractInput {
   functionId: string
   executableSpecificationId: string
   architectureCandidateId: string
+  packetId: string
+  packetHash: string
   artifactPaths: string[]
   validationOutcomes: FidelityVerificationContractValidationOutcome[]
   compileSummary: string
@@ -258,6 +262,8 @@ export function adaptFidelityVerificationInput(
   assertNonEmpty(options.prdId, 'prdId')
   assertNonEmpty(input.executableSpecificationId, 'executableSpecificationId')
   assertNonEmpty(input.architectureCandidateId, 'architectureCandidateId')
+  assertNonEmpty(input.packetId, 'packetId')
+  assertNonEmpty(input.packetHash, 'packetHash')
   assertNonEmpty(input.provenance?.completedAt, 'provenance.completedAt')
   assertNonEmptyArray(input.validationOutcomes, 'validationOutcomes')
 
@@ -315,6 +321,8 @@ export function adaptFidelityVerificationInput(
     prdId: options.prdId,
     executableSpecificationId: input.executableSpecificationId,
     candidateId: input.architectureCandidateId,
+    packetId: input.packetId,
+    packetHash: input.packetHash,
     timestamp: options.timestamp ?? input.provenance.completedAt,
     sourceRefs: options.sourceRefs ?? [],
     branches,
@@ -375,6 +383,8 @@ export function evaluateFidelityVerification(input: FidelityVerificationInput): 
   assertNonEmpty(input.prdId, 'prdId')
   assertNonEmpty(input.executableSpecificationId, 'executableSpecificationId')
   assertNonEmpty(input.candidateId, 'candidateId')
+  assertNonEmpty(input.packetId, 'packetId')
+  assertNonEmpty(input.packetHash, 'packetHash')
   assertNonEmpty(input.timestamp, 'timestamp')
   assertNonEmptyArray(input.sourceRefs, 'sourceRefs')
   assertNonEmptyArray(input.invariants, 'invariants')
@@ -419,17 +429,17 @@ export function evaluateFidelityVerification(input: FidelityVerificationInput): 
     checks: {
       scenario_coverage: {
         status: scenarioCoveragePassed ? 'pass' : 'fail',
-        details: [],
+        details: [{ packetId: input.packetId, packetHash: input.packetHash }],
         branches_unexercised: branchesUnexercised,
       },
       invariant_exercise: {
         status: invariantExercisePassed ? 'pass' : 'fail',
-        details: [],
+        details: [{ packetId: input.packetId, packetHash: input.packetHash }],
         invariants_without_negative_tests: invariantsWithoutNegativeTests,
       },
       required_validation_pass_rate: {
         status: requiredValidationPassed ? 'pass' : 'fail',
-        details: [],
+        details: [{ packetId: input.packetId, packetHash: input.packetHash }],
         rate: requiredPassRate,
         failing_validations: failingValidations,
       },
@@ -440,6 +450,7 @@ export function evaluateFidelityVerification(input: FidelityVerificationInput): 
       input.prdId,
       input.executableSpecificationId,
       input.candidateId,
+      input.packetId,
       ...input.sourceRefs,
       ...invariantsWithoutNegativeTests,
       ...failingValidations,

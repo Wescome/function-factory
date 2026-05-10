@@ -189,13 +189,39 @@ function createEnv(overrides?: Record<string, unknown>) {
 }
 
 function createMockMessage(body: unknown, attempts = 1) {
+  const messageBody = body && typeof body === 'object' && !Array.isArray(body)
+    ? {
+        ...(body as Record<string, unknown>),
+        ...(
+          'workflowId' in (body as Record<string, unknown>)
+          && 'executableSpecificationId' in (body as Record<string, unknown>)
+          && 'executableSpecification' in (body as Record<string, unknown>)
+          && !('trellisExecutionPacket' in (body as Record<string, unknown>))
+            ? {
+                trellisExecutionPacket: sampleTrellisExecutionPacket(
+                  (body as Record<string, unknown>).executableSpecificationId as string,
+                ),
+              }
+            : {}
+        ),
+      }
+    : body
   return {
     id: `msg-${Date.now()}`,
     timestamp: new Date(),
-    body,
+    body: messageBody,
     attempts,
     ack: vi.fn(),
     retry: vi.fn(),
+  }
+}
+
+function sampleTrellisExecutionPacket(executableSpecificationId = 'WG-SPEC') {
+  const subject = executableSpecificationId.replace(/^WG-/, '')
+  return {
+    id: `TEP-${subject}`,
+    executableSpecificationId,
+    audit: { packetHash: `hash-${subject}` },
   }
 }
 

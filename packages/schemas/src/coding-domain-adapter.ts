@@ -1,4 +1,5 @@
 import { DomainAdapterContract } from "./domain-adapter.js"
+import { TrellisRuntimeProfile } from "./trellis-execution-packet.js"
 
 export const CodingDomainAdapterContract = DomainAdapterContract.parse({
   adapterId: "adapter.coding",
@@ -69,3 +70,14 @@ export const CodingDomainAdapterContract = DomainAdapterContract.parse({
   ],
 })
 export type CodingDomainAdapterContract = typeof CodingDomainAdapterContract
+
+export const CodingTrellisRuntimeProfile = TrellisRuntimeProfile.parse({
+  profileId: "trellis.runtime.coding.v1",
+  roleCatalogRef: "catalog.roles.coding.v1",
+  toolCatalogRef: "catalog.tools.coding.v1",
+  memoryCatalogRef: "catalog.memory.coding.v1",
+  policyCatalogRef: "catalog.policy.coding.v1",
+  modelPolicyRef: "catalog.model-policy.coding.v1",
+  suppliedBy: "trellis-runtime",
+})
+export type CodingTrellisRuntimeProfile = typeof CodingTrellisRuntimeProfile

@@ -8,7 +8,12 @@
  */
 
 export { compile } from "./compile.js"
+export { tuneInstructions } from "./instruction-tuning.js"
 export type { CompileOptions } from "./compile.js"
+export type {
+  InstructionTuningCompileOptions,
+  InstructionTuningInput,
+} from "./instruction-tuning.js"
 export type {
   CompileResult,
   CompilerIntermediates,

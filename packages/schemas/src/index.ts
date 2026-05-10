@@ -22,6 +22,8 @@ export * from "./sdlc.js"
 export * from "./domain-adapter.js"
 export * from "./coding-domain-adapter.js"
 export * from "./ontology-aliases.js"
+export * from "./trellis-execution-packet.js"
+export * from "./trellis-canonical-json.js"
 export {
   CoherenceVerificationReport,
   FidelityVerificationReport,

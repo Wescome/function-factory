@@ -10,6 +10,7 @@ describe('C1 — Lineage completeness', () => {
     'specs_functions',
     'specs_workgraphs',
     'specs_coverage_reports',
+    'trellis_execution_packets',
   ]
 
   for (const collection of LINEAGE_COLLECTIONS) {

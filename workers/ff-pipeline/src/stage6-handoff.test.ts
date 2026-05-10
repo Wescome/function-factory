@@ -196,6 +196,15 @@ const SIGNAL_PAYLOAD = {
   signal: { signalType: 'internal' as const, source: 'test', title: 'Test', description: 'Test signal' },
 }
 
+function sampleTrellisExecutionPacket(executableSpecificationId = 'WG-TEST') {
+  const subject = executableSpecificationId.replace(/^WG-/, '')
+  return {
+    id: `TEP-${subject}`,
+    executableSpecificationId,
+    audit: { packetHash: `hash-${subject}` },
+  }
+}
+
 /** Run the pipeline with architect-approval auto-approved and a given synthesis result. */
 async function runPipelineWithSynthesis(
   synthPayload: { verdict: { decision: string; confidence: number; reason: string }; tokenUsage: number; repairCount: number },
@@ -360,6 +369,7 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
           workflowId: 'wf-123',
           executableSpecificationId: 'WG-TEST',
           executableSpecification: { _key: 'WG-TEST', title: 'Test' },
+          trellisExecutionPacket: sampleTrellisExecutionPacket('WG-TEST'),
           dryRun: false,
         }),
       })
@@ -431,6 +441,7 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
           workflowId: 'wf-123',
           executableSpecificationId: 'WG-TEST',
           executableSpecification: { _key: 'WG-TEST' },
+          trellisExecutionPacket: sampleTrellisExecutionPacket('WG-TEST'),
         }),
       })
 

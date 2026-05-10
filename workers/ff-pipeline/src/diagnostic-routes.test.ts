@@ -1227,7 +1227,7 @@ describe('ff-pipeline diagnostic routes', () => {
     const { default: worker } = await import('./index')
     mockQueryOne
       .mockResolvedValueOnce(makeFidelityVerificationCoverageReportRecord())
-      .mockResolvedValueOnce({ passed: true })
+      .mockResolvedValueOnce({ passed: true, source_refs: ['TEP-META-FUNCTION-SYNTHESIS'] })
     mockGet
       .mockResolvedValueOnce({
         _key: 'FN-MOTDWVR2-W7UN',
@@ -1786,6 +1786,8 @@ function makeFidelityVerificationSimulationInput(): Record<string, unknown> {
     prdId: 'PRD-META-FUNCTION-SYNTHESIS',
     executableSpecificationId: 'WG-META-FUNCTION-SYNTHESIS',
     candidateId: 'AC-META-ARCHITECTURE-CANDIDATE-EXECUTION',
+    packetId: 'TEP-META-FUNCTION-SYNTHESIS',
+    packetHash: 'sha256:packet-hash',
     timestamp: '2026-05-07T21:30:00.000Z',
     sourceRefs: ['MRP-MOTE4M1R-G7I0-71'],
     branches: [
@@ -1830,6 +1832,8 @@ function makeFidelityVerificationContractInput(): Record<string, unknown> {
     functionId: 'FN-MOTDWVR2-W7UN',
     executableSpecificationId: 'WG-META-FUNCTION-SYNTHESIS',
     architectureCandidateId: 'AC-META-ARCHITECTURE-CANDIDATE-EXECUTION',
+    packetId: 'TEP-META-FUNCTION-SYNTHESIS',
+    packetHash: 'sha256:packet-hash',
     artifactPaths: ['workers/ff-pipeline/src/runtime-verification.ts'],
     validationOutcomes: [
       {
@@ -1887,6 +1891,8 @@ function makeFidelityVerificationContractInput(): Record<string, unknown> {
 function makePersistenceVerificationRegistrationInput(): Record<string, unknown> {
   return {
     functionId: 'FN-MOTDWVR2-W7UN',
+    packetId: 'TEP-META-FUNCTION-SYNTHESIS',
+    packetHash: 'sha256:packet-hash',
     timestamp: '2026-05-07T22:00:00.000Z',
     sourceRefs: [
       'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
@@ -1922,12 +1928,14 @@ function makeFidelityVerificationCoverageReportRecord(): Record<string, unknown>
     id: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
     type: 'gate-2',
     passed: true,
+    source_refs: ['TEP-META-FUNCTION-SYNTHESIS', 'FN-MOTDWVR2-W7UN'],
     report: {
       id: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
       verification: "fidelity",
       function_id: 'FN-MOTDWVR2-W7UN',
       timestamp: '2026-05-07T22:34:30.000Z',
       overall: 'pass',
+      source_refs: ['TEP-META-FUNCTION-SYNTHESIS', 'FN-MOTDWVR2-W7UN'],
     },
     verdict: {
       verdict: 'accepted',

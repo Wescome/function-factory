@@ -3,6 +3,7 @@ import {
   DomainExecutionEvidence,
   DomainExecutionRequest,
   ArtifactId,
+  type TrellisExecutionPacket,
 } from '@factory/schemas'
 
 // ────────────────────────────────────────────────────────────
@@ -157,6 +158,7 @@ export interface GraphState {
   [key: string]: unknown
   executableSpecificationId: string
   executableSpecification: PipelineExecutableSpecification
+  trellisExecutionPacket: TrellisExecutionPacket | null
 
   plan: Plan | null
   code: CodeArtifact | null
@@ -202,13 +204,21 @@ export interface GraphState {
 export function createInitialState(
   executableSpecificationId: string,
   executableSpecification: PipelineExecutableSpecification,
-  opts?: { maxRepairs?: number; maxTokens?: number; specContent?: string | null },
+  opts?: {
+    maxRepairs?: number
+    maxTokens?: number
+    specContent?: string | null
+    trellisExecutionPacket?: TrellisExecutionPacket | null
+  },
 ): GraphState {
-  const domainExecutionRequest = buildDomainExecutionRequest(executableSpecificationId, executableSpecification)
+  const trellisExecutionPacket = opts?.trellisExecutionPacket ?? null
+  const domainExecutionRequest = trellisExecutionPacket?.adapter.executionRequest
+    ?? buildDomainExecutionRequest(executableSpecificationId, executableSpecification)
 
   return {
     executableSpecificationId,
     executableSpecification,
+    trellisExecutionPacket,
     plan: null,
     code: null,
     critique: null,
@@ -299,6 +309,7 @@ export function buildDomainExecutionEvidence(
   status: DomainExecutionEvidence['status'],
   evidenceRefs: readonly string[],
   observationSummary: string,
+  packet?: TrellisExecutionPacket | null,
 ): DomainExecutionEvidence {
   return DomainExecutionEvidence.parse({
     adapterId: request.adapterId,
@@ -307,5 +318,6 @@ export function buildDomainExecutionEvidence(
     status,
     evidenceRefs: [...evidenceRefs],
     observationSummary,
+    ...(packet ? { packetId: packet.id, packetHash: packet.audit.packetHash } : {}),
   })
 }

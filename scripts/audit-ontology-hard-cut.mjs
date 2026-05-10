@@ -15,6 +15,9 @@ const requiredFiles = [
   'specs/reference/ONTOLOGY-ADDENDUM-B-STAGE-EXTENSIONS.md',
   'packages/schemas/src/domain-adapter.ts',
   'packages/schemas/src/coding-domain-adapter.ts',
+  'packages/schemas/src/trellis-execution-packet.ts',
+  'packages/schemas/src/trellis-canonical-json.ts',
+  'packages/compiler/src/instruction-tuning.ts',
   'packages/schemas/src/core.ts',
   'packages/schemas/src/coverage.ts',
   'packages/compiler/src/passes/07-coherence-verification.ts',
@@ -22,6 +25,7 @@ const requiredFiles = [
   'packages/compiler/src/passes/_executable-specification-emit.ts',
   'packages/coverage-gates/src/coherence-verification.ts',
   'workers/ff-pipeline/src/coordinator/state.ts',
+  'workers/ff-pipeline/src/trellis-instruction-tuning.ts',
 ]
 
 for (const file of requiredFiles) {
@@ -50,6 +54,31 @@ expectIncludes(
   'Coordinator state carries DomainExecutionEvidence',
   'workers/ff-pipeline/src/coordinator/state.ts',
   'domainExecutionEvidence',
+)
+expectIncludes(
+  'Trellis packet schema is materialized',
+  'packages/schemas/src/trellis-execution-packet.ts',
+  'TrellisExecutionPacket',
+)
+expectIncludes(
+  'Instruction Tuning emits Trellis packets',
+  'packages/compiler/src/instruction-tuning.ts',
+  'tuneInstructions',
+)
+expectIncludes(
+  'Coordinator state carries TrellisExecutionPacket',
+  'workers/ff-pipeline/src/coordinator/state.ts',
+  'trellisExecutionPacket',
+)
+expectIncludes(
+  'Worker synthesis boundary requires packet payload',
+  'workers/ff-pipeline/src/index.ts',
+  'trellisExecutionPacket is required for synthesis queue dispatch',
+)
+expectIncludes(
+  'Coordinator rejects packet-less synthesis',
+  'workers/ff-pipeline/src/coordinator/coordinator.ts',
+  'trellisExecutionPacket is required for synthesis',
 )
 
 const activeRoots = [

@@ -20,6 +20,8 @@ export interface PersistenceVerificationEvidenceSourceRegistration {
 
 export interface PersistenceVerificationRegistrationInput {
   functionId: string
+  packetId: string
+  packetHash: string
   timestamp: string
   sourceRefs: string[]
   detectors: PersistenceVerificationDetectorRegistration[]
@@ -64,6 +66,8 @@ function divergencePct(expected: number, observed: number): number {
 
 export function evaluatePersistenceVerificationRegistration(input: PersistenceVerificationRegistrationInput): PersistenceVerificationReportType {
   assertNonEmpty(input.functionId, 'functionId')
+  assertNonEmpty(input.packetId, 'packetId')
+  assertNonEmpty(input.packetHash, 'packetHash')
   assertNonEmpty(input.timestamp, 'timestamp')
   assertArray(input.sourceRefs, 'sourceRefs')
   assertArray(input.detectors, 'detectors')
@@ -122,17 +126,17 @@ export function evaluatePersistenceVerificationRegistration(input: PersistenceVe
     checks: {
       detector_freshness: {
         status: detectorFreshnessPassed ? 'pass' : 'fail',
-        details: [],
+        details: [{ packetId: input.packetId, packetHash: input.packetHash }],
         stale_detectors: staleDetectors,
       },
       evidence_source_liveness: {
         status: evidenceSourceLivenessPassed ? 'pass' : 'fail',
-        details: [],
+        details: [{ packetId: input.packetId, packetHash: input.packetHash }],
         quiet_sources: quietSources,
       },
       audit_pipeline_integrity: {
         status: auditPipelineIntegrityPassed ? 'pass' : 'fail',
-        details: [],
+        details: [{ packetId: input.packetId, packetHash: input.packetHash }],
         expected_vs_observed: {
           expected,
           observed,
@@ -143,6 +147,7 @@ export function evaluatePersistenceVerificationRegistration(input: PersistenceVe
     remediation,
     source_refs: unique([
       input.functionId,
+      input.packetId,
       ...input.sourceRefs,
       ...staleDetectors.map(detector => detector.invariant_id),
     ]),

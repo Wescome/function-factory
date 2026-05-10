@@ -1,13 +1,39 @@
 # Current Workspace
 
 ## Status
-Active task: Trellis implementation plan created and verified.
+Active task: Trellis packet implementation completed through runtime and verification integration.
 
 ## Last update
-2026-05-10T21:33:00Z
+2026-05-10T22:15:00Z
 
 ## Current actions
 
+- Completed: Trellis packet implementation.
+  - Added first-class `TEP-*` schema support, deterministic canonical hashing,
+    and packet certification helpers.
+  - Added pure compiler Instruction Tuning that maps Executable Specification,
+    selected ArchitectureCandidate, RuntimeAdmission, DomainAdapterContract,
+    and TrellisRuntimeProfile into a certified Trellis Execution Packet.
+  - Added coding Trellis runtime profile fixture while keeping coding terms in
+    adapter-local fields.
+  - Integrated optional compiler Instruction Tuning results.
+  - Added worker-side Trellis packet projection/persistence, queue payloads,
+    coordinator packet intake, packet-only synthesis rejection, packet ID/hash
+    in DomainExecutionEvidence, and `trellis_execution_packets` validation.
+  - Connected packet lineage into Fidelity Verification, Persistence
+    Verification, diagnostic routes, and lifecycle acceptance checks.
+  - Updated ontology/docs audits for TEP and packet-only runtime guardrails.
+  - Verification passed:
+    - `pnpm --filter @factory/schemas test -- src/coding-domain-adapter.test.ts src/trellis-canonical-json.test.ts src/trellis-execution-packet.test.ts src/domain-adapter.test.ts`
+    - `pnpm --filter @factory/compiler test -- src/instruction-tuning.test.ts src/compile.test.ts`
+    - `pnpm --filter @factory/artifact-validator test`
+    - `pnpm --filter @factory/ff-pipeline test -- src/coordinator/state.test.ts src/queue-bridge.test.ts src/stage6-handoff.test.ts src/fidelity-verification.test.ts src/persistence-verification.test.ts src/lifecycle.test.ts src/diagnostic-routes.test.ts`
+    - `pnpm --filter @factory/schemas typecheck`
+    - `pnpm --filter @factory/compiler typecheck`
+    - `pnpm --filter @factory/ff-pipeline typecheck`
+    - `pnpm audit:docs`
+    - `pnpm audit:ontology`
+  - `specs/reference/NLAH` remains untouched and untracked by request.
 - Completed: Trellis implementation roadmap.
   - Added `specs/reference/TRELLIS-IMPLEMENTATION-PLAN.md` with a 10-phase
     implementation sequence from schema foundation through packet-only runtime

@@ -12,7 +12,12 @@ import { mkdtemp, readFile, rm, writeFile, mkdir } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { parse as parseYaml } from "yaml"
-import { CoherenceVerificationReport, ExecutableSpecification } from "@factory/schemas"
+import {
+  CodingDomainAdapterContract,
+  CodingTrellisRuntimeProfile,
+  CoherenceVerificationReport,
+  ExecutableSpecification,
+} from "@factory/schemas"
 import { compile } from "./compile.js"
 
 // Path to the real meta-PRD; resolved from the monorepo root.
@@ -200,5 +205,64 @@ describe("compile- end-to-end against PRD-META-GATE-1-COMPILE-COVERAGE", () => {
       coverageReportsDir,
     })
     expect(result.executableSpecification!.nodes.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it("runs Instruction Tuning when selected runtime inputs are supplied", async () => {
+    const result = await compile(prdPath, {
+      timestamp: "2026-04-19T00:00:00Z",
+      coverageReportsDir,
+      instructionTuning: {
+        selectedArchitectureCandidate: {
+          id: "AC-META-GATE-1-COMPILE-COVERAGE",
+          sourcePrdId: "PRD-META-GATE-1-COMPILE-COVERAGE",
+          sourceExecutableSpecificationId: "WG-META-GATE-1-COMPILE-COVERAGE",
+          candidateStatus: "selected",
+          topology: {
+            shape: "single_node",
+            summary: "Fixture candidate for compiler Instruction Tuning.",
+          },
+          modelBinding: {
+            bindingMode: "policy_selected",
+            summary: "Runtime profile controls model binding.",
+          },
+          toolPolicy: {
+            mode: "restricted",
+            summary: "Packet tool policy controls access.",
+          },
+          convergencePolicy: {
+            mode: "gated_iteration",
+            summary: "Repairs are mediated by packet policy.",
+          },
+          source_refs: ["WG-META-GATE-1-COMPILE-COVERAGE"],
+          explicitness: "explicit",
+          rationale: "Test candidate.",
+        },
+        runtimeAdmission: {
+          id: "RAD-META-GATE-1-COMPILE-COVERAGE",
+          sourceExecutableSpecificationId: "WG-META-GATE-1-COMPILE-COVERAGE",
+          sourceArchitectureCandidateId: "AC-META-GATE-1-COMPILE-COVERAGE",
+          sourceSelectionId: "ACS-META-GATE-1-COMPILE-COVERAGE",
+          decision: "allow",
+          reason: "Fixture admission permits compiler packet generation.",
+          source_refs: [
+            "WG-META-GATE-1-COMPILE-COVERAGE",
+            "AC-META-GATE-1-COMPILE-COVERAGE",
+          ],
+          explicitness: "explicit",
+          rationale: "Test admission.",
+        },
+        domainAdapterContract: CodingDomainAdapterContract,
+        runtimeProfile: CodingTrellisRuntimeProfile,
+      },
+    })
+
+    expect(result.instructionTuningResult?.status).toBe("emitted")
+    if (result.instructionTuningResult?.status !== "emitted") return
+    expect(result.instructionTuningResult.packet.executableSpecificationId).toBe(
+      result.executableSpecification!.id
+    )
+    expect(result.instructionTuningResult.packet.audit.packetHash).toBe(
+      result.instructionTuningResult.packet.instructionTuning.outputPacketHash
+    )
   })
 })

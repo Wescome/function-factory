@@ -16,6 +16,7 @@ import type {
   FactoryMode,
   CoherenceVerificationReport,
   Invariant,
+  InstructionTuningResult,
   IntentSpecification,
   RequirementAtom,
   ValidationSpec,
@@ -75,6 +76,7 @@ export interface CompileResult {
    */
   readonly executableSpecification: ExecutableSpecification | null
   readonly executableSpecificationPath: string | null
+  readonly instructionTuningResult: InstructionTuningResult | null
 }
 
 /**

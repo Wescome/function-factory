@@ -21,6 +21,10 @@ import { dirname, resolve } from "node:path"
 import type { ExecutableSpecification } from "@factory/schemas"
 import type { CompileResult, FactoryMode } from "./types.js"
 import {
+  tuneInstructions,
+  type InstructionTuningCompileOptions,
+} from "./instruction-tuning.js"
+import {
   assembleExecutableSpecification,
   consistencyCheck,
   deriveContracts,
@@ -43,6 +47,8 @@ export interface CompileOptions {
   readonly executableSpecificationDir?: string
   /** ISO-8601 timestamp for the Coverage Report. Default- current wall clock. */
   readonly timestamp?: string
+  /** Optional Instruction Tuning input bundle. When present, emits or blocks a Trellis Execution Packet. */
+  readonly instructionTuning?: InstructionTuningCompileOptions
 }
 
 export async function compile(
@@ -97,6 +103,7 @@ export async function compile(
   // returns with the Coverage Report preserved on disk per ConOps §7.2 step 2.
   let executableSpecification: ExecutableSpecification | null = null
   let executableSpecificationPath: string | null = null
+  let instructionTuningResult: CompileResult["instructionTuningResult"] = null
   if (report.overall === "pass") {
     executableSpecification = assembleExecutableSpecification(
       normalized.draft,
@@ -110,6 +117,13 @@ export async function compile(
     const executableSpecificationDir =
       options.executableSpecificationDir ?? defaultWorkgraphsDir(absolutePrdPath)
     executableSpecificationPath = await emitExecutableSpecification(executableSpecification, executableSpecificationDir)
+    if (options.instructionTuning) {
+      instructionTuningResult = tuneInstructions({
+        ...options.instructionTuning,
+        executableSpecification,
+        generatedAt: options.instructionTuning.generatedAt ?? timestamp,
+      })
+    }
   }
 
   return {
@@ -119,6 +133,7 @@ export async function compile(
     mode,
     executableSpecification,
     executableSpecificationPath,
+    instructionTuningResult,
   }
 }
 

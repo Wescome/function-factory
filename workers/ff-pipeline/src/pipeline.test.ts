@@ -14,6 +14,15 @@
 
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 
+function sampleTrellisExecutionPacket(executableSpecificationId = 'WG-TEST') {
+  const subject = executableSpecificationId.replace(/^WG-/, '')
+  return {
+    id: `TEP-${subject}`,
+    executableSpecificationId,
+    audit: { packetHash: `hash-${subject}` },
+  }
+}
+
 // ─── Mock cloudflare:workers runtime (not available outside CF) ───
 
 vi.mock('cloudflare:workers', () => {
@@ -528,6 +537,7 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
           workflowId: 'wf-123',
           executableSpecificationId: 'WG-TEST',
           executableSpecification: { _key: 'WG-TEST', title: 'Test', atoms: [], invariants: [], dependencies: [] },
+          trellisExecutionPacket: sampleTrellisExecutionPacket('WG-TEST'),
           dryRun: false,
         }),
       })
@@ -579,6 +589,7 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
           workflowId: 'wf-123',
           executableSpecificationId: 'WG-TEST',
           executableSpecification: { _key: 'WG-TEST', title: 'Test', atoms: [], invariants: [], dependencies: [] },
+          trellisExecutionPacket: sampleTrellisExecutionPacket('WG-TEST'),
           dryRun: false,
         }),
       })
@@ -645,6 +656,7 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
           workflowId: 'wf-123',
           executableSpecificationId: 'WG-TEST',
           executableSpecification: { _key: 'WG-TEST', title: 'Test', atoms: [], invariants: [], dependencies: [] },
+          trellisExecutionPacket: sampleTrellisExecutionPacket('WG-TEST'),
           dryRun: false,
         }),
       })

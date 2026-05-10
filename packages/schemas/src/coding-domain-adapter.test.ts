@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest"
-import { CodingDomainAdapterContract } from "./coding-domain-adapter.js"
+import {
+  CodingDomainAdapterContract,
+  CodingTrellisRuntimeProfile,
+} from "./coding-domain-adapter.js"
 
 describe("CodingDomainAdapterContract", () => {
   it("materializes coding as a Domain Adapter contract", () => {
@@ -49,5 +52,11 @@ describe("CodingDomainAdapterContract", () => {
       "pull-request-update",
       "worker-deploy",
     ])
+  })
+
+  it("materializes a Trellis runtime profile for coding", () => {
+    expect(CodingTrellisRuntimeProfile.profileId).toBe("trellis.runtime.coding.v1")
+    expect(CodingTrellisRuntimeProfile.suppliedBy).toBe("trellis-runtime")
+    expect(CodingTrellisRuntimeProfile.roleCatalogRef).toBe("catalog.roles.coding.v1")
   })
 })

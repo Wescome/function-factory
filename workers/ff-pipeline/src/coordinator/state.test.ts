@@ -15,6 +15,7 @@ describe('createInitialState', () => {
 
     expect(state.executableSpecificationId).toBe(wgId)
     expect(state.executableSpecification).toBe(wg)
+    expect(state.trellisExecutionPacket).toBeNull()
     expect(state.plan).toBeNull()
     expect(state.code).toBeNull()
     expect(state.critique).toBeNull()

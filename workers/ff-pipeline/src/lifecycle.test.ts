@@ -283,11 +283,12 @@ describe('transitionLifecycle', () => {
     })
 
     // Verification status exists and passed
-    db.queryOne.mockResolvedValue({ passed: true })
+    db.queryOne.mockResolvedValue({ passed: true, source_refs: ['TEP-WG-002'] })
 
     await transitionLifecycle(db as any, 'FP-002', 'accepted', {
       trigger: 'fidelity-verification-pass',
       verificationReport: 'CR-G2-WG-002',
+      packetId: 'TEP-WG-002',
     })
 
     expect(db.update).toHaveBeenCalledWith(
@@ -306,11 +307,13 @@ describe('transitionLifecycle', () => {
       passed: true,
       source: 'specs_coverage_reports',
       type: 'gate-2',
+      source_refs: ['TEP-FN-MOTDWVR2-W7UN'],
     })
 
     await transitionLifecycle(db as any, 'FN-MOTDWVR2-W7UN', 'accepted', {
       trigger: 'fidelity-verification-pass',
       verificationReport: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
+      packetId: 'TEP-FN-MOTDWVR2-W7UN',
     })
 
     expect(db.queryOne).toHaveBeenCalledWith(
@@ -358,11 +361,12 @@ describe('transitionLifecycle', () => {
       _key: 'FP-002',
       lifecycleState: 'produced',
     })
-    db.queryOne.mockResolvedValue({ passed: true })
+    db.queryOne.mockResolvedValue({ passed: true, source_refs: ['TEP-WG-002'] })
 
     await transitionLifecycle(db as any, 'FP-002', 'accepted', {
       trigger: 'fidelity-verification-pass',
       verificationReport: 'CR-G2-WG-002',
+      packetId: 'TEP-WG-002',
     })
 
     expect(db.saveEdge).toHaveBeenCalledWith(
@@ -371,8 +375,25 @@ describe('transitionLifecycle', () => {
       expect.any(String),
       expect.objectContaining({
         verificationReport: 'CR-G2-WG-002',
+        packetId: 'TEP-WG-002',
       }),
     )
+  })
+
+  it('rejects accepted transition when verification report lacks packet lineage', async () => {
+    db.get.mockResolvedValue({
+      _key: 'FP-002',
+      lifecycleState: 'produced',
+    })
+    db.queryOne.mockResolvedValue({ passed: true, source_refs: ['TEP-OTHER'] })
+
+    await expect(
+      transitionLifecycle(db as any, 'FP-002', 'accepted', {
+        trigger: 'fidelity-verification-pass',
+        verificationReport: 'CR-G2-WG-002',
+        packetId: 'TEP-WG-002',
+      }),
+    ).rejects.toThrow(/not tied to packet/i)
   })
 
   it('supports guard and responsible_context in transition options', async () => {
