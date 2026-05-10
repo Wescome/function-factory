@@ -44,6 +44,11 @@ async function main() {
     'function_runs', 'execution_artifacts',
     'mentorscript_rules', 'consultation_requests',
     'version_controlled_resolutions', 'merge_readiness_packs',
+    'merge_readiness_evidence', 'trellis_execution_packets',
+    'lifecycle_transitions', 'hot_config',
+    'config_aliases', 'config_routing', 'config_model_capabilities',
+    'orl_telemetry', 'intent_anchors', 'compilation_drift_ledger',
+    'completion_ledgers',
   ]
 
   console.log('\nCreating document collections...')
