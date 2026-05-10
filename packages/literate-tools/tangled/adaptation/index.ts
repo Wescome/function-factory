@@ -40,7 +40,7 @@ interface FunctionBirthScore {
 
 /**
  * Score birth proposals. High-scoring proposals above the birth
- * verification threshold are auto-drafted into PRDs and enter Intent-to-Executable compilation.
+ * verification threshold are auto-drafted into Intent Specifications and enter Intent-to-Executable compilation.
  */
 declare function observability_scoreBirthProposals(
   trajectories: ReadonlyArray<Trajectory>

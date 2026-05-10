@@ -79,9 +79,9 @@ terminology with descriptive guard names throughout:
 
 | Old Name | New Name | What It Guards |
 |----------|----------|---------------|
-| Compile Coverage | `structural_coverage_passed` | ExecutableSpecification emission from the compiler |
-| Simulation Coverage | `scenarios_cover_invariants` | Lifecycle transition from `produced` to `accepted` |
-| Assurance Coverage | `evidence_base_intact` | Continuous health of monitored Functions |
+| Compile Verification | `structural_verification_passed` | ExecutableSpecification emission from the compiler |
+| Simulation Verification | `scenarios_cover_invariants` | Lifecycle transition from `produced` to `accepted` |
+| Assurance Verification | `evidence_base_intact` | Continuous health of monitored Functions |
 
 ---
 
@@ -393,7 +393,7 @@ the I/We boundary:
 ```typescript
 /** CANONICAL-ONLY. Compiled implementation graph. */
 interface ExecutableSpecification {
-  id: string; // WG-*
+  id: string; // ES-*
   function_id: string;
   nodes: ExecutableSpecificationNode[];
   edges: ExecutableSpecificationEdge[];
@@ -539,7 +539,7 @@ const PIPELINE_STAGES: PipelineStage[] = [
     input: "FunctionProposal[]",
     output: "ExecutableSpecification[] + VerificationReport[]",
     mode: "blocking",
-    packages: ["@factory/prd-authoring", "@factory/compiler"],
+    packages: ["@factory/intent-authoring", "@factory/compiler"],
   },
   {
     stage_number: 5.5,
@@ -548,13 +548,13 @@ const PIPELINE_STAGES: PipelineStage[] = [
     input: "CompilerIntermediates",
     output: "VerificationReport",
     mode: "blocking",
-    packages: ["@factory/coverage-gates"],
+    packages: ["@factory/verification"],
   },
   {
     stage_number: 5.75,
     name: "review_semantic_correctness",
     context: "Assurance",
-    input: "PRD + ExecutableSpecification",
+    input: "Intent Specification + ExecutableSpecification",
     output: "SemanticReviewReport",
     mode: "blocking",
     packages: ["@factory/semantic-review"],
@@ -745,15 +745,15 @@ interface FunctionProposal {
 
 ### Intent-to-Executable Compilation
 
-Each Function proposal gets drafted into an Intent Specification (PRD) and
+Each Function proposal gets drafted into an Intent Specification (Intent Specification) and
 compiled into an Executable Specification (ExecutableSpecification). Historical pass numbers
 remain compatibility labels. This is non-negotiable #2: each transformation
 does exactly one thing. Collapsing transformations destroys debuggability.
 
 ```typescript
 /** CANONICAL-ONLY. Product Requirements Document. */
-interface PRD {
-  id: string; // PRD-*
+interface Intent Specification {
+  id: string; // IS-*
   function_id: string;
   title: string;
   atoms: Atom[];
@@ -783,34 +783,34 @@ The compatibility passes form a Pipe-and-Filter pipeline (ADR-001). Each
 transformation is a pure function (Functional Core / Imperative Shell, ADR-004):
 
 ```typescript
-/** Pass 0: Normalize PRD text, resolve ambiguity, fail closed. */
-declare function specification_pass0_normalize(prd: PRD): PRD;
+/** Pass 0: Normalize Intent Specification text, resolve ambiguity, fail closed. */
+declare function specification_pass0_normalize(prd: Intent Specification): Intent Specification;
 
 /** Decomposition compatibility step: Extract requirement atoms. */
-declare function specification_pass2_extractAtoms(prd: PRD): Atom[];
+declare function specification_pass2_extractAtoms(prd: Intent Specification): Atom[];
 
 /** Binding: Derive contracts (signature, preconditions, postconditions). */
 declare function specification_pass3_deriveContracts(
-  prd: PRD,
+  prd: Intent Specification,
   atoms: ReadonlyArray<Atom>
 ): Contract[];
 
 /** Obligation Extraction: Derive invariants with detector specs. */
 declare function specification_pass4_deriveInvariants(
-  prd: PRD,
+  prd: Intent Specification,
   atoms: ReadonlyArray<Atom>,
   contracts: ReadonlyArray<Contract>
 ): Invariant[];
 
 /** Structural Assembly: Derive dependencies between nodes. */
 declare function specification_pass5_deriveDependencies(
-  prd: PRD,
+  prd: Intent Specification,
   contracts: ReadonlyArray<Contract>
 ): Dependency[];
 
 /** Structural Assembly: Derive validations with backmaps to atoms/contracts/invariants. */
 declare function specification_pass6_deriveValidations(
-  prd: PRD,
+  prd: Intent Specification,
   atoms: ReadonlyArray<Atom>,
   contracts: ReadonlyArray<Contract>,
   invariants: ReadonlyArray<Invariant>
@@ -821,9 +821,9 @@ declare function specification_pass7_consistencyCheck(
   intermediates: CompilerIntermediates
 ): VerificationReport;
 
-/** Executable Specification Assembly. Only runs if structural_coverage_passed. */
+/** Executable Specification Assembly. Only runs if structural_verification_passed. */
 declare function specification_pass8_assembleExecutableSpecification(
-  prd: PRD,
+  prd: Intent Specification,
   intermediates: CompilerIntermediates
 ): ExecutableSpecification;
 ```
@@ -833,7 +833,7 @@ The compiler intermediates bundle all pass outputs:
 ```typescript
 /** CANONICAL-ONLY. Transformation outputs bundled for cross-reference. */
 interface CompilerIntermediates {
-  prd: PRD;
+  prd: Intent Specification;
   atoms: Atom[];
   contracts: Contract[];
   invariants: Invariant[];
@@ -850,7 +850,7 @@ generated.
 
 Four checks, all required, all fail-closed:
 
-1. **Atom coverage** -- every PRD atom has at least one downstream artifact
+1. **Atom coverage** -- every Intent Specification atom has at least one downstream artifact
    (contract, invariant, or validation). Atoms with no downstream are dead spec.
 
 2. **Invariant coverage** -- every invariant has at least one validation AND at
@@ -865,7 +865,7 @@ Four checks, all required, all fail-closed:
 ```typescript
 /** CANONICAL-ONLY. Output of any coverage evaluation. */
 interface VerificationReport {
-  id: string; // CR-*
+  id: string; // VR-*
   function_id: string;
   verification: "coherence" | "fidelity" | "persistence";
   atom_coverage: boolean;
@@ -873,12 +873,12 @@ interface VerificationReport {
   validation_coverage: boolean;
   dependency_closure: boolean;
   overall: "pass" | "fail";
-  failures: CoverageFailure[];
+  failures: VerificationFailure[];
   source_refs: SourceRef[];
 }
 
 /** CANONICAL-ONLY. A specific coverage failure. */
-interface CoverageFailure {
+interface VerificationFailure {
   artifact_id: string;
   reason: string;
   source_ref: SourceRef;
@@ -893,13 +893,13 @@ The guard function:
  * Runs before Executable Specification Assembly.
  *
  * FAIL-CLOSED: if any check fails, ExecutableSpecification is not emitted.
- * The PRD must be remediated upstream.
+ * The Intent Specification must be remediated upstream.
  *
- * IMPORTANT: structural_coverage_passed is STRUCTURAL, not SEMANTIC.
- * A PRD can pass all four checks and still be conceptually wrong.
+ * IMPORTANT: structural_verification_passed is STRUCTURAL, not SEMANTIC.
+ * A Intent Specification can pass all four checks and still be conceptually wrong.
  * That is why Semantic Review exists.
  */
-declare function assurance_evaluateStructuralCoverage(
+declare function assurance_evaluateStructuralVerification(
   intermediates: CompilerIntermediates
 ): VerificationReport;
 ```
@@ -908,14 +908,14 @@ declare function assurance_evaluateStructuralCoverage(
 
 Between Coherence Verification and Executable Specification Assembly, the Semantic Review runs.
 This addresses a proven limitation: structural coverage passing does not imply
-conceptual correctness. The HARNESS-EXECUTE retraction proved that a PRD can
+conceptual correctness. The HARNESS-EXECUTE retraction proved that a Intent Specification can
 pass all four structural checks and still be conceptually wrong.
 
 ```typescript
 /** CANONICAL-ONLY. Semantic Review output. */
 interface SemanticReviewReport {
   id: string; // SRR-*
-  prd_id: string;
+  intent_specification_id: string;
   executable_specification_id: string;
   status: "approved" | "rejected" | "needs_revision";
   rationale: string;
@@ -931,7 +931,7 @@ interface SemanticReviewReport {
  * FAIL-CLOSED: rejected or needs_revision blocks ExecutableSpecification emission.
  */
 declare function assurance_reviewSemanticCorrectness(
-  prd: PRD,
+  prd: Intent Specification,
   executableSpecification: ExecutableSpecification
 ): SemanticReviewReport;
 ```
@@ -945,8 +945,8 @@ The entire specification pipeline, from raw signals to compiled ExecutableSpecif
  * The Specification Context's primary operation.
  *
  * Runs: Signals -> Pressures -> Capabilities -> Deltas ->
- *       Proposals -> PRDs -> Compile (8 passes) ->
- *       structural_coverage_passed -> Semantic Review ->
+ *       Proposals -> Intent Specifications -> Compile (8 passes) ->
+ *       structural_verification_passed -> Semantic Review ->
  *       ExecutableSpecification emission
  *
  * Returns only ExecutableSpecifications that pass both guards.
@@ -955,8 +955,8 @@ declare function specification_compilePipeline(
   signals: ReadonlyArray<Signal>
 ): {
   executableSpecifications: ExecutableSpecification[];
-  coverageReports: VerificationReport[];
-  prds: PRD[];
+  verificationReports: VerificationReport[];
+  prds: Intent Specification[];
 };
 ```
 
@@ -1203,7 +1203,7 @@ cognitive runtime paper. Each element maps to concrete Factory types:
 interface DecisionState {
   /** I (Intent): what the Function is for. Set once at D0. */
   intent: {
-    prd_id: string;
+    intent_specification_id: string;
     title: string;
     contracts: Contract[];
     invariants: Invariant[];
@@ -1306,7 +1306,7 @@ ACL translates upstream artifacts into DecisionState D0:
  * Given input A, expect output B. No mocking required.
  *
  * Maps the nine algebra elements:
- *   I <- PRD title + contracts + invariants
+ *   I <- Intent Specification title + contracts + invariants
  *   C <- ExecutableSpecification + targetNodeIds + editScopes + repoContext
  *   P <- Candidate's convergence_policy + tool_policy + model_binding
  *   E <- empty at D0
@@ -1319,7 +1319,7 @@ ACL translates upstream artifacts into DecisionState D0:
 declare function execution_buildInitialDecisionState(
   executableSpecification: ExecutableSpecification,
   candidate: ArchitectureCandidate,
-  prd: PRD
+  prd: Intent Specification
 ): DecisionState;
 ```
 
@@ -1412,7 +1412,7 @@ validation of write-domain discipline).
 interface Stage6TraceLog {
   run_id: string;
   function_id: string;
-  prd_id: string;
+  intent_specification_id: string;
   executable_specification_id: string;
   candidate_id: string; // AC-*
   harness_command: string;
@@ -1617,7 +1617,7 @@ The Execution Context composes all of the above into a single operation:
 /**
  * The Execution Context's primary operation.
  *
- * Given a ExecutableSpecification, ArchitectureCandidate, and PRD:
+ * Given a ExecutableSpecification, ArchitectureCandidate, and Intent Specification:
  *   1. Build initial DecisionState (D0) via ACL
  *   2. Admit to runtime (check candidate admissibility, resources, policy)
  *   3. Run the repair loop (five-role topology with DCE at Verifier)
@@ -1630,7 +1630,7 @@ The Execution Context composes all of the above into a single operation:
 declare function execution_runDarkFactory(
   executableSpecification: ExecutableSpecification,
   candidate: ArchitectureCandidate,
-  prd: PRD
+  prd: Intent Specification
 ): {
   traceLog: Stage6TraceLog;
   adherenceReport: RoleAdherenceReport;
@@ -1797,7 +1797,7 @@ The FidelityVerificationInput type is the contract between Execution and Assuran
 interface FidelityVerificationInput {
   id: string;
   function_id: string;
-  prd_id: string;
+  intent_specification_id: string;
   executable_specification_id: string;
   candidate_id: string; // AC-*
   stage6_run_id: string;
@@ -1857,7 +1857,7 @@ interface AcceptanceReviewVerdict {
   invariant_exercise: boolean;
   required_validation_pass_rate: number;
   overall: "pass" | "fail";
-  failures: CoverageFailure[];
+  failures: VerificationFailure[];
 }
 
 /**
@@ -1910,7 +1910,7 @@ interface EvidenceMonitoringReport {
   evidence_source_liveness: boolean;
   audit_pipeline_integrity: boolean;
   overall: "pass" | "fail";
-  failures: CoverageFailure[];
+  failures: VerificationFailure[];
 }
 
 /**
@@ -2066,7 +2066,7 @@ interface FunctionBirthScore {
 
 /**
  * Score birth proposals. High-scoring proposals above the birth
- * verification threshold are auto-drafted into PRDs and enter Intent-to-Executable compilation.
+ * verification threshold are auto-drafted into Intent Specifications and enter Intent-to-Executable compilation.
  */
 declare function observability_scoreBirthProposals(
   trajectories: ReadonlyArray<Trajectory>
@@ -2111,7 +2111,7 @@ declare function observability_reinjectionToSignal(
 In Bootstrap mode, the Factory IS the runtime. It builds itself. Every META-
 artifact carries lineage back to the Pressure that birthed it. Trajectory-driven
 birth is disabled in Bootstrap mode -- the loop is open, not closed. Signals come
-from external sources or human-authored PRDs only.
+from external sources or human-authored Intent Specifications only.
 
 ### Adaptation: Pressure Recalibration
 
@@ -2238,7 +2238,7 @@ boundaries:
 - `@factory/schemas` -- shared kernel, all Zod types
 - `@factory/signal-hygiene` -- signal normalization + feedback path
 - `@factory/capability-delta` -- gap analysis
-- `@factory/prd-authoring` -- PRD drafting
+- `@factory/intent-authoring` -- Intent Specification drafting
 - `@factory/compiler` -- eight narrow passes
 
 **Architecture Search Context:**
@@ -2265,7 +2265,7 @@ boundaries:
 - `@factory/recursion-governance` -- recursion depth control
 
 **Assurance Context:**
-- `@factory/coverage-gates` -- structural coverage + acceptance review
+- `@factory/verification` -- structural coverage + acceptance review
 - `@factory/semantic-review` -- **NEW, P5 priority**
 - `@factory/runtime` -- trust scoring, regression detection (stub)
 - `@factory/assurance-graph` -- typed incident propagation (stub)
@@ -2361,13 +2361,13 @@ produces events that the next stage consumes.
 
 | Context | Events |
 |---------|--------|
-| **Specification** | SignalNormalized, PressureClustered, CapabilityMapped, DeltaComputed, ProposalGenerated, PRDDrafted, CompilerPassCompleted (x8), ExecutableSpecificationEmitted |
+| **Specification** | SignalNormalized, PressureClustered, CapabilityMapped, DeltaComputed, ProposalGenerated, IntentSpecificationDrafted, CompilerPassCompleted (x8), ExecutableSpecificationEmitted |
 | **Architecture Search** | CandidateEmitted, CandidateEvaluated, CandidateSelected, CandidateRejected |
 | **Execution** | ExecutionAdmitted, RoleIterationStarted, RoleIterationCompleted, ToolCallExecuted, RepairLoopIterated, CandidateResampled, ExecutionCompleted, EvidenceBundlePrepared, EffectorRealized |
 | **Observability** | ObservationEmitted, TrustCompositeUpdated, TrajectoryDetected, SignalReinjected, FunctionBirthProposed |
 | **Adaptation** | PressureRecalibrated, SelectionBiasCorrected, DCEWeightsRecalibrated |
 | **Governance** | PolicyStressDetected, GovernanceProposed, PolicyActivated, PolicyRolledBack |
-| **Assurance** | StructuralCoverageEvaluated, SemanticReviewCompleted, AcceptanceReviewEvaluated, EvidenceMonitoringSwept, FunctionRegressed, AssuranceRegressed, DisagreementResolved |
+| **Assurance** | StructuralVerificationEvaluated, SemanticReviewCompleted, AcceptanceReviewEvaluated, EvidenceMonitoringSwept, FunctionRegressed, AssuranceRegressed, DisagreementResolved |
 
 Events are persisted to ArangoDB at each LangGraph.js node completion.
 LangGraph.js checkpointing provides crash recovery.
@@ -2477,7 +2477,7 @@ One database `function_factory` with seven tiers:
 | 3. Semantic | `semantic_lessons`, `semantic_decisions` | Vector index + BM25 |
 | 4. Candidate | `candidate_lineage` | Pattern + score indexes |
 | 5. Graph | `assurance_graph` (named graph) | Graph traversals |
-| 6. Artifacts | `artifacts_prds`, `artifacts_workgraphs`, `artifacts_coverage`, `artifacts_governance` | Write-once, lineage traversal |
+| 6. Artifacts | `artifacts_prds`, `artifacts_executable-specifications`, `artifacts_coverage`, `artifacts_governance` | Write-once, lineage traversal |
 | 7. Cold | `cold_archive` | Write-once, read-rarely |
 
 Edge collections: `evaluates`, `escalates_to`, `monitors`, `governs`, `produces`,
@@ -2490,7 +2490,7 @@ Edge collections: `evaluates`, `escalates_to`, `monitors`, `governs`, `produces`
 ```
 START -> normalize_signals -> cluster_pressures -> map_capabilities
       -> compute_delta -> generate_proposals -> draft_prds
-      -> compile (compatibility passes) -> structural_coverage_guard
+      -> compile (compatibility passes) -> structural_verification_guard
       -> semantic_review -> assemble_executable_specification (Executable Specification Assembly)
       -> select_candidate -> admit_to_execution
       -> [async] run_dark_factory_subgraph
@@ -2521,7 +2521,7 @@ The Factory deploys as five components on Railway:
 | **Execution Workers** | Agent Call execution / Dark Factory. Five-role topology via pi-agent-core. | N workers, scale-to-zero, max 8 |
 | **Observation Engine** | Persistence Verification continuous trust, acceptance review, evidence monitoring, feedback. | 1-2 instances |
 | **API Gateway** | Signal intake, Architect review UI, dashboard, artifact retrieval. | 1 instance (auto-scaled) |
-| **Semantic Reviewer** | Between structural_coverage_passed and Executable Specification Assembly. LLM-driven in Steady-State. | 1 instance (burst to 2) |
+| **Semantic Reviewer** | Between structural_verification_passed and Executable Specification Assembly. LLM-driven in Steady-State. | 1 instance (burst to 2) |
 
 **Cost model at 50 Functions/month:**
 
@@ -2563,9 +2563,9 @@ Push detail into `.agent/` subtree for progressive disclosure.
 | `execution_enforceWriteDomain` | `@factory/stage-6-coordinator` | III |
 | `execution_evaluateEscalationScore` | `@factory/stage-6-coordinator` | III |
 | `execution_bundleEvidenceForAcceptanceReview` | `@factory/stage-6-coordinator` | IV |
-| `assurance_evaluateStructuralCoverage` | `@factory/coverage-gates` | II |
+| `assurance_evaluateStructuralVerification` | `@factory/verification` | II |
 | `assurance_reviewSemanticCorrectness` | `@factory/semantic-review` | II |
-| `assurance_evaluateAcceptanceReview` | `@factory/coverage-gates` | IV |
+| `assurance_evaluateAcceptanceReview` | `@factory/verification` | IV |
 | `assurance_sweepEvidenceIntegrity` | `@factory/persistence-verification-runner` | V |
 | `assurance_composeTrust` | `@factory/runtime` | V |
 | `assurance_propagateIncident` | `@factory/assurance-graph` | V |
@@ -2617,7 +2617,7 @@ in this canonical reference are marked CANONICAL-ONLY.
 | `Capability` | CANONICAL-ONLY | Organizational ability |
 | `CapabilityDelta` | CANONICAL-ONLY | Gap between required and existing |
 | `FunctionProposal` | CANONICAL-ONLY | Candidate Function with type |
-| `PRD` | CANONICAL-ONLY | Product Requirements Document |
+| `Intent Specification` | CANONICAL-ONLY | Product Requirements Document |
 | `Atom` | CANONICAL-ONLY | Single requirement |
 | `Contract` | CANONICAL-ONLY | Signature + pre/postconditions |
 | `Invariant` | CANONICAL-ONLY | Persistent truth with detector |
@@ -2660,8 +2660,8 @@ in this canonical reference are marked CANONICAL-ONLY.
 
 | Type | Source | Description |
 |------|--------|-------------|
-| `VerificationReport` | CANONICAL-ONLY | Output of any coverage gate |
-| `CoverageFailure` | CANONICAL-ONLY | Specific coverage failure |
+| `VerificationReport` | CANONICAL-ONLY | Output of any verification |
+| `VerificationFailure` | CANONICAL-ONLY | Specific coverage failure |
 | `SemanticReviewReport` | CANONICAL-ONLY | Semantic review output |
 | `AcceptanceReviewVerdict` | CANONICAL-ONLY | Acceptance review verdict |
 | `EvidenceMonitoringReport` | CANONICAL-ONLY | Continuous monitoring report |
@@ -2707,7 +2707,7 @@ stateless, side-effect-free, trivially testable.
 
 **Function:** `execution_buildInitialDecisionState`
 **Bridges:** Specification + Architecture Search -> Execution
-**Transforms:** ExecutableSpecification + ArchitectureCandidate + PRD -> DecisionState D0
+**Transforms:** ExecutableSpecification + ArchitectureCandidate + Intent Specification -> DecisionState D0
 **Why:** The Execution Context speaks the decision algebra (I,C,P,E,A,X,O,J,T).
 The Specification and Search contexts speak ExecutableSpecifications and Candidates. The ACL
 translates one vocabulary into the other.
@@ -2784,7 +2784,7 @@ stages in a different order, the implementation is wrong.
 ### Guards Replace Gate Numbers
 
 Throughout the codebase, replace:
-- Coherence Verification wording with `structural_coverage_passed` (the guard condition)
+- Coherence Verification wording with `structural_verification_passed` (the guard condition)
 - Fidelity Verification with `scenarios_cover_invariants` (the guard condition)
 - Persistence Verification wording with `evidence_base_intact` (the guard condition)
 
@@ -2795,7 +2795,7 @@ Throughout the codebase, replace:
 
 2. Type names describe what the data IS: `TrustComposite`, not an opaque score.
 
-3. Guard names describe the condition: `structural_coverage_passed`, not a numbered gate result.
+3. Guard names describe the condition: `structural_verification_passed`, not a numbered gate result.
 
 ### Zero Design Decisions
 
@@ -2811,7 +2811,7 @@ Refactoring Spec and its coding agent: zero-design-decision execution.
 | P1 | `@factory/schemas` (extend with CANONICAL-ONLY types) | 200-400 |
 | P2 | `@factory/stage-6-coordinator` (NEW) | 800-1200 |
 | P3 | `@factory/compiler` (align passes to spec) | 400-600 |
-| P4 | `@factory/coverage-gates` (three guards) | 300-500 |
+| P4 | `@factory/verification` (three guards) | 300-500 |
 | P5 | `@factory/semantic-review` (NEW) | 200-400 |
 | P6 | `@factory/candidate-selection` (two-stage + cold-start) | 300-500 |
 | P7 | `@factory/learning` (NEW) | 600-1000 |
@@ -2861,7 +2861,7 @@ async function factoryLoop(
 
   while (signals.length > 0) {
     // SPECIFICATION CONTEXT (Stages 1-5)
-    // structural_coverage_passed + semantic review run internally
+    // structural_verification_passed + semantic review run internally
     const compiled = specification_compilePipeline(signals);
 
     for (const executableSpecification of compiled.executableSpecifications) {

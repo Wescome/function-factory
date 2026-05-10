@@ -1,8 +1,8 @@
-id: GOV-META-PRD-QUALITY-GATE
+id: GOV-META-IS-QUALITY-GATE
 source_refs:
   - GOV-META-BOOTSTRAP-MODE
 explicitness: explicit
-rationale: Self-authored PRDs must meet deterministic minimum quality before compile handoff.
+rationale: Self-authored Intent Specifications must meet deterministic minimum quality before compile handoff.
 requiredSections:
   - Problem
   - Goal

@@ -7,7 +7,7 @@ locations.
 
 Markdown files can exist in two different roles:
 
-- Native Factory references and PRDs live here when they are part of the
+- Native Factory references and Intent Specifications live here when they are part of the
   architecture/spec corpus.
 - Agent-facing files such as `AGENTS.md`, `spec.md`, or `tasks.md` are portable
   emission targets the Factory can generate from native artifacts; they do not
@@ -38,12 +38,12 @@ adds interpretive aliases without moving artifacts:
 
 | Current path/name | Ontology alias |
 | --- | --- |
-| `specs/prds/`, `PRD-*` | Intent Specification |
-| `specs/workgraphs/`, `WG-*` | Executable Specification |
-| `specs/coverage-reports/`, `CR-*` | Verification Report |
-| Compile Coverage | Coherence Verification |
-| Simulation Coverage | Fidelity Verification |
-| Assurance Coverage | Persistence Verification |
+| `specs/intent-specifications/`, `IS-*` | Intent Specification |
+| `specs/executable-specifications/`, `ES-*` | Executable Specification |
+| `specs/verification-reports/`, `VR-*` | Verification Report |
+| Compile Verification | Coherence Verification |
+| Simulation Verification | Fidelity Verification |
+| Assurance Verification | Persistence Verification |
 | `specs/invariants/`, `INV-*` | Invariant Specification |
 
 Use the current names in paths, schemas, IDs, and APIs unless a separate
@@ -65,9 +65,9 @@ rename decision explicitly changes them.
 | [`candidate-reliabilities/`](candidate-reliabilities/) | `CRL-*` | Candidate reliability evidence. |
 | [`selection-bias-inputs/`](selection-bias-inputs/) | `SBI-*` | Selection-bias adjustment inputs. |
 | [`candidate-selections/`](candidate-selections/) | `ACS-*` | Selected candidate records. |
-| [`prds/`](prds/) | `PRD-*` | Stage 5 compiler inputs. |
-| [`workgraphs/`](workgraphs/) | `WG-*` | Stage 5 compiler outputs. These are latest-known-good graph artifacts, not append-only history. |
-| [`coverage-reports/`](coverage-reports/) | `CR-*` | Gate reports. These are timestamped evidence and should be treated as append-only. |
+| [`intent-specifications/`](intent-specifications/) | `IS-*` | Stage 5 compiler inputs. |
+| [`executable-specifications/`](executable-specifications/) | `ES-*` | Stage 5 compiler outputs. These are latest-known-good graph artifacts, not append-only history. |
+| [`verification-reports/`](verification-reports/) | `VR-*` | Verification reports. These are timestamped evidence and should be treated as append-only. |
 | [`critic-reviews/`](critic-reviews/) | `CRV-*` | Critic review artifacts. |
 | [`runtime-admissions/`](runtime-admissions/) | `RAD-*` | Runtime admission decisions. |
 | [`execution-starts/`](execution-starts/) | `EXS-*` | Execution lifecycle start records. |
@@ -83,7 +83,7 @@ rename decision explicitly changes them.
 | [`policy-successor-notes/`](policy-successor-notes/) | `GOVS-*` | Policy successor notes. |
 | [`policy-activations/`](policy-activations/) | `GOVA-*` | Policy activations. |
 | [`rollback-plans/`](rollback-plans/) | `GOVR-*` | Rollback plans. |
-| [`invariants/`](invariants/) | `INV-*` | Reserved bucket for standalone invariants. Current invariant content may also be embedded in PRD/WorkGraph-derived artifacts. |
+| [`invariants/`](invariants/) | `INV-*` | Reserved bucket for standalone invariants. Current invariant content may also be embedded in Intent Specification/Executable Specification-derived artifacts. |
 | [`ontology/`](ontology/) | Ontology assets | TTL, shapes, implementation notes, and visual assets for the orientation ontology. |
 | [`reference/`](reference/) | Architecture/reference corpus | Canonical architecture, ADRs, design notes, reviews, research, and handoffs. See [`reference/README.md`](reference/README.md). |
 
@@ -108,13 +108,13 @@ Before any future file move under `specs/`:
 
 1. List inbound markdown links and artifact references.
 2. Verify every `source_refs` ID still resolves to an existing artifact.
-3. Confirm the file is not compiler output, gate evidence, or a canonical architecture source.
+3. Confirm the file is not compiler output, verification evidence, or a canonical architecture source.
 4. Record the migration decision if the file is canonical, generated, or lineage-bearing.
 
 The current audit recognizes two explicit non-file cases:
 
 - `ATOM-*` source refs are non-materialized compiler intermediates accepted by
-  current WorkGraph artifacts.
+  current Executable Specification artifacts.
 - `OBS-META-ARCHITECTURE-CANDIDATE-EXECUTION-2` is a historical unresolved
   lineage gap named in `scripts/audit-docs.mjs`; new unresolved refs still fail
   the audit.

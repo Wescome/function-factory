@@ -66,7 +66,7 @@ const mockEnv = {
   AI: { run: vi.fn() },
 } as Record<string, unknown>
 
-import { compilePRD, PASS_NAMES } from './compile'
+import { compileIntentSpecification, PASS_NAMES } from './compile'
 import type { ArangoClient } from '@factory/arango-client'
 import type { PipelineEnv } from '../types'
 
@@ -86,16 +86,16 @@ describe('Intent-to-Executable compiler transformations', () => {
   })
 
   describe('minimal context per live pass', () => {
-    const basePrd = { _key: 'PRD-001', title: 'Test PRD', objective: 'Build something', invariants: ['Must work'] }
+    const baseIntentSpecification = { _key: 'IS-001', title: 'Test Intent Specification', objective: 'Build something', invariants: ['Must work'] }
 
-    it('decompose pass sends only PRD to LLM', async () => {
-      const state = { prd: basePrd }
-      await compilePRD('decompose', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
+    it('decompose pass sends only Intent Specification to LLM', async () => {
+      const state = { intentSpecification: baseIntentSpecification }
+      await compileIntentSpecification('decompose', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
 
       expect(modelCalls).toHaveLength(1)
       const context = JSON.parse(modelCalls[0]!.user)
       expect(context.pass).toBe('decompose')
-      expect(context.prd).toBeDefined()
+      expect(context.intentSpecification).toBeDefined()
       // decompose should NOT receive atoms, dependencies, invariants, etc.
       expect(context.atoms).toBeUndefined()
       expect(context.dependencies).toBeUndefined()
@@ -104,36 +104,36 @@ describe('Intent-to-Executable compiler transformations', () => {
       expect(context.bindings).toBeUndefined()
     })
 
-    it('dependency pass sends only atoms (not PRD, invariants, interfaces, bindings)', async () => {
+    it('dependency pass sends only atoms (not Intent Specification, invariants, interfaces, bindings)', async () => {
       const state = {
-        prd: basePrd,
+        intentSpecification: baseIntentSpecification,
         atoms: [{ id: 'atom-001', type: 'implementation', title: 'A', description: 'B' }],
       }
-      await compilePRD('dependency', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
+      await compileIntentSpecification('dependency', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
 
       expect(modelCalls).toHaveLength(1)
       const context = JSON.parse(modelCalls[0]!.user)
       expect(context.pass).toBe('dependency')
       expect(context.atoms).toBeDefined()
-      // dependency should NOT receive PRD, invariants, interfaces, bindings
-      expect(context.prd).toBeUndefined()
+      // dependency should NOT receive Intent Specification, invariants, interfaces, bindings
+      expect(context.intentSpecification).toBeUndefined()
       expect(context.invariants).toBeUndefined()
       expect(context.interfaces).toBeUndefined()
       expect(context.bindings).toBeUndefined()
     })
 
-    it('invariant pass sends only PRD + atoms', async () => {
+    it('invariant pass sends only Intent Specification + atoms', async () => {
       const state = {
-        prd: basePrd,
+        intentSpecification: baseIntentSpecification,
         atoms: [{ id: 'atom-001', type: 'implementation', title: 'A', description: 'B' }],
         dependencies: [{ from: 'atom-001', to: 'atom-002', type: 'requires' }],
       }
-      await compilePRD('invariant', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
+      await compileIntentSpecification('invariant', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
 
       expect(modelCalls).toHaveLength(1)
       const context = JSON.parse(modelCalls[0]!.user)
       expect(context.pass).toBe('invariant')
-      expect(context.prd).toBeDefined()
+      expect(context.intentSpecification).toBeDefined()
       expect(context.atoms).toBeDefined()
       // invariant should NOT receive dependencies, interfaces, bindings
       expect(context.dependencies).toBeUndefined()
@@ -143,40 +143,40 @@ describe('Intent-to-Executable compiler transformations', () => {
 
     it('interface pass sends only atoms + dependencies', async () => {
       const state = {
-        prd: basePrd,
+        intentSpecification: baseIntentSpecification,
         atoms: [{ id: 'atom-001' }],
         dependencies: [{ from: 'atom-001', to: 'atom-002', type: 'requires' }],
         invariants: [{ id: 'INV-001' }],
       }
-      await compilePRD('interface', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
+      await compileIntentSpecification('interface', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
 
       expect(modelCalls).toHaveLength(1)
       const context = JSON.parse(modelCalls[0]!.user)
       expect(context.pass).toBe('interface')
       expect(context.atoms).toBeDefined()
       expect(context.dependencies).toBeDefined()
-      // interface should NOT receive PRD, invariants, bindings
-      expect(context.prd).toBeUndefined()
+      // interface should NOT receive Intent Specification, invariants, bindings
+      expect(context.intentSpecification).toBeUndefined()
       expect(context.invariants).toBeUndefined()
       expect(context.bindings).toBeUndefined()
     })
 
     it('binding pass sends only atoms', async () => {
       const state = {
-        prd: basePrd,
+        intentSpecification: baseIntentSpecification,
         atoms: [{ id: 'atom-001' }],
         dependencies: [{ from: 'atom-001', to: 'atom-002' }],
         invariants: [{ id: 'INV-001' }],
         interfaces: [{ from: 'atom-001', to: 'atom-002' }],
       }
-      await compilePRD('binding', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
+      await compileIntentSpecification('binding', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
 
       expect(modelCalls).toHaveLength(1)
       const context = JSON.parse(modelCalls[0]!.user)
       expect(context.pass).toBe('binding')
       expect(context.atoms).toBeDefined()
-      // binding should NOT receive PRD, dependencies, invariants, interfaces
-      expect(context.prd).toBeUndefined()
+      // binding should NOT receive Intent Specification, dependencies, invariants, interfaces
+      expect(context.intentSpecification).toBeUndefined()
       expect(context.dependencies).toBeUndefined()
       expect(context.invariants).toBeUndefined()
       expect(context.interfaces).toBeUndefined()
@@ -184,22 +184,22 @@ describe('Intent-to-Executable compiler transformations', () => {
 
     it('validation pass sends only atoms + interfaces', async () => {
       const state = {
-        prd: basePrd,
+        intentSpecification: baseIntentSpecification,
         atoms: [{ id: 'atom-001' }],
         dependencies: [],
         invariants: [],
         interfaces: [{ from: 'atom-001', to: 'atom-002', contract: { input: {}, output: {} } }],
         bindings: [{ atomId: 'atom-001', binding: { type: 'code' } }],
       }
-      await compilePRD('validation', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
+      await compileIntentSpecification('validation', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
 
       expect(modelCalls).toHaveLength(1)
       const context = JSON.parse(modelCalls[0]!.user)
       expect(context.pass).toBe('validation')
       expect(context.atoms).toBeDefined()
       expect(context.interfaces).toBeDefined()
-      // validation should NOT receive PRD, dependencies, invariants, bindings
-      expect(context.prd).toBeUndefined()
+      // validation should NOT receive Intent Specification, dependencies, invariants, bindings
+      expect(context.intentSpecification).toBeUndefined()
       expect(context.dependencies).toBeUndefined()
       expect(context.invariants).toBeUndefined()
       expect(context.bindings).toBeUndefined()
@@ -207,11 +207,11 @@ describe('Intent-to-Executable compiler transformations', () => {
   })
 
   describe('deterministic passes (no LLM call)', () => {
-    const basePrd = { _key: 'PRD-001', title: 'Test PRD', objective: 'Build something', invariants: ['Must work'] }
+    const baseIntentSpecification = { _key: 'IS-001', title: 'Test Intent Specification', objective: 'Build something', invariants: ['Must work'] }
 
     it('assembly pass does NOT call the LLM', async () => {
       const state = {
-        prd: basePrd,
+        intentSpecification: baseIntentSpecification,
         atoms: [{ id: 'atom-001', type: 'implementation', title: 'A', description: 'B' }],
         dependencies: [],
         invariants: [],
@@ -220,13 +220,13 @@ describe('Intent-to-Executable compiler transformations', () => {
         validations: [],
       }
 
-      await compilePRD('assembly', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
+      await compileIntentSpecification('assembly', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
       expect(modelCalls).toHaveLength(0)
     })
 
     it('assembly pass produces a executableSpecification with all fields merged', async () => {
       const state = {
-        prd: basePrd,
+        intentSpecification: baseIntentSpecification,
         atoms: [
           { id: 'atom-001', type: 'implementation', title: 'A', description: 'B' },
           { id: 'atom-002', type: 'config', title: 'C', description: 'D' },
@@ -238,20 +238,20 @@ describe('Intent-to-Executable compiler transformations', () => {
         validations: [{ atomId: 'atom-001', schema: 'z.object({})' }],
       }
 
-      const result = await compilePRD('assembly', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
-      const wg = result.executableSpecification as Record<string, unknown>
+      const result = await compileIntentSpecification('assembly', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
+      const executableSpecification = result.executableSpecification as Record<string, unknown>
 
-      expect(wg).toBeDefined()
-      expect(wg._key).toMatch(/^WG-/)
-      expect(wg.type).toBe('executableSpecification')
-      expect(wg.prdId).toBe('PRD-001')
-      expect(wg.dependencies).toEqual(state.dependencies)
-      expect(wg.invariants).toEqual(state.invariants)
-      expect(wg.interfaces).toEqual(state.interfaces)
-      expect(wg.validations).toEqual(state.validations)
+      expect(executableSpecification).toBeDefined()
+      expect(executableSpecification._key).toMatch(/^ES-/)
+      expect(executableSpecification.type).toBe('executableSpecification')
+      expect(executableSpecification.intentSpecificationId).toBe('IS-001')
+      expect(executableSpecification.dependencies).toEqual(state.dependencies)
+      expect(executableSpecification.invariants).toEqual(state.invariants)
+      expect(executableSpecification.interfaces).toEqual(state.interfaces)
+      expect(executableSpecification.validations).toEqual(state.validations)
 
       // Atoms should have bindings merged
-      const atoms = wg.atoms as Record<string, unknown>[]
+      const atoms = executableSpecification.atoms as Record<string, unknown>[]
       expect(atoms).toHaveLength(2)
       const atom1 = atoms.find(a => a.id === 'atom-001')
       expect(atom1?.binding).toEqual({ type: 'code', language: 'typescript', target: 'src/a.ts' })
@@ -260,7 +260,7 @@ describe('Intent-to-Executable compiler transformations', () => {
 
     it('assembly pass saves executableSpecification to db', async () => {
       const state = {
-        prd: basePrd,
+        intentSpecification: baseIntentSpecification,
         atoms: [{ id: 'atom-001', type: 'implementation', title: 'A', description: 'B' }],
         dependencies: [],
         invariants: [],
@@ -269,42 +269,42 @@ describe('Intent-to-Executable compiler transformations', () => {
         validations: [],
       }
 
-      await compilePRD('assembly', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
-      expect(mockDb.save).toHaveBeenCalledWith('specs_workgraphs', expect.objectContaining({
+      await compileIntentSpecification('assembly', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
+      expect(mockDb.save).toHaveBeenCalledWith('executable_specifications', expect.objectContaining({
         type: 'executableSpecification',
-        prdId: 'PRD-001',
+        intentSpecificationId: 'IS-001',
       }))
     })
 
     it('verification pass does NOT call the LLM', async () => {
       const state = {
-        prd: basePrd,
+        intentSpecification: baseIntentSpecification,
         atoms: [{ id: 'atom-001' }],
-        executableSpecification: { _key: 'WG-001', atoms: [{ id: 'atom-001', binding: { type: 'code' } }] },
+        executableSpecification: { _key: 'ES-001', atoms: [{ id: 'atom-001', binding: { type: 'code' } }] },
       }
 
-      await compilePRD('verification', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
+      await compileIntentSpecification('verification', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
       expect(modelCalls).toHaveLength(0)
     })
 
     it('verification dry-run returns verified: true', async () => {
       const state = {
-        prd: basePrd,
-        executableSpecification: { _key: 'WG-001', atoms: [{ id: 'atom-001', binding: { type: 'code' } }] },
+        intentSpecification: baseIntentSpecification,
+        executableSpecification: { _key: 'ES-001', atoms: [{ id: 'atom-001', binding: { type: 'code' } }] },
       }
 
-      const result = await compilePRD('verification', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, true)
+      const result = await compileIntentSpecification('verification', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, true)
       expect(result.verified).toBe(true)
       expect(result.verificationIssues).toEqual([])
     })
   })
 
   describe('atom criticality classification', () => {
-    const basePrd = { _key: 'PRD-001', title: 'Test PRD', objective: 'Build something', invariants: ['Must work'] }
+    const baseIntentSpecification = { _key: 'IS-001', title: 'Test Intent Specification', objective: 'Build something', invariants: ['Must work'] }
 
     it('dry-run decompose produces atoms with critical field', async () => {
-      const state = { prd: basePrd }
-      const result = await compilePRD('decompose', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, true)
+      const state = { intentSpecification: baseIntentSpecification }
+      const result = await compileIntentSpecification('decompose', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, true)
       const atoms = result.atoms as Record<string, unknown>[]
       expect(atoms).toHaveLength(1)
       expect(atoms[0]!.critical).toBe(true) // implementation type = critical
@@ -312,7 +312,7 @@ describe('Intent-to-Executable compiler transformations', () => {
 
     it('assembly marks implementation atoms as critical and config as non-critical (test atoms stripped)', async () => {
       const state = {
-        prd: basePrd,
+        intentSpecification: baseIntentSpecification,
         atoms: [
           { id: 'atom-001', type: 'implementation', title: 'A', description: 'Impl' },
           { id: 'atom-002', type: 'config', title: 'B', description: 'Config' },
@@ -325,9 +325,9 @@ describe('Intent-to-Executable compiler transformations', () => {
         validations: [],
       }
 
-      const result = await compilePRD('assembly', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
-      const wg = result.executableSpecification as Record<string, unknown>
-      const atoms = wg.atoms as Record<string, unknown>[]
+      const result = await compileIntentSpecification('assembly', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
+      const executableSpecification = result.executableSpecification as Record<string, unknown>
+      const atoms = executableSpecification.atoms as Record<string, unknown>[]
 
       // Test atoms are stripped in assembly — only impl and config remain
       expect(atoms).toHaveLength(2)
@@ -340,7 +340,7 @@ describe('Intent-to-Executable compiler transformations', () => {
 
     it('assembly defaults unknown type atoms to critical (fail-safe)', async () => {
       const state = {
-        prd: basePrd,
+        intentSpecification: baseIntentSpecification,
         atoms: [
           { id: 'atom-001', title: 'No type', description: 'Missing type field' },
         ],
@@ -351,16 +351,16 @@ describe('Intent-to-Executable compiler transformations', () => {
         validations: [],
       }
 
-      const result = await compilePRD('assembly', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
-      const wg = result.executableSpecification as Record<string, unknown>
-      const atoms = wg.atoms as Record<string, unknown>[]
+      const result = await compileIntentSpecification('assembly', state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
+      const executableSpecification = result.executableSpecification as Record<string, unknown>
+      const atoms = executableSpecification.atoms as Record<string, unknown>[]
 
       expect(atoms[0]?.critical).toBe(true) // fail-safe: unknown type is critical
     })
   })
 
   describe('pass prompts emphasize delta-only output', () => {
-    const basePrd = { _key: 'PRD-001', title: 'Test PRD', objective: 'Build something', invariants: ['Must work'] }
+    const baseIntentSpecification = { _key: 'IS-001', title: 'Test Intent Specification', objective: 'Build something', invariants: ['Must work'] }
 
     it('each LLM pass prompt contains "Output ONLY" or "output ONLY"', async () => {
       // Run all LLM passes to capture their prompts
@@ -368,12 +368,12 @@ describe('Intent-to-Executable compiler transformations', () => {
 
       for (const pass of llmPasses) {
         modelCalls.length = 0
-        const state: Record<string, unknown> = { prd: basePrd }
+        const state: Record<string, unknown> = { intentSpecification: baseIntentSpecification }
         if (pass !== 'decompose') state.atoms = [{ id: 'atom-001' }]
         if (pass === 'interface' || pass === 'validation') state.dependencies = []
         if (pass === 'validation') state.interfaces = []
 
-        await compilePRD(pass, state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
+        await compileIntentSpecification(pass, state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
 
         expect(modelCalls).toHaveLength(1)
         const system = modelCalls[0]!.system
@@ -385,17 +385,17 @@ describe('Intent-to-Executable compiler transformations', () => {
   describe('full pipeline state accumulation', () => {
     it('running all 8 passes sequentially produces a complete ExecutableSpecification', async () => {
       let state: Record<string, unknown> = {
-        prd: { _key: 'PRD-001', title: 'Full Pipeline Test', objective: 'Test', invariants: ['Must pass'] },
+        intentSpecification: { _key: 'IS-001', title: 'Full Pipeline Test', objective: 'Test', invariants: ['Must pass'] },
       }
 
       for (const passName of PASS_NAMES) {
-        state = await compilePRD(passName, state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
+        state = await compileIntentSpecification(passName, state, mockDb as unknown as ArangoClient, mockEnv as unknown as PipelineEnv, false)
       }
 
       // After all passes, state should have executableSpecification
       expect(state.executableSpecification).toBeDefined()
-      const wg = state.executableSpecification as Record<string, unknown>
-      expect(wg._key).toMatch(/^WG-/)
+      const executableSpecification = state.executableSpecification as Record<string, unknown>
+      expect(executableSpecification._key).toMatch(/^ES-/)
 
       // Should have called LLM exactly 6 times (not 8 — assembly and verification are deterministic)
       expect(modelCalls).toHaveLength(6)

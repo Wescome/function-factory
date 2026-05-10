@@ -14,8 +14,8 @@ import {
 function makeInput(overrides: Partial<FidelityVerificationInput> = {}): FidelityVerificationInput {
   return {
     functionId: 'FN-MOTDWVR2-W7UN',
-    prdId: 'PRD-META-FUNCTION-SYNTHESIS',
-    executableSpecificationId: 'WG-META-FUNCTION-SYNTHESIS',
+    intentSpecificationId: 'IS-META-FUNCTION-SYNTHESIS',
+    executableSpecificationId: 'ES-META-FUNCTION-SYNTHESIS',
     candidateId: 'AC-META-ARCHITECTURE-CANDIDATE-EXECUTION',
     packetId: 'TEP-META-FUNCTION-SYNTHESIS',
     packetHash: 'sha256:packet-hash',
@@ -62,7 +62,7 @@ function makeContractInput(overrides: Partial<FidelityVerificationContractInput>
   return {
     synthesisRunId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
     functionId: 'FN-MOTDWVR2-W7UN',
-    executableSpecificationId: 'WG-META-FUNCTION-SYNTHESIS',
+    executableSpecificationId: 'ES-META-FUNCTION-SYNTHESIS',
     architectureCandidateId: 'AC-META-ARCHITECTURE-CANDIDATE-EXECUTION',
     packetId: 'TEP-META-FUNCTION-SYNTHESIS',
     packetHash: 'sha256:packet-hash',
@@ -124,14 +124,14 @@ function makeContractInput(overrides: Partial<FidelityVerificationContractInput>
 describe('Fidelity Verification evaluator', () => {
   it('adapts normalized FidelityVerificationInput evidence into simulation input', () => {
     const adapted = adaptFidelityVerificationInput(makeContractInput(), {
-      prdId: 'PRD-META-FUNCTION-SYNTHESIS',
+      intentSpecificationId: 'IS-META-FUNCTION-SYNTHESIS',
       sourceRefs: ['MRP-MOTE4M1R-G7I0-71'],
     })
 
     expect(adapted).toMatchObject({
       functionId: 'FN-MOTDWVR2-W7UN',
-      prdId: 'PRD-META-FUNCTION-SYNTHESIS',
-      executableSpecificationId: 'WG-META-FUNCTION-SYNTHESIS',
+      intentSpecificationId: 'IS-META-FUNCTION-SYNTHESIS',
+      executableSpecificationId: 'ES-META-FUNCTION-SYNTHESIS',
       candidateId: 'AC-META-ARCHITECTURE-CANDIDATE-EXECUTION',
       packetId: 'TEP-META-FUNCTION-SYNTHESIS',
       packetHash: 'sha256:packet-hash',
@@ -169,7 +169,7 @@ describe('Fidelity Verification evaluator', () => {
     })
 
     const result = evaluateFidelityVerificationFromContractInput(makeContractInput(), {
-      prdId: 'PRD-META-FUNCTION-SYNTHESIS',
+      intentSpecificationId: 'IS-META-FUNCTION-SYNTHESIS',
       sourceRefs: ['MRP-MOTE4M1R-G7I0-71'],
     })
     expect(result.report.overall).toBe('pass')
@@ -199,7 +199,7 @@ describe('Fidelity Verification evaluator', () => {
     })
 
     expect(() => adaptFidelityVerificationInput(contractInput, {
-      prdId: 'PRD-META-FUNCTION-SYNTHESIS',
+      intentSpecificationId: 'IS-META-FUNCTION-SYNTHESIS',
       sourceRefs: ['MRP-MOTE4M1R-G7I0-71'],
     })).toThrow(new FidelityVerificationError('normalized FidelityVerificationInput validationOutcomes.details.scenarios is required'))
   })
@@ -253,7 +253,7 @@ describe('Fidelity Verification evaluator', () => {
     const result = evaluateFidelityVerification(makeInput())
 
     expect(result.report).toMatchObject({
-      id: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-30-00-000Z',
+      id: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-30-00-000Z',
       verification: "fidelity",
       function_id: 'FN-MOTDWVR2-W7UN',
       overall: 'pass',
@@ -280,7 +280,7 @@ describe('Fidelity Verification evaluator', () => {
     })
     expect(result.verdict).toMatchObject({
       verdict: 'accepted',
-      scenario_coverage_score: 1,
+      scenario_verification_score: 1,
       invariant_exercise_rate: 1,
     })
     expect(FidelityVerificationReport.safeParse(result.report).success).toBe(true)
@@ -338,7 +338,7 @@ describe('Fidelity Verification evaluator', () => {
     })
     expect(result.verdict).toMatchObject({
       verdict: 'rejected',
-      scenario_coverage_score: 0,
+      scenario_verification_score: 0,
       invariant_exercise_rate: 0,
     })
     expect(result.verdict.remediation_notes).toEqual(expect.arrayContaining([

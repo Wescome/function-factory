@@ -13,15 +13,15 @@
     "owner": "Wescome",
     "remoteUrl": "https://github.com/Wescome/strategy-recipes.git"
   },
-  "workgraph": {
-    "id": "WG-STRATEGY-RECIPES-PARENT-VERIFY-EVIDENCE",
+  "executable-specification": {
+    "id": "ES-STRATEGY-RECIPES-PARENT-VERIFY-EVIDENCE",
     "nodeId": "record-parent-verification-evidence",
     "sourceRefs": [
       "Strategy_Recipes_UX_Architecture_v1.1.md",
       "PR-71-strategy-recipes-dogfood-evidence",
       "PR-44-function-factory-parent-verification-evidence"
     ],
-    "sourcePrdId": "PRD-STRATEGY-RECIPES-UX-V1-1"
+    "sourceIntentSpecificationId": "IS-STRATEGY-RECIPES-UX-V1-1"
   },
   "files": {
     "request": {

@@ -21,14 +21,14 @@ This addendum is a *historical reference*, not an architectural document. The on
 
 ---
 
-## Coverage Gates
+## Verification Gates
 
 | Legacy name | Ontological category | What it verifies | Temporal extent |
 |-------------|---------------------|-----------------|-----------------|
-| Gate 1 | Coherence Verification | Structural completeness - every claim bound, every constraint edged, every obligation monitored | Synchronic (snapshot) |
-| Gate 2a | Fidelity Verification (learned) | Behavioral correspondence - simulated execution consistent with intent, using a trained model | Bounded (simulation horizon) |
-| Gate 2b | Fidelity Verification (deterministic) | Behavioral correspondence - deterministic checks against intent specification claims | Bounded (test suite) |
-| Gate 3 | Persistence Verification | Continuous assurance - deployed detectors fresh, monitors active, regression surfaces covered | Unbounded (lifetime of deployed system) |
+| Coherence Verification | Coherence Verification | Structural completeness - every claim bound, every constraint edged, every obligation monitored | Synchronic (snapshot) |
+| Fidelity Verificationa | Fidelity Verification (learned) | Behavioral correspondence - simulated execution consistent with intent, using a trained model | Bounded (simulation horizon) |
+| Fidelity Verificationb | Fidelity Verification (deterministic) | Behavioral correspondence - deterministic checks against intent specification claims | Bounded (test suite) |
+| Persistence Verification | Persistence Verification | Continuous assurance - deployed detectors fresh, monitors active, regression surfaces covered | Unbounded (lifetime of deployed system) |
 
 ---
 
@@ -58,10 +58,10 @@ These prefixes appear in schemas and in the specs/ directory naming convention. 
 | PRS- | Pressure Artifact |
 | BC- | Capability Artifact |
 | FP- / FN- | Function Proposal |
-| PRD- | Intent Specification |
-| WG- | Executable Specification |
+| IS- | Intent Specification |
+| ES- | Executable Specification |
 | INV- | Invariant Specification |
-| CR- | Verification Report |
+| VR- | Verification Report |
 
 ---
 
@@ -71,9 +71,9 @@ These prefixes appear in schemas and in the specs/ directory naming convention. 
 |-------------------|-----------------|---------------------|
 | factory-meta/SKILL.md | Factory bootstrap harness skill | Harness |
 | prd-compiler/SKILL.md | Compilation harness skill | Harness |
-| coverage-gate-1/SKILL.md | Coherence verification enforcement | Charter |
-| coverage-gate-2/SKILL.md | Fidelity verification enforcement | Charter |
-| coverage-gate-3/SKILL.md | Persistence verification enforcement | Charter |
+| coherence-verification/SKILL.md | Coherence verification enforcement | Charter |
+| fidelity-verification/SKILL.md | Fidelity verification enforcement | Charter |
+| persistence-verification/SKILL.md | Persistence verification enforcement | Charter |
 | invariant-authoring/SKILL.md | Invariant authoring harness skill | Harness |
 | lineage-preservation/SKILL.md | Lineage discipline enforcement | Charter |
 | memory-manager/SKILL.md | Memory management harness skill | Harness |
@@ -84,9 +84,9 @@ These prefixes appear in schemas and in the specs/ directory naming convention. 
 
 After the Phase A refactoring, these numbers should be gone from the repo. Until then, they appear in:
 
-- `.agent/AGENTS.md` - entry map references Stage 1-7, Gate 1-3
+- `.agent/AGENTS.md` - entry map references Stage 1-7, Coherence Verification-3
 - `.agent/skills/*.SKILL.md` - all eight files use numbered references
-- `packages/schemas/src/core.ts` - schema names (PRDSchema, WorkGraphSchema)
+- `packages/schemas/src/core.ts` - schema names (Intent SpecificationSchema, Executable SpecificationSchema)
 - `packages/schemas/src/coverage.ts` - gate-numbered report types
 - `.agent/memory/semantic/DECISIONS.md` - architectural decisions reference stages
 - `.agent/memory/semantic/LESSONS.md` - lessons reference stages and gates

@@ -146,7 +146,7 @@ function makeInput(overrides?: Partial<PRGenerationInput>): PRGenerationInput {
   return {
     signalTitle: 'PR candidate: phantom guard test',
     proposalId: 'FP-PHANTOM',
-    executableSpecificationId: 'WG-PHANTOM',
+    executableSpecificationId: 'ES-PHANTOM',
     atomResults: {},
     sourceRefs: ['SIG:SIG-PHANTOM'],
     confidence: 0.9,

@@ -95,7 +95,7 @@ canonical regex lives in `packages/schemas/src/lineage.ts`.
 | `CRL` | Candidate Reliability | `schemas/selection-bias.ts` | 8.5 -- Selection Bias |
 | `SBI` | Selection Bias Input | `schemas/selection-bias.ts` | 8.5 -- Selection Bias |
 | `ACS` | Architecture Candidate Selection | `schemas/candidate-selection.ts` | 4.75 -- Candidate Selection |
-| `PRD` | Intent Specification | `schemas/core.ts` | 5 -- Intent Specification Authoring |
+| `Intent Specification` | Intent Specification | `schemas/core.ts` | 5 -- Intent Specification Authoring |
 | `ATOM` | Requirement Atom | `schemas/core.ts` | 5 -- Compiler Pass 1 |
 | `CONTRACT` | Contract | `schemas/core.ts` | 5 -- Compiler Pass 2 |
 | `INV` | Invariant (with detector) | `schemas/core.ts` | 5 -- Compiler Pass 3 |
@@ -135,9 +135,9 @@ The monorepo uses pnpm workspaces. Every package lives under `packages/`.
 ```
 @factory/schemas  (zod)                     <-- foundation, no internal deps
     |
-    +-- @factory/coverage-gates             (schemas, zod, yaml)
+    +-- @factory/verification             (schemas, zod, yaml)
     |       |
-    |       +-- @factory/compiler           (schemas, coverage-gates, zod, yaml)
+    |       +-- @factory/compiler           (schemas, verification, zod, yaml)
     |
     +-- @factory/capability-delta           (schemas, zod, yaml)
     +-- @factory/assurance-graph            (schemas, zod)
@@ -154,7 +154,7 @@ The monorepo uses pnpm workspaces. Every package lives under `packages/`.
     +-- @factory/selection-bias             (schemas)
     +-- @factory/meta-governance            (schemas)
     +-- @factory/policy-activation          (schemas)
-    +-- @factory/prd-authoring              (schemas)
+    +-- @factory/intent-authoring              (schemas)
     +-- @factory/recursion-governance       (schemas)
     +-- @factory/harness-bridge             (no package.json -- bridge utility)
 ```
@@ -162,7 +162,7 @@ The monorepo uses pnpm workspaces. Every package lives under `packages/`.
 Key observations:
 - `schemas` is the sole shared dependency. Every package depends on it.
 - `compiler` is the only package with a two-level internal dependency chain
-  (`compiler` -> `coverage-gates` -> `schemas`).
+  (`compiler` -> `verification` -> `schemas`).
 - All other packages depend only on `schemas` directly.
 - External dependencies are minimal: `zod` (validation), `yaml` (serialization).
 
@@ -178,8 +178,8 @@ Key observations:
 | 4 | Capability Delta | `capability-delta` | `BC`, `DDI` | `DEL`, `FP` |
 | 4.5 | Architecture Candidates | `architecture-candidates` | `FP` | `AC` |
 | 4.75 | Candidate Selection | `candidate-selection` | `AC`, `SBI` | `ACS` |
-| 5 | Intent-to-Executable Compilation | `prd-authoring`, `compiler` | `FP`, `PRD` | `ATOM`, `CONTRACT`, `INV`, `DEP`, `VAL`, `WG` |
-| 5.5 | Verification | `coverage-gates` | `WG`, `INV`, `VAL`, `DEP` | `CR` |
+| 5 | Intent-to-Executable Compilation | `intent-authoring`, `compiler` | `FP`, `Intent Specification` | `ATOM`, `CONTRACT`, `INV`, `DEP`, `VAL`, `WG` |
+| 5.5 | Verification | `verification` | `WG`, `INV`, `VAL`, `DEP` | `CR` |
 | 6 | Runtime Admission | `runtime-admission` | `ACS`, `WG` | `RAD` |
 | 6.25 | Execution Lifecycle | `execution-lifecycle` | `RAD` | `EXS`, `EXT`, `EXR` |
 | 6.5 | Controlled Effectors | `controlled-effectors` | `EXS`, `WG` | `EFF` |
@@ -198,7 +198,7 @@ Cross-cutting packages:
 | `schemas` | Canonical Zod schemas for every artifact type. Foundation for all packages. |
 | `assurance-graph` | Incident propagation via typed dependencies (5 types: blocks, constrains, implements, validates, informs). |
 | `runtime` | Trust scoring, invariant health, regression detection (`TRJ`, `PF`, `INC`). |
-| `recursion-governance` | Prevents unbounded self-modification. Intent Specification quality gate and recursion depth checks. |
+| `recursion-governance` | Prevents unbounded self-modification. Intent Specification quality verification and recursion depth checks. |
 | `harness-bridge` | Connects the kernel to Domain Adapters and execution harnesses. |
 
 ### Compiler Transformations
@@ -208,7 +208,7 @@ Specification:
 
 | Pass | Name | Input | Output |
 |------|------|-------|--------|
-| 1 | Decomposition | `PRD` | `ATOM` (requirement atoms) |
+| 1 | Decomposition | `Intent Specification` | `ATOM` (requirement atoms) |
 | 2 | Contract extraction | `ATOM` | `CONTRACT` |
 | 3 | Invariant derivation | `ATOM`, `CONTRACT` | `INV` (each with `DetectorSpec`) |
 | 4 | Dependency analysis | `ATOM`, `CONTRACT`, `INV` | `DEP` |
@@ -308,9 +308,9 @@ function-factory/
     architecture-candidates/    Stage 4.5: generate architecture candidates
     selection-bias/             Stage 8.5: adjust candidate scoring from observations
     candidate-selection/        Stage 4.75: score and select candidates
-    prd-authoring/              Stage 5: author Intent Specifications from Function Proposals
+    intent-authoring/              Stage 5: author Intent Specifications from Function Proposals
     compiler/                   Stage 5: Intent-to-Executable compiler
-    coverage-gates/             Stage 5.5: fail-closed Verification
+    verification/             Stage 5.5: fail-closed Verification
     runtime-admission/          Stage 6: admit/deny Executable Specifications for execution
     execution-lifecycle/        Stage 6.25: start, trace, result lifecycle
     controlled-effectors/       Stage 6.5: tool policy enforcement
@@ -328,9 +328,9 @@ function-factory/
     capabilities/               BC-* artifacts
     functions/                  FP-* artifacts
     prds/                       Intent Specification artifacts
-    workgraphs/                 Executable Specification artifacts
+    executable-specifications/                 Executable Specification artifacts
     invariants/                 INV-* + detector specs
-    coverage-reports/           Verification Report artifacts
+    verification-reports/           Verification Report artifacts
   .agent/                       Implementation agent infrastructure (memory, skills, protocols)
 ```
 

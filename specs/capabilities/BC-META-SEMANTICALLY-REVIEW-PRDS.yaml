@@ -1,23 +1,23 @@
-id: BC-META-SEMANTICALLY-REVIEW-PRDS
+id: BC-META-SEMANTICALLY-REVIEW-Intent SpecificationS
 source_refs:
   - PRS-META-SEMANTIC-REVIEW-GAP
 explicitness: inferred
 rationale: >
-  Derived from the documented gap between structural Gate 1 success and conceptual
-  correctness before WorkGraph emission.
+  Derived from the documented gap between structural Coherence Verification success and conceptual
+  correctness before Executable Specification emission.
 name: semantically_review_prds
 purpose: >
-  Perform fail-closed semantic review between Gate 1 success and WorkGraph emission.
+  Perform fail-closed semantic review between Coherence Verification success and Executable Specification emission.
 addressesPressureIds:
   - PRS-META-SEMANTIC-REVIEW-GAP
 desiredOutcomes:
-  - Structurally valid but conceptually wrong PRDs are blocked.
+  - Structurally valid but conceptually wrong Intent Specifications are blocked.
   - Semantic review becomes a first-class pre-emission control.
 constraints:
-  - Must not weaken Gate 1 structural coverage discipline.
+  - Must not weaken Coherence Verification structural coverage discipline.
   - Bootstrap path remains human-governed.
 successMetrics:
-  - Semantic review status is required before WorkGraph emission.
+  - Semantic review status is required before Executable Specification emission.
 affectedPersonas:
   - architect
   - critic-agent

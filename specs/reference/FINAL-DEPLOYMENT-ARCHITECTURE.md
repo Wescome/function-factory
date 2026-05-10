@@ -23,7 +23,7 @@ Solo-developer operable.
 The Factory has two fundamentally different kinds of work:
 
 **Structured reasoning** — synthesize a Pressure from a Signal, map a
-Capability, compile a PRD, critique code output, verify test results, make
+Capability, compile a Intent Specification, critique code output, verify test results, make
 a pass/patch/fail decision. The input and output are typed JSON. The agent
 doesn't need a filesystem, git, or shell. It needs a model, a prompt, tool
 calling, and structured output parsing. pi-ai's agent loop handles this.
@@ -44,7 +44,7 @@ CF Workflow: FactoryPipeline
   ├─ Stages 1-5 ── pi-ai internal loop
   │                 (structured reasoning, typed output)
   │                 includes semantic review (Critic-at-authoring)
-  │                 before compilation — catches miscast PRDs
+  │                 before compilation — catches miscast Intent Specifications
   │
   ├─ Stage 6 ───── LangGraph in Coordinator DO
   │   │
@@ -69,14 +69,14 @@ CF Workflow: FactoryPipeline
 ┌──────────────────────────────────────────────────────────────────────┐
 │                     COMPUTE: Cloudflare                              │
 │                                                                      │
-│  Workers ────── Edge ingress, API routing, Gate 1, spec queries      │
+│  Workers ────── Edge ingress, API routing, Coherence Verification, spec queries      │
 │                                                                      │
 │  Workflows ──── Pipeline orchestration (Stages 1→7)                  │
 │                 Durable steps, waitForEvent, auto-retry               │
 │                                                                      │
 │  Durable Objects                                                     │
 │     Coordinator DO ── Stage 6 LangGraph + lease/heartbeat            │
-│     Assurance DO ──── Gate 3 continuous monitoring                    │
+│     Assurance DO ──── Persistence Verification continuous monitoring                    │
 │     Dream DO ──────── Memory consolidation                           │
 │                                                                      │
 │  Containers ──── Agent execution (Coder, Tester roles)               │
@@ -103,7 +103,7 @@ CF Workflow: FactoryPipeline
 ArangoDB stores both Factory-domain data (specs, memory, lineage, gates)
 and execution-domain data (job ledger, artifacts, lease state). One driver,
 one query language, one backup, one set of credentials. The Coordinator DO
-reads WorkGraphs and writes FunctionRuns in the same transaction boundary.
+reads Executable Specifications and writes FunctionRuns in the same transaction boundary.
 
 ---
 
@@ -164,7 +164,7 @@ private async runCritic(state: GraphState): Promise<Partial<GraphState>> {
   const result = await complete(m, {
     messages: [{
       role: 'user',
-      content: buildCritiquePrompt(state.workGraph, codeArtifacts),
+      content: buildCritiquePrompt(state.executableSpecification, codeArtifacts),
       timestamp: Date.now(),
     }],
   }, {
@@ -214,9 +214,9 @@ type FunctionJob = {
   executor: 'openhands' | 'aider' | 'claude_code'
   mode: 'propose' | 'patch' | 'publish'
 
-  // What to build — derived from WorkGraph
+  // What to build — derived from Executable Specification
   objective: {
-    workGraphId: string
+    executableSpecificationId: string
     role: 'coder' | 'tester'
     plan: Plan              // from Planner role output
     repairNotes?: string    // from Verifier on patch cycle
@@ -247,7 +247,7 @@ type FunctionJob = {
 | Complex reasoning, ambiguity | Claude Code | High-agency understanding |
 
 The Coordinator DO selects the executor based on the Planner's output and
-the WorkGraph's complexity classification.
+the Executable Specification's complexity classification.
 
 ---
 
@@ -259,10 +259,10 @@ topology, dispatching each role to the appropriate execution mode:
 ```typescript
 export class SynthesisCoordinator extends DurableObject<Env> {
 
-  async synthesize(workGraph: WorkGraph): Promise<SynthesisResult> {
+  async synthesize(executableSpecification: Executable Specification): Promise<SynthesisResult> {
     const graph = this.buildGraph()
     const compiled = graph.compile({ checkpointer: new MemorySaver() })
-    return compiled.invoke({ workGraph, repairCount: 0 }, config)
+    return compiled.invoke({ executableSpecification, repairCount: 0 }, config)
   }
 
   private buildGraph() {
@@ -312,7 +312,7 @@ export class SynthesisCoordinator extends DurableObject<Env> {
         messages: buildRoleMessages(role, state),
       }, {
         tools: ROLE_TOOLS[role],
-        sessionId: `synth-${state.workGraph.id}-${role}`,
+        sessionId: `synth-${state.executableSpecification.id}-${role}`,
       })
 
       const output = ROLE_CONTRACTS[role].parse(extractToolResult(result))
@@ -330,20 +330,20 @@ export class SynthesisCoordinator extends DurableObject<Env> {
       // 2. Build FunctionJob
       const job: FunctionJob = {
         jobId: crypto.randomUUID(),
-        functionRunId: state.workGraph.id,
+        functionRunId: state.executableSpecification.id,
         coordinatorObjectId: this.ctx.id.toString(),
         executor,
         mode: 'patch',
         objective: {
-          workGraphId: state.workGraph.id,
+          executableSpecificationId: state.executableSpecification.id,
           role,
           plan: state.plan,
           repairNotes: state.verdict?.decision === 'patch'
             ? state.verdict.notes : undefined,
         },
-        repo: state.workGraph.repo,
-        fileScope: state.workGraph.fileScope,
-        commandPolicy: state.workGraph.commandPolicy,
+        repo: state.executableSpecification.repo,
+        fileScope: state.executableSpecification.fileScope,
+        commandPolicy: state.executableSpecification.commandPolicy,
         networkPolicy: { default: 'deny' },
         sideEffectPolicy: { allowCommit: true, allowPR: false },
         limits: { maxDurationSec: 300, maxTokens: 150_000 },
@@ -416,18 +416,18 @@ export class SynthesisCoordinator extends DurableObject<Env> {
 }
 ```
 
-### 5.2 Assurance DO — Gate 3 + Incident Propagation
+### 5.2 Assurance DO — Persistence Verification + Incident Propagation
 
 One DO instance per Function under monitoring. Two responsibilities:
-alarm-driven Gate 3, and incident propagation through the dependency graph.
+alarm-driven Persistence Verification, and incident propagation through the dependency graph.
 
 **Trigger:** `registerFunction()` called by the Workflow's Stage 7 step
-after Gate 2 passes. Sets the first alarm. Re-arms after every check.
+after Fidelity Verification passes. Sets the first alarm. Re-arms after every check.
 
-**Gate 3 checks (on each alarm):**
+**Persistence Verification checks (on each alarm):**
 - Detector freshness — are the invariant detectors still producing data?
 - Evidence source liveness — are the sources they read from still alive?
-- Audit pipeline integrity — is the coverage report pipeline intact?
+- Audit pipeline integrity — is the verification report pipeline intact?
 
 **On failure:** transitions the Function to `assurance-regressed` in
 ArangoDB, propagates the incident through `assurance_edges` to find
@@ -436,11 +436,11 @@ downstream Functions, degrades their trust scores.
 ```typescript
 export class AssuranceGraph extends DurableObject<Env> {
 
-  async registerFunction(functionId: string, workGraph: WorkGraph) {
+  async registerFunction(functionId: string, executableSpecification: Executable Specification) {
     await this.ctx.storage.put('config', {
       functionId,
-      invariants: workGraph.invariants,
-      detectors: workGraph.detectors,
+      invariants: executableSpecification.invariants,
+      detectors: executableSpecification.detectors,
     })
     await this.ctx.storage.setAlarm(Date.now() + GATE_3_INTERVAL_MS)
   }
@@ -451,9 +451,9 @@ export class AssuranceGraph extends DurableObject<Env> {
     const liveness = await this.checkEvidenceSourceLiveness(config)
     const integrity = await this.checkAuditPipelineIntegrity(config)
 
-    // Write Gate 3 report to ArangoDB
-    await writeToArango(this.env, 'specs_coverage_reports', {
-      type: 'gate-3',
+    // Write Persistence Verification report to ArangoDB
+    await writeToArango(this.env, 'verification_reports', {
+      type: 'persistence-verification',
       functionId: config.functionId,
       health, liveness, integrity,
       passed: health.ok && liveness.ok && integrity.ok,
@@ -514,7 +514,7 @@ memory_episodic (read)
 
 **Job 2: Crystallization check**
 
-After Gate 3 passes on a Function for the first time, the Assurance DO
+After Persistence Verification passes on a Function for the first time, the Assurance DO
 notifies the Dream DO. The Dream DO checks whether the execution path
 contains a novel pattern worth crystallizing — a new invariant template,
 a new compiler-pass heuristic, a reusable code pattern. If it finds one,
@@ -522,16 +522,16 @@ it proposes (not auto-commits) a new artifact that enters the Critic
 review flow via a new pipeline run.
 
 This is the GenericAgent-informed pattern from DECISIONS.md: "successful
-Gate 3 passage triggers a crystallization check; if the execution path
+Persistence Verification passage triggers a crystallization check; if the execution path
 contains a novel pattern not already captured by an existing invariant or
 template, a new artifact is proposed."
 
-**Trigger:** Event from Assurance DO on first successful Gate 3 for a
-Function, OR alarm-driven periodic scan of recent Gate 3 passes.
+**Trigger:** Event from Assurance DO on first successful Persistence Verification for a
+Function, OR alarm-driven periodic scan of recent Persistence Verification passes.
 
 **Data flow:**
 ```
-Gate 3 PASS event (from Assurance DO)
+Persistence Verification PASS event (from Assurance DO)
        │
        ├─ read execution artifacts for this Function
        ├─ read existing invariants + templates (specs_invariants)
@@ -557,7 +557,7 @@ export class DreamEngine extends DurableObject<Env> {
     // Job 1: Memory consolidation
     await this.consolidateMemory(lastRun)
 
-    // Job 2: Crystallization check on recent Gate 3 passes
+    // Job 2: Crystallization check on recent Persistence Verification passes
     await this.checkForCrystallization(lastRun)
 
     await this.ctx.storage.put('lastConsolidation', new Date().toISOString())
@@ -602,10 +602,10 @@ export class DreamEngine extends DurableObject<Env> {
   }
 
   private async checkForCrystallization(since?: string) {
-    // Find Functions that passed Gate 3 since last run
+    // Find Functions that passed Persistence Verification since last run
     const recentPasses = await queryArango(this.env, `
-      FOR cr IN specs_coverage_reports
-        FILTER cr.type == 'gate-3'
+      FOR cr IN verification_reports
+        FILTER cr.type == 'persistence-verification'
         FILTER cr.passed == true
         FILTER cr.timestamp > @since
         RETURN DISTINCT cr.functionId
@@ -704,30 +704,30 @@ export class FactoryPipeline extends WorkflowEntrypoint<Env, PipelineParams> {
       compState = await step.do(`compile-${pass.name}`, () => pass.execute(compState, this.env))
     }
 
-    // ── Gate 1 (deterministic, edge) ──
-    const gate1 = await step.do('gate-1', () => this.env.GATES.evaluateGate1(compState.workGraph))
-    if (!gate1.passed) return { status: 'gate-1-failed', report: gate1.report }
+    // ── Coherence Verification (deterministic, edge) ──
+    const coherenceVerification = await step.do('coherence-verification', () => this.env.GATES.evaluateCoherenceVerification(compState.executableSpecification))
+    if (!coherenceVerification.passed) return { status: 'coherence-verification-failed', report: coherenceVerification.report }
 
     // ── Stage 6: synthesis (LangGraph + Containers) ──
     const synthesis = await step.do('stage-6', async () => {
       const id = this.env.COORDINATOR.idFromName(proposal.id)
       const coord = this.env.COORDINATOR.get(id)
-      return coord.synthesize(compState.workGraph)
+      return coord.synthesize(compState.executableSpecification)
     })
     if (synthesis.verdict.decision === 'fail') return { status: 'synthesis-failed' }
 
-    // ── Gate 2 (pi-ai, simulation coverage) ──
-    const gate2 = await step.do('gate-2', () => evaluateGate2(synthesis, compState.workGraph, this.env))
-    if (!gate2.passed) return { status: 'gate-2-failed', report: gate2.report }
+    // ── Fidelity Verification (pi-ai, simulation coverage) ──
+    const fidelityVerification = await step.do('fidelity-verification', () => evaluateFidelityVerification(synthesis, compState.executableSpecification, this.env))
+    if (!fidelityVerification.passed) return { status: 'fidelity-verification-failed', report: fidelityVerification.report }
 
     // ── Persist to ArangoDB ──
-    await step.do('persist', () => writeToArango(this.env, { signal, pressure, cap, proposal, semanticReview, compState, synthesis, gate1, gate2 }))
+    await step.do('persist', () => writeToArango(this.env, { signal, pressure, cap, proposal, semanticReview, compState, synthesis, coherenceVerification, fidelityVerification }))
 
     // ── Stage 7: register for monitoring ──
     await step.do('register-monitoring', async () => {
       const id = this.env.ASSURANCE.idFromName(proposal.id)
       const assurance = this.env.ASSURANCE.get(id)
-      await assurance.registerFunction(synthesis.functionId, compState.workGraph)
+      await assurance.registerFunction(synthesis.functionId, compState.executableSpecification)
     })
 
     return { status: 'complete', functionId: synthesis.functionId }
@@ -749,7 +749,7 @@ gateway-worker ── API router, Cloudflare Access auth
                   POST /approve/:id  → Workflow sendEvent
                   GET  /run/:id      → query-worker (job status)
 
-gates-worker   ── Gate 1 (deterministic Zod, <10ms)
+gates-worker   ── Coherence Verification (deterministic Zod, <10ms)
 
 query-worker   ── ArangoDB read path (specs, lineage, health)
 
@@ -765,10 +765,10 @@ One substrate. Factory truth and execution truth in the same database.
 ```
 Document collections:
   specs_pressures, specs_capabilities, specs_functions,
-  specs_prds, specs_workgraphs, specs_invariants,
-  specs_coverage_reports (append-only)
+  intent_specifications, executable_specifications, specs_invariants,
+  verification_reports (append-only)
 
-  gate_status, trust_scores, invariant_health
+  verification_status, trust_scores, invariant_health
 
   memory_episodic, memory_semantic, memory_working, memory_personal
 
@@ -833,14 +833,14 @@ the objective and collects the artifacts.
 | Stages 1-5 (reasoning)      | Workflow steps  | pi-ai internal loop    |
 | Semantic review (pre-compile)| Workflow step   | pi-ai internal loop    |
 | Architect approval           | Workflow event  | —                      |
-| Gate 1 (compile coverage)    | Worker          | Deterministic          |
+| Coherence Verification (compile coverage)    | Worker          | Deterministic          |
 | Stage 6 Planner              | DO (LangGraph)  | pi-ai internal loop    |
 | Stage 6 Coder                | DO → Container  | ADR-002 delegation     |
 | Stage 6 Critic               | DO (LangGraph)  | pi-ai internal loop    |
 | Stage 6 Tester               | DO → Container  | ADR-002 delegation     |
 | Stage 6 Verifier             | DO (LangGraph)  | pi-ai internal loop    |
-| Gate 2 (simulation)          | Workflow step   | pi-ai internal loop    |
-| Gate 3 (continuous)          | DO alarm        | pi-ai internal loop    |
+| Fidelity Verification (simulation)          | Workflow step   | pi-ai internal loop    |
+| Persistence Verification (continuous)          | DO alarm        | pi-ai internal loop    |
 | Memory consolidation         | DO alarm        | ArangoDB queries       |
 | Crystallization check        | DO alarm/event  | pi-ai internal loop    |
 | Job ledger + artifacts       | ArangoDB        | —                      |
@@ -926,11 +926,11 @@ run, PRs that actually open.
 |-------|-----------------------------------|------------------------------------------|
 | 0     | Current state                     | Bootstrap continues                      |
 | 1     | ArangoDB (local Docker)           | Structured memory, graph queries         |
-| 2     | Edge Workers + Gate 1             | API surface, spec queries                |
+| 2     | Edge Workers + Coherence Verification             | API surface, spec queries                |
 | 3     | Workflows (Stages 1-5)           | Automated pipeline, approval gates       |
 | 4     | Coordinator DO + LangGraph        | Stage 6 topology, pi-ai roles live       |
 | 5     | Container execution (ADR-002)     | Coder + Tester delegate to real agents   |
-| 6     | Assurance DO + Dream DO + Gate 3   | Monitoring, consolidation, crystallization |
+| 6     | Assurance DO + Dream DO + Persistence Verification   | Monitoring, consolidation, crystallization |
 
 Phase 4 works without Phase 5 — all five roles run via pi-ai (the current
 "in-Factory role execution" binding mode). Phase 5 upgrades Coder and

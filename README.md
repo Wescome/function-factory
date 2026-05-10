@@ -41,7 +41,7 @@ Lifecycle, and Domain Adapter are primary.
 packages/                       # TypeScript implementation monorepo (pnpm workspaces)
   schemas/                      # Canonical Zod schemas for every Factory object
   compiler/                     # Intent → Executable Specification compilation
-  coverage-gates/               # §6: Coherence/Fidelity/Persistence Verification
+  verification/               # §6: Coherence/Fidelity/Persistence Verification
   assurance-graph/              # §5: incident propagation via typed dependencies
   runtime/                      # Persistence Verification, trust, invariant health, regression
   autonomous-scheduler/          # Agent Call orchestration boundary: Executable Specification → AgentRequest → evidence
@@ -52,9 +52,9 @@ specs/                          # Factory artifacts (Factory-built-by-Factory)
   capabilities/                 # Capability Artifacts (legacy Stage 3)
   functions/                    # Function Proposals and Function records (legacy Stage 4)
   prds/                         # Intent Specifications
-  workgraphs/                   # Executable Specifications
+  executable-specifications/                   # Executable Specifications
   invariants/                   # Invariant + detector specs; ontology alias: Invariant Specifications
-  coverage-reports/             # Verification Reports
+  verification-reports/             # Verification Reports
 ```
 
 ## Bootstrap loop
@@ -87,10 +87,10 @@ The Factory's own operational history *is* the proof that the Factory works.
 - **Every invariant has a named detector.** Invariants without detectors are
   wishes and are rejected by Coherence Verification.
 - **Every commit is attributable to a Function ID.** Commit messages use the
-  format `FN-XXX: summary` or `META: summary`; legacy `GATE-N: summary`
+  format `FN-XXX: summary` or `META: summary`; legacy `VERIFICATION: summary`
   remains accepted for compatibility work on numbered verification surfaces.
 - **Verification Reports are first-class artifacts.** They live in
-  `specs/coverage-reports/` and are versioned alongside code.
+  `specs/verification-reports/` and are versioned alongside code.
 - **Memory is markdown. Skills are markdown. The harness is a thin conductor.**
   This is Avid's rule and it applies here: the agent's intelligence lives in
   the files, not in the loop.
@@ -113,7 +113,7 @@ The whitepaper's six non-negotiables apply literally here:
 2. Narrow-pass discipline in the compiler.
 3. Explicit invariants with detector specs.
 4. Assurance dependency typing (5 types, no defaults).
-5. Trajectory-driven closure with a birth gate.
+5. Trajectory-driven closure with a birth verification.
 6. Coherence, Fidelity, and Persistence Verification, fail-closed.
 
 A change that violates any of the six must be justified in its description or

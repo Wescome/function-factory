@@ -11,7 +11,7 @@ interface EvidenceMonitoringReport {
   evidence_source_liveness: boolean;
   audit_pipeline_integrity: boolean;
   overall: "pass" | "fail";
-  failures: CoverageFailure[];
+  failures: VerificationFailure[];
 }
 
 /**

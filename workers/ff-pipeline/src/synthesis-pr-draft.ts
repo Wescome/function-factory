@@ -27,7 +27,7 @@ export interface SynthesisMaterializationAudit {
   notes?: string
 }
 
-export interface SynthesisPRDraft {
+export interface SynthesisPullRequestDraft {
   title: string
   branchName: string
   baseBranch: 'main'
@@ -37,10 +37,10 @@ export interface SynthesisPRDraft {
   executableSpecificationId: string
 }
 
-export class SynthesisPRDraftError extends Error {
+export class SynthesisPullRequestDraftError extends Error {
   constructor(message: string) {
     super(message)
-    this.name = 'SynthesisPRDraftError'
+    this.name = 'SynthesisPullRequestDraftError'
   }
 }
 
@@ -50,22 +50,22 @@ export function auditCoherenceVerificationPassed(audit: SynthesisMaterialization
 
 function assertReadyForPR(audit: SynthesisMaterializationAudit): void {
   if (audit.runtimeStatus !== 'synthesis-passed') {
-    throw new SynthesisPRDraftError(`Runtime status must be synthesis-passed, got ${audit.runtimeStatus}`)
+    throw new SynthesisPullRequestDraftError(`Runtime status must be synthesis-passed, got ${audit.runtimeStatus}`)
   }
   if (!auditCoherenceVerificationPassed(audit)) {
-    throw new SynthesisPRDraftError('Coherence Verification must pass before building a synthesis PR draft')
+    throw new SynthesisPullRequestDraftError('Coherence Verification must pass before building a synthesis PR draft')
   }
   if (audit.materializedFiles.length === 0) {
-    throw new SynthesisPRDraftError('At least one materialized file is required for a synthesis PR draft')
+    throw new SynthesisPullRequestDraftError('At least one materialized file is required for a synthesis PR draft')
   }
   for (const atom of audit.atomResults) {
     if (atom.decision !== 'pass') {
-      throw new SynthesisPRDraftError(`Atom ${atom.atomId} must pass before building a synthesis PR draft`)
+      throw new SynthesisPullRequestDraftError(`Atom ${atom.atomId} must pass before building a synthesis PR draft`)
     }
   }
 }
 
-export function buildSynthesisPRDraft(audit: SynthesisMaterializationAudit): SynthesisPRDraft {
+export function buildSynthesisPullRequestDraft(audit: SynthesisMaterializationAudit): SynthesisPullRequestDraft {
   assertReadyForPR(audit)
   const coherenceVerificationPassed = auditCoherenceVerificationPassed(audit)
 

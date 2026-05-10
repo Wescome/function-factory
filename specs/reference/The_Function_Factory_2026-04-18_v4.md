@@ -4,7 +4,7 @@
 
 **Author:** Wislet J. Celestin
 **Affiliation:** Koales.ai / WeOps Research
-**Status:** Conceptual whitepaper; v4 inbox draft (supersedes v1–v3; v4 adds the Spec Coverage section with three explicit gates)
+**Status:** Conceptual whitepaper; v4 inbox draft (supersedes v1–v3; v4 adds the Spec Verification section with three explicit gates)
 **Date:** 18 April 2026
 **Related work:** Archon (Stanford, 2024); StrongDM Dark Factory (2025); Zhou et al., *Externalization in LLM Agents* (arXiv:2604.08224, 2026); WeOps/WGSP Executive Whitepaper (WP-2026-EP-01)
 
@@ -27,7 +27,7 @@ The thread that produced this framework walked through several candidate names f
 The name that survives is **Function**. It is deliberately the most boring word in the list. Its virtue is that every concept the Factory needs maps into it without distortion:
 
 - A Function *executes* — it takes inputs and produces outputs. That is what the dark factory builds.
-- A Function is *composable* — functions chain into workgraphs, compose higher-order, participate in graphs of dependencies. That is what the compiler assembles.
+- A Function is *composable* — functions chain into executable-specifications, compose higher-order, participate in graphs of dependencies. That is what the compiler assembles.
 - A Function is *testable* — validations and invariants become signature constraints, preconditions, postconditions, and property-based checks. That is what verification proves.
 - A Function is *governable* — constraints, policies, and authority become parameters, domain restrictions, and typed contracts. That is what the control plane enforces.
 - A Function is *monitorable* — health, trust, freshness, and regression are all observable properties of a deployed Function. That is what the runtime closes the loop on.
@@ -38,19 +38,19 @@ A Function in this framework is not the same as a function in a programming lang
 - **Contract** — its signature, preconditions, postconditions, and behavioral promises
 - **Invariants** — persistent truths it must preserve across all invocations
 - **Validations** — the tests, scenarios, and property checks that prove the contract and invariants hold
-- **Implementation** — the WorkGraph of nodes and edges that realizes it
+- **Implementation** — the Executable Specification of nodes and edges that realizes it
 - **Runtime indicators** — health, trust, freshness, incident links
 - **Status** — its current position in the lifecycle (designed, planned, in progress, implemented, verified, monitored, regressed, retired)
 
 Every artifact the Factory produces is a Function. Every artifact the Factory maintains is a Function. When Functions degrade, the Factory produces new Functions. The unit of accounting is stable across the entire pipeline.
 
-### 2.1 WorkGraph is not Work Order
+### 2.1 Executable Specification is not Work Order
 
-One distinction needs to be made before the stages are described, because the surface vocabulary invites collapse. A **WorkGraph** is the compiled implementation of a Function — a typed directed graph of nodes and edges produced by the Stage 5 compiler and executed by the Stage 6 agent topology. A WorkGraph is a Factory artifact. It is an I-layer object. It specifies *how a Function is built*.
+One distinction needs to be made before the stages are described, because the surface vocabulary invites collapse. A **Executable Specification** is the compiled implementation of a Function — a typed directed graph of nodes and edges produced by the Stage 5 compiler and executed by the Stage 6 agent topology. A Executable Specification is a Factory artifact. It is an I-layer object. It specifies *how a Function is built*.
 
 A **Work Order** is something different. It is an organizational act of commissioning — an instance of work being issued under purpose, governed by WeOps primitives (Constraint Chain Index, Purpose Over Execution, Purpose Integrity Index, the We-Gradient). A Work Order is a We-layer object. It specifies *why a piece of work is being commissioned and under what purpose constraints it must remain coherent*.
 
-A Work Order may, when executed, run against a Function whose implementation is a WorkGraph. But the Work Order is not a WorkGraph, and the WorkGraph is not a Work Order. The Factory produces WorkGraphs. WeOps governs Work Orders. Conflating them erases the I/We boundary that makes the two systems legible as distinct.
+A Work Order may, when executed, run against a Function whose implementation is a Executable Specification. But the Work Order is not a Executable Specification, and the Executable Specification is not a Work Order. The Factory produces Executable Specifications. WeOps governs Work Orders. Conflating them erases the I/We boundary that makes the two systems legible as distinct.
 
 ## 3. The seven stages, in order
 
@@ -62,11 +62,11 @@ The Function Factory is a compiler. Like any compiler it has passes, and like an
 
 **Stage 3 — Business Capabilities.** A capability is the organization's durable ability to respond to a Pressure. It is named as an ability, not an implementation. In the dynamical-system framing of Stage 2, a capability is a **transfer function** — the structure by which forcing is converted into response. At this stage the Factory enforces three guardrails. First, do not jump from signal to feature; the pressure-to-capability intermediate is required. Second, every capability must yield three kinds of Functions downstream: execution, control, and evidence. Third, merge top-down and bottom-up proposals rather than duplicating them; a capability the business asks for and a capability runtime drift implies may be the same capability.
 
-**Stage 4 — Capability Delta and Function Proposals.** For each capability, the Factory computes what is missing, degraded, or underutilized. The delta generates Function proposals, each typed as execution, control, evidence, or integration. Execution Functions do the work. Control Functions constrain it. Evidence Functions prove it happened and measure its quality. Integration Functions connect to external substrates. Proposals are not yet PRDs. They are candidate Functions with expected inputs, expected outputs, governing constraints, candidate invariants, and success signals.
+**Stage 4 — Capability Delta and Function Proposals.** For each capability, the Factory computes what is missing, degraded, or underutilized. The delta generates Function proposals, each typed as execution, control, evidence, or integration. Execution Functions do the work. Control Functions constrain it. Evidence Functions prove it happened and measure its quality. Integration Functions connect to external substrates. Proposals are not yet Intent Specifications. They are candidate Functions with expected inputs, expected outputs, governing constraints, candidate invariants, and success signals.
 
-**Stage 5 — PRD Drafts and the Compiler.** Each Function proposal gets drafted into a PRD, and each PRD is compiled through eight narrow passes: normalize, extract atoms, derive contracts, derive invariants, derive dependencies, derive validations, consistency check, assemble WorkGraph. Each pass preserves source references, separates explicit claims from inferred ones, emits exactly one semantic claim per object, uses canonical verbs, fails closed on ambiguity, and writes an uncertainty ledger. The output is a WorkGraph — a typed directed graph of nodes and edges that the multi-agent execution layer can realize.
+**Stage 5 — Intent Specification Drafts and the Compiler.** Each Function proposal gets drafted into a Intent Specification, and each Intent Specification is compiled through eight narrow passes: normalize, extract atoms, derive contracts, derive invariants, derive dependencies, derive validations, consistency check, assemble Executable Specification. Each pass preserves source references, separates explicit claims from inferred ones, emits exactly one semantic claim per object, uses canonical verbs, fails closed on ambiguity, and writes an uncertainty ledger. The output is a Executable Specification — a typed directed graph of nodes and edges that the multi-agent execution layer can realize.
 
-**Stage 6 — Dark Factory Execution.** The WorkGraph is handed to a fixed node topology of cooperating agents: Planner produces execution plans from target nodes and constraints; Coder produces bounded patch proposals against repository contracts; Critic finds defects, scope violations, missing validations, and invariant risks; Tester selects and interprets validations; Verifier chooses among pass, patch, resample, interrupt, or fail. Each node is a state-transform contract with strict read access, write access, do-not rules, output contract, and a JSON-only footer. Nodes behave like small pure functions over shared state. They do not share memory, hidden assumptions, or cross-cutting ambient context. This is the only stage that touches code.
+**Stage 6 — Dark Factory Execution.** The Executable Specification is handed to a fixed node topology of cooperating agents: Planner produces execution plans from target nodes and constraints; Coder produces bounded patch proposals against repository contracts; Critic finds defects, scope violations, missing validations, and invariant risks; Tester selects and interprets validations; Verifier chooses among pass, patch, resample, interrupt, or fail. Each node is a state-transform contract with strict read access, write access, do-not rules, output contract, and a JSON-only footer. Nodes behave like small pure functions over shared state. They do not share memory, hidden assumptions, or cross-cutting ambient context. This is the only stage that touches code.
 
 **Stage 7 — Simulation, Validation, and Convergence.** Generated artifacts are run through Digital Twin Universes — simulated environments where scenarios execute against invariants and validations. Scenario success rates, constraint violations, and edge-case failures compose a loss function. Artifacts that pass validation are deployed; artifacts that fail trigger a repair loop bounded by maximum iteration count. Once deployed, runtime telemetry feeds invariant health detectors, trust composes from correctness/compliance/observability/stability/user response, and regression is detected when previously trusted evidence becomes insufficient. Regressions propagate through an assurance dependency graph — not through vague service adjacency, but through broken guarantees another Function depended on.
 
@@ -78,7 +78,7 @@ Most systems in this space stop at Stage 7 as a terminus — the artifact is dep
 
 The closure works through four objects. A **Trajectory** captures the observed change in a set of related metrics over a time window, with drift type, dimensions (frequency, severity, coupling, latency, recovery cost), and links to supporting evidence. A **ProblemFrame** translates a Trajectory into an explicit problem statement naming the system area, likely failure modes, currently impacted Functions, and unmet needs. A **FunctionProposal** generated from a ProblemFrame proposes one of three kinds of response: reinforcement of an existing Function, creation of a new supporting Function, or boundary refactor splitting or reshaping existing Functions. A **FunctionBirthScore** ranks proposals by drift severity, recurrence, cross-Function coupling, recovery cost, expected leverage, minus implementation cost and overlap with existing Functions.
 
-High-scoring proposals are auto-drafted into PRDs, which enter Stage 5 as first-class inputs alongside human-authored PRDs. Crises stop being just incident-response triggers and become design-synthesis triggers.
+High-scoring proposals are auto-drafted into Intent Specifications, which enter Stage 5 as first-class inputs alongside human-authored Intent Specifications. Crises stop being just incident-response triggers and become design-synthesis triggers.
 
 One constraint is mandatory: the system must not auto-birth Functions from every noisy fluctuation. A birth gate — confidence threshold, recurrence requirement, human review for high-impact proposals — is required to prevent proposal inflation. The gate is not an afterthought; it is the thing that keeps the loop from becoming pathological.
 
@@ -94,45 +94,45 @@ The Factory's runtime stage depends on three ideas that together form its most o
 
 This assurance graph is what makes incident response legible. Most observability stacks tell you that service X is degraded and leave you to infer what that means for the business. The Factory tells you that Function F is regressed because Invariant I is violated because Detector D emitted a direct-rule match in Evidence Source E, and it tells you the blast radius by walking the assurance graph rather than the service mesh.
 
-## 6. Spec Coverage and the Three Gates
+## 6. Spec Verification and the Three Gates
 
-Trust computation and assurance propagation only work if the specifications being measured are actually complete. A Function whose invariants are aspirational, whose validations cover nothing, or whose detectors have silently gone stale is not trustworthy — it only looks trustworthy because the scoreboard does not know what is missing. Coverage is the discipline that keeps the scoreboard honest.
+Trust computation and assurance propagation only work if the specifications being measured are actually complete. A Function whose invariants are aspirational, whose validations cover nothing, or whose detectors have silently gone stale is not trustworthy — it only looks trustworthy because the scoreboard does not know what is missing. Verification is the discipline that keeps the scoreboard honest.
 
-The Factory treats coverage as a staged concern with three explicit gates, each fail-closed, each producing a lineage-preserving Coverage Report that names the specific atoms, invariants, validations, or detectors that fell short.
+The Factory treats coverage as a staged concern with three explicit gates, each fail-closed, each producing a lineage-preserving Verification Report that names the specific atoms, invariants, validations, or detectors that fell short.
 
 ### 6.1 What coverage means
 
-Coverage in the Factory is not a single metric. It is four distinct relationships that must each hold:
+Verification in the Factory is not a single metric. It is four distinct relationships that must each hold:
 
-- **Atom coverage.** Every requirement atom extracted from the PRD in Pass 2 of the compiler must yield at least one downstream artifact — a contract, an invariant, or a validation. Atoms that produce no downstream artifact are dead specification: the organization stated something and the system did nothing about it.
+- **Atom coverage.** Every requirement atom extracted from the Intent Specification in Pass 2 of the compiler must yield at least one downstream artifact — a contract, an invariant, or a validation. Atoms that produce no downstream artifact are dead specification: the organization stated something and the system did nothing about it.
 - **Invariant coverage.** Every invariant must have at least one validation that tests it *and* at least one detector specification that watches it at runtime. An invariant without a validation is untested. An invariant without a detector is a wish. Both are required; neither alone is sufficient.
 - **Validation coverage.** Every validation must map back to at least one atom, contract, or invariant it covers. Validations that cover nothing are dead tests — they run, they pass, they prove nothing about the specification. The backmap is mandatory.
-- **Dependency closure.** Every dependency declared in Pass 5 must resolve to two endpoints that both exist in the WorkGraph. Dangling dependencies mean the graph is incomplete and the execution contract is not honored.
+- **Dependency closure.** Every dependency declared in Pass 5 must resolve to two endpoints that both exist in the Executable Specification. Dangling dependencies mean the graph is incomplete and the execution contract is not honored.
 
 These four relationships form the spec-coverage substrate. The three gates below each compute a subset of them at the appropriate stage of the pipeline.
 
-### 6.2 Gate 1 — Compile Coverage Gate (end of Stage 5)
+### 6.2 Coherence Verification — Compile Verification Gate (end of Stage 5)
 
-The Stage 5 compiler's existing eighth pass is named `consistency_check`. In a first build of the Factory this pass is informal. The Compile Coverage Gate hardens it into an explicit, fail-closed computation that runs between Pass 7 (`consistency_check`) and Pass 8 (`assemble_workgraph`).
+The Stage 5 compiler's existing eighth pass is named `consistency_check`. In a first build of the Factory this pass is informal. The Compile Verification Gate hardens it into an explicit, fail-closed computation that runs between Pass 7 (`consistency_check`) and Pass 8 (`assemble_executable-specification`).
 
 It computes:
 
-- **Atom coverage** — every PRD atom has ≥1 downstream contract, invariant, or validation.
+- **Atom coverage** — every Intent Specification atom has ≥1 downstream contract, invariant, or validation.
 - **Invariant coverage (spec side)** — every invariant has ≥1 validation covering it *and* ≥1 detector spec naming its evidence source. The detector spec need not be runtime-live yet; at compile time only its presence and well-formedness are checked.
 - **Validation coverage** — every validation backmaps to ≥1 atom, contract, or invariant.
-- **Dependency closure** — every declared dependency resolves to two WorkGraph-resident endpoints.
+- **Dependency closure** — every declared dependency resolves to two Executable Specification-resident endpoints.
 
-If any of the four fails, the WorkGraph is not emitted. The compiler returns a Coverage Report listing each failure by artifact ID and source reference. The PRD does not compile. A failed compile is a specification defect, not an engineering task — remediation happens upstream, in the PRD or in the Function proposal that produced it.
+If any of the four fails, the Executable Specification is not emitted. The compiler returns a Verification Report listing each failure by artifact ID and source reference. The Intent Specification does not compile. A failed compile is a specification defect, not an engineering task — remediation happens upstream, in the Intent Specification or in the Function proposal that produced it.
 
 This is the first and strictest gate because it is the cheapest: compile-time failures are caught before any code is generated, before any agent is invoked, before any harness is loaded. The cost of failing this gate is the cost of re-running the compiler. The cost of *not* having this gate is a generated implementation that passes Stage 6 and only discovers its specification gap in Stage 7, where the diagnostic trail is orders of magnitude noisier.
 
-### 6.3 Gate 2 — Simulation Coverage Gate (within Stage 7, before `verified` → `monitored`)
+### 6.3 Fidelity Verification — Simulation Verification Gate (within Stage 7, before `verified` → `monitored`)
 
-Compile coverage proves the specification is internally complete. It does not prove the implementation actually exercises that specification in practice. That is what the Simulation Coverage Gate is for. It runs during Stage 7, after the generated artifact has been deployed into the Digital Twin Universe but before the Function lifecycle can transition from `verified` to `monitored`.
+Compile coverage proves the specification is internally complete. It does not prove the implementation actually exercises that specification in practice. That is what the Simulation Verification Gate is for. It runs during Stage 7, after the generated artifact has been deployed into the Digital Twin Universe but before the Function lifecycle can transition from `verified` to `monitored`.
 
 It computes:
 
-- **Scenario coverage** — every branch in the WorkGraph has been exercised by at least one scenario. Unreached branches are either dead code or untested code; either way the Function is not ready for production trust.
+- **Scenario coverage** — every branch in the Executable Specification has been exercised by at least one scenario. Unreached branches are either dead code or untested code; either way the Function is not ready for production trust.
 - **Invariant exercise** — every invariant has at least one scenario that could plausibly violate it. A negative test must exist, even if it never fires. An invariant with only positive tests has not been proven; it has been assumed.
 - **Required-validation pass rate** — 100% of required validations pass in the Digital Twin. Below 100% is not partial credit; it is a fail.
 
@@ -140,9 +140,9 @@ If any of the three fails, the Function cannot be promoted to `monitored`. It re
 
 This gate is where the Factory separates itself from spec-to-code systems that treat "all tests passing" as a shipping condition. The Factory requires that tests passing *on a complete scenario corpus* is the shipping condition, and it enforces that by refusing to grant the `monitored` lifecycle state without it.
 
-### 6.4 Gate 3 — Assurance Coverage Gate (continuous, Stage 7)
+### 6.4 Persistence Verification — Assurance Verification Gate (continuous, Stage 7)
 
-The first two gates are one-shot: they run at specific points in the pipeline, and once passed, their verdict is recorded. The Assurance Coverage Gate is different. It runs continuously, as a property of every Function that has reached `monitored` status, and its job is to ensure that the runtime evidence base under the Function has not silently decayed.
+The first two gates are one-shot: they run at specific points in the pipeline, and once passed, their verdict is recorded. The Assurance Verification Gate is different. It runs continuously, as a property of every Function that has reached `monitored` status, and its job is to ensure that the runtime evidence base under the Function has not silently decayed.
 
 It computes, per Function, per invariant:
 
@@ -152,23 +152,23 @@ It computes, per Function, per invariant:
 
 If any of the three fails, the Function transitions from `monitored` to `assurance regressed` — the fourth regression class named in §5. This is not a runtime bug regression; the Function may still be behaving correctly. It is a loss of visibility regression. A Function whose behavior cannot be verified from evidence is untrustworthy by definition, regardless of whether its actual behavior is sound.
 
-The Assurance Coverage Gate is what closes the loop on observability. Traditional observability stacks treat "the monitor is down" as an operations problem to be fixed later. The Factory treats it as a first-class regression of the Function that the monitor was watching, because trust without evidence is not trust — it is assumption.
+The Assurance Verification Gate is what closes the loop on observability. Traditional observability stacks treat "the monitor is down" as an operations problem to be fixed later. The Factory treats it as a first-class regression of the Function that the monitor was watching, because trust without evidence is not trust — it is assumption.
 
 ### 6.5 Staging summary
 
 | Gate | Stage | Trigger | Failure consequence |
 |---|---|---|---|
-| Compile Coverage | End of Stage 5 | Between `consistency_check` and `assemble_workgraph` | WorkGraph is not emitted; PRD must be remediated |
-| Simulation Coverage | Within Stage 7 | Before `verified` → `monitored` transition | Function stays `verified`, cannot be promoted |
-| Assurance Coverage | Continuous in Stage 7 | Every detector reporting interval | Function transitions to `assurance regressed` |
+| Compile Verification | End of Stage 5 | Between `consistency_check` and `assemble_executable-specification` | Executable Specification is not emitted; Intent Specification must be remediated |
+| Simulation Verification | Within Stage 7 | Before `verified` → `monitored` transition | Function stays `verified`, cannot be promoted |
+| Assurance Verification | Continuous in Stage 7 | Every detector reporting interval | Function transitions to `assurance regressed` |
 
-Each gate's output is a **Coverage Report** — a lineage-preserving artifact that names the specific atoms, invariants, validations, or detectors that failed coverage, with source references back to the PRD or WorkGraph element that produced them. Coverage Reports are themselves Factory artifacts. They are auditable, versioned, and archived alongside the Functions they concern.
+Each gate's output is a **Verification Report** — a lineage-preserving artifact that names the specific atoms, invariants, validations, or detectors that failed coverage, with source references back to the Intent Specification or Executable Specification element that produced them. Verification Reports are themselves Factory artifacts. They are auditable, versioned, and archived alongside the Functions they concern.
 
 ### 6.6 What coverage is not
 
-Coverage as defined in this section is strictly an I-layer discipline. It measures whether the Factory's own artifacts — atoms, invariants, validations, detectors — are internally complete and mutually consistent. It does not measure whether the aggregate portfolio of Functions adequately covers the commissioned work the organization is actually issuing Work Orders against. That is a We-layer question and it belongs to WeOps, not to the Factory.
+Verification as defined in this section is strictly an I-layer discipline. It measures whether the Factory's own artifacts — atoms, invariants, validations, detectors — are internally complete and mutually consistent. It does not measure whether the aggregate portfolio of Functions adequately covers the commissioned work the organization is actually issuing Work Orders against. That is a We-layer question and it belongs to WeOps, not to the Factory.
 
-The distinction matters. A Function may pass all three coverage gates — compile, simulation, assurance — and still be the wrong Function for the commissioning purpose it is being executed against. Spec coverage proves internal completeness of the specification-to-execution chain. Purpose coverage, which WeOps measures through the Purpose Integrity Index and the Constraint Chain Index, proves that commissioned work remains coherent with organizational intent. Conflating them is the same I/We collapse warned against throughout this document. The Factory should produce Functions that pass all three gates; WeOps should govern whether the right Functions are being commissioned in the first place.
+The distinction matters. A Function may pass all three verification families — compile, simulation, assurance — and still be the wrong Function for the commissioning purpose it is being executed against. Spec coverage proves internal completeness of the specification-to-execution chain. Purpose coverage, which WeOps measures through the Purpose Integrity Index and the Constraint Chain Index, proves that commissioned work remains coherent with organizational intent. Conflating them is the same I/We collapse warned against throughout this document. The Factory should produce Functions that pass all three gates; WeOps should govern whether the right Functions are being commissioned in the first place.
 
 ## 7. SWOT, made executable
 
@@ -181,7 +181,7 @@ The mapping is direct:
 - **Strengths** → Business Capabilities whose existing Function portfolio is verified or monitored, with high trust composites. In the dynamical framing, Strengths are capabilities with **strong resonance** to common forcing patterns: the response is already tuned, high-gain, low-cost.
 - **Weaknesses** → Business Capabilities whose Capability Delta is non-empty, or whose existing Functions are regressed, or whose invariant health is low. In the dynamical framing, Weaknesses are **damping deficits**: forcing arrives but the response machinery is incomplete, disproportionate disturbance results.
 
-The operational consequence is substantial. A SWOT exercise performed against the Factory's vocabulary is no longer a strategy offsite artifact. It becomes a specification for which Pressures to prioritize (Threats with high strength and urgency; Opportunities with high leverage), which Capabilities to extend (Weaknesses with high Capability Delta scores), and which Functions to protect (Strengths whose trust composites are at risk from upstream change). The four SWOT quadrants become structured inputs to Stages 2, 3, and 4 — with preserved lineage from the strategy artifact all the way down to the compiled WorkGraph.
+The operational consequence is substantial. A SWOT exercise performed against the Factory's vocabulary is no longer a strategy offsite artifact. It becomes a specification for which Pressures to prioritize (Threats with high strength and urgency; Opportunities with high leverage), which Capabilities to extend (Weaknesses with high Capability Delta scores), and which Functions to protect (Strengths whose trust composites are at risk from upstream change). The four SWOT quadrants become structured inputs to Stages 2, 3, and 4 — with preserved lineage from the strategy artifact all the way down to the compiled Executable Specification.
 
 This is the difference between SWOT as a discussion tool and SWOT as an input schema. The Factory makes it the latter. Strategy teams and engineering teams end up working against the same vocabulary without either having to translate.
 
@@ -189,23 +189,23 @@ This is the difference between SWOT as a discussion tool and SWOT as an input sc
 
 Three boundaries matter.
 
-**The Factory is not a harness.** Zhou et al.'s externalization program describes harness engineering as the discipline of unifying memory, skills, and protocols around a single agent at runtime. The Factory uses a harness — Claude Code, Cursor, OpenHands, or a custom conductor — during Stage 6 to execute the WorkGraph. But the Factory itself operates above the harness, coordinating multiple agent invocations across the seven stages. A Function produced by the Factory might be executed by an agent running in a harness; the Function itself is not a harness artifact. The harness governs *how a single agent behaves during an execution*. The Factory governs *how Functions are born, verified, deployed, and maintained over time*.
+**The Factory is not a harness.** Zhou et al.'s externalization program describes harness engineering as the discipline of unifying memory, skills, and protocols around a single agent at runtime. The Factory uses a harness — Claude Code, Cursor, OpenHands, or a custom conductor — during Stage 6 to execute the Executable Specification. But the Factory itself operates above the harness, coordinating multiple agent invocations across the seven stages. A Function produced by the Factory might be executed by an agent running in a harness; the Function itself is not a harness artifact. The harness governs *how a single agent behaves during an execution*. The Factory governs *how Functions are born, verified, deployed, and maintained over time*.
 
 **The Factory is not WeOps.** This is the most important distinction to keep clean, because the surface rhetoric is adjacent and will tempt conflation. The Factory produces executable Functions and keeps them trustworthy against their own invariants. That is an **I-layer** activity in the taxonomy of the I/We Boundary note — it concerns individual executable units and their scaffolding. WeOps governs *commissioned work against organizational purpose* across many Functions, many agents, many humans, and many harnesses. The We-Gradient, CCI (Constraint Chain Index), POE (Purpose Over Execution), and PII (Purpose Integrity Index) are runtime organizational governance instruments measuring whether aggregate execution honored commissioning purpose. A Function with perfect invariant health and full trust can still be executed against a commissioning purpose that has silently drifted; the Factory does not detect that, and is not supposed to. WeOps detects that. They need each other, and they are not the same layer.
 
-The clean one-line distinction: the Factory produces **WorkGraphs** (the typed DAGs that implement Functions); WeOps governs **Work Orders** (the organizational acts that commission work under purpose). A Work Order may run against a Function whose implementation is a WorkGraph. The two are related, not identical, and the distinction is what keeps both frameworks legible.
+The clean one-line distinction: the Factory produces **Executable Specifications** (the typed DAGs that implement Functions); WeOps governs **Work Orders** (the organizational acts that commission work under purpose). A Work Order may run against a Function whose implementation is a Executable Specification. The two are related, not identical, and the distinction is what keeps both frameworks legible.
 
-**The Factory is not a code generator.** If Stage 6 were the terminus, the Factory would reduce to dark-factory-style agent swarm output. The upstream stages (signals → pressures → capabilities → deltas → proposals → PRDs) and the downstream stages (simulation → validation → trust → regression → trajectory → new proposals) are the differentiating structure. Removing them turns the Factory into something StrongDM already sells. Keeping them is what makes it a compiler for reality.
+**The Factory is not a code generator.** If Stage 6 were the terminus, the Factory would reduce to dark-factory-style agent swarm output. The upstream stages (signals → pressures → capabilities → deltas → proposals → Intent Specifications) and the downstream stages (simulation → validation → trust → regression → trajectory → new proposals) are the differentiating structure. Removing them turns the Factory into something StrongDM already sells. Keeping them is what makes it a compiler for reality.
 
 ## 9. Positioning against adjacent systems
 
-**Archon** searches over reasoning architectures and inference-time techniques to optimize multi-model composition. The Factory uses Archon-style search during Stage 5 (selecting the right topology and model binding for PRD compilation passes) and Stage 6 (selecting the right agent workflow for the WorkGraph). Archon is a component technology, not a competitor. Where Archon stops at architecture search, the Factory continues into simulation, validation, trust computation, and trajectory-driven closure.
+**Archon** searches over reasoning architectures and inference-time techniques to optimize multi-model composition. The Factory uses Archon-style search during Stage 5 (selecting the right topology and model binding for Intent Specification compilation passes) and Stage 6 (selecting the right agent workflow for the Executable Specification). Archon is a component technology, not a competitor. Where Archon stops at architecture search, the Factory continues into simulation, validation, trust computation, and trajectory-driven closure.
 
-**StrongDM Dark Factory** treats autonomous software production as specs → agents → scenario validation → production artifact, with Digital Twin Universes for realistic simulation. The Factory adopts Dark Factory as Stage 6 plus most of Stage 7. It adds the full upstream (signals through PRD drafts) and the trajectory-driven feedback that auto-generates new Function proposals from runtime drift. Dark Factory produces software. The Factory produces and maintains a living portfolio of trustworthy Functions.
+**StrongDM Dark Factory** treats autonomous software production as specs → agents → scenario validation → production artifact, with Digital Twin Universes for realistic simulation. The Factory adopts Dark Factory as Stage 6 plus most of Stage 7. It adds the full upstream (signals through Intent Specification drafts) and the trajectory-driven feedback that auto-generates new Function proposals from runtime drift. Dark Factory produces software. The Factory produces and maintains a living portfolio of trustworthy Functions.
 
-**Claude Code, Cursor, OpenHands, SWE-agent, and similar coding agents** provide the harness within which Stage 6 executes. The Factory is harness-agnostic. The WorkGraph and node prompt pack are designed to be read by any compliant harness. When a harness is good (Claude Code and Cursor both qualify), the Factory delegates Stage 6 to it and focuses its own engineering on the stages no harness currently handles.
+**Claude Code, Cursor, OpenHands, SWE-agent, and similar coding agents** provide the harness within which Stage 6 executes. The Factory is harness-agnostic. The Executable Specification and node prompt pack are designed to be read by any compliant harness. When a harness is good (Claude Code and Cursor both qualify), the Factory delegates Stage 6 to it and focuses its own engineering on the stages no harness currently handles.
 
-**Spec Kit, BMAD, and Open Spec** are attempts to formalize the upstream specification layer. The Factory's Stage 5 compiler is more structured than any of these because it explicitly separates the eight passes with strict responsibilities and preserves lineage from signal to PRD. The Factory treats spec-as-artifact as a necessary intermediate, not a terminal product. A Spec Kit specification can be ingested into Stage 5 as a valid PRD draft; the Factory would then compile it through the remaining passes.
+**Spec Kit, BMAD, and Open Spec** are attempts to formalize the upstream specification layer. The Factory's Stage 5 compiler is more structured than any of these because it explicitly separates the eight passes with strict responsibilities and preserves lineage from signal to Intent Specification. The Factory treats spec-as-artifact as a necessary intermediate, not a terminal product. A Spec Kit specification can be ingested into Stage 5 as a valid Intent Specification draft; the Factory would then compile it through the remaining passes.
 
 **Zhou et al.'s externalization program** describes the I-layer architecture for agent systems: memory, skills, protocols, harness. The Factory is compatible with and benefits from this frame for Stage 6. It does not, however, live entirely inside the frame. The Factory's upstream (signals → proposals) and downstream closure (trajectory → new proposals) are activities the externalization program does not address, because they concern the production and maintenance of Functions rather than the runtime operation of individual agents.
 
@@ -237,7 +237,7 @@ A first implementation of the Factory can defer almost anything — scale, multi
 
 5. **Trajectory-driven closure with a birth gate.** The upstream feedback loop is what differentiates the Factory from Dark Factory and every other spec-to-code system. The birth gate is what keeps that loop from generating proposal noise. Both are required, and neither can be deferred to v2 without the v1 being a categorically different product than what this whitepaper describes.
 
-6. **The three Coverage Gates, fail-closed.** The Compile, Simulation, and Assurance Coverage Gates (§6) must all be implemented and all fail-closed in a first build. A Factory without Gate 1 generates WorkGraphs from incomplete specs. A Factory without Gate 2 promotes Functions to `monitored` before their scenarios cover their invariants. A Factory without Gate 3 silently loses visibility and calls it trust. All three are required; the absence of any of the three makes the trust computation a claim rather than a proof.
+6. **The three Verification Gates, fail-closed.** The Compile, Simulation, and Assurance Verification Gates (§6) must all be implemented and all fail-closed in a first build. A Factory without Coherence Verification generates Executable Specifications from incomplete specs. A Factory without Fidelity Verification promotes Functions to `monitored` before their scenarios cover their invariants. A Factory without Persistence Verification silently loses visibility and calls it trust. All three are required; the absence of any of the three makes the trust computation a claim rather than a proof.
 
 What the Factory is first *applied to* is a separate question from what the Factory *is*. Vertical selection for a first implementation depends on where the organization already has rich enough signal telemetry and enough regulatory or compliance pressure to make the trust computation worth the overhead. That decision is downstream of this whitepaper and should be made against the Koales landscape as a whole, not inferred from the illustrative examples that appear in the source material.
 
@@ -255,6 +255,6 @@ It is not a harness. It is not WeOps. It is not a code generator. It is the thin
 
 ## References and lineage
 
-This whitepaper synthesizes material from an exploratory thread archived as *CodeFactory.pdf* and *full_thread_artifacts.zip* (both ingested 2026-04-18). The thread's canonical pipeline, seven-stage structure, trust model, assurance dependency graph, trajectory-driven closure, and Function-as-canonical-unit conclusion are all preserved here in condensed prose form. The Pressure-as-Forcing-Function frame, the WorkGraph vs. Work Order distinction, the explicit SWOT integration, the control-theory framing, and the three-gate Spec Coverage discipline are architect additions contributed during review. The positioning against WeOps, the I/We taxonomy, and the Cognifiq.ai placement are derived from the WeOps/WGSP Executive Whitepaper (WP-2026-EP-01) and *The I/We Boundary: Positioning WeOps Against the Externalization Program* (2026-04-17).
+This whitepaper synthesizes material from an exploratory thread archived as *CodeFactory.pdf* and *full_thread_artifacts.zip* (both ingested 2026-04-18). The thread's canonical pipeline, seven-stage structure, trust model, assurance dependency graph, trajectory-driven closure, and Function-as-canonical-unit conclusion are all preserved here in condensed prose form. The Pressure-as-Forcing-Function frame, the Executable Specification vs. Work Order distinction, the explicit SWOT integration, the control-theory framing, and the three-gate Spec Verification discipline are architect additions contributed during review. The positioning against WeOps, the I/We taxonomy, and the Cognifiq.ai placement are derived from the WeOps/WGSP Executive Whitepaper (WP-2026-EP-01) and *The I/We Boundary: Positioning WeOps Against the Externalization Program* (2026-04-17).
 
 Representative adjacent works referenced: Archon (Stanford, 2024); StrongDM Dark Factory (2025); Anthropic Claude Code Agent Skills (2025–2026); GitHub Spec Kit (2025); BMAD Method (2025); Open Spec (2026); Zhou et al., *Externalization in LLM Agents* (arXiv:2604.08224, 2026).

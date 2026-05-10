@@ -2,18 +2,18 @@
 name: prd-compiler
 version: 2026-04-19
 triggers:
-  - "compile PRD"
+  - "compile Intent Specification"
   - "compile spec"
-  - "generate WorkGraph"
+  - "generate Executable Specification"
   - "Stage 5"
   - "run the compiler"
 tools: [bash, view, create_file, str_replace]
 preconditions:
-  - "target PRD file exists in specs/prds/"
+  - "target Intent Specification file exists in specs/intent-specifications/"
   - "packages/compiler is installed"
 constraints:
   - "never skip a pass to save cycles"
-  - "never emit a WorkGraph/Executable Specification that fails Coherence Verification"
+  - "never emit a Executable Specification/Executable Specification that fails Coherence Verification"
   - "every transformation must preserve source_refs, explicitness, rationale"
   - "on ambiguity, fail closed and emit UncertaintyEntry"
 category: factory-core
@@ -21,23 +21,23 @@ category: factory-core
 
 # Compilation Harness
 
-The compiler transforms an Intent Specification (PRD) into an Executable
-Specification (WorkGraph). Historical Stage 5 and pass numbers remain
+The compiler transforms an Intent Specification (Intent Specification) into an Executable
+Specification (Executable Specification). Historical Stage 5 and pass numbers remain
 compatibility labels. Ontology categories are primary. Every transformation is
 a pure function with strict I/O types.
 
 ## Transformations in order
 
 ### Compatibility Pass 0 — normalize
-Input: raw PRD markdown.
-Output: NormalizedPRD (structured object with sections identified).
+Input: raw Intent Specification markdown.
+Output: NormalizedIntentSpecification (structured object with sections identified).
 - Split into sections (problem, goal, constraints, acceptance criteria,
   success metrics, out-of-scope).
 - Preserve source line references for every section.
 - Emit UncertaintyEntry for unrecognized sections rather than discarding.
 
 ### Decomposition (legacy Pass 1) — extract atoms
-Input: NormalizedPRD.
+Input: NormalizedIntentSpecification.
 Output: RequirementAtom[].
 - One semantic claim per atom.
 - Categorize: user_story | business_rule | constraint | nfr | integration |
@@ -65,8 +65,8 @@ Output: Invariant[].
 Input: all prior passes' outputs.
 Output: Dependency[].
 - Typed: blocks | constrains | implements | validates | informs.
-- Both endpoints must resolve to artifact IDs in the same PRD's scope or
-  in a cited upstream PRD.
+- Both endpoints must resolve to artifact IDs in the same Intent Specification's scope or
+  in a cited upstream Intent Specification.
 
 ### Structural Assembly subdivision (legacy Pass 5) — derive validations
 Input: all prior passes' outputs.
@@ -88,37 +88,37 @@ Output: ConsistencyReport or halt.
 
 ### Completeness Certification / Coherence Verification (legacy Pass 7)
 Input: all prior passes' outputs.
-Output: CoverageReport.
-- See `coverage-gate-1` skill. This is the hard verification.
+Output: VerificationReport.
+- See `coherence-verification` skill. This is the hard verification.
 - Atom coverage, invariant coverage, validation coverage, dependency
   closure.
 - If any fails, halt before Executable Specification Assembly.
 
 ### Executable Specification Assembly (legacy Pass 8 compatibility)
-Input: all prior outputs + passing CoverageReport.
-Output: WorkGraph.
+Input: all prior outputs + passing VerificationReport.
+Output: Executable Specification.
 - Typed nodes and edges.
 - Every node references the Function ID it implements.
 - Every edge typed by dependency kind.
 
-Ontology Pass 8 is future Instruction Tuning. Do not use the current WorkGraph
+Ontology Pass 8 is future Instruction Tuning. Do not use the current Executable Specification
 assembly compatibility label as the Instruction Tuning category.
 
-## PRD structure- compiler-consumed vs informational
+## Intent Specification structure- compiler-consumed vs informational
 
 Pass 0 recognizes six section titles (case-insensitive exact-match)-
 `## Problem`, `## Goal`, `## Constraints`, `## Acceptance criteria`,
 `## Success metrics`, `## Out of scope`. Content in any other section
-is flagged as `unrecognizedSections` in the NormalizedPRD and not
+is flagged as `unrecognizedSections` in the NormalizedIntentSpecification and not
 consumed by any downstream pass.
 
-Several section titles are conventionally used in Factory PRDs for
+Several section titles are conventionally used in Factory Intent Specifications for
 human-audience content that the compiler is not expected to consume-
 
 - **`## Shared <X> shape`** — describes the structural contract shared
   across a family of Functions (e.g., "Shared GateEvaluator shape" in
-  the Gate 1 PRD, "Shared ControlFunction shape" in the detect-regression
-  PRD). Read by authors of sibling PRDs in the same Function family,
+  the Coherence Verification Intent Specification, "Shared ControlFunction shape" in the detect-regression
+  Intent Specification). Read by authors of sibling Intent Specifications in the same Function family,
   not by the compiler.
 
 - **`## Schema <X> required`** / **`## Schema additions required`** —
@@ -127,15 +127,15 @@ human-audience content that the compiler is not expected to consume-
   the compiler.
 
 - **`## Downstream artifacts <X> will enable`** — enumerates downstream
-  PRs or WorkGraphs that depend on this Function's implementation. Read
-  by the Architect and by authors of those downstream PRDs, not by the
+  PRs or Executable Specifications that depend on this Function's implementation. Read
+  by the Architect and by authors of those downstream Intent Specifications, not by the
   compiler.
 
 These sections are valid and welcome. They carry forward the design
-thinking and implementation gating that written PRDs use to communicate
+thinking and implementation gating that written Intent Specifications use to communicate
 with human audiences. **Place them at `##` after the six compiler-
 consumed sections, so the compiler-consumed block reads as a contiguous
-unit at the top of the PRD body.** The compiler flags them as
+unit at the top of the Intent Specification body.** The compiler flags them as
 unrecognized; that's intended — their purpose is human communication,
 not pipeline input.
 
@@ -155,7 +155,7 @@ silent.
    a thin orchestration layer.
 
 2. **Source references flow through every transformation.** An atom's source_refs
-   point to PRD sections. A contract's source_refs include the atom IDs.
+   point to Intent Specification sections. A contract's source_refs include the atom IDs.
    An invariant's source_refs include atoms and contracts. A validation's
    source_refs include atoms, contracts, invariants. Lineage is cumulative.
 
@@ -176,13 +176,13 @@ silent.
 
 5. **The compiler fails closed.** Any transformation that cannot produce a valid
    output halts the pipeline. The partial outputs are saved for debugging
-   but no WorkGraph is emitted.
+   but no Executable Specification is emitted.
 
 ## Self-rewrite hook
 
 After every 10 compilations OR on any systematic transformation failure:
 1. Check which transformations are failing most often.
 2. If a specific transformation consistently produces UncertaintyEntries from the
-   same PRD pattern, propose a refinement to that pass's extraction
+   same Intent Specification pattern, propose a refinement to that pass's extraction
    heuristic.
 3. Commit: `META: skill-update: prd-compiler, {one-line reason}`

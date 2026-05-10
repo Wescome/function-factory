@@ -89,7 +89,7 @@ describe('autonomous scheduler contracts', () => {
   it('rejects requests without ExecutableSpecification lineage', () => {
     const invalid = structuredClone(requestFixture) as Record<string, unknown>
     invalid.executableSpecification = {
-      id: 'WG-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW',
+      id: 'ES-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW',
       nodeId: 'first-product-view',
       sourceRefs: [],
     }

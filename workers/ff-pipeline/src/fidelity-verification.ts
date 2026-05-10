@@ -37,7 +37,7 @@ export interface FidelityVerificationValidationOutcome {
 
 export interface FidelityVerificationInput {
   functionId: string
-  prdId: string
+  intentSpecificationId: string
   executableSpecificationId: string
   candidateId: string
   packetId: string
@@ -83,7 +83,7 @@ export interface FidelityVerificationContractInput {
 }
 
 export interface AdaptFidelityVerificationInputOptions {
-  prdId: string
+  intentSpecificationId: string
   timestamp?: string
   sourceRefs?: string[]
 }
@@ -217,7 +217,7 @@ function pushUniqueScenario(scenarios: FidelityVerificationScenario[], scenario:
 }
 
 function reportId(functionId: string, timestamp: string): string {
-  return `CR-${functionId}-GATE2-${timestamp.replace(/[:.]/g, '-')}`
+  return `VR-${functionId}-FIDELITY-${timestamp.replace(/[:.]/g, '-')}`
 }
 
 function unique(values: string[]): string[] {
@@ -259,7 +259,7 @@ export function adaptFidelityVerificationInput(
   options: AdaptFidelityVerificationInputOptions,
 ): FidelityVerificationInput {
   assertNonEmpty(input.functionId, 'functionId')
-  assertNonEmpty(options.prdId, 'prdId')
+  assertNonEmpty(options.intentSpecificationId, 'intentSpecificationId')
   assertNonEmpty(input.executableSpecificationId, 'executableSpecificationId')
   assertNonEmpty(input.architectureCandidateId, 'architectureCandidateId')
   assertNonEmpty(input.packetId, 'packetId')
@@ -318,7 +318,7 @@ export function adaptFidelityVerificationInput(
 
   return {
     functionId: input.functionId,
-    prdId: options.prdId,
+    intentSpecificationId: options.intentSpecificationId,
     executableSpecificationId: input.executableSpecificationId,
     candidateId: input.architectureCandidateId,
     packetId: input.packetId,
@@ -380,7 +380,7 @@ export function dryRunFidelityAcceptanceTransition(
 
 export function evaluateFidelityVerification(input: FidelityVerificationInput): FidelityVerificationResult {
   assertNonEmpty(input.functionId, 'functionId')
-  assertNonEmpty(input.prdId, 'prdId')
+  assertNonEmpty(input.intentSpecificationId, 'intentSpecificationId')
   assertNonEmpty(input.executableSpecificationId, 'executableSpecificationId')
   assertNonEmpty(input.candidateId, 'candidateId')
   assertNonEmpty(input.packetId, 'packetId')
@@ -413,11 +413,11 @@ export function evaluateFidelityVerification(input: FidelityVerificationInput): 
     ? 0
     : (requiredValidations.length - failingValidations.length) / requiredValidations.length
 
-  const scenarioCoveragePassed = branchesUnexercised.length === 0
+  const scenarioVerificationPassed = branchesUnexercised.length === 0
     && invariantsWithPassingScenario.length === input.invariants.length
   const invariantExercisePassed = invariantsWithoutNegativeTests.length === 0
   const requiredValidationPassed = requiredValidations.length > 0 && failingValidations.length === 0
-  const overall = scenarioCoveragePassed && invariantExercisePassed && requiredValidationPassed ? 'pass' : 'fail'
+  const overall = scenarioVerificationPassed && invariantExercisePassed && requiredValidationPassed ? 'pass' : 'fail'
   const remediationText = remediation(branchesUnexercised, invariantsWithoutNegativeTests, failingValidations)
 
   const report = FidelityVerificationReport.parse({
@@ -428,7 +428,7 @@ export function evaluateFidelityVerification(input: FidelityVerificationInput): 
     overall,
     checks: {
       scenario_coverage: {
-        status: scenarioCoveragePassed ? 'pass' : 'fail',
+        status: scenarioVerificationPassed ? 'pass' : 'fail',
         details: [{ packetId: input.packetId, packetHash: input.packetHash }],
         branches_unexercised: branchesUnexercised,
       },
@@ -447,7 +447,7 @@ export function evaluateFidelityVerification(input: FidelityVerificationInput): 
     remediation: remediationText,
     source_refs: unique([
       input.functionId,
-      input.prdId,
+      input.intentSpecificationId,
       input.executableSpecificationId,
       input.candidateId,
       input.packetId,
@@ -459,7 +459,7 @@ export function evaluateFidelityVerification(input: FidelityVerificationInput): 
     rationale: 'Fidelity Verification report produced from normalized simulation evidence.',
   })
 
-  const scenarioCoverageScore = input.invariants.length === 0 ? 0 : invariantsWithPassingScenario.length / input.invariants.length
+  const scenarioVerificationScore = input.invariants.length === 0 ? 0 : invariantsWithPassingScenario.length / input.invariants.length
   const invariantExerciseRate = input.invariants.length === 0 ? 0 : invariantsWithNegativeScenario.length / input.invariants.length
   const verdict = FidelityVerificationVerdict.parse({
     verdict: overall === 'pass' ? 'accepted' : 'rejected',
@@ -467,7 +467,7 @@ export function evaluateFidelityVerification(input: FidelityVerificationInput): 
       report.id,
       ...input.validationOutcomes.map(validation => validation.id),
     ],
-    scenario_coverage_score: scenarioCoverageScore,
+    scenario_verification_score: scenarioVerificationScore,
     invariant_exercise_rate: invariantExerciseRate,
     remediation_notes: remediationText === 'Fidelity Verification passed.' ? [] : remediationText.split('. ').filter(Boolean),
   })

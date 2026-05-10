@@ -12,10 +12,10 @@ describe("canonicalTrellisJson", () => {
         { roleId: "tester", instruction: "test" },
         { roleId: "planner", instruction: "plan" },
       ],
-      source_refs: ["WG-META-EXAMPLE", "PRD-META-EXAMPLE"],
+      source_refs: ["ES-META-EXAMPLE", "IS-META-EXAMPLE"],
     }
     const right = {
-      source_refs: ["PRD-META-EXAMPLE", "WG-META-EXAMPLE"],
+      source_refs: ["IS-META-EXAMPLE", "ES-META-EXAMPLE"],
       roles: [
         { instruction: "plan", roleId: "planner" },
         { instruction: "test", roleId: "tester" },

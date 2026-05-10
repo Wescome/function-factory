@@ -33,12 +33,12 @@ where needed. Historical artifacts may keep their original names.
 
 | Current term | Ontology term | Status | Notes |
 | --- | --- | --- | --- |
-| PRD | Intent Specification | Legacy implementation name | `PRD-*` IDs and `specs/prds/` exist today; active refactors should cut to Intent Specification names. |
-| WorkGraph | Executable Specification | Legacy implementation name | `WG-*` IDs and `specs/workgraphs/` exist today; active refactors should cut to Executable Specification names. |
+| Intent Specification | Intent Specification | Legacy implementation name | `IS-*` IDs and `specs/intent-specifications/` exist today; active refactors should cut to Intent Specification names. |
+| Executable Specification | Executable Specification | Legacy implementation name | `ES-*` IDs and `specs/executable-specifications/` exist today; active refactors should cut to Executable Specification names. |
 | Compile coverage numbered compatibility term | Coherence Verification | Legacy implementation name | Existing numbered APIs and IDs are migration debt. |
 | Simulation coverage numbered compatibility term | Fidelity Verification | Legacy implementation name | Existing numbered APIs and IDs are migration debt. |
 | Assurance coverage numbered compatibility term | Persistence Verification | Legacy implementation name | Existing numbered APIs and IDs are migration debt. |
-| Coverage Report | Verification Report | Legacy implementation name | `CR-*` IDs and `specs/coverage-reports/` exist today; active refactors should cut to Verification Report names. |
+| Verification Report | Verification Report | Legacy implementation name | `VR-*` IDs and `specs/verification-reports/` exist today; active refactors should cut to Verification Report names. |
 | FunctionProposal | Function Proposal | Aligned | `FP-*` remains the proposal identity prefix. |
 | Function | Function | Aligned | `FN-*` remains the executable unit identity prefix. |
 | Invariant | Invariant Specification | Legacy implementation name | `INV-*` IDs and `specs/invariants/` exist today. |
@@ -75,27 +75,27 @@ deferred migration surface.
 | Stage 2 | Pressure Artifact interpretation | `specs/pressures/`, `PRS-*`, `Pressure` |
 | Stage 3 | Capability Artifact scoping | `specs/capabilities/`, `BC-*`, `BusinessCapability` |
 | Stage 4 | Function Proposal decomposition | `specs/functions/`, `FP-*`, `FunctionProposal` |
-| Stage 5 input | Intent Specification authoring | `specs/prds/`, `PRD-*`, `PRDDraft` |
-| Stage 5 output | Executable Specification compilation | `specs/workgraphs/`, `WG-*`, `WorkGraph` |
+| Stage 5 input | Intent Specification authoring | `specs/intent-specifications/`, `IS-*`, `IntentSpecificationDraft` |
+| Stage 5 output | Executable Specification compilation | `specs/executable-specifications/`, `ES-*`, `Executable Specification` |
 | Stage 6 | Agent Call execution / orchestration | `workers/ff-pipeline`, synthesis coordinator, agent role execution |
 | Stage 7 | Persistence Verification / continuous assurance | runtime monitoring, detector freshness, regression evidence |
 
-## Legacy Coverage Gate Concordance
+## Legacy Verification Gate Concordance
 
 | Legacy label | Ontology term | Current implementation surface |
 | --- | --- | --- |
-| Gate 1 | Coherence Verification | `Gate1Report`, `runGate1`, `gate-1`, `CR-*-GATE1-*` |
-| Gate 2a | Fidelity Verification (learned) | simulated acceptance / model-assisted behavioral correspondence |
-| Gate 2b | Fidelity Verification (deterministic) | deterministic scenario, invariant, and validation-result checks |
-| Gate 2 | Fidelity Verification umbrella | `Gate2Report`, `Gate2Input`, `gate-2`, `CR-*-GATE2-*` |
-| Gate 3 | Persistence Verification | `Gate3Report`, `gate-3`, `CR-*-GATE3-*` |
+| Coherence Verification | Coherence Verification | `CoherenceVerificationReport`, `runCoherenceVerification`, `coherence-verification`, `VR-*-COHERENCE-*` |
+| Fidelity Verificationa | Fidelity Verification (learned) | simulated acceptance / model-assisted behavioral correspondence |
+| Fidelity Verificationb | Fidelity Verification (deterministic) | deterministic scenario, invariant, and validation-result checks |
+| Fidelity Verification | Fidelity Verification umbrella | `FidelityVerificationReport`, `FidelityVerificationInput`, `fidelity-verification`, `VR-*-FIDELITY-*` |
+| Persistence Verification | Persistence Verification | `PersistenceVerificationReport`, `persistence-verification`, `VR-*-PERSISTENCE-*` |
 
 ## Legacy Compiler Pass Concordance
 
 The current compiler has a live implementation-name conflict:
-the repo historically implemented `Pass 8` as WorkGraph assembly, while
+the repo historically implemented `Pass 8` as Executable Specification assembly, while
 `FF-ONTOLOGY-ADDENDUM-A.md` reserves `Pass 8` for future Instruction Tuning.
-Until a physical rename lands, current `08-assemble-workgraph.ts`,
+Until a physical rename lands, current `08-assemble-executable-specification.ts`,
 `assembleWorkgraph`, and `emitWorkgraph` remain migration-debt names for the
 Structural Assembly completion step. New code must prefer
 `assembleExecutableSpecification` and `emitExecutableSpecification`.
@@ -108,9 +108,9 @@ Structural Assembly completion step. New code must prefer
 | Pass 4 | Structural Assembly (dependency resolution) | `deriveDependencies` |
 | Pass 5 | Structural Assembly (validation wiring) | `deriveValidations` |
 | Pass 6 | Structural Assembly (graph construction / consistency reservation) | `consistencyCheck` plus current assembly flow |
-| Pass 7 | Completeness Certification / Coherence Verification | `runCoherenceVerificationPass`, legacy `runGate1Pass` |
-| Current repo Pass 8 | Structural Assembly completion migration-debt label | `assembleWorkgraph`, `emitWorkgraph`, `08-assemble-workgraph.ts` |
-| Ontology Pass 8 | Instruction Tuning (future) | Not implemented; do not use current WorkGraph assembly as this category |
+| Pass 7 | Completeness Certification / Coherence Verification | `runCoherenceVerificationPass`, legacy `runCoherenceVerificationPass` |
+| Current repo Pass 8 | Structural Assembly completion migration-debt label | `assembleWorkgraph`, `emitWorkgraph`, `08-assemble-executable-specification.ts` |
+| Ontology Pass 8 | Instruction Tuning (future) | Not implemented; do not use current Executable Specification assembly as this category |
 
 ## Artifact ID Prefix Concordance
 
@@ -121,10 +121,10 @@ These prefixes are stable implementation identifiers, not ontology names.
 | `PRS-*` | Pressure Artifact |
 | `BC-*` | Capability Artifact |
 | `FP-*` / `FN-*` | Function Proposal / Function identity records |
-| `PRD-*` | Intent Specification |
-| `WG-*` | Executable Specification |
+| `IS-*` | Intent Specification |
+| `ES-*` | Executable Specification |
 | `INV-*` | Invariant Specification |
-| `CR-*` | Verification Report |
+| `VR-*` | Verification Report |
 
 ## Skill File Concordance
 
@@ -135,9 +135,9 @@ charter/harness migration lands.
 | --- | --- | --- |
 | `factory-meta/SKILL.md` | Factory bootstrap harness skill | Harness |
 | `prd-compiler/SKILL.md` | Compilation harness skill | Harness |
-| `coverage-gate-1/SKILL.md` | Coherence Verification enforcement | Charter |
-| `coverage-gate-2/SKILL.md` | Fidelity Verification enforcement | Charter |
-| `coverage-gate-3/SKILL.md` | Persistence Verification enforcement | Charter |
+| `coherence-verification/SKILL.md` | Coherence Verification enforcement | Charter |
+| `fidelity-verification/SKILL.md` | Fidelity Verification enforcement | Charter |
+| `persistence-verification/SKILL.md` | Persistence Verification enforcement | Charter |
 | `invariant-authoring/SKILL.md` | Invariant authoring harness skill | Harness |
 | `lineage-preservation/SKILL.md` | Lineage discipline enforcement | Charter |
 | `memory-manager/SKILL.md` | Memory management harness skill | Harness |
@@ -163,10 +163,10 @@ extensions until the ontology receives a v0.3/addendum-B update.
 | `specs/pressures/` | Pressure Artifact | Keep path. Existing `PRS-*` references stay canonical. |
 | `specs/capabilities/` | Capability Artifact | Keep path. Existing `BC-*` references stay canonical. |
 | `specs/functions/` | Function Proposal and Function records | Keep path. Mixed `FP-*` and `FN-*` usage is current repo behavior. |
-| `specs/prds/` | Intent Specification | Keep path. Alias in docs only. |
-| `specs/workgraphs/` | Executable Specification | Keep path. WorkGraphs are compiler output and must not be hand-authored. |
+| `specs/intent-specifications/` | Intent Specification | Keep path. Alias in docs only. |
+| `specs/executable-specifications/` | Executable Specification | Keep path. Executable Specifications are compiler output and must not be hand-authored. |
 | `specs/invariants/` | Invariant Specification | Keep path. Detector completeness rules remain unchanged. |
-| `specs/coverage-reports/` | Verification Report | Keep path. Verification report schemas keep legacy aliases. |
+| `specs/verification-reports/` | Verification Report | Keep path. Verification report schemas keep legacy aliases. |
 | `specs/reference/` | Architecture/reference corpus | Keep path. Ontology v0.2 and stale-baseline plan live here. |
 | `specs/ontology/` | Machine-readable ontology and shapes | Keep path. Current TTL/SHACL-like files are implementation assets. |
 
@@ -176,7 +176,7 @@ extensions until the ontology receives a v0.3/addendum-B update.
 | --- | --- | --- |
 | `packages/schemas/` | Canonical artifact schemas | Keep path and exports. `core.ts` is protected. |
 | `packages/compiler/` | Compilation transformations | Keep path. Future docs may describe decomposition, binding, obligation extraction, assembly, and certification aliases. |
-| `packages/coverage-gates/` | Coherence/Fidelity/Persistence verification support | Keep path. Do not rename to `verification` in this slice. |
+| `packages/verification/` | Coherence/Fidelity/Persistence verification support | Keep path. Do not rename to `verification` in this slice. |
 | `packages/runtime/` | Runtime substrate | Keep path. Stubs and APIs remain current names until implementation work lands. |
 | `packages/assurance-graph/` | Assurance Graph | Keep path. Alias already close to ontology. |
 | `packages/artifact-validator/` | Artifact creation constraint enforcement | Keep path. Maps to ontology constraints and fail-closed persistence checks. |
@@ -190,10 +190,10 @@ extensions until the ontology receives a v0.3/addendum-B update.
 
 | Current implementation | Ontology alias | Current authority |
 | --- | --- | --- |
-| Compile coverage | Coherence Verification | `@factory/coverage-gates`, compiler reports, `specs/coverage-reports/` |
-| Simulation coverage | Fidelity Verification | `workers/ff-pipeline/src/gate2-simulation.ts` and persisted Fidelity Verification reports |
+| Compile coverage | Coherence Verification | `@factory/verification`, compiler reports, `specs/verification-reports/` |
+| Simulation coverage | Fidelity Verification | `workers/ff-pipeline/src/fidelityVerification-simulation.ts` and persisted Fidelity Verification reports |
 | Assurance coverage | Persistence Verification | Minimal blocker registration exists; monitored promotion remains out of scope here |
-| `Gate1Report`, `Gate2Report`, `Gate3Report` | Verification Report variants | Existing schemas are migration debt; new code should use Verification names. |
+| `CoherenceVerificationReport`, `FidelityVerificationReport`, `PersistenceVerificationReport` | Verification Report variants | Existing schemas are migration debt; new code should use Verification names. |
 | Merge Readiness Pack (MRP) | Readiness evidence overlay | Current runtime concept, not replaced by ontology v0.2 |
 | Function identity diagnostic | Lineage and identity consistency check | Current runtime concept, not replaced by ontology v0.2 |
 | Lifecycle transition guard | Fail-closed transition enforcement | Current runtime concept; ontology term is constraint enforcement |
@@ -208,7 +208,7 @@ Current repo state is materially ahead of that baseline:
 | `FN-MOTDWVR2-W7UN` | Materialized and accepted in live runtime evidence | Do not rename or rematerialize as part of ontology grounding. |
 | PR #71 evidence | Live worker, Fidelity Verification, MRP, lifecycle, and identity diagnostics exercised | Treat as authoritative current-state evidence. |
 | Worker pipeline | Active under `workers/ff-pipeline/` | Keep paths stable until cutover checks exist. |
-| Fidelity Verification reports | Persisted in `specs_coverage_reports` live storage | Current legacy storage discriminators remain deferred migration surfaces. |
+| Fidelity Verification reports | Persisted in `verification_reports` live storage | Current legacy storage discriminators remain deferred migration surfaces. |
 | MRP records | Active merge-readiness evidence | Keep MRP terminology unless a separate ontology extension replaces it. |
 | Function proposal/runtime split | `FP-*` proposal identity and `FN-*` function identity both matter | Preserve both identities and their lineage edge. |
 

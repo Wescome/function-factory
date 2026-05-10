@@ -4,13 +4,13 @@ import { evaluateRuntimeAdmission } from "../src/evaluate-runtime-admission.js"
 describe("evaluateRuntimeAdmission", () => {
   it("allows selected candidate in bootstrap mode", () => {
     const result = evaluateRuntimeAdmission({
-      sourceExecutableSpecificationId: "WG-META-ARCHITECTURE-CANDIDATE-EXECUTION",
+      sourceExecutableSpecificationId: "ES-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       sourceArchitectureCandidateId: "AC-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       sourceSelectionId: "ACS-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       selectionDecision: "selected",
       bootstrapMode: true,
       sourceRefs: [
-        "PRD-META-ARCHITECTURE-CANDIDATE-EXECUTION",
+        "IS-META-ARCHITECTURE-CANDIDATE-EXECUTION",
         "AC-META-ARCHITECTURE-CANDIDATE-EXECUTION",
         "ACS-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       ],
@@ -22,7 +22,7 @@ describe("evaluateRuntimeAdmission", () => {
 
   it("denies rejected candidate", () => {
     const result = evaluateRuntimeAdmission({
-      sourceExecutableSpecificationId: "WG-META-ARCHITECTURE-CANDIDATE-EXECUTION",
+      sourceExecutableSpecificationId: "ES-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       sourceArchitectureCandidateId: "AC-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       sourceSelectionId: "ACS-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       selectionDecision: "rejected",
@@ -35,7 +35,7 @@ describe("evaluateRuntimeAdmission", () => {
 
   it("denies when bootstrap mode is inactive", () => {
     const result = evaluateRuntimeAdmission({
-      sourceExecutableSpecificationId: "WG-META-ARCHITECTURE-CANDIDATE-EXECUTION",
+      sourceExecutableSpecificationId: "ES-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       sourceArchitectureCandidateId: "AC-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       sourceSelectionId: "ACS-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       selectionDecision: "selected",

@@ -9,13 +9,13 @@ Function Factory is the control plane. Codex is a worker runtime.
 
 The steady-state loop is:
 
-1. Governor reads Factory artifacts and selects the next admissible WorkGraph node.
+1. Governor reads Factory artifacts and selects the next admissible Executable Specification node.
 2. Scheduler converts the node into a role-scoped `AgentRequest`.
 3. Queue persists the request and emits `QueueEvent` records.
 4. Codex runner claims one request in a clean session.
 5. Runner creates a PR branch, implements within `allowedPaths`, runs required commands, and returns `AgentResult`.
-6. Critic, tester, verifier, and coverage gates evaluate evidence.
-7. Governor either advances the WorkGraph, emits follow-up requests, or blocks for a human decision.
+6. Critic, tester, verifier, and verification checks evaluate evidence.
+7. Governor either advances the Executable Specification, emits follow-up requests, or blocks for a human decision.
 
 ## Runtime Boundary
 
@@ -49,7 +49,7 @@ approval is still required for merge, deploy, and secrets.
 Level 4: Multi-Agent PR
 
 Architect, builder, tester, critic, and verifier requests can run as a coordinated
-set against the same WorkGraph node. Merge remains human-approved.
+set against the same Executable Specification node. Merge remains human-approved.
 
 Level 5: Reserved
 
@@ -77,7 +77,7 @@ Function Factory reaches production alpha autonomy when:
 2. The Codex runner can claim one request and return a validated `AgentResult`.
 3. PR/branch mode is enforced by policy before execution begins.
 4. Required command output is captured as evidence.
-5. Critic and verifier results are linked back to the originating WorkGraph node.
+5. Critic and verifier results are linked back to the originating Executable Specification node.
 6. The operator cockpit can show active queue, latest run, latest evidence, and blocked decisions.
 7. A Strategy.Recipes vertical slice is built through the queue rather than by manual Codex task selection.
 

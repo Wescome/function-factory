@@ -1,0 +1,42 @@
+id: SIG-META-FIDELITY-REACHABLE
+source: architect-observation
+source_refs: []
+explicitness: explicit
+rationale: >
+  Stage 1 Signal (source_refs empty per lineage-preservation §"Stage 1
+  Signal exception" — Signals cite external origin in source field).
+  The Architect (Wes) observed that Stage 6 function synthesis now
+  produces code (commit 80baaeb, five-role topology via pi-ai, Verifier
+  PASS), but Fidelity Verification (simulation/acceptance coverage) has no evaluator.
+  The packages/verification/ package implements Coherence Verification only. The
+  packages/assurance-graph/ package is an empty stub.
+
+  This Signal was authored by the Architect, not generated automatically.
+  Stage 7 (observability) has no implementation — it is a stub at
+  packages/observability-feedback/. The Factory CANNOT yet self-sense
+  its own operational gaps. The Architect fills the observability role
+  during Bootstrap, the same way the Architect filled the Critic role
+  before the carve-out expired. When Stage 7 is operational, this class
+  of Signal will be auto-generated. Until then, the Architect notices.
+
+type: internal
+category: operational_gap
+severity: high
+confidence: 1.0
+timestamp: "2026-04-24T19:00:00Z"
+
+observation: >
+  Stage 6 (function synthesis) produces code, tests, and evidence artifacts
+  (Stage6TraceLog, CandidateSelectionReport, FidelityVerificationInput). Fidelity Verification is
+  specified in whitepaper §6.3 as the Simulation Verification that runs
+  before a Function transitions from 'implemented' to 'verified'. The
+  FidelityVerificationInput schema exists (ratified-decisions.md lines 488-528). The
+  evidence Function emits FidelityVerificationInput bundles. But no Fidelity Verification evaluator
+  exists to consume them. Every Function produced by Stage 6 is stuck at
+  lifecycle state 'implemented' indefinitely — the same pattern that
+  motivated the FUNCTION-SYNTHESIS Pressure, one stage downstream.
+
+  Whitepaper §11 non-negotiable #6: "A Factory without Fidelity Verification promotes
+  Functions to monitored before their scenarios cover their invariants."
+  Fidelity Verification must exist in v1. It is now reachable (Stage 6 produces its
+  input) and therefore its absence is an active gap, not a deferred one.

@@ -64,12 +64,12 @@ ff:ArchitectObservation a owl:Class ;
 
 # ═══════════════════════════════════════════════════════════════════
 # DOMAIN 2: SPECIFICATION CHAIN
-# The full derivation path from Signal to executable WorkGraph
+# The full derivation path from Signal to executable ExecutableSpecification
 # ═══════════════════════════════════════════════════════════════════
 
 ff:SpecificationArtifact a owl:Class ;
     rdfs:label "Specification Artifact" ;
-    rdfs:comment "Any artifact in the Signal → WorkGraph derivation chain." .
+    rdfs:comment "Any artifact in the Signal → ExecutableSpecification derivation chain." .
 
 ff:Pressure a owl:Class ;
     rdfs:subClassOf ff:SpecificationArtifact ;
@@ -88,15 +88,15 @@ ff:BusinessCapability a owl:Class ;
 ff:FunctionProposal a owl:Class ;
     rdfs:subClassOf ff:SpecificationArtifact ;
     rdfs:label "Function Proposal" ;
-    rdfs:comment "A concrete, implementable unit of work with a PRD skeleton." .
+    rdfs:comment "A concrete, implementable unit of work with a Intent Specification skeleton." .
 
 ff:FunctionType a owl:Class ;
     owl:oneOf ( ff:ExecutionFunction ff:ControlFunction
                 ff:EvidenceFunction ff:IntegrationFunction ) .
 
-ff:PRDDraft a owl:Class ;
+ff:IntentSpecification a owl:Class ;
     rdfs:subClassOf ff:SpecificationArtifact ;
-    rdfs:label "PRD Draft" ;
+    rdfs:label "Intent Specification" ;
     rdfs:comment "Product Requirements Document — the compiler's input." .
 
 ff:RequirementAtom a owl:Class ;
@@ -146,13 +146,13 @@ ff:Dependency a owl:Class ;
 ff:DependencyType a owl:Class ;
     owl:oneOf ( ff:Blocks ff:Constrains ff:Implements ff:Validates ff:Informs ) .
 
-ff:WorkGraph a owl:Class ;
+ff:ExecutableSpecification a owl:Class ;
     rdfs:subClassOf ff:SpecificationArtifact ;
-    rdfs:label "WorkGraph" ;
+    rdfs:label "ExecutableSpecification" ;
     rdfs:comment "The compiled, executable specification. Assembly of atoms as nodes and dependencies as edges." .
 
-ff:WorkGraphNode a owl:Class ;
-    rdfs:comment "A node in a WorkGraph — typed by its implementing atom." .
+ff:ExecutableSpecificationNode a owl:Class ;
+    rdfs:comment "A node in a ExecutableSpecification — typed by its implementing atom." .
 
 ff:NodeType a owl:Class ;
     owl:oneOf ( ff:InterfaceNode ff:ExecutionNode ff:ControlNode ff:EvidenceNode ) .
@@ -172,25 +172,25 @@ ff:Gate a owl:Class ;
     rdfs:label "Gate" ;
     rdfs:comment "A fail-closed validation checkpoint. Three gates, all required." .
 
-ff:Gate1 a ff:Gate ;
-    rdfs:label "Gate 1 — Compile Coverage" ;
+ff:CoherenceVerification a ff:Gate ;
+    rdfs:label "Coherence Verification — Compile Coverage" ;
     rdfs:comment "Structural validation: atom coverage, invariant coverage, validation coverage, dependency closure." .
 
-ff:Gate2 a ff:Gate ;
-    rdfs:label "Gate 2 — Simulation Coverage" ;
+ff:FidelityVerification a ff:Gate ;
+    rdfs:label "Fidelity Verification — Simulation Coverage" ;
     rdfs:comment "Behavioral validation: scenario coverage, invariant exercise, validation pass rate." .
 
-ff:Gate3 a ff:Gate ;
-    rdfs:label "Gate 3 — Assurance" ;
+ff:PersistenceVerification a ff:Gate ;
+    rdfs:label "Persistence Verification — Assurance" ;
     rdfs:comment "Continuous validation: detector freshness, evidence source liveness, audit pipeline integrity." .
 
-ff:CoverageReport a owl:Class ;
+ff:VerificationReport a owl:Class ;
     rdfs:subClassOf ff:GovernanceArtifact ;
-    rdfs:label "Coverage Report" ;
+    rdfs:label "Verification Report" ;
     rdfs:comment "The evidence artifact emitted by a Gate. Lineage-preserving." .
 
 ff:CoverageCheck a owl:Class ;
-    rdfs:comment "A single check within a Coverage Report." .
+    rdfs:comment "A single check within a Verification Report." .
 
 ff:TrustComposite a owl:Class ;
     rdfs:subClassOf ff:GovernanceArtifact ;
@@ -259,7 +259,7 @@ ff:BriefingScript a owl:Class ;
 ff:Plan a owl:Class ;
     rdfs:subClassOf ff:ExecutionArtifact ;
     rdfs:label "Plan" ;
-    rdfs:comment "Implementation plan decomposing a WorkGraph into actionable steps." .
+    rdfs:comment "Implementation plan decomposing a ExecutableSpecification into actionable steps." .
 
 ff:CodeArtifact a owl:Class ;
     rdfs:subClassOf ff:ExecutionArtifact ;
@@ -363,7 +363,7 @@ ff:ArchitectRole a ff:AgentRole ;
 
 ff:PlannerRole a ff:AgentRole ;
     rdfs:label "Planner Agent" ;
-    rdfs:comment "Decomposes WorkGraph into implementation plan." .
+    rdfs:comment "Decomposes ExecutableSpecification into implementation plan." .
 
 ff:CoderRole a ff:AgentRole ;
     rdfs:label "Coder Agent" ;
@@ -492,12 +492,12 @@ ff:derivedFromSignal a owl:ObjectProperty ;
 
 ff:compiledFrom a owl:ObjectProperty ;
     rdfs:subPropertyOf ff:derivesFrom ;
-    rdfs:domain ff:WorkGraph ;
+    rdfs:domain ff:ExecutableSpecification ;
     rdfs:range ff:FunctionProposal .
 
 ff:synthesizedFrom a owl:ObjectProperty ;
     rdfs:domain ff:ExecutionArtifact ;
-    rdfs:range ff:WorkGraph .
+    rdfs:range ff:ExecutableSpecification .
 
 # ── Production ──
 ff:producedBy a owl:ObjectProperty ;
@@ -515,13 +515,13 @@ ff:validatedBy a owl:ObjectProperty ;
     rdfs:range ff:Gate .
 
 ff:reviewedBy a owl:ObjectProperty ;
-    rdfs:domain [ owl:unionOf ( ff:WorkGraph ff:CodeArtifact ff:PRDDraft ) ] ;
+    rdfs:domain [ owl:unionOf ( ff:ExecutableSpecification ff:CodeArtifact ff:IntentSpecification ) ] ;
     rdfs:range ff:AgentRole ;
-    rdfs:comment "EVERY WorkGraph, CodeArtifact, and PRDDraft MUST be reviewed." .
+    rdfs:comment "EVERY ExecutableSpecification, CodeArtifact, and IntentSpecification MUST be reviewed." .
 
 ff:gateResult a owl:ObjectProperty ;
     rdfs:domain ff:Gate ;
-    rdfs:range ff:CoverageReport .
+    rdfs:range ff:VerificationReport .
 
 # ── Governance ──
 ff:constrainedBy a owl:ObjectProperty ;
@@ -621,9 +621,9 @@ ff:Proposed ff:allowedTransition ff:Designed .
 ff:Designed ff:allowedTransition ff:InProgress .
 ff:InProgress ff:allowedTransition ff:Implemented .
 ff:Implemented ff:allowedTransition ff:Verified ;
-    ff:transitionRequires ff:Gate2 .
+    ff:transitionRequires ff:FidelityVerification .
 ff:Verified ff:allowedTransition ff:Monitored ;
-    ff:transitionRequires ff:Gate3 .
+    ff:transitionRequires ff:PersistenceVerification .
 ff:Monitored ff:allowedTransition ff:Retired .
 
 # ── Agent Capabilities ──
@@ -665,7 +665,7 @@ ff:hasLifecycleState a owl:ObjectProperty ;
 ff:detectedBy a owl:ObjectProperty ;
     rdfs:domain ff:Invariant ;
     rdfs:range ff:DetectorSpec ;
-    rdfs:comment "An Invariant without a Detector is a wish. Gate 1 rejects." .
+    rdfs:comment "An Invariant without a Detector is a wish. Coherence Verification rejects." .
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -720,7 +720,7 @@ ff:repairCount a owl:DatatypeProperty ;
     rdfs:range xsd:integer .
 
 ff:passed a owl:DatatypeProperty ;
-    rdfs:domain [ owl:unionOf ( ff:CoverageReport ff:CritiqueReport ff:TestReport ) ] ;
+    rdfs:domain [ owl:unionOf ( ff:VerificationReport ff:CritiqueReport ff:TestReport ) ] ;
     rdfs:range xsd:boolean .
 
 
@@ -795,16 +795,16 @@ ff:col_signals a ff:ArangoCollection ; rdfs:label "specs_signals" .
 ff:col_pressures a ff:ArangoCollection ; rdfs:label "specs_pressures" .
 ff:col_capabilities a ff:ArangoCollection ; rdfs:label "specs_capabilities" .
 ff:col_functions a ff:ArangoCollection ; rdfs:label "specs_functions" .
-ff:col_prds a ff:ArangoCollection ; rdfs:label "specs_prds" .
-ff:col_workgraphs a ff:ArangoCollection ; rdfs:label "specs_workgraphs" .
+ff:col_intent_specifications a ff:ArangoCollection ; rdfs:label "intent_specifications" .
+ff:col_executable-specifications a ff:ArangoCollection ; rdfs:label "specs_executable-specifications" .
 ff:col_invariants a ff:ArangoCollection ; rdfs:label "specs_invariants" .
-ff:col_coverage_reports a ff:ArangoCollection ; rdfs:label "specs_coverage_reports" .
+ff:col_verification_reports a ff:ArangoCollection ; rdfs:label "verification_reports" .
 ff:col_execution_artifacts a ff:ArangoCollection ; rdfs:label "execution_artifacts" .
 ff:col_mentorscript_rules a ff:ArangoCollection ; rdfs:label "mentorscript_rules" .
 ff:col_consultation_requests a ff:ArangoCollection ; rdfs:label "consultation_requests" .
 ff:col_vcrs a ff:ArangoCollection ; rdfs:label "version_controlled_resolutions" .
 ff:col_mrps a ff:ArangoCollection ; rdfs:label "merge_readiness_packs" .
-ff:col_gate_status a ff:ArangoCollection ; rdfs:label "gate_status" .
+ff:col_verification_status a ff:ArangoCollection ; rdfs:label "verification_status" .
 ff:col_trust_scores a ff:ArangoCollection ; rdfs:label "trust_scores" .
 ff:col_memory_episodic a ff:ArangoCollection ; rdfs:label "memory_episodic" .
 ff:col_memory_semantic a ff:ArangoCollection ; rdfs:label "memory_semantic" .
@@ -827,10 +827,10 @@ ff:Signal ff:persistedIn ff:col_signals .
 ff:Pressure ff:persistedIn ff:col_pressures .
 ff:BusinessCapability ff:persistedIn ff:col_capabilities .
 ff:FunctionProposal ff:persistedIn ff:col_functions .
-ff:PRDDraft ff:persistedIn ff:col_prds .
-ff:WorkGraph ff:persistedIn ff:col_workgraphs .
+ff:IntentSpecification ff:persistedIn ff:col_intent_specifications .
+ff:ExecutableSpecification ff:persistedIn ff:col_executable-specifications .
 ff:Invariant ff:persistedIn ff:col_invariants .
-ff:CoverageReport ff:persistedIn ff:col_coverage_reports .
+ff:VerificationReport ff:persistedIn ff:col_verification_reports .
 ff:MentorScript ff:persistedIn ff:col_mentorscript_rules .
 ff:ConsultationRequestPack ff:persistedIn ff:col_consultation_requests .
 ff:VersionControlledResolution ff:persistedIn ff:col_vcrs .

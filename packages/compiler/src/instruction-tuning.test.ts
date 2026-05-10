@@ -10,9 +10,9 @@ import {
 import { tuneInstructions, type InstructionTuningInput } from "./instruction-tuning.js"
 
 const executableSpecification: ExecutableSpecification = {
-  id: "WG-TRELLIS-CODING-AGENT",
+  id: "ES-TRELLIS-CODING-AGENT",
   functionId: "FN-TRELLIS-CODING-AGENT",
-  source_refs: ["PRD-TRELLIS-CODING-AGENT"],
+  source_refs: ["IS-TRELLIS-CODING-AGENT"],
   explicitness: "explicit",
   rationale: "Fixture executable specification for Instruction Tuning.",
   nodes: [
@@ -51,7 +51,7 @@ const executableSpecification: ExecutableSpecification = {
 
 const selectedArchitectureCandidate: ArchitectureCandidate = {
   id: "AC-TRELLIS-CODING-AGENT",
-  sourcePrdId: "PRD-TRELLIS-CODING-AGENT",
+  sourceIntentSpecificationId: "IS-TRELLIS-CODING-AGENT",
   sourceExecutableSpecificationId: executableSpecification.id,
   candidateStatus: "selected",
   topology: {

@@ -178,14 +178,14 @@ describe('VERIFICATION_REQUIREMENTS', () => {
   it('accepted requires Fidelity Verification', () => {
     expect(VERIFICATION_REQUIREMENTS.accepted).toEqual({
       verification: 'fidelity-verification',
-      storageDiscriminator: 'gate-2',
+      storageDiscriminator: 'fidelity-verification',
     })
   })
 
   it('monitored requires Persistence Verification', () => {
     expect(VERIFICATION_REQUIREMENTS.monitored).toEqual({
       verification: 'persistence-verification',
-      storageDiscriminator: 'gate-3',
+      storageDiscriminator: 'persistence-verification',
     })
   })
 
@@ -283,12 +283,12 @@ describe('transitionLifecycle', () => {
     })
 
     // Verification status exists and passed
-    db.queryOne.mockResolvedValue({ passed: true, source_refs: ['TEP-WG-002'] })
+    db.queryOne.mockResolvedValue({ passed: true, source_refs: ['TEP-ES-002'] })
 
     await transitionLifecycle(db as any, 'FP-002', 'accepted', {
       trigger: 'fidelity-verification-pass',
-      verificationReport: 'CR-G2-WG-002',
-      packetId: 'TEP-WG-002',
+      verificationReport: 'VR-G2-ES-002',
+      packetId: 'TEP-ES-002',
     })
 
     expect(db.update).toHaveBeenCalledWith(
@@ -298,30 +298,30 @@ describe('transitionLifecycle', () => {
     )
   })
 
-  it('allows accepted transition when the verificationReport is a persisted Fidelity Verification coverage report', async () => {
+  it('allows accepted transition when the verificationReport is a persisted Fidelity Verification verification report', async () => {
     db.get.mockResolvedValue({
       _key: 'FN-MOTDWVR2-W7UN',
       lifecycleState: 'produced',
     })
     db.queryOne.mockResolvedValue({
       passed: true,
-      source: 'specs_coverage_reports',
-      type: 'gate-2',
+      source: 'verification_reports',
+      type: 'fidelity-verification',
       source_refs: ['TEP-FN-MOTDWVR2-W7UN'],
     })
 
     await transitionLifecycle(db as any, 'FN-MOTDWVR2-W7UN', 'accepted', {
       trigger: 'fidelity-verification-pass',
-      verificationReport: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
+      verificationReport: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T22-34-30-000Z',
       packetId: 'TEP-FN-MOTDWVR2-W7UN',
     })
 
     expect(db.queryOne).toHaveBeenCalledWith(
-      expect.stringContaining('specs_coverage_reports'),
+      expect.stringContaining('verification_reports'),
       {
-        key: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
+        key: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T22-34-30-000Z',
         verificationRequired: 'fidelity-verification',
-        storageDiscriminator: 'gate-2',
+        storageDiscriminator: 'fidelity-verification',
       },
     )
     expect(db.update).toHaveBeenCalledWith(
@@ -361,12 +361,12 @@ describe('transitionLifecycle', () => {
       _key: 'FP-002',
       lifecycleState: 'produced',
     })
-    db.queryOne.mockResolvedValue({ passed: true, source_refs: ['TEP-WG-002'] })
+    db.queryOne.mockResolvedValue({ passed: true, source_refs: ['TEP-ES-002'] })
 
     await transitionLifecycle(db as any, 'FP-002', 'accepted', {
       trigger: 'fidelity-verification-pass',
-      verificationReport: 'CR-G2-WG-002',
-      packetId: 'TEP-WG-002',
+      verificationReport: 'VR-G2-ES-002',
+      packetId: 'TEP-ES-002',
     })
 
     expect(db.saveEdge).toHaveBeenCalledWith(
@@ -374,8 +374,8 @@ describe('transitionLifecycle', () => {
       expect.any(String),
       expect.any(String),
       expect.objectContaining({
-        verificationReport: 'CR-G2-WG-002',
-        packetId: 'TEP-WG-002',
+        verificationReport: 'VR-G2-ES-002',
+        packetId: 'TEP-ES-002',
       }),
     )
   })
@@ -390,8 +390,8 @@ describe('transitionLifecycle', () => {
     await expect(
       transitionLifecycle(db as any, 'FP-002', 'accepted', {
         trigger: 'fidelity-verification-pass',
-        verificationReport: 'CR-G2-WG-002',
-        packetId: 'TEP-WG-002',
+        verificationReport: 'VR-G2-ES-002',
+        packetId: 'TEP-ES-002',
       }),
     ).rejects.toThrow(/not tied to packet/i)
   })

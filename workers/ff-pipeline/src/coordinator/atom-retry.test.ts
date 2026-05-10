@@ -26,8 +26,8 @@ import type { PlannerInput } from '../agents/planner-agent.js'
 
 function makeState(overrides: Partial<GraphState> = {}): GraphState {
   return {
-    ...createInitialState('WG-RETRY', {
-      id: 'WG-RETRY',
+    ...createInitialState('ES-RETRY', {
+      id: 'ES-RETRY',
       title: 'Atom Retry Test',
       atoms: [
         { id: 'atom-001', description: 'Auth module', assignedTo: 'coder' },
@@ -501,7 +501,7 @@ describe('v4.1 Commit 2: Per-atom retry isolation', () => {
   // ──────────────────────────────────────────────────────────
 
   it('createInitialState sets failedAtomIds to null', () => {
-    const state = createInitialState('WG-001', { id: 'WG-001' })
+    const state = createInitialState('ES-001', { id: 'ES-001' })
     expect(state.failedAtomIds).toBeNull()
   })
 

@@ -100,7 +100,7 @@ vi.mock('./stages/propose-function', () => ({
   proposeFunction: vi.fn(async () => ({
     _key: 'FP-001',
     title: 'test proposal',
-    prd: { title: 'Test PRD', atoms: [], invariants: [] },
+    intentSpecification: { title: 'Test Intent Specification', atoms: [], invariants: [] },
   })),
 }))
 
@@ -116,10 +116,10 @@ vi.mock('./stages/semantic-review', () => ({
 
 vi.mock('./stages/compile', () => ({
   PASS_NAMES: ['atoms', 'contracts', 'invariants', 'validations', 'dependencies', 'schedule', 'budget', 'executableSpecification'],
-  compilePRD: vi.fn(async (_pass: string, state: Record<string, unknown>) => ({
+  compileIntentSpecification: vi.fn(async (_pass: string, state: Record<string, unknown>) => ({
     ...state,
     executableSpecification: {
-      _key: 'WG-TEST',
+      _key: 'ES-TEST',
       title: 'Test ExecutableSpecification',
       atoms: [{ id: 'a1', description: 'test atom' }],
       invariants: [],
@@ -164,7 +164,7 @@ function createEnv(overrides?: Record<string, unknown>) {
         verification: "coherence",
         passed: true,
         timestamp: '2026-04-25T00:00:00Z',
-        executableSpecificationId: 'WG-TEST',
+        executableSpecificationId: 'ES-TEST',
         checks: [{ name: 'lineage', passed: true, detail: 'ok' }],
         summary: 'All checks passed',
       })),
@@ -196,8 +196,8 @@ const SIGNAL_PAYLOAD = {
   signal: { signalType: 'internal' as const, source: 'test', title: 'Test', description: 'Test signal' },
 }
 
-function sampleTrellisExecutionPacket(executableSpecificationId = 'WG-TEST') {
-  const subject = executableSpecificationId.replace(/^WG-/, '')
+function sampleTrellisExecutionPacket(executableSpecificationId = 'ES-TEST') {
+  const subject = executableSpecificationId.replace(/^ES-/, '')
   return {
     id: `TEP-${subject}`,
     executableSpecificationId,
@@ -264,8 +264,8 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          executableSpecificationId: 'WG-TEST',
-          executableSpecification: { _key: 'WG-TEST' },
+          executableSpecificationId: 'ES-TEST',
+          executableSpecification: { _key: 'ES-TEST' },
         }),
       })
 
@@ -286,7 +286,7 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workflowId: 'wf-123',
-          executableSpecification: { _key: 'WG-TEST' },
+          executableSpecification: { _key: 'ES-TEST' },
         }),
       })
 
@@ -304,7 +304,7 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workflowId: 'wf-123',
-          executableSpecificationId: 'WG-TEST',
+          executableSpecificationId: 'ES-TEST',
         }),
       })
 
@@ -355,7 +355,7 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
           })),
         },
         COORDINATOR: {
-          idFromName: vi.fn(() => 'do-synth-WG-TEST'),
+          idFromName: vi.fn(() => 'do-synth-ES-TEST'),
           get: vi.fn(() => ({ fetch: mockDoFetch })),
         },
       })
@@ -367,9 +367,9 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workflowId: 'wf-123',
-          executableSpecificationId: 'WG-TEST',
-          executableSpecification: { _key: 'WG-TEST', title: 'Test' },
-          trellisExecutionPacket: sampleTrellisExecutionPacket('WG-TEST'),
+          executableSpecificationId: 'ES-TEST',
+          executableSpecification: { _key: 'ES-TEST', title: 'Test' },
+          trellisExecutionPacket: sampleTrellisExecutionPacket('ES-TEST'),
           dryRun: false,
         }),
       })
@@ -439,9 +439,9 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workflowId: 'wf-123',
-          executableSpecificationId: 'WG-TEST',
-          executableSpecification: { _key: 'WG-TEST' },
-          trellisExecutionPacket: sampleTrellisExecutionPacket('WG-TEST'),
+          executableSpecificationId: 'ES-TEST',
+          executableSpecification: { _key: 'ES-TEST' },
+          trellisExecutionPacket: sampleTrellisExecutionPacket('ES-TEST'),
         }),
       })
 
@@ -496,9 +496,9 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
       expect(mockQueueSend).toHaveBeenCalledOnce()
       const calls = mockQueueSend.mock.calls as unknown[][]
       const sentMessage = calls[0]![0] as Record<string, unknown>
-      expect(sentMessage.executableSpecificationId).toBe('WG-TEST')
+      expect(sentMessage.executableSpecificationId).toBe('ES-TEST')
       expect(sentMessage.executableSpecification).toBeDefined()
-      expect((sentMessage.executableSpecification as Record<string, unknown>)._key).toBe('WG-TEST')
+      expect((sentMessage.executableSpecification as Record<string, unknown>)._key).toBe('ES-TEST')
       expect(sentMessage.dryRun).toBe(false)
     })
 
@@ -519,7 +519,7 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
             verification: "coherence",
             passed: false,
             timestamp: '2026-04-25T00:00:00Z',
-            executableSpecificationId: 'WG-TEST',
+            executableSpecificationId: 'ES-TEST',
             checks: [{ name: 'lineage', passed: false, detail: 'broken' }],
             summary: 'Failed',
           })),
@@ -584,7 +584,7 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
       expect(result.pressureId).toBe('PRS-001')
       expect(result.capabilityId).toBe('BC-001')
       expect(result.proposalId).toBe('FP-001')
-      expect(result.executableSpecificationId).toBe('WG-TEST')
+      expect(result.executableSpecificationId).toBe('ES-TEST')
       expect(result.coherenceVerificationReport).toBeDefined()
       expect(result.coherenceVerificationReport!.passed).toBe(true)
       expect(result.coherenceVerificationReport).toBe(result.coherenceVerificationReport)

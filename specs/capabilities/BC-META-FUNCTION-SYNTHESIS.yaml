@@ -10,9 +10,9 @@ rationale: >
   the implementation mechanism. Per whitepaper §3 Stage 3 guardrail #2,
   this Capability yields three Function types: execution, control, evidence.
 
-name: Synthesize Functions from WorkGraphs
+name: Synthesize Functions from Executable Specifications
 description: >
-  The Factory's durable ability to transform a compiled WorkGraph plus an
+  The Factory's durable ability to transform a compiled Executable Specification plus an
   ArchitectureCandidate into a complete Function implementation: source code,
   tests, configuration, and documentation. The synthesis is performed by a
   five-role topology (Planner/Coder/Critic/Tester/Verifier per whitepaper §3)
@@ -28,7 +28,7 @@ description: >
   scenario validation, via the five-role topology). FUNCTION-SYNTHESIS is
   where both converge: the candidate determines HOW to synthesize (model
   binding, topology, inference config); the roles determine WHAT to produce
-  (code that satisfies the WorkGraph's specification).
+  (code that satisfies the Executable Specification's specification).
 
 yields:
   execution: FP-META-FUNCTION-SYNTHESIS-EXECUTION

@@ -50,7 +50,7 @@ export const ONTOLOGY_INSTANCES: OntologyInstance[] = [
     uri: 'ff:CriticRole',
     type: 'AgentRole',
     label: 'Critic Agent',
-    comment: 'Reviews PRDs for semantic alignment and code for quality.',
+    comment: 'Reviews Intent Specifications for semantic alignment and code for quality.',
     tools: ['FileReadTool', 'GrepSearchTool', 'ArangoQueryTool'],
     permissions: ['ReadOnly'],
     memoryAccess: ['DecisionsMemory', 'LessonsMemory', 'MentorRulesMemory', 'CodebaseAccess'],
@@ -210,31 +210,6 @@ export const ONTOLOGY_INSTANCES: OntologyInstance[] = [
     label: 'Persistence Verification',
     comment: 'Continuous assurance: detector freshness, evidence source liveness, audit pipeline integrity.',
   },
-  {
-    _key: 'Gate1',
-    uri: 'ff:Gate1',
-    type: 'Gate',
-    label: 'Coherence Verification legacy alias',
-    comment: 'Legacy compatibility alias for Coherence Verification.',
-    legacyAliasOf: 'CoherenceVerification',
-  },
-  {
-    _key: 'Gate2',
-    uri: 'ff:Gate2',
-    type: 'Gate',
-    label: 'Fidelity Verification legacy alias',
-    comment: 'Legacy compatibility alias for Fidelity Verification.',
-    legacyAliasOf: 'FidelityVerification',
-  },
-  {
-    _key: 'Gate3',
-    uri: 'ff:Gate3',
-    type: 'Gate',
-    label: 'Persistence Verification legacy alias',
-    comment: 'Legacy compatibility alias for Persistence Verification.',
-    legacyAliasOf: 'PersistenceVerification',
-  },
-
   // ═══════════════════════════════════════════════════════════════
   // INFRASTRUCTURE INSTANCES — Workers, DOs, Queues, etc.
   // ═══════════════════════════════════════════════════════════════
@@ -251,14 +226,14 @@ export const ONTOLOGY_INSTANCES: OntologyInstance[] = [
     uri: 'ff:ffPipeline',
     type: 'Worker',
     label: 'ff-pipeline',
-    comment: 'Pipeline worker implementing Stages 1-5 + gates.',
+    comment: 'Pipeline worker implementing the Factory runtime pipeline.',
   },
   {
     _key: 'ffGates',
     uri: 'ff:ffGates',
     type: 'Worker',
     label: 'ff-gates',
-    comment: 'Gates worker for coverage validation.',
+    comment: 'Verification worker for validation.',
   },
   {
     _key: 'factoryPipeline',
@@ -332,14 +307,14 @@ export const ONTOLOGY_INSTANCES: OntologyInstance[] = [
     _key: 'col_prds',
     uri: 'ff:col_prds',
     type: 'ArangoCollection',
-    label: 'specs_prds',
-    comment: 'PRD Draft documents.',
+    label: 'intent_specifications',
+    comment: 'Intent Specification Draft documents.',
   },
   {
     _key: 'col_executableSpecifications',
     uri: 'ff:col_executableSpecifications',
     type: 'ArangoCollection',
-    label: 'specs_workgraphs',
+    label: 'executable_specifications',
     comment: 'ExecutableSpecification documents.',
   },
   {
@@ -350,11 +325,11 @@ export const ONTOLOGY_INSTANCES: OntologyInstance[] = [
     comment: 'Invariant documents.',
   },
   {
-    _key: 'col_coverage_reports',
-    uri: 'ff:col_coverage_reports',
+    _key: 'col_verification_reports',
+    uri: 'ff:col_verification_reports',
     type: 'ArangoCollection',
-    label: 'specs_coverage_reports',
-    comment: 'Coverage Report documents.',
+    label: 'verification_reports',
+    comment: 'Verification Report documents.',
   },
   {
     _key: 'col_execution_artifacts',
@@ -392,11 +367,11 @@ export const ONTOLOGY_INSTANCES: OntologyInstance[] = [
     comment: 'Merge Readiness Pack documents.',
   },
   {
-    _key: 'col_gate_status',
-    uri: 'ff:col_gate_status',
+    _key: 'col_verification_status',
+    uri: 'ff:col_verification_status',
     type: 'ArangoCollection',
-    label: 'gate_status',
-    comment: 'Gate status documents.',
+    label: 'verification_status',
+    comment: 'Verification status documents.',
   },
   {
     _key: 'col_trust_scores',
@@ -464,7 +439,7 @@ export const ONTOLOGY_INSTANCES: OntologyInstance[] = [
     uri: 'ff:assuranceGraph',
     type: 'ArangoGraph',
     label: 'assurance_graph',
-    comment: 'Graph connecting invariants, detectors, gates, and coverage reports.',
+    comment: 'Graph connecting invariants, detectors, verifications, and verification reports.',
   },
   {
     _key: 'dependencyGraph',
@@ -511,7 +486,7 @@ export const ONTOLOGY_INSTANCES: OntologyInstance[] = [
     uri: 'ff:Stage5_Compile',
     type: 'PipelineStage',
     label: 'Intent-to-Executable compilation',
-    comment: 'Legacy Stage 5 compatibility label for compiling PRD/Intent Specification into ExecutableSpecification/Executable Specification.',
+    comment: 'Legacy Stage 5 compatibility label for compiling Intent Specification/Intent Specification into ExecutableSpecification/Executable Specification.',
   },
   {
     _key: 'Stage6_Synthesis',

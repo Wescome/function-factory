@@ -16,10 +16,10 @@ const SPEC_DIRS: Record<string, string> = {
   pressures: 'specs_pressures',
   capabilities: 'specs_capabilities',
   functions: 'specs_functions',
-  prds: 'specs_prds',
-  workgraphs: 'specs_workgraphs',
+  'intent-specifications': 'intent_specifications',
+  'executable-specifications': 'executable_specifications',
   invariants: 'specs_invariants',
-  'coverage-reports': 'specs_coverage_reports',
+  'verification-reports': 'verification_reports',
   'critic-reviews': 'specs_critic_reviews',
 }
 

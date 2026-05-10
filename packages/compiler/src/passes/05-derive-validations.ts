@@ -23,17 +23,17 @@ import type {
   RequirementAtom,
   ValidationSpec,
 } from "@factory/schemas"
-import type { NormalizedPRD } from "../types.js"
+import type { NormalizedIntentSpecification } from "../types.js"
 
 export function deriveValidations(
-  normalized: NormalizedPRD,
+  normalized: NormalizedIntentSpecification,
   _atoms: readonly RequirementAtom[],
   _contracts: readonly Contract[],
   invariants: readonly Invariant[],
   _dependencies: readonly Dependency[]
 ): ValidationSpec[] {
   const { draft } = normalized
-  const subject = draft.id.replace(/^PRD-/, "")
+  const subject = draft.id.replace(/^IS-/, "")
 
   const validations: ValidationSpec[] = invariants.map((inv, i) => {
     const index = String(i + 1).padStart(2, "0")

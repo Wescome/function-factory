@@ -28,7 +28,7 @@ export const bootstrapCapabilities: readonly BusinessCapability[] = [
     confidence: 0.95
   },
   {
-    id: "BC-META-SEMANTICALLY-REVIEW-PRDS",
+    id: "BC-META-SEMANTICALLY-REVIEW-Intent SpecificationS",
     source_refs: ["PRS-META-SEMANTIC-REVIEW-GAP"],
     explicitness: "inferred",
     rationale:
@@ -38,7 +38,7 @@ export const bootstrapCapabilities: readonly BusinessCapability[] = [
       "Perform fail-closed semantic review between Coherence Verification success and ExecutableSpecification emission.",
     addressesPressureIds: ["PRS-META-SEMANTIC-REVIEW-GAP"],
     desiredOutcomes: [
-      "Structurally valid but conceptually wrong PRDs are blocked.",
+      "Structurally valid but conceptually wrong Intent Specifications are blocked.",
       "Semantic review becomes a first-class pre-emission control."
     ],
     constraints: [

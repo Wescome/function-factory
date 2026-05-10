@@ -8,7 +8,7 @@
 
 ## What the Repo Looks Like Now
 
-Two packages have source (schemas, compiler skeleton). Six packages are empty directories. All seven `specs/` buckets are empty. Eight SKILL.md files use numbered stage/gate language. AGENTS.md is the entry point but speaks the old vocabulary (Stage 5, Gate 1/2/3, 8-pass compiler). The schemas package uses implementation names (PRD, WorkGraph, CoverageGate1Report) rather than ontological names.
+Two packages have source (schemas, compiler skeleton). Six packages are empty directories. All seven `specs/` buckets are empty. Eight SKILL.md files use numbered stage/gate language. AGENTS.md is the entry point but speaks the old vocabulary (Stage 5, Coherence Verification/2/3, 8-pass compiler). The schemas package uses implementation names (Intent Specification, Executable Specification, VerificationCoherenceVerificationReport) rather than ontological names.
 
 A bootstrap agent reading this repo today has to mentally translate between implementation addresses and architectural concepts on every file it touches. The refactoring eliminates that translation cost.
 
@@ -50,10 +50,10 @@ Current → Renamed:
 specs/pressures/         → specs/pressure-artifacts/
 specs/capabilities/      → specs/capability-artifacts/
 specs/functions/         → specs/function-proposals/
-specs/prds/              → specs/intent-specifications/
-specs/workgraphs/        → specs/executable-specifications/
+specs/intent-specifications/              → specs/intent-specifications/
+specs/executable-specifications/        → specs/executable-specifications/
 specs/invariants/        → specs/invariant-specifications/
-specs/coverage-reports/  → specs/verification-reports/
+specs/verification-reports/  → specs/verification-reports/
 ```
 
 Each directory gets a README.md that quotes the ontological definition verbatim and names the Zod schema that validates its contents.
@@ -64,7 +64,7 @@ Current → Renamed:
 
 ```
 packages/compiler/         → packages/compilation/
-packages/coverage-gates/   → packages/verification/
+packages/verification/   → packages/verification/
 packages/assurance-graph/  → packages/assurance/
 packages/runtime/          → packages/persistence-verification/
 packages/harness-bridge/   → packages/harness-adapters/
@@ -134,9 +134,9 @@ Split into:
     _index.md                       ← registry (rewritten)
     factory-bootstrap/SKILL.md      ← was factory-meta
     compilation/SKILL.md            ← was prd-compiler (remove all pass numbers)
-    coherence-verification/SKILL.md ← was coverage-gate-1
-    fidelity-verification/SKILL.md  ← was coverage-gate-2
-    persistence-verification/SKILL.md ← was coverage-gate-3
+    coherence-verification/SKILL.md ← was coherence-verification
+    fidelity-verification/SKILL.md  ← was fidelity-verification
+    persistence-verification/SKILL.md ← was persistence-verification
     invariant-authoring/SKILL.md    ← keep (already concept-named)
     lineage-authoring/SKILL.md      ← was lineage-preservation
     memory-manager/SKILL.md         ← keep
@@ -150,15 +150,15 @@ In `packages/schemas/src/`:
 
 ```
 core.ts renames:
-  PRDSchema             → IntentSpecificationSchema
-  WorkGraphSchema       → ExecutableSpecificationSchema
+  Intent SpecificationSchema             → IntentSpecificationSchema
+  Executable SpecificationSchema       → ExecutableSpecificationSchema
   (PressureSchema, CapabilitySchema, FunctionSchema, InvariantSchema — keep,
    already concept-named)
 
 coverage.ts renames:
-  CoverageGate1Report   → CoherenceVerificationReport
-  CoverageGate2Report   → FidelityVerificationReport
-  CoverageGate3Report   → PersistenceVerificationReport
+  VerificationCoherenceVerificationReport   → CoherenceVerificationReport
+  VerificationFidelityVerificationReport   → FidelityVerificationReport
+  VerificationPersistenceVerificationReport   → PersistenceVerificationReport
   (or better: single VerificationReport with a `kind` discriminant)
 
 lineage.ts:
@@ -168,7 +168,7 @@ lineage.ts:
 Export aliases for backward compatibility during transition:
 ```typescript
 /** @deprecated Use IntentSpecificationSchema */
-export const PRDSchema = IntentSpecificationSchema
+export const Intent SpecificationSchema = IntentSpecificationSchema
 ```
 
 ### A.8 — Add failure taxonomy template

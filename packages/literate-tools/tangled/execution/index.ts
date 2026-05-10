@@ -190,7 +190,7 @@ interface CandidateSelectionReport {
 interface DecisionState {
   /** I (Intent): what the Function is for. Set once at D0. */
   intent: {
-    prd_id: string;
+    intent_specification_id: string;
     title: string;
     contracts: Contract[];
     invariants: Invariant[];
@@ -271,7 +271,7 @@ declare function execution_enforceWriteDomain(
  * Given input A, expect output B. No mocking required.
  *
  * Maps the nine algebra elements:
- *   I <- PRD title + contracts + invariants
+ *   I <- Intent Specification title + contracts + invariants
  *   C <- ExecutableSpecification + targetNodeIds + editScopes + repoContext
  *   P <- Candidate's convergence_policy + tool_policy + model_binding
  *   E <- empty at D0
@@ -284,7 +284,7 @@ declare function execution_enforceWriteDomain(
 declare function execution_buildInitialDecisionState(
   executableSpecification: ExecutableSpecification,
   candidate: ArchitectureCandidate,
-  prd: PRD
+  prd: Intent Specification
 ): DecisionState;
 
 // --- Block from line 1332 (Part III -- How Does a Function Get Built?) ---
@@ -353,7 +353,7 @@ type DisagreementClass =
 interface Stage6TraceLog {
   run_id: string;
   function_id: string;
-  prd_id: string;
+  intent_specification_id: string;
   executable_specification_id: string;
   candidate_id: string; // AC-*
   harness_command: string;
@@ -534,7 +534,7 @@ interface ConvergencePolicy {
 /**
  * The Execution Context's primary operation.
  *
- * Given a ExecutableSpecification, ArchitectureCandidate, and PRD:
+ * Given a ExecutableSpecification, ArchitectureCandidate, and Intent Specification:
  *   1. Build initial DecisionState (D0) via ACL
  *   2. Admit to runtime (check candidate admissibility, resources, policy)
  *   3. Run the repair loop (five-role topology with DCE at Verifier)
@@ -547,7 +547,7 @@ interface ConvergencePolicy {
 declare function execution_runDarkFactory(
   executableSpecification: ExecutableSpecification,
   candidate: ArchitectureCandidate,
-  prd: PRD
+  prd: Intent Specification
 ): {
   traceLog: Stage6TraceLog;
   adherenceReport: RoleAdherenceReport;

@@ -161,7 +161,7 @@ describe('T12-wiring: buildRealSandboxDeps produces valid SandboxDeps', () => {
     const { buildSandboxDeps } = await import('./sandbox-deps-factory.js')
     const fakeBinding = { idFromName: vi.fn() }
 
-    const deps: SandboxDeps = buildSandboxDeps(fakeBinding, 'WG-wire-test')
+    const deps: SandboxDeps = buildSandboxDeps(fakeBinding, 'ES-wire-test')
 
     expect(typeof deps.execInSandbox).toBe('function')
     expect(typeof deps.prepareWorkspace).toBe('function')
@@ -173,10 +173,10 @@ describe('T12-wiring: buildRealSandboxDeps produces valid SandboxDeps', () => {
     const { buildSandboxDeps } = await import('./sandbox-deps-factory.js')
     const fakeBinding = { idFromName: vi.fn() }
 
-    const deps = buildSandboxDeps(fakeBinding, 'WG-wire-test')
+    const deps = buildSandboxDeps(fakeBinding, 'ES-wire-test')
     await deps.execInSandbox('{}')
 
-    expect(mockGetSandbox).toHaveBeenCalledWith(fakeBinding, 'synth-WG-wire-test')
+    expect(mockGetSandbox).toHaveBeenCalledWith(fakeBinding, 'synth-ES-wire-test')
   })
 })
 
@@ -230,8 +230,8 @@ describe('T12-wiring: throwing stubs trigger callModel fallback (integration)', 
     })
 
     const state: GraphState = {
-      ...createInitialState('WG-fallback', {
-        id: 'WG-fallback',
+      ...createInitialState('ES-fallback', {
+        id: 'ES-fallback',
         title: 'Fallback test',
         atoms: [{ id: 'a1', description: 'test', assignedTo: 'coder' }],
         invariants: [],
@@ -270,8 +270,8 @@ describe('T12-wiring: throwing stubs trigger callModel fallback (integration)', 
     })
 
     const state: GraphState = {
-      ...createInitialState('WG-fallback-t', {
-        id: 'WG-fallback-t',
+      ...createInitialState('ES-fallback-t', {
+        id: 'ES-fallback-t',
         title: 'Tester fallback',
         atoms: [],
         invariants: [],

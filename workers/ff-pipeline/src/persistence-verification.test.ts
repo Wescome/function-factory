@@ -13,7 +13,7 @@ function makeInput(overrides: Partial<PersistenceVerificationRegistrationInput> 
     packetHash: 'sha256:packet-hash',
     timestamp: '2026-05-07T22:00:00.000Z',
     sourceRefs: [
-      'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+      'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z',
       'MRP-MOTE4M1R-G7I0-71',
     ],
     detectors: [
@@ -46,7 +46,7 @@ describe('Persistence Verification registration', () => {
     const report = evaluatePersistenceVerificationRegistration(makeInput())
 
     expect(report).toMatchObject({
-      id: 'CR-FN-MOTDWVR2-W7UN-GATE3-2026-05-07T22-00-00-000Z',
+      id: 'VR-FN-MOTDWVR2-W7UN-PERSISTENCE-2026-05-07T22-00-00-000Z',
       verification: "persistence",
       function_id: 'FN-MOTDWVR2-W7UN',
       overall: 'fail',
@@ -86,7 +86,7 @@ describe('Persistence Verification registration', () => {
     expect(report.source_refs).toEqual(expect.arrayContaining([
       'FN-MOTDWVR2-W7UN',
       'TEP-META-FUNCTION-SYNTHESIS',
-      'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+      'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z',
       'MRP-MOTE4M1R-G7I0-71',
       'INV-META-RUNTIME-VERIFICATION-COVERS-SMOKE',
     ]))

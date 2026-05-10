@@ -37,9 +37,9 @@ async function main() {
   // Document collections
   const docCollections = [
     'specs_signals', 'specs_pressures', 'specs_capabilities',
-    'specs_functions', 'specs_prds', 'specs_workgraphs',
-    'specs_invariants', 'specs_coverage_reports', 'specs_critic_reviews',
-    'gate_status', 'trust_scores', 'invariant_health',
+    'specs_functions', 'intent_specifications', 'executable_specifications',
+    'specs_invariants', 'verification_reports', 'specs_critic_reviews',
+    'verification_status', 'trust_scores', 'invariant_health',
     'memory_episodic', 'memory_semantic', 'memory_working', 'memory_personal',
     'function_runs', 'execution_artifacts',
     'mentorscript_rules', 'consultation_requests',
@@ -85,13 +85,13 @@ async function main() {
         collection: 'lineage_edges',
         from: [
           'specs_signals', 'specs_pressures', 'specs_capabilities',
-          'specs_functions', 'specs_prds', 'specs_workgraphs',
-          'specs_invariants', 'specs_coverage_reports', 'specs_critic_reviews',
+          'specs_functions', 'intent_specifications', 'executable_specifications',
+          'specs_invariants', 'verification_reports', 'specs_critic_reviews',
         ],
         to: [
           'specs_signals', 'specs_pressures', 'specs_capabilities',
-          'specs_functions', 'specs_prds', 'specs_workgraphs',
-          'specs_invariants', 'specs_coverage_reports', 'specs_critic_reviews',
+          'specs_functions', 'intent_specifications', 'executable_specifications',
+          'specs_invariants', 'verification_reports', 'specs_critic_reviews',
         ],
       }],
     },
@@ -100,7 +100,7 @@ async function main() {
       edgeDefinitions: [{
         collection: 'assurance_edges',
         from: ['specs_functions', 'specs_invariants'],
-        to: ['specs_functions', 'specs_invariants', 'specs_coverage_reports'],
+        to: ['specs_functions', 'specs_invariants', 'verification_reports'],
       }],
     },
     {

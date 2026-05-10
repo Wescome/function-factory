@@ -44,7 +44,7 @@ audit_evidence:
 | Artifact persistence | Generated evidence is overwritten or moved without lineage checks. | Treat evidence as append-only unless an explicit migration decision exists. |
 | Lifecycle | Function is promoted without required gate evidence. | Block transition until required gate evidence exists and is fresh. |
 | Harness | Task-family procedure duplicates shared charter policy. | Extract shared rule into charter, keep skill-specific procedure local. |
-| Runtime | Continuous assurance is assumed from a one-shot check. | Require active Gate 3 monitoring before `monitored` state. |
+| Runtime | Continuous assurance is assumed from a one-shot check. | Require active Persistence Verification monitoring before `monitored` state. |
 
 ## Review Checklist
 

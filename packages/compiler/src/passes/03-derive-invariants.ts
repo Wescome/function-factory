@@ -5,7 +5,7 @@
  * (rather than a one-shot requirement) becomes an Invariant with a
  * DetectorSpec. The MVP uses a small set of hand-crafted invariant
  * templates keyed to phrase patterns that commonly appear in Factory
- * PRD constraint sections- determinism, fail-closed discipline,
+ * Intent Specification constraint sections- determinism, fail-closed discipline,
  * lineage preservation, emission on every invocation.
  *
  * For atoms that do not match any template, no invariant is emitted
@@ -23,7 +23,7 @@ import type {
   Invariant,
   RequirementAtom,
 } from "@factory/schemas"
-import type { NormalizedPRD } from "../types.js"
+import type { NormalizedIntentSpecification } from "../types.js"
 import { contractId } from "./_shared.js"
 
 interface InvariantTemplate {
@@ -74,12 +74,12 @@ const TEMPLATES: readonly InvariantTemplate[] = [
     tag: "LINEAGE",
     matches: (a) => /lineage|source_refs|rationale/i.test(a.object),
     statement:
-      "Every CoherenceVerificationReport's source_refs cites the PRD ID and every artifact ID referenced in failing check detail arrays",
+      "Every CoherenceVerificationReport's source_refs cites the Intent Specification ID and every artifact ID referenced in failing check detail arrays",
     detector: {
       name: "coherence_verification_lineage_detector",
-      evidence_sources: ["build.test_output", "audit.coverage_report_scan"],
+      evidence_sources: ["build.test_output", "audit.verification_report_scan"],
       direct_rules: [
-        "CoherenceVerificationReport whose source_refs omits the compiled PRD ID",
+        "CoherenceVerificationReport whose source_refs omits the compiled Intent Specification ID",
         "CoherenceVerificationReport whose source_refs omits a flagged artifact ID present in a failing check's detail array",
       ],
       warning_rules: [],
@@ -91,14 +91,14 @@ const TEMPLATES: readonly InvariantTemplate[] = [
   {
     tag: "EMISSION",
     matches: (a) =>
-      /emit|emission|writes.+report|coverage report.+disk/i.test(a.object),
+      /emit|emission|writes.+report|verification report.+disk/i.test(a.object),
     statement:
-      "Coherence Verification writes a Coverage Report to specs/coverage-reports/ on every invocation, pass or fail, before returning control",
+      "Coherence Verification writes a Verification Report to specs/verification-reports/ on every invocation, pass or fail, before returning control",
     detector: {
       name: "coherence_verification_emission_detector",
       evidence_sources: ["build.test_output", "ci.filesystem_snapshot"],
       direct_rules: [
-        "Coherence Verification invocation where coverage-reports directory contains no matching file after return",
+        "Coherence Verification invocation where verification-reports directory contains no matching file after return",
       ],
       warning_rules: [],
       regression_policy: { direct_violation: "regressed" },
@@ -109,12 +109,12 @@ const TEMPLATES: readonly InvariantTemplate[] = [
 ]
 
 export function deriveInvariants(
-  normalized: NormalizedPRD,
+  normalized: NormalizedIntentSpecification,
   atoms: readonly RequirementAtom[],
   contracts: readonly Contract[]
 ): Invariant[] {
   const { draft } = normalized
-  const subject = draft.id.replace(/^PRD-/, "")
+  const subject = draft.id.replace(/^IS-/, "")
   const invariants: Invariant[] = []
   const emittedTags = new Set<string>()
 

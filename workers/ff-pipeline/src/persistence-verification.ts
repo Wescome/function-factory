@@ -52,7 +52,7 @@ function assertArray<T>(value: T[], field: string): void {
 }
 
 function reportId(functionId: string, timestamp: string): string {
-  return `CR-${functionId}-GATE3-${timestamp.replace(/[:.]/g, '-')}`
+  return `VR-${functionId}-PERSISTENCE-${timestamp.replace(/[:.]/g, '-')}`
 }
 
 function unique(values: string[]): string[] {

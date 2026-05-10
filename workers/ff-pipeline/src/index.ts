@@ -13,7 +13,7 @@ export { synthesizePressure } from './stages/synthesize-pressure'
 export { mapCapability } from './stages/map-capability'
 export { proposeFunction } from './stages/propose-function'
 export { semanticReview } from './stages/semantic-review'
-export { compilePRD, PASS_NAMES } from './stages/compile'
+export { compileIntentSpecification, PASS_NAMES } from './stages/compile'
 
 export { callModel } from './model-bridge'
 
@@ -555,7 +555,7 @@ export default {
         const fidelityVerificationInput = body.fidelityVerificationInput ?? body.fidelityVerificationInput
         if (fidelityVerificationInput) {
           const options: import('./fidelity-verification').AdaptFidelityVerificationInputOptions = {
-            prdId: body.prdId as string,
+            intentSpecificationId: body.intentSpecificationId as string,
             ...(body.timestamp ? { timestamp: body.timestamp as string } : {}),
             ...(body.sourceRefs ? { sourceRefs: body.sourceRefs as string[] } : {}),
           }
@@ -580,18 +580,18 @@ export default {
         if (body.persist === true) {
           const { createClientFromEnv } = await import('@factory/arango-client')
           const db = createClientFromEnv(env)
-          await db.ensureCollection('specs_coverage_reports')
+          await db.ensureCollection('verification_reports')
           const record = {
             _key: result.report.id,
             id: result.report.id,
-            type: 'gate-2',
+            type: 'fidelity-verification',
             passed: result.report.overall === 'pass',
             report: result.report,
             verdict: result.verdict,
             source_refs: result.report.source_refs,
             timestamp: result.report.timestamp,
           }
-          await db.save('specs_coverage_reports', record)
+          await db.save('verification_reports', record)
 
           return new Response(JSON.stringify({
             persisted: true,
@@ -626,17 +626,17 @@ export default {
         if (body.persist === true) {
           const { createClientFromEnv } = await import('@factory/arango-client')
           const db = createClientFromEnv(env)
-          await db.ensureCollection('specs_coverage_reports')
+          await db.ensureCollection('verification_reports')
           const record = {
             _key: report.id,
             id: report.id,
-            type: 'gate-3',
+            type: 'persistence-verification',
             passed: report.overall === 'pass',
             report,
             source_refs: report.source_refs,
             timestamp: report.timestamp,
           }
-          await db.save('specs_coverage_reports', record)
+          await db.save('verification_reports', record)
 
           return new Response(JSON.stringify({
             persisted: true,
@@ -689,7 +689,7 @@ export default {
         const { transitionLifecycle } = await import('./lifecycle.js')
         const db = createClientFromEnv(env)
         const fidelityVerificationReportRecord = await db.queryOne<Record<string, unknown>>(
-          `FOR report IN specs_coverage_reports
+          `FOR report IN verification_reports
              FILTER report._key == @key OR report.id == @key
              LIMIT 1
              RETURN report`,
@@ -700,7 +700,7 @@ export default {
             error: `Fidelity Verification report not found: ${fidelityVerificationReportKey}`,
           }), { status: 404, headers: { 'Content-Type': 'application/json' } })
         }
-        if (fidelityVerificationReportRecord.type !== 'gate-2' || fidelityVerificationReportRecord.passed !== true) {
+        if (fidelityVerificationReportRecord.type !== 'fidelity-verification' || fidelityVerificationReportRecord.passed !== true) {
           return new Response(JSON.stringify({
             error: `Fidelity Verification report has not passed: ${fidelityVerificationReportKey}`,
           }), { status: 400, headers: { 'Content-Type': 'application/json' } })
@@ -1073,7 +1073,7 @@ export default {
           : undefined
         const fidelityVerificationReportRecord = fidelityVerificationReportKey
           ? await db.queryOne<Record<string, unknown>>(
-            `FOR report IN specs_coverage_reports
+            `FOR report IN verification_reports
                FILTER report._key == @key OR report.id == @key
                LIMIT 1
                RETURN report`,
@@ -1085,7 +1085,7 @@ export default {
             error: `Fidelity Verification report not found: ${fidelityVerificationReportKey}`,
           }), { status: 404, headers: { 'Content-Type': 'application/json' } })
         }
-        if (fidelityVerificationReportKey && (fidelityVerificationReportRecord?.type !== 'gate-2' || fidelityVerificationReportRecord.passed !== true)) {
+        if (fidelityVerificationReportKey && (fidelityVerificationReportRecord?.type !== 'fidelity-verification' || fidelityVerificationReportRecord.passed !== true)) {
           return new Response(JSON.stringify({
             error: `Fidelity Verification report has not passed: ${fidelityVerificationReportKey}`,
           }), { status: 400, headers: { 'Content-Type': 'application/json' } })
@@ -1188,7 +1188,7 @@ export default {
           : undefined
         const fidelityVerificationReportRecord = fidelityVerificationReportKey
           ? await db.queryOne<Record<string, unknown>>(
-            `FOR report IN specs_coverage_reports
+            `FOR report IN verification_reports
                FILTER report._key == @key OR report.id == @key
                LIMIT 1
                RETURN report`,
@@ -1211,7 +1211,7 @@ export default {
             error: `Fidelity Verification report not found: ${fidelityVerificationReportKey}`,
           }), { status: 404, headers: { 'Content-Type': 'application/json' } })
         }
-        if (fidelityVerificationReportKey && (fidelityVerificationReportRecord?.type !== 'gate-2' || fidelityVerificationReportRecord.passed !== true)) {
+        if (fidelityVerificationReportKey && (fidelityVerificationReportRecord?.type !== 'fidelity-verification' || fidelityVerificationReportRecord.passed !== true)) {
           return new Response(JSON.stringify({
             error: `Fidelity Verification report has not passed: ${fidelityVerificationReportKey}`,
           }), { status: 400, headers: { 'Content-Type': 'application/json' } })

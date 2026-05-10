@@ -6,10 +6,10 @@ type: meta
 source: Function Factory — Repo Architecture Audit vs v2 Insights
 title: Repo architecture audit for Function Factory at compiler-first stage
 description: >
-  The repo is strongest at schemas, compiler, and Gate 1 coverage. Stages 1–4
-  are only partially operationalized, runtime and assurance are stubs, Gate 2
-  and Gate 3 have schemas but no runners, and Stage 5 does not yet emit
-  ArchitectureCandidate artifacts alongside WorkGraphs.
+  The repo is strongest at schemas, compiler, and Coherence Verification coverage. Stages 1–4
+  are only partially operationalized, runtime and assurance are stubs, Fidelity Verification
+  and Persistence Verification have schemas but no runners, and Stage 5 does not yet emit
+  ArchitectureCandidate artifacts alongside Executable Specifications.
 timestamp: "2026-04-20T12:00:00Z"
 confidence: 0.98
 frequency: 0.9
@@ -23,6 +23,6 @@ tags:
 entities:
   - "@factory/compiler"
   - "@factory/schemas"
-  - "@factory/coverage-gates"
+  - "@factory/verification"
 evidenceRefs:
   - AUDIT-FFF2865

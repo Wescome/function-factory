@@ -5,7 +5,7 @@ source_refs:
 explicitness: explicit
 rationale: >
   Execution Function for the FUNCTION-SYNTHESIS Capability. Owns the five-
-  role topology orchestration: given a WorkGraph + ArchitectureCandidate,
+  role topology orchestration: given a Executable Specification + ArchitectureCandidate,
   instantiate Planner/Coder/Critic/Tester/Verifier under the selected
   binding mode, manage the decision algebra state (D = <I,C,P,E,A,X,O,J,T>),
   enforce repair-loop bounds, handle DCE escalation at the Verifier, and
@@ -15,7 +15,7 @@ type: execution
 capability_ref: BC-META-FUNCTION-SYNTHESIS
 
 inputs:
-  - WorkGraph (compiled specification from Stage 5)
+  - Executable Specification (compiled specification from Stage 5)
   - ArchitectureCandidate (selected by Stage 5.75)
 
 outputs:
@@ -33,9 +33,9 @@ governing_constraints:
 candidate_invariants:
   - The Factory writes no code directly; all code emission is through the role topology
   - No binding-mode-specific logic in the contract layer; binding modes are adapters
-  - Produced code carries lineage back to the WorkGraph node that specified it
+  - Produced code carries lineage back to the Executable Specification node that specified it
 
 success_signals:
-  - A WorkGraph enters function synthesis and a complete Function exits with code on disk
-  - Acceptance review (Gate 2) receives normalized evidence from the synthesis
-  - The execution trace is reproducible given the same WorkGraph + Candidate
+  - A Executable Specification enters function synthesis and a complete Function exits with code on disk
+  - Acceptance review (Fidelity Verification) receives normalized evidence from the synthesis
+  - The execution trace is reproducible given the same Executable Specification + Candidate

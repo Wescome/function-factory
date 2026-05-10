@@ -101,7 +101,7 @@ vi.mock('./stages/propose-function', () => ({
   proposeFunction: vi.fn(async () => ({
     _key: 'FP-001',
     title: 'test proposal',
-    prd: { title: 'Test PRD', atoms: [], invariants: [] },
+    intentSpecification: { title: 'Test Intent Specification', atoms: [], invariants: [] },
   })),
 }))
 
@@ -117,10 +117,10 @@ vi.mock('./stages/semantic-review', () => ({
 
 vi.mock('./stages/compile', () => ({
   PASS_NAMES: ['atoms', 'contracts', 'invariants', 'validations', 'dependencies', 'schedule', 'budget', 'executableSpecification'],
-  compilePRD: vi.fn(async (_pass: string, state: Record<string, unknown>) => ({
+  compileIntentSpecification: vi.fn(async (_pass: string, state: Record<string, unknown>) => ({
     ...state,
     executableSpecification: {
-      _key: 'WG-TEST',
+      _key: 'ES-TEST',
       title: 'Test ExecutableSpecification',
       atoms: [{ id: 'a1', description: 'test atom' }],
       invariants: [],
@@ -167,7 +167,7 @@ function createEnv(overrides?: Record<string, unknown>) {
         verification: "coherence",
         passed: true,
         timestamp: '2026-04-25T00:00:00Z',
-        executableSpecificationId: 'WG-TEST',
+        executableSpecificationId: 'ES-TEST',
         checks: [{ name: 'lineage', passed: true, detail: 'ok' }],
         summary: 'All checks passed',
       })),
@@ -202,8 +202,8 @@ const SIGNAL_PAYLOAD = {
   signal: { signalType: 'internal' as const, source: 'test', title: 'Test', description: 'Test signal' },
 }
 
-function sampleTrellisExecutionPacket(executableSpecificationId = 'WG-TEST') {
-  const subject = executableSpecificationId.replace(/^WG-/, '')
+function sampleTrellisExecutionPacket(executableSpecificationId = 'ES-TEST') {
+  const subject = executableSpecificationId.replace(/^ES-/, '')
   return {
     id: `TEP-${subject}`,
     executableSpecificationId,
@@ -290,15 +290,15 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       const env = createEnv({
         COORDINATOR: {
-          idFromName: vi.fn(() => 'do-synth-WG-TEST'),
+          idFromName: vi.fn(() => 'do-synth-ES-TEST'),
           get: vi.fn(() => ({ fetch: mockDoFetch })),
         },
       })
 
       const msg = createMockMessage({
         workflowId: 'wf-123',
-        executableSpecificationId: 'WG-TEST',
-        executableSpecification: { _key: 'WG-TEST', title: 'Test', atoms: [] },
+        executableSpecificationId: 'ES-TEST',
+        executableSpecification: { _key: 'ES-TEST', title: 'Test', atoms: [] },
         dryRun: false,
       })
 
@@ -338,8 +338,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       const msg = createMockMessage({
         workflowId: 'wf-123',
-        executableSpecificationId: 'WG-TEST',
-        executableSpecification: { _key: 'WG-TEST' },
+        executableSpecificationId: 'ES-TEST',
+        executableSpecification: { _key: 'ES-TEST' },
         dryRun: false,
       })
 
@@ -372,15 +372,15 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
           })),
         },
         COORDINATOR: {
-          idFromName: vi.fn(() => 'do-synth-WG-TEST'),
+          idFromName: vi.fn(() => 'do-synth-ES-TEST'),
           get: vi.fn(() => ({ fetch: mockDoFetch })),
         },
       })
 
       const msg = createMockMessage({
         workflowId: 'wf-123',
-        executableSpecificationId: 'WG-TEST',
-        executableSpecification: { _key: 'WG-TEST' },
+        executableSpecificationId: 'ES-TEST',
+        executableSpecification: { _key: 'ES-TEST' },
         dryRun: false,
       })
 
@@ -396,7 +396,7 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
     it('uses env.COORDINATOR.idFromName with synth-{executableSpecificationId} naming', async () => {
       const { default: worker } = await import('./index')
 
-      const mockIdFromName = vi.fn(() => 'do-synth-WG-CUSTOM')
+      const mockIdFromName = vi.fn(() => 'do-synth-ES-CUSTOM')
       const mockDoFetch = vi.fn(async () => new Response('{}', {
         headers: { 'Content-Type': 'application/json' },
       }))
@@ -410,8 +410,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       const msg = createMockMessage({
         workflowId: 'wf-456',
-        executableSpecificationId: 'WG-CUSTOM',
-        executableSpecification: { _key: 'WG-CUSTOM' },
+        executableSpecificationId: 'ES-CUSTOM',
+        executableSpecification: { _key: 'ES-CUSTOM' },
         dryRun: true,
       })
 
@@ -420,7 +420,7 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       await worker.queue(batch as never, env as never, ctx as never)
 
-      expect(mockIdFromName).toHaveBeenCalledWith('synth-WG-CUSTOM')
+      expect(mockIdFromName).toHaveBeenCalledWith('synth-ES-CUSTOM')
     })
 
     it('passes dryRun: true through to DO when message specifies it', async () => {
@@ -439,8 +439,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       const msg = createMockMessage({
         workflowId: 'wf-789',
-        executableSpecificationId: 'WG-DRY',
-        executableSpecification: { _key: 'WG-DRY' },
+        executableSpecificationId: 'ES-DRY',
+        executableSpecification: { _key: 'ES-DRY' },
         dryRun: true,
       })
 
@@ -471,8 +471,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       const msg = createMockMessage({
         workflowId: 'wf-789',
-        executableSpecificationId: 'WG-NODRY',
-        executableSpecification: { _key: 'WG-NODRY' },
+        executableSpecificationId: 'ES-NODRY',
+        executableSpecification: { _key: 'ES-NODRY' },
         // dryRun intentionally omitted
       })
 
@@ -506,8 +506,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       const msg = createMockMessage({
         workflowId: 'wf-err',
-        executableSpecificationId: 'WG-ERR',
-        executableSpecification: { _key: 'WG-ERR' },
+        executableSpecificationId: 'ES-ERR',
+        executableSpecification: { _key: 'ES-ERR' },
         dryRun: false,
       }, 1) // first attempt
 
@@ -545,8 +545,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
       // attempts = 3 means this is the final attempt (max_retries: 2 = 3 total attempts)
       const msg = createMockMessage({
         workflowId: 'wf-maxretry',
-        executableSpecificationId: 'WG-MAXRETRY',
-        executableSpecification: { _key: 'WG-MAXRETRY' },
+        executableSpecificationId: 'ES-MAXRETRY',
+        executableSpecification: { _key: 'ES-MAXRETRY' },
         dryRun: false,
       }, 3)
 
@@ -628,9 +628,9 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
       const calls = mockQueueSend.mock.calls as unknown[][]
       const sentMessage = calls[0]![0] as Record<string, unknown>
       expect(sentMessage.workflowId).toBe('wf-enqueue-test')
-      expect(sentMessage.executableSpecificationId).toBe('WG-TEST')
+      expect(sentMessage.executableSpecificationId).toBe('ES-TEST')
       expect(sentMessage.executableSpecification).toBeDefined()
-      expect((sentMessage.executableSpecification as Record<string, unknown>)._key).toBe('WG-TEST')
+      expect((sentMessage.executableSpecification as Record<string, unknown>)._key).toBe('ES-TEST')
       expect(sentMessage.dryRun).toBe(false)
     })
 
@@ -859,8 +859,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       const msg = createMockMessage({
         workflowId: 'wf-logbug',
-        executableSpecificationId: 'WG-LOGBUG',
-        executableSpecification: { _key: 'WG-LOGBUG' },
+        executableSpecificationId: 'ES-LOGBUG',
+        executableSpecification: { _key: 'ES-LOGBUG' },
         dryRun: false,
       }, 3) // max retries exhausted
 
@@ -908,8 +908,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       const msg = createMockMessage({
         workflowId: 'wf-status-log',
-        executableSpecificationId: 'WG-STATUSLOG',
-        executableSpecification: { _key: 'WG-STATUSLOG' },
+        executableSpecificationId: 'ES-STATUSLOG',
+        executableSpecification: { _key: 'ES-STATUSLOG' },
         dryRun: false,
       }, 3)
 
@@ -1254,9 +1254,9 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workflowId: 'wf-123',
-          executableSpecificationId: 'WG-TEST',
-          executableSpecification: { _key: 'WG-TEST' },
-          trellisExecutionPacket: sampleTrellisExecutionPacket('WG-TEST'),
+          executableSpecificationId: 'ES-TEST',
+          executableSpecification: { _key: 'ES-TEST' },
+          trellisExecutionPacket: sampleTrellisExecutionPacket('ES-TEST'),
           dryRun: false,
         }),
       })
@@ -1286,11 +1286,11 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       const msg = createMockMessage({
         type: 'atom-execute',
-        executableSpecificationId: 'WG-ATOM',
+        executableSpecificationId: 'ES-ATOM',
         workflowId: 'wf-atom-1',
         atomId: 'atom-001',
         atomSpec: { id: 'atom-001', description: 'Test atom' },
-        sharedContext: { executableSpecificationId: 'WG-ATOM', specContent: null, briefingScript: {} },
+        sharedContext: { executableSpecificationId: 'ES-ATOM', specContent: null, briefingScript: {} },
         upstreamArtifacts: {},
         maxRetries: 3,
         dryRun: true,
@@ -1309,7 +1309,7 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       const fetchBody = await new Request(fetchArg).json() as Record<string, unknown>
       expect(fetchBody.atomId).toBe('atom-001')
-      expect(fetchBody.executableSpecificationId).toBe('WG-ATOM')
+      expect(fetchBody.executableSpecificationId).toBe('ES-ATOM')
 
       // Message acked
       expect(msg.ack).toHaveBeenCalledOnce()
@@ -1330,7 +1330,7 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       const msg = createMockMessage({
         type: 'atom-execute',
-        executableSpecificationId: 'WG-NAME',
+        executableSpecificationId: 'ES-NAME',
         workflowId: 'wf-1',
         atomId: 'atom-xyz',
         atomSpec: {},
@@ -1345,7 +1345,7 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       await worker.queue(batch as never, env as never, ctx as never)
 
-      expect(mockIdFromName).toHaveBeenCalledWith('atom-WG-NAME-atom-xyz')
+      expect(mockIdFromName).toHaveBeenCalledWith('atom-ES-NAME-atom-xyz')
     })
 
     it('retries atom-execute on DO dispatch failure', async () => {
@@ -1362,7 +1362,7 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       const msg = createMockMessage({
         type: 'atom-execute',
-        executableSpecificationId: 'WG-ERR',
+        executableSpecificationId: 'ES-ERR',
         workflowId: 'wf-err',
         atomId: 'atom-err',
         atomSpec: {},
@@ -1397,7 +1397,7 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       const msg = createMockMessage({
         type: 'atom-execute',
-        executableSpecificationId: 'WG-MAXRETRY',
+        executableSpecificationId: 'ES-MAXRETRY',
         workflowId: 'wf-maxretry',
         atomId: 'atom-dead',
         atomSpec: {},
@@ -1417,7 +1417,7 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       const sentMsg = (mockAtomResultsSend.mock.calls[0] as unknown as [Record<string, unknown>])[0]
       expect(sentMsg.atomId).toBe('atom-dead')
-      expect(sentMsg.executableSpecificationId).toBe('WG-MAXRETRY')
+      expect(sentMsg.executableSpecificationId).toBe('ES-MAXRETRY')
       const result = sentMsg.result as Record<string, unknown>
       const verdict = result.verdict as Record<string, unknown>
       expect(verdict.decision).toBe('fail')
@@ -1447,7 +1447,7 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
       const msg = createMockMessage({
         type: 'phase1-complete',
         workflowId: 'wf-p1',
-        executableSpecificationId: 'WG-P1',
+        executableSpecificationId: 'ES-P1',
         atomCount: 3,
         layerCount: 2,
       })

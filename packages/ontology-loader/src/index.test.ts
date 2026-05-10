@@ -133,7 +133,6 @@ describe('Ontology data constants', () => {
     expect(keys).toContain('ExecutableSpecification')
     expect(keys).toContain('BriefingScript')
     expect(keys).toContain('Verification')
-    expect(keys).toContain('Gate')
     expect(keys).toContain('AgentRole')
     expect(keys).toContain('ConsultationRequestPack')
     expect(keys).toContain('MentorScript')
@@ -215,7 +214,7 @@ describe('Ontology data constants', () => {
     expect(infraInstances.length).toBeGreaterThanOrEqual(7)
   })
 
-  it('uses ontology-primary Verification instances with legacy Gate aliases', () => {
+  it('uses ontology-primary Verification instances', () => {
     const byKey = new Map(ONTOLOGY_INSTANCES.map(instance => [instance._key, instance]))
 
     expect(byKey.get('CoherenceVerification')).toMatchObject({
@@ -230,9 +229,6 @@ describe('Ontology data constants', () => {
       type: 'Verification',
       label: 'Persistence Verification',
     })
-    expect(byKey.get('Gate1')?.legacyAliasOf).toBe('CoherenceVerification')
-    expect(byKey.get('Gate2')?.legacyAliasOf).toBe('FidelityVerification')
-    expect(byKey.get('Gate3')?.legacyAliasOf).toBe('PersistenceVerification')
   })
 
   it('uses ontology-primary verification names in lifecycle constraints', () => {
@@ -265,7 +261,7 @@ describe('Ontology data constants', () => {
     expect(pressure.persistsIn).toBe('specs_pressures')
 
     const wg = ONTOLOGY_CLASSES.find(c => c._key === 'ExecutableSpecification')!
-    expect(wg.persistsIn).toBe('specs_workgraphs')
+    expect(wg.persistsIn).toBe('executable_specifications')
   })
 })
 

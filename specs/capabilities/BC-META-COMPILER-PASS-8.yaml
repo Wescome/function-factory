@@ -6,21 +6,21 @@ explicitness: explicit
 rationale: >
   The Capability that closes PRS-META-COMPILER-PASS-8. Stated at the
   business-capability layer as "assemble compiler intermediates into a
-  WorkGraph" rather than as "implement Pass 8" so that the Capability
+  Executable Specification" rather than as "implement Pass 8" so that the Capability
   remains well-formed even if Pass 8's internal structure changes
   (e.g., if assembly later subdivides into node derivation and edge
   derivation as two passes). The Function derived from this Capability
   is the first execution Function the Factory has authored — prior
-  meta-Functions (Gate 1, detect_regression) are control Functions per
+  meta-Functions (Coherence Verification, detect_regression) are control Functions per
   whitepaper §3.2.
 
 statement: >
   The Factory shall transform the validated intermediates of compiler
   Passes 1–5 (atoms, contracts, invariants, dependencies, validations)
-  into a WorkGraph conforming to the WorkGraph Zod schema, emitted to
+  into a Executable Specification conforming to the Executable Specification Zod schema, emitted to
   disk as a first-class artifact, with every node and edge carrying
   lineage to the compiler intermediate that produced it, and with the
-  emission gated by a passing Gate 1 Coverage Report for the source PRD.
+  emission gated by a passing Coherence Verification Verification Report for the source Intent Specification.
 
 owner: factory_compiler
 confidence: 0.90

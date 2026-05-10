@@ -189,7 +189,7 @@ function sourceRefs(lineage: PROutcomeLineage): string[] {
   if (lineage.pressureId) refs.push(`PRS:${lineage.pressureId}`)
   if (lineage.capabilityId) refs.push(`BC:${lineage.capabilityId}`)
   refs.push(`FN:${lineage.proposalId}`)
-  refs.push(`WG:${lineage.executableSpecificationId}`)
+  refs.push(`ES:${lineage.executableSpecificationId}`)
   return refs
 }
 
@@ -366,7 +366,7 @@ function makeSignal(
 export function buildPROutcomeSignals(input: PROutcomeInput): FeedbackSignal[] {
   const outcome = normalizePROutcome(input)
   const pr = input.pullRequest
-  const wg = input.lineage.executableSpecificationId
+  const executableSpecification = input.lineage.executableSpecificationId
   const signals: FeedbackSignal[] = []
 
   if (outcome.ciState === 'failed') {
@@ -374,7 +374,7 @@ export function buildPROutcomeSignals(input: PROutcomeInput): FeedbackSignal[] {
     signals.push(makeSignal(
       input,
       'synthesis:pr-ci-failed',
-      `PR CI failed: #${pr.number} for ${wg}`,
+      `PR CI failed: #${pr.number} for ${executableSpecification}`,
       `Factory PR #${pr.number} failed CI checks: ${failed}`,
       outcome,
     ))
@@ -382,7 +382,7 @@ export function buildPROutcomeSignals(input: PROutcomeInput): FeedbackSignal[] {
     signals.push(makeSignal(
       input,
       'synthesis:pr-ci-passed',
-      `PR CI passed: #${pr.number} for ${wg}`,
+      `PR CI passed: #${pr.number} for ${executableSpecification}`,
       `Factory PR #${pr.number} passed all observed CI checks`,
       outcome,
     ))
@@ -392,7 +392,7 @@ export function buildPROutcomeSignals(input: PROutcomeInput): FeedbackSignal[] {
     signals.push(makeSignal(
       input,
       'synthesis:pr-changes-requested',
-      `PR changes requested: #${pr.number} for ${wg}`,
+      `PR changes requested: #${pr.number} for ${executableSpecification}`,
       `Factory PR #${pr.number} has requested changes`,
       outcome,
     ))
@@ -400,7 +400,7 @@ export function buildPROutcomeSignals(input: PROutcomeInput): FeedbackSignal[] {
     signals.push(makeSignal(
       input,
       'synthesis:pr-approved',
-      `PR approved: #${pr.number} for ${wg}`,
+      `PR approved: #${pr.number} for ${executableSpecification}`,
       `Factory PR #${pr.number} has an approving review`,
       outcome,
     ))
@@ -408,7 +408,7 @@ export function buildPROutcomeSignals(input: PROutcomeInput): FeedbackSignal[] {
     signals.push(makeSignal(
       input,
       'synthesis:pr-review-requested',
-      `PR review requested: #${pr.number} for ${wg}`,
+      `PR review requested: #${pr.number} for ${executableSpecification}`,
       `Factory PR #${pr.number} is waiting on requested review`,
       outcome,
     ))
@@ -418,7 +418,7 @@ export function buildPROutcomeSignals(input: PROutcomeInput): FeedbackSignal[] {
     signals.push(makeSignal(
       input,
       'synthesis:pr-merged',
-      `PR merged: #${pr.number} for ${wg}`,
+      `PR merged: #${pr.number} for ${executableSpecification}`,
       `Factory PR #${pr.number} was merged`,
       outcome,
     ))
@@ -426,7 +426,7 @@ export function buildPROutcomeSignals(input: PROutcomeInput): FeedbackSignal[] {
     signals.push(makeSignal(
       input,
       'synthesis:pr-closed',
-      `PR closed: #${pr.number} for ${wg}`,
+      `PR closed: #${pr.number} for ${executableSpecification}`,
       `Factory PR #${pr.number} was closed without merge`,
       outcome,
     ))

@@ -27,13 +27,13 @@ const SPEC_COLLECTIONS: Record<string, string> = {
   pressures: 'PRS',
   capabilities: 'BC',
   functions: 'FP',
-  prds: 'PRD',
-  executableSpecifications: 'WG',
+  intentSpecifications: 'IS',
+  executableSpecifications: 'ES',
   invariants: 'INV',
-  coverage_reports: 'CR',
+  verification_reports: 'VR',
 }
 
-const NON_PREFIXED_COLLECTIONS = new Set(['execution_artifacts', 'memory_episodic', 'memory_semantic', 'memory_working', 'memory_personal', 'gate_status'])
+const NON_PREFIXED_COLLECTIONS = new Set(['execution_artifacts', 'memory_episodic', 'memory_semantic', 'memory_working', 'memory_personal', 'verification_status'])
 
 export default class QueryService extends WorkerEntrypoint<QueryEnv> {
   private db!: ArangoClient
@@ -130,7 +130,7 @@ export default class QueryService extends WorkerEntrypoint<QueryEnv> {
 
   /** Get gate status for a specific artifact */
   async getGateStatus(gateNumber: number, artifactId: string): Promise<unknown> {
-    return this.getDb().get('gate_status', `gate:${gateNumber}:${artifactId}`)
+    return this.getDb().get('verification_status', `gate:${gateNumber}:${artifactId}`)
   }
 
   /** Get trust score for a Function */

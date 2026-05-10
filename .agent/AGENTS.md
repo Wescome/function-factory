@@ -36,8 +36,8 @@ cite the Function ID it implements.
 
 - **Artifact IDs.** Prefixes are stable implementation identifiers, not
   ontology names. Pressures `PRS-*`, Capabilities `BC-*`, Functions `FN-*`,
-  PRDs/Intent Specifications `PRD-*`, WorkGraphs/Executable Specifications
-  `WG-*`, Invariants `INV-*`, Verification Reports `CR-*`, Trajectories
+  Intent Specifications/Intent Specifications `IS-*`, Executable Specifications/Executable Specifications
+  `ES-*`, Invariants `INV-*`, Verification Reports `VR-*`, Trajectories
   `TRJ-*`, ProblemFrames `PF-*`, FunctionProposals `FP-*`, Incidents `INC-*`.
 - **Lineage fields.** Every artifact has a `source_refs` array. It must be
   populated with the IDs of every upstream artifact that contributed to it.
@@ -48,7 +48,7 @@ cite the Function ID it implements.
 - **Uncertainty ledger.** When a compiler pass cannot confidently produce an
   artifact, it emits an UncertaintyEntry instead of guessing. Never guess.
 - **Commit message format.** `FN-XXX: summary` for Function work,
-  `GATE-N: summary` for Coverage Gate work, `META: summary` for
+  `VERIFICATION: summary` for Verification work, `META: summary` for
   Factory-about-the-Factory changes, `INFRA: summary` for repo plumbing.
 - **Domain adapter boundary.** Coding concepts such as repositories, branches,
   diffs, pull requests, CI checks, code review, and deployments belong to the

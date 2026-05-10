@@ -27,7 +27,7 @@ export interface GraphDeps {
 
   /** When provided, enables semantic-critic and code-critic nodes. */
   criticAgent?: {
-    semanticReview: (input: { prd: PipelineExecutableSpecification; specContent?: string }) => Promise<SemanticReviewResult>
+    semanticReview: (input: { intentSpecification: PipelineExecutableSpecification; specContent?: string }) => Promise<SemanticReviewResult>
     codeReview: (input: { code: unknown; plan: unknown; executableSpecification: PipelineExecutableSpecification; mentorRules?: string[] }) => Promise<CritiqueReport>
   }
   /** When provided, the tester node uses the real TesterAgent (gdk-agent agentLoop) instead of callModel. */
@@ -99,7 +99,7 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
       let review: SemanticReviewResult
       try {
         review = await deps.criticAgent!.semanticReview({
-          prd: state.executableSpecification,
+          intentSpecification: state.executableSpecification,
           ...(state.specContent ? { specContent: state.specContent } : {}),
         })
       } catch (err) {
@@ -133,7 +133,7 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
     // compile — records pass-through evidence.
     // The real Intent-to-Executable compiler runs before synthesis is enqueued.
     graph.addNode('compile', async (state) => {
-      const compiledPrd = {
+      const compiledIntentSpecification = {
         source: 'stage-6-upstream-compile-evidence',
         evidenceStatus: 'upstream_verified_not_recomputed',
         authoritative: false,
@@ -143,10 +143,10 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
         timestamp: new Date().toISOString(),
       }
       const updated: Partial<GraphState> = {
-        compiledPrd,
+        compiledIntentSpecification,
         roleHistory: [
           ...state.roleHistory,
-          { role: 'compile', output: compiledPrd, tokenUsage: 0, timestamp: new Date().toISOString() },
+          { role: 'compile', output: compiledIntentSpecification, tokenUsage: 0, timestamp: new Date().toISOString() },
         ],
       }
       await deps.persistState({ ...state, ...updated } as GraphState, 'compile')

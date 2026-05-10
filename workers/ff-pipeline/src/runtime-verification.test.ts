@@ -10,7 +10,7 @@ function makeResult(overrides: Partial<SynthesisSmokeResult> = {}): SynthesisSmo
   return {
     lineage: {
       atomId: 'atom-001',
-      planId: 'WG-MOTE4M1R-G7I0',
+      planId: 'ES-MOTE4M1R-G7I0',
       pipelineId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
     },
     coherenceVerificationVerdict: 'pass',

@@ -105,14 +105,14 @@ vi.mock('./stages/map-capability', () => ({
   mapCapability: vi.fn(async () => ({ _key: 'BC-001' })),
 }))
 vi.mock('./stages/propose-function', () => ({
-  proposeFunction: vi.fn(async () => ({ _key: 'FP-001', prd: {} })),
+  proposeFunction: vi.fn(async () => ({ _key: 'FP-001', intentSpecification: {} })),
 }))
 vi.mock('./stages/semantic-review', () => ({
   semanticReview: vi.fn(async () => ({ alignment: 'aligned', confidence: 0.9, citations: [], rationale: '', timestamp: '' })),
 }))
 vi.mock('./stages/compile', () => ({
   PASS_NAMES: [],
-  compilePRD: vi.fn(async (_p: string, s: Record<string, unknown>) => s),
+  compileIntentSpecification: vi.fn(async (_p: string, s: Record<string, unknown>) => s),
 }))
 
 // ─── Helpers ───
@@ -175,7 +175,7 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
     const { default: worker } = await import('./index')
 
     const ledger = {
-      _key: 'WG-DONE',
+      _key: 'ES-DONE',
       workflowId: 'wf-done',
       totalAtoms: 2,
       completedAtoms: 2,
@@ -199,7 +199,7 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
       },
       layers: [],
       allAtomSpecs: {},
-      sharedContext: { executableSpecificationId: 'WG-DONE', specContent: null, briefingScript: {} },
+      sharedContext: { executableSpecificationId: 'ES-DONE', specContent: null, briefingScript: {} },
       pendingAtoms: [],
       phase: 'complete',
     }
@@ -220,7 +220,7 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
     })
 
     const msg = createMockMessage({
-      executableSpecificationId: 'WG-DONE',
+      executableSpecificationId: 'ES-DONE',
       atomId: 'atom-2',
       result: {
         atomId: 'atom-2',
@@ -265,7 +265,7 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
     const { default: worker } = await import('./index')
 
     const ledger = {
-      _key: 'WG-FAIL',
+      _key: 'ES-FAIL',
       workflowId: 'wf-fail',
       totalAtoms: 2,
       completedAtoms: 2,
@@ -292,7 +292,7 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
         'atom-1': { id: 'atom-1', type: 'implementation', critical: true },
         'atom-2': { id: 'atom-2', type: 'implementation', critical: true },
       },
-      sharedContext: { executableSpecificationId: 'WG-FAIL', specContent: null, briefingScript: {} },
+      sharedContext: { executableSpecificationId: 'ES-FAIL', specContent: null, briefingScript: {} },
       pendingAtoms: [],
       phase: 'complete',
     }
@@ -313,7 +313,7 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
     })
 
     const msg = createMockMessage({
-      executableSpecificationId: 'WG-FAIL',
+      executableSpecificationId: 'ES-FAIL',
       atomId: 'atom-2',
       result: {
         atomId: 'atom-2',
@@ -355,7 +355,7 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
 
     // 4 atoms: 3 pass, 1 critical fails = 75% pass rate but should FAIL
     const ledger = {
-      _key: 'WG-CRIT',
+      _key: 'ES-CRIT',
       workflowId: 'wf-crit',
       totalAtoms: 4,
       completedAtoms: 4,
@@ -400,7 +400,7 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
         'atom-3': { id: 'atom-3', type: 'test', critical: false },
         'atom-4': { id: 'atom-4', type: 'implementation', critical: true },
       },
-      sharedContext: { executableSpecificationId: 'WG-CRIT', specContent: null, briefingScript: {} },
+      sharedContext: { executableSpecificationId: 'ES-CRIT', specContent: null, briefingScript: {} },
       pendingAtoms: [],
       phase: 'complete',
     }
@@ -421,7 +421,7 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
     })
 
     const msg = createMockMessage({
-      executableSpecificationId: 'WG-CRIT',
+      executableSpecificationId: 'ES-CRIT',
       atomId: 'atom-4',
       result: {
         atomId: 'atom-4',
@@ -470,7 +470,7 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
 
     // 4 atoms: 3 pass, 1 non-critical fails = 75% pass rate, should PASS
     const ledger = {
-      _key: 'WG-NONCRIT',
+      _key: 'ES-NONCRIT',
       workflowId: 'wf-noncrit',
       totalAtoms: 4,
       completedAtoms: 4,
@@ -515,7 +515,7 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
         'atom-3': { id: 'atom-3', type: 'implementation', critical: true },
         'atom-4': { id: 'atom-4', type: 'config', critical: false },
       },
-      sharedContext: { executableSpecificationId: 'WG-NONCRIT', specContent: null, briefingScript: {} },
+      sharedContext: { executableSpecificationId: 'ES-NONCRIT', specContent: null, briefingScript: {} },
       pendingAtoms: [],
       phase: 'complete',
     }
@@ -536,7 +536,7 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
     })
 
     const msg = createMockMessage({
-      executableSpecificationId: 'WG-NONCRIT',
+      executableSpecificationId: 'ES-NONCRIT',
       atomId: 'atom-4',
       result: {
         atomId: 'atom-4',
@@ -577,7 +577,7 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
     const { default: worker } = await import('./index')
 
     const ledger = {
-      _key: 'WG-FALLBACK',
+      _key: 'ES-FALLBACK',
       workflowId: 'wf-fallback',
       totalAtoms: 1,
       completedAtoms: 1,
@@ -593,7 +593,7 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
       },
       layers: [],
       allAtomSpecs: {},
-      sharedContext: { executableSpecificationId: 'WG-FALLBACK', specContent: null, briefingScript: {} },
+      sharedContext: { executableSpecificationId: 'ES-FALLBACK', specContent: null, briefingScript: {} },
       pendingAtoms: [],
       phase: 'complete',
     }
@@ -618,7 +618,7 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
     })
 
     const msg = createMockMessage({
-      executableSpecificationId: 'WG-FALLBACK',
+      executableSpecificationId: 'ES-FALLBACK',
       atomId: 'atom-1',
       result: {
         atomId: 'atom-1',
@@ -663,7 +663,7 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
     const { default: worker } = await import('./index')
 
     const ledger = {
-      _key: 'WG-PARTIAL',
+      _key: 'ES-PARTIAL',
       workflowId: 'wf-partial',
       totalAtoms: 3,
       completedAtoms: 1,
@@ -679,7 +679,7 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
       },
       layers: [],
       allAtomSpecs: {},
-      sharedContext: { executableSpecificationId: 'WG-PARTIAL', specContent: null, briefingScript: {} },
+      sharedContext: { executableSpecificationId: 'ES-PARTIAL', specContent: null, briefingScript: {} },
       pendingAtoms: ['atom-2', 'atom-3'],
       phase: 'executing',
     }
@@ -700,7 +700,7 @@ describe('atom-results queue consumer: atoms-complete event wiring', () => {
     })
 
     const msg = createMockMessage({
-      executableSpecificationId: 'WG-PARTIAL',
+      executableSpecificationId: 'ES-PARTIAL',
       atomId: 'atom-1',
       result: {
         atomId: 'atom-1',

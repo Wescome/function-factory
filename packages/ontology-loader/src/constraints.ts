@@ -118,16 +118,16 @@ export const ONTOLOGY_CONSTRAINTS: OntologyConstraint[] = [
     minCount: 1,
   },
 
-  // ─── C9: Gate Fail-Closed ──────────────────────────────────────
+  // ─── C9: Verification Fail-Closed ──────────────────────────────
   {
     _key: 'C9-failClosed',
     constraintId: 'C9',
-    name: 'Gate Fail-Closed',
-    shapeName: 'GateFailClosedShape',
+    name: 'Verification Fail-Closed',
+    shapeName: 'VerificationFailClosedShape',
     targetClasses: ['VerificationReport'],
     severity: 'violation',
-    message: 'Gate result MUST be explicitly pass or fail. No ambiguity.',
-    requiredProperties: ['passed', 'gateResult'],
+    message: 'Verification result MUST be explicitly pass or fail. No ambiguity.',
+    requiredProperties: ['passed', 'verificationResult'],
     additionalChecks: [
       { property: 'passed', datatype: 'boolean', minCount: 1, maxCount: 1 },
     ],
@@ -198,7 +198,7 @@ export const ONTOLOGY_CONSTRAINTS: OntologyConstraint[] = [
     shapeName: 'LifecycleTransitionShape',
     targetClasses: ['FunctionProposal'],
     severity: 'violation',
-    message: 'UNGATED PROMOTION: Function cannot transition to verified without Fidelity Verification pass, or to monitored without active Persistence Verification.',
+    message: 'UNVERIFIED PROMOTION: Function cannot transition to verified without Fidelity Verification pass, or to monitored without active Persistence Verification.',
     sparqlCheck: true,
     lifecycleRules: [
       { from: 'Proposed', to: 'Designed' },

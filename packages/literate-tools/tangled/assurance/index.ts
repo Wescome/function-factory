@@ -31,7 +31,7 @@ declare function execution_bundleEvidenceForAcceptanceReview(
 interface FidelityVerificationInput {
   id: string;
   function_id: string;
-  prd_id: string;
+  intent_specification_id: string;
   executable_specification_id: string;
   candidate_id: string; // AC-*
   stage6_run_id: string;
@@ -74,7 +74,7 @@ interface AcceptanceReviewVerdict {
   invariant_exercise: boolean;
   required_validation_pass_rate: number;
   overall: "pass" | "fail";
-  failures: CoverageFailure[];
+  failures: VerificationFailure[];
 }
 
 /**

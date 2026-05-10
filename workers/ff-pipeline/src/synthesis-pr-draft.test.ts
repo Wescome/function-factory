@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  buildSynthesisPRDraft,
+  buildSynthesisPullRequestDraft,
   type SynthesisMaterializationAudit,
 } from './synthesis-pr-draft'
 
@@ -14,7 +14,7 @@ function makeAudit(overrides: Partial<SynthesisMaterializationAudit> = {}): Synt
     pressureId: 'PRS-MOTDWQ0T-S55Y',
     capabilityId: 'BC-MOTDWSVY-PQOO',
     proposalId: 'FP-MOTDWVR2-W7UN',
-    executableSpecificationId: 'WG-MOTE4M1R-G7I0',
+    executableSpecificationId: 'ES-MOTE4M1R-G7I0',
     coherenceVerificationPassed: true,
     atomResults: [
       { atomId: 'atom-001', decision: 'pass', confidence: 0.95, tests: '14/14' },
@@ -44,13 +44,13 @@ function makeAudit(overrides: Partial<SynthesisMaterializationAudit> = {}): Synt
 
 describe('synthesis PR draft plan', () => {
   it('builds a draft PR payload from a materialization audit', () => {
-    const draft = buildSynthesisPRDraft(makeAudit())
+    const draft = buildSynthesisPullRequestDraft(makeAudit())
 
     expect(draft).toMatchObject({
-      title: '[Factory] Materialize WG-MOTE4M1R-G7I0 synthesis artifact',
+      title: '[Factory] Materialize ES-MOTE4M1R-G7I0 synthesis artifact',
       branchName: 'factory/fp-motdwvr2-w7un',
       baseBranch: 'main',
-      executableSpecificationId: 'WG-MOTE4M1R-G7I0',
+      executableSpecificationId: 'ES-MOTE4M1R-G7I0',
       proposalId: 'FP-MOTDWVR2-W7UN',
     })
     expect(draft.body).toContain('Pipeline: `b1b51f73-416d-4d87-90a5-9ccaa12bec76`')
@@ -61,14 +61,14 @@ describe('synthesis PR draft plan', () => {
   })
 
   it('includes lineage IDs in source_refs order', () => {
-    const draft = buildSynthesisPRDraft(makeAudit())
+    const draft = buildSynthesisPullRequestDraft(makeAudit())
 
     expect(draft.sourceRefs).toEqual([
       'SIG-MOTDWPYM-LTW5',
       'PRS-MOTDWQ0T-S55Y',
       'BC-MOTDWSVY-PQOO',
       'FP-MOTDWVR2-W7UN',
-      'WG-MOTE4M1R-G7I0',
+      'ES-MOTE4M1R-G7I0',
     ])
     for (const ref of draft.sourceRefs) {
       expect(draft.body).toContain(`\`${ref}\``)
@@ -76,22 +76,22 @@ describe('synthesis PR draft plan', () => {
   })
 
   it('fails closed when Coherence Verification did not pass', () => {
-    expect(() => buildSynthesisPRDraft(makeAudit({ coherenceVerificationPassed: false }))).toThrow(/Coherence Verification/i)
+    expect(() => buildSynthesisPullRequestDraft(makeAudit({ coherenceVerificationPassed: false }))).toThrow(/Coherence Verification/i)
   })
 
   it('fails closed when runtime synthesis did not pass', () => {
-    expect(() => buildSynthesisPRDraft(makeAudit({ runtimeStatus: 'synthesis-failed' }))).toThrow(
+    expect(() => buildSynthesisPullRequestDraft(makeAudit({ runtimeStatus: 'synthesis-failed' }))).toThrow(
       /synthesis-passed/i,
     )
   })
 
   it('fails closed when any atom did not pass', () => {
-    expect(() => buildSynthesisPRDraft(makeAudit({
+    expect(() => buildSynthesisPullRequestDraft(makeAudit({
       atomResults: [{ atomId: 'atom-001', decision: 'fail', confidence: 0.2, tests: '0/1' }],
     }))).toThrow(/atom-001/i)
   })
 
   it('fails closed when no files were materialized', () => {
-    expect(() => buildSynthesisPRDraft(makeAudit({ materializedFiles: [] }))).toThrow(/materialized/i)
+    expect(() => buildSynthesisPullRequestDraft(makeAudit({ materializedFiles: [] }))).toThrow(/materialized/i)
   })
 })

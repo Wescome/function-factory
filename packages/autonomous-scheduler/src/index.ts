@@ -46,7 +46,7 @@ export const EVIDENCE_KINDS = [
   'artifact_paths',
   'pr_url',
   'review_report',
-  'coverage_report',
+  'verification_report',
 ] as const
 
 export const QUEUE_EVENT_TYPES = [
@@ -70,7 +70,7 @@ type NonEmptyReadonlyArray<T> = readonly [T, ...T[]]
 export interface ExecutableSpecificationHandle {
   id: string
   nodeId: string
-  sourcePrdId?: string
+  sourceIntentSpecificationId?: string
   sourceRefs: string[]
 }
 
@@ -1847,9 +1847,9 @@ export class JsonlAgentQueue {
 }
 
 function parseExecutableSpecification(data: Record<string, unknown>, issues: string[]): ExecutableSpecificationHandle {
-  const id = prefixedString(value(data, 'id'), 'WG-', 'executableSpecification.id', issues)
+  const id = prefixedString(value(data, 'id'), 'ES-', 'executableSpecification.id', issues)
   const nodeId = nonEmptyString(value(data, 'nodeId'), 'executableSpecification.nodeId', issues)
-  const sourcePrdId = optionalPrefixedString(value(data, 'sourcePrdId'), 'PRD-', 'executableSpecification.sourcePrdId', issues)
+  const sourceIntentSpecificationId = optionalPrefixedString(value(data, 'sourceIntentSpecificationId'), 'IS-', 'executableSpecification.sourceIntentSpecificationId', issues)
   const sourceRefs = nonEmptyStringArray(value(data, 'sourceRefs'), 'executableSpecification.sourceRefs', issues)
 
   if (sourceRefs.length === 0) {
@@ -1857,7 +1857,7 @@ function parseExecutableSpecification(data: Record<string, unknown>, issues: str
   }
 
   const executableSpecification: ExecutableSpecificationHandle = { id, nodeId, sourceRefs }
-  if (sourcePrdId) executableSpecification.sourcePrdId = sourcePrdId
+  if (sourceIntentSpecificationId) executableSpecification.sourceIntentSpecificationId = sourceIntentSpecificationId
   return executableSpecification
 }
 

@@ -41,9 +41,9 @@ the pipeline as new inputs.
 
 | Signal Type | Ontology Class | Source | Trigger | Governor Action | Mode | Auto-Approve |
 |---|---|---|---|---|---|---|
-| `synthesis:atom-failed` | WorkGraphInstabilitySignal | `generate-feedback.ts` | Atom verdict = fail | `trigger_pipeline` | event | true |
-| `synthesis:gate1-failed` | ContractFragilitySignal | `pipeline.ts` (gate-1 step) | Gate 1 structural check fails | `diagnose_failure` | event | false |
-| `synthesis:verdict-fail` | WorkGraphInstabilitySignal | `generate-feedback.ts` | Monolithic synthesis fails (no atoms) | `escalate_to_human` | event | false |
+| `synthesis:atom-failed` | Executable SpecificationInstabilitySignal | `generate-feedback.ts` | Atom verdict = fail | `trigger_pipeline` | event | true |
+| `synthesis:coherenceVerification-failed` | ContractFragilitySignal | `pipeline.ts` (coherence-verification step) | Coherence Verification structural check fails | `diagnose_failure` | event | false |
+| `synthesis:verdict-fail` | Executable SpecificationInstabilitySignal | `generate-feedback.ts` | Monolithic synthesis fails (no atoms) | `escalate_to_human` | event | false |
 | `synthesis:low-confidence` | EvidenceGapSignal | `generate-feedback.ts` | Synthesis passes but confidence < 0.8 | `diagnose_failure` | cron | false |
 | `synthesis:orl-degradation` | ModelMismatchSignal | `generate-feedback.ts` | ORL repairCount >= 2 | `trigger_pipeline` | event | true |
 | `synthesis:pr-candidate` | LearningOpportunitySignal | `generate-feedback.ts` | Synthesis passes with confidence >= 0.8 | `no_action` (PR auto-generated) | event | false |
@@ -51,7 +51,7 @@ the pipeline as new inputs.
 **Loop Prevention (3 layers):**
 - Layer 1: `feedbackDepth` counter in `raw` field, max 3
 - Layer 2: Idempotency via `ingest-signal.ts` content hash
-- Layer 3: 30-minute cooldown per `workGraphId + subtype` via AQL query
+- Layer 3: 30-minute cooldown per `executableSpecificationId + subtype` via AQL query
 
 ---
 
@@ -66,7 +66,7 @@ through stages. These are structural events, not feedback signals.
 | `pipeline:approved` | PolicyDecision | `pipeline.ts` (architect-approval step) | Human or auto-approval event received | `no_action` (monitoring) | cron | n/a |
 | `pipeline:rejected` | PolicyDecision | `pipeline.ts` (architect-approval step) | Architect declines pipeline | `archive_signal` | cron | n/a |
 | `pipeline:stage-complete` | TraceEvent | `pipeline.ts` (each `step.do`) | A named step finishes | `no_action` (monitoring) | cron | n/a |
-| `pipeline:synthesis-enqueued` | TraceEvent | `pipeline.ts` (enqueue-synthesis step) | WorkGraph sent to SYNTHESIS_QUEUE | `no_action` (monitoring) | cron | n/a |
+| `pipeline:synthesis-enqueued` | TraceEvent | `pipeline.ts` (enqueue-synthesis step) | Executable Specification sent to SYNTHESIS_QUEUE | `no_action` (monitoring) | cron | n/a |
 | `pipeline:synthesis-timeout` | LatencyObservation | `pipeline.ts` (atoms-complete timeout) | 30-minute waitForEvent expires | `escalate_to_human` | event | n/a |
 | `pipeline:complete` | TraceEvent | `pipeline.ts` (return) | Pipeline returns final result | `no_action` (monitoring) | cron | n/a |
 
@@ -88,7 +88,7 @@ AtomExecutor DOs (`atom-executor-do.ts`) during Stage 6 execution.
 | `coordinator:alarm-fired` | LatencyObservation | `coordinator.ts` alarm() | DO wall-clock deadline exceeded | `diagnose_failure` | event | n/a |
 | `coordinator:fiber-recovered` | RegressionRiskSignal | `coordinator.ts` onFiberRecovered() | DO restarted after eviction | `diagnose_failure` | event | n/a |
 | `atom:complete-pass` | TraceEvent | `atom-executor-do.ts` via ATOM_RESULTS queue | Individual atom finishes with verdict=pass | `no_action` (ledger update) | event | n/a |
-| `atom:complete-fail` | WorkGraphInstabilitySignal | `atom-executor-do.ts` via ATOM_RESULTS queue | Individual atom finishes with verdict=fail | Handled by feedback loop | event | n/a |
+| `atom:complete-fail` | Executable SpecificationInstabilitySignal | `atom-executor-do.ts` via ATOM_RESULTS queue | Individual atom finishes with verdict=fail | Handled by feedback loop | event | n/a |
 | `atom:alarm-fired` | LatencyObservation | `atom-executor-do.ts` alarm() | Atom exceeds 900s wall-clock deadline | Handled by feedback loop | event | n/a |
 | `atom:preflight-auth-fail` | GovernanceViolationSignal | `atom-executor-do.ts` | No API key for resolved model provider | `escalate_to_human` | event | n/a |
 | `atoms:all-complete` | TraceEvent | `index.ts` atom-results consumer | All atoms in ledger complete, Phase 3 runs | `no_action` (relay to Workflow) | event | n/a |
@@ -157,7 +157,7 @@ historical baselines. These are analytical products, not raw telemetry.
 | Signal Type | Ontology Class | Source | Trigger | Governor Action | Mode | Auto-Approve |
 |---|---|---|---|---|---|---|
 | `drift:orl-success-rate-declining` | ModelMismatchSignal | Governor cron (AQL trend query) | ORL success rate drops >10% vs 7-day average | `escalate_to_human` | cron | n/a |
-| `drift:atom-pass-rate-declining` | WorkGraphInstabilitySignal | Governor cron (AQL trend query) | Atom pass rate drops >15% over 48 hours | `escalate_to_human` | cron | n/a |
+| `drift:atom-pass-rate-declining` | Executable SpecificationInstabilitySignal | Governor cron (AQL trend query) | Atom pass rate drops >15% over 48 hours | `escalate_to_human` | cron | n/a |
 | `drift:latency-increasing` | LatencyObservation | Governor cron (AQL trend query) | Mean synthesis time increases >50% | `adjust_config` | cron | n/a |
 | `drift:cost-trending-up` | CostObservation | Governor cron (AQL trend query) | Token cost per synthesis exceeds threshold | `escalate_to_human` | cron | n/a |
 | `drift:model-reliability-changing` | ModelMismatchSignal | Governor cron (AQL trend query) | Specific model's error rate crosses threshold | `adjust_config` | cron | n/a |
@@ -173,9 +173,9 @@ Signal classes (Section C of `ORIENTATION-ONTOLOGY.md`).
 
 ```
 # Synthesis signals
-synthesis:atom-failed        -> WorkGraphInstabilitySignal
-synthesis:gate1-failed       -> ContractFragilitySignal
-synthesis:verdict-fail       -> WorkGraphInstabilitySignal
+synthesis:atom-failed        -> Executable SpecificationInstabilitySignal
+synthesis:coherenceVerification-failed       -> ContractFragilitySignal
+synthesis:verdict-fail       -> Executable SpecificationInstabilitySignal
 synthesis:low-confidence     -> EvidenceGapSignal
 synthesis:orl-degradation    -> ModelMismatchSignal
 synthesis:pr-candidate       -> LearningOpportunitySignal
@@ -187,7 +187,7 @@ pipeline:synthesis-timeout   -> LatencyObservation (TelemetryObservation)
 # Coordinator / atom execution
 coordinator:alarm-fired      -> LatencyObservation (TelemetryObservation)
 coordinator:fiber-recovered  -> RegressionRiskSignal
-atom:complete-fail           -> WorkGraphInstabilitySignal
+atom:complete-fail           -> Executable SpecificationInstabilitySignal
 atom:alarm-fired             -> LatencyObservation (TelemetryObservation)
 atom:preflight-auth-fail     -> GovernanceViolationSignal
 
@@ -209,7 +209,7 @@ external:ci-cd-event         -> TestResult (TelemetryObservation)
 
 # Drift (computed, not observed)
 drift:orl-success-rate-declining     -> ModelMismatchSignal
-drift:atom-pass-rate-declining       -> WorkGraphInstabilitySignal
+drift:atom-pass-rate-declining       -> Executable SpecificationInstabilitySignal
 drift:latency-increasing             -> LatencyObservation (TelemetryObservation)
 drift:cost-trending-up               -> CostObservation (TelemetryObservation)
 drift:model-reliability-changing     -> ModelMismatchSignal
@@ -217,16 +217,16 @@ drift:prompt-effectiveness-declining -> PromptDriftSignal
 drift:feedback-loop-deepening        -> RegressionRiskSignal
 ```
 
-**Coverage of all 11 ontology Signal classes:**
+**Verification of all 11 ontology Signal classes:**
 
 | Ontology Signal Class | Implementation Signals |
 |---|---|
 | PromptDriftSignal | `drift:prompt-effectiveness-declining` |
-| ContractFragilitySignal | `synthesis:gate1-failed` |
+| ContractFragilitySignal | `synthesis:coherenceVerification-failed` |
 | PassInefficiencySignal | (no current source -- see Section 6) |
 | ModelMismatchSignal | `synthesis:orl-degradation`, `drift:orl-success-rate-declining`, `drift:model-reliability-changing` |
 | EvidenceGapSignal | `synthesis:low-confidence`, `orientation:crp-created` |
-| WorkGraphInstabilitySignal | `synthesis:atom-failed`, `synthesis:verdict-fail`, `drift:atom-pass-rate-declining` |
+| Executable SpecificationInstabilitySignal | `synthesis:atom-failed`, `synthesis:verdict-fail`, `drift:atom-pass-rate-declining` |
 | CapabilityGapSignal | (no current source -- see Section 6) |
 | PolicyFrictionSignal | `infra:llm-api-429`, `orientation:governance-recommendation` |
 | RegressionRiskSignal | `coordinator:fiber-recovered`, `infra:queue-retry-exhausted`, `drift:feedback-loop-deepening` |
@@ -256,7 +256,7 @@ export const SIGNAL_ROUTER: Record<string, {
     maxDepth: 3,
     description: 'Retry failed atom via new pipeline run',
   },
-  'synthesis:gate1-failed': {
+  'synthesis:coherenceVerification-failed': {
     governorAction: 'diagnose_failure',
     trigger: 'event',
     autoApprove: false,
@@ -529,8 +529,8 @@ proposed -> designed -> in_progress -> implemented -> verified -> monitored -> r
 | `implemented -> verified` | `lifecycle:verified` | TraceEvent | `no_action` |
 | `verified -> monitored` | `lifecycle:monitored` | TraceEvent | `no_action` |
 | `monitored -> retired` | `lifecycle:retired` | PolicyDecision | `archive_signal` |
-| Gate 2 fail (blocks `implemented -> verified`) | `lifecycle:gate2-blocked` | ContractFragilitySignal | `diagnose_failure` |
-| Gate 3 fail (blocks `verified -> monitored`) | `lifecycle:gate3-blocked` | ContractFragilitySignal | `escalate_to_human` |
+| Fidelity Verification fail (blocks `implemented -> verified`) | `lifecycle:fidelityVerification-blocked` | ContractFragilitySignal | `diagnose_failure` |
+| Persistence Verification fail (blocks `verified -> monitored`) | `lifecycle:persistenceVerification-blocked` | ContractFragilitySignal | `escalate_to_human` |
 
 **Note:** Lifecycle transitions are currently fire-and-forget writes to
 ArangoDB. They do not emit queue messages. The Governor detects stalled
@@ -692,7 +692,7 @@ message type to the signal taxonomy:
                | [approval gate]   |  <-- pipeline:approved / pipeline:rejected
                | semantic-review   |
                | Stage 5: compile  |
-               | Gate 1            |  <-- synthesis:gate1-failed
+               | Coherence Verification            |  <-- synthesis:coherenceVerification-failed
                | Stage 6: synth    |  <-- pipeline:synthesis-enqueued
                +---------+---------+
                          |

@@ -4,7 +4,7 @@ import { capabilityDeltaId } from "./ids.js"
 
 const SUPPORTED_CAPABILITIES = [
   "BC-META-COMPUTE-CAPABILITY-DELTA",
-  "BC-META-SEMANTICALLY-REVIEW-PRDS",
+  "BC-META-SEMANTICALLY-REVIEW-Intent SpecificationS",
   "BC-META-EMIT-ARCHITECTURE-CANDIDATES",
 ] as const
 
@@ -25,7 +25,7 @@ const FINDING_TEMPLATES: Record<SupportedId, readonly FindingTemplate[]> = {
     { dimension: "evidence", status: "missing", statement: "No DEL-* artifacts are emitted", severity: 1, confidence: 0.95 },
     { dimension: "integration", status: "underutilized", statement: "Schemas exist but are not integrated into a Function Proposal decomposition pipeline", severity: 0.7, confidence: 0.9 },
   ],
-  "BC-META-SEMANTICALLY-REVIEW-PRDS": [
+  "BC-META-SEMANTICALLY-REVIEW-Intent SpecificationS": [
     { dimension: "execution", status: "missing", statement: "No semantic review execution engine exists", severity: 1, confidence: 0.95 },
     { dimension: "control", status: "missing", statement: "No fail-closed semantic review rule set exists", severity: 1, confidence: 0.95 },
     { dimension: "evidence", status: "missing", statement: "No SemanticReviewReport or equivalent artifacts are emitted", severity: 1, confidence: 0.95 },
@@ -41,7 +41,7 @@ const FINDING_TEMPLATES: Record<SupportedId, readonly FindingTemplate[]> = {
 
 const RATIONALE: Record<SupportedId, string> = {
   "BC-META-COMPUTE-CAPABILITY-DELTA": "Derived from repo architecture audit and current inventory",
-  "BC-META-SEMANTICALLY-REVIEW-PRDS": "Derived from repo architecture audit and semantic-review inventory",
+  "BC-META-SEMANTICALLY-REVIEW-Intent SpecificationS": "Derived from repo architecture audit and semantic-review inventory",
   "BC-META-EMIT-ARCHITECTURE-CANDIDATES": "Derived from repo architecture audit and architecture-candidate inventory",
 }
 

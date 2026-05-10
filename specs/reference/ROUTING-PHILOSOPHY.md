@@ -16,19 +16,19 @@
 
 ### Tier 1: Structural Quality (Pipeline Stages 1-5)
 
-**What it does:** Converts Signals into WorkGraphs through decomposition, classification, and compilation.
+**What it does:** Converts Signals into Executable Specifications through decomposition, classification, and compilation.
 
-**What matters:** Rich structural output — more atoms, more invariants, more dependencies, better lineage. A richer WorkGraph gives the synthesis agents more to work with.
+**What matters:** Rich structural output — more atoms, more invariants, more dependencies, better lineage. A richer Executable Specification gives the synthesis agents more to work with.
 
-**Model selection criterion:** Choose the model that produces the most structurally complete Gate 1 output. Measure by:
+**Model selection criterion:** Choose the model that produces the most structurally complete Coherence Verification output. Measure by:
 - Atom count (more = better decomposition)
 - Invariant count (more = better constraint extraction)
 - Dependency count (more = better relationship modeling)
-- Gate 1 pass rate (must be 100%)
+- Coherence Verification pass rate (must be 100%)
 
 **CEF evidence:**
 
-| Model | Atoms | Invariants | Dependencies | Gate 1 |
+| Model | Atoms | Invariants | Dependencies | Coherence Verification |
 |-------|-------|-----------|-------------|--------|
 | qwen-coder-32b | 16 | 2 | 8 | PASS |
 | deepseek-r1-32b | 6 | 3 | 4 | PASS |
@@ -36,7 +36,7 @@
 
 **Decision:** llama-3.3-70b wins for Tier 1. 3-4x more invariants than 32b models. The structural richness matters more than the model size efficiency.
 
-**Governor rule:** If a pipeline stage model's invariant extraction drops below 3 per WorkGraph on average (over 10 runs), generate a Signal to evaluate alternative models.
+**Governor rule:** If a pipeline stage model's invariant extraction drops below 3 per Executable Specification on average (over 10 runs), generate a Signal to evaluate alternative models.
 
 ### Tier 2: Agent Reliability (Stage 6 Synthesis Roles)
 
@@ -87,7 +87,7 @@ Until then, Tier 2 models handle everything. Quality failures are captured as CE
 
 | Condition | Action | Confidence |
 |-----------|--------|-----------|
-| Model's Gate 1 pass rate < 95% | Replace for pipeline stages | Auto (>0.9) |
+| Model's Coherence Verification pass rate < 95% | Replace for pipeline stages | Auto (>0.9) |
 | Model's invariant count avg < 3 | Evaluate 70b+ alternatives | CRP (0.8) |
 | Model's agentLoop completion rate < 80% | Downgrade reliability tier | Auto (>0.9) |
 | Model's ORL repair rate > 50% | Evaluate alternative for agents | CRP (0.8) |

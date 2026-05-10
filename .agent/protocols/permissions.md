@@ -9,8 +9,8 @@ bypass.
 - Read `.agent/memory/` at any depth.
 - Read `specs/` at any depth.
 - Run `pnpm test`, `pnpm build`, `pnpm lint`, `pnpm typecheck`.
-- Create files in `specs/prds/`, `specs/pressures/`, `specs/capabilities/`,
-  `specs/functions/`, `specs/invariants/`, `specs/coverage-reports/`,
+- Create files in `specs/intent-specifications/`, `specs/pressures/`, `specs/capabilities/`,
+  `specs/functions/`, `specs/invariants/`, `specs/verification-reports/`,
   `specs/signals/`, `specs/deltas/`.
 - Write to `.agent/memory/working/` and `.agent/memory/episodic/`.
 - Write to `.agent/memory/semantic/LESSONS.md` and `DECISIONS.md` — the
@@ -32,8 +32,8 @@ bypass.
   autonomously writable — see above.)
 - Modify this file (`permissions.md`). Only humans edit this file.
 - Merge pull requests.
-- Create files in `specs/workgraphs/` by hand (WorkGraphs are compiler
-  output; hand-authoring requires approval. Compiler-emitted WorkGraphs
+- Create files in `specs/executable-specifications/` by hand (Executable Specifications are compiler
+  output; hand-authoring requires approval. Compiler-emitted Executable Specifications
   via `pnpm compile` are always-allowed — see above).
 - Install new npm dependencies.
 - Modify CI/CD configuration (`.github/workflows/`).
@@ -50,8 +50,8 @@ bypass.
   (the canonical schema module), or the six non-negotiables in README.md
   without architect involvement.
 - Disable or bypass `pre_tool_call.py` or any lifecycle hook.
-- Emit a WorkGraph that fails Gate 1.
-- Promote a Function to `monitored` without Gate 2 passing.
+- Emit a Executable Specification that fails Coherence Verification.
+- Promote a Function to `monitored` without Fidelity Verification passing.
 - Fabricate source references. If lineage is unknown, it is UNCERTAIN,
   not empty.
 - Invent expansions for project-specific TLAs. If an acronym is not

@@ -34,12 +34,12 @@ const fullInput: AgentsMdInput = {
     'PRS-*': 'Pressures',
     'BC-*': 'Capabilities',
     'FN-*': 'Functions',
-    'PRD-*': 'PRDs',
-    'WG-*': 'ExecutableSpecifications',
+    'IS-*': 'Intent Specifications',
+    'ES-*': 'ExecutableSpecifications',
     'INV-*': 'Invariants',
-    'CR-*': 'Coverage Reports',
+    'VR-*': 'Verification Reports',
   },
-  architectureDescription: 'Event-driven pipeline with coverage gates. Pressures flow through compilation stages to produce verified Functions.',
+  architectureDescription: 'Event-driven pipeline with verification checks. Pressures flow through compilation stages to produce verified Functions.',
 }
 
 const minimalInput: AgentsMdInput = {
@@ -104,7 +104,7 @@ describe('agents-md substrate', () => {
       const result = formatForAgentsMd(fullInput)
 
       expect(result).toContain('## Architecture')
-      expect(result).toContain('Event-driven pipeline with coverage gates')
+      expect(result).toContain('Event-driven pipeline with verification checks')
     })
   })
 

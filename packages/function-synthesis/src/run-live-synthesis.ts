@@ -2,7 +2,7 @@
 /**
  * FIRST LIVE SYNTHESIS — Function Factory producing real code autonomously.
  *
- * Executes WG-V2-CLASSIFY-COMMITS through PiAgentBindingMode with real
+ * Executes ES-V2-CLASSIFY-COMMITS through PiAgentBindingMode with real
  * Anthropic API calls (Claude Haiku everywhere).
  *
  * JTBD: When the Factory attempts its first autonomous code production,
@@ -458,7 +458,7 @@ class LivePiAgentBindingMode implements BindingMode {
 
 async function main() {
   console.log("=== FIRST LIVE SYNTHESIS ===")
-  console.log(`ExecutableSpecification: WG-V2-CLASSIFY-COMMITS`)
+  console.log(`ExecutableSpecification: ES-V2-CLASSIFY-COMMITS`)
   console.log(`Candidate: Haiku-everywhere`)
   console.log(`Binding mode: PiAgentBindingMode (pi-ai — 22-provider unified API)`)
   console.log(`Output dir: ${OUTPUT_DIR}`)
@@ -480,7 +480,7 @@ async function main() {
   mkdirSync(OUTPUT_DIR, { recursive: true })
 
   // ─── Load ExecutableSpecification ────────────────────────────────────────────
-  const wgPath = join(process.cwd(), "specs/workgraphs/WG-V2-CLASSIFY-COMMITS.yaml")
+  const wgPath = join(process.cwd(), "specs/executable-specifications/ES-V2-CLASSIFY-COMMITS.yaml")
   console.log(`Loading ExecutableSpecification from: ${wgPath}`)
   const wgYaml = readFileSync(wgPath, "utf-8")
   const wgRaw = parseSimpleYaml(wgYaml)
@@ -488,7 +488,7 @@ async function main() {
   // Build a ExecutableSpecification-shaped object (bypass zod for the runner since
   // the YAML doesn't have lineage fields the schema requires)
   const executableSpecification = {
-    id: String(wgRaw.id ?? "WG-V2-CLASSIFY-COMMITS"),
+    id: String(wgRaw.id ?? "ES-V2-CLASSIFY-COMMITS"),
     source_refs: (wgRaw.source_refs as string[]) ?? [],
     explicitness: "explicit" as const,
     rationale: String(wgRaw.rationale ?? "ExecutableSpecification for classify-commits"),
@@ -512,11 +512,11 @@ async function main() {
   // ─── Create Architecture Candidate ─────────────────────────────
   const candidate = {
     id: "AC-V2-CLASSIFY-COMMITS-HAIKU-EVERYWHERE",
-    source_refs: ["WG-V2-CLASSIFY-COMMITS"],
+    source_refs: ["ES-V2-CLASSIFY-COMMITS"],
     explicitness: "explicit" as const,
     rationale: "Haiku-everywhere config for first live synthesis",
-    sourcePrdId: "PRD-V2-CLASSIFY-COMMITS",
-    sourceExecutableSpecificationId: "WG-V2-CLASSIFY-COMMITS",
+    sourceIntentSpecificationId: "IS-V2-CLASSIFY-COMMITS",
+    sourceExecutableSpecificationId: "ES-V2-CLASSIFY-COMMITS",
     candidateStatus: "selected" as const,
     topology: {
       shape: "linear_chain" as const,

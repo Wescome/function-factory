@@ -130,9 +130,9 @@ importers:
 
   packages/compiler:
     dependencies:
-      '@factory/coverage-gates':
+      '@factory/verification':
         specifier: workspace:*
-        version: link:../coverage-gates
+        version: link:../verification
       '@factory/schemas':
         specifier: workspace:*
         version: link:../schemas
@@ -169,7 +169,7 @@ importers:
         specifier: ^1.4.0
         version: 1.6.1(@types/node@24.12.2)
 
-  packages/coverage-gates:
+  packages/verification:
     dependencies:
       '@factory/schemas':
         specifier: workspace:*
@@ -428,7 +428,7 @@ importers:
         specifier: ^1.4.0
         version: 1.6.1(@types/node@24.12.2)
 
-  packages/prd-authoring:
+  packages/intent-authoring:
     dependencies:
       '@factory/schemas':
         specifier: workspace:*

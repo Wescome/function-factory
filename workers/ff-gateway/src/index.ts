@@ -12,7 +12,7 @@
  *   GET  /lineage/:collection/:key → lineage traversal
  *   GET  /impact/:collection/:key  → impact analysis
  *   POST /coherence-verification → Coherence Verification
- *   POST /gate/1           → legacy Gate 1 compatibility route
+ *   POST /gate/1           → legacy Coherence Verification compatibility route
  *   GET  /gate-status/:gate/:id → gate status lookup
  *   GET  /trust/:id        → trust score
  *   GET  /crps/pending      → pending CRPs (ACE inbox)

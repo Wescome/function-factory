@@ -5,12 +5,12 @@ import { renderArchitectureCandidateYaml } from "../src/render-candidate-yaml.js
 describe("renderArchitectureCandidateYaml", () => {
   it("renders deterministic yaml", () => {
     const candidate = emitArchitectureCandidate({
-      sourcePrdId: "PRD-META-ARCHITECTURE-CANDIDATE-EXECUTION",
-      sourceExecutableSpecificationId: "WG-META-ARCHITECTURE-CANDIDATE-EXECUTION",
+      sourceIntentSpecificationId: "IS-META-ARCHITECTURE-CANDIDATE-EXECUTION",
+      sourceExecutableSpecificationId: "ES-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       sourceRefs: [
         "DEL-META-EMIT-ARCHITECTURE-CANDIDATES",
         "FP-META-ARCHITECTURE-CANDIDATE-EXECUTION",
-        "PRD-META-ARCHITECTURE-CANDIDATE-EXECUTION"
+        "IS-META-ARCHITECTURE-CANDIDATE-EXECUTION"
       ],
     })
 

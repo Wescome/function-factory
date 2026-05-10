@@ -31,6 +31,6 @@ candidate-selection evidence, and patch proposals
 
 - `synthesize(executableSpecification, candidate, bindingMode, config)` remains the primary
   compatibility API.
-- `Gate2Input` remains as a temporary legacy export that points at
+- `FidelityVerificationInput` remains as a temporary legacy export that points at
   `FidelityVerificationInput`.
 - This package must not be renamed as part of ontology grounding alone.

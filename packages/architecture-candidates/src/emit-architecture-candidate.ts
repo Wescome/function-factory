@@ -1,21 +1,21 @@
 import type { ArchitectureCandidate } from "@factory/schemas"
-import { architectureCandidateIdFromPrdId } from "./ids.js"
+import { architectureCandidateIdFromIntentSpecificationId } from "./ids.js"
 
 export interface CandidateEmissionInput {
-  readonly sourcePrdId: string
+  readonly sourceIntentSpecificationId: string
   readonly sourceExecutableSpecificationId: string
   readonly sourceRefs: readonly string[]
 }
 
 export function emitArchitectureCandidate(input: CandidateEmissionInput): ArchitectureCandidate {
-  const { sourcePrdId, sourceExecutableSpecificationId, sourceRefs } = input
+  const { sourceIntentSpecificationId, sourceExecutableSpecificationId, sourceRefs } = input
 
   return {
-    id: architectureCandidateIdFromPrdId(sourcePrdId),
+    id: architectureCandidateIdFromIntentSpecificationId(sourceIntentSpecificationId),
     source_refs: [...sourceRefs],
     explicitness: "inferred",
-    rationale: "Derived deterministically from compiled PRD and emitted ExecutableSpecification in the paired-emission bootstrap path.",
-    sourcePrdId,
+    rationale: "Derived deterministically from compiled Intent Specification and emitted ExecutableSpecification in the paired-emission bootstrap path.",
+    sourceIntentSpecificationId,
     sourceExecutableSpecificationId,
     candidateStatus: "proposed",
     topology: {

@@ -11,7 +11,7 @@ function makePipelineResult(overrides: Record<string, unknown> = {}) {
     status: 'complete',
     output: {
       status: 'synthesis-passed',
-      executableSpecificationId: 'WG-MOTE4M1R-G7I0',
+      executableSpecificationId: 'ES-MOTE4M1R-G7I0',
       atomResults: {
         'atom-001': {
           atomId: 'atom-001',
@@ -33,7 +33,7 @@ function makePipelineResult(overrides: Record<string, unknown> = {}) {
 }
 
 describe('synthesis artifact egress guard', () => {
-  it('extracts validated code files from the WG-MOTE4M1R-G7I0 result shape', () => {
+  it('extracts validated code files from the ES-MOTE4M1R-G7I0 result shape', () => {
     const files = extractSynthesisCodeFiles(makePipelineResult())
 
     expect(files).toEqual([
@@ -164,7 +164,7 @@ describe('synthesis artifact egress guard', () => {
       ],
       {
         pipelineId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
-        executableSpecificationId: 'WG-MOTE4M1R-G7I0',
+        executableSpecificationId: 'ES-MOTE4M1R-G7I0',
         appliedBy: 'test-runner',
       },
       {
@@ -183,7 +183,7 @@ describe('synthesis artifact egress guard', () => {
     expect(deletes).toEqual(['src/dead.ts'])
     expect(audit).toMatchObject({
       pipelineId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
-      executableSpecificationId: 'WG-MOTE4M1R-G7I0',
+      executableSpecificationId: 'ES-MOTE4M1R-G7I0',
       appliedBy: 'test-runner',
       appliedAt: '2026-05-06T02:42:26.000Z',
       validationPassed: true,
@@ -198,7 +198,7 @@ describe('synthesis artifact egress guard', () => {
   it('fails create when the target already exists', async () => {
     await expect(applySynthesisCodeFiles(
       [{ atomId: 'atom-001', path: 'src/existing.ts', action: 'create', content: 'x' }],
-      { pipelineId: 'pipe', executableSpecificationId: 'WG', appliedBy: 'test' },
+      { pipelineId: 'pipe', executableSpecificationId: 'ES', appliedBy: 'test' },
       {
         exists: async () => true,
         writeFile: async () => {},
@@ -211,7 +211,7 @@ describe('synthesis artifact egress guard', () => {
   it('fails modify when the target is missing', async () => {
     await expect(applySynthesisCodeFiles(
       [{ atomId: 'atom-001', path: 'src/missing.ts', action: 'modify', content: 'x' }],
-      { pipelineId: 'pipe', executableSpecificationId: 'WG', appliedBy: 'test' },
+      { pipelineId: 'pipe', executableSpecificationId: 'ES', appliedBy: 'test' },
       {
         exists: async () => false,
         writeFile: async () => {},

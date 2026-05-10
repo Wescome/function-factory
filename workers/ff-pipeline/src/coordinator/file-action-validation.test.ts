@@ -72,7 +72,7 @@ function makeSlice(overrides?: Partial<AtomSlice>): AtomSlice {
     },
     upstreamArtifacts: {},
     sharedContext: {
-      executableSpecificationId: 'WG-FILEACTION',
+      executableSpecificationId: 'ES-FILEACTION',
       specContent: null,
       briefingScript: {},
     },

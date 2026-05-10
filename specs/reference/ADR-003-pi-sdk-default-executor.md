@@ -55,7 +55,7 @@ interface for Container-based execution when SDK embedding is not possible.
 **Skills:** On-demand capability packages with instructions and tools.
 Loaded when triggered, not pre-loaded into every prompt. Progressive
 disclosure without busting the prompt cache. Factory-specific skills
-(e.g., "emit JSON footer matching WorkGraph output contract", "run
+(e.g., "emit JSON footer matching Executable Specification output contract", "run
 invariant detector suite after file writes") can be authored as pi skills
 and loaded at session creation.
 
@@ -64,7 +64,7 @@ Before messages are sent to the LLM, before compaction runs, when a tool
 is called, when a session starts. Extensions operate behind the scenes —
 the LLM never sees them. This is where the Factory enforces write-domain
 policy: an extension can gate `write` and `edit` tool calls against the
-WorkGraph's `fileScope` rules, rejecting unauthorized file modifications
+Executable Specification's `fileScope` rules, rejecting unauthorized file modifications
 before they reach the filesystem.
 
 **AGENTS.md support:** Pi reads AGENTS.md from the working directory at
@@ -144,7 +144,7 @@ const fileGateExtension = {
   name: 'factory-file-gate',
   beforeToolCall: async (toolCall, context) => {
     if (toolCall.name === 'write' || toolCall.name === 'edit') {
-      const allowed = matchesFileScope(toolCall.args.path, workGraph.fileScope)
+      const allowed = matchesFileScope(toolCall.args.path, executableSpecification.fileScope)
       if (!allowed) {
         return { blocked: true, reason: `Path ${toolCall.args.path} outside fileScope` }
       }

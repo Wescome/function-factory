@@ -1,9 +1,9 @@
 ## 2026-04-24: Stage 6 artifact-ID stem is FUNCTION-SYNTHESIS
 
-**Decision:** The PRS/BC/FP/PRD/WG chain for Stage 6 uses the artifact-ID
+**Decision:** The PRS/BC/FP/Intent Specification/WG chain for Stage 6 uses the artifact-ID
 stem `FUNCTION-SYNTHESIS`. Full chain: `PRS-META-FUNCTION-SYNTHESIS`,
 `BC-META-FUNCTION-SYNTHESIS`, `FP-META-FUNCTION-SYNTHESIS`,
-`PRD-META-FUNCTION-SYNTHESIS`, `WG-META-FUNCTION-SYNTHESIS`. The stem
+`IS-META-FUNCTION-SYNTHESIS`, `ES-META-FUNCTION-SYNTHESIS`. The stem
 applies to the Stage 6 coordinator and the five-role topology it governs.
 
 **Rationale:** Four candidates were evaluated: `STAGE-6-CODING-SWARM`,
@@ -47,8 +47,8 @@ with enough detail (per-role read access, write access, do-not rules, output
 contract) that an in-Factory implementation is architecturally derivable.
 The hybrid approach lets the Factory own the contract layer (what each role
 must do) while remaining agnostic about the execution layer (who does it).
-This is the same separation the Factory applies everywhere else — WorkGraphs
-specify, execution realizes. The PRD for FUNCTION-SYNTHESIS must specify the
+This is the same separation the Factory applies everywhere else — Executable Specifications
+specify, execution realizes. The Intent Specification for FUNCTION-SYNTHESIS must specify the
 role contracts as the primary deliverable and the binding-mode interface as
 the secondary deliverable; implementation of any specific binding mode is a
 downstream Function, not part of the FUNCTION-SYNTHESIS chain itself.
@@ -65,93 +65,93 @@ before any of the simpler delegation paths have been proven.
 
 **Status:** Active.
 
-## 2026-04-24: Semantic-alignment review via Critic-role involvement at PRD authoring
+## 2026-04-24: Semantic-alignment review via Critic-role involvement at Intent Specification authoring
 
 **Decision:** The semantic-alignment review mechanism — required to catch
-PRDs that pass Gate 1 structurally but are conceptually miscast against
+Intent Specifications that pass Coherence Verification structurally but are conceptually miscast against
 whitepaper and ConOps ground truth — is implemented as Critic-role
-involvement during PRD authoring, not as a separate gate. Specifically:
-before a PRD enters the Stage 5 compiler, the Critic role (as defined in
-whitepaper §3's five-role topology) reviews the PRD's conceptual model
+involvement during Intent Specification authoring, not as a separate gate. Specifically:
+before a Intent Specification enters the Stage 5 compiler, the Critic role (as defined in
+whitepaper §3's five-role topology) reviews the Intent Specification's conceptual model
 against the authoritative source material cited in its `source_refs` chain.
 The Critic's output is a typed review artifact with a verdict
 (`aligned / miscast / uncertain`) and specific citations to whitepaper or
-ConOps sections that support or contradict the PRD's framing.
+ConOps sections that support or contradict the Intent Specification's framing.
 
-The Critic-at-authoring mechanism supplements Gate 1; it does not replace
-it. Gate 1 remains the structural coverage gate. The Critic review is the
-semantic coverage check. A PRD must pass both to proceed to Stage 6
+The Critic-at-authoring mechanism supplements Coherence Verification; it does not replace
+it. Coherence Verification remains the structural coverage gate. The Critic review is the
+semantic coverage check. A Intent Specification must pass both to proceed to Stage 6
 execution.
 
-**Rationale:** The 2026-04-19 Observed entry "Gate 1 PASS does not imply
-conceptual correctness" documented the failure mode: PRD-META-HARNESS-
-EXECUTE compiled Gate 1 PASS with 30 atoms, 3 contracts, 4 invariants,
+**Rationale:** The 2026-04-19 Observed entry "Coherence Verification PASS does not imply
+conceptual correctness" documented the failure mode: IS-META-HARNESS-
+EXECUTE compiled Coherence Verification PASS with 30 atoms, 3 contracts, 4 invariants,
 all checks green, while its entire conceptual frame was wrong. The root
-cause was not a Gate 1 deficiency — Gate 1's four structural checks are
+cause was not a Coherence Verification deficiency — Coherence Verification's four structural checks are
 correct and complete for their scope — but the absence of any mechanism
-to verify that a PRD's prose aligns with the whitepaper's semantics.
+to verify that a Intent Specification's prose aligns with the whitepaper's semantics.
 
-Three options were evaluated: (a) Gate 1.5, an automated compile-time
+Three options were evaluated: (a) Coherence Verification.5, an automated compile-time
 check; (b) Architect review gate, a human checkpoint; (c) Critic-role
-involvement at PRD authoring. Option (c) was selected because it places
+involvement at Intent Specification authoring. Option (c) was selected because it places
 the review at the point of maximum leverage (before compile, when the
-PRD's conceptual frame is still malleable), it produces a typed artifact
+Intent Specification's conceptual frame is still malleable), it produces a typed artifact
 (the review) that enters the lineage graph, and it reuses the Critic role
 already specified in whitepaper §3 rather than introducing a new gate or
 a new human bottleneck. Option (b) does not scale — the Architect
-becomes a serial dependency on every PRD. Option (a) requires a
+becomes a serial dependency on every Intent Specification. Option (a) requires a
 derivation rule for semantic alignment that does not currently exist and
 risks becoming ad-hoc compliance checking (per the 2026-04-19 Observed
-entry's own warning: "widening Gate 1 to semantic verification without a
+entry's own warning: "widening Coherence Verification to semantic verification without a
 clear derivation rule would turn it into ad-hoc compliance checking").
 
 **Status:** Active.
 
-## 2026-04-24: Bootstrap carve-out — Architect is Critic for PRD-META-FUNCTION-SYNTHESIS
+## 2026-04-24: Bootstrap carve-out — Architect is Critic for IS-META-FUNCTION-SYNTHESIS
 
-**Decision:** The Critic role cannot review the PRD that instantiates the
+**Decision:** The Critic role cannot review the Intent Specification that instantiates the
 Critic role. For the FUNCTION-SYNTHESIS chain specifically
-(`PRS-META-FUNCTION-SYNTHESIS` through `PRD-META-FUNCTION-SYNTHESIS`), the
+(`PRS-META-FUNCTION-SYNTHESIS` through `IS-META-FUNCTION-SYNTHESIS`), the
 Architect fills the Critic role manually, performing semantic-alignment
-review against whitepaper §3 before the PRD enters the Stage 5 compiler.
+review against whitepaper §3 before the Intent Specification enters the Stage 5 compiler.
 This carve-out applies exclusively to the FUNCTION-SYNTHESIS chain and
-expires when the FUNCTION-SYNTHESIS WorkGraph has been executed and the
+expires when the FUNCTION-SYNTHESIS Executable Specification has been executed and the
 Critic role is operational.
 
 **Rationale:** The 2026-04-24 "Semantic-alignment review via Critic-role
 involvement" decision establishes the Critic as the semantic-alignment
-reviewer for all PRDs. But the Critic role is defined inside Stage 6, and
-Stage 6 is the subject of PRD-META-FUNCTION-SYNTHESIS. The Critic cannot
+reviewer for all Intent Specifications. But the Critic role is defined inside Stage 6, and
+Stage 6 is the subject of IS-META-FUNCTION-SYNTHESIS. The Critic cannot
 review its own specification — this is a genuine bootstrap circularity,
 not a theoretical concern. It is structurally identical to the pattern
-that allowed PRD-META-HARNESS-EXECUTE to pass Gate 1 unchallenged: no
+that allowed IS-META-HARNESS-EXECUTE to pass Coherence Verification unchallenged: no
 reviewer existed for the thing being reviewed. The carve-out resolves the
 circularity by substituting the Architect (the only agent with ground-
 truth access to whitepaper §3) for the not-yet-existing Critic, for
-exactly one chain. All subsequent PRDs — including any amendments to the
+exactly one chain. All subsequent Intent Specifications — including any amendments to the
 FUNCTION-SYNTHESIS chain — are subject to Critic review once operational.
 
 The carve-out is recorded as a separate DECISIONS entry rather than a
 footnote in the Critic-role entry because it imposes a concrete
-obligation on a specific human (the Architect must review PRD-META-
+obligation on a specific human (the Architect must review IS-META-
 FUNCTION-SYNTHESIS before compile) and has a concrete expiration
 condition (Critic role operational). Burying it in the parent entry
 risks the obligation being missed.
 
-**Alternatives considered:** (a) No carve-out — let PRD-META-FUNCTION-
-SYNTHESIS proceed without semantic review, relying on Gate 1 alone.
+**Alternatives considered:** (a) No carve-out — let IS-META-FUNCTION-
+SYNTHESIS proceed without semantic review, relying on Coherence Verification alone.
 Rejected — this is precisely the failure mode the 2026-04-19 retraction
 documented. (b) Defer the Critic-role decision until after Stage 6 is
 implemented, then retroactively review. Rejected — retroactive review of
-an already-compiled, possibly already-executed PRD has no remediation
+an already-compiled, possibly already-executed Intent Specification has no remediation
 path short of retraction and reauthoring, which is more expensive than
-upfront review. (c) Use an automated semantic check for this one PRD.
+upfront review. (c) Use an automated semantic check for this one Intent Specification.
 Rejected — no derivation rule for automated semantic alignment exists
 yet; the Architect's judgment against §3 is the only available ground
 truth.
 
 **Status:** Active. Expires when the FUNCTION-SYNTHESIS Critic role is
-operational and has reviewed its first non-FUNCTION-SYNTHESIS PRD.
+operational and has reviewed its first non-FUNCTION-SYNTHESIS Intent Specification.
 
 ## 2026-04-24: Adopt crystallization-from-execution and memory-as-tool patterns (GenericAgent-informed)
 
@@ -159,12 +159,12 @@ operational and has reviewed its first non-FUNCTION-SYNTHESIS PRD.
 framework (lsdefine/GenericAgent, reviewed 2026-04-24) into the Factory's
 operational model:
 
-1. **Crystallization from successful execution.** When a WorkGraph executes
-   through all applicable gates and produces a passing Coverage Report, the
+1. **Crystallization from successful execution.** When a Executable Specification executes
+   through all applicable gates and produces a passing Verification Report, the
    Factory emits a reusable artifact — a template, a macro, or a new
    invariant — derived from the execution path. Crystallized artifacts
    enter `specs/` with full lineage back to the execution that produced
-   them. The mechanism is: successful Gate 3 (assurance) passage triggers
+   them. The mechanism is: successful Persistence Verification (assurance) passage triggers
    a crystallization check; if the execution path contains a novel pattern
    not already captured by an existing invariant or template, a new
    artifact is proposed (not auto-committed — it enters the Critic review
@@ -173,7 +173,7 @@ operational model:
 
 2. **Memory writes as explicit, auditable tool calls.** Every write to
    `.agent/memory/` (episodic, semantic, personal, working) is performed
-   through a typed tool call that the coverage gates can observe, audit,
+   through a typed tool call that the verification checks can observe, audit,
    and include in lineage graphs. No implicit or side-effect memory writes.
    The tool interface is: `memory_write(layer, key, content, source_refs)`,
    where `source_refs` traces the write back to the Function, gate, or
@@ -185,7 +185,7 @@ operational model:
 
 - **Deferred skill authoring.** GenericAgent writes zero skills upfront and
   accretes them only after successful task execution. The Factory's domain
-  (formal PRD compilation with typed invariants and fail-closed gates)
+  (formal Intent Specification compilation with typed invariants and fail-closed gates)
   requires preloaded skills because the compiler passes, gate checks, and
   lineage rules are not discoverable from execution alone — they are
   derived from the whitepaper's formal specification. The eight existing
@@ -195,8 +195,8 @@ operational model:
 
 - **Flat tool surface.** GenericAgent exposes 7 atomic tools and derives
   all capability from composition. The Factory's typed artifact pipeline
-  (Signals → Pressures → Capabilities → Functions → PRDs → WorkGraphs →
-  Invariants → Coverage Reports) is not reducible to a flat tool surface
+  (Signals → Pressures → Capabilities → Functions → Intent Specifications → Executable Specifications →
+  Invariants → Verification Reports) is not reducible to a flat tool surface
   without losing the lineage guarantees that are the Factory's distinctive
   claim. The Factory's tool surface remains typed and stage-aware.
 
@@ -227,7 +227,7 @@ explicit tool calls, not implicit side effects. This means every memory
 mutation is observable, auditable, and attributable. The Factory's
 `.agent/tools/memory_writer.ts` already exists as a file; this decision
 formalizes that every memory write must route through it with typed
-`source_refs`, and that coverage gates may inspect memory-write records
+`source_refs`, and that verification checks may inspect memory-write records
 as part of their audit surface.
 
 **Source material:** GenericAgent repository (github.com/lsdefine/
@@ -257,8 +257,8 @@ do not, creating a two-tier auditability gap.
 **Implementation notes:**
 
 - Crystallization check logic belongs in `packages/runtime/` (Stage 7),
-  not in `packages/coverage-gates/` — it triggers *after* Gate 3, not
-  *as part of* Gate 3. Gate 3 is fail-closed on assurance; crystallization
+  not in `packages/coverage-gates/` — it triggers *after* Persistence Verification, not
+  *as part of* Persistence Verification. Persistence Verification is fail-closed on assurance; crystallization
   is an additive emit on success.
 - The `memory_write` tool interface should be specified as a new entry in
   `.agent/protocols/tool_schemas/` alongside the existing `shell.schema
@@ -266,6 +266,6 @@ do not, creating a two-tier auditability gap.
 - Crystallized artifacts use a new prefix (candidate: `CRY-` or `TPL-`)
   requiring a paired update to `packages/schemas/src/lineage.ts` and
   `packages/coverage-gates/src/checks.ts`. Prefix selection is deferred
-  to the PRD that specifies the crystallization Function.
+  to the Intent Specification that specifies the crystallization Function.
 
 **Status:** Active.

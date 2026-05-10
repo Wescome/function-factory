@@ -1,12 +1,46 @@
 # Current Workspace
 
 ## Status
-Active task: Trellis packet implementation completed through runtime and verification integration.
+Active task: Ontology hard-cut physical refactor complete; ready to commit.
 
 ## Last update
-2026-05-10T22:15:00Z
+2026-05-10T22:53:16Z
 
 ## Current actions
+
+- Completed: ontology hard-cut physical refactor.
+  - Architect direction: proceed through the full refactor backlog without
+    preserving compatibility baggage.
+  - Cut physical artifact storage to ontology names:
+    - `specs/intent-specifications`
+    - `specs/executable-specifications`
+    - `specs/verification-reports`
+  - Cut emitted artifact IDs and source fields to canonical forms:
+    - `IS-*`, `ES-*`, `VR-*`
+    - `intent_specification_id`
+    - `sourceIntentSpecificationId`
+  - Cut runtime storage names:
+    - `intent_specifications`
+    - `executable_specifications`
+    - `verification_reports`
+    - `verification_status`
+  - Cut package and skill names:
+    - `@factory/intent-authoring` at `packages/intent-authoring`
+    - `@factory/verification` at `packages/verification`
+    - `.agent/skills/coherence-verification`
+    - `.agent/skills/fidelity-verification`
+    - `.agent/skills/persistence-verification`
+  - Removed numbered Gate ontology aliases from active ontology-loader data and
+    tightened the hard-cut audit against legacy package, path, prefix, storage,
+    source-field, and numbered Gate API names.
+  - Verification passed:
+    - `pnpm install --offline`
+    - `pnpm -r typecheck`
+    - `pnpm audit:docs`
+    - `pnpm audit:ontology`
+    - `git diff --check`
+    - `pnpm -r test`
+  - `specs/reference/NLAH` remains untouched and untracked by request.
 
 - Completed: Trellis packet implementation.
   - Added first-class `TEP-*` schema support, deterministic canonical hashing,
@@ -72,8 +106,8 @@ Active task: Trellis packet implementation completed through runtime and verific
     numbered gate lifecycle report/requirement aliases, legacy runtime status,
     legacy coordinator role metadata, and the old Fidelity Verification
     diagnostic route alias.
-  - Kept persisted `WG-*`, `specs/workgraphs`, `specs_workgraphs`,
-    `gate_status`, and `type: gate-*` storage discriminators unchanged as
+  - Kept persisted `ES-*`, `specs/executable-specifications`, `executable_specifications`,
+    `verification_status`, and `type: gate-*` storage discriminators unchanged as
     deferred storage/path migration surfaces.
   - Tightened `pnpm audit:ontology` so removed active names cannot re-enter.
   - Verification passed:
@@ -108,7 +142,7 @@ Active task: Trellis packet implementation completed through runtime and verific
 - Completed: literate canonical source sync for hard-cut ontology names.
   - Updated `specs/reference/literate-canonical-reference.md` so tangle now
     emits `ExecutableSpecification`, `VerificationReport`, and descriptive
-    Verification names instead of `WorkGraph`, `CoverageReport`, or numbered
+    Verification names instead of `Executable Specification`, `VerificationReport`, or numbered
     Gate strings.
   - Regenerated `packages/literate-tools/tangled/*` from the canonical
     literate source.
@@ -124,12 +158,12 @@ Active task: Trellis packet implementation completed through runtime and verific
   - `specs/reference/NLAH` remains untouched and untracked by request.
 - Completed: active ontology hard-cut for items 1-4, 6, and 7; storage/path
   migration remains deferred by architect instruction.
-  - Removed active schema aliases for `PRDDraft`, `WorkGraph`, numbered
-    `Gate*` reports/verdicts, and `CoverageReport`; primary schemas now use
+  - Removed active schema aliases for `IntentSpecificationDraft`, `Executable Specification`, numbered
+    `Gate*` reports/verdicts, and `VerificationReport`; primary schemas now use
     `IntentSpecification`, `ExecutableSpecification`, and Verification report
     names.
   - Renamed active compiler and verification modules from numbered Gate /
-    WorkGraph file names to `coherence-verification`,
+    Executable Specification file names to `coherence-verification`,
     `assemble-executable-specification`, and
     `executable-specification-emit`.
   - Routed coordinator execution state through `DomainExecutionRequest` and
@@ -138,7 +172,7 @@ Active task: Trellis packet implementation completed through runtime and verific
     modules and renamed runtime modules to `fidelity-verification` and
     `persistence-verification`.
   - Replaced the ontology audit with a hard-cut audit for active source
-    surfaces while leaving persisted `PRD-*`, `WG-*`, `CR-*`, storage
+    surfaces while leaving persisted `IS-*`, `ES-*`, `VR-*`, storage
     directories, and collection names for the deferred storage/path migration.
   - Verification passed:
     - `pnpm audit:docs`
@@ -216,7 +250,7 @@ Active task: Trellis packet implementation completed through runtime and verific
     Stage 9 Meta-Governance, and Stage 10 Policy Activation.
   - Expanded `specs/reference/ONTOLOGY-CURRENT-MAPPING.md` and
     `specs/reference/ONTOLOGY-COMPATIBILITY-CONTRACT.json` with legacy Stage
-    1-10, Gate 2a/2b, compiler pass, artifact-prefix, skill-file, and
+    1-10, Fidelity Verificationa/2b, compiler pass, artifact-prefix, skill-file, and
     runtime-discriminator concordance.
   - Documented the Pass 8 conflict: current compiler Pass 8 remains a
     Structural Assembly / Executable Specification Assembly compatibility
@@ -252,7 +286,7 @@ Active task: Trellis packet implementation completed through runtime and verific
     exact `Gate*` names remain only as explicit compatibility API names.
   - Completed current slice: literate canonical reference and generated
     tangled output now use `FidelityVerificationInput` and
-    `fidelityVerificationInput` as primary; no `Gate2`/`gate2` residue remains
+    `fidelityVerificationInput` as primary; no `FidelityVerification`/`fidelityVerification` residue remains
     in `packages/literate-tools/src`, `packages/literate-tools/tangled`, or
     `specs/reference/literate-canonical-reference.md`.
   - Completed current slice: ontology compatibility contract now explicitly
@@ -275,9 +309,9 @@ Active task: Trellis packet implementation completed through runtime and verific
     `gateRequired`, and `gateReport` as compatibility aliases.
   - Completed current slice: coordinator graph now uses
     `coherence-verification` as the primary node name and records
-    `legacyRole: gate-1` plus legacy `gate1*` state fields for compatibility.
+    `legacyRole: coherence-verification` plus legacy `coherenceVerification*` state fields for compatibility.
   - Verification passed:
-    - `pnpm --filter @factory/ff-pipeline test -- src/lifecycle.test.ts src/gate2-simulation.test.ts src/function-identity.test.ts`
+    - `pnpm --filter @factory/ff-pipeline test -- src/lifecycle.test.ts src/fidelityVerification-simulation.test.ts src/function-identity.test.ts`
     - `pnpm --filter @factory/ff-pipeline test -- src/coordinator/graph-9node.test.ts src/coordinator/coordinator-9node-wiring.test.ts src/coordinator/vertical-slicing.test.ts src/coordinator/atom-retry.test.ts src/coordinator/spec-content-threading.test.ts src/coordinator/coordinator-persistence-boundary.test.ts`
     - `pnpm --filter @factory/ff-pipeline typecheck`
     - `pnpm audit:ontology`
@@ -285,10 +319,10 @@ Active task: Trellis packet implementation completed through runtime and verific
   - Completed current slice: ff-pipeline now emits
     `coherence-verification-failed` as the primary PipelineResult status for
     failed Coherence Verification while carrying `legacyStatus:
-    gate-1-failed` as an explicit compatibility alias.
+    coherence-verification-failed` as an explicit compatibility alias.
   - Completed current slice: active Stage 6 tests and compile-stage comments
     now use Coherence Verification language as primary while preserving
-    persisted `gate-1` storage discriminators and test coverage for legacy
+    persisted `coherence-verification` storage discriminators and test coverage for legacy
     status compatibility.
   - Verification passed:
     - `pnpm --filter @factory/ff-pipeline test -- src/pipeline.test.ts src/stage6-handoff.test.ts src/queue-bridge.test.ts`
@@ -297,8 +331,8 @@ Active task: Trellis packet implementation completed through runtime and verific
     - `git diff --check`
   - Completed current slice: feedback generation now emits
     `synthesis:coherence-verification-failed` as the primary feedback signal
-    subtype while accepting legacy `gate-1-failed` status and carrying
-    `synthesis:gate1-failed` as compatibility metadata.
+    subtype while accepting legacy `coherence-verification-failed` status and carrying
+    `synthesis:coherenceVerification-failed` as compatibility metadata.
   - Verification passed:
     - `pnpm --filter @factory/ff-pipeline test -- src/stages/generate-feedback.test.ts`
     - `pnpm --filter @factory/ff-pipeline typecheck`
@@ -307,7 +341,7 @@ Active task: Trellis packet implementation completed through runtime and verific
   - Completed current slice: made ontology-loader expose `Verification` as
     the primary governance class, added primary `CoherenceVerification`,
     `FidelityVerification`, and `PersistenceVerification` ontology instances,
-    and kept `Gate1` / `Gate2` / `Gate3` as legacy aliases through
+    and kept `CoherenceVerification` / `FidelityVerification` / `PersistenceVerification` as legacy aliases through
     `legacyAliasOf`.
   - Completed current slice: changed ontology-loader lifecycle constraints
     and detector-property language to primary Verification names while
@@ -321,20 +355,20 @@ Active task: Trellis packet implementation completed through runtime and verific
     - `git diff --check`
   - Completed current slice: made function-synthesis `SynthesisResult`
     require `fidelityVerificationInput` as primary while keeping optional
-    `gate2Input` compatibility.
+    `fidelityVerificationInput` compatibility.
   - Completed current slice: changed compiler-generated invariant text, CLI
-    output, and extracted atom subject from primary Gate 1 wording to
+    output, and extracted atom subject from primary Coherence Verification wording to
     Coherence Verification.
   - Completed current slice: made synthesis PR draft and MRP readiness use
     Coherence Verification status/report fields as primary while keeping
-    `gate1Passed` / `gate1ReportId` compatibility inputs and emitted aliases.
+    `coherenceVerificationPassed` / `coherenceVerificationReportId` compatibility inputs and emitted aliases.
   - Completed current slice: made runtime verification smoke records use
     `coherenceVerificationVerdict` as primary while accepting/emitting
-    `gate1Verdict` compatibility.
+    `coherenceVerificationVerdict` compatibility.
   - Completed current slice: added coordinator
     `coherenceVerificationPassed` / `coherenceVerificationReport` fields and
     records Coherence Verification pass-through evidence through the existing
-    compatibility `gate-1` graph node name.
+    compatibility `coherence-verification` graph node name.
   - Verification passed:
     - `pnpm --filter @factory/function-synthesis test -- test/synthesize.test.ts test/evidence.test.ts`
     - `pnpm --filter @factory/compiler test`
@@ -354,27 +388,27 @@ Active task: Trellis packet implementation completed through runtime and verific
     passed, indicating a load-related flake rather than a regression.
   - Completed previous slice: MRP evidence now uses
     `fidelityVerificationReportId` / `fidelityVerificationReportKey` as
-    canonical names with `gate2ReportId` / `gate2ReportKey` compatibility.
+    canonical names with `fidelityVerificationReportId` / `fidelityVerificationReportKey` compatibility.
   - Completed: inverted function-synthesis normalized evidence schema so
-    `FidelityVerificationInput` is primary and `Gate2Input` remains a
+    `FidelityVerificationInput` is primary and `FidelityVerificationInput` remains a
     compatibility alias.
   - Completed: made the ff-pipeline Fidelity Verification evaluator,
     contract adapter, input types, and lifecycle acceptance diagnostic primary,
-    while preserving legacy Gate 2 aliases and persisted `gate-2` report
+    while preserving legacy Fidelity Verification aliases and persisted `fidelity-verification` report
     compatibility.
   - Completed: made the ff-pipeline Persistence Verification registration
-    evaluator and input types primary, while preserving legacy Gate 3 aliases
-    and persisted `gate-3` report compatibility.
+    evaluator and input types primary, while preserving legacy Persistence Verification aliases
+    and persisted `persistence-verification` report compatibility.
   - Completed: made coverage schema verification report names primary
     (`CoherenceVerificationReport`, `FidelityVerificationReport`,
     `FidelityVerificationVerdict`, `PersistenceVerificationReport`) while
-    preserving legacy `Gate1Report`, `Gate2Report`, `Gate2Verdict`, and
-    `Gate3Report` compatibility aliases.
+    preserving legacy `CoherenceVerificationReport`, `FidelityVerificationReport`, `FidelityVerificationVerdict`, and
+    `PersistenceVerificationReport` compatibility aliases.
   - Completed: made `@factory/coverage-gates` Coherence Verification
-    input, runner, and emitter primary while preserving legacy Gate 1 aliases.
+    input, runner, and emitter primary while preserving legacy Coherence Verification aliases.
   - Current slice: make compiler Pass 8 consume `CoherenceVerificationReport`
     by name and make compiler fixtures build Coherence Verification reports
-    first, with legacy `makeGate1ReportPassing` preserved as an alias.
+    first, with legacy `makeCoherenceVerificationReportPassing` preserved as an alias.
   - `specs/reference/NLAH` remains untouched and untracked by request.
 - Completed: ontology compatibility audit script.
   - Added `scripts/audit-ontology-compat.mjs`.
@@ -396,9 +430,9 @@ Active task: Trellis packet implementation completed through runtime and verific
   - Search excluded `node_modules`, `pnpm-lock.yaml`, `.git`, and ignored
     untracked `specs/reference/NLAH`.
   - Search covered 2040 repository files and 383 critical rename-surface
-    files under specs artifacts, compiler, coverage gates, workers, infra,
+    files under specs artifacts, compiler, verification checks, workers, infra,
     and `.github`.
-  - Report classifies PRD, WorkGraph, CoverageReport, Gate, package, and
+  - Report classifies Intent Specification, Executable Specification, VerificationReport, Gate, package, and
     Arango collection rename families.
   - Conclusion: physical renames are not ready; next safe step is an additive
     compatibility audit script before one-family migration proposals.
@@ -447,7 +481,7 @@ Active task: Trellis packet implementation completed through runtime and verific
   - Preserved current paths, package names, artifact IDs, schema names, and
     APIs as stable compatibility names.
   - No `.agent/AGENTS.md`, `.agent/skills/*`, package source, schema source,
-    directory rename, lifecycle promotion, or Gate 3 monitored promotion has
+    directory rename, lifecycle promotion, or Persistence Verification monitored promotion has
     been performed.
 - Completed: ontology-aligned hybrid roadmap reference-doc grounding slice.
   - Read `.agent/AGENTS.md`, working memory, lessons, decisions,
@@ -463,26 +497,26 @@ Active task: Trellis packet implementation completed through runtime and verific
   - Verification passed: `pnpm audit:docs`, `git diff --check`, and
     trailing-whitespace scan across touched docs/reference files.
   - No `.agent/AGENTS.md`, `.agent/skills/*`, package source, schema source,
-    directory rename, lifecycle promotion, or Gate 3 monitored promotion has
+    directory rename, lifecycle promotion, or Persistence Verification monitored promotion has
     been performed.
 - Completed requested steps 1-3 for `FN-MOTDWVR2-W7UN`:
   - refreshed PR outcome on final head `3cb3c350d86bc960d898d21ed07e33f295e0e000`
   - latest PR outcome signal: `SIG-MOW63V9L-RDF3`
   - CI state passed with `Test`, `Typecheck`, and `Factory PR Gate`
-  - persisted Gate 2 report `CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-08T00-19-22-000Z`
-  - Gate 2 report returned `overall: pass`; verdict `accepted`
+  - persisted Fidelity Verification report `VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-08T00-19-22-000Z`
+  - Fidelity Verification report returned `overall: pass`; verdict `accepted`
   - refreshed canonical evidence `MRP-EVIDENCE-MOTE4M1R-3cb3c35-G2`
-  - refreshed `MRP-MOTE4M1R-G7I0-71` with latest PR signal, latest head, and latest Gate 2 report; verdict `merge-ready`
+  - refreshed `MRP-MOTE4M1R-G7I0-71` with latest PR signal, latest head, and latest Fidelity Verification report; verdict `merge-ready`
   - applied `produced -> accepted` lifecycle transition for runtime `specs_functions/FN-MOTDWVR2-W7UN`
   - first lifecycle apply exposed missing Arango collection `lifecycle_transitions` after the document update had already moved to `accepted`
   - patched lifecycle transition persistence to ensure `lifecycle_transitions` before future transitions and added guarded accepted-edge repair
   - committed and pushed `3cb3c35` (`META: guard lifecycle transition edge persistence`)
   - PR #71 remote checks passed on `3cb3c35`: `Test`, `Typecheck`, and `Factory PR Gate`
   - deployed `ff-pipeline` version `203f4d5d-e915-4c5e-8f5f-688c8b3dfd6a`
-  - ran guarded repair for the missing `produced -> accepted` transition edge with Gate 2 report `CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-08T00-12-13-000Z`
+  - ran guarded repair for the missing `produced -> accepted` transition edge with Fidelity Verification report `VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-08T00-12-13-000Z`
   - final identity readback: `identityConsistent: true`, `resolution: fully_materialized`, proposal lifecycle `produced`, function lifecycle `accepted`, MRP signal `SIG-MOW63V9L-RDF3`, MRP head `3cb3c350d86bc960d898d21ed07e33f295e0e000`, findings empty
   - added PR evidence comment: https://github.com/Wescome/function-factory/pull/71#issuecomment-4402122901
-  - no Gate 3 monitored promotion, ready-for-review transition, PR merge, or monitored lifecycle mutation was performed
+  - no Persistence Verification monitored promotion, ready-for-review transition, PR merge, or monitored lifecycle mutation was performed
 - Verification completed for lifecycle edge guard:
   - `pnpm --filter @factory/ff-pipeline test -- src/lifecycle.test.ts src/diagnostic-routes.test.ts`: pass, 72 tests
   - `pnpm --filter @factory/ff-pipeline typecheck`: pass
@@ -511,7 +545,7 @@ Active task: Trellis packet implementation completed through runtime and verific
   - apply path creates only the `specs_functions/FN-*` runtime document from the plan fields
   - apply path preserves the `FP-*` proposal-keyed document and does not call lifecycle `update`
   - apply path records a `lineage_edges` edge from `specs_functions/FN-*` to `specs_functions/FP-*` with `type: materialized-from`
-  - monitored promotion remains blocked by the migration plan and no Gate 3 promotion path was added
+  - monitored promotion remains blocked by the migration plan and no Persistence Verification promotion path was added
 - Verification completed:
   - `pnpm --filter @factory/ff-pipeline test -- src/diagnostic-routes.test.ts src/function-identity.test.ts`: pass, 36 tests
   - `pnpm --filter @factory/ff-pipeline typecheck`: pass
@@ -538,7 +572,7 @@ Active task: Trellis packet implementation completed through runtime and verific
   - consistent proposal-keyed lifecycle with missing `FN-*` runtime doc returns `required: true`, `safeToApply: true`
   - planned operations are `create_function_document`, `preserve_proposal_document`, and `block_monitored_promotion`
   - inconsistent identity evidence fails closed with `safeToApply: false`
-  - fully materialized identity returns `required: false` while still blocking monitored promotion until Gate 3 active monitoring exists
+  - fully materialized identity returns `required: false` while still blocking monitored promotion until Persistence Verification active monitoring exists
   - `/debug/function-identity` remains read-only; route tests still assert no save/update/edge writes
 - Verification completed:
   - `pnpm --filter @factory/ff-pipeline test -- src/function-identity.test.ts src/diagnostic-routes.test.ts`: pass, 33 tests
@@ -577,29 +611,29 @@ Active task: Trellis packet implementation completed through runtime and verific
   - `pnpm audit:docs`: pass
   - `git diff --check`: pass
 - Live dogfood completed for `99d78b7`:
-  - committed and pushed `99d78b7` (`META: add guarded Gate 2 lifecycle acceptance`)
+  - committed and pushed `99d78b7` (`META: add guarded Fidelity Verification lifecycle acceptance`)
   - PR #71 remote checks passed on `99d78b7c609c3c3a2005e5ef10c68521f2cf69b6`: `Test`, `Typecheck`, and `Factory PR Gate`
   - deployed `ff-pipeline` version `8dcfb180-19ef-434f-99fc-d7c283ad13cd`
   - live `/debug/health` returned healthy with Arango true and AI binding true
   - POST `/debug/pr-outcome` with `processNow: true` returned `SIG-MOW36LRI-I3NG` for head `99d78b7c609c3c3a2005e5ef10c68521f2cf69b6`
-  - POST `/debug/gate2-simulate` persisted `CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-58-10-000Z`; report `overall: pass`; verdict `accepted`
+  - POST `/debug/fidelityVerification-simulate` persisted `VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T22-58-10-000Z`; report `overall: pass`; verdict `accepted`
   - POST `/debug/mrp-evidence` persisted `MRP-EVIDENCE-MOTE4M1R-99d78b7`
-  - POST `/debug/mrp-auto` refreshed `MRP-MOTE4M1R-G7I0-71` with `verdict: merge-ready`, canonical/runtime `functionId: FN-MOTDWVR2-W7UN`, PR signal `SIG-MOW36LRI-I3NG`, CI commit `99d78b7c609c3c3a2005e5ef10c68521f2cf69b6`, and Gate 2 report overlay
+  - POST `/debug/mrp-auto` refreshed `MRP-MOTE4M1R-G7I0-71` with `verdict: merge-ready`, canonical/runtime `functionId: FN-MOTDWVR2-W7UN`, PR signal `SIG-MOW36LRI-I3NG`, CI commit `99d78b7c609c3c3a2005e5ef10c68521f2cf69b6`, and Fidelity Verification report overlay
   - POST `/debug/lifecycle-acceptance` dry-run against runtime key `FP-MOTDWVR2-W7UN` returned `produced -> accepted`, `wouldTransition: true`, `mutationApplied: false`, `applied: false`
   - live `specs_functions` did not contain `FN-MOTDWVR2-W7UN`; it currently contains the lifecycle document under `FP-MOTDWVR2-W7UN`
   - added PR evidence comment: https://github.com/Wescome/function-factory/pull/71#issuecomment-4401785487
   - no lifecycle mutation, monitored promotion, ready-for-review transition, or merge was performed
 - Implemented guarded lifecycle acceptance boundary:
-  - `transitionLifecycle` now recognizes persisted passing Gate reports from `specs_coverage_reports` in addition to legacy `gate_status`
+  - `transitionLifecycle` now recognizes persisted passing Gate reports from `verification_reports` in addition to legacy `verification_status`
   - added `/debug/lifecycle-acceptance` route:
-    - requires `functionKey` and `gate2ReportKey`
-    - loads persisted Gate 2 evidence from `specs_coverage_reports`
+    - requires `functionKey` and `fidelityVerificationReportKey`
+    - loads persisted Fidelity Verification evidence from `verification_reports`
     - loads current Function lifecycle state from `specs_functions`
     - dry-runs `produced -> accepted` by default with no mutation
     - applies the transition only when `apply: true`, using `transitionLifecycle` and recording the gate report on the transition edge
   - route only targets `accepted`; it does not implement or imply `accepted -> monitored`
 - Verification completed:
-  - `pnpm --filter @factory/ff-pipeline test -- src/lifecycle.test.ts src/diagnostic-routes.test.ts src/gate2-simulation.test.ts`: pass, 73 tests
+  - `pnpm --filter @factory/ff-pipeline test -- src/lifecycle.test.ts src/diagnostic-routes.test.ts src/fidelityVerification-simulation.test.ts`: pass, 73 tests
   - `pnpm --filter @factory/ff-pipeline typecheck`: pass
   - `pnpm --filter @factory/ff-pipeline test`: pass, 67 files / 1000 tests
   - `pnpm audit:docs`: pass
@@ -609,50 +643,50 @@ Active task: Trellis packet implementation completed through runtime and verific
   - live `/debug/health` returned healthy with Arango true and AI binding true
   - PR #71 head `edd28d64dda4d4cfd6a20407d96fea877dbee783` had `Test`, `Typecheck`, and `Factory PR Gate` passing; merge state `CLEAN`; PR remains draft
   - POST `/debug/pr-outcome` with `processNow: true` returned `SIG-MOW2CAV8-LBN0` for head `edd28d64dda4d4cfd6a20407d96fea877dbee783`
-  - POST `/debug/gate2-simulate` with normalized Gate2Input, `persist: true`, and lifecycle dry-run persisted `CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z`; report `overall: pass`; verdict `accepted`; dry-run `produced -> accepted` would transition with `mutationApplied: false`
+  - POST `/debug/fidelityVerification-simulate` with normalized FidelityVerificationInput, `persist: true`, and lifecycle dry-run persisted `VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T22-34-30-000Z`; report `overall: pass`; verdict `accepted`; dry-run `produced -> accepted` would transition with `mutationApplied: false`
   - POST `/debug/mrp-evidence` persisted `MRP-EVIDENCE-MOTE4M1R-edd28d6`
-  - POST `/debug/mrp-auto` with `gate2ReportKey` refreshed `MRP-MOTE4M1R-G7I0-71` with `verdict: merge-ready`, canonical/runtime `functionId: FN-MOTDWVR2-W7UN`, PR signal `SIG-MOW2CAV8-LBN0`, CI commit `edd28d64dda4d4cfd6a20407d96fea877dbee783`, and Gate 2 report overlay in canonical sound verification/auditability
-  - POST `/debug/gate3-register` with `persist: true` persisted blocker report `CR-FN-MOTDWVR2-W7UN-GATE3-2026-05-07T22-35-40-000Z` with `overall: fail` by design
+  - POST `/debug/mrp-auto` with `fidelityVerificationReportKey` refreshed `MRP-MOTE4M1R-G7I0-71` with `verdict: merge-ready`, canonical/runtime `functionId: FN-MOTDWVR2-W7UN`, PR signal `SIG-MOW2CAV8-LBN0`, CI commit `edd28d64dda4d4cfd6a20407d96fea877dbee783`, and Fidelity Verification report overlay in canonical sound verification/auditability
+  - POST `/debug/persistenceVerification-register` with `persist: true` persisted blocker report `VR-FN-MOTDWVR2-W7UN-PERSISTENCE-2026-05-07T22-35-40-000Z` with `overall: fail` by design
   - added PR evidence comment: https://github.com/Wescome/function-factory/pull/71#issuecomment-4401665814
   - no PR merge, ready-for-review transition, accepted lifecycle mutation, or monitored promotion was performed
 - Completed architecture-plan milestones 1-6 in `workers/ff-pipeline`:
-  - Gate 2 diagnostic now accepts normalized `Gate2Input` evidence via `{ gate2Input, prdId, sourceRefs }`
-  - Gate 2 report persistence is opt-in with `persist: true` and writes `specs_coverage_reports`
-  - Gate 2 lifecycle acceptance dry-run reports `produced -> accepted` authorization without mutation
-  - Stage 8 MRP assembly can overlay canonical MRP evidence with a persisted passing Gate 2 report key
-  - `/debug/mrp-auto` carries the same Gate 2 report overlay for the dogfood Stage 8 path
-  - added minimal Gate 3 assurance registration via `/debug/gate3-register`, producing/persisting a schema-valid Gate3Report blocker without monitored promotion
+  - Fidelity Verification diagnostic now accepts normalized `FidelityVerificationInput` evidence via `{ fidelityVerificationInput, intentSpecificationId, sourceRefs }`
+  - Fidelity Verification report persistence is opt-in with `persist: true` and writes `verification_reports`
+  - Fidelity Verification lifecycle acceptance dry-run reports `produced -> accepted` authorization without mutation
+  - Stage 8 MRP assembly can overlay canonical MRP evidence with a persisted passing Fidelity Verification report key
+  - `/debug/mrp-auto` carries the same Fidelity Verification report overlay for the dogfood Stage 8 path
+  - added minimal Persistence Verification assurance registration via `/debug/persistenceVerification-register`, producing/persisting a schema-valid PersistenceVerificationReport blocker without monitored promotion
 - Verification completed:
-  - `pnpm --filter @factory/ff-pipeline test -- src/gate3-assurance.test.ts src/diagnostic-routes.test.ts src/gate2-simulation.test.ts src/merge-readiness-pack.test.ts`: pass, 51 tests
+  - `pnpm --filter @factory/ff-pipeline test -- src/persistenceVerification-assurance.test.ts src/diagnostic-routes.test.ts src/fidelityVerification-simulation.test.ts src/merge-readiness-pack.test.ts`: pass, 51 tests
   - `pnpm --filter @factory/ff-pipeline typecheck`: pass
   - `pnpm --filter @factory/ff-pipeline test`: pass, 67 files / 997 tests
   - `pnpm audit:docs`: pass
   - `git diff --check`: pass
 - No lifecycle promotion, PR merge, or ready-for-review transition was performed.
 - Final closure for autonomous milestones 1-6:
-  - committed and pushed `d5fb350` (`META: add Gate 2 simulation diagnostic`)
+  - committed and pushed `d5fb350` (`META: add Fidelity Verification simulation diagnostic`)
   - deployed `ff-pipeline` version `e814d778-1825-4b2c-a8db-837661c6b90f`
   - live health after deploy: healthy, Arango true, AI binding true
-  - live POST `/debug/gate2-simulate` returned Gate 2 report `CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z` with `overall: pass` and verdict `accepted`
+  - live POST `/debug/fidelityVerification-simulate` returned Fidelity Verification report `VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z` with `overall: pass` and verdict `accepted`
   - PR #71 head `d5fb3500cad1b2e20aff8abb16ae04d046ed84d7` had `Test`, `Typecheck`, and `Factory PR Gate` passing; merge state `CLEAN`; PR remains draft
   - POST `/debug/pr-outcome` with `processNow: true` returned signal `SIG-MOW07F1W-A9W9` for head `d5fb3500cad1b2e20aff8abb16ae04d046ed84d7`
   - POST `/debug/mrp-evidence` persisted canonical evidence key `MRP-EVIDENCE-MOTE4M1R-d5fb350`
   - POST `/debug/mrp-auto` selected `SIG-MOW07F1W-A9W9` and refreshed `MRP-MOTE4M1R-G7I0-71` with `verdict: merge-ready`, canonical/runtime `functionId: FN-MOTDWVR2-W7UN`, and CI commit `d5fb3500cad1b2e20aff8abb16ae04d046ed84d7`
   - added PR comment with final evidence: https://github.com/Wescome/function-factory/pull/71#issuecomment-4401346686
   - no merge, ready-for-review transition, or lifecycle promotion was performed
-- Active slice: first Gate 2 simulation path.
-- Added `workers/ff-pipeline/src/gate2-simulation.ts` and tests:
+- Active slice: first Fidelity Verification simulation path.
+- Added `workers/ff-pipeline/src/fidelityVerification-simulation.ts` and tests:
   - deterministic pure evaluator for scenario coverage, invariant negative-test exercise, and required validation pass rate
-  - emits `Gate2Report` and `Gate2Verdict` validated by `@factory/schemas`
+  - emits `FidelityVerificationReport` and `FidelityVerificationVerdict` validated by `@factory/schemas`
   - fails closed for unexercised branches, missing negative scenarios, and failing required validations
   - does not mutate lifecycle state or write report files
-- Added `/debug/gate2-simulate` diagnostic route:
-  - evaluates a posted Gate 2 simulation input and returns report/verdict
+- Added `/debug/fidelityVerification-simulate` diagnostic route:
+  - evaluates a posted Fidelity Verification simulation input and returns report/verdict
   - route is a thin wrapper over the pure evaluator
 - Verification completed:
-  - red test confirmed missing `gate2-simulation` module
-  - red test confirmed `/debug/gate2-simulate` returned 404 before implementation
-  - `pnpm --filter @factory/ff-pipeline test -- src/gate2-simulation.test.ts src/diagnostic-routes.test.ts`: pass, 23 tests
+  - red test confirmed missing `fidelityVerification-simulation` module
+  - red test confirmed `/debug/fidelityVerification-simulate` returned 404 before implementation
+  - `pnpm --filter @factory/ff-pipeline test -- src/fidelityVerification-simulation.test.ts src/diagnostic-routes.test.ts`: pass, 23 tests
   - `pnpm --filter @factory/ff-pipeline typecheck`: pass
   - `pnpm audit:docs`: pass
   - `git diff --check`: pass
@@ -679,8 +713,8 @@ Active task: Trellis packet implementation completed through runtime and verific
 - Active slice: automatic Stage 8 MRP assembly from latest persisted PR outcome signal.
 - Added `/debug/mrp-auto` POST route:
   - accepts `audit`, `pullNumber`, `canonicalEvidenceKey`, and optional `createdAt`
-  - derives `workGraphId` from the materialization audit
-  - loads the latest `factory:pr-outcome` signal for `{ pullNumber, workGraphId }` sorted by `raw.observedAt` and `createdAt`
+  - derives `executableSpecificationId` from the materialization audit
+  - loads the latest `factory:pr-outcome` signal for `{ pullNumber, executableSpecificationId }` sorted by `raw.observedAt` and `createdAt`
   - loads canonical evidence from `merge_readiness_evidence` by key
   - validates canonical MRP before runtime MRP persistence and returns the selected PR outcome/evidence keys
 - Verification completed:
@@ -740,7 +774,7 @@ Active task: Trellis packet implementation completed through runtime and verific
   - live health after deploy: healthy, Arango true, AI binding true
   - PR #71 head at deploy: `aeffbc6701d23dc643db8878a87484bcd92988d0`
   - GitHub checks on that head: `Test`, `Typecheck`, and `Factory PR Gate` passed
-  - POST `/debug/pr-outcome` accepted a new observation for PR #71 / `WG-MOTE4M1R-G7I0`
+  - POST `/debug/pr-outcome` accepted a new observation for PR #71 / `ES-MOTE4M1R-G7I0`
   - GET `/debug/pr-outcome` returned signal `SIG-MOVYSH7F-GHPT` for head `aeffbc6701d23dc643db8878a87484bcd92988d0`
   - POST `/debug/mrp` with `canonicalEvidence` and `prOutcomeSignalKey: SIG-MOVYSH7F-GHPT` refreshed `MRP-MOTE4M1R-G7I0-71`
   - runtime pack and canonical response both returned `functionId: FN-MOTDWVR2-W7UN`
@@ -764,7 +798,7 @@ Active task: Trellis packet implementation completed through runtime and verific
   - live health after deploy: healthy, Arango true, AI binding true
   - PR #71 head at deploy: `09797a9998cfd1c5ac1565d2a908e6694a42adc0`
   - GitHub checks on that head: `Test`, `Typecheck`, and `Factory PR Gate` passed
-  - POST `/debug/pr-outcome` accepted a new observation for PR #71 / `WG-MOTE4M1R-G7I0`
+  - POST `/debug/pr-outcome` accepted a new observation for PR #71 / `ES-MOTE4M1R-G7I0`
   - GET `/debug/pr-outcome` returned signal `SIG-MOVYDXV3-DKCY` for head `09797a9998cfd1c5ac1565d2a908e6694a42adc0`
   - Before invalid canonical MRP request, persisted `MRP-MOTE4M1R-G7I0-71` still referenced head `6a51cabd5e3f162da09137589d7d08827053a77d`, signal `SIG-MOUP7CDQ-ZTJX`, refreshedAt `2026-05-06T23:38:40Z`
   - POST `/debug/mrp` with `prOutcomeSignalKey: SIG-MOVYDXV3-DKCY` and conflicting `canonicalEvidence.functionId: FN-DIFFERENT` returned `400`
@@ -783,7 +817,7 @@ Active task: Trellis packet implementation completed through runtime and verific
   - live health after deploy: healthy, Arango true, AI binding true
   - PR #71 latest head: `6a51cabd5e3f162da09137589d7d08827053a77d`
   - GitHub checks on latest head: `Test`, `Typecheck`, and `Factory PR Gate` passed
-  - POST `/debug/pr-outcome` for PR #71 / `WG-MOTE4M1R-G7I0` accepted
+  - POST `/debug/pr-outcome` for PR #71 / `ES-MOTE4M1R-G7I0` accepted
   - GET `/debug/pr-outcome` returned fresh signal `SIG-MOUP7CDQ-ZTJX` with description `Factory PR #71 passed all observed CI checks at head 6a51cab`
   - POST `/debug/mrp` with `canonicalEvidence` and `prOutcomeSignalKey: SIG-MOUP7CDQ-ZTJX` refreshed `MRP-MOTE4M1R-G7I0-71`
   - runtime response returned canonical MRP:
@@ -839,7 +873,7 @@ Active task: Trellis packet implementation completed through runtime and verific
   - root `pnpm audit:docs` script
   - docs references in `docs/README.md` and `specs/README.md`
 - Stage 2 audit recognizes current explicit exceptions:
-  - 253 `ATOM-*` virtual compiler-intermediate refs in WorkGraphs
+  - 253 `ATOM-*` virtual compiler-intermediate refs in Executable Specifications
   - 1 historical known lineage gap:
     `OBS-META-ARCHITECTURE-CANDIDATE-EXECUTION-2`
 - Verification completed:
@@ -881,13 +915,13 @@ Active task: Trellis packet implementation completed through runtime and verific
   - live health after deploy: `ff-pipeline` healthy, Arango true, AI binding true
   - dry-run pipeline `4148823b-225a-45ad-aafd-20eb7f6e26c7` completed `synthesis-passed`
     - signal `SIG-MOTDQ89R-JM8X`
-    - workGraph `WG-MOTDRXMY-WN58`
-    - Gate 1 passed 6/6 checks
+    - executableSpecification `ES-MOTDRXMY-WN58`
+    - Coherence Verification passed 6/6 checks
     - atom `atom-001` passed
   - real-mode pipeline `b1b51f73-416d-4d87-90a5-9ccaa12bec76` completed `synthesis-passed`
     - signal `SIG-MOTDWPYM-LTW5`
-    - workGraph `WG-MOTE4M1R-G7I0`
-    - Gate 1 passed 6/6 checks
+    - executableSpecification `ES-MOTE4M1R-G7I0`
+    - Coherence Verification passed 6/6 checks
     - atom `atom-001` passed with confidence 0.95
     - generated code artifact `workers/ff-pipeline/src/runtime-verification.ts` in synthesis output
     - tester report: 14/14 tests passed, repairCount 0
@@ -905,7 +939,7 @@ Active task: Trellis packet implementation completed through runtime and verific
   - added `workers/ff-pipeline/src/synthesis-artifact-egress.test.ts`
   - extracts `codeArtifact.files[]` from pipeline result atom outputs without writing to disk
   - validates repo-relative paths, rejects absolute paths, parent traversal, `.git`, `node_modules`, env files, secret-like paths, invalid actions, and missing create/modify content
-  - tests use the `WG-MOTE4M1R-G7I0` result shape and multi-atom ordering
+  - tests use the `ES-MOTE4M1R-G7I0` result shape and multi-atom ordering
 - Verification completed after egress guard:
   - red test confirmed missing egress module
   - `pnpm --filter @factory/ff-pipeline test -- src/synthesis-artifact-egress.test.ts`: pass, 13 tests
@@ -913,7 +947,7 @@ Active task: Trellis packet implementation completed through runtime and verific
   - `pnpm --filter @factory/ff-pipeline test`: pass, 61 files / 928 tests
 - Extended synthesis artifact egress guard with controlled application:
   - added injected filesystem operation boundary `applySynthesisCodeFiles`
-  - emits an audit record with pipeline ID, WorkGraph ID, actor, timestamp, file actions, and content hashes
+  - emits an audit record with pipeline ID, Executable Specification ID, actor, timestamp, file actions, and content hashes
   - fails closed when `create` targets an existing file or `modify`/`delete` targets a missing file
   - still performs no ambient filesystem writes; all side effects are through injected operations
 - Verification completed:
@@ -922,14 +956,14 @@ Active task: Trellis packet implementation completed through runtime and verific
   - `pnpm --filter @factory/ff-pipeline typecheck`: pass
   - `pnpm --filter @factory/ff-pipeline test`: pass, 61 files / 931 tests
 - Recorded local materialization audit:
-  - `.agent/memory/episodic/synthesis-materialization-WG-MOTE4M1R-G7I0.json`
-  - captures pipeline `b1b51f73-416d-4d87-90a5-9ccaa12bec76`, signal/pressure/capability/proposal/WorkGraph IDs, Gate 1 pass, atom pass, file paths, and SHA-256 hashes
+  - `.agent/memory/episodic/synthesis-materialization-ES-MOTE4M1R-G7I0.json`
+  - captures pipeline `b1b51f73-416d-4d87-90a5-9ccaa12bec76`, signal/pressure/capability/proposal/Executable Specification IDs, Coherence Verification pass, atom pass, file paths, and SHA-256 hashes
   - audit is retrospective because the artifact was materialized one slice before the guarded apply boundary existed
 - Added Stage 8 PR draft boundary:
   - added `workers/ff-pipeline/src/synthesis-pr-draft.ts`
   - added `workers/ff-pipeline/src/synthesis-pr-draft.test.ts`
   - consumes the materialization audit shape and produces a draft PR title, branch, base branch, body, and ordered source refs
-  - fails closed unless runtime status is `synthesis-passed`, Gate 1 passed, all atoms passed, and at least one materialized file exists
+  - fails closed unless runtime status is `synthesis-passed`, Coherence Verification passed, all atoms passed, and at least one materialized file exists
 - Verification completed:
   - red test confirmed missing PR draft module
   - `pnpm --filter @factory/ff-pipeline test -- src/synthesis-pr-draft.test.ts`: pass, 6 tests
@@ -940,7 +974,7 @@ Active task: Trellis packet implementation completed through runtime and verific
   - branch `factory/fp-motdwvr2-w7un`
   - merged the verified local dogfood history onto the original generated branch commit without force-pushing
   - integration commit `aca7f88` (`META: integrate verified dogfood loop`)
-  - PR title updated to `[Factory] Materialize WG-MOTE4M1R-G7I0 synthesis artifact`
+  - PR title updated to `[Factory] Materialize ES-MOTE4M1R-G7I0 synthesis artifact`
 - Verification completed on the PR branch after merge:
   - `pnpm --filter @factory/ff-pipeline test`: pass, 62 files / 937 tests
   - `pnpm --filter @factory/ff-pipeline typecheck`: pass
@@ -957,7 +991,7 @@ Active task: Trellis packet implementation completed through runtime and verific
   - `feedback-signals` queue now handles `type: "pr-outcome"` messages
   - queue handler accepts either a full observed PR outcome snapshot or `{ pullNumber, lineage }` and fetches PR/check/review/requested-reviewer state from GitHub using `GITHUB_TOKEN`
   - emits observational, non-destructive internal signals for `synthesis:pr-ci-passed`, `synthesis:pr-ci-failed`, `synthesis:pr-approved`, `synthesis:pr-review-requested`, `synthesis:pr-changes-requested`, `synthesis:pr-merged`, and `synthesis:pr-closed`
-  - all emitted PR outcome signals carry pipeline ID, proposal ID, WorkGraph ID, PR number/URL/head SHA, normalized PR/CI/review state, checks, reviews, requested reviewers, and source refs
+  - all emitted PR outcome signals carry pipeline ID, proposal ID, Executable Specification ID, PR number/URL/head SHA, normalized PR/CI/review state, checks, reviews, requested reviewers, and source refs
   - fixed `ingestSignal` to persist `raw` payloads so feedback lineage survives storage
 - Verification completed:
   - red test confirmed missing PR outcome module
@@ -967,21 +1001,21 @@ Active task: Trellis packet implementation completed through runtime and verific
   - `git diff --check`: pass
 - Runtime dogfooded PR outcome signal:
   - added `/debug/pr-outcome` POST diagnostic route to enqueue a `feedback-signals` `type: "pr-outcome"` message because Wrangler v3 exposes queue management but not direct message send
-  - added `/debug/pr-outcome` GET diagnostic route to read back the latest persisted PR outcome signal by PR number and WorkGraph ID
+  - added `/debug/pr-outcome` GET diagnostic route to read back the latest persisted PR outcome signal by PR number and Executable Specification ID
   - deployed `ff-pipeline` version `81ed8435-2f90-4997-9b0b-60f8ef276c0d`
   - live health after deploy: healthy, Arango true, AI binding true
-  - POSTed PR #71 outcome observation for `WG-MOTE4M1R-G7I0`
+  - POSTed PR #71 outcome observation for `ES-MOTE4M1R-G7I0`
   - persisted signal observed immediately:
     - signal `_key`: `SIG-MOTILTZ0-6DGK`
     - subtype: `synthesis:pr-ci-passed`
     - source: `factory:pr-outcome`
     - pipeline: `b1b51f73-416d-4d87-90a5-9ccaa12bec76`
     - proposal: `FP-MOTDWVR2-W7UN`
-    - WorkGraph: `WG-MOTE4M1R-G7I0`
+    - Executable Specification: `ES-MOTE4M1R-G7I0`
     - PR URL: `https://github.com/Wescome/function-factory/pull/71`
     - head SHA: `ff6187ac67c945a4fe007f666f32d337ecafcfd8`
     - checks passed: `Factory PR Gate`, `Typecheck`, `Test`
-    - source refs: `SIG:SIG-MOTDWPYM-LTW5`, `PRS:PRS-MOTDWQ0T-S55Y`, `BC:BC-MOTDWSVY-PQOO`, `FN:FP-MOTDWVR2-W7UN`, `WG:WG-MOTE4M1R-G7I0`
+    - source refs: `SIG:SIG-MOTDWPYM-LTW5`, `PRS:PRS-MOTDWQ0T-S55Y`, `BC:BC-MOTDWSVY-PQOO`, `FN:FP-MOTDWVR2-W7UN`, `ES:ES-MOTE4M1R-G7I0`
 - Verification completed:
   - red test confirmed missing `/debug/pr-outcome` POST route
   - red test confirmed missing `/debug/pr-outcome` GET route
@@ -999,7 +1033,7 @@ Active task: Trellis packet implementation completed through runtime and verific
   - deployed `ff-pipeline` version `6172341e-e55d-4d24-a564-452a3d60c45f`
   - live health after deploy: healthy, Arango true, AI binding true
   - POST `/debug/pr-outcome-scan` with `{ "limit": 10 }`
-  - scan result: `scanned=1`, `enqueued=1`, candidate PR #71 / `WG-MOTE4M1R-G7I0`, last signal `SIG-MOTILTZ0-6DGK`
+  - scan result: `scanned=1`, `enqueued=1`, candidate PR #71 / `ES-MOTE4M1R-G7I0`, last signal `SIG-MOTILTZ0-6DGK`
   - readback returned existing signal `SIG-MOTILTZ0-6DGK`, confirming idempotent repeated observation of the same PR state
 - Verification completed:
   - red test confirmed missing `/debug/pr-outcome-scan`
@@ -1009,8 +1043,8 @@ Active task: Trellis packet implementation completed through runtime and verific
   - `git diff --check`: pass
 - Hardened Stage 6 graph evidence:
   - replaced graph-internal compile stub output with non-authoritative upstream compile pass-through evidence
-  - replaced graph-internal Gate 1 stub output with non-authoritative upstream Gate 1 pass-through evidence
-  - added tests that reject the old `stub-check` / `Gate 1 passed (stub)` evidence labels
+  - replaced graph-internal Coherence Verification stub output with non-authoritative upstream Coherence Verification pass-through evidence
+  - added tests that reject the old `stub-check` / `Coherence Verification passed (stub)` evidence labels
   - cleaned repair-path test fixtures to use upstream compile evidence instead of `{ stub: true }`
 - Verification completed:
   - `pnpm --filter @factory/ff-pipeline test -- src/coordinator/graph-9node.test.ts`: failed before implementation as expected
@@ -1046,7 +1080,7 @@ Active task: Trellis packet implementation completed through runtime and verific
   - added `workers/ff-pipeline/src/merge-readiness-pack.test.ts`
   - exported `buildMergeReadinessPack` from `workers/ff-pipeline/src/index.ts`
   - builder consumes a synthesis materialization audit plus a persisted `factory:pr-outcome` signal
-  - emits a local `MRP-*` evidence bundle with proposal/workgraph/pipeline lineage, materialized file hashes, atom results, local verification, PR evidence, CI evidence, five readiness criteria, and `ready | blocked` verdict
+  - emits a local `MRP-*` evidence bundle with proposal/executable-specification/pipeline lineage, materialized file hashes, atom results, local verification, PR evidence, CI evidence, five readiness criteria, and `ready | blocked` verdict
   - fails closed on missing required lineage or audit/PR outcome lineage disagreement
   - returns `blocked` rather than `ready` when observed PR CI is failed or pending
 - Verification completed:
@@ -1090,7 +1124,7 @@ Active task: Trellis packet implementation completed through runtime and verific
   - `POST /debug/mrp` with materialization audit and `prOutcomeSignalKey=SIG-MOTILTZ0-6DGK` persisted `MRP-MOTE4M1R-G7I0-71`
   - persisted verdict: `merge-ready`
   - readiness verdict: `ready`
-  - persisted source refs: `SIG-MOTDWPYM-LTW5`, `PRS-MOTDWQ0T-S55Y`, `BC-MOTDWSVY-PQOO`, `FP-MOTDWVR2-W7UN`, `WG-MOTE4M1R-G7I0`, `SIG-MOTILTZ0-6DGK`
+  - persisted source refs: `SIG-MOTDWPYM-LTW5`, `PRS-MOTDWQ0T-S55Y`, `BC-MOTDWSVY-PQOO`, `FP-MOTDWVR2-W7UN`, `ES-MOTE4M1R-G7I0`, `SIG-MOTILTZ0-6DGK`
   - `GET /debug/mrp?id=MRP-MOTE4M1R-G7I0-71` returned `found=true`
   - readback CI evidence: `Factory PR Gate`, `Typecheck`, `Test` passed on observed PR outcome signal
 - Fresh-head MRP refresh blocker found and fixed locally:
@@ -1108,7 +1142,7 @@ Active task: Trellis packet implementation completed through runtime and verific
 - Runtime dogfooded fresh-head MRP refresh:
   - deployed `ff-pipeline` version `22d8f65f-a3f5-446d-98ba-1dde5ddb2006`
   - waited for PR #71 CI to pass on head `2b27674bd7b36a0363af87f78969b5c809b8fa65`
-  - re-enqueued PR outcome for PR #71 / `WG-MOTE4M1R-G7I0`
+  - re-enqueued PR outcome for PR #71 / `ES-MOTE4M1R-G7I0`
   - new PR outcome signal persisted: `SIG-MOUKWPF7-1L16`
   - signal description: `Factory PR #71 passed all observed CI checks at head 2b27674`
   - signal raw head SHA: `2b27674bd7b36a0363af87f78969b5c809b8fa65`
@@ -1123,7 +1157,7 @@ Active task: Trellis packet implementation completed through runtime and verific
   - added `MissingCanonicalMRPEvidenceError` with explicit missing field ledger
   - adapter imports and validates against canonical `MergeReadinessPack` Zod schema from `@factory/schemas`
   - added internal workspace dependency from `@factory/ff-pipeline` to `@factory/schemas`
-  - runtime blob without supplemental evidence fails closed rather than inventing function ID, Gate 2 report, semantic review, model bindings, cost, or PRD evidence
+  - runtime blob without supplemental evidence fails closed rather than inventing function ID, Fidelity Verification report, semantic review, model bindings, cost, or Intent Specification evidence
   - supplied-evidence path produces a canonical Zod-validated MRP object with canonical sections: functional completeness, sound verification, SE hygiene, rationale, auditability, CI evidence, and verdict
 - Verification completed:
   - red strict-adapter test confirmed current runtime blob cannot be treated as canonical without missing evidence

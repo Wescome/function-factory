@@ -10,7 +10,7 @@
  * Constraints implemented:
  *   C1  — Lineage completeness (non-signal artifacts MUST have source_refs)
  *   C7  — CRP on low confidence (warning + crpRequired flag)
- *   C9  — Gate fail-closed (coverage reports MUST have boolean passed)
+ *   C9  — Gate fail-closed (verification reports MUST have boolean passed)
  *   C15 — No secrets (recursive scan of all string fields)
  */
 
@@ -34,8 +34,8 @@ const LINEAGE_COLLECTIONS = new Set([
   'specs_pressures',
   'specs_capabilities',
   'specs_functions',
-  'specs_workgraphs',
-  'specs_coverage_reports',
+  'executable_specifications',
+  'verification_reports',
   'trellis_execution_packets',
 ])
 
@@ -62,7 +62,7 @@ const SECRET_PATTERNS: readonly string[] = [
  *
  * Non-signal artifacts MUST have a non-empty source_refs or sourceRefs array.
  * Exempt collections: specs_signals, execution_artifacts, memory_*,
- * gate_status, agent_designs, lineage_edges, mentorscript_rules.
+ * verification_status, agent_designs, lineage_edges, mentorscript_rules.
  */
 function checkLineage(
   collection: string,
@@ -125,13 +125,13 @@ function checkGateFailClosed(
   collection: string,
   doc: Record<string, unknown>,
 ): Violation[] {
-  if (collection !== 'specs_coverage_reports') return []
+  if (collection !== 'verification_reports') return []
 
   if (typeof doc.passed !== 'boolean') {
     return [{
       constraint: 'C9-gate-fail-closed',
       severity: 'violation',
-      message: `AMBIGUOUS GATE: Coverage report must have an explicit boolean 'passed' field. Got: ${typeof doc.passed === 'undefined' ? 'missing' : typeof doc.passed}.`,
+      message: `AMBIGUOUS GATE: Verification report must have an explicit boolean 'passed' field. Got: ${typeof doc.passed === 'undefined' ? 'missing' : typeof doc.passed}.`,
       field: 'passed',
     }]
   }

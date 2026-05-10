@@ -226,7 +226,7 @@ describe('v5: executeAtomSlice', () => {
       atomSpec: { id: 'atom-001', description: 'Test atom' },
       upstreamArtifacts: {},
       sharedContext: {
-        executableSpecificationId: 'WG-TEST',
+        executableSpecificationId: 'ES-TEST',
         specContent: null,
         briefingScript: makeStubBriefingScript(),
       },
@@ -250,7 +250,7 @@ describe('v5: executeAtomSlice', () => {
       atomSpec: { id: 'atom-002', description: 'Needs retry' },
       upstreamArtifacts: {},
       sharedContext: {
-        executableSpecificationId: 'WG-TEST',
+        executableSpecificationId: 'ES-TEST',
         specContent: null,
         briefingScript: makeStubBriefingScript(),
       },
@@ -282,7 +282,7 @@ describe('v5: executeAtomSlice', () => {
       atomSpec: { id: 'atom-003', description: 'Always fails' },
       upstreamArtifacts: {},
       sharedContext: {
-        executableSpecificationId: 'WG-TEST',
+        executableSpecificationId: 'ES-TEST',
         specContent: null,
         briefingScript: makeStubBriefingScript(),
       },
@@ -311,7 +311,7 @@ describe('v5: executeAtomSlice', () => {
       atomSpec: { id: 'atom-004', description: 'Immediate fail' },
       upstreamArtifacts: {},
       sharedContext: {
-        executableSpecificationId: 'WG-TEST',
+        executableSpecificationId: 'ES-TEST',
         specContent: null,
         briefingScript: makeStubBriefingScript(),
       },
@@ -344,7 +344,7 @@ describe('v5: executeLayer', () => {
       atomSpecs,
       new Map(), // no completed artifacts
       deps,
-      { executableSpecificationId: 'WG-LAYER', specContent: null, briefingScript: makeStubBriefingScript() },
+      { executableSpecificationId: 'ES-LAYER', specContent: null, briefingScript: makeStubBriefingScript() },
       { maxRetries: 3, dryRun: false },
     )
 
@@ -383,7 +383,7 @@ describe('v5: executeLayer', () => {
       atomSpecs,
       completedArtifacts,
       deps,
-      { executableSpecificationId: 'WG-DEP', specContent: null, briefingScript: makeStubBriefingScript() },
+      { executableSpecificationId: 'ES-DEP', specContent: null, briefingScript: makeStubBriefingScript() },
       { maxRetries: 3, dryRun: false },
     )
 
@@ -432,8 +432,8 @@ describe('v5: graph verticalSlicing mode', () => {
 
     const graph = buildSynthesisGraph(deps)
     const state: GraphState = {
-      ...createInitialState('WG-VS', {
-        id: 'WG-VS',
+      ...createInitialState('ES-VS', {
+        id: 'ES-VS',
         title: 'Vertical Slicing Test',
         atoms: [{ id: 'atom-001', description: 'Stub', assignedTo: 'coder' }],
         invariants: [],
@@ -511,8 +511,8 @@ describe('v5: graph verticalSlicing mode', () => {
 
     const graph = buildSynthesisGraph(deps)
     const state: GraphState = {
-      ...createInitialState('WG-LEGACY', {
-        id: 'WG-LEGACY',
+      ...createInitialState('ES-LEGACY', {
+        id: 'ES-LEGACY',
         title: 'Legacy Mode Test',
         atoms: [{ id: 'atom-001', description: 'Stub', assignedTo: 'coder' }],
         invariants: [],
@@ -552,8 +552,8 @@ describe('v5: integration — full Phase 1→2→3 with dry-run atoms', () => {
 
     // Build a ExecutableSpecification with 3 atoms and dependencies
     const executableSpecification = {
-      _key: 'WG-INT',
-      id: 'WG-INT',
+      _key: 'ES-INT',
+      id: 'ES-INT',
       title: 'Integration Test',
       atoms: [
         { id: 'atom-1', description: 'Auth module', assignedTo: 'coder' },
@@ -593,7 +593,7 @@ describe('v5: integration — full Phase 1→2→3 with dry-run atoms', () => {
     }
 
     const graph = buildSynthesisGraph(graphDeps)
-    const initialState = createInitialState('WG-INT', executableSpecification)
+    const initialState = createInitialState('ES-INT', executableSpecification)
 
     // Phase 1: run graph (stops after planner)
     const phase1State = await graph.run(initialState, { maxSteps: 50 })
@@ -623,7 +623,7 @@ describe('v5: integration — full Phase 1→2→3 with dry-run atoms', () => {
         completedArtifacts,
         atomDeps,
         {
-          executableSpecificationId: 'WG-INT',
+          executableSpecificationId: 'ES-INT',
           specContent: null,
           briefingScript: phase1State.briefingScript as unknown,
         },
@@ -699,7 +699,7 @@ describe('v5: integration — full Phase 1→2→3 with dry-run atoms', () => {
       atomSpecs,
       new Map(),
       deps,
-      { executableSpecificationId: 'WG-MIXED', specContent: null, briefingScript: makeStubBriefingScript() },
+      { executableSpecificationId: 'ES-MIXED', specContent: null, briefingScript: makeStubBriefingScript() },
       { maxRetries: 3, dryRun: false },
     )
 

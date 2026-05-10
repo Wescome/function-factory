@@ -471,7 +471,7 @@ to the exact authorization object.
 interface TrellisPacketAudit {
   packetHash: string
   canonicalOrdering: string[]
-  sourceCoverage: Array<{
+  sourceVerification: Array<{
     sourceRef: string
     sourceField: string
     consumedByPacketField: string[]

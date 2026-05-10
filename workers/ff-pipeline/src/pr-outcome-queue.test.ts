@@ -103,12 +103,12 @@ function makeOutcome() {
       pressureId: 'PRS-MOTDWQ0T-S55Y',
       capabilityId: 'BC-MOTDWSVY-PQOO',
       proposalId: 'FP-MOTDWVR2-W7UN',
-      executableSpecificationId: 'WG-MOTE4M1R-G7I0',
+      executableSpecificationId: 'ES-MOTE4M1R-G7I0',
     },
     pullRequest: {
       number: 71,
       url: 'https://github.com/Wescome/function-factory/pull/71',
-      title: '[Factory] Materialize WG-MOTE4M1R-G7I0 synthesis artifact',
+      title: '[Factory] Materialize ES-MOTE4M1R-G7I0 synthesis artifact',
       state: 'OPEN',
       draft: false,
       merged: false,
@@ -159,7 +159,7 @@ describe('feedback-signals pr-outcome queue messages', () => {
         'PRS:PRS-MOTDWQ0T-S55Y',
         'BC:BC-MOTDWSVY-PQOO',
         'FN:FP-MOTDWVR2-W7UN',
-        'WG:WG-MOTE4M1R-G7I0',
+        'ES:ES-MOTE4M1R-G7I0',
       ],
       raw: {
         pipelineId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
@@ -189,7 +189,7 @@ describe('feedback-signals pr-outcome queue messages', () => {
         return new Response(JSON.stringify({
           number: 71,
           html_url: 'https://github.com/Wescome/function-factory/pull/71',
-          title: '[Factory] Materialize WG-MOTE4M1R-G7I0 synthesis artifact',
+          title: '[Factory] Materialize ES-MOTE4M1R-G7I0 synthesis artifact',
           state: 'open',
           draft: false,
           merged: false,

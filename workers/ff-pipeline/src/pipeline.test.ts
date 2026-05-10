@@ -14,8 +14,8 @@
 
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 
-function sampleTrellisExecutionPacket(executableSpecificationId = 'WG-TEST') {
-  const subject = executableSpecificationId.replace(/^WG-/, '')
+function sampleTrellisExecutionPacket(executableSpecificationId = 'ES-TEST') {
+  const subject = executableSpecificationId.replace(/^ES-/, '')
   return {
     id: `TEP-${subject}`,
     executableSpecificationId,
@@ -141,7 +141,7 @@ function createMockEnv(overrides?: Partial<Record<string, unknown>>) {
         verification: "coherence",
         passed: true,
         timestamp: '2026-04-25T00:00:00Z',
-        executableSpecificationId: 'WG-TEST',
+        executableSpecificationId: 'ES-TEST',
         checks: [{ name: 'lineage', passed: true, detail: 'ok' }],
         summary: 'All checks passed',
       })),
@@ -158,7 +158,7 @@ function createMockEnv(overrides?: Partial<Record<string, unknown>>) {
       idFromName: vi.fn(() => 'do-id-123'),
       get: vi.fn(() => ({
         synthesize: vi.fn(async () => ({
-          functionId: 'WG-TEST',
+          functionId: 'ES-TEST',
           verdict: { decision: 'pass', confidence: 0.95, reason: 'All roles passed' },
           tokenUsage: 4200,
           repairCount: 0,
@@ -204,7 +204,7 @@ vi.mock('./stages/propose-function', () => ({
   proposeFunction: vi.fn(async () => ({
     _key: 'FP-001',
     title: 'test proposal',
-    prd: { title: 'Test PRD', atoms: [], invariants: [] },
+    intentSpecification: { title: 'Test Intent Specification', atoms: [], invariants: [] },
   })),
 }))
 
@@ -220,10 +220,10 @@ vi.mock('./stages/semantic-review', () => ({
 
 vi.mock('./stages/compile', () => ({
   PASS_NAMES: ['atoms', 'contracts', 'invariants', 'validations', 'dependencies', 'schedule', 'budget', 'executableSpecification'],
-  compilePRD: vi.fn(async (_pass: string, state: Record<string, unknown>) => ({
+  compileIntentSpecification: vi.fn(async (_pass: string, state: Record<string, unknown>) => ({
     ...state,
     executableSpecification: {
-      _key: 'WG-TEST',
+      _key: 'ES-TEST',
       title: 'Test ExecutableSpecification',
       atoms: [{ id: 'a1', description: 'test atom' }],
       invariants: [],
@@ -373,7 +373,7 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
       expect(result.synthesisResult!.tokenUsage).toBe(4200)
       expect(result.synthesisResult!.repairCount).toBe(0)
       expect(result.signalId).toBe('SIG-001')
-      expect(result.executableSpecificationId).toBe('WG-TEST')
+      expect(result.executableSpecificationId).toBe('ES-TEST')
     })
 
     it('returns synthesis-fail status when verdict is fail', async () => {
@@ -420,7 +420,7 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
             verification: "coherence",
             passed: false,
             timestamp: '2026-04-25T00:00:00Z',
-            executableSpecificationId: 'WG-TEST',
+            executableSpecificationId: 'ES-TEST',
             checks: [{ name: 'lineage', passed: false, detail: 'missing lineage' }],
             summary: 'Coherence Verification failed',
           })),
@@ -489,7 +489,7 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
       const calls = mockQueueSend.mock.calls as unknown[][]
       expect(calls.length).toBeGreaterThan(0)
       const sentMessage = calls[0]![0] as Record<string, unknown>
-      expect(sentMessage.executableSpecificationId).toBe('WG-TEST')
+      expect(sentMessage.executableSpecificationId).toBe('ES-TEST')
       expect(sentMessage.executableSpecification).toBeDefined()
       expect(sentMessage.dryRun).toBe(false)
     })
@@ -502,7 +502,7 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
 
       // Mock fetch for the DO HTTP call
       const mockDoResponse = {
-        functionId: 'WG-TEST',
+        functionId: 'ES-TEST',
         verdict: { decision: 'pass', confidence: 0.95, reason: 'All roles passed' },
         tokenUsage: 4200,
         repairCount: 0,
@@ -535,9 +535,9 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workflowId: 'wf-123',
-          executableSpecificationId: 'WG-TEST',
-          executableSpecification: { _key: 'WG-TEST', title: 'Test', atoms: [], invariants: [], dependencies: [] },
-          trellisExecutionPacket: sampleTrellisExecutionPacket('WG-TEST'),
+          executableSpecificationId: 'ES-TEST',
+          executableSpecification: { _key: 'ES-TEST', title: 'Test', atoms: [], invariants: [], dependencies: [] },
+          trellisExecutionPacket: sampleTrellisExecutionPacket('ES-TEST'),
           dryRun: false,
         }),
       })
@@ -553,7 +553,7 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
       const { default: worker } = await import('./index')
 
       const mockDoResponse = {
-        functionId: 'WG-TEST',
+        functionId: 'ES-TEST',
         verdict: { decision: 'pass', confidence: 0.95, reason: 'All roles passed' },
         tokenUsage: 4200,
         repairCount: 0,
@@ -587,9 +587,9 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workflowId: 'wf-123',
-          executableSpecificationId: 'WG-TEST',
-          executableSpecification: { _key: 'WG-TEST', title: 'Test', atoms: [], invariants: [], dependencies: [] },
-          trellisExecutionPacket: sampleTrellisExecutionPacket('WG-TEST'),
+          executableSpecificationId: 'ES-TEST',
+          executableSpecification: { _key: 'ES-TEST', title: 'Test', atoms: [], invariants: [], dependencies: [] },
+          trellisExecutionPacket: sampleTrellisExecutionPacket('ES-TEST'),
           dryRun: false,
         }),
       })
@@ -654,9 +654,9 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workflowId: 'wf-123',
-          executableSpecificationId: 'WG-TEST',
-          executableSpecification: { _key: 'WG-TEST', title: 'Test', atoms: [], invariants: [], dependencies: [] },
-          trellisExecutionPacket: sampleTrellisExecutionPacket('WG-TEST'),
+          executableSpecificationId: 'ES-TEST',
+          executableSpecification: { _key: 'ES-TEST', title: 'Test', atoms: [], invariants: [], dependencies: [] },
+          trellisExecutionPacket: sampleTrellisExecutionPacket('ES-TEST'),
           dryRun: false,
         }),
       })
@@ -725,9 +725,9 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
   describe('no ExecutableSpecification edge case', () => {
 
     it('returns compile-incomplete when executableSpecification is null after compilation', async () => {
-      // Temporarily override compilePRD to return null executableSpecification
-      const { compilePRD } = await import('./stages/compile')
-      const mockedCompile = vi.mocked(compilePRD)
+      // Temporarily override compileIntentSpecification to return null executableSpecification
+      const { compileIntentSpecification } = await import('./stages/compile')
+      const mockedCompile = vi.mocked(compileIntentSpecification)
       const originalImpl = mockedCompile.getMockImplementation()
 
       mockedCompile.mockImplementation(async (_pass: string, state: Record<string, unknown>) => ({
@@ -1274,7 +1274,7 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
       const calls = mockQueueSend.mock.calls as unknown[][]
       const sentMessage = calls[0]![0] as Record<string, unknown>
       expect(sentMessage.workflowId).toBe('wf-test-456')
-      expect(sentMessage.executableSpecificationId).toBe('WG-TEST')
+      expect(sentMessage.executableSpecificationId).toBe('ES-TEST')
       expect(sentMessage.executableSpecification).toBeDefined()
       expect(sentMessage.dryRun).toBe(false)
     })
@@ -1334,7 +1334,7 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
             verification: "coherence",
             passed: false,
             timestamp: '2026-04-25T00:00:00Z',
-            executableSpecificationId: 'WG-TEST',
+            executableSpecificationId: 'ES-TEST',
             checks: [{ name: 'lineage', passed: false, detail: 'broken' }],
             summary: 'Coherence Verification failed',
           })),

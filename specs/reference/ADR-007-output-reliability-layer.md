@@ -332,8 +332,8 @@ function coerceToSchema(data: Record<string, unknown>, schema: TSchema): {
   }
 
   // Field alias resolution
-  // e.g., model returns "birthGateScore" instead of "gate1Score"
-  // Config can specify { birthGateScore: 'gate1Score' }
+  // e.g., model returns "birthGateScore" instead of "coherenceVerificationScore"
+  // Config can specify { birthGateScore: 'coherenceVerificationScore' }
 
   return { coerced: result, fieldsCoerced }
 }

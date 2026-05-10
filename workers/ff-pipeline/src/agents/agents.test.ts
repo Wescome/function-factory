@@ -78,7 +78,7 @@ describe('CriticAgent.semanticReview', () => {
       const agent = new CriticAgent({ db, apiKey: 'test', dryRun: true })
 
       const result = await agent.semanticReview({
-        prd: { id: 'PRD-001', title: 'Auth Feature' },
+        intentSpecification: { id: 'IS-001', title: 'Auth Feature' },
       })
 
       expect(result.alignment).toBe('aligned')
@@ -93,7 +93,7 @@ describe('CriticAgent.semanticReview', () => {
       const agent = new CriticAgent({ db, apiKey: 'test', dryRun: true })
 
       const result = await agent.semanticReview({
-        prd: { id: 'PRD-001', title: 'test' },
+        intentSpecification: { id: 'IS-001', title: 'test' },
       })
 
       expect(result.alignment).toBe('aligned')
@@ -106,8 +106,8 @@ describe('CriticAgent.semanticReview', () => {
     const validReview: SemanticReviewResult = {
       alignment: 'aligned',
       confidence: 0.92,
-      citations: ['spec section 3.2', 'PRD requirement R-001'],
-      rationale: 'The PRD accurately reflects the specification requirements',
+      citations: ['spec section 3.2', 'Intent Specification requirement R-001'],
+      rationale: 'The Intent Specification accurately reflects the specification requirements',
       timestamp: '2026-04-26T10:00:00Z',
     }
 
@@ -139,14 +139,14 @@ describe('CriticAgent.semanticReview', () => {
       })
 
       const result = await agent.semanticReview({
-        prd: { id: 'PRD-002', title: 'Payment Processing' },
+        intentSpecification: { id: 'IS-002', title: 'Payment Processing' },
       })
 
       // Verify SemanticReviewResult shape
       expect(result.alignment).toBe('aligned')
       expect(result.confidence).toBe(0.92)
-      expect(result.citations).toEqual(['spec section 3.2', 'PRD requirement R-001'])
-      expect(result.rationale).toContain('PRD accurately reflects')
+      expect(result.citations).toEqual(['spec section 3.2', 'Intent Specification requirement R-001'])
+      expect(result.rationale).toContain('Intent Specification accurately reflects')
       expect(result.timestamp).toBe('2026-04-26T10:00:00Z')
     })
 
@@ -164,7 +164,7 @@ describe('CriticAgent.semanticReview', () => {
 
       // Just verify it doesn't throw -- specContent is included in the prompt
       const result = await agent.semanticReview({
-        prd: { id: 'PRD-001', title: 'test' },
+        intentSpecification: { id: 'IS-001', title: 'test' },
         specContent: 'The system SHALL validate all inputs',
       })
 
@@ -246,7 +246,7 @@ describe('CriticAgent.codeReview', () => {
       const result = await agent.codeReview({
         code: sampleCode,
         plan: samplePlan,
-        executableSpecification: { id: 'WG-001' },
+        executableSpecification: { id: 'ES-001' },
       })
 
       expect(result.passed).toBe(true)
@@ -263,7 +263,7 @@ describe('CriticAgent.codeReview', () => {
       const result = await agent.codeReview({
         code: sampleCode,
         plan: samplePlan,
-        executableSpecification: { id: 'WG-001' },
+        executableSpecification: { id: 'ES-001' },
       })
 
       expect(result.passed).toBe(true)
@@ -313,7 +313,7 @@ describe('CriticAgent.codeReview', () => {
       const result = await agent.codeReview({
         code: sampleCode,
         plan: samplePlan,
-        executableSpecification: { id: 'WG-002' },
+        executableSpecification: { id: 'ES-002' },
       })
 
       // Verify CritiqueReport shape
@@ -339,7 +339,7 @@ describe('CriticAgent.codeReview', () => {
       const result = await agent.codeReview({
         code: sampleCode,
         plan: samplePlan,
-        executableSpecification: { id: 'WG-001' },
+        executableSpecification: { id: 'ES-001' },
         mentorRules: ['No global state', 'All functions must be pure'],
       })
 

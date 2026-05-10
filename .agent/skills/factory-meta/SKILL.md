@@ -13,7 +13,7 @@ preconditions: []
 constraints:
   - "do not produce Work Orders (those are WeOps, not Factory)"
   - "external-vertical Functions may be proposed only after Bootstrap-stage-5-complete is reached; see External-vertical Functions section"
-  - "every meta-artifact must be tagged SIG-META-* / PRS-META-* / BC-META-* / FP-META-* / FN-META-* / PRD-META-* / etc."
+  - "every meta-artifact must be tagged SIG-META-* / PRS-META-* / BC-META-* / FP-META-* / FN-META-* / IS-META-* / etc."
 category: meta
 ---
 
@@ -32,14 +32,14 @@ how to produce Factory artifacts that describe the Factory itself.
 - Writing Capabilities that describe what the Factory must be able to do
   (`specs/capabilities/BC-META-*.yaml`).
 - Writing FunctionProposals for Factory components (`specs/functions/FP-META-*.yaml`).
-- Drafting PRDs for Factory components (`specs/prds/PRD-META-*.md`).
-- Running the compiler against a meta-PRD and capturing Coverage Reports
+- Drafting Intent Specifications for Factory components (`specs/intent-specifications/IS-META-*.md`).
+- Running the compiler against a meta-Intent Specification and capturing Verification Reports
   (even when failing — especially when failing).
 
 ## Core rules
 
 1. **Tag everything `META`.** Signal IDs, Pressure IDs, Capability IDs,
-   Function IDs, FunctionProposal IDs, PRD IDs, WorkGraph IDs. The `META`
+   Function IDs, FunctionProposal IDs, Intent Specification IDs, Executable Specification IDs. The `META`
    prefix signals bootstrap-phase artifacts and lets the Factory later
    distinguish its own construction lineage from first-customer lineage.
    Coherence Verification enforces the META- prefix on every artifact ID during Bootstrap
@@ -65,24 +65,24 @@ how to produce Factory artifacts that describe the Factory itself.
    - PRS-META-NARROW-PASS-DISCIPLINE
    - PRS-META-INVARIANT-DETECTOR-COMPLETENESS
    - PRS-META-ASSURANCE-DEPENDENCY-TYPING
-   - PRS-META-TRAJECTORY-CLOSURE-WITH-BIRTH-GATE
-   - PRS-META-THREE-COVERAGE-GATES
+   - PRS-META-TRAJECTORY-CLOSURE-WITH-BIRTH-VERIFICATION
+   - PRS-META-THREE-VERIFICATION-FAMILIES
 
 4. **The first Capabilities are the Factory's own required abilities.**
-   - BC-META-COMPILE-PRD-TO-WORKGRAPH
+   - BC-META-COMPILE-IS-TO-WORKGRAPH
    - BC-META-EXECUTE-WORKGRAPH-VIA-AGENTS
    - BC-META-COMPUTE-TRUST-FROM-EVIDENCE
    - BC-META-DETECT-REGRESSION
    - BC-META-PROPAGATE-INCIDENTS
    - BC-META-PROPOSE-FUNCTIONS-FROM-DRIFT
-   - BC-META-ENFORCE-COVERAGE-GATES
+   - BC-META-ENFORCE-VERIFICATION-CHECKS
 
 5. **Each Capability yields the execution/control/evidence triple.**
    Per the Function Proposal decomposition guardrail. Integration Functions appear
    when Capability requires external substrate (git, CI, Dropbox, etc.).
 
-6. **Coverage Reports are the primary v0 output.** A Coverage Report on a
-   meta-PRD — even a failing one — is the most valuable artifact the
+6. **Verification Reports are the primary v0 output.** A Verification Report on a
+   meta-Intent Specification — even a failing one — is the most valuable artifact the
    Factory can produce during bootstrap. It proves the Factory is checking
    itself by the same discipline it will later apply to customers.
 
@@ -107,7 +107,7 @@ how to produce Factory artifacts that describe the Factory itself.
 
 ## External-vertical Functions
 
-External-vertical Functions may be proposed once bootstrap compilation is complete. Bootstrap compilation complete is defined as- every meta-PRD in `specs/prds/` has an emitted WorkGraph in `specs/workgraphs/` produced by the compatibility pass pipeline through Executable Specification Assembly. At that state, the Factory's Intent-to-Executable compilation path is architecturally complete and external-vertical Function proposals are permitted.
+External-vertical Functions may be proposed once bootstrap compilation is complete. Bootstrap compilation complete is defined as- every meta-Intent Specification in `specs/intent-specifications/` has an emitted Executable Specification in `specs/executable-specifications/` produced by the compatibility pass pipeline through Executable Specification Assembly. At that state, the Factory's Intent-to-Executable compilation path is architecturally complete and external-vertical Function proposals are permitted.
 
 Proposals should reference the chosen v-number vertical (recorded in DECISIONS.md) for consistency with the Architect's selection. Divergent verticals may be proposed only with an explicit DECISIONS entry documenting the rationale.
 
@@ -126,7 +126,7 @@ Verticals that satisfy all three extend the Factory's proof surface; verticals t
 After every 5 meta-artifact creations OR on any Coherence Verification failure traceable
 to meta-content:
 1. Read the last 5 meta entries in `.agent/memory/episodic/AGENT_LEARNINGS.jsonl`
-2. Check for recurring Coherence Verification failures or Coverage Report patterns
+2. Check for recurring Coherence Verification failures or Verification Report patterns
 3. If a pattern exists, update the anti-patterns section above
 4. Commit: `META: skill-update: factory-meta, {one-line reason}`
 

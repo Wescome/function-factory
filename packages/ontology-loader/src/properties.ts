@@ -79,8 +79,8 @@ export const ONTOLOGY_PROPERTIES: OntologyProperty[] = [
     label: 'Validated By',
     propertyType: 'object',
     domain: 'SpecificationArtifact',
-    range: 'Gate',
-    comment: 'Which gate validated this artifact.',
+    range: 'Verification',
+    comment: 'Which verification validated this artifact.',
   },
   {
     _key: 'reviewedBy',
@@ -92,13 +92,13 @@ export const ONTOLOGY_PROPERTIES: OntologyProperty[] = [
     comment: 'EVERY ExecutableSpecification, CodeArtifact, and IntentSpecification MUST be reviewed.',
   },
   {
-    _key: 'gateResult',
-    uri: 'ff:gateResult',
-    label: 'Gate Result',
+    _key: 'verificationResult',
+    uri: 'ff:verificationResult',
+    label: 'Verification Result',
     propertyType: 'object',
-    domain: 'Gate',
+    domain: 'Verification',
     range: 'VerificationReport',
-    comment: 'Gate produces a VerificationReport.',
+    comment: 'Verification produces a VerificationReport.',
   },
 
   // -- Governance --
@@ -267,8 +267,8 @@ export const ONTOLOGY_PROPERTIES: OntologyProperty[] = [
     label: 'Transition Requires',
     propertyType: 'object',
     domain: 'FunctionLifecycleState',
-    range: 'Gate',
-    comment: 'Gate that must pass for this transition to be allowed.',
+    range: 'Verification',
+    comment: 'Verification that must pass for this transition to be allowed.',
   },
 
   // ═══════════════════════════════════════════════════════════════

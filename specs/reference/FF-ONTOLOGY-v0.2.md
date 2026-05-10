@@ -615,18 +615,18 @@ For maintainers who have read Pan et al. (2026):
 | Pressure Artifact | `specs/pressures/` directory; PressureSchema in `@factory/schemas` | Schema exists, directory empty |
 | Capability Artifact | `specs/capabilities/`; CapabilitySchema | Schema exists, directory empty |
 | Function Proposal | `specs/functions/` | Directory empty |
-| Intent Specification | `specs/prds/` | Directory empty |
-| Executable Specification | `specs/workgraphs/`; WorkGraphSchema | Schema exists, directory empty |
+| Intent Specification | `specs/intent-specifications/` | Directory empty |
+| Executable Specification | `specs/executable-specifications/`; Executable SpecificationSchema | Schema exists, directory empty |
 | Invariant Specification | `specs/invariants/` | Directory empty |
-| Verification Report | `specs/coverage-reports/`; `@factory/schemas/coverage.ts` | Schema exists, directory empty |
+| Verification Report | `specs/verification-reports/`; `@factory/schemas/coverage.ts` | Schema exists, directory empty |
 | Lineage Edge | ArangoDB edge collection; `@factory/schemas/lineage.ts` | Schema exists |
 | Decomposition | `packages/compiler/src/passes/` | Directory empty |
 | Binding | `packages/compiler/src/passes/` | Directory empty |
 | Obligation Extraction | `packages/compiler/src/passes/` | Directory empty |
 | Structural Assembly | `packages/compiler/src/passes/` | Directory empty |
 | Completeness Certification | `packages/compiler/src/passes/` | Directory empty |
-| Coherence Verification | `packages/coverage-gates/` | Directory empty |
-| Fidelity Verification | `packages/coverage-gates/` | Directory empty |
+| Coherence Verification | `packages/verification/` | Directory empty |
+| Fidelity Verification | `packages/verification/` | Directory empty |
 | Persistence Verification | `packages/runtime/` + Assurance Durable Object | Directory empty |
 | Agent Call | Durable Object orchestration + pi SDK workers in Cloudflare Containers | Phase 5 spec exists |
 | Orchestrator | Durable Object | Phase 5 spec exists |

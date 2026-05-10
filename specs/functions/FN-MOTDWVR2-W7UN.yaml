@@ -1,8 +1,8 @@
 id: FN-MOTDWVR2-W7UN
 source_refs:
-  - PRD-META-FUNCTION-SYNTHESIS
+  - IS-META-FUNCTION-SYNTHESIS
   - BC-META-FUNCTION-SYNTHESIS
-  - WG-META-FUNCTION-SYNTHESIS
+  - ES-META-FUNCTION-SYNTHESIS
 explicitness: inferred
 rationale: >
   Stage 8 Merge Readiness Pack assembly deterministically materialized this
@@ -17,7 +17,7 @@ proposal_ref: FP-MOTDWVR2-W7UN
 
 summary: >
   Runtime verification artifact materialized by the Factory dogfood synthesis
-  loop for WorkGraph WG-MOTE4M1R-G7I0.
+  loop for Executable Specification ES-MOTE4M1R-G7I0.
 
 runtime_refs:
   pipeline_id: b1b51f73-416d-4d87-90a5-9ccaa12bec76
@@ -25,7 +25,7 @@ runtime_refs:
   pressure_id: PRS-MOTDWQ0T-S55Y
   capability_id: BC-MOTDWSVY-PQOO
   proposal_id: FP-MOTDWVR2-W7UN
-  workgraph_id: WG-MOTE4M1R-G7I0
+  executable-specification_id: ES-MOTE4M1R-G7I0
   latest_pr_outcome_signal_id: SIG-MOVZUL8I-0DYR
   merge_readiness_pack_id: MRP-MOTE4M1R-G7I0-71
   canonical_evidence_id: MRP-EVIDENCE-MOTE4M1R-25ec34d
@@ -48,8 +48,8 @@ lifecycle_record:
   transition_applied: false
   transition_policy_note: >
     No runtime lifecycle transition is applied by this registry artifact.
-    Promotion to accepted requires Gate 2 evidence; promotion to monitored
-    requires Gate 3 active monitoring.
+    Promotion to accepted requires Fidelity Verification evidence; promotion to monitored
+    requires Persistence Verification active monitoring.
   blocked_target_states:
     - accepted
     - monitored
@@ -60,11 +60,11 @@ merge_readiness:
   latest_canonical_evidence_id: MRP-EVIDENCE-MOTE4M1R-25ec34d
   ci_status: passed
   checks_passed:
-    - Factory PR Gate
+    - Factory PR Verification
     - Test
     - Typecheck
 
 candidate_invariants:
   - Function identity is derived only at Stage 8 MRP assembly from FP-* proposal identity.
   - Merge-readiness evidence does not imply accepted or monitored lifecycle state.
-  - Gate 2 and Gate 3 remain separate fail-closed lifecycle guards.
+  - Fidelity Verification and Persistence Verification remain separate fail-closed lifecycle guards.

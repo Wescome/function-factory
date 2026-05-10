@@ -18,12 +18,12 @@ import { CoherenceVerificationReport } from "./coverage.js"
 // Minimum valid CoherenceVerificationReport fixture. Reused across tests. Represents a
 // passing Steady-State report (no bootstrap_prefix_check present).
 const baseCoherenceVerificationReport = {
-  id: "CR-PRD-META-GATE-1-COMPILE-COVERAGE-GATE1-2026-04-19T00-00-00Z",
-  source_refs: ["PRD-META-GATE-1-COMPILE-COVERAGE"],
+  id: "VR-IS-META-COHERENCE-VERIFICATION-COHERENCE-2026-04-19T00-00-00Z",
+  source_refs: ["IS-META-COHERENCE-VERIFICATION"],
   explicitness: "explicit" as const,
   rationale: "test fixture",
   verification: "coherence" as const,
-  prd_id: "PRD-META-GATE-1-COMPILE-COVERAGE",
+  intent_specification_id: "IS-META-COHERENCE-VERIFICATION",
   timestamp: "2026-04-19T00:00:00Z",
   overall: "pass" as const,
   checks: {
@@ -76,7 +76,7 @@ describe("CoherenceVerificationReport", () => {
           bootstrap_prefix_check: {
             status: "fail" as const,
             non_meta_artifact_ids: [
-              "PRD-VERTICAL-EXAMPLE",
+              "IS-VERTICAL-EXAMPLE",
               "INV-VERTICAL-EXAMPLE-A",
             ],
           },
@@ -143,8 +143,8 @@ describe("CoherenceVerificationReport", () => {
       expect(result.success).toBe(true)
     })
 
-    it("rejects a CoherenceVerificationReport whose id does not start with CR-", () => {
-      const bad = { ...baseCoherenceVerificationReport, id: "PRD-NOT-A-COVERAGE-REPORT" }
+    it("rejects a CoherenceVerificationReport whose id does not start with VR-", () => {
+      const bad = { ...baseCoherenceVerificationReport, id: "IS-NOT-A-COVERAGE-REPORT" }
       const result = CoherenceVerificationReport.safeParse(bad)
       expect(result.success).toBe(false)
     })

@@ -121,8 +121,8 @@ function composeGates(...gates: ((ctx: GateContext) => GateResult | undefined)[]
 
 function makeState(overrides: Partial<GraphState> = {}): GraphState {
   return {
-    ...createInitialState('WG-C11', {
-      id: 'WG-C11',
+    ...createInitialState('ES-C11', {
+      id: 'ES-C11',
       title: 'Phase C Test ExecutableSpecification',
       atoms: [{ id: 'atom-001', description: 'Implement handler', assignedTo: 'coder' }],
       invariants: [{ id: 'INV-001', condition: 'no crashes', severity: 'critical' }],
@@ -182,7 +182,7 @@ describe('Phase C: sandbox task JSON schema', () => {
 
     // Must contain core fields for sandbox session
     expect(task.role).toBe('coder')
-    expect(task.executableSpecificationId).toBe('WG-C11')
+    expect(task.executableSpecificationId).toBe('ES-C11')
     expect(task.executableSpecification).toBeDefined()
     expect(task.executableSpecification.atoms).toHaveLength(1)
     expect(task.executableSpecification.invariants).toHaveLength(1)
@@ -441,11 +441,11 @@ describe('Phase C: tool gate enforcement', () => {
 
   describe('Gate composition', () => {
     it('composeGates returns first blocking gate result', () => {
-      const gate1 = createReadOnlyGate()
-      const gate2 = createCommandPolicyGate({ denyCommands: ['curl'] })
-      const composed = composeGates(gate1, gate2)
+      const coherenceVerification = createReadOnlyGate()
+      const fidelityVerification = createCommandPolicyGate({ denyCommands: ['curl'] })
+      const composed = composeGates(coherenceVerification, fidelityVerification)
 
-      // file_write blocked by read-only gate (gate1)
+      // file_write blocked by read-only gate (coherenceVerification)
       const result = composed({
         toolCall: { name: 'file_write', id: 'tc-15' },
         args: { file_path: '/workspace/src/hack.ts', content: 'bad' },
@@ -457,9 +457,9 @@ describe('Phase C: tool gate enforcement', () => {
     })
 
     it('composeGates passes when no gate blocks', () => {
-      const gate1 = createFileScopeGate({ allowWrite: ['/workspace'] })
-      const gate2 = createCommandPolicyGate({ denyCommands: ['curl'] })
-      const composed = composeGates(gate1, gate2)
+      const coherenceVerification = createFileScopeGate({ allowWrite: ['/workspace'] })
+      const fidelityVerification = createCommandPolicyGate({ denyCommands: ['curl'] })
+      const composed = composeGates(coherenceVerification, fidelityVerification)
 
       // file_write within allowed scope
       const result = composed({

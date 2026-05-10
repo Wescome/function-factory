@@ -7,7 +7,7 @@ export function renderArchitectureCandidateYaml(candidate: ArchitectureCandidate
     ...candidate.source_refs.map((r) => `  - ${r}`),
     `explicitness: ${candidate.explicitness}`,
     `rationale: ${candidate.rationale}`,
-    `sourcePrdId: ${candidate.sourcePrdId}`,
+    `sourceIntentSpecificationId: ${candidate.sourceIntentSpecificationId}`,
     `sourceExecutableSpecificationId: ${candidate.sourceExecutableSpecificationId}`,
     `candidateStatus: ${candidate.candidateStatus}`,
     "topology:",

@@ -20,13 +20,13 @@ rename.
 
 - C1 lineage completeness for non-signal artifact collections
 - C7 low-confidence CRP warning
-- C9 fail-closed coverage report pass/fail evidence
+- C9 fail-closed verification report pass/fail evidence
 - C15 recursive secret-pattern rejection
 
 ## Compatibility Notes
 
-- `specs_workgraphs` remains the persisted ExecutableSpecification compatibility collection.
-- `specs_coverage_reports` remains the persisted Verification Report
+- `executable_specifications` remains the persisted ExecutableSpecification compatibility collection.
+- `verification_reports` remains the persisted Verification Report
   compatibility collection.
 - Gate report names remain current runtime evidence terms until a dedicated
   one-family rename proposal proves compatibility.

@@ -219,7 +219,7 @@ export const MergeReadinessPack = z.object({
   }),
 
   auditability: z.object({
-    prdId: z.string(),
+    intentSpecificationId: z.string(),
     executableSpecificationId: z.string(),
     semanticReviewId: z.string(),
     coherenceVerificationReportId: z.string().optional(),

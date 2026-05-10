@@ -99,7 +99,7 @@ export const AGENT_DESIGNS: AgentDesign[] = [
         description: 'Query the Factory ontology for constraints, role specs, lifecycle states, and pending CRPs. Preferred over raw AQL for ontology questions.',
         aqlExamples: [],
       }],
-      memoryAccess: ['memory_semantic', 'memory_episodic', 'mentorscript_rules', 'specs_functions', 'specs_workgraphs'],
+      memoryAccess: ['memory_semantic', 'memory_episodic', 'mentorscript_rules', 'specs_functions', 'executable_specifications'],
       environment: 'v8-isolate',
       permissions: ['read'],
       platform: {
@@ -187,7 +187,7 @@ You have the arango_query tool. USE IT to ground your briefing in real Factory c
         description: 'Query the Factory ontology for constraints, role specs, lifecycle states, and pending CRPs. Preferred over raw AQL for ontology questions.',
         aqlExamples: [],
       }],
-      memoryAccess: ['memory_semantic', 'mentorscript_rules', 'specs_signals', 'specs_functions', 'specs_workgraphs', 'execution_artifacts'],
+      memoryAccess: ['memory_semantic', 'mentorscript_rules', 'specs_signals', 'specs_functions', 'executable_specifications', 'execution_artifacts'],
       environment: 'v8-isolate',
       permissions: ['read'],
       platform: {
@@ -198,7 +198,7 @@ You have the arango_query tool. USE IT to ground your briefing in real Factory c
       },
     },
     intent: {
-      jtbd: 'When a PRD or code artifact needs validation, I want to verify it against the original specification, architectural decisions, and mentor rules, so misaligned or defective artifacts are caught before they propagate downstream.',
+      jtbd: 'When a Intent Specification or code artifact needs validation, I want to verify it against the original specification, architectural decisions, and mentor rules, so misaligned or defective artifacts are caught before they propagate downstream.',
       produces: 'SemanticReviewResult | CritiqueReport',
       outputShape: {
         'semanticReview.alignment': '"aligned" | "miscast" | "uncertain"',
@@ -226,7 +226,7 @@ You have the arango_query tool. USE IT to ground your briefing in real Factory c
       maxTokens: 4096,
       maxTurns: 5,
       inputFields: {
-        'semanticReview.prd': { type: 'Record<string, unknown>', required: true, description: 'PRD or ExecutableSpecification to review' },
+        'semanticReview.intentSpecification': { type: 'Record<string, unknown>', required: true, description: 'Intent Specification or ExecutableSpecification to review' },
         'semanticReview.specContent': { type: 'string', required: false, description: 'Original specification for ground truth comparison' },
         'codeReview.code': { type: 'CodeArtifact', required: true, description: 'Code output from Coder' },
         'codeReview.plan': { type: 'Plan', required: true, description: 'Plan the code should implement' },
@@ -242,7 +242,7 @@ You have the arango_query tool. USE IT to ground your briefing in real Factory c
       system: `You are the Critic agent in the Function Factory synthesis pipeline.
 
 You operate in two modes:
-1. SEMANTIC REVIEW: Compare a PRD/ExecutableSpecification against the original specification. Assess alignment.
+1. SEMANTIC REVIEW: Compare a Intent Specification/ExecutableSpecification against the original specification. Assess alignment.
 2. CODE REVIEW: Review code against the plan, invariants, and active MentorScript rules.
 
 You have the arango_query tool. USE IT to ground every review in real Factory context. Never review against hallucinated expectations — only against what exists in the knowledge graph and the provided specContent.`,
@@ -288,7 +288,7 @@ Always query mentorscript_rules before producing a code review.`,
         description: 'Query the Factory ontology for constraints, role specs, lifecycle states, and pending CRPs. Preferred over raw AQL for ontology questions.',
         aqlExamples: [],
       }],
-      memoryAccess: ['memory_semantic', 'specs_functions', 'specs_invariants', 'specs_workgraphs'],
+      memoryAccess: ['memory_semantic', 'specs_functions', 'specs_invariants', 'executable_specifications'],
       environment: 'v8-isolate',
       permissions: ['read'],
       platform: {
@@ -562,7 +562,7 @@ You have the arango_query tool. USE IT to query active invariants BEFORE produci
         description: 'Query the Factory ontology for constraints, role specs, lifecycle states, and pending CRPs. Preferred over raw AQL for ontology questions.',
         aqlExamples: [],
       }],
-      memoryAccess: ['memory_semantic', 'memory_episodic', 'mentorscript_rules', 'specs_functions', 'specs_invariants', 'gate_status'],
+      memoryAccess: ['memory_semantic', 'memory_episodic', 'mentorscript_rules', 'specs_functions', 'specs_invariants', 'verification_status'],
       environment: 'v8-isolate',
       permissions: ['read'],
       platform: {
@@ -637,7 +637,7 @@ Only "fail" when the approach is fundamentally broken AND budget is low.`,
 1. specs_invariants — are all invariants covered?
 2. memory_episodic — how many repair attempts already?
 3. mentorscript_rules — did the code comply?
-4. gate_status — did prior gates pass?`,
+4. verification_status — did prior gates pass?`,
       mentorRuleInjection: true,
     },
     version: '1.0.0',

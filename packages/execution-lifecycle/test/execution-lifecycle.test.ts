@@ -6,7 +6,7 @@ import { emitExecutionResult } from "../src/emit-execution-result.js"
 describe("execution lifecycle", () => {
   it("emits EXS, EXT, EXR deterministically for the bootstrap path", () => {
     const exs = emitExecutionStart({
-      sourceExecutableSpecificationId: "WG-META-ARCHITECTURE-CANDIDATE-EXECUTION",
+      sourceExecutableSpecificationId: "ES-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       sourceArchitectureCandidateId: "AC-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       sourceSelectionId: "ACS-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       sourceAdmissionId: "RAD-META-ARCHITECTURE-CANDIDATE-EXECUTION-ALLOW",
@@ -16,7 +16,7 @@ describe("execution lifecycle", () => {
     })
 
     const ext = emitExecutionTrace({
-      sourceExecutableSpecificationId: "WG-META-ARCHITECTURE-CANDIDATE-EXECUTION",
+      sourceExecutableSpecificationId: "ES-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       sourceArchitectureCandidateId: "AC-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       sourceSelectionId: "ACS-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       sourceAdmissionId: "RAD-META-ARCHITECTURE-CANDIDATE-EXECUTION-ALLOW",
@@ -28,7 +28,7 @@ describe("execution lifecycle", () => {
     })
 
     const exr = emitExecutionResult({
-      sourceExecutableSpecificationId: "WG-META-ARCHITECTURE-CANDIDATE-EXECUTION",
+      sourceExecutableSpecificationId: "ES-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       sourceArchitectureCandidateId: "AC-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       sourceSelectionId: "ACS-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       sourceAdmissionId: "RAD-META-ARCHITECTURE-CANDIDATE-EXECUTION-ALLOW",
@@ -46,7 +46,7 @@ describe("execution lifecycle", () => {
   it("fails closed when admission is denied", () => {
     expect(() =>
       emitExecutionStart({
-        sourceExecutableSpecificationId: "WG-META-ARCHITECTURE-CANDIDATE-EXECUTION",
+        sourceExecutableSpecificationId: "ES-META-ARCHITECTURE-CANDIDATE-EXECUTION",
         sourceArchitectureCandidateId: "AC-META-ARCHITECTURE-CANDIDATE-EXECUTION",
         sourceSelectionId: "ACS-META-ARCHITECTURE-CANDIDATE-EXECUTION",
         sourceAdmissionId: "RAD-META-ARCHITECTURE-CANDIDATE-EXECUTION-DENY",

@@ -100,7 +100,7 @@ async function factoryLoop(
 
   while (signals.length > 0) {
     // SPECIFICATION CONTEXT (Stages 1-5)
-    // structural_coverage_passed + semantic review run internally
+    // structural_verification_passed + semantic review run internally
     const compiled = specification_compilePipeline(signals);
 
     for (const executableSpecification of compiled.executableSpecifications) {

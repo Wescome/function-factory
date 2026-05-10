@@ -77,38 +77,38 @@ class GatesService extends WorkerEntrypoint<GatesEnv> {
       return this.buildReport(executableSpecificationJson, checks)
     }
 
-    const wg = executableSpecificationJson as Record<string, unknown>
-    const wgId = (wg._key ?? wg.id ?? 'unknown') as string
+    const executableSpecification = executableSpecificationJson as Record<string, unknown>
+    const wgId = (executableSpecification._key ?? executableSpecification.id ?? 'unknown') as string
 
     // 1. Atom coverage
-    checks.push(this.checkAtomCoverage(wg))
+    checks.push(this.checkAtomVerification(executableSpecification))
 
     // 2. Invariant coverage
-    checks.push(this.checkInvariantCoverage(wg))
+    checks.push(this.checkInvariantVerification(executableSpecification))
 
     // 3. Dependency closure
-    checks.push(await this.checkDependencyClosure(wg))
+    checks.push(await this.checkDependencyClosure(executableSpecification))
 
     // 4. Lineage completeness
     checks.push(await this.checkLineageCompleteness(wgId))
 
     // 5. Schema field completeness
-    checks.push(this.checkFieldCompleteness(wg))
+    checks.push(this.checkFieldCompleteness(executableSpecification))
 
     return this.buildReport(executableSpecificationJson, checks)
   }
 
   // ── Check implementations ──
 
-  private checkParseable(wg: unknown): CoherenceVerificationCheck {
-    if (typeof wg !== 'object' || wg === null) {
+  private checkParseable(executableSpecification: unknown): CoherenceVerificationCheck {
+    if (typeof executableSpecification !== 'object' || executableSpecification === null) {
       return {
         name: 'parseable',
         passed: false,
         detail: 'ExecutableSpecification is not an object',
       }
     }
-    const obj = wg as Record<string, unknown>
+    const obj = executableSpecification as Record<string, unknown>
     const requiredFields = ['_key', 'atoms', 'invariants', 'dependencies']
     const missing = requiredFields.filter((f) => !(f in obj))
     if (missing.length > 0) {
@@ -121,8 +121,8 @@ class GatesService extends WorkerEntrypoint<GatesEnv> {
     return { name: 'parseable', passed: true, detail: 'ExecutableSpecification structure valid' }
   }
 
-  private checkAtomCoverage(wg: Record<string, unknown>): CoherenceVerificationCheck {
-    const atoms = wg.atoms as Array<Record<string, unknown>> | undefined
+  private checkAtomVerification(executableSpecification: Record<string, unknown>): CoherenceVerificationCheck {
+    const atoms = executableSpecification.atoms as Array<Record<string, unknown>> | undefined
     if (!atoms || !Array.isArray(atoms)) {
       return { name: 'atom-coverage', passed: false, detail: 'No atoms array' }
     }
@@ -142,8 +142,8 @@ class GatesService extends WorkerEntrypoint<GatesEnv> {
     }
   }
 
-  private checkInvariantCoverage(wg: Record<string, unknown>): CoherenceVerificationCheck {
-    const invariants = wg.invariants as Array<Record<string, unknown>> | undefined
+  private checkInvariantVerification(executableSpecification: Record<string, unknown>): CoherenceVerificationCheck {
+    const invariants = executableSpecification.invariants as Array<Record<string, unknown>> | undefined
     if (!invariants || !Array.isArray(invariants)) {
       return { name: 'invariant-coverage', passed: false, detail: 'No invariants array' }
     }
@@ -163,13 +163,13 @@ class GatesService extends WorkerEntrypoint<GatesEnv> {
     }
   }
 
-  private async checkDependencyClosure(wg: Record<string, unknown>): Promise<CoherenceVerificationCheck> {
-    const deps = wg.dependencies as Array<Record<string, unknown>> | undefined
+  private async checkDependencyClosure(executableSpecification: Record<string, unknown>): Promise<CoherenceVerificationCheck> {
+    const deps = executableSpecification.dependencies as Array<Record<string, unknown>> | undefined
     if (!deps || !Array.isArray(deps)) {
       return { name: 'dependency-closure', passed: true, detail: 'No dependencies declared' }
     }
 
-    const atoms = wg.atoms as Array<Record<string, unknown>> | undefined
+    const atoms = executableSpecification.atoms as Array<Record<string, unknown>> | undefined
     const atomIds = new Set((atoms ?? []).map((a) => (a.id ?? a._key) as string))
 
     const dangling = deps.filter((d) => {
@@ -201,7 +201,7 @@ class GatesService extends WorkerEntrypoint<GatesEnv> {
          FILTER v.type == 'signal' OR STARTS_WITH(v._key, 'SIG-')
          LIMIT 1
          RETURN { depth: LENGTH(p.edges), type: v.type }`,
-      { start: `specs_workgraphs/${wgId}` },
+      { start: `executable_specifications/${wgId}` },
     )
 
     if (path.length === 0) {
@@ -218,17 +218,17 @@ class GatesService extends WorkerEntrypoint<GatesEnv> {
     }
   }
 
-  private checkFieldCompleteness(wg: Record<string, unknown>): CoherenceVerificationCheck {
+  private checkFieldCompleteness(executableSpecification: Record<string, unknown>): CoherenceVerificationCheck {
     const missing: string[] = []
 
     // ExecutableSpecification-level required fields
-    const wgRequired = ['title', 'prdId', 'atoms', 'invariants', 'repo']
+    const wgRequired = ['title', 'intentSpecificationId', 'atoms', 'invariants', 'repo']
     for (const f of wgRequired) {
-      if (!wg[f]) missing.push(`executableSpecification.${f}`)
+      if (!executableSpecification[f]) missing.push(`executableSpecification.${f}`)
     }
 
     // Spot-check first atom for required fields
-    const atoms = wg.atoms as Array<Record<string, unknown>> | undefined
+    const atoms = executableSpecification.atoms as Array<Record<string, unknown>> | undefined
     if (atoms && atoms.length > 0) {
       const atomRequired = ['id', 'type', 'description']
       for (const f of atomRequired) {
@@ -253,11 +253,11 @@ class GatesService extends WorkerEntrypoint<GatesEnv> {
   // ── Report assembly ──
 
   private buildReport(
-    wg: unknown,
+    executableSpecification: unknown,
     checks: CoherenceVerificationCheck[],
   ): CoherenceVerificationReport {
     const passed = checks.every((c) => c.passed)
-    const obj = wg as Record<string, unknown>
+    const obj = executableSpecification as Record<string, unknown>
     const wgId = ((obj?._key ?? obj?.id) as string) ?? 'unknown'
 
     const failedNames = checks.filter((c) => !c.passed).map((c) => c.name)

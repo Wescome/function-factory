@@ -1,13 +1,13 @@
 /**
  * Decomposition (legacy Pass 1)- extract atoms.
  *
- * Turns each list item in the PRD's acceptanceCriteria, constraints,
+ * Turns each list item in the Intent Specification's acceptanceCriteria, constraints,
  * and successMetrics sections into a RequirementAtom. Out-of-scope
  * items and prose sections (problem, goal) do not produce atoms- they
  * are context or boundaries, not requirements.
  *
  * Atom ID convention- `ATOM-<QUALIFIER>-<SUBJECT>-<CATEGORY>-<INDEX>`
- * where SUBJECT is derived from the PRD ID (e.g., GATE-1-COMPILE-COVERAGE)
+ * where SUBJECT is derived from the Intent Specification ID (e.g., COHERENCE-VERIFICATION)
  * and INDEX is a zero-padded sequence per category.
  *
  * The MVP populates subject/action/object with bootstrap values- subject
@@ -19,9 +19,9 @@
  */
 
 import type { ArtifactId, RequirementAtom } from "@factory/schemas"
-import type { NormalizedPRD } from "../types.js"
+import type { NormalizedIntentSpecification } from "../types.js"
 
-export function extractAtoms(normalized: NormalizedPRD): RequirementAtom[] {
+export function extractAtoms(normalized: NormalizedIntentSpecification): RequirementAtom[] {
   const { draft } = normalized
   const atoms: RequirementAtom[] = []
 
@@ -30,7 +30,7 @@ export function extractAtoms(normalized: NormalizedPRD): RequirementAtom[] {
     atoms.push(
       makeAtom({
         id: atomId(draft.id, "AC", i + 1),
-        prdId: draft.id,
+        intentSpecificationId: draft.id,
         category: "acceptance",
         object: text,
         sourceSection: "acceptance criteria",
@@ -44,7 +44,7 @@ export function extractAtoms(normalized: NormalizedPRD): RequirementAtom[] {
     atoms.push(
       makeAtom({
         id: atomId(draft.id, "CONSTRAINT", i + 1),
-        prdId: draft.id,
+        intentSpecificationId: draft.id,
         category: "constraint",
         object: text,
         sourceSection: "constraints",
@@ -59,7 +59,7 @@ export function extractAtoms(normalized: NormalizedPRD): RequirementAtom[] {
     atoms.push(
       makeAtom({
         id: atomId(draft.id, "METRIC", i + 1),
-        prdId: draft.id,
+        intentSpecificationId: draft.id,
         category: "nfr",
         object: text,
         sourceSection: "success metrics",
@@ -73,7 +73,7 @@ export function extractAtoms(normalized: NormalizedPRD): RequirementAtom[] {
 
 interface MakeAtomArgs {
   readonly id: ArtifactId
-  readonly prdId: ArtifactId
+  readonly intentSpecificationId: ArtifactId
   readonly category: RequirementAtom["category"]
   readonly object: string
   readonly sourceSection: string
@@ -83,9 +83,9 @@ interface MakeAtomArgs {
 function makeAtom(args: MakeAtomArgs): RequirementAtom {
   return {
     id: args.id,
-    source_refs: [args.prdId],
+    source_refs: [args.intentSpecificationId],
     explicitness: "explicit",
-    rationale: `Extracted from ${args.prdId} ${args.sourceSection} item ${args.index}`,
+    rationale: `Extracted from ${args.intentSpecificationId} ${args.sourceSection} item ${args.index}`,
     category: args.category,
     subject: "Coherence Verification",
     action: "shall",
@@ -97,12 +97,12 @@ function makeAtom(args: MakeAtomArgs): RequirementAtom {
 }
 
 /**
- * Build a valid ArtifactId for an atom extracted from a PRD.
- * The PRD ID is something like "PRD-META-GATE-1-COMPILE-COVERAGE";
- * the atom ID reuses the subject portion after the PRD- prefix.
+ * Build a valid ArtifactId for an atom extracted from a Intent Specification.
+ * The Intent Specification ID is something like "IS-META-COHERENCE-VERIFICATION";
+ * the atom ID reuses the subject portion after the IS- prefix.
  */
-function atomId(prdId: ArtifactId, tag: string, index: number): ArtifactId {
-  const subject = prdId.replace(/^PRD-/, "")
+function atomId(intentSpecificationId: ArtifactId, tag: string, index: number): ArtifactId {
+  const subject = intentSpecificationId.replace(/^IS-/, "")
   const padded = String(index).padStart(2, "0")
   return `ATOM-${subject}-${tag}-${padded}` as ArtifactId
 }

@@ -2,7 +2,7 @@ import type { CapabilityDelta, FunctionProposal } from "@factory/schemas"
 
 const SUPPORTED_CAPABILITIES = [
   "BC-META-COMPUTE-CAPABILITY-DELTA",
-  "BC-META-SEMANTICALLY-REVIEW-PRDS",
+  "BC-META-SEMANTICALLY-REVIEW-Intent SpecificationS",
   "BC-META-EMIT-ARCHITECTURE-CANDIDATES",
 ] as const
 
@@ -52,7 +52,7 @@ const PROPOSAL_TEMPLATES: Record<SupportedId, readonly ProposalTemplate[]> = {
       confidence: 0.9,
     },
   ],
-  "BC-META-SEMANTICALLY-REVIEW-PRDS": [
+  "BC-META-SEMANTICALLY-REVIEW-Intent SpecificationS": [
     {
       id: "FP-META-SEMANTIC-REVIEW-EXECUTION",
       rationale: "Execution gap identified in semantic review capability delta",
@@ -75,7 +75,7 @@ const PROPOSAL_TEMPLATES: Record<SupportedId, readonly ProposalTemplate[]> = {
       expectedInputs: ["IntentSpecification", "CoherenceVerificationReport", "doctrine sources"],
       expectedOutputs: ["semantic review findings", "semantic review status"],
       governingConstraints: ["must not weaken Coherence Verification"],
-      candidateInvariants: ["structurally valid but conceptually wrong PRDs are blocked"],
+      candidateInvariants: ["structurally valid but conceptually wrong Intent Specifications are blocked"],
       successSignals: ["consistent semantic review classification across repeated runs"],
       confidence: 0.94,
     },
@@ -88,7 +88,7 @@ const PROPOSAL_TEMPLATES: Record<SupportedId, readonly ProposalTemplate[]> = {
       expectedInputs: ["semantic review findings"],
       expectedOutputs: ["semantic review artifact"],
       governingConstraints: ["source references must be preserved"],
-      candidateInvariants: ["semantic review artifacts always cite doctrine and PRD inputs"],
+      candidateInvariants: ["semantic review artifacts always cite doctrine and Intent Specification inputs"],
       successSignals: ["persisted evidence artifact for each semantic review run"],
       confidence: 0.9,
     },
@@ -129,7 +129,7 @@ const PROPOSAL_TEMPLATES: Record<SupportedId, readonly ProposalTemplate[]> = {
       expectedInputs: ["candidate emission results"],
       expectedOutputs: ["candidate evidence artifact"],
       governingConstraints: ["source references must be preserved"],
-      candidateInvariants: ["candidate evidence always cites doctrine and PRD inputs"],
+      candidateInvariants: ["candidate evidence always cites doctrine and Intent Specification inputs"],
       successSignals: ["persisted evidence artifact for each candidate emission run"],
       confidence: 0.9,
     },

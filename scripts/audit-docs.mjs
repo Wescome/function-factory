@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const artifactIdPattern =
-  /^(PRS|BC|FN|CONTRACT|FP|PRD|WG|INV|VAL|DEP|ATOM|CR|CTR|TRJ|PF|INC|DET|DEL|SIG|RGD|AC|ACS|RAD|EXS|EXT|EXR|EFF|EFFR|OBS|SNB|GOV|RPRS|DDI|CRL|SBI|PSR|GOVP|GOVD|GOVS|GOVA|GOVR|SRR|AMD|MR|CRP|VCR|MRP|TEP)-[A-Z0-9][A-Z0-9-]*$/
+  /^(PRS|BC|FN|CONTRACT|FP|IS|ES|INV|VAL|DEP|ATOM|VR|CTR|TRJ|PF|INC|DET|DEL|SIG|RGD|AC|ACS|RAD|EXS|EXT|EXR|EFF|EFFR|OBS|SNB|GOV|RPRS|DDI|CRL|SBI|PSR|GOVP|GOVD|GOVS|GOVA|GOVR|SRR|AMD|MR|CRP|VCR|MRP|TEP)-[A-Z0-9][A-Z0-9-]*$/
 const markdownLinkPattern = /(!?\[[^\]]*\]\()([^)]+)(\))/g
 const idLinePattern = /^\s*-?\s*id:\s*['"]?([^'"\s#]+)['"]?\s*$/
 const sourceRefsInlinePattern = /^\s*source_refs:\s*\[(.*)\]\s*$/

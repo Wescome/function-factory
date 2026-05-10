@@ -8,7 +8,7 @@
  *
  * The MVP performs no checks. Coherence Verification re-verifies dependency
  * closure and atom coverage independently, so structural gaps that
- * this compatibility slot would otherwise catch will still surface in the Coverage
+ * this compatibility slot would otherwise catch will still surface in the Verification
  * Report. The pass exists in the pipeline for structural completeness
  * and to reserve the slot for richer checks once the compiler produces
  * more complex intermediates.

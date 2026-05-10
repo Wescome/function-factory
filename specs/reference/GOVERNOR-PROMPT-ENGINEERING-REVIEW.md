@@ -157,7 +157,7 @@ Correct decision:
   "target": "SIG-2847",
   "reason": "Signal meets all four auto-trigger criteria: source is
     factory:feedback-loop, feedbackDepth (1) < 3, autoApprove is true,
-    no cooldown violation for this workGraphId+subtype.",
+    no cooldown violation for this executableSpecificationId+subtype.",
   "evidence": ["SIG-2847"],
   "risk_level": "safe",
   "executed": false
@@ -450,7 +450,7 @@ AUTO-TRIGGER CRITERIA (all must be true):
 - signal.source === 'factory:feedback-loop'
 - signal.raw.feedbackDepth < ${autoTriggerDepth}
 - signal.raw.autoApprove === true
-- No cooldown violation (same workGraphId+subtype within ${cooldownMinutes} min)
+- No cooldown violation (same executableSpecificationId+subtype within ${cooldownMinutes} min)
 
 ESCALATION TRIGGERS:
 - ORL success rate < ${(orlThreshold * 100).toFixed(0)}% for any schema over 24h
@@ -489,7 +489,7 @@ For each pending signal, classify it into exactly one category:
 3. STALE: Signal has been pending > 7 days with no auto-trigger match.
    -> action: "archive_signal"
 
-4. DUPLICATE: Signal has same workGraphId+subtype as another pending
+4. DUPLICATE: Signal has same executableSpecificationId+subtype as another pending
    signal created within 30 minutes.
    -> action: "deduplicate_signal"
 
@@ -730,7 +730,7 @@ You run every 15 minutes inside Cloudflare. Your job: keep the Factory running w
 
 DECISION CLASSIFICATION (evaluate in this order, first match wins):
 
-1. AUTO-TRIGGER: signal.source === 'factory:feedback-loop' AND feedbackDepth < 3 AND autoApprove === true AND no cooldown violation (same workGraphId+subtype within 30 min)
+1. AUTO-TRIGGER: signal.source === 'factory:feedback-loop' AND feedbackDepth < 3 AND autoApprove === true AND no cooldown violation (same executableSpecificationId+subtype within 30 min)
    -> action: "trigger_pipeline"
 
 2. AUTO-APPROVE: pipeline waiting at architect-approval AND signal.autoApprove === true AND signal.source === 'factory:feedback-loop' AND subtype in ['synthesis:atom-failed', 'synthesis:orl-degradation']
@@ -739,7 +739,7 @@ DECISION CLASSIFICATION (evaluate in this order, first match wins):
 3. STALE: signal pending > 7 days, no auto-trigger match
    -> action: "archive_signal"
 
-4. DUPLICATE: same workGraphId+subtype as another pending signal within 30 min
+4. DUPLICATE: same executableSpecificationId+subtype as another pending signal within 30 min
    -> action: "deduplicate_signal"
 
 5. ESCALATION-REQUIRED: any escalation trigger met (see below)

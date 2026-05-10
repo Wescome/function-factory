@@ -11,19 +11,19 @@ The ontology describes 16 constraints. The Factory currently violates 12 of them
 
 | Constraint | Status | What's missing |
 |-----------|--------|----------------|
-| C1 — Lineage completeness | PARTIAL | WorkGraphs have `prdId: "unknown"` |
+| C1 — Lineage completeness | PARTIAL | Executable Specifications have `intentSpecificationId: "unknown"` |
 | C2 — specContent propagation | FIXED | Deployed 2026-04-27 |
 | C3 — BriefingScript completeness | PARTIAL | Architect node produces it but isn't a real agent |
 | C4 — Agent is real agent | VIOLATED | All roles are callModel wrappers, not gdk-agent sessions |
-| C5 — Invariant has detector | OPERATIONAL | Gate 1 enforces this |
-| C6 — Every artifact reviewed | VIOLATED | No automated review gate on WorkGraphs |
+| C5 — Invariant has detector | OPERATIONAL | Coherence Verification enforces this |
+| C6 — Every artifact reviewed | VIOLATED | No automated review gate on Executable Specifications |
 | C7 — CRP on low confidence | VIOLATED | CRP never fires — no confidence threshold check |
 | C8 — MentorScript enforcement | VIOLATED | Rules stored, never loaded by agents |
-| C9 — Gate fail-closed | OPERATIONAL | Gate 1 fail-closed works |
+| C9 — Gate fail-closed | OPERATIONAL | Coherence Verification fail-closed works |
 | C10 — Semantic review grounded | FIXED | Critic uses specContent as ground truth |
 | C11 — Coder has filesystem | VIOLATED | piAiRole fallback, sandbox not executing |
 | C12 — Tester runs real tests | VIOLATED | Simulated tests, no real pnpm test |
-| C13 — WorkGraph has atoms | OPERATIONAL | Gate 1 checks atom coverage |
+| C13 — Executable Specification has atoms | OPERATIONAL | Coherence Verification checks atom coverage |
 | C14 — Lifecycle transitions | NOT IMPLEMENTED | No lifecycle state tracking |
 | C15 — No secrets in artifacts | NOT ENFORCED | No runtime check |
 | C16 — Event-driven communication | OPERATIONAL | Queue bridge works |
@@ -120,8 +120,8 @@ The sandbox Container is deployed. The `buildSandboxDeps()` uses real `@cloudfla
 
 **Lifecycle state tracking:**
 1. Add `lifecycleState` field to FunctionProposal
-2. Transitions: proposed → designed (after WorkGraph compiled) → in_progress (Stage 6 starts) → implemented (Coder done) → verified (Gate 2 pass) → monitored (Gate 3 active)
-3. Gate 2 must pass before verified. Gate 3 must be active before monitored.
+2. Transitions: proposed → designed (after Executable Specification compiled) → in_progress (Stage 6 starts) → implemented (Coder done) → verified (Fidelity Verification pass) → monitored (Persistence Verification active)
+3. Fidelity Verification must pass before verified. Persistence Verification must be active before monitored.
 4. Enforce via artifact-validator (C14)
 
 ---
@@ -184,11 +184,11 @@ Structured deployment and validation using the same ontology-backed methodology.
 |---|-----------|-------------------|----------------|
 | F1 | wrangler deploy succeeds | Deploy log, no errors | HTTP 200 on all 3 workers |
 | F2 | ArangoDB seeded | seedOntology() + seedAgentDesigns() output | Counts match: 215 ontology docs + 6 agent designs |
-| F3 | Dry-run synthesis completes | POST /trigger-synthesis with dryRun: true | Verdict: pass. RoleHistory contains all 10 nodes: budget-check, architect, semantic-critic, compile, gate-1, planner, coder, code-critic, tester, verifier. Response within 30 seconds. |
+| F3 | Dry-run synthesis completes | POST /trigger-synthesis with dryRun: true | Verdict: pass. RoleHistory contains all 10 nodes: budget-check, architect, semantic-critic, compile, coherence-verification, planner, coder, code-critic, tester, verifier. Response within 30 seconds. |
 | F4 | Live synthesis completes | POST /trigger-synthesis with real Signal | Verdict is not `interrupt` and no uncaught exception. Response within 5 minutes. If verdict is `fail`, investigate root cause before declaring F4 passed. |
 | F5 | Artifact validator fires | Query consultation_requests after low-confidence run | CRP document exists with correct fields |
 | F6 | Lifecycle transitions persist | Query specs_functions for lifecycleState | State matches expected stage |
-| F7 | Ontology queryable | ontology_query tool returns constraints for WorkGraph | Returns C1, C6, C13 |
+| F7 | Ontology queryable | ontology_query tool returns constraints for Executable Specification | Returns C1, C6, C13 |
 
 **Risk register:**
 
@@ -219,12 +219,12 @@ Phase B enforces 4 of 16 constraints at persist time (C1, C7, C9, C15). The rema
 | C3 — BriefingScript completeness | 6 required fields, min lengths | Small — pure validation |
 | C4 — Agent is real agent | hasTools, hasMemoryAccess, runsIn on role docs | Small — schema check |
 | C5 — Invariant has detector | detectedBy field required | Small — field check |
-| C6 — Every artifact reviewed | reviewedBy field required on WorkGraphs and CodeArtifacts | Small — field check |
+| C6 — Every artifact reviewed | reviewedBy field required on Executable Specifications and CodeArtifacts | Small — field check |
 | C8 — MentorScript enforcement | mentorRulesChecked field on CritiqueReports | Small — field check |
 | C10 — Semantic review grounded | groundedIn references original Signal | Medium — requires lineage query |
 | C11 — Coder has filesystem | runsIn == SandboxContainer check | Small — config check |
 | C12 — Tester runs real tests | runsIn == SandboxContainer check | Small — config check |
-| C13 — WorkGraph has atoms | hasNode minCount 1 | Small — array check |
+| C13 — Executable Specification has atoms | hasNode minCount 1 | Small — array check |
 | C14 — Lifecycle transitions | Gate requirements on state changes | **Separately enforced** in lifecycle.ts — not in artifact-validator. No Phase G work needed. |
 | C16 — Event-driven communication | communicatesVia == synthesisQueue | Small — config check |
 

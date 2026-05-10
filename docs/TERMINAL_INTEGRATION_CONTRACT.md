@@ -35,12 +35,12 @@ specs/
 The terminal must support both:
 
 - YAML artifacts: `specs/**/*.yaml`
-- Markdown PRDs and reference documents: `specs/**/*.md`
+- Markdown Intent Specifications and reference documents: `specs/**/*.md`
 
-PRDs are currently Markdown:
+Intent Specifications are currently Markdown:
 
 ```text
-specs/prds/PRD-*.md
+specs/intent-specifications/IS-*.md
 ```
 
 Most other Factory artifacts are YAML.
@@ -54,7 +54,7 @@ The terminal must not maintain its own independent artifact prefix list. It may 
 Required behavior:
 
 - Parse artifact IDs from the `id` field when present.
-- Fall back to filename stem when reading Markdown PRDs.
+- Fall back to filename stem when reading Markdown Intent Specifications.
 - Infer artifact type from ID prefix.
 - Treat artifact IDs as globally unique within a configured Function Factory repo.
 
@@ -76,7 +76,7 @@ Required local capabilities:
 
 - Resolve an artifact ID to a file under `specs/`.
 - Read YAML artifacts into generic JSON-like maps.
-- Read Markdown PRDs into an envelope with metadata and raw Markdown content.
+- Read Markdown Intent Specifications into an envelope with metadata and raw Markdown content.
 - Traverse `source_refs` upstream and downstream.
 - Build a lineage graph from local files.
 
@@ -92,8 +92,8 @@ GET  /specs/:collection/:key
 GET  /specs/:collection
 GET  /lineage/:collection/:key
 GET  /impact/:collection/:key
-POST /gate/1
-GET  /gate-status/:gate/:id
+POST /verification/coherence
+GET  /verification-status/:verification/:id
 GET  /trust/:id
 GET  /crps/pending
 GET  /mrps/pending
@@ -147,8 +147,7 @@ $ENV:FF_GATEWAY_AUTH
 
 The first useful terminal vertical slice is local only:
 
-- `ff inspect PRD-META-COMPILER-PASS-8`
-- `ff trace PRD-META-COMPILER-PASS-8`
+- `ff inspect IS-META-COMPILER-PASS-8`
+- `ff trace IS-META-COMPILER-PASS-8`
 
 Both commands must work against the canonical `specs/` directory without requiring the gateway.
-

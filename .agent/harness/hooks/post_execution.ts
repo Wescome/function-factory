@@ -17,9 +17,9 @@ export interface Lineage {
   capabilities?: string[]
   functions?: string[]
   prds?: string[]
-  workgraphs?: string[]
+  executable-specifications?: string[]
   invariants?: string[]
-  coverage_reports?: string[]
+  verification_reports?: string[]
 }
 
 export interface ExecutionLog {

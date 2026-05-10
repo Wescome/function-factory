@@ -90,7 +90,7 @@ const PIPELINE_STAGES: PipelineStage[] = [
     input: "FunctionProposal[]",
     output: "ExecutableSpecification[] + VerificationReport[]",
     mode: "blocking",
-    packages: ["@factory/prd-authoring", "@factory/compiler"],
+    packages: ["@factory/intent-authoring", "@factory/compiler"],
   },
   {
     stage_number: 5.5,
@@ -99,13 +99,13 @@ const PIPELINE_STAGES: PipelineStage[] = [
     input: "CompilerIntermediates",
     output: "VerificationReport",
     mode: "blocking",
-    packages: ["@factory/coverage-gates"],
+    packages: ["@factory/verification"],
   },
   {
     stage_number: 5.75,
     name: "review_semantic_correctness",
     context: "Assurance",
-    input: "PRD + ExecutableSpecification",
+    input: "Intent Specification + ExecutableSpecification",
     output: "SemanticReviewReport",
     mode: "blocking",
     packages: ["@factory/semantic-review"],
@@ -263,8 +263,8 @@ interface FunctionProposal {
 
 // --- Block from line 753 (Part II -- How Does a Function Come to Exist?) ---
 /** CANONICAL-ONLY. Product Requirements Document. */
-interface PRD {
-  id: string; // PRD-*
+interface Intent Specification {
+  id: string; // IS-*
   function_id: string;
   title: string;
   atoms: Atom[];
@@ -290,34 +290,34 @@ interface Dependency {
 }
 
 // --- Block from line 785 (Part II -- How Does a Function Come to Exist?) ---
-/** Pass 0: Normalize PRD text, resolve ambiguity, fail closed. */
-declare function specification_pass0_normalize(prd: PRD): PRD;
+/** Pass 0: Normalize Intent Specification text, resolve ambiguity, fail closed. */
+declare function specification_pass0_normalize(prd: Intent Specification): Intent Specification;
 
 /** Decomposition compatibility step: Extract requirement atoms. */
-declare function specification_pass2_extractAtoms(prd: PRD): Atom[];
+declare function specification_pass2_extractAtoms(prd: Intent Specification): Atom[];
 
 /** Binding: Derive contracts (signature, preconditions, postconditions). */
 declare function specification_pass3_deriveContracts(
-  prd: PRD,
+  prd: Intent Specification,
   atoms: ReadonlyArray<Atom>
 ): Contract[];
 
 /** Obligation Extraction: Derive invariants with detector specs. */
 declare function specification_pass4_deriveInvariants(
-  prd: PRD,
+  prd: Intent Specification,
   atoms: ReadonlyArray<Atom>,
   contracts: ReadonlyArray<Contract>
 ): Invariant[];
 
 /** Structural Assembly: Derive dependencies between nodes. */
 declare function specification_pass5_deriveDependencies(
-  prd: PRD,
+  prd: Intent Specification,
   contracts: ReadonlyArray<Contract>
 ): Dependency[];
 
 /** Structural Assembly: Derive validations with backmaps to atoms/contracts/invariants. */
 declare function specification_pass6_deriveValidations(
-  prd: PRD,
+  prd: Intent Specification,
   atoms: ReadonlyArray<Atom>,
   contracts: ReadonlyArray<Contract>,
   invariants: ReadonlyArray<Invariant>
@@ -328,16 +328,16 @@ declare function specification_pass7_consistencyCheck(
   intermediates: CompilerIntermediates
 ): VerificationReport;
 
-/** Executable Specification Assembly. Only runs if structural_coverage_passed. */
+/** Executable Specification Assembly. Only runs if structural_verification_passed. */
 declare function specification_pass8_assembleExecutableSpecification(
-  prd: PRD,
+  prd: Intent Specification,
   intermediates: CompilerIntermediates
 ): ExecutableSpecification;
 
 // --- Block from line 833 (Part II -- How Does a Function Come to Exist?) ---
 /** CANONICAL-ONLY. Transformation outputs bundled for cross-reference. */
 interface CompilerIntermediates {
-  prd: PRD;
+  prd: Intent Specification;
   atoms: Atom[];
   contracts: Contract[];
   invariants: Invariant[];
@@ -348,7 +348,7 @@ interface CompilerIntermediates {
 // --- Block from line 865 (Part II -- How Does a Function Come to Exist?) ---
 /** CANONICAL-ONLY. Output of any coverage evaluation. */
 interface VerificationReport {
-  id: string; // CR-*
+  id: string; // VR-*
   function_id: string;
   verification: "coherence" | "fidelity" | "persistence";
   atom_coverage: boolean;
@@ -356,12 +356,12 @@ interface VerificationReport {
   validation_coverage: boolean;
   dependency_closure: boolean;
   overall: "pass" | "fail";
-  failures: CoverageFailure[];
+  failures: VerificationFailure[];
   source_refs: SourceRef[];
 }
 
 /** CANONICAL-ONLY. A specific coverage failure. */
-interface CoverageFailure {
+interface VerificationFailure {
   artifact_id: string;
   reason: string;
   source_ref: SourceRef;
@@ -373,13 +373,13 @@ interface CoverageFailure {
  * Runs before Executable Specification Assembly.
  *
  * FAIL-CLOSED: if any check fails, ExecutableSpecification is not emitted.
- * The PRD must be remediated upstream.
+ * The Intent Specification must be remediated upstream.
  *
- * IMPORTANT: structural_coverage_passed is STRUCTURAL, not SEMANTIC.
- * A PRD can pass all four checks and still be conceptually wrong.
+ * IMPORTANT: structural_verification_passed is STRUCTURAL, not SEMANTIC.
+ * A Intent Specification can pass all four checks and still be conceptually wrong.
  * That is why Semantic Review exists.
  */
-declare function assurance_evaluateStructuralCoverage(
+declare function assurance_evaluateStructuralVerification(
   intermediates: CompilerIntermediates
 ): VerificationReport;
 
@@ -387,7 +387,7 @@ declare function assurance_evaluateStructuralCoverage(
 /** CANONICAL-ONLY. Semantic Review output. */
 interface SemanticReviewReport {
   id: string; // SRR-*
-  prd_id: string;
+  intent_specification_id: string;
   executable_specification_id: string;
   status: "approved" | "rejected" | "needs_revision";
   rationale: string;
@@ -403,7 +403,7 @@ interface SemanticReviewReport {
  * FAIL-CLOSED: rejected or needs_revision blocks ExecutableSpecification emission.
  */
 declare function assurance_reviewSemanticCorrectness(
-  prd: PRD,
+  prd: Intent Specification,
   executableSpecification: ExecutableSpecification
 ): SemanticReviewReport;
 
@@ -412,8 +412,8 @@ declare function assurance_reviewSemanticCorrectness(
  * The Specification Context's primary operation.
  *
  * Runs: Signals -> Pressures -> Capabilities -> Deltas ->
- *       Proposals -> PRDs -> Compile (8 passes) ->
- *       structural_coverage_passed -> Semantic Review ->
+ *       Proposals -> Intent Specifications -> Compile (8 passes) ->
+ *       structural_verification_passed -> Semantic Review ->
  *       ExecutableSpecification emission
  *
  * Returns only ExecutableSpecifications that pass both guards.
@@ -422,6 +422,6 @@ declare function specification_compilePipeline(
   signals: ReadonlyArray<Signal>
 ): {
   executableSpecifications: ExecutableSpecification[];
-  coverageReports: VerificationReport[];
-  prds: PRD[];
+  verificationReports: VerificationReport[];
+  prds: Intent Specification[];
 };

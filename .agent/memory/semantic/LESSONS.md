@@ -20,7 +20,7 @@ binding unless superseded by a later entry with explicit rationale.
   individual executable Functions. It does not govern commissioned work.
 - WeOps is **We-layer**. It governs work against organizational purpose.
 - A Function may be executed under a Work Order, but a Function is not a
-  Work Order. A WorkGraph is not a Work Order. Conflating the two is the
+  Work Order. A Executable Specification is not a Work Order. Conflating the two is the
   single most common mistake in documents that touch both systems.
 - Spec coverage (§6 of whitepaper) is an I-layer discipline. Purpose coverage
   is a We-layer discipline. They are not the same check.
@@ -51,7 +51,7 @@ binding unless superseded by a later entry with explicit rationale.
 
 ### On invariants
 - An invariant without a detector is a wish. Coherence Verification rejects
-  any PRD/Intent Specification that declares invariants without detector specs.
+  any Intent Specification/Intent Specification that declares invariants without detector specs.
 - A detector spec has, at minimum, a named evidence source, direct rules,
   warning rules, a regression policy, and incident tags. Partial detector
   specs are also wishes.

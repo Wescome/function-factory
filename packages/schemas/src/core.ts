@@ -124,7 +124,7 @@ export type FunctionProposal = z.infer<typeof FunctionProposal>
 // ─── Intent-to-Executable Compilation (legacy Stage 5) ────────────────
 
 export const IntentSpecification = Lineage.extend({
-  id: ArtifactId.refine((s) => s.startsWith("PRD-"), "PRD IDs must start with PRD-"),
+  id: ArtifactId.refine((s) => s.startsWith("IS-"), "Intent Specification IDs must start with IS-"),
   sourceCapabilityId: ArtifactId,
   sourceFunctionId: ArtifactId,
   title: z.string().min(1),
@@ -264,7 +264,7 @@ export const ExecutableSpecificationEdge = z.object({
 })
 
 export const ExecutableSpecification = Lineage.extend({
-  id: ArtifactId.refine((s) => s.startsWith("WG-"), "ExecutableSpecification IDs must start with WG-"),
+  id: ArtifactId.refine((s) => s.startsWith("ES-"), "ExecutableSpecification IDs must start with ES-"),
   functionId: ArtifactId,
   nodes: z.array(ExecutableSpecificationNode).min(1),
   edges: z.array(ExecutableSpecificationEdge).default([]),

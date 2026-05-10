@@ -10,7 +10,7 @@ const ARRAY_SORT_KEYS: Record<string, readonly string[]> = {
   bindings: ["bindingId"],
   requiredEvidence: ["evidenceId"],
   failureClasses: ["code"],
-  sourceCoverage: ["sourceRef", "sourceField"],
+  sourceVerification: ["sourceRef", "sourceField"],
   unmappedExecutableRefs: ["$"],
   policyWarnings: ["$"],
   deterministicInputs: ["$"],

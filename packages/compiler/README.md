@@ -9,21 +9,21 @@ pass numbers are reference documentation only; ontology terms are primary.
 
 This package implements compilation transformations from the ontology v0.2
 `Intent Specification` alias to the `Executable Specification` alias. The
-persisted artifact IDs remain `PRD-*`, `WG-*`, and `CR-*` until the deferred
+persisted artifact IDs remain `IS-*`, `ES-*`, and `VR-*` until the deferred
 storage migration. Active APIs use Intent Specification, Executable
 Specification, and Verification terminology.
 
 ## Pipeline Position
 
 **Stage:** Intent-to-Executable compilation (legacy Stage 5)
-**Consumes:** `PRD-*` (PRD markdown files)
-**Produces:** `CR-*` (Coherence Verification Reports), `WG-*` (Executable Specifications)
+**Consumes:** `IS-*` (Intent Specification markdown files)
+**Produces:** `VR-*` (Coherence Verification Reports), `ES-*` (Executable Specifications)
 
 ## Exports
 
 - `compile()` -- Orchestrator that reads an Intent Specification file, runs the transformation pipeline, emits a Verification Report and Executable Specification, and returns the aggregate result
 - `CompileOptions` type -- Override factory mode, output directories, and timestamp
-- `CompileResult`, `CompilerIntermediates`, `FactoryMode`, `NormalizedPRD` types
+- `CompileResult`, `CompilerIntermediates`, `FactoryMode`, `NormalizedIntentSpecification` types
 
 ### Transformations (via `@factory/compiler/passes`)
 
@@ -34,7 +34,7 @@ Specification, and Verification terminology.
 - Structural Assembly subdivision (legacy Pass 4): `deriveDependencies` -- Derive dependency graph
 - Structural Assembly subdivision (legacy Pass 5): `deriveValidations` -- Derive validation rules
 - Completeness preflight slot (legacy Pass 6): `consistencyCheck` -- Cross-check intermediates
-- Completeness Certification / Coherence Verification: `runCoherenceVerificationPass` -- Coherence Verification via @factory/coverage-gates
+- Completeness Certification / Coherence Verification: `runCoherenceVerificationPass` -- Coherence Verification via @factory/verification
 - Executable Specification Assembly: `assembleExecutableSpecification` / `emitExecutableSpecification` -- Assemble and emit the Executable Specification
 - Ontology Pass 8: Instruction Tuning -- future, not implemented by current Executable Specification assembly
 
@@ -42,11 +42,11 @@ Specification, and Verification terminology.
 
 - Individual passes are pure functions; IO is confined to the compile orchestrator
 - Timestamp is generated once in the orchestrator and threaded through all passes
-- Coherence Verification failure does not prevent Coverage Report emission; the report is the product
+- Coherence Verification failure does not prevent Verification Report emission; the report is the product
 - Deterministic: identical inputs produce identical outputs (modulo timestamp)
 
 ## Dependencies
 
 - `@factory/schemas` -- All artifact types
-- `@factory/coverage-gates` -- Coherence Verification evaluation (Pass 7)
+- `@factory/verification` -- Coherence Verification evaluation (Pass 7)
 - `yaml` -- YAML parsing and emission

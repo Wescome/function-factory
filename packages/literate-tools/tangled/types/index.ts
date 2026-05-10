@@ -210,7 +210,7 @@ interface Validation {
 // --- Block from line 393 (Part I -- What Is a Function?) ---
 /** CANONICAL-ONLY. Compiled implementation graph. */
 interface ExecutableSpecification {
-  id: string; // WG-*
+  id: string; // ES-*
   function_id: string;
   nodes: ExecutableSpecificationNode[];
   edges: ExecutableSpecificationEdge[];

@@ -22,8 +22,8 @@ import type { CritiqueReport } from './state.js'
 
 function makeState(overrides: Partial<GraphState> = {}): GraphState {
   return {
-    ...createInitialState('WG-T11', {
-      id: 'WG-T11',
+    ...createInitialState('ES-T11', {
+      id: 'ES-T11',
       title: 'T11 9-Node Graph Test',
       atoms: [{ id: 'atom-001', description: 'Stub', assignedTo: 'coder' }],
       invariants: [],
@@ -106,8 +106,8 @@ function makeUpstreamCompileEvidence() {
     source: 'stage-6-upstream-compile-evidence',
     evidenceStatus: 'upstream_verified_not_recomputed',
     authoritative: false,
-    executableSpecificationId: 'WG-T11',
-    upstreamExecutableSpecificationId: 'WG-T11',
+    executableSpecificationId: 'ES-T11',
+    upstreamExecutableSpecificationId: 'ES-T11',
     reason: 'Workflow compilation already emitted this ExecutableSpecification before Agent Call execution; coordinator records pass-through evidence only.',
     timestamp: new Date().toISOString(),
   }
@@ -168,7 +168,7 @@ describe('T11: 9-node synthesis graph', () => {
     expect(finalState.briefingScript).not.toBeNull()
     expect(finalState.semanticReview).toBeDefined()
     expect(finalState.semanticReview).not.toBeNull()
-    expect(finalState.compiledPrd).toBeDefined()
+    expect(finalState.compiledIntentSpecification).toBeDefined()
     expect(finalState.coherenceVerificationPassed).toBe(true)
     expect(finalState.plan).toBeDefined()
     expect(finalState.code).toBeDefined()
@@ -253,7 +253,7 @@ describe('T11: 9-node synthesis graph', () => {
       briefingScript: makeStubBriefingScript(),
       semanticReview: makeStubSemanticReview(),
       coherenceVerificationPassed: true,
-      compiledPrd: makeUpstreamCompileEvidence(),
+      compiledIntentSpecification: makeUpstreamCompileEvidence(),
     })
     const visited2: string[] = []
     await graph.run(state2, {
@@ -463,7 +463,7 @@ describe('T11: 9-node synthesis graph', () => {
       // Skip architect pipeline (already done)
       briefingScript: makeStubBriefingScript(),
       semanticReview: makeStubSemanticReview(),
-      compiledPrd: makeUpstreamCompileEvidence(),
+      compiledIntentSpecification: makeUpstreamCompileEvidence(),
       coherenceVerificationPassed: false,
       // Set a verdict that would cause Coherence Verification to fail via a custom check.
     })
@@ -516,14 +516,14 @@ describe('T11: 9-node synthesis graph', () => {
 
     const finalState = await graph.run(state, { maxSteps: 50 })
 
-    expect(finalState.compiledPrd).toBeDefined()
-    expect(finalState.compiledPrd).not.toBeNull()
+    expect(finalState.compiledIntentSpecification).toBeDefined()
+    expect(finalState.compiledIntentSpecification).not.toBeNull()
 
-    const compiledPrd = finalState.compiledPrd as Record<string, unknown>
-    expect(compiledPrd.source).toBe('stage-6-upstream-compile-evidence')
-    expect(compiledPrd.evidenceStatus).toBe('upstream_verified_not_recomputed')
-    expect(compiledPrd.authoritative).toBe(false)
-    expect(compiledPrd.reason).toContain('Workflow compilation already emitted')
+    const compiledIntentSpecification = finalState.compiledIntentSpecification as Record<string, unknown>
+    expect(compiledIntentSpecification.source).toBe('stage-6-upstream-compile-evidence')
+    expect(compiledIntentSpecification.evidenceStatus).toBe('upstream_verified_not_recomputed')
+    expect(compiledIntentSpecification.authoritative).toBe(false)
+    expect(compiledIntentSpecification.reason).toContain('Workflow compilation already emitted')
   })
 
   // ────────────────────────────────────────────────────────────
@@ -547,7 +547,7 @@ describe('T11: 9-node synthesis graph', () => {
     expect(coherenceVerificationReport.authoritative).toBe(false)
     expect(coherenceVerificationReport.summary).toContain('verified upstream')
     expect(JSON.stringify(coherenceVerificationReport)).not.toContain('stub-check')
-    expect(JSON.stringify(coherenceVerificationReport)).not.toContain('Gate 1 passed (stub)')
+    expect(JSON.stringify(coherenceVerificationReport)).not.toContain('Coherence Verification passed (stub)')
 
     const role = finalState.roleHistory.find(entry => entry.role === 'coherence-verification')
   })

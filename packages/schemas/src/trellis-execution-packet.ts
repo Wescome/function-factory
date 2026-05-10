@@ -228,7 +228,7 @@ export type TrellisExecutionResult = z.infer<typeof TrellisExecutionResult>
 export const TrellisPacketAudit = z.object({
   packetHash: z.string().min(1),
   canonicalOrdering: NonEmptyStringArray,
-  sourceCoverage: z.array(z.object({
+  sourceVerification: z.array(z.object({
     sourceRef: z.string().min(1),
     sourceField: z.string().min(1),
     consumedByPacketField: NonEmptyStringArray,
@@ -348,7 +348,7 @@ export function certifyTrellisExecutionPacket(packetInput: unknown): PacketCerti
   for (const evidenceId of packet.completionContract.requiredEvidence) {
     if (!evidenceIds.has(evidenceId)) diagnostics.push(`completionContract references missing evidence: ${evidenceId}`)
   }
-  if (packet.audit.sourceCoverage.length === 0) diagnostics.push("audit.sourceCoverage must not be empty")
+  if (packet.audit.sourceVerification.length === 0) diagnostics.push("audit.sourceVerification must not be empty")
 
   return {
     valid: diagnostics.length === 0,

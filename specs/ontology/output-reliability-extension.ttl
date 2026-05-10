@@ -354,7 +354,7 @@ ff:IF4_TooManyToolsInContext a ff:InputFailureMode ;
     rdfs:comment "Too many tools dilute the model's attention. Tool descriptions consume context window. Mitigation: only include tools the agent actually uses." .
 
 ff:IF5_ContextDilution a ff:InputFailureMode ;
-    rdfs:comment "Too much context (full WorkGraph + upstream artifacts + history) overwhelms the model. Mitigation: scoped context per the DynTaskMAS SACMS pattern." .
+    rdfs:comment "Too much context (full ExecutableSpecification + upstream artifacts + history) overwhelms the model. Mitigation: scoped context per the DynTaskMAS SACMS pattern." .
 
 ff:IF6_MissingGroundTruth a ff:InputFailureMode ;
     rdfs:comment "Agent prompted to verify against specification but specContent not included. Model hallucinates context. Mitigation: always thread specContent." .
@@ -427,7 +427,7 @@ ff:QwenCoder32b a ff:InternalModel ;
     ff:reliabilityTier "medium" ;
     ff:observedFailureModes ff:F4_WrongFieldTypes, ff:F6_TextToolCalls ;
     ff:suitableFor ff:PlanningTask, ff:StructuredTask, ff:ValidationTask ;
-    rdfs:comment "CEF: 3min, Gate1 6/6 (16 atoms), 15/15 atoms fail verification. Structurally correct, semantically weak." .
+    rdfs:comment "CEF: 3min, CoherenceVerification 6/6 (16 atoms), 15/15 atoms fail verification. Structurally correct, semantically weak." .
 
 ff:KimiK26 a ff:InternalModel ;
     rdfs:label "kimi-k2.6" ;
@@ -450,7 +450,7 @@ ff:DeepSeekR1Distill32b a ff:InternalModel ;
     ff:reliabilityTier "medium" ;
     ff:observedFailureModes ff:F4_WrongFieldTypes ;
     ff:suitableFor ff:PlanningTask, ff:StructuredTask ;
-    rdfs:comment "CEF: 4min, Gate1 6/6 (6 atoms), 6/6 atoms fail. Conservative decomposition, same quality tier as qwen-coder." .
+    rdfs:comment "CEF: 4min, CoherenceVerification 6/6 (6 atoms), 6/6 atoms fail. Conservative decomposition, same quality tier as qwen-coder." .
 
 ff:Llama70b a ff:InternalModel ;
     rdfs:label "llama-3.3-70b-instruct-fp8-fast" ;
@@ -462,7 +462,7 @@ ff:Llama70b a ff:InternalModel ;
     ff:reliabilityTier "medium" ;
     ff:observedFailureModes ff:F1_ProseInsteadOfJSON, ff:F5_MarkdownFences, ff:F6_TextToolCalls ;
     ff:suitableFor ff:PlanningTask, ff:StructuredTask, ff:InterpretiveTask ;
-    rdfs:comment "CEF: 3min, Gate1 6/6 (BEST: 8 invariants, 10 deps). Richest structural output but agents crash on prose responses." .
+    rdfs:comment "CEF: 3min, CoherenceVerification 6/6 (BEST: 8 invariants, 10 deps). Richest structural output but agents crash on prose responses." .
 
 # External models (ofox.ai) — CEF proven in earlier sessions
 
@@ -1042,10 +1042,10 @@ ff:DI7_OutputBudgetEstimation a ff:DesignImplication ;
 
 ff:DI8_ScopedContextPerAtom a ff:DesignImplication ;
     rdfs:label "DI-8: Scoped context per atom (vertical slicing)" ;
-    rdfs:comment """In multi-atom WorkGraphs, each atom's LLM calls receive ONLY
+    rdfs:comment """In multi-atom ExecutableSpecifications, each atom's LLM calls receive ONLY
     the context relevant to that atom: its own spec, upstream
     dependency outputs, and shared schema definitions. NOT the
-    full WorkGraph, NOT other atoms' code, NOT the PRD narrative.
+    full ExecutableSpecification, NOT other atoms' code, NOT the Intent Specification narrative.
     This keeps context utilization low (BL1), reduces instruction
     competition (BL2), and improves positional attention (BL4)
     by ensuring critical instructions remain near context

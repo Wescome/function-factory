@@ -18,7 +18,7 @@
 
 ff:NonSignalLineageShape a sh:NodeShape ;
     sh:targetClass ff:Pressure, ff:BusinessCapability, ff:FunctionProposal,
-                   ff:PRDDraft, ff:WorkGraph, ff:CoverageReport ;
+                   ff:IntentSpecification, ff:ExecutableSpecification, ff:VerificationReport ;
     sh:property [
         sh:path ff:derivesFrom ;
         sh:minCount 1 ;
@@ -126,14 +126,14 @@ ff:AgentRoleShape a sh:NodeShape ;
 
 # ─── CONSTRAINT 5: Invariant Has Detector ────────────────────────
 # Failure mode: invariants without detectors (wishes)
-# Lesson: "An invariant without a detector is a wish. Gate 1 rejects."
+# Lesson: "An invariant without a detector is a wish. Coherence Verification rejects."
 
 ff:InvariantDetectorShape a sh:NodeShape ;
     sh:targetClass ff:Invariant ;
     sh:property [
         sh:path ff:detectedBy ;
         sh:minCount 1 ;
-        sh:message "WISH NOT INVARIANT: An Invariant without a DetectorSpec is a wish. Gate 1 MUST reject." ;
+        sh:message "WISH NOT INVARIANT: An Invariant without a DetectorSpec is a wish. Coherence Verification MUST reject." ;
         sh:severity sh:Violation ;
     ] .
 
@@ -160,12 +160,12 @@ ff:DetectorSpecShape a sh:NodeShape ;
 # Failure mode: unreviewed artifacts passing through pipeline
 # Lesson: "Every Factory artifact gets Architect review. No exceptions."
 
-ff:WorkGraphReviewShape a sh:NodeShape ;
-    sh:targetClass ff:WorkGraph ;
+ff:ExecutableSpecificationReviewShape a sh:NodeShape ;
+    sh:targetClass ff:ExecutableSpecification ;
     sh:property [
         sh:path ff:reviewedBy ;
         sh:minCount 1 ;
-        sh:message "UNREVIEWED: Every WorkGraph MUST be reviewed by an Agent before synthesis." ;
+        sh:message "UNREVIEWED: Every ExecutableSpecification MUST be reviewed by an Agent before synthesis." ;
         sh:severity sh:Violation ;
     ] .
 
@@ -217,10 +217,10 @@ ff:CritiqueRulComplianceShape a sh:NodeShape ;
 
 # ─── CONSTRAINT 9: Gate Fail-Closed ──────────────────────────────
 # Failure mode: gates passing structurally valid but semantically wrong artifacts
-# Lesson: "Gate 1 PASS does not imply conceptual correctness"
+# Lesson: "Coherence Verification PASS does not imply conceptual correctness"
 
 ff:GateFailClosedShape a sh:NodeShape ;
-    sh:targetClass ff:CoverageReport ;
+    sh:targetClass ff:VerificationReport ;
     sh:property [
         sh:path ff:passed ;
         sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:boolean ;
@@ -229,7 +229,7 @@ ff:GateFailClosedShape a sh:NodeShape ;
     sh:property [
         sh:path ff:gateResult ;
         sh:minCount 1 ;
-        sh:message "Gate MUST produce a CoverageReport with lineage." ;
+        sh:message "Gate MUST produce a VerificationReport with lineage." ;
     ] .
 
 
@@ -302,20 +302,20 @@ ff:TesterEnvironmentShape a sh:NodeShape ;
     ] .
 
 
-# ─── CONSTRAINT 13: WorkGraph Has Atoms ──────────────────────────
-# Failure mode: empty or single-atom WorkGraphs
+# ─── CONSTRAINT 13: ExecutableSpecification Has Atoms ──────────────────────────
+# Failure mode: empty or single-atom ExecutableSpecifications
 
-ff:WorkGraphCompletenessShape a sh:NodeShape ;
-    sh:targetClass ff:WorkGraph ;
+ff:ExecutableSpecificationCompletenessShape a sh:NodeShape ;
+    sh:targetClass ff:ExecutableSpecification ;
     sh:property [
         sh:path ff:hasNode ;
         sh:minCount 1 ;
-        sh:message "EMPTY WORKGRAPH: WorkGraph must have at least one node." ;
+        sh:message "EMPTY WORKGRAPH: ExecutableSpecification must have at least one node." ;
     ] ;
     sh:property [
         sh:path ff:specContent ;
         sh:minCount 0 ;
-        sh:message "WorkGraph SHOULD carry specContent for traceability." ;
+        sh:message "ExecutableSpecification SHOULD carry specContent for traceability." ;
         sh:severity sh:Info ;
     ] .
 
@@ -326,14 +326,14 @@ ff:WorkGraphCompletenessShape a sh:NodeShape ;
 ff:LifecycleTransitionShape a sh:NodeShape ;
     sh:targetClass ff:FunctionProposal ;
     sh:sparql [
-        sh:message "UNGATED PROMOTION: Function cannot transition to 'verified' without Gate 2 pass." ;
+        sh:message "UNGATED PROMOTION: Function cannot transition to 'verified' without Fidelity Verification pass." ;
         sh:severity sh:Violation ;
         sh:select """
             SELECT $this WHERE {
                 $this ff:hasLifecycleState ff:Verified .
                 FILTER NOT EXISTS {
-                    ?cr a ff:CoverageReport .
-                    ?cr ff:validatedBy ff:Gate2 .
+                    ?cr a ff:VerificationReport .
+                    ?cr ff:validatedBy ff:FidelityVerification .
                     ?cr ff:passed true .
                     ?cr ff:derivesFrom $this .
                 }
@@ -344,14 +344,14 @@ ff:LifecycleTransitionShape a sh:NodeShape ;
 ff:LifecycleMonitoredShape a sh:NodeShape ;
     sh:targetClass ff:FunctionProposal ;
     sh:sparql [
-        sh:message "UNGATED MONITORING: Function cannot transition to 'monitored' without active Gate 3." ;
+        sh:message "UNGATED MONITORING: Function cannot transition to 'monitored' without active Persistence Verification." ;
         sh:severity sh:Violation ;
         sh:select """
             SELECT $this WHERE {
                 $this ff:hasLifecycleState ff:Monitored .
                 FILTER NOT EXISTS {
-                    ?gate a ff:CoverageReport .
-                    ?gate ff:validatedBy ff:Gate3 .
+                    ?gate a ff:VerificationReport .
+                    ?gate ff:validatedBy ff:PersistenceVerification .
                     ?gate ff:passed true .
                     ?gate ff:derivesFrom $this .
                 }

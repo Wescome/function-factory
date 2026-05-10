@@ -7,14 +7,14 @@ import type { GraphState } from './state.js'
 // ────────────────────────────────────────────────────────────
 
 describe('createInitialState', () => {
-  const wgId = 'WG-001'
-  const wg = { id: 'WG-001', atoms: [] }
+  const wgId = 'ES-001'
+  const executableSpecification = { id: 'ES-001', atoms: [] }
 
   it('returns required base fields with correct defaults', () => {
-    const state = createInitialState(wgId, wg)
+    const state = createInitialState(wgId, executableSpecification)
 
     expect(state.executableSpecificationId).toBe(wgId)
-    expect(state.executableSpecification).toBe(wg)
+    expect(state.executableSpecification).toBe(executableSpecification)
     expect(state.trellisExecutionPacket).toBeNull()
     expect(state.plan).toBeNull()
     expect(state.code).toBeNull()
@@ -29,27 +29,27 @@ describe('createInitialState', () => {
   })
 
   it('respects opts overrides for maxRepairs and maxTokens', () => {
-    const state = createInitialState(wgId, wg, { maxRepairs: 10, maxTokens: 300_000 })
+    const state = createInitialState(wgId, executableSpecification, { maxRepairs: 10, maxTokens: 300_000 })
     expect(state.maxRepairs).toBe(10)
     expect(state.maxTokens).toBe(300_000)
   })
 
   it('returns workspaceReady: false by default', () => {
-    const state = createInitialState(wgId, wg)
+    const state = createInitialState(wgId, executableSpecification)
     expect(state.workspaceReady).toBe(false)
   })
 
   it('sets Phase 5 v4 fields to their SS11 defaults', () => {
-    const state = createInitialState(wgId, wg)
+    const state = createInitialState(wgId, executableSpecification)
     expect(state.briefingScript).toBeNull()
     expect(state.semanticReview).toBeNull()
     expect(state.coherenceVerificationPassed).toBe(false)
     expect(state.coherenceVerificationReport).toBeNull()
     expect(state.domainExecutionRequest.adapterId).toBe('adapter.coding')
     expect(state.domainExecutionRequest.executableSpecificationId).toBe(wgId)
-    expect(state.domainExecutionRequest.intentSpecificationId).toBe('PRD-001')
+    expect(state.domainExecutionRequest.intentSpecificationId).toBe('IS-001')
     expect(state.domainExecutionEvidence).toBeNull()
-    expect(state.compiledPrd).toBeNull()
+    expect(state.compiledIntentSpecification).toBeNull()
     expect(state.sandboxName).toBeNull()
     expect(state.freshBackupHandle).toBeNull()
     expect(state.coderBackupHandle).toBeNull()
@@ -57,7 +57,7 @@ describe('createInitialState', () => {
   })
 
   it('does not set optional tool-tracking fields (they remain undefined)', () => {
-    const state = createInitialState(wgId, wg)
+    const state = createInitialState(wgId, executableSpecification)
     expect(state.coderToolCalls).toBeUndefined()
     expect(state.testerToolCalls).toBeUndefined()
     expect(state.blockedToolCalls).toBeUndefined()
@@ -66,7 +66,7 @@ describe('createInitialState', () => {
 
 describe('GraphState type', () => {
   it('Phase 5 v4 fields survive a spread-merge cycle (simulates graph state update)', () => {
-    const base = createInitialState('WG-002', { id: 'WG-002' })
+    const base = createInitialState('ES-002', { id: 'ES-002' })
 
     // Simulate what sandboxRole does: spread-merge partial updates into state
     const update: Partial<GraphState> = {
@@ -84,7 +84,7 @@ describe('GraphState type', () => {
     expect(merged.semanticReview).toBeNull()
     expect(merged.coherenceVerificationReport).toBeNull()
     expect(merged.domainExecutionEvidence).toBeNull()
-    expect(merged.compiledPrd).toBeNull()
+    expect(merged.compiledIntentSpecification).toBeNull()
     expect(merged.sandboxName).toBeNull()
     expect(merged.freshBackupHandle).toBeNull()
 
@@ -102,7 +102,7 @@ describe('GraphState type', () => {
   })
 
   it('preserves index signature for arbitrary keys', () => {
-    const state = createInitialState('WG-003', { id: 'WG-003' })
+    const state = createInitialState('ES-003', { id: 'ES-003' })
     state.customField = 'anything'
     expect(state.customField).toBe('anything')
   })

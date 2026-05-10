@@ -10,7 +10,7 @@ is the execution-adapter bridge for Executable Specifications.
 ## Pipeline Position
 
 **Stage:** Cross-cutting Agent Call execution infrastructure (legacy Stage 6)
-**Consumes:** `WG-*` (Executable Specification)
+**Consumes:** `ES-*` (Executable Specification)
 **Produces:** `EL-*` (ExecutionLog artifacts as YAML)
 
 ## Exports

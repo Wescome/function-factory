@@ -71,7 +71,7 @@ function buildSourceRefs(result: Record<string, unknown>): string[] {
   if (result.pressureId) refs.push(`PRS:${result.pressureId}`)
   if (result.capabilityId) refs.push(`BC:${result.capabilityId}`)
   if (result.proposalId) refs.push(`FN:${result.proposalId}`)
-  if (result.executableSpecificationId) refs.push(`WG:${result.executableSpecificationId}`)
+  if (result.executableSpecificationId) refs.push(`ES:${result.executableSpecificationId}`)
   return refs
 }
 
@@ -117,7 +117,7 @@ async function checkCooldown(
        FILTER POSITION(s.sourceRefs, @wgRef)
        LIMIT 1
        RETURN s`,
-    { subtype, cutoff, wgRef: `WG:${executableSpecificationId}` },
+    { subtype, cutoff, wgRef: `ES:${executableSpecificationId}` },
   )
 
   return existing !== null && existing !== undefined

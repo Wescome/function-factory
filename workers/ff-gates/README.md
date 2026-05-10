@@ -10,14 +10,14 @@ as `Executable Specification`.
 
 The worker package name `@factory/ff-gates` remains a stable compatibility
 name. New service-binding callers should prefer
-`evaluateCoherenceVerification`; `evaluateGate1`, the `CoherenceVerificationReport` shape, and
+`evaluateCoherenceVerification`; `evaluateCoherenceVerification`, the `CoherenceVerificationReport` shape, and
 the `/gate/1` gateway route remain legacy compatibility shims.
 
 ## Runtime Surfaces
 
 - Service binding consumed by `@factory/ff-gateway`
 - ExecutableSpecification parse and completeness checks
-- `specs_workgraphs` lineage roots
+- `executable_specifications` lineage roots
 - fail-closed Coherence Verification report output
 
 ## Compatibility Notes

@@ -4,12 +4,12 @@ import { emitArchitectureCandidate } from "../src/emit-architecture-candidate.js
 describe("emitArchitectureCandidate", () => {
   it("emits deterministic bootstrap candidate", () => {
     const candidate = emitArchitectureCandidate({
-      sourcePrdId: "PRD-META-ARCHITECTURE-CANDIDATE-EXECUTION",
-      sourceExecutableSpecificationId: "WG-META-ARCHITECTURE-CANDIDATE-EXECUTION",
+      sourceIntentSpecificationId: "IS-META-ARCHITECTURE-CANDIDATE-EXECUTION",
+      sourceExecutableSpecificationId: "ES-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       sourceRefs: [
         "DEL-META-EMIT-ARCHITECTURE-CANDIDATES",
         "FP-META-ARCHITECTURE-CANDIDATE-EXECUTION",
-        "PRD-META-ARCHITECTURE-CANDIDATE-EXECUTION"
+        "IS-META-ARCHITECTURE-CANDIDATE-EXECUTION"
       ],
     })
 

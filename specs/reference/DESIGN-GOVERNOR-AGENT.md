@@ -391,7 +391,7 @@ export async function prefetchGovernorContext(
           status: p.status,
           signalId: p.signalId,
           functionId: p.functionId,
-          workGraphId: p.workGraphId,
+          executableSpecificationId: p.executableSpecificationId,
           createdAt: p.createdAt,
           completedAt: p.completedAt,
           verdict: p.verdict
@@ -453,7 +453,7 @@ export async function prefetchGovernorContext(
         LIMIT 10
         RETURN {
           _key: l._key,
-          workGraphId: l.workGraphId,
+          executableSpecificationId: l.executableSpecificationId,
           totalAtoms: l.totalAtoms,
           completedAtoms: l.completedAtoms,
           status: l.status,
@@ -547,7 +547,7 @@ export function formatGovernorContext(ctx: GovernorContext): string {
     parts.push(`\n### In-Flight Synthesis (${ctx.completion_ledgers.length})`)
     for (const l of ctx.completion_ledgers) {
       parts.push(
-        `- ${l.workGraphId}: ${l.completedAtoms}/${l.totalAtoms} atoms ` +
+        `- ${l.executableSpecificationId}: ${l.completedAtoms}/${l.totalAtoms} atoms ` +
         `(${l.status})`
       )
     }
@@ -688,7 +688,7 @@ A pending signal qualifies for auto-trigger if ALL of the following:
 1. `signal.source === 'factory:feedback-loop'` (Factory-generated, not external)
 2. `signal.raw.feedbackDepth < 3` (not exceeding loop depth limit)
 3. `signal.raw.autoApprove === true` (marked safe by feedback generator)
-4. No cooldown violation (same workGraphId+subtype within 30 minutes)
+4. No cooldown violation (same executableSpecificationId+subtype within 30 minutes)
 
 Signals that do NOT meet all four criteria are logged as
 `no_action` with reason, or escalated if severity warrants it.
@@ -751,7 +751,7 @@ AUTO-TRIGGER CRITERIA (all must be true):
 - signal.source === 'factory:feedback-loop'
 - signal.raw.feedbackDepth < 3
 - signal.raw.autoApprove === true
-- No cooldown violation (same workGraphId+subtype within 30 min)
+- No cooldown violation (same executableSpecificationId+subtype within 30 min)
 
 AUTO-APPROVE CRITERIA:
 - signal.raw.autoApprove === true

@@ -115,9 +115,9 @@ function mockFetchNetworkError() {
 
 function makeInput(overrides?: Partial<PRGenerationInput>): PRGenerationInput {
   return {
-    signalTitle: 'PR candidate: WG-001',
+    signalTitle: 'PR candidate: ES-001',
     proposalId: 'FP-001',
-    executableSpecificationId: 'WG-001',
+    executableSpecificationId: 'ES-001',
     atomResults: {
       'atom-1': {
         atomId: 'atom-1',
@@ -140,7 +140,7 @@ function makeInput(overrides?: Partial<PRGenerationInput>): PRGenerationInput {
         },
       },
     },
-    sourceRefs: ['SIG:SIG-001', 'PRS:PRS-001', 'BC:BC-001', 'FN:FP-001', 'WG:WG-001'],
+    sourceRefs: ['SIG:SIG-001', 'PRS:PRS-001', 'BC:BC-001', 'FN:FP-001', 'ES:ES-001'],
     confidence: 0.95,
     ...overrides,
   }
@@ -175,7 +175,7 @@ describe('buildPRBody', () => {
     const body = buildPRBody(input)
     expect(body).toContain('SIG:SIG-001')
     expect(body).toContain('PRS:PRS-001')
-    expect(body).toContain('WG:WG-001')
+    expect(body).toContain('ES:ES-001')
   })
 
   it('includes atom summaries for passed atoms', () => {

@@ -64,8 +64,8 @@ Anything inside the factory that can be observed, evaluated, changed, or governe
 FactoryObject
 ├── IntentCompiler
 ├── CompilerPass
-├── WorkGraph
-├── WorkGraphNode
+├── Executable Specification
+├── Executable SpecificationNode
 ├── NodeContract
 ├── PromptTemplate
 ├── ToolBinding
@@ -82,7 +82,7 @@ Example:
 
 ```json
 {
-  "object_type": "WorkGraphNode",
+  "object_type": "Executable SpecificationNode",
   "object_id": "node.contract_extractor",
   "factory_version": "ff.v0.4.2",
   "owner_layer": "compiler_passes",
@@ -128,7 +128,7 @@ Signal
 ├── PassInefficiencySignal
 ├── ModelMismatchSignal
 ├── EvidenceGapSignal
-├── WorkGraphInstabilitySignal
+├── Executable SpecificationInstabilitySignal
 ├── CapabilityGapSignal
 ├── PolicyFrictionSignal
 ├── RegressionRiskSignal
@@ -178,9 +178,9 @@ Example:
   "assessment_id": "oa_001",
   "generated_by": "orientation_agent.contract_health",
   "input_signals": ["sig_001", "sig_002"],
-  "situation_frame": "Contract extraction is brittle under ambiguous PRDs",
+  "situation_frame": "Contract extraction is brittle under ambiguous Intent Specifications",
   "causal_diagnosis": "Prompt lacks explicit invariant ownership rules",
-  "risk_interpretation": "Downstream WorkGraph assembly produces invalid dependencies",
+  "risk_interpretation": "Downstream Executable Specification assembly produces invalid dependencies",
   "recommended_meta_artifacts": [
     "PromptPatch",
     "ContractAmendment",
@@ -225,7 +225,7 @@ OrientationAgent
 ├── SignalInterpreterAgent
 ├── DriftDiagnosisAgent
 ├── ContractHealthAgent
-├── WorkGraphStabilityAgent
+├── Executable SpecificationStabilityAgent
 ├── ModelRoutingAgent
 ├── PolicyFrictionAgent
 ├── CapabilityDiscoveryAgent
@@ -545,7 +545,7 @@ PromptDrift
 CapabilityDrift
 PolicyDrift
 ModelRouteDrift
-WorkGraphDrift
+Executable SpecificationDrift
 ```
 
 Produces:
@@ -745,7 +745,7 @@ RollbackDecision
   "ff:generatedBy": "ff:orientation_agent.contract_health",
   "ff:interpretsSignal": "ff:sig_contract_fragility_001",
   "ff:affectsFactoryObject": "ff:node.contract_extractor",
-  "ff:situationFrame": "Contract extraction is brittle under ambiguous PRDs",
+  "ff:situationFrame": "Contract extraction is brittle under ambiguous Intent Specifications",
   "ff:causalDiagnosis": "Prompt lacks invariant ownership extraction rule",
   "ff:recommendedMetaArtifact": [
     "ff:prompt_patch_001",
@@ -774,7 +774,7 @@ Use three layers:
    Signals, agents, assessments, meta-artifacts, lineage
 
 3. Versioned artifact registry
-   Prompts, contracts, policies, WorkGraphs, ArchitectureCandidates
+   Prompts, contracts, policies, Executable Specifications, ArchitectureCandidates
 ```
 
 Recommended graph shape:
@@ -1227,7 +1227,7 @@ Binding Context
 Must be obeyed. Example: policy, schema, user constraint.
 
 Primary Context
-Defines the task. Example: intent bundle, PRD, work order.
+Defines the task. Example: intent bundle, Intent Specification, work order.
 
 Supporting Context
 Useful but non-binding. Example: prior examples, architecture notes.
@@ -1323,7 +1323,7 @@ Example:
   "validation_plan": [
     "replay_failed_traces",
     "schema_validation",
-    "downstream_workgraph_integrity_check"
+    "downstream_executable-specification_integrity_check"
   ],
   "rollback_condition": "token_cost_increases_over_20_percent_without_validation_gain"
 }
@@ -1364,7 +1364,7 @@ For coding agents, define these as first-class files:
 ```text
 /promptpacts
   contract_extractor.promptpact.json
-  workgraph_assembler.promptpact.json
+  executable-specification_assembler.promptpact.json
   critic.promptpact.json
   verifier.promptpact.json
 

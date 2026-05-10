@@ -10,7 +10,7 @@ import { synthesizePressure } from './stages/synthesize-pressure'
 import { mapCapability } from './stages/map-capability'
 import { proposeFunction } from './stages/propose-function'
 import { semanticReview } from './stages/semantic-review'
-import { compilePRD, PASS_NAMES } from './stages/compile'
+import { compileIntentSpecification, PASS_NAMES } from './stages/compile'
 import { crystallizeIntent, type CrystallizeInput, type IntentAnchor } from './stages/crystallize-intent'
 import { probeAnchors } from './stages/intent-probe'
 import { reconcile } from './stages/reconciliation-gate'
@@ -160,8 +160,8 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
 
     if (approvalPayload?.decision !== 'approved') {
       await step.do('persist-rejection', DB_STEP_CONFIG, async () => {
-        await db.save('specs_coverage_reports', {
-          _key: `CR-REJECT-${signalKey}-${Date.now().toString(36)}`,
+        await db.save('verification_reports', {
+          _key: `VR-REJECT-${signalKey}-${Date.now().toString(36)}`,
           type: 'architect-rejection',
           passed: false,
           signalId: signalKey,
@@ -268,7 +268,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     })
 
     let compState: Record<string, unknown> = {
-      prd: proposal.prd,
+      intentSpecification: proposal.intentSpecification,
       intentAnchors,
       signalContext: {
         title: signal.title,
@@ -300,7 +300,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
             : compState
           compState = await step.do(`compile-verify-${passName}-r${r}`, AI_STEP_CONFIG, async () => {
             // Compile the pass
-            const newState = toStep(await compilePRD(passName, prevState, db, this.env, dryRun))
+            const newState = toStep(await compileIntentSpecification(passName, prevState, db, this.env, dryRun))
 
             // Compute delta: only the fields added by this pass (C2)
             const delta = computeDelta(prevState, newState)
@@ -356,7 +356,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
         // ── Non-probed pass: simple compile ──
         const prevState = compState
         compState = await step.do(`compile-${passName}`, AI_STEP_CONFIG, async () => {
-          return toStep(await compilePRD(passName, prevState, db, this.env, dryRun))
+          return toStep(await compileIntentSpecification(passName, prevState, db, this.env, dryRun))
         }) as unknown as Record<string, unknown>
       }
     }
@@ -370,7 +370,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       }
     }
 
-    const wgKey = (compState.executableSpecification as { _key?: string })?._key ?? 'unknown'
+    const executableSpecificationKey = (compState.executableSpecification as { _key?: string })?._key ?? 'unknown'
 
     // ── Phase D: Lifecycle → designed (after compilation) ──
     await step.do('lifecycle-designed', DB_STEP_CONFIG, async () => {
@@ -384,7 +384,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
 
     // Lineage: ExecutableSpecification → Proposal (written before Coherence Verification so lineage check passes)
     await step.do('edge-executableSpecification-proposal', DB_STEP_CONFIG, async () => {
-      await db.saveEdge('lineage_edges', `specs_workgraphs/${wgKey}`, `specs_functions/${proposalKey}`, {
+      await db.saveEdge('lineage_edges', `executable_specifications/${executableSpecificationKey}`, `specs_functions/${proposalKey}`, {
         type: 'compiled-from', createdAt: new Date().toISOString(),
       })
       return { ok: true }
@@ -398,17 +398,17 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
 
     if (!coherenceVerification.passed) {
       await step.do('persist-coherence-verification-failure', DB_STEP_CONFIG, async () => {
-        await db.save('specs_coverage_reports', {
-          _key: `CR-G1-${wgKey}-${Date.now().toString(36)}`,
-          type: 'gate-1',
+        await db.save('verification_reports', {
+          _key: `VR-G1-${executableSpecificationKey}-${Date.now().toString(36)}`,
+          type: 'coherence-verification',
           passed: coherenceVerification.passed,
           summary: coherenceVerification.summary,
           checks: coherenceVerification.checks,
-          sourceRefs: [`WG:${wgKey}`],
+          sourceRefs: [`ES:${executableSpecificationKey}`],
           timestamp: coherenceVerification.timestamp,
         })
-        await db.save('gate_status', {
-          _key: `verification: "coherence":${wgKey}-${Date.now().toString(36)}`,
+        await db.save('verification_status', {
+          _key: `verification: "coherence":${executableSpecificationKey}-${Date.now().toString(36)}`,
           passed: false,
           report: coherenceVerification,
           timestamp: new Date().toISOString(),
@@ -439,19 +439,19 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
 
     // ── Persist gate pass ──
     await step.do('persist-coherence-verification-pass', DB_STEP_CONFIG, async () => {
-      await db.save('gate_status', {
-        _key: `verification: "coherence":${wgKey}-${Date.now().toString(36)}`,
+      await db.save('verification_status', {
+        _key: `verification: "coherence":${executableSpecificationKey}-${Date.now().toString(36)}`,
         passed: true,
         report: coherenceVerification,
         timestamp: new Date().toISOString(),
       })
-      await db.save('specs_coverage_reports', {
-        _key: `CR-G1-${wgKey}-${Date.now().toString(36)}`,
-        type: 'gate-1',
+      await db.save('verification_reports', {
+        _key: `VR-G1-${executableSpecificationKey}-${Date.now().toString(36)}`,
+        type: 'coherence-verification',
         passed: coherenceVerification.passed,
         summary: coherenceVerification.summary,
         checks: coherenceVerification.checks,
-        sourceRefs: [`WG:${wgKey}`],
+        sourceRefs: [`ES:${executableSpecificationKey}`],
         timestamp: coherenceVerification.timestamp,
       })
       return { persisted: true }
@@ -469,11 +469,11 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       }
     }
 
-    const wg = compState.executableSpecification as { _key?: string; [k: string]: unknown }
+    const executableSpecification = compState.executableSpecification as { _key?: string; [k: string]: unknown }
     const instructionTuning = await step.do('instruction-tuning', DB_STEP_CONFIG, async () => {
       return toStep(buildTrellisPacketForSynthesis({
-        executableSpecificationId: wgKey,
-        executableSpecification: wg,
+        executableSpecificationId: executableSpecificationKey,
+        executableSpecification: executableSpecification,
         proposal: proposal as Record<string, unknown>,
         generatedAt: new Date().toISOString(),
       }) as unknown as Record<string, unknown>)
@@ -481,14 +481,14 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
 
     if (instructionTuning.status !== 'emitted') {
       await step.do('persist-instruction-tuning-blocked', DB_STEP_CONFIG, async () => {
-        await db.save('specs_coverage_reports', {
-          _key: `CR-INSTRUCTION-TUNING-${wgKey}-${Date.now().toString(36)}`,
+        await db.save('verification_reports', {
+          _key: `VR-INSTRUCTION-TUNING-${executableSpecificationKey}-${Date.now().toString(36)}`,
           type: 'instruction-tuning',
           passed: false,
           summary: 'Instruction Tuning blocked Trellis packet emission.',
           checks: instructionTuning.diagnostics ?? [],
-          sourceRefs: [`WG:${wgKey}`],
-          source_refs: [wgKey],
+          sourceRefs: [`ES:${executableSpecificationKey}`],
+          source_refs: [executableSpecificationKey],
           timestamp: new Date().toISOString(),
         })
         return { persisted: true }
@@ -496,7 +496,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       return {
         status: 'instruction-tuning-blocked',
         signalId: signalKey,
-        executableSpecificationId: wgKey,
+        executableSpecificationId: executableSpecificationKey,
         reason: 'Instruction Tuning could not emit a certified Trellis Execution Packet.',
         diagnostics: instructionTuning.diagnostics,
       } as PipelineResult
@@ -510,7 +510,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
         _key: trellisExecutionPacket.id,
         source_refs: trellisExecutionPacket.source_refs,
       })
-      await db.saveEdge('lineage_edges', `trellis_execution_packets/${trellisExecutionPacket.id as string}`, `specs_workgraphs/${wgKey}`, {
+      await db.saveEdge('lineage_edges', `trellis_execution_packets/${trellisExecutionPacket.id as string}`, `executable_specifications/${executableSpecificationKey}`, {
         type: 'tuned-from', createdAt: new Date().toISOString(),
       })
       return { persisted: true }
@@ -525,8 +525,8 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     await step.do('enqueue-synthesis', DB_STEP_CONFIG, async () => {
       await this.env.SYNTHESIS_QUEUE.send({
         workflowId: event.instanceId,
-        executableSpecificationId: wgKey,
-        executableSpecification: wg,
+        executableSpecificationId: executableSpecificationKey,
+        executableSpecification: executableSpecification,
         trellisExecutionPacket,
         dryRun,
         ...(specContent ? { specContent } : {}),
@@ -590,7 +590,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
           pressureId: pressureKey,
           capabilityId: capabilityKey,
           proposalId: proposalKey,
-          executableSpecificationId: wgKey,
+          executableSpecificationId: executableSpecificationKey,
           coherenceVerificationReport: coherenceVerification,
           synthesisResult: {
             verdict: { decision: 'timeout', confidence: 1.0, reason: 'Atoms did not complete within 30 minutes' },
@@ -604,8 +604,8 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     // Lineage: execution artifact -> executableSpecification
     await step.do('edge-synthesis-executableSpecification', DB_STEP_CONFIG, async () => {
       await db.saveEdge('lineage_edges',
-        `execution_artifacts/EA-${wgKey}-synthesis`,
-        `specs_workgraphs/${wgKey}`,
+        `execution_artifacts/EA-${executableSpecificationKey}-synthesis`,
+        `executable_specifications/${executableSpecificationKey}`,
         { type: 'synthesized-from', createdAt: new Date().toISOString() },
       )
       return { ok: true }
@@ -632,7 +632,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       pressureId: pressureKey,
       capabilityId: capabilityKey,
       proposalId: proposalKey,
-      executableSpecificationId: wgKey,
+      executableSpecificationId: executableSpecificationKey,
       coherenceVerificationReport: coherenceVerification,
       synthesisResult: {
         verdict: finalVerdict,

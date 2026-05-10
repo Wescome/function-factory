@@ -6,7 +6,7 @@ Queryable ontology loading for Factory runtime and agent support.
 
 This package loads the current machine-readable ontology assets into ArangoDB
 collections that agents can query. It supports ontology-grounded execution but
-does not replace current compatibility names such as PRD, ExecutableSpecification, Coverage
+does not replace current compatibility names such as Intent Specification, ExecutableSpecification, Verification
 Report, or Gate terminology.
 
 The package name `@factory/ontology-loader` remains the stable compatibility
@@ -29,7 +29,7 @@ constraints, and instances
 ## Compatibility Notes
 
 - Persistence targets returned by this package must stay aligned with active
-  runtime collections such as `specs_prds`, `specs_workgraphs`, and
-  `specs_coverage_reports`.
+  runtime collections such as `intent_specifications`, `executable_specifications`, and
+  `verification_reports`.
 - Future ontology rename work must preserve read compatibility for existing
   persisted artifacts and live worker evidence.

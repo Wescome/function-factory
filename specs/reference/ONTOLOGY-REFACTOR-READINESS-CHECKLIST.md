@@ -60,9 +60,9 @@ be treated as permanent compatibility baggage.
   `specs_intent_specifications`, `specs_executable_specifications`,
   `specs_verification_reports`, `coherence_verifications`, or
   `fidelity_verifications`.
-- Removal or renaming of current storage directories such as `specs/prds`,
-  `specs/workgraphs`, `specs/coverage-reports`, `packages/compiler`,
-  `packages/coverage-gates`, `workers/ff-pipeline`, or `infra/arangodb`.
+- Removal or renaming of current storage directories such as `specs/intent-specifications`,
+  `specs/executable-specifications`, `specs/verification-reports`, `packages/compiler`,
+  `packages/verification`, `workers/ff-pipeline`, or `infra/arangodb`.
 
 ## Ready-To-Propose Bar
 

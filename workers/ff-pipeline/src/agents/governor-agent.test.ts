@@ -102,7 +102,7 @@ function createMockDb(overrides?: { failCollections?: string[] }) {
         }
         if (query.includes('execution_artifacts')) {
           return [
-            { _key: 'PIPE-001', workflowId: 'wf-001', status: 'completed', signalId: 'SIG-000', functionId: 'FN-001', executableSpecificationId: 'WG-001', createdAt: '2026-04-29T10:00:00Z', completedAt: '2026-04-29T10:30:00Z', verdict: 'pass' },
+            { _key: 'PIPE-001', workflowId: 'wf-001', status: 'completed', signalId: 'SIG-000', functionId: 'FN-001', executableSpecificationId: 'ES-001', createdAt: '2026-04-29T10:00:00Z', completedAt: '2026-04-29T10:30:00Z', verdict: 'pass' },
           ] as T[]
         }
         if (query.includes('factory:feedback-loop') && !query.includes('pending')) {
@@ -122,7 +122,7 @@ function createMockDb(overrides?: { failCollections?: string[] }) {
         }
         if (query.includes('completion_ledgers')) {
           return [
-            { _key: 'CL-001', executableSpecificationId: 'WG-001', totalAtoms: 5, completedAtoms: 3, status: 'in-progress', createdAt: '2026-04-29T10:00:00Z' },
+            { _key: 'CL-001', executableSpecificationId: 'ES-001', totalAtoms: 5, completedAtoms: 3, status: 'in-progress', createdAt: '2026-04-29T10:00:00Z' },
           ] as T[]
         }
         if (query.includes('hot_config')) {
@@ -301,7 +301,7 @@ describe('formatGovernorContextForPrompt', () => {
         { _key: 'SIG-001', signalType: 'internal', subtype: 'synthesis:atom-failed', title: 'Atom failed', source: 'factory:feedback-loop', severity: 'high', createdAt: '2026-04-29T11:00:00Z', sourceRefs: [], feedbackDepth: 1, autoApprove: true },
       ],
       active_pipelines: [
-        { _key: 'PIPE-001', workflowId: 'wf-001', status: 'completed', signalId: 'SIG-000', functionId: 'FN-001', executableSpecificationId: 'WG-001', createdAt: '2026-04-29T10:00:00Z', completedAt: '2026-04-29T10:30:00Z', verdict: 'pass' },
+        { _key: 'PIPE-001', workflowId: 'wf-001', status: 'completed', signalId: 'SIG-000', functionId: 'FN-001', executableSpecificationId: 'ES-001', createdAt: '2026-04-29T10:00:00Z', completedAt: '2026-04-29T10:30:00Z', verdict: 'pass' },
       ],
       recent_feedback: [
         { _key: 'FB-001', subtype: 'synthesis:atom-failed', title: 'Atom retry', createdAt: '2026-04-29T11:00:00Z', sourceRefs: ['SIG-000'], feedbackDepth: 1 },
@@ -313,7 +313,7 @@ describe('formatGovernorContextForPrompt', () => {
         { _key: 'OA-001', type: 'governance_cycle', recommendation: 'Increase timeout', priority: 'medium', rationale: 'Timeout rate increasing', createdAt: '2026-04-29T11:45:00Z' },
       ],
       completion_ledgers: [
-        { _key: 'CL-001', executableSpecificationId: 'WG-001', totalAtoms: 5, completedAtoms: 3, status: 'in-progress', createdAt: '2026-04-29T10:00:00Z' },
+        { _key: 'CL-001', executableSpecificationId: 'ES-001', totalAtoms: 5, completedAtoms: 3, status: 'in-progress', createdAt: '2026-04-29T10:00:00Z' },
       ],
       hot_config: [
         { _key: 'routing_config', value: {}, updatedAt: '2026-04-29T00:00:00Z' },
@@ -334,7 +334,7 @@ describe('formatGovernorContextForPrompt', () => {
     expect(text).toContain('### Active Curated Lessons')
     expect(text).toContain('F1 prose output')
     expect(text).toContain('### In-Flight Synthesis')
-    expect(text).toContain('WG-001')
+    expect(text).toContain('ES-001')
     expect(text).toContain('### Recent Orientation Assessments')
     expect(text).toContain('Increase timeout')
   })

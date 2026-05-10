@@ -3,13 +3,13 @@ source_refs:
   - SIG-META-REPO-ARCH-AUDIT
 explicitness: inferred
 rationale: >
-  Derived from the audit and whitepaper requirement that structural Gate 1 is
-  insufficient without a fail-closed semantic review layer before WorkGraph emission.
+  Derived from the audit and whitepaper requirement that structural Coherence Verification is
+  insufficient without a fail-closed semantic review layer before Executable Specification emission.
 category: trust
 name: semantic_review_gap
 description: >
-  The current repo has Gate 1 structural coverage but no implemented semantic
-  review layer between compile coverage success and WorkGraph emission.
+  The current repo has Coherence Verification structural coverage but no implemented semantic
+  review layer between compile coverage success and Executable Specification emission.
 derivedFromSignalIds:
   - SIG-META-REPO-ARCH-AUDIT
 affectedDomains:

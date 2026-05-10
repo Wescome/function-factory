@@ -21,7 +21,7 @@ inputs:
 outputs:
   - RoleAdherenceReport (per-role, per-contract-surface compliance verdict)
   - DisagreementReport (when Verifier pass meets acceptance fail)
-  - Binding-mode selection decision (which binding mode for this WorkGraph + Candidate)
+  - Binding-mode selection decision (which binding mode for this Executable Specification + Candidate)
 
 governing_constraints:
   - Role-adherence checks verify 4 of 5 contract surfaces (read/write/do-not/output); semantic intent is acknowledged unverifiable

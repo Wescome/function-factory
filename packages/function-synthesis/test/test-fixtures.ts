@@ -17,8 +17,8 @@ import type { SynthesisConfig } from "../src/orchestrate.js"
 
 export function makeExecutableSpecification(overrides?: Partial<ExecutableSpecification>): ExecutableSpecification {
   return {
-    id: "WG-TEST-SYNTH-001",
-    source_refs: ["PRD-TEST-001"],
+    id: "ES-TEST-SYNTH-001",
+    source_refs: ["IS-TEST-001"],
     explicitness: "explicit" as const,
     rationale: "Test work graph for synthesis",
     functionId: "FP-TEST-FUNC-001",
@@ -40,11 +40,11 @@ export function makeExecutableSpecification(overrides?: Partial<ExecutableSpecif
 export function makeCandidate(overrides?: Partial<ArchitectureCandidate>): ArchitectureCandidate {
   return {
     id: "AC-TEST-CAND-001",
-    source_refs: ["PRD-TEST-001", "WG-TEST-SYNTH-001"],
+    source_refs: ["IS-TEST-001", "ES-TEST-SYNTH-001"],
     explicitness: "explicit" as const,
     rationale: "Test architecture candidate",
-    sourcePrdId: "PRD-TEST-001",
-    sourceExecutableSpecificationId: "WG-TEST-SYNTH-001",
+    sourceIntentSpecificationId: "IS-TEST-001",
+    sourceExecutableSpecificationId: "ES-TEST-SYNTH-001",
     candidateStatus: "selected" as const,
     topology: {
       shape: "linear_chain" as const,

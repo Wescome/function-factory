@@ -112,8 +112,8 @@ export function tuneInstructions(input: Partial<InstructionTuningInput>): Instru
   }
 
   const functionId = artifactIdOrDerived("FN", complete.executableSpecification.functionId ?? complete.selectedArchitectureCandidate.id)
-  const intentSpecificationId = artifactIdOrDerived("PRD", complete.selectedArchitectureCandidate.sourcePrdId)
-  const executableSpecificationId = artifactIdOrDerived("WG", complete.executableSpecification.id)
+  const intentSpecificationId = artifactIdOrDerived("IS", complete.selectedArchitectureCandidate.sourceIntentSpecificationId)
+  const executableSpecificationId = artifactIdOrDerived("ES", complete.executableSpecification.id)
   const packetId = packetIdFor(functionId, executableSpecificationId, complete.selectedArchitectureCandidate.id, complete.runtimeAdmission.id)
   const runId = `trellis-${packetId}`
   const inputExecutableSpecificationHash = trellisContentHash(complete.executableSpecification)
@@ -292,7 +292,7 @@ export function tuneInstructions(input: Partial<InstructionTuningInput>): Instru
         "toolPolicy.bindings.bindingId",
         "evidencePlan.requiredEvidence.evidenceId",
       ],
-      sourceCoverage: [
+      sourceVerification: [
         {
           sourceRef: executableSpecificationId,
           sourceField: "nodes",
@@ -349,7 +349,7 @@ function missingInputs(input: Partial<InstructionTuningInput>): string[] {
 }
 
 function blocked(code: string, message: string, sourceRefs: ArtifactId[], uncertaintySeeds: readonly string[]): InstructionTuningResult {
-  const refs = sourceRefs.length > 0 ? sourceRefs : ["PRD-MISSING-CONTEXT" as ArtifactId]
+  const refs = sourceRefs.length > 0 ? sourceRefs : ["IS-MISSING-CONTEXT" as ArtifactId]
   return InstructionTuningResult.parse({
     status: "blocked",
     diagnostics: [diagnostic(code, message, refs, true)],
@@ -373,7 +373,7 @@ function uncertaintyId(seed: string): string {
 
 function sourceRefsFor(input: InstructionTuningInput): ArtifactId[] {
   return uniqueArtifactIds([
-    input.selectedArchitectureCandidate.sourcePrdId,
+    input.selectedArchitectureCandidate.sourceIntentSpecificationId,
     input.executableSpecification.id,
     input.selectedArchitectureCandidate.id,
     input.runtimeAdmission.id,
@@ -386,7 +386,7 @@ function packetIdFor(functionId: ArtifactId, executableSpecificationId: Artifact
   return ArtifactId.parse(`TEP-${subject(functionId)}-${subject(executableSpecificationId)}-${subject(candidateId)}-${subject(admissionId)}`)
 }
 
-function artifactIdOrDerived(prefix: "FN" | "PRD" | "WG", candidate: string): ArtifactId {
+function artifactIdOrDerived(prefix: "FN" | "IS" | "ES", candidate: string): ArtifactId {
   const parsed = ArtifactId.safeParse(candidate)
   if (parsed.success && candidate.startsWith(`${prefix}-`)) return parsed.data
   return ArtifactId.parse(`${prefix}-${subject(candidate)}`)

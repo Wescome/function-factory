@@ -9,13 +9,13 @@ import {
   makeDependency,
   makeCoherenceVerificationReportPassing,
   makeInvariant,
-  makePRD,
+  makeIntentSpecification,
   makeValidation,
 } from "./_test-fixtures.js"
 
 describe("Executable Specification Assembly", () => {
   it("happy path- passing Coherence Verification + intermediates produces a schema-valid ExecutableSpecification", () => {
-    const prd = makePRD()
+    const intentSpecification = makeIntentSpecification()
     const atoms = [makeAtom()]
     const contracts = [
       makeContract({ id: "CONTRACT-META-FOO-BEHAVIOR" as ArtifactId, kind: "behavior" }),
@@ -36,8 +36,8 @@ describe("Executable Specification Assembly", () => {
         "CONTRACT-META-FOO-INVARIANT" as ArtifactId
       ),
     ]
-    const wg = assembleExecutableSpecification(
-      prd,
+    const executableSpecification = assembleExecutableSpecification(
+      intentSpecification,
       atoms,
       contracts,
       invariants,
@@ -45,14 +45,14 @@ describe("Executable Specification Assembly", () => {
       validations,
       makeCoherenceVerificationReportPassing()
     )
-    expect(ExecutableSpecification.safeParse(wg).success).toBe(true)
-    expect(wg.nodes.length).toBe(3 + 2 + 2)
+    expect(ExecutableSpecification.safeParse(executableSpecification).success).toBe(true)
+    expect(executableSpecification.nodes.length).toBe(3 + 2 + 2)
   })
 
   it("refuses to run on failed Coherence Verification (criterion 2)", () => {
     expect(() =>
       assembleExecutableSpecification(
-        makePRD(),
+        makeIntentSpecification(),
         [],
         [makeContract()],
         [],
@@ -63,10 +63,10 @@ describe("Executable Specification Assembly", () => {
     ).toThrow(/refuses to run/)
   })
 
-  it("ExecutableSpecification id format- WG-<PRD subject> (criterion 5)", () => {
-    const prd = makePRD({ id: "PRD-META-FOO-BAR" as ArtifactId })
-    const wg = assembleExecutableSpecification(
-      prd,
+  it("ExecutableSpecification id format- ES-<Intent Specification subject> (criterion 5)", () => {
+    const intentSpecification = makeIntentSpecification({ id: "IS-META-FOO-BAR" as ArtifactId })
+    const executableSpecification = assembleExecutableSpecification(
+      intentSpecification,
       [],
       [makeContract()],
       [],
@@ -74,15 +74,15 @@ describe("Executable Specification Assembly", () => {
       [],
       makeCoherenceVerificationReportPassing()
     )
-    expect(wg.id).toBe("WG-META-FOO-BAR")
+    expect(executableSpecification.id).toBe("ES-META-FOO-BAR")
   })
 
   it("functionId threading (criterion 6)", () => {
-    const prd = makePRD({
+    const intentSpecification = makeIntentSpecification({
       sourceFunctionId: "FP-META-CUSTOM-FUNCTION" as ArtifactId,
     })
-    const wg = assembleExecutableSpecification(
-      prd,
+    const executableSpecification = assembleExecutableSpecification(
+      intentSpecification,
       [],
       [makeContract()],
       [],
@@ -90,7 +90,7 @@ describe("Executable Specification Assembly", () => {
       [],
       makeCoherenceVerificationReportPassing()
     )
-    expect(wg.functionId).toBe("FP-META-CUSTOM-FUNCTION")
+    expect(executableSpecification.functionId).toBe("FP-META-CUSTOM-FUNCTION")
   })
 
   it("node type assignment- behavior contract -> execution (criterion 8)", () => {
@@ -98,8 +98,8 @@ describe("Executable Specification Assembly", () => {
       id: "CONTRACT-META-FOO-B" as ArtifactId,
       kind: "behavior",
     })
-    const wg = assembleExecutableSpecification(
-      makePRD(),
+    const executableSpecification = assembleExecutableSpecification(
+      makeIntentSpecification(),
       [],
       [c],
       [],
@@ -107,7 +107,7 @@ describe("Executable Specification Assembly", () => {
       [],
       makeCoherenceVerificationReportPassing()
     )
-    expect(wg.nodes.find((n) => n.id === c.id)?.type).toBe("execution")
+    expect(executableSpecification.nodes.find((n) => n.id === c.id)?.type).toBe("execution")
   })
 
   it("node type assignment- invariant contract -> control", () => {
@@ -115,8 +115,8 @@ describe("Executable Specification Assembly", () => {
       id: "CONTRACT-META-FOO-I" as ArtifactId,
       kind: "invariant",
     })
-    const wg = assembleExecutableSpecification(
-      makePRD(),
+    const executableSpecification = assembleExecutableSpecification(
+      makeIntentSpecification(),
       [],
       [c],
       [],
@@ -124,7 +124,7 @@ describe("Executable Specification Assembly", () => {
       [],
       makeCoherenceVerificationReportPassing()
     )
-    expect(wg.nodes.find((n) => n.id === c.id)?.type).toBe("control")
+    expect(executableSpecification.nodes.find((n) => n.id === c.id)?.type).toBe("control")
   })
 
   it("node type assignment- api contract -> interface, schema contract -> interface", () => {
@@ -136,8 +136,8 @@ describe("Executable Specification Assembly", () => {
       id: "CONTRACT-META-FOO-SCHEMA" as ArtifactId,
       kind: "schema",
     })
-    const wg = assembleExecutableSpecification(
-      makePRD(),
+    const executableSpecification = assembleExecutableSpecification(
+      makeIntentSpecification(),
       [],
       [cApi, cSchema],
       [],
@@ -145,15 +145,15 @@ describe("Executable Specification Assembly", () => {
       [],
       makeCoherenceVerificationReportPassing()
     )
-    expect(wg.nodes.find((n) => n.id === cApi.id)?.type).toBe("interface")
-    expect(wg.nodes.find((n) => n.id === cSchema.id)?.type).toBe("interface")
+    expect(executableSpecification.nodes.find((n) => n.id === cApi.id)?.type).toBe("interface")
+    expect(executableSpecification.nodes.find((n) => n.id === cSchema.id)?.type).toBe("interface")
   })
 
   it("node type assignment- standalone invariant -> control, validation -> evidence", () => {
     const inv = makeInvariant({ id: "INV-META-FOO-X" as ArtifactId })
     const val = makeValidation({ id: "VAL-META-FOO-X" as ArtifactId })
-    const wg = assembleExecutableSpecification(
-      makePRD(),
+    const executableSpecification = assembleExecutableSpecification(
+      makeIntentSpecification(),
       [],
       [makeContract()],
       [inv],
@@ -161,14 +161,14 @@ describe("Executable Specification Assembly", () => {
       [val],
       makeCoherenceVerificationReportPassing()
     )
-    expect(wg.nodes.find((n) => n.id === inv.id)?.type).toBe("control")
-    expect(wg.nodes.find((n) => n.id === val.id)?.type).toBe("evidence")
+    expect(executableSpecification.nodes.find((n) => n.id === inv.id)?.type).toBe("control")
+    expect(executableSpecification.nodes.find((n) => n.id === val.id)?.type).toBe("evidence")
   })
 
   it("dangling dependency endpoint throws (criterion 9)", () => {
     expect(() =>
       assembleExecutableSpecification(
-        makePRD(),
+        makeIntentSpecification(),
         [],
         [makeContract()],
         [],
@@ -191,8 +191,8 @@ describe("Executable Specification Assembly", () => {
       kind: "invariant",
     })
     const dep = makeDependency(c1.id, c2.id)
-    const wg = assembleExecutableSpecification(
-      makePRD(),
+    const executableSpecification = assembleExecutableSpecification(
+      makeIntentSpecification(),
       [],
       [c1, c2],
       [],
@@ -200,7 +200,7 @@ describe("Executable Specification Assembly", () => {
       [],
       makeCoherenceVerificationReportPassing()
     )
-    expect(wg.edges.filter((e) => e.from === c1.id && e.to === c2.id).length).toBe(1)
+    expect(executableSpecification.edges.filter((e) => e.from === c1.id && e.to === c2.id).length).toBe(1)
   })
 
   it("coversInvariantIds + coversContractIds produce edges; coversAtomIds does NOT (criterion 11)", () => {
@@ -212,8 +212,8 @@ describe("Executable Specification Assembly", () => {
       coversContractIds: [c.id],
       coversAtomIds: ["ATOM-META-FOO-DOES-NOT-EXIST" as ArtifactId],
     })
-    const wg = assembleExecutableSpecification(
-      makePRD(),
+    const executableSpecification = assembleExecutableSpecification(
+      makeIntentSpecification(),
       [],
       [c],
       [inv],
@@ -221,24 +221,24 @@ describe("Executable Specification Assembly", () => {
       [val],
       makeCoherenceVerificationReportPassing()
     )
-    expect(wg.edges.some((e) => e.from === val.id && e.to === inv.id)).toBe(true)
-    expect(wg.edges.some((e) => e.from === val.id && e.to === c.id)).toBe(true)
-    expect(wg.edges.some((e) => e.to.startsWith("ATOM-"))).toBe(false)
+    expect(executableSpecification.edges.some((e) => e.from === val.id && e.to === inv.id)).toBe(true)
+    expect(executableSpecification.edges.some((e) => e.from === val.id && e.to === c.id)).toBe(true)
+    expect(executableSpecification.edges.some((e) => e.to.startsWith("ATOM-"))).toBe(false)
   })
 
   it("determinism- identical inputs produce deep-equal output (criterion 12)", () => {
-    const prd = makePRD()
+    const intentSpecification = makeIntentSpecification()
     const contracts = [
       makeContract({ id: "CONTRACT-META-FOO-B" as ArtifactId }),
       makeContract({ id: "CONTRACT-META-FOO-A" as ArtifactId }),
     ]
     const report = makeCoherenceVerificationReportPassing()
-    const wgA = assembleExecutableSpecification(prd, [], contracts, [], [], [], report)
-    const wgB = assembleExecutableSpecification(prd, [], contracts, [], [], [], report)
-    expect(wgB).toEqual(wgA)
+    const executableSpecificationA = assembleExecutableSpecification(intentSpecification, [], contracts, [], [], [], report)
+    const executableSpecificationB = assembleExecutableSpecification(intentSpecification, [], contracts, [], [], [], report)
+    expect(executableSpecificationB).toEqual(executableSpecificationA)
     // Reorder contracts; output must still be deep-equal post-sort.
     const wgC = assembleExecutableSpecification(
-      prd,
+      intentSpecification,
       [],
       [contracts[1]!, contracts[0]!],
       [],
@@ -246,22 +246,22 @@ describe("Executable Specification Assembly", () => {
       [],
       report
     )
-    expect(wgC).toEqual(wgA)
+    expect(wgC).toEqual(executableSpecificationA)
   })
 
-  it("ExecutableSpecification source_refs aggregates PRD + report + intermediates, sorted, deduplicated", () => {
-    const prd = makePRD()
+  it("ExecutableSpecification source_refs aggregates Intent Specification + report + intermediates, sorted, deduplicated", () => {
+    const intentSpecification = makeIntentSpecification()
     const contract = makeContract()
     const report = makeCoherenceVerificationReportPassing()
-    const wg = assembleExecutableSpecification(prd, [], [contract], [], [], [], report)
-    expect(wg.source_refs).toContain(prd.id)
-    expect(wg.source_refs).toContain(report.id)
-    expect(wg.source_refs).toContain(contract.id)
+    const executableSpecification = assembleExecutableSpecification(intentSpecification, [], [contract], [], [], [], report)
+    expect(executableSpecification.source_refs).toContain(intentSpecification.id)
+    expect(executableSpecification.source_refs).toContain(report.id)
+    expect(executableSpecification.source_refs).toContain(contract.id)
     // sorted
-    const sorted = [...wg.source_refs].sort()
-    expect(wg.source_refs).toEqual(sorted)
+    const sorted = [...executableSpecification.source_refs].sort()
+    expect(executableSpecification.source_refs).toEqual(sorted)
     // deduplicated
-    expect(new Set(wg.source_refs).size).toBe(wg.source_refs.length)
+    expect(new Set(executableSpecification.source_refs).size).toBe(executableSpecification.source_refs.length)
   })
 
   it("no input mutation (criterion 15)", () => {
@@ -269,7 +269,7 @@ describe("Executable Specification Assembly", () => {
     const invariants = Object.freeze([makeInvariant()])
     const snapshot = JSON.stringify({ contracts, invariants })
     assembleExecutableSpecification(
-      makePRD(),
+      makeIntentSpecification(),
       [],
       contracts,
       invariants,
@@ -283,7 +283,7 @@ describe("Executable Specification Assembly", () => {
   it("empty nodes throws (criterion 14)", () => {
     expect(() =>
       assembleExecutableSpecification(
-        makePRD(),
+        makeIntentSpecification(),
         [],
         [],
         [],

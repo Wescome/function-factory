@@ -26,11 +26,11 @@ export function evaluateRecursionGovernance(
     }
   }
 
-  const targetPrdId = proposal.id.replace(/^FP-/, "PRD-")
-  if (context.alreadyAuthoredPrdIdsInRun.includes(targetPrdId)) {
+  const targetIntentSpecificationId = proposal.id.replace(/^FP-/, "IS-")
+  if (context.alreadyAuthoredIntentSpecificationIdsInRun.includes(targetIntentSpecificationId)) {
     return {
       decision: "deny",
-      reason: "Same-run recursion guard blocked re-authoring of an already-authored PRD",
+      reason: "Same-run recursion guard blocked re-authoring of an already-authored Intent Specification",
       policyMode: policy.mode,
       proposalId: proposal.id,
     }

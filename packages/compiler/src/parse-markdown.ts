@@ -10,8 +10,8 @@
  *
  * The MVP parser is deliberately simple. It does not handle code fences
  * containing `##` as text, nor front-matter values spanning multiple
- * `---` sequences. It is tuned for the shape of PRDs authored under the
- * prd-compiler SKILL discipline.
+ * `---` sequences. It is tuned for the shape of Intent Specifications authored under the
+ * intentSpecification-compiler SKILL discipline.
  */
 
 import { parse as parseYaml } from "yaml"

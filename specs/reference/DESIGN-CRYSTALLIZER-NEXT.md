@@ -66,7 +66,7 @@ if (r > 0 && violationFeedback) {
 }
 ```
 
-The `compilePRD` function already receives the full `context` object and passes it as
+The `compileIntentSpecification` function already receives the full `context` object and passes it as
 JSON to the LLM. Adding `violationFeedback` to the context makes it visible to the
 decompose model without changing the function signature.
 

@@ -239,7 +239,7 @@ describe('ff-pipeline diagnostic routes', () => {
             pressureId: 'PRS-MOTDWQ0T-S55Y',
             capabilityId: 'BC-MOTDWSVY-PQOO',
             proposalId: 'FP-MOTDWVR2-W7UN',
-            executableSpecificationId: 'WG-MOTE4M1R-G7I0',
+            executableSpecificationId: 'ES-MOTE4M1R-G7I0',
           },
         }),
       }),
@@ -251,7 +251,7 @@ describe('ff-pipeline diagnostic routes', () => {
     expect(await jsonBody(response)).toMatchObject({
       accepted: true,
       pullNumber: 71,
-      executableSpecificationId: 'WG-MOTE4M1R-G7I0',
+      executableSpecificationId: 'ES-MOTE4M1R-G7I0',
     })
     expect(send).toHaveBeenCalledWith({
       type: 'pr-outcome',
@@ -262,7 +262,7 @@ describe('ff-pipeline diagnostic routes', () => {
         pressureId: 'PRS-MOTDWQ0T-S55Y',
         capabilityId: 'BC-MOTDWSVY-PQOO',
         proposalId: 'FP-MOTDWVR2-W7UN',
-        executableSpecificationId: 'WG-MOTE4M1R-G7I0',
+        executableSpecificationId: 'ES-MOTE4M1R-G7I0',
       },
     })
   })
@@ -283,12 +283,12 @@ describe('ff-pipeline diagnostic routes', () => {
               pressureId: 'PRS-MOTDWQ0T-S55Y',
               capabilityId: 'BC-MOTDWSVY-PQOO',
               proposalId: 'FP-MOTDWVR2-W7UN',
-              executableSpecificationId: 'WG-MOTE4M1R-G7I0',
+              executableSpecificationId: 'ES-MOTE4M1R-G7I0',
             },
             pullRequest: {
               number: 71,
               url: 'https://github.com/Wescome/function-factory/pull/71',
-              title: '[Factory] Materialize WG-MOTE4M1R-G7I0 synthesis artifact',
+              title: '[Factory] Materialize ES-MOTE4M1R-G7I0 synthesis artifact',
               state: 'OPEN',
               draft: true,
               merged: false,
@@ -314,7 +314,7 @@ describe('ff-pipeline diagnostic routes', () => {
       accepted: true,
       processed: true,
       pullNumber: 71,
-      executableSpecificationId: 'WG-MOTE4M1R-G7I0',
+      executableSpecificationId: 'ES-MOTE4M1R-G7I0',
       records: [
         {
           subtype: 'synthesis:pr-ci-passed',
@@ -373,12 +373,12 @@ describe('ff-pipeline diagnostic routes', () => {
       {
         _key: 'SIG-PR-OUTCOME',
         subtype: 'synthesis:pr-ci-passed',
-        sourceRefs: ['WG:WG-MOTE4M1R-G7I0'],
+        sourceRefs: ['ES:ES-MOTE4M1R-G7I0'],
         createdAt: '2026-05-06T03:45:00Z',
         raw: {
           pipelineId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
           proposalId: 'FP-MOTDWVR2-W7UN',
-          executableSpecificationId: 'WG-MOTE4M1R-G7I0',
+          executableSpecificationId: 'ES-MOTE4M1R-G7I0',
           pr: {
             number: 71,
             url: 'https://github.com/Wescome/function-factory/pull/71',
@@ -399,7 +399,7 @@ describe('ff-pipeline diagnostic routes', () => {
     ])
 
     const response = await worker.fetch(
-      new Request('https://ff-pipeline.example.com/debug/pr-outcome?pullNumber=71&executableSpecificationId=WG-MOTE4M1R-G7I0'),
+      new Request('https://ff-pipeline.example.com/debug/pr-outcome?pullNumber=71&executableSpecificationId=ES-MOTE4M1R-G7I0'),
       createEnv() as never,
       { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
     )
@@ -412,7 +412,7 @@ describe('ff-pipeline diagnostic routes', () => {
         subtype: 'synthesis:pr-ci-passed',
         raw: {
           pipelineId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
-          executableSpecificationId: 'WG-MOTE4M1R-G7I0',
+          executableSpecificationId: 'ES-MOTE4M1R-G7I0',
           pr: {
             number: 71,
             url: 'https://github.com/Wescome/function-factory/pull/71',
@@ -426,7 +426,7 @@ describe('ff-pipeline diagnostic routes', () => {
     })
     expect(mockQuery).toHaveBeenCalledWith(
       expect.stringContaining('synthesis:pr-'),
-      { pullNumber: 71, executableSpecificationId: 'WG-MOTE4M1R-G7I0' },
+      { pullNumber: 71, executableSpecificationId: 'ES-MOTE4M1R-G7I0' },
     )
   })
 
@@ -441,12 +441,12 @@ describe('ff-pipeline diagnostic routes', () => {
           'PRS:PRS-MOTDWQ0T-S55Y',
           'BC:BC-MOTDWSVY-PQOO',
           'FN:FP-MOTDWVR2-W7UN',
-          'WG:WG-MOTE4M1R-G7I0',
+          'ES:ES-MOTE4M1R-G7I0',
         ],
         raw: {
           pipelineId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
           proposalId: 'FP-MOTDWVR2-W7UN',
-          executableSpecificationId: 'WG-MOTE4M1R-G7I0',
+          executableSpecificationId: 'ES-MOTE4M1R-G7I0',
           pr: {
             number: 71,
             state: 'OPEN',
@@ -475,7 +475,7 @@ describe('ff-pipeline diagnostic routes', () => {
       candidates: [
         {
           pullNumber: 71,
-          executableSpecificationId: 'WG-MOTE4M1R-G7I0',
+          executableSpecificationId: 'ES-MOTE4M1R-G7I0',
           lastSignalKey: 'SIG-MOTILTZ0-6DGK',
         },
       ],
@@ -489,7 +489,7 @@ describe('ff-pipeline diagnostic routes', () => {
         pressureId: 'PRS-MOTDWQ0T-S55Y',
         capabilityId: 'BC-MOTDWSVY-PQOO',
         proposalId: 'FP-MOTDWVR2-W7UN',
-        executableSpecificationId: 'WG-MOTE4M1R-G7I0',
+        executableSpecificationId: 'ES-MOTE4M1R-G7I0',
       },
     })
     expect(mockQuery).toHaveBeenCalledWith(
@@ -560,7 +560,7 @@ describe('ff-pipeline diagnostic routes', () => {
       pack: {
         id: 'MRP-MOTE4M1R-G7I0-71',
         functionId: 'FN-MOTDWVR2-W7UN',
-        executableSpecificationId: 'WG-MOTE4M1R-G7I0',
+        executableSpecificationId: 'ES-MOTE4M1R-G7I0',
         ciEvidence: {
           status: 'passed',
           checksPassed: ['Factory PR Gate', 'Typecheck', 'Test'],
@@ -643,7 +643,7 @@ describe('ff-pipeline diagnostic routes', () => {
         functionId: 'FN-MOTDWVR2-W7UN',
         verdict: 'merge-ready',
         auditability: {
-          executableSpecificationId: 'WG-MOTE4M1R-G7I0',
+          executableSpecificationId: 'ES-MOTE4M1R-G7I0',
         },
       },
     })
@@ -654,9 +654,9 @@ describe('ff-pipeline diagnostic routes', () => {
     const { default: worker } = await import('./index')
     mockQueryOne
       .mockResolvedValueOnce({
-        _key: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
-        id: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
-        type: 'gate-2',
+        _key: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z',
+        id: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z',
+        type: 'fidelity-verification',
         passed: true,
         report: {
           verification: "fidelity",
@@ -673,7 +673,7 @@ describe('ff-pipeline diagnostic routes', () => {
           audit: makeMaterializationAudit(),
           prOutcomeSignal: makePROutcomeSignal(),
           canonicalEvidence: makeCanonicalMRPEvidence(),
-          fidelityVerificationReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+          fidelityVerificationReportKey: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z',
           createdAt: '2026-05-06T21:30:00Z',
         }),
       }),
@@ -684,19 +684,19 @@ describe('ff-pipeline diagnostic routes', () => {
     expect(response.status).toBe(201)
     expect(await jsonBody(response)).toMatchObject({
       persisted: true,
-      fidelityVerificationReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+      fidelityVerificationReportKey: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z',
       canonical: {
         soundVerification: {
-          fidelityVerificationReportId: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+          fidelityVerificationReportId: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z',
         },
         auditability: {
-          fidelityVerificationReportId: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+          fidelityVerificationReportId: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z',
         },
       },
     })
     expect(mockQueryOne.mock.calls[0]).toEqual([
-      expect.stringContaining('specs_coverage_reports'),
-      { key: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z' },
+      expect.stringContaining('verification_reports'),
+      { key: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z' },
     ])
     expect(mockSave).toHaveBeenCalledOnce()
   })
@@ -771,7 +771,7 @@ describe('ff-pipeline diagnostic routes', () => {
         id: 'MRP-EVIDENCE-MOTE4M1R',
         canonicalEvidence: expect.objectContaining({
           auditability: expect.objectContaining({
-            fidelityVerificationReportId: 'CR-MOTE4M1R-GATE2',
+            fidelityVerificationReportId: 'VR-MOTE4M1R-FIDELITY',
           }),
         }),
         sourceRefs: ['MRP-MOTE4M1R-G7I0-71', 'SIG-MOTILTZ0-6DGK'],
@@ -869,7 +869,7 @@ describe('ff-pipeline diagnostic routes', () => {
     })
     expect(mockQuery).toHaveBeenCalledWith(
       expect.stringContaining('factory:pr-outcome'),
-      { pullNumber: 71, executableSpecificationId: 'WG-MOTE4M1R-G7I0' },
+      { pullNumber: 71, executableSpecificationId: 'ES-MOTE4M1R-G7I0' },
     )
     expect(mockQueryOne).toHaveBeenCalledWith(
       expect.stringContaining('merge_readiness_evidence'),
@@ -891,9 +891,9 @@ describe('ff-pipeline diagnostic routes', () => {
         canonicalEvidence: makeCanonicalMRPEvidence(),
       })
       .mockResolvedValueOnce({
-        _key: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
-        id: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
-        type: 'gate-2',
+        _key: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z',
+        id: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z',
+        type: 'fidelity-verification',
         passed: true,
       })
       .mockResolvedValueOnce(null)
@@ -906,7 +906,7 @@ describe('ff-pipeline diagnostic routes', () => {
           audit: makeMaterializationAudit(),
           pullNumber: 71,
           canonicalEvidenceKey: 'MRP-EVIDENCE-MOTE4M1R-b44ae7d',
-          fidelityVerificationReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+          fidelityVerificationReportKey: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z',
           createdAt: '2026-05-07T21:18:10Z',
         }),
       }),
@@ -917,19 +917,19 @@ describe('ff-pipeline diagnostic routes', () => {
     expect(response.status).toBe(201)
     expect(await jsonBody(response)).toMatchObject({
       persisted: true,
-      fidelityVerificationReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+      fidelityVerificationReportKey: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z',
       canonical: {
         soundVerification: {
-          fidelityVerificationReportId: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+          fidelityVerificationReportId: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z',
         },
         auditability: {
-          fidelityVerificationReportId: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+          fidelityVerificationReportId: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z',
         },
       },
     })
     expect(mockQueryOne.mock.calls[1]).toEqual([
-      expect.stringContaining('specs_coverage_reports'),
-      { key: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z' },
+      expect.stringContaining('verification_reports'),
+      { key: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z' },
     ])
   })
 
@@ -955,7 +955,7 @@ describe('ff-pipeline diagnostic routes', () => {
       },
       verdict: {
         verdict: 'accepted',
-        scenario_coverage_score: 1,
+        scenario_verification_score: 1,
         invariant_exercise_rate: 1,
       },
     })
@@ -970,7 +970,7 @@ describe('ff-pipeline diagnostic routes', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fidelityVerificationInput: makeFidelityVerificationContractInput(),
-          prdId: 'PRD-META-FUNCTION-SYNTHESIS',
+          intentSpecificationId: 'IS-META-FUNCTION-SYNTHESIS',
           sourceRefs: ['MRP-MOTE4M1R-G7I0-71'],
         }),
       }),
@@ -981,21 +981,21 @@ describe('ff-pipeline diagnostic routes', () => {
     expect(response.status).toBe(200)
     expect(await jsonBody(response)).toMatchObject({
       report: {
-        id: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+        id: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z',
         verification: "fidelity",
         function_id: 'FN-MOTDWVR2-W7UN',
         overall: 'pass',
         source_refs: expect.arrayContaining([
           'FN-MOTDWVR2-W7UN',
-          'PRD-META-FUNCTION-SYNTHESIS',
-          'WG-META-FUNCTION-SYNTHESIS',
+          'IS-META-FUNCTION-SYNTHESIS',
+          'ES-META-FUNCTION-SYNTHESIS',
           'AC-META-ARCHITECTURE-CANDIDATE-EXECUTION',
           'MRP-MOTE4M1R-G7I0-71',
         ]),
       },
       verdict: {
         verdict: 'accepted',
-        scenario_coverage_score: 1,
+        scenario_verification_score: 1,
         invariant_exercise_rate: 1,
       },
     })
@@ -1010,7 +1010,7 @@ describe('ff-pipeline diagnostic routes', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fidelityVerificationInput: makeFidelityVerificationContractInput(),
-          prdId: 'PRD-META-FUNCTION-SYNTHESIS',
+          intentSpecificationId: 'IS-META-FUNCTION-SYNTHESIS',
           sourceRefs: ['MRP-MOTE4M1R-G7I0-71'],
         }),
       }),
@@ -1021,7 +1021,7 @@ describe('ff-pipeline diagnostic routes', () => {
     expect(response.status).toBe(200)
     expect(await jsonBody(response)).toMatchObject({
       report: {
-        id: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+        id: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z',
         verification: "fidelity",
         function_id: 'FN-MOTDWVR2-W7UN',
         overall: 'pass',
@@ -1041,7 +1041,7 @@ describe('ff-pipeline diagnostic routes', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fidelityVerificationInput: makeFidelityVerificationContractInput(),
-          prdId: 'PRD-META-FUNCTION-SYNTHESIS',
+          intentSpecificationId: 'IS-META-FUNCTION-SYNTHESIS',
           sourceRefs: ['MRP-MOTE4M1R-G7I0-71'],
           persist: true,
         }),
@@ -1053,24 +1053,24 @@ describe('ff-pipeline diagnostic routes', () => {
     expect(response.status).toBe(201)
     expect(await jsonBody(response)).toMatchObject({
       persisted: true,
-      coverageReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
-      fidelityVerificationReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+      coverageReportKey: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z',
+      fidelityVerificationReportKey: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z',
       report: {
         overall: 'pass',
       },
     })
-    expect(mockEnsureCollection).toHaveBeenCalledWith('specs_coverage_reports')
+    expect(mockEnsureCollection).toHaveBeenCalledWith('verification_reports')
     expect(mockSave).toHaveBeenCalledWith(
-      'specs_coverage_reports',
+      'verification_reports',
       expect.objectContaining({
-        _key: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
-        id: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
-        type: 'gate-2',
+        _key: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z',
+        id: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z',
+        type: 'fidelity-verification',
         passed: true,
         source_refs: expect.arrayContaining([
           'FN-MOTDWVR2-W7UN',
-          'PRD-META-FUNCTION-SYNTHESIS',
-          'WG-META-FUNCTION-SYNTHESIS',
+          'IS-META-FUNCTION-SYNTHESIS',
+          'ES-META-FUNCTION-SYNTHESIS',
         ]),
         report: expect.objectContaining({
           verification: "fidelity",
@@ -1092,7 +1092,7 @@ describe('ff-pipeline diagnostic routes', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fidelityVerificationInput: makeFidelityVerificationContractInput(),
-          prdId: 'PRD-META-FUNCTION-SYNTHESIS',
+          intentSpecificationId: 'IS-META-FUNCTION-SYNTHESIS',
           sourceRefs: ['MRP-MOTE4M1R-G7I0-71'],
           lifecycleDryRun: {
             currentState: 'produced',
@@ -1111,7 +1111,7 @@ describe('ff-pipeline diagnostic routes', () => {
         verification: 'fidelity-verification',
         wouldTransition: true,
         mutationApplied: false,
-        verificationReport: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+        verificationReport: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z',
       },
     })
     expect(mockSave).not.toHaveBeenCalled()
@@ -1136,19 +1136,19 @@ describe('ff-pipeline diagnostic routes', () => {
     expect(response.status).toBe(201)
     expect(await jsonBody(response)).toMatchObject({
       persisted: true,
-      coverageReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE3-2026-05-07T22-00-00-000Z',
+      coverageReportKey: 'VR-FN-MOTDWVR2-W7UN-PERSISTENCE-2026-05-07T22-00-00-000Z',
       report: {
         verification: "persistence",
         function_id: 'FN-MOTDWVR2-W7UN',
         overall: 'fail',
       },
     })
-    expect(mockEnsureCollection).toHaveBeenCalledWith('specs_coverage_reports')
+    expect(mockEnsureCollection).toHaveBeenCalledWith('verification_reports')
     expect(mockSave).toHaveBeenCalledWith(
-      'specs_coverage_reports',
+      'verification_reports',
       expect.objectContaining({
-        _key: 'CR-FN-MOTDWVR2-W7UN-GATE3-2026-05-07T22-00-00-000Z',
-        type: 'gate-3',
+        _key: 'VR-FN-MOTDWVR2-W7UN-PERSISTENCE-2026-05-07T22-00-00-000Z',
+        type: 'persistence-verification',
         passed: false,
         report: expect.objectContaining({
           verification: "persistence",
@@ -1177,7 +1177,7 @@ describe('ff-pipeline diagnostic routes', () => {
     expect(response.status).toBe(201)
     expect(await jsonBody(response)).toMatchObject({
       persisted: true,
-      persistenceVerificationReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE3-2026-05-07T22-00-00-000Z',
+      persistenceVerificationReportKey: 'VR-FN-MOTDWVR2-W7UN-PERSISTENCE-2026-05-07T22-00-00-000Z',
       report: {
         verification: "persistence",
         function_id: 'FN-MOTDWVR2-W7UN',
@@ -1188,7 +1188,7 @@ describe('ff-pipeline diagnostic routes', () => {
 
   it('POST /debug/lifecycle-acceptance dry-runs produced to accepted from persisted Fidelity Verification evidence', async () => {
     const { default: worker } = await import('./index')
-    mockQueryOne.mockResolvedValueOnce(makeFidelityVerificationCoverageReportRecord())
+    mockQueryOne.mockResolvedValueOnce(makeFidelityVerificationVerificationReportRecord())
     mockGet.mockResolvedValueOnce({
       _key: 'FN-MOTDWVR2-W7UN',
       lifecycleState: 'produced',
@@ -1200,7 +1200,7 @@ describe('ff-pipeline diagnostic routes', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           functionKey: 'FN-MOTDWVR2-W7UN',
-          fidelityVerificationReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
+          fidelityVerificationReportKey: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T22-34-30-000Z',
         }),
       }),
       createEnv() as never,
@@ -1210,7 +1210,7 @@ describe('ff-pipeline diagnostic routes', () => {
     expect(response.status).toBe(200)
     expect(await jsonBody(response)).toMatchObject({
       applied: false,
-      fidelityVerificationReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
+      fidelityVerificationReportKey: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T22-34-30-000Z',
       lifecycleDryRun: {
         from: 'produced',
         to: 'accepted',
@@ -1226,7 +1226,7 @@ describe('ff-pipeline diagnostic routes', () => {
   it('POST /debug/lifecycle-acceptance can apply produced to accepted from persisted Fidelity Verification evidence', async () => {
     const { default: worker } = await import('./index')
     mockQueryOne
-      .mockResolvedValueOnce(makeFidelityVerificationCoverageReportRecord())
+      .mockResolvedValueOnce(makeFidelityVerificationVerificationReportRecord())
       .mockResolvedValueOnce({ passed: true, source_refs: ['TEP-META-FUNCTION-SYNTHESIS'] })
     mockGet
       .mockResolvedValueOnce({
@@ -1244,7 +1244,7 @@ describe('ff-pipeline diagnostic routes', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           functionKey: 'FN-MOTDWVR2-W7UN',
-          fidelityVerificationReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
+          fidelityVerificationReportKey: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T22-34-30-000Z',
           apply: true,
         }),
       }),
@@ -1257,7 +1257,7 @@ describe('ff-pipeline diagnostic routes', () => {
       applied: true,
       functionKey: 'FN-MOTDWVR2-W7UN',
       to: 'accepted',
-      fidelityVerificationReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
+      fidelityVerificationReportKey: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T22-34-30-000Z',
     })
     expect(mockUpdate).toHaveBeenCalledWith(
       'specs_functions',
@@ -1271,14 +1271,14 @@ describe('ff-pipeline diagnostic routes', () => {
       expect.objectContaining({
         from: 'produced',
         to: 'accepted',
-        verificationReport: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
+        verificationReport: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T22-34-30-000Z',
       }),
     )
   })
 
   it('POST /debug/lifecycle-acceptance can repair a missing produced to accepted transition edge', async () => {
     const { default: worker } = await import('./index')
-    mockQueryOne.mockResolvedValueOnce(makeFidelityVerificationCoverageReportRecord())
+    mockQueryOne.mockResolvedValueOnce(makeFidelityVerificationVerificationReportRecord())
     mockGet.mockResolvedValueOnce({
       _key: 'FN-MOTDWVR2-W7UN',
       lifecycleState: 'accepted',
@@ -1290,7 +1290,7 @@ describe('ff-pipeline diagnostic routes', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           functionKey: 'FN-MOTDWVR2-W7UN',
-          fidelityVerificationReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
+          fidelityVerificationReportKey: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T22-34-30-000Z',
           repairAcceptedTransitionEdge: true,
         }),
       }),
@@ -1305,11 +1305,11 @@ describe('ff-pipeline diagnostic routes', () => {
       functionKey: 'FN-MOTDWVR2-W7UN',
       from: 'produced',
       to: 'accepted',
-      fidelityVerificationReportKey: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
+      fidelityVerificationReportKey: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T22-34-30-000Z',
       transition: {
         from: 'produced',
         to: 'accepted',
-        verificationReport: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
+        verificationReport: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T22-34-30-000Z',
         responsible_context: 'ff-pipeline:debug-lifecycle-acceptance-repair',
       },
     })
@@ -1321,7 +1321,7 @@ describe('ff-pipeline diagnostic routes', () => {
       expect.objectContaining({
         from: 'produced',
         to: 'accepted',
-        verificationReport: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
+        verificationReport: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T22-34-30-000Z',
       }),
     )
     expect(mockUpdate).not.toHaveBeenCalled()
@@ -1663,7 +1663,7 @@ function makeMaterializationAudit(): Record<string, unknown> {
     pressureId: 'PRS-MOTDWQ0T-S55Y',
     capabilityId: 'BC-MOTDWSVY-PQOO',
     proposalId: 'FP-MOTDWVR2-W7UN',
-    executableSpecificationId: 'WG-MOTE4M1R-G7I0',
+    executableSpecificationId: 'ES-MOTE4M1R-G7I0',
     coherenceVerificationPassed: true,
     atomResults: [
       { atomId: 'atom-001', decision: 'pass', confidence: 0.95, tests: '14/14' },
@@ -1695,17 +1695,17 @@ function makePROutcomeSignal(): Record<string, unknown> {
       'PRS:PRS-MOTDWQ0T-S55Y',
       'BC:BC-MOTDWSVY-PQOO',
       'FN:FP-MOTDWVR2-W7UN',
-      'WG:WG-MOTE4M1R-G7I0',
+      'ES:ES-MOTE4M1R-G7I0',
     ],
     createdAt: '2026-05-06T03:09:14Z',
     raw: {
       pipelineId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
       proposalId: 'FP-MOTDWVR2-W7UN',
-      executableSpecificationId: 'WG-MOTE4M1R-G7I0',
+      executableSpecificationId: 'ES-MOTE4M1R-G7I0',
       pr: {
         number: 71,
         url: 'https://github.com/Wescome/function-factory/pull/71',
-        title: '[Factory] Materialize WG-MOTE4M1R-G7I0 synthesis artifact',
+        title: '[Factory] Materialize ES-MOTE4M1R-G7I0 synthesis artifact',
         state: 'OPEN',
         draft: true,
         merged: false,
@@ -1748,7 +1748,7 @@ function makeCanonicalMRPEvidence(): Record<string, unknown> {
           result: 'pass',
         },
       ],
-      fidelityVerificationReportId: 'CR-MOTE4M1R-GATE2',
+      fidelityVerificationReportId: 'VR-MOTE4M1R-FIDELITY',
     },
     seHygiene: {
       mentorRuleCompliance: [
@@ -1763,13 +1763,13 @@ function makeCanonicalMRPEvidence(): Record<string, unknown> {
     rationale: {
       approach: 'Materialize the runtime verification artifact generated by synthesis',
       tradeoffsConsidered: 'Kept runtime MRP persistence separate from canonical adapter validation',
-      prDescription: 'Factory dogfood materialization for WG-MOTE4M1R-G7I0',
+      prDescription: 'Factory dogfood materialization for ES-MOTE4M1R-G7I0',
     },
     auditability: {
-      prdId: 'PRD-MOTE4M1R-G7I0',
+      intentSpecificationId: 'IS-MOTE4M1R-G7I0',
       semanticReviewId: 'SRR-MOTE4M1R-G7I0',
-      coherenceVerificationReportId: 'CR-MOTE4M1R-GATE1',
-      fidelityVerificationReportId: 'CR-MOTE4M1R-GATE2',
+      coherenceVerificationReportId: 'VR-MOTE4M1R-COHERENCE',
+      fidelityVerificationReportId: 'VR-MOTE4M1R-FIDELITY',
       modelBindings: {
         planner: { provider: 'factory-runtime', model: 'observed' },
       },
@@ -1783,8 +1783,8 @@ function makeCanonicalMRPEvidence(): Record<string, unknown> {
 function makeFidelityVerificationSimulationInput(): Record<string, unknown> {
   return {
     functionId: 'FN-MOTDWVR2-W7UN',
-    prdId: 'PRD-META-FUNCTION-SYNTHESIS',
-    executableSpecificationId: 'WG-META-FUNCTION-SYNTHESIS',
+    intentSpecificationId: 'IS-META-FUNCTION-SYNTHESIS',
+    executableSpecificationId: 'ES-META-FUNCTION-SYNTHESIS',
     candidateId: 'AC-META-ARCHITECTURE-CANDIDATE-EXECUTION',
     packetId: 'TEP-META-FUNCTION-SYNTHESIS',
     packetHash: 'sha256:packet-hash',
@@ -1830,7 +1830,7 @@ function makeFidelityVerificationContractInput(): Record<string, unknown> {
   return {
     synthesisRunId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
     functionId: 'FN-MOTDWVR2-W7UN',
-    executableSpecificationId: 'WG-META-FUNCTION-SYNTHESIS',
+    executableSpecificationId: 'ES-META-FUNCTION-SYNTHESIS',
     architectureCandidateId: 'AC-META-ARCHITECTURE-CANDIDATE-EXECUTION',
     packetId: 'TEP-META-FUNCTION-SYNTHESIS',
     packetHash: 'sha256:packet-hash',
@@ -1895,7 +1895,7 @@ function makePersistenceVerificationRegistrationInput(): Record<string, unknown>
     packetHash: 'sha256:packet-hash',
     timestamp: '2026-05-07T22:00:00.000Z',
     sourceRefs: [
-      'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T21-33-20-000Z',
+      'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z',
       'MRP-MOTE4M1R-G7I0-71',
     ],
     detectors: [
@@ -1922,15 +1922,15 @@ function makePersistenceVerificationRegistrationInput(): Record<string, unknown>
   }
 }
 
-function makeFidelityVerificationCoverageReportRecord(): Record<string, unknown> {
+function makeFidelityVerificationVerificationReportRecord(): Record<string, unknown> {
   return {
-    _key: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
-    id: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
-    type: 'gate-2',
+    _key: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T22-34-30-000Z',
+    id: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T22-34-30-000Z',
+    type: 'fidelity-verification',
     passed: true,
     source_refs: ['TEP-META-FUNCTION-SYNTHESIS', 'FN-MOTDWVR2-W7UN'],
     report: {
-      id: 'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
+      id: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T22-34-30-000Z',
       verification: "fidelity",
       function_id: 'FN-MOTDWVR2-W7UN',
       timestamp: '2026-05-07T22:34:30.000Z',
@@ -1940,9 +1940,9 @@ function makeFidelityVerificationCoverageReportRecord(): Record<string, unknown>
     verdict: {
       verdict: 'accepted',
       evidence_reviewed: [
-        'CR-FN-MOTDWVR2-W7UN-GATE2-2026-05-07T22-34-30-000Z',
+        'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T22-34-30-000Z',
       ],
-      scenario_coverage_score: 1,
+      scenario_verification_score: 1,
       invariant_exercise_rate: 1,
       remediation_notes: [],
     },

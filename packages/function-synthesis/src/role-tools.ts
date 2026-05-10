@@ -104,7 +104,7 @@ const readPatches: ToolSchema = {
 
 const readSpecEnvelope: ToolSchema = {
   name: "readSpecEnvelope",
-  description: "Read the specification envelope (PRD + metadata).",
+  description: "Read the specification envelope (Intent Specification + metadata).",
   inputSchema: { type: "object", properties: {} },
   async execute() {
     return { specEnvelope: "stub-spec-envelope" }

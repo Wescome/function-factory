@@ -31,7 +31,7 @@ pnpm run autonomous-scheduler:cli -- record-run-manifest \
 ```
 
 The tracked run record contains `request.json`, `execution.json`, `result.json`,
-compact/redacted command outputs, compact/redacted aggregate evidence files, and
+compact/redacted command outputs, compact/redacted aggreverification evidence files, and
 `manifest.json` with relative paths plus file hashes. That manifest is the
 durable audit surface after `/tmp` or `$HOME/.factory` cleanup. Use
 `--evidence-mode full` only when the raw command transcripts are approved for
@@ -147,7 +147,7 @@ pnpm --dir packages/strategy-objects typecheck # pass
 npm run test:strategy-recipes                  # pass, 127/127
 ```
 
-That run verified the parent gate behavior end-to-end and exposed one remaining
+That run verified the parent verification behavior end-to-end and exposed one remaining
 bundle hardening issue: every evidence path advertised by `AgentResult` must be
 physically written into the bundle. The scheduler now writes `diff.patch`,
 `test-output.txt`, `typecheck-output.txt`, and `verification-output.txt` when

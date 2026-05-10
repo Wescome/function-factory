@@ -3,9 +3,9 @@
   "id": "AR-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW",
   "createdAt": "2026-04-30T14:00:00.000Z",
   "executableSpecification": {
-    "id": "WG-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW",
+    "id": "ES-STRATEGY-RECIPES-FIRST-PRODUCT-VIEW",
     "nodeId": "first-product-view",
-    "sourcePrdId": "PRD-STRATEGY-RECIPES-UX-V1-1",
+    "sourceIntentSpecificationId": "IS-STRATEGY-RECIPES-UX-V1-1",
     "sourceRefs": [
       "Strategy_Recipes_UX_Architecture_v1.1.md",
       "ADR-0001-autonomous-scheduler-boundary.md"

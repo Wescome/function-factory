@@ -13,8 +13,8 @@ The ontological-sensing capability the Factory designed (BC-ORG-ONTO-SENSE) has 
 
 The Factory has a public articulated ontology:
 - **Conceptual world models fail; procedural world models persist.** Therefore convert intent into procedure.
-- **Pressure → Capability → Function → PRD → WorkGraph → Code** is a load-bearing pipeline, not a metaphor.
-- **Three fail-closed Coverage Gates** (Compile, Simulation, Assurance) are non-negotiable.
+- **Pressure → Capability → Function → Intent Specification → Executable Specification → Code** is a load-bearing pipeline, not a metaphor.
+- **Three fail-closed Verification Gates** (Compile, Simulation, Assurance) are non-negotiable.
 - **Lineage preservation and explicitness tags** prevent drift across compilation stages.
 - **The Factory's first application is building itself.**
 
@@ -33,9 +33,9 @@ Before measuring fit, list assumptions in their reviewable form. From the corpus
 | ID | Category | Definition (Factory frame) | Confidence (asserted) |
 |----|----------|---------------------------|----------------------|
 | CAT-FF-1 | Software is | A specification-execution system, where executors (humans or transformers) reliably maintain procedural world models and unreliably maintain conceptual ones | Green |
-| CAT-FF-2 | The unit of programming | A typed artifact with lineage (PRS, BC, FP, PRD, WG, INV, CR) — not a function, not a paragraph | Green |
-| CAT-FF-3 | The compiler's job | Convert conceptual world models (PRDs) into procedural ones (WorkGraphs) so transformers can sustain them | Green |
-| CAT-FF-4 | "Done" means | Coverage gates pass — Compile (every atom bound), Simulation (verified→monitored), Assurance (continuous detector freshness) | Green |
+| CAT-FF-2 | The unit of programming | A typed artifact with lineage (PRS, BC, FP, Intent Specification, ES, INV, VR) — not a function, not a paragraph | Green |
+| CAT-FF-3 | The compiler's job | Convert conceptual world models (Intent Specifications) into procedural ones (Executable Specifications) so transformers can sustain them | Green |
+| CAT-FF-4 | "Done" means | Verification gates pass — Compile (every atom bound), Simulation (verified→monitored), Assurance (continuous detector freshness) | Green |
 | CAT-FF-5 | The first product | Is the Factory itself; the bootstrap is the proof | Green |
 
 ### 1.2 Causal assumptions
@@ -43,7 +43,7 @@ Before measuring fit, list assumptions in their reviewable form. From the corpus
 | ID | Mechanism | Statement | Confidence (asserted) |
 |----|-----------|-----------|----------------------|
 | MECH-FF-1 | Procedural conversion | Specs that compile to procedural form survive turn boundaries; conceptual specs decay | Green |
-| MECH-FF-2 | Coverage gates | Fail-closed gates prevent drift better than human review or ad-hoc tests | Green |
+| MECH-FF-2 | Verification gates | Fail-closed gates prevent drift better than human review or ad-hoc tests | Green |
 | MECH-FF-3 | Lineage edges | Per-stage lineage writes (not batched post-Gate) are necessary; learned from Phase 3 production | Green |
 | MECH-FF-4 | Local procedural models | Each compiler pass is a state transition; fine-tuned local models execute passes more reliably than general frontier models | Yellow (this is the four-argument case from "Procedures All the Way Down" §4–5) |
 | MECH-FF-5 | I-layer / We-layer | Agent-in-environment (Factory) and organization-in-purpose (WeOps) are distinct gradients, not the same thing wearing two hats | Green |
@@ -54,7 +54,7 @@ Before measuring fit, list assumptions in their reviewable form. From the corpus
 |----|-------|----------------------|
 | STRAT-FF-1 | Ontology is strategy: redefining categorical structures beats optimizing within them | Green |
 | STRAT-FF-2 | The comprehension gap applies to LLMs and to organizations; the same compiler pattern resolves both | Green |
-| STRAT-FF-3 | Fail-closed governance produces a moat; organizations without coverage gates accumulate drift faster than they can repair it | Green |
+| STRAT-FF-3 | Fail-closed governance produces a moat; organizations without verification checks accumulate drift faster than they can repair it | Green |
 
 These are the assumptions on the table. Now compare to the field.
 
@@ -112,11 +112,11 @@ This is now a mainstream frame, not a heretical one. Capgemini's 2026 TechnoVisi
 
 **Verdict: 🟡 Partially validated, but with a competing definition gaining ground.**
 
-The Factory says: PRS, BC, FP, PRD, WG, INV, CR — typed artifacts with explicitness tags and source_refs. The market has moved to: spec.md, plan.md, tasks/, constitution.md (Spec Kit); requirements.md, design.md, tasks.md (Kiro); spec-as-source files marked DO NOT EDIT (Tessl).
+The Factory says: PRS, BC, FP, Intent Specification, ES, INV, CR — typed artifacts with explicitness tags and source_refs. The market has moved to: spec.md, plan.md, tasks/, constitution.md (Spec Kit); requirements.md, design.md, tasks.md (Kiro); spec-as-source files marked DO NOT EDIT (Tessl).
 
 Both agree: artifacts are the unit. Both agree: lineage matters. Where they diverge: **the Factory's typing is richer and more rigorous, but the market's typing is shallower and more interoperable.**
 
-This is a real ontological tension. The market settled on a small set of universal artifact names that any agent can pick up via convention. AGENTS.md is an open, Markdown-based standard for providing instructions to AI coding agents. Placed at the root of a project repository, it tells agents about the project's build setup, test commands, code conventions, architectural constraints, and security The Factory has 7 stages with prefixed IDs and a custom compiler. The cost of that depth is that no off-the-shelf agent natively understands PRS-* or WG-* without being told.
+This is a real ontological tension. The market settled on a small set of universal artifact names that any agent can pick up via convention. AGENTS.md is an open, Markdown-based standard for providing instructions to AI coding agents. Placed at the root of a project repository, it tells agents about the project's build setup, test commands, code conventions, architectural constraints, and security The Factory has 7 stages with prefixed IDs and a custom compiler. The cost of that depth is that no off-the-shelf agent natively understands PRS-* or ES-* without being told.
 
 **Direction**: the assumption is correct on direction (typed artifacts win), at risk on form (the market's lower-rigor convention is what's getting compounded by every IDE, every model, every CI tool). The Factory needs to decide: emit AGENTS.md alongside its native artifacts, or accept that its artifacts are second-class citizens in the broader ecosystem.
 
@@ -134,7 +134,7 @@ That is precisely the Factory's pass-1 → pass-7 architecture, with formal proo
 
 **Direction**: convergent and strengthening. Hold Green.
 
-### 3.4 CAT-FF-4: "Done" means coverage gates pass
+### 3.4 CAT-FF-4: "Done" means verification checks pass
 
 **Verdict: 🟡 Validated in principle, but the market is converging on a different gate vocabulary.**
 
@@ -164,7 +164,7 @@ The "Vibe Coding Needs Vibe Reasoning" paper makes it formally. The agentic-veri
 
 The Factory's MECH-FF-1 is now consensus. Hold Green.
 
-### 3.7 MECH-FF-2: Coverage gates as moat
+### 3.7 MECH-FF-2: Verification gates as moat
 
 **Verdict: 🟢 Validated; commoditizing fast.**
 
@@ -215,7 +215,7 @@ The market is now distinguishing between agent-level capability (the I-layer in 
 
 **Verdict: 🟢 Validated by the spec-driven taxonomy itself.**
 
-The fact that the field is fighting over what "spec" means — spec-first vs. spec-anchored vs. spec-as-source — is an ontological war in real time. Whoever defines the categorical structure of the spec-driven world wins the moat. Tessl is making the spec-as-source bet. AWS is making the spec-anchored bet. Spec Kit is making the spec-first-with-constitutional-foundation bet. The Factory's bet is: spec-anchored with seven typed stages and three coverage gates. This is the same kind of category-redefinition play the strategy paper described.
+The fact that the field is fighting over what "spec" means — spec-first vs. spec-anchored vs. spec-as-source — is an ontological war in real time. Whoever defines the categorical structure of the spec-driven world wins the moat. Tessl is making the spec-as-source bet. AWS is making the spec-anchored bet. Spec Kit is making the spec-first-with-constitutional-foundation bet. The Factory's bet is: spec-anchored with seven typed stages and three verification families. This is the same kind of category-redefinition play the strategy paper described.
 
 Hold Green.
 
@@ -241,9 +241,9 @@ Governance is now the universal claim. Every vendor will have it within 12 month
 
 ## 4. Pattern Synthesis: What's Actually Happening
 
-The Factory's ontology is **substantially correct** at the level of mechanisms. Procedural conversion is necessary. Specs are the unit. Compilation is the right metaphor. Coverage gates are required. Lineage matters. The market validates these.
+The Factory's ontology is **substantially correct** at the level of mechanisms. Procedural conversion is necessary. Specs are the unit. Compilation is the right metaphor. Verification gates are required. Lineage matters. The market validates these.
 
-The Factory's ontology is **partially diverging** from the market's at the level of categories and language. The market's typed artifacts are shallower (AGENTS.md, spec.md) but more portable. The market's gate vocabulary is "guardrails" not "Coverage Gate 1/2/3." The market's compilation target is the spec, not the WorkGraph.
+The Factory's ontology is **partially diverging** from the market's at the level of categories and language. The market's typed artifacts are shallower (AGENTS.md, spec.md) but more portable. The market's gate vocabulary is "guardrails" not "Verification Coherence Verification/2/3." The market's compilation target is the spec, not the Executable Specification.
 
 The Factory's ontology is **at risk** on two specific claims:
 1. **MECH-FF-4** (local procedural models) needs a per-pass economic re-evaluation against current frontier inference costs. Two of four arguments have softened.
@@ -260,11 +260,11 @@ Map the Factory's stages against the dominant market frames:
 | Stage 2 (Pressure) | "Discovery", "Problem framing" — typically not formalized | Factory unique: typed Pressure artifact with metrics |
 | Stage 3 (Capability) | "Capability map", but usually informal | Factory unique: BC artifacts with acceptance criteria |
 | Stage 4 (Function Proposal) | "Feature breakdown" / "EARS requirements" (Kiro) | Convergent |
-| Stage 5 input (PRD) | "spec.md" (Spec Kit), "requirements.md+design.md" (Kiro), "spec" (Tessl) | Convergent; market settled on simpler naming |
-| Stage 5 output (WorkGraph) | "tasks.md" / task graph in Spec Kit/Kiro | Convergent in form, the Factory is more formal |
-| Gate 1 (Compile) | "Constitutional foundation check" (Spec Kit), "spec-correctness test" (Kiro GA) | Convergent |
-| Gate 2 (Simulation) | "Verifier agent" (Augment Intent), CWM-style execution simulation | Convergent; the Factory's Gate 2a CWM work is consistent with frontier research |
-| Gate 3 (Assurance) | "Continuous observability for AI agents" (multiple vendors) | Convergent |
+| Stage 5 input (Intent Specification) | "spec.md" (Spec Kit), "requirements.md+design.md" (Kiro), "spec" (Tessl) | Convergent; market settled on simpler naming |
+| Stage 5 output (Executable Specification) | "tasks.md" / task graph in Spec Kit/Kiro | Convergent in form, the Factory is more formal |
+| Coherence Verification (Compile) | "Constitutional foundation check" (Spec Kit), "spec-correctness test" (Kiro GA) | Convergent |
+| Fidelity Verification (Simulation) | "Verifier agent" (Augment Intent), CWM-style execution simulation | Convergent; the Factory's Fidelity Verificationa CWM work is consistent with frontier research |
+| Persistence Verification (Assurance) | "Continuous observability for AI agents" (multiple vendors) | Convergent |
 | Stage 6 (Runtime) | "Agent harness" (Anthropic), "agentic environment" (Cursor/Warp/Claude Code) | Convergent |
 | Stage 7 (Trust + invariant health) | Beginning to emerge ("AI Defense Plane", "Agent Protector") | Factory ahead |
 
@@ -295,11 +295,11 @@ The first product was always supposed to be the Factory itself. The strategic cl
 
 ### Decision 1: AGENTS.md emission
 
-**Position**: Add an emission target so that every Stage-5 artifact (PRD) and Stage-5-output (WorkGraph) also emits an AGENTS.md-shaped view. The internal rigor stays. The external interface conforms to the dominant market standard.
+**Position**: Add an emission target so that every Stage-5 artifact (Intent Specification) and Stage-5-output (Executable Specification) also emits an AGENTS.md-shaped view. The internal rigor stays. The external interface conforms to the dominant market standard.
 
 **Why now**: AGENTS.md is now Linux Foundation-stewarded. AGENTS.md emerged from collaborative efforts across the AI software development ecosystem, including OpenAI Codex, Amp, Jules from Google, Cursor, and Factory. We're committed to helping maintain and evolve this as an open format that benefits the entire developer community, regardless of which coding agent you use. AGENTS.md is now stewarded by the Agentic AI Foundation under the Linux Foundation. Waiting six months is acceptable; waiting 18 months is not.
 
-**Action**: add Stage-5.5 emitter (AGENTS.md generation from PRD+WG) as a Factory-built-by-Factory subsystem. Architect agent decision when ready.
+**Action**: add Stage-5.5 emitter (AGENTS.md generation from Intent Specification+ES) as a Factory-built-by-Factory subsystem. Architect agent decision when ready.
 
 ### Decision 2: Per-pass model routing re-evaluation
 
@@ -315,8 +315,8 @@ The first product was always supposed to be the Factory itself. The strategic cl
 
 | Factory term | Public-facing term | Notes |
 |--------------|-------------------|-------|
-| Coverage Gate 1/2/3 | "Compile gate / Simulation gate / Assurance gate" — but introduce as "spec-conformance, simulated execution, runtime invariants" | Keeps internal language; introduces market-readable explanations |
-| WorkGraph | "Task graph" or "executable spec" depending on audience | Factory uses WG-* internally |
+| Verification Coherence Verification/2/3 | "Compile gate / Simulation gate / Assurance gate" — but introduce as "spec-conformance, simulated execution, runtime invariants" | Keeps internal language; introduces market-readable explanations |
+| Executable Specification | "Task graph" or "executable spec" depending on audience | Factory uses ES-* internally |
 | Pressure → Capability → Function | "Discovery → Capability → Specification" | Pressure is a strong word that doesn't translate cleanly; teach it second |
 | Lineage edges | "Spec traceability" | Market has the latter term; introduce the former as the rigorous version |
 
@@ -362,7 +362,7 @@ It also produces the most uncomfortable diagnostic: the Factory's ontology is co
 | CAT-FF-1: spec-execution frame | 🟢 Validated externally | Strengthening | Hold |
 | CAT-FF-2: typed artifacts | 🟡 Partially validated, AGENTS.md gaining | Diverging | Decision 1: emit AGENTS.md |
 | CAT-FF-3: compiler converts conceptual→procedural | 🟢 Validated | Strengthening | Hold |
-| CAT-FF-4: coverage gates = "done" | 🟡 Substance valid, language drifting | Hold direction, fix language | Decision 3: vocab layer |
+| CAT-FF-4: verification checks = "done" | 🟡 Substance valid, language drifting | Hold direction, fix language | Decision 3: vocab layer |
 | CAT-FF-5: first product is the Factory | 🟢 Validated | Strengthening | Hold |
 | MECH-FF-1: procedural conversion necessary | 🟢 Strongly validated | Strengthening | Hold |
 | MECH-FF-2: gates as mechanism | 🟢 Validated | Strengthening | Hold |

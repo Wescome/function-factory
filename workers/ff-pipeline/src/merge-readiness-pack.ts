@@ -147,7 +147,7 @@ export interface CanonicalMRPEvidence {
     crpsResolved?: string[]
   }
   auditability?: {
-    prdId?: string
+    intentSpecificationId?: string
     semanticReviewId?: string
     coherenceVerificationReportId?: string
     fidelityVerificationReportId?: string
@@ -262,7 +262,7 @@ function sourceRefs(audit: SynthesisMaterializationAudit, prOutcomeSignalId: str
 }
 
 function makePackId(executableSpecificationId: string, pullNumber: number): string {
-  return `MRP-${executableSpecificationId.replace(/^WG-/, '')}-${pullNumber}`
+  return `MRP-${executableSpecificationId.replace(/^ES-/, '')}-${pullNumber}`
 }
 
 function criterion(
@@ -335,7 +335,7 @@ function requiredCanonicalFields(pack: MergeReadinessPack, evidence: CanonicalMR
   if (!isNonEmptyString(evidence.rationale?.approach)) missing.push('rationale.approach')
   if (!isNonEmptyString(evidence.rationale?.tradeoffsConsidered)) missing.push('rationale.tradeoffsConsidered')
   if (!isNonEmptyString(evidence.rationale?.prDescription)) missing.push('rationale.prDescription')
-  if (!isNonEmptyString(evidence.auditability?.prdId)) missing.push('auditability.prdId')
+  if (!isNonEmptyString(evidence.auditability?.intentSpecificationId)) missing.push('auditability.intentSpecificationId')
   if (!isNonEmptyString(evidence.auditability?.semanticReviewId)) missing.push('auditability.semanticReviewId')
   if (!isNonEmptyString(coherenceVerificationReportId(evidence.auditability))) {
     missing.push('auditability.coherenceVerificationReportId')
@@ -565,7 +565,7 @@ export function toCanonicalMergeReadinessPack(
       crpsResolved: evidence.rationale?.crpsResolved ?? [],
     },
     auditability: {
-      prdId: evidence.auditability?.prdId,
+      intentSpecificationId: evidence.auditability?.intentSpecificationId,
       executableSpecificationId: pack.executableSpecificationId,
       semanticReviewId: evidence.auditability?.semanticReviewId,
       coherenceVerificationReportId: auditabilityCoherenceReportId,

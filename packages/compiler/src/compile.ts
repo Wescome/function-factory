@@ -1,17 +1,17 @@
 /**
  * Compile orchestrator- reads an Intent Specification file, runs the
  * transformation pipeline,
- * emits a Coherence Verification Coverage Report, and returns the aggregate result.
+ * emits a Coherence Verification Verification Report, and returns the aggregate result.
  *
- * IO is confined to this module (reading the PRD file, writing the
- * Coverage Report via emitCoherenceVerificationReport). Each individual pass is pure;
+ * IO is confined to this module (reading the Intent Specification file, writing the
+ * Verification Report via emitCoherenceVerificationReport). Each individual pass is pure;
  * the orchestrator composes them.
  *
  * Timestamp is generated here — the one ISO-8601 timestamp used for
- * both the Coverage Report's `timestamp` field and its derived `id`
+ * both the Verification Report's `timestamp` field and its derived `id`
  * (via Coherence Verification's internal ID construction). This keeps
  * Coherence Verification itself pure while centralizing the clock
- * read in the orchestration layer per the prd-compiler SKILL's
+ * read in the orchestration layer per the intentSpecification-compiler SKILL's
  * "pure functions; side effects in named integration modules"
  * discipline.
  */
@@ -39,27 +39,27 @@ import {
 } from "./passes/index.js"
 
 export interface CompileOptions {
-  /** Override Factory mode. Default- derived from PRD ID via determineMode. */
+  /** Override Factory mode. Default- derived from Intent Specification ID via determineMode. */
   readonly mode?: FactoryMode
-  /** Destination directory for Coverage Reports. Default- <repo>/specs/coverage-reports. */
-  readonly coverageReportsDir?: string
-  /** Destination directory for Executable Specifications. Default- <repo>/specs/workgraphs. */
+  /** Destination directory for Verification Reports. Default- <repo>/specs/verification-reports. */
+  readonly verificationReportsDir?: string
+  /** Destination directory for Executable Specifications. Default- <repo>/specs/executable-specifications. */
   readonly executableSpecificationDir?: string
-  /** ISO-8601 timestamp for the Coverage Report. Default- current wall clock. */
+  /** ISO-8601 timestamp for the Verification Report. Default- current wall clock. */
   readonly timestamp?: string
   /** Optional Instruction Tuning input bundle. When present, emits or blocks a Trellis Execution Packet. */
   readonly instructionTuning?: InstructionTuningCompileOptions
 }
 
 export async function compile(
-  prdPath: string,
+  intentSpecificationPath: string,
   options: CompileOptions = {}
 ): Promise<CompileResult> {
-  const absolutePrdPath = resolve(prdPath)
-  const raw = await readFile(absolutePrdPath, "utf8")
+  const absoluteIntentSpecificationPath = resolve(intentSpecificationPath)
+  const raw = await readFile(absoluteIntentSpecificationPath, "utf8")
 
   // Transformations 0-5 produce the intermediates bundle.
-  const normalized = normalize(raw, absolutePrdPath)
+  const normalized = normalize(raw, absoluteIntentSpecificationPath)
   const atoms = extractAtoms(normalized)
   const contracts = deriveContracts(normalized, atoms)
   const invariants = deriveInvariants(normalized, atoms, contracts)
@@ -73,7 +73,7 @@ export async function compile(
   )
 
   const intermediates = {
-    prd: normalized.draft,
+    intentSpecification: normalized.draft,
     atoms,
     contracts,
     invariants,
@@ -87,20 +87,20 @@ export async function compile(
   // Completeness Certification / Coherence Verification (legacy Pass 7).
   const mode = options.mode ?? determineMode(normalized.draft.id)
   const timestamp = options.timestamp ?? new Date().toISOString()
-  const coverageReportsDir =
-    options.coverageReportsDir ?? defaultCoverageReportsDir(absolutePrdPath)
+  const verificationReportsDir =
+    options.verificationReportsDir ?? defaultVerificationReportsDir(absoluteIntentSpecificationPath)
 
   const { report, reportPath } = await runCoherenceVerificationPass(
     intermediates,
     mode,
     timestamp,
-    coverageReportsDir
+    verificationReportsDir
   )
 
   // Executable Specification Assembly. The historical Pass 8 label names
   // structural assembly; ontology Pass 8 is future Instruction Tuning.
   // On failure, executableSpecification and executableSpecificationPath remain null; the orchestrator still
-  // returns with the Coverage Report preserved on disk per ConOps §7.2 step 2.
+  // returns with the Verification Report preserved on disk per ConOps §7.2 step 2.
   let executableSpecification: ExecutableSpecification | null = null
   let executableSpecificationPath: string | null = null
   let instructionTuningResult: CompileResult["instructionTuningResult"] = null
@@ -115,7 +115,7 @@ export async function compile(
       report
     )
     const executableSpecificationDir =
-      options.executableSpecificationDir ?? defaultWorkgraphsDir(absolutePrdPath)
+      options.executableSpecificationDir ?? defaultExecutableSpecificationsDir(absoluteIntentSpecificationPath)
     executableSpecificationPath = await emitExecutableSpecification(executableSpecification, executableSpecificationDir)
     if (options.instructionTuning) {
       instructionTuningResult = tuneInstructions({
@@ -138,24 +138,24 @@ export async function compile(
 }
 
 /**
- * Default Coverage Report destination- resolves <repo-root>/specs/coverage-reports
- * by walking up from the PRD file. The PRD is expected to live at
- * `<repo>/specs/prds/PRD-*.md`, so two levels up from the PRD is the
+ * Default Verification Report destination- resolves <repo-root>/specs/verification-reports
+ * by walking up from the Intent Specification file. The Intent Specification is expected to live at
+ * `<repo>/specs/intent-specifications/IS-*.md`, so two levels up from the Intent Specification is the
  * repo root.
  */
-function defaultCoverageReportsDir(prdAbsolutePath: string): string {
-  const prdsDir = dirname(prdAbsolutePath)
-  const specsDir = dirname(prdsDir)
-  return resolve(specsDir, "coverage-reports")
+function defaultVerificationReportsDir(intentSpecificationAbsolutePath: string): string {
+  const intentSpecificationsDir = dirname(intentSpecificationAbsolutePath)
+  const specsDir = dirname(intentSpecificationsDir)
+  return resolve(specsDir, "verification-reports")
 }
 
 /**
- * Default Executable Specification destination- resolves <repo-root>/specs/workgraphs
- * by walking up from the PRD file. Same walk logic as
- * defaultCoverageReportsDir.
+ * Default Executable Specification destination- resolves <repo-root>/specs/executable-specifications
+ * by walking up from the Intent Specification file. Same walk logic as
+ * defaultVerificationReportsDir.
  */
-function defaultWorkgraphsDir(prdAbsolutePath: string): string {
-  const prdsDir = dirname(prdAbsolutePath)
-  const specsDir = dirname(prdsDir)
-  return resolve(specsDir, "workgraphs")
+function defaultExecutableSpecificationsDir(intentSpecificationAbsolutePath: string): string {
+  const intentSpecificationsDir = dirname(intentSpecificationAbsolutePath)
+  const specsDir = dirname(intentSpecificationsDir)
+  return resolve(specsDir, "executable-specifications")
 }

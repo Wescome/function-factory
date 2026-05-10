@@ -99,7 +99,7 @@
       "name": "@factory/compiler",
       "version": "0.0.1",
       "dependencies": {
-        "@factory/coverage-gates": "workspace:*",
+        "@factory/verification": "workspace:*",
         "@factory/schemas": "workspace:*",
         "yaml": "^2.4.0",
         "zod": "^3.22.4",
@@ -122,8 +122,8 @@
         "vitest": "^1.4.0",
       },
     },
-    "packages/coverage-gates": {
-      "name": "@factory/coverage-gates",
+    "packages/verification": {
+      "name": "@factory/verification",
       "version": "0.0.1",
       "dependencies": {
         "@factory/schemas": "workspace:*",
@@ -301,8 +301,8 @@
         "vitest": "^1.4.0",
       },
     },
-    "packages/prd-authoring": {
-      "name": "@factory/prd-authoring",
+    "packages/intent-authoring": {
+      "name": "@factory/intent-authoring",
       "version": "0.0.1",
       "dependencies": {
         "@factory/schemas": "workspace:*",
@@ -699,7 +699,7 @@
 
     "@factory/controlled-effectors": ["@factory/controlled-effectors@workspace:packages/controlled-effectors"],
 
-    "@factory/coverage-gates": ["@factory/coverage-gates@workspace:packages/coverage-gates"],
+    "@factory/verification": ["@factory/verification@workspace:packages/verification"],
 
     "@factory/diff-engine": ["@factory/diff-engine@workspace:packages/diff-engine"],
 
@@ -727,7 +727,7 @@
 
     "@factory/policy-activation": ["@factory/policy-activation@workspace:packages/policy-activation"],
 
-    "@factory/prd-authoring": ["@factory/prd-authoring@workspace:packages/prd-authoring"],
+    "@factory/intent-authoring": ["@factory/intent-authoring@workspace:packages/intent-authoring"],
 
     "@factory/recursion-governance": ["@factory/recursion-governance@workspace:packages/recursion-governance"],
 

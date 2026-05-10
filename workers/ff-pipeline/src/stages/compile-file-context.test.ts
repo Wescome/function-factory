@@ -79,7 +79,7 @@ const mockDb = {
   ensureCollection: vi.fn(async () => ({})),
 }
 
-import { compilePRD } from './compile'
+import { compileIntentSpecification } from './compile'
 import type { ArangoClient } from '@factory/arango-client'
 import type { PipelineEnv } from '../types'
 import type { FileContext } from '@factory/file-context'
@@ -311,10 +311,10 @@ describe('fetchCompileFileContexts', () => {
 })
 
 // ─────────────────────────────────────────────────────────────────────
-// 3. compilePRD decompose pass includes fileContexts in LLM context
+// 3. compileIntentSpecification decompose pass includes fileContexts in LLM context
 // ─────────────────────────────────────────────────────────────────────
 
-describe('compilePRD decompose pass: fileContexts in context', () => {
+describe('compileIntentSpecification decompose pass: fileContexts in context', () => {
   const mockEnv = {
     ARANGO_URL: 'http://localhost:8529',
     ARANGO_DATABASE: 'test',
@@ -334,15 +334,15 @@ describe('compilePRD decompose pass: fileContexts in context', () => {
     const fileContexts = [
       {
         path: 'workers/ff-pipeline/src/stages/compile.ts',
-        exports: ['compilePRD'],
-        functions: ['compilePRD(passName: PassName, state: Record<string, unknown>)'],
-        rawContent: 'export async function compilePRD() { /* ... */ }',
+        exports: ['compileIntentSpecification'],
+        functions: ['compileIntentSpecification(passName: PassName, state: Record<string, unknown>)'],
+        rawContent: 'export async function compileIntentSpecification() { /* ... */ }',
       },
     ]
 
     const state: Record<string, unknown> = {
-      prd: {
-        _key: 'PRD-FC',
+      intentSpecification: {
+        _key: 'IS-FC',
         title: 'File context test',
         objective: 'Test that fileContexts reach the decompose LLM call',
         invariants: [],
@@ -355,7 +355,7 @@ describe('compilePRD decompose pass: fileContexts in context', () => {
       fileContexts,
     }
 
-    await compilePRD(
+    await compileIntentSpecification(
       'decompose',
       state,
       mockDb as unknown as ArangoClient,
@@ -373,20 +373,20 @@ describe('compilePRD decompose pass: fileContexts in context', () => {
     const sentFiles = sentContext.existingFiles as Array<Record<string, unknown>>
     expect(sentFiles).toHaveLength(1)
     expect(sentFiles[0]!.path).toBe('workers/ff-pipeline/src/stages/compile.ts')
-    expect(sentFiles[0]!.exports).toContain('compilePRD')
+    expect(sentFiles[0]!.exports).toContain('compileIntentSpecification')
   })
 
   it('decompose pass works normally when fileContexts is absent from state', async () => {
     const state: Record<string, unknown> = {
-      prd: {
-        _key: 'PRD-NOFC',
+      intentSpecification: {
+        _key: 'IS-NOFC',
         title: 'No file context test',
         objective: 'Test that decompose works without fileContexts',
         invariants: [],
       },
     }
 
-    const result = await compilePRD(
+    const result = await compileIntentSpecification(
       'decompose',
       state,
       mockDb as unknown as ArangoClient,
@@ -415,12 +415,12 @@ describe('compilePRD decompose pass: fileContexts in context', () => {
     }]
 
     const state: Record<string, unknown> = {
-      prd: { _key: 'PRD-DEP', title: 'Test', objective: 'Test', invariants: [] },
+      intentSpecification: { _key: 'IS-DEP', title: 'Test', objective: 'Test', invariants: [] },
       atoms: [{ id: 'atom-001', type: 'implementation', title: 'Test', description: 'Test' }],
       fileContexts,
     }
 
-    await compilePRD(
+    await compileIntentSpecification(
       'dependency',
       state,
       mockDb as unknown as ArangoClient,
@@ -455,7 +455,7 @@ describe('decompose prompt: file context awareness', () => {
 
   it('system prompt mentions file contexts when fileContexts are present', async () => {
     const state: Record<string, unknown> = {
-      prd: { _key: 'PRD-PROMPT', title: 'Prompt test', objective: 'Test', invariants: [] },
+      intentSpecification: { _key: 'IS-PROMPT', title: 'Prompt test', objective: 'Test', invariants: [] },
       fileContexts: [{
         path: 'src/example.ts',
         exports: ['doThing'],
@@ -464,7 +464,7 @@ describe('decompose prompt: file context awareness', () => {
       }],
     }
 
-    await compilePRD(
+    await compileIntentSpecification(
       'decompose',
       state,
       mockDb as unknown as ArangoClient,

@@ -74,7 +74,7 @@ function typeForContract(contract: Contract): ExecutableSpecificationNodeTypeT {
 }
 
 export function assembleExecutableSpecification(
-  prd: IntentSpecification,
+  intentSpecification: IntentSpecification,
   atoms: readonly RequirementAtom[],
   contracts: readonly Contract[],
   invariants: readonly Invariant[],
@@ -85,7 +85,7 @@ export function assembleExecutableSpecification(
   // Fail-closed precondition- Coherence Verification must pass.
   if (coherenceVerificationReport.overall !== "pass") {
     throw new Error(
-      `Executable Specification Assembly refuses to run on a failed Coherence Verification verdict. Coverage Report id- ${coherenceVerificationReport.id}`
+      `Executable Specification Assembly refuses to run on a failed Coherence Verification verdict. Verification Report id- ${coherenceVerificationReport.id}`
     )
   }
 
@@ -174,9 +174,9 @@ export function assembleExecutableSpecification(
     return (a.dependencyType ?? "").localeCompare(b.dependencyType ?? "")
   })
 
-  // Aggregate source_refs- PRD + Coverage Report + every intermediate.
+  // Aggregate source_refs- Intent Specification + Verification Report + every intermediate.
   const refSet = new Set<string>()
-  refSet.add(prd.id)
+  refSet.add(intentSpecification.id)
   refSet.add(coherenceVerificationReport.id)
   for (const c of contracts) refSet.add(c.id)
   for (const inv of invariants) refSet.add(inv.id)
@@ -188,17 +188,17 @@ export function assembleExecutableSpecification(
   const source_refs = Array.from(refSet).sort() as ArtifactId[]
 
   const candidate: ExecutableSpecification = {
-    id: executableSpecificationId(prd.id),
+    id: executableSpecificationId(intentSpecification.id),
     source_refs,
     explicitness: "explicit",
-    rationale: `ExecutableSpecification assembled from validated intermediates of ${prd.id}; Coherence Verification verdict ${coherenceVerificationReport.overall} cited in source_refs`,
-    functionId: prd.sourceFunctionId,
+    rationale: `ExecutableSpecification assembled from validated intermediates of ${intentSpecification.id}; Coherence Verification verdict ${coherenceVerificationReport.overall} cited in source_refs`,
+    functionId: intentSpecification.sourceFunctionId,
     nodes,
     edges,
   }
 
   // Defensive re-validation. TypeScript types guarantee the shape; Zod
-  // refinements (e.g., nodes.min(1), WG- prefix) aren't captured in TS
+  // refinements (e.g., nodes.min(1), ES- prefix) aren't captured in TS
   // types. If this throws, it's an assembly implementation defect.
   const parsed = ExecutableSpecification.safeParse(candidate)
   if (!parsed.success) {

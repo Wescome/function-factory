@@ -4,11 +4,11 @@ source_refs:
 explicitness: explicit
 rationale: >
   Third meta-Pressure authored under Factory discipline. Whitepaper §4 names
-  the Stage 5 compiler as an eight-pass pipeline producing a WorkGraph; the
+  the Stage 5 compiler as an eight-pass pipeline producing a Executable Specification; the
   MVP compiler (2026-04-19, commit fb5b3e8 post-paired-PR) implements
-  Passes 0–7 and produces a Gate 1 Coverage Report but does not implement
-  Pass 8 (assemble_workgraph). The Coverage Report is the bootstrap proof
-  for the gate; the WorkGraph is the buildable artifact every subsequent
+  Passes 0–7 and produces a Coherence Verification Verification Report but does not implement
+  Pass 8 (assemble_executable-specification). The Verification Report is the bootstrap proof
+  for the verification; the Executable Specification is the buildable artifact every subsequent
   Factory stage (Stage 6 harness execution, Stage 7 trust evaluation)
   consumes. Without Pass 8 the compiler produces evidence that a
   specification is internally complete but never produces the
@@ -23,9 +23,9 @@ confidence: 0.95
 
 description: >
   The Factory compiler's terminal pass is unspecified and unimplemented.
-  Gate 1 gates compilation; Pass 8 is supposed to emit what passes
-  through the gate. Its absence means every compile to date has produced
-  only a Coverage Report, never a WorkGraph. No Factory-compiled
+  Coherence Verification gates compilation; Pass 8 is supposed to emit what passes
+  through the verification. Its absence means every compile to date has produced
+  only a Verification Report, never a Executable Specification. No Factory-compiled
   artifact has ever been handed to Stage 6 for execution because no
   compile has ever produced a handable artifact. This is the single
   largest gap between the whitepaper's end-to-end pipeline and the MVP

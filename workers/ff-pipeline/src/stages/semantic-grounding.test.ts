@@ -39,8 +39,8 @@ const mockCallModel = vi.fn(async (_taskKind: string, _system: string, _user: st
   evidence: [],
   sourceRefs: [],
   gapAnalysis: 'Mock gap',
-  prd: {
-    title: 'Mock PRD',
+  intentSpecification: {
+    title: 'Mock Intent Specification',
     objective: 'Mock objective',
     acceptanceCriteria: ['AC-1'],
     invariants: ['INV-1'],
@@ -478,8 +478,8 @@ describe('Semantic Grounding: Critic review with ground truth', () => {
     const proposal = {
       _key: 'FP-001',
       title: 'Sandbox Function',
-      prd: {
-        title: 'PRD: Sandbox',
+      intentSpecification: {
+        title: 'Intent Specification: Sandbox',
         objective: 'Build sandbox',
         acceptanceCriteria: ['AC-1'],
         invariants: ['INV-1'],
@@ -509,8 +509,8 @@ describe('Semantic Grounding: Critic review with ground truth', () => {
     const proposal = {
       _key: 'FP-001',
       title: 'Legacy Function',
-      prd: {
-        title: 'PRD: Legacy',
+      intentSpecification: {
+        title: 'Intent Specification: Legacy',
         objective: 'Build legacy',
         acceptanceCriteria: ['AC-1'],
         invariants: [],
@@ -646,8 +646,8 @@ describe('Semantic Grounding: Backwards compatibility', () => {
     const proposal = {
       _key: 'FP-001',
       title: 'No spec',
-      prd: {
-        title: 'PRD',
+      intentSpecification: {
+        title: 'IS',
         objective: 'Test',
         acceptanceCriteria: ['AC-1'],
         invariants: [],
@@ -665,8 +665,8 @@ describe('Semantic Grounding: Backwards compatibility', () => {
     const proposal = {
       _key: 'FP-001',
       title: 'No spec',
-      prd: {
-        title: 'PRD',
+      intentSpecification: {
+        title: 'IS',
         objective: 'Test',
         acceptanceCriteria: ['AC-1'],
         invariants: [],

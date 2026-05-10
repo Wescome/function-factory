@@ -10,7 +10,7 @@
 
 ### 1.1 Situation Assessment
 
-**Trigger:** 4 consecutive CEF runs across different Workers AI models show the same pattern: pipeline Stages 1-5 + Gate 1 work perfectly. Synthesis agents fail on LLM output parsing. The failure is NOT model-specific.
+**Trigger:** 4 consecutive CEF runs across different Workers AI models show the same pattern: pipeline Stages 1-5 + Coherence Verification work perfectly. Synthesis agents fail on LLM output parsing. The failure is NOT model-specific.
 
 **Symptoms vs root cause:**
 - Symptom: each run fails with a different parsing error

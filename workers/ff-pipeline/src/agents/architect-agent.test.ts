@@ -27,7 +27,7 @@ const VALID_BRIEFING: BriefingScript = {
 }
 
 const SAMPLE_WORKGRAPH = {
-  _key: 'WG-TEST-001',
+  _key: 'ES-TEST-001',
   title: 'User Authentication Module',
   atoms: [{ id: 'atom-001', description: 'Auth middleware' }],
   invariants: [],

@@ -91,7 +91,7 @@ vi.mock('./propose-function', () => ({
   proposeFunction: vi.fn(async () => ({
     _key: 'FP-001',
     title: 'test proposal',
-    prd: { title: 'Test PRD', atoms: [], invariants: [] },
+    intentSpecification: { title: 'Test Intent Specification', atoms: [], invariants: [] },
   })),
 }))
 
@@ -107,10 +107,10 @@ vi.mock('./semantic-review', () => ({
 
 vi.mock('./compile', () => ({
   PASS_NAMES: ['atoms', 'contracts', 'invariants', 'validations', 'dependencies', 'schedule', 'budget', 'executableSpecification'],
-  compilePRD: vi.fn(async (_pass: string, state: Record<string, unknown>) => ({
+  compileIntentSpecification: vi.fn(async (_pass: string, state: Record<string, unknown>) => ({
     ...state,
     executableSpecification: {
-      _key: 'WG-TEST',
+      _key: 'ES-TEST',
       title: 'Test ExecutableSpecification',
       atoms: [{ id: 'a1', description: 'test atom' }],
       invariants: [],
@@ -137,7 +137,7 @@ function createMockEnv() {
         verification: "coherence",
         passed: true,
         timestamp: '2026-05-04T00:00:00Z',
-        executableSpecificationId: 'WG-TEST',
+        executableSpecificationId: 'ES-TEST',
         checks: [{ name: 'lineage', passed: true, detail: 'ok' }],
         summary: 'All checks passed',
       })),
@@ -154,7 +154,7 @@ function createMockEnv() {
       idFromName: vi.fn(() => 'do-id-123'),
       get: vi.fn(() => ({
         synthesize: vi.fn(async () => ({
-          functionId: 'WG-TEST',
+          functionId: 'ES-TEST',
           verdict: { decision: 'pass', confidence: 0.95, reason: 'ok' },
           tokenUsage: 4200,
           repairCount: 0,

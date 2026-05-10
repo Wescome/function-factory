@@ -50,7 +50,7 @@ const fakeSandboxBinding = {} as unknown // DurableObjectNamespace stub
 const backupHandle = { id: 'backup-abc-123', dir: '/workspace' }
 
 function makeDeps(): SandboxDeps {
-  return buildSandboxDeps(fakeSandboxBinding, 'WG-test-001')
+  return buildSandboxDeps(fakeSandboxBinding, 'ES-test-001')
 }
 
 // ────────────────────────────────────────────────────────────
@@ -94,13 +94,13 @@ describe('T12: buildSandboxDeps() — real @cloudflare/sandbox wiring', () => {
   describe('execInSandbox', () => {
     it('calls getSandbox with the binding and a sandbox name derived from executableSpecificationId', async () => {
       const deps = makeDeps()
-      const taskJson = JSON.stringify({ role: 'coder', executableSpecificationId: 'WG-test-001' })
+      const taskJson = JSON.stringify({ role: 'coder', executableSpecificationId: 'ES-test-001' })
 
       await deps.execInSandbox(taskJson)
 
       expect(mockGetSandbox).toHaveBeenCalledWith(
         fakeSandboxBinding,
-        'synth-WG-test-001',
+        'synth-ES-test-001',
       )
     })
 
@@ -202,7 +202,7 @@ describe('T12: buildSandboxDeps() — real @cloudflare/sandbox wiring', () => {
 
       expect(mockGetSandbox).toHaveBeenCalledWith(
         fakeSandboxBinding,
-        'synth-WG-test-001',
+        'synth-ES-test-001',
       )
     })
 
@@ -274,7 +274,7 @@ describe('T12: buildSandboxDeps() — real @cloudflare/sandbox wiring', () => {
 
       expect(mockGetSandbox).toHaveBeenCalledWith(
         fakeSandboxBinding,
-        'synth-WG-test-001',
+        'synth-ES-test-001',
       )
     })
 
@@ -328,7 +328,7 @@ describe('T12: buildSandboxDeps() — real @cloudflare/sandbox wiring', () => {
 
       expect(mockGetSandbox).toHaveBeenCalledWith(
         fakeSandboxBinding,
-        'synth-WG-test-001',
+        'synth-ES-test-001',
       )
     })
 
@@ -359,7 +359,7 @@ describe('T12: buildSandboxDeps() — real @cloudflare/sandbox wiring', () => {
 
   describe('sandbox naming', () => {
     it('all deps produce sandbox name "synth-{executableSpecificationId}"', async () => {
-      const deps = buildSandboxDeps(fakeSandboxBinding, 'WG-custom-42')
+      const deps = buildSandboxDeps(fakeSandboxBinding, 'ES-custom-42')
 
       // Call each method
       await deps.execInSandbox('{}')
@@ -372,7 +372,7 @@ describe('T12: buildSandboxDeps() — real @cloudflare/sandbox wiring', () => {
       expect(calls.length).toBe(4)
       for (const call of calls) {
         expect(call[0]).toBe(fakeSandboxBinding)
-        expect(call[1]).toBe('synth-WG-custom-42')
+        expect(call[1]).toBe('synth-ES-custom-42')
       }
     })
   })

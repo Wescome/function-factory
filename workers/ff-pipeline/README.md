@@ -5,7 +5,7 @@ Cloudflare Workflow implementation of the active Factory pipeline.
 ## Ontology Alias
 
 This worker moves current compatibility artifacts through the runtime pipeline:
-PRD input, ExecutableSpecification compilation, Coherence Verification evidence, synthesis, Fidelity
+Intent Specification input, ExecutableSpecification compilation, Coherence Verification evidence, synthesis, Fidelity
 Verification evidence, MRP assembly, lifecycle transitions, and diagnostics.
 
 Ontology v0.2 aliases ExecutableSpecification as `Executable Specification`, compile coverage
@@ -18,8 +18,8 @@ name.
 
 ## Runtime Surfaces
 
-- `specs_workgraphs` for compiled ExecutableSpecification persistence
-- `specs_coverage_reports` for Verification Report persistence
+- `executable_specifications` for compiled ExecutableSpecification persistence
+- `verification_reports` for Verification Report persistence
 - `specs_functions` for Function lifecycle state
 - `lineage_edges` for artifact lineage
 - diagnostic routes for function identity, Fidelity Verification, Persistence

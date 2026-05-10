@@ -2,7 +2,7 @@
  * Five typed role-contract interfaces for the synthesis topology.
  *
  * Each role is a typed state-transform with strict read/write/do-not/output
- * constraints derived from PRD-META-FUNCTION-SYNTHESIS constraints section.
+ * constraints derived from IS-META-FUNCTION-SYNTHESIS constraints section.
  *
  * AC 6, 7, 9, 15, 16
  */

@@ -7,7 +7,7 @@ rationale: >
   names regression as the lifecycle transition from `monitored` to
   `regressed` based on TrustSignal degradation, but does not prescribe how
   the Factory observes regression-worthy degradation in practice. §6.4
-  describes Gate 3 (assurance coverage) as the continuous detector of
+  describes Persistence Verification (assurance coverage) as the continuous detector of
   detector-freshness failures, but regression of the Function itself —
   correctness decay, compliance drift, observability gaps that accumulate
   without a single incident — is a distinct concern requiring its own

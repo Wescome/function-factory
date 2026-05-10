@@ -6,8 +6,8 @@ boundary.
 ## Ontology Alias
 
 Ontology v0.2 introduces aliases for several schema-backed artifact families:
-PRD is an `Intent Specification`, ExecutableSpecification is an `Executable Specification`,
-Coverage Report is a `Verification Report`, and Invariant is an
+Intent Specification is an `Intent Specification`, ExecutableSpecification is an `Executable Specification`,
+Verification Report is a `Verification Report`, and Invariant is an
 `Invariant Specification`. The domain-kernel cutover adds `DomainAdapter`
 schemas so repository, branch, pull request, diff, CI check, and deployment
 language stays inside coding-adapter mappings rather than becoming kernel
@@ -25,7 +25,7 @@ Re-exports from the following modules:
 
 - `lineage` -- `ArtifactId`, `Explicitness`, `Lineage` base schema
 - `core` -- `FactoryMode`, `SignalType`, `BusinessCapability`, `FunctionProposal`, `ExecutableSpecification`, `ExecutableSpecificationNode`, `ExecutableSpecificationEdge`, and current compatibility artifact schemas from Signal Artifacts through Agent Call execution
-- `coverage` -- `CoherenceVerificationReport`, `CoverageVerdict`, `CoverageCheck`
+- `coverage` -- `CoherenceVerificationReport`, `VerificationVerdict`, `VerificationCheck`
 - `capability-delta` -- `CapabilityDelta`, `CapabilityDeltaFinding`
 - `architecture-candidate` -- `ArchitectureCandidate`
 - `candidate-selection` -- `ArchitectureCandidateSelection`, `CandidateScorecard`, `CandidateSelectionDecision`

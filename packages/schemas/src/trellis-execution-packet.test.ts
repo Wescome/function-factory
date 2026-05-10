@@ -8,16 +8,16 @@ import {
 
 function makePacket(overrides: Partial<TrellisExecutionPacketType> = {}): TrellisExecutionPacketType {
   const packet = TrellisExecutionPacket.parse({
-    id: "TEP-FN-META-EXAMPLE-WG-META-EXAMPLE-AC-META-EXAMPLE",
+    id: "TEP-FN-META-EXAMPLE-ES-META-EXAMPLE-AC-META-EXAMPLE",
     packetVersion: "trellis-packet-v1",
     functionId: "FN-META-EXAMPLE",
-    intentSpecificationId: "PRD-META-EXAMPLE",
-    executableSpecificationId: "WG-META-EXAMPLE",
+    intentSpecificationId: "IS-META-EXAMPLE",
+    executableSpecificationId: "ES-META-EXAMPLE",
     selectedArchitectureCandidateId: "AC-META-EXAMPLE",
     runtimeAdmissionId: "RAD-META-EXAMPLE",
     source_refs: [
-      "PRD-META-EXAMPLE",
-      "WG-META-EXAMPLE",
+      "IS-META-EXAMPLE",
+      "ES-META-EXAMPLE",
       "AC-META-EXAMPLE",
       "RAD-META-EXAMPLE",
       "CONTRACT-CODING-DOMAIN-ADAPTER",
@@ -29,7 +29,7 @@ function makePacket(overrides: Partial<TrellisExecutionPacketType> = {}): Trelli
       inputExecutableSpecificationHash: "hash-executable",
       outputPacketHash: "pending",
       generatedAt: "2026-05-10T21:40:00.000Z",
-      deterministicInputs: ["WG-META-EXAMPLE", "AC-META-EXAMPLE", "RAD-META-EXAMPLE"],
+      deterministicInputs: ["ES-META-EXAMPLE", "AC-META-EXAMPLE", "RAD-META-EXAMPLE"],
       uncertaintyRefs: [],
     },
     runtimeProfile: {
@@ -50,9 +50,9 @@ function makePacket(overrides: Partial<TrellisExecutionPacketType> = {}): Trelli
       executionRequest: {
         adapterId: "adapter.coding",
         functionId: "FN-META-EXAMPLE",
-        intentSpecificationId: "PRD-META-EXAMPLE",
-        executableSpecificationId: "WG-META-EXAMPLE",
-        runId: "synthesis-WG-META-EXAMPLE",
+        intentSpecificationId: "IS-META-EXAMPLE",
+        executableSpecificationId: "ES-META-EXAMPLE",
+        runId: "synthesis-ES-META-EXAMPLE",
         mode: "execute",
         parameters: {},
       },
@@ -62,14 +62,14 @@ function makePacket(overrides: Partial<TrellisExecutionPacketType> = {}): Trelli
         roleId: "planner",
         roleKind: "planner",
         objective: "Plan execution.",
-        inputs: ["WG-META-EXAMPLE"],
+        inputs: ["ES-META-EXAMPLE"],
         outputs: ["PLAN-META-EXAMPLE"],
         toolBindingRefs: ["tool-read-executable"],
         evidenceObligations: ["evidence-plan"],
         stopConditions: ["plan emitted"],
         escalationConditions: [],
         instruction: "Produce the execution plan from the packet context.",
-        provenanceRefs: ["WG-META-EXAMPLE"],
+        provenanceRefs: ["ES-META-EXAMPLE"],
       },
     ],
     roleGraph: {
@@ -91,7 +91,7 @@ function makePacket(overrides: Partial<TrellisExecutionPacketType> = {}): Trelli
       domainContextRefs: [],
       memoryRefs: [],
       omittedContext: [],
-      provenanceRefs: ["PRD-META-EXAMPLE", "WG-META-EXAMPLE"],
+      provenanceRefs: ["IS-META-EXAMPLE", "ES-META-EXAMPLE"],
     },
     toolPolicy: {
       defaultPolicy: "deny",
@@ -160,9 +160,9 @@ function makePacket(overrides: Partial<TrellisExecutionPacketType> = {}): Trelli
     audit: {
       packetHash: "pending",
       canonicalOrdering: ["roles.roleId", "toolPolicy.bindings.bindingId"],
-      sourceCoverage: [
+      sourceVerification: [
         {
-          sourceRef: "WG-META-EXAMPLE",
+          sourceRef: "ES-META-EXAMPLE",
           sourceField: "nodes",
           consumedByPacketField: ["roles", "roleGraph"],
         },
@@ -191,12 +191,12 @@ describe("TrellisExecutionPacket", () => {
     const packet = makePacket()
 
     expect(packet.id).toMatch(/^TEP-/)
-    expect(packet.source_refs).toContain("WG-META-EXAMPLE")
+    expect(packet.source_refs).toContain("ES-META-EXAMPLE")
     expect(certifyTrellisExecutionPacket(packet).valid).toBe(true)
   })
 
   it("rejects non-TEP packet ids", () => {
-    expect(() => makePacket({ id: "WG-META-EXAMPLE" } as Partial<TrellisExecutionPacketType>)).toThrow()
+    expect(() => makePacket({ id: "ES-META-EXAMPLE" } as Partial<TrellisExecutionPacketType>)).toThrow()
   })
 
   it("rejects packets missing selected ArchitectureCandidate lineage", () => {
@@ -286,7 +286,7 @@ describe("TrellisExecutionPacket", () => {
       packetHash: packet.audit.packetHash,
     }
 
-    expect(packet.adapter.executionRequest.executableSpecificationId).toBe("WG-META-EXAMPLE")
+    expect(packet.adapter.executionRequest.executableSpecificationId).toBe("ES-META-EXAMPLE")
     expect(evidence.packetId).toBe(packet.id)
   })
 })

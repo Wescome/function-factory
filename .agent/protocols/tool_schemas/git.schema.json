@@ -44,7 +44,7 @@
       },
       "preconditions": [
         "all tests pass",
-        "all coverage gates applicable to the PR's changes pass",
+        "all verification checks applicable to the PR's changes pass",
         "PR body cites the Function ID / Gate / META task it implements"
       ],
       "side_effects": ["notifies reviewers", "triggers CI"],

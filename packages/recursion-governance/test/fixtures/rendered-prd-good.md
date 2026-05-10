@@ -1,5 +1,5 @@
 ---
-id: PRD-META-ARCHITECTURE-CANDIDATE-EXECUTION
+id: IS-META-ARCHITECTURE-CANDIDATE-EXECUTION
 source_refs:
   - DEL-META-EMIT-ARCHITECTURE-CANDIDATES
   - FP-META-ARCHITECTURE-CANDIDATE-EXECUTION
@@ -39,7 +39,7 @@ Deterministic architecture-candidate rendering outputs across repeated runs.
 
 Stable candidate execution structure for the supported architecture-candidate path.
 
-Zero compiler behavior changes required to adopt the produced PRD artifact.
+Zero compiler behavior changes required to adopt the produced Intent Specification artifact.
 
 ## Out of Scope
 Generalized support for all architecture-candidate proposal families.

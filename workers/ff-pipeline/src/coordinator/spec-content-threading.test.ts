@@ -101,7 +101,7 @@ vi.mock('../stages/propose-function', () => ({
   proposeFunction: vi.fn(async () => ({
     _key: 'FP-001',
     title: 'test proposal',
-    prd: { title: 'Test PRD', atoms: [], invariants: [] },
+    intentSpecification: { title: 'Test Intent Specification', atoms: [], invariants: [] },
     specContent: '# Section 1\nThe system SHALL validate all inputs.\n# Section 2\nThe system SHALL log all events.',
   })),
 }))
@@ -118,10 +118,10 @@ vi.mock('../stages/semantic-review', () => ({
 
 vi.mock('../stages/compile', () => ({
   PASS_NAMES: ['atoms', 'contracts', 'invariants', 'validations', 'dependencies', 'schedule', 'budget', 'executableSpecification'],
-  compilePRD: vi.fn(async (_pass: string, state: Record<string, unknown>) => ({
+  compileIntentSpecification: vi.fn(async (_pass: string, state: Record<string, unknown>) => ({
     ...state,
     executableSpecification: {
-      _key: 'WG-SPEC',
+      _key: 'ES-SPEC',
       title: 'Test ExecutableSpecification',
       atoms: [{ id: 'a1', description: 'test atom' }],
       invariants: [],
@@ -160,7 +160,7 @@ function createEnv(overrides?: Record<string, unknown>) {
         verification: "coherence",
         passed: true,
         timestamp: '2026-04-26T00:00:00Z',
-        executableSpecificationId: 'WG-SPEC',
+        executableSpecificationId: 'ES-SPEC',
         checks: [{ name: 'lineage', passed: true, detail: 'ok' }],
         summary: 'All checks passed',
       })),
@@ -216,8 +216,8 @@ function createMockMessage(body: unknown, attempts = 1) {
   }
 }
 
-function sampleTrellisExecutionPacket(executableSpecificationId = 'WG-SPEC') {
-  const subject = executableSpecificationId.replace(/^WG-/, '')
+function sampleTrellisExecutionPacket(executableSpecificationId = 'ES-SPEC') {
+  const subject = executableSpecificationId.replace(/^ES-/, '')
   return {
     id: `TEP-${subject}`,
     executableSpecificationId,
@@ -313,19 +313,19 @@ describe('specContent threading: pipeline -> queue -> DO -> graph nodes', () => 
 
     it('createInitialState defaults specContent to null', async () => {
       const { createInitialState } = await import('./state')
-      const state = createInitialState('WG-001', { id: 'WG-001' })
+      const state = createInitialState('ES-001', { id: 'ES-001' })
       expect(state.specContent).toBeNull()
     })
 
     it('createInitialState accepts specContent via opts', async () => {
       const { createInitialState } = await import('./state')
-      const state = createInitialState('WG-001', { id: 'WG-001' }, { specContent: 'The spec text' })
+      const state = createInitialState('ES-001', { id: 'ES-001' }, { specContent: 'The spec text' })
       expect(state.specContent).toBe('The spec text')
     })
 
     it('specContent survives spread-merge cycle', async () => {
       const { createInitialState } = await import('./state')
-      const base = createInitialState('WG-001', { id: 'WG-001' }, { specContent: 'Original spec' })
+      const base = createInitialState('ES-001', { id: 'ES-001' }, { specContent: 'Original spec' })
       const merged = { ...base, plan: { approach: 'test', atoms: [], executorRecommendation: 'gdk-agent' as const, estimatedComplexity: 'low' as const } }
       expect(merged.specContent).toBe('Original spec')
     })
@@ -401,8 +401,8 @@ describe('specContent threading: pipeline -> queue -> DO -> graph nodes', () => 
 
       const graph = buildSynthesisGraph(deps)
       const state = {
-        ...createInitialState('WG-SPEC', {
-          id: 'WG-SPEC',
+        ...createInitialState('ES-SPEC', {
+          id: 'ES-SPEC',
           title: 'Spec Test',
           atoms: [],
           invariants: [],
@@ -467,8 +467,8 @@ describe('specContent threading: pipeline -> queue -> DO -> graph nodes', () => 
       }
 
       const graph = buildSynthesisGraph(deps)
-      const state = createInitialState('WG-NOSPEC', {
-        id: 'WG-NOSPEC', title: 'No Spec', atoms: [], invariants: [], dependencies: [],
+      const state = createInitialState('ES-NOSPEC', {
+        id: 'ES-NOSPEC', title: 'No Spec', atoms: [], invariants: [], dependencies: [],
       })
 
       await graph.run(state, { maxSteps: 50 })
@@ -535,8 +535,8 @@ describe('specContent threading: pipeline -> queue -> DO -> graph nodes', () => 
       }
 
       const graph = buildSynthesisGraph(deps)
-      const state = createInitialState('WG-ARCH', {
-        id: 'WG-ARCH', title: 'Arch Test', atoms: [], invariants: [], dependencies: [],
+      const state = createInitialState('ES-ARCH', {
+        id: 'ES-ARCH', title: 'Arch Test', atoms: [], invariants: [], dependencies: [],
       }, { specContent: 'The architect SHALL see this spec.' })
 
       await graph.run(state, { maxSteps: 50 })
@@ -593,8 +593,8 @@ describe('specContent threading: pipeline -> queue -> DO -> graph nodes', () => 
       }
 
       const graph = buildSynthesisGraph(deps)
-      const state = createInitialState('WG-NOARCH', {
-        id: 'WG-NOARCH', title: 'No Spec Arch', atoms: [], invariants: [], dependencies: [],
+      const state = createInitialState('ES-NOARCH', {
+        id: 'ES-NOARCH', title: 'No Spec Arch', atoms: [], invariants: [], dependencies: [],
       })
 
       await graph.run(state, { maxSteps: 50 })
@@ -632,15 +632,15 @@ describe('specContent threading: pipeline -> queue -> DO -> graph nodes', () => 
           })),
         },
         COORDINATOR: {
-          idFromName: vi.fn(() => 'do-synth-WG-SPECQ'),
+          idFromName: vi.fn(() => 'do-synth-ES-SPECQ'),
           get: vi.fn(() => ({ fetch: mockDoFetch })),
         },
       })
 
       const msg = createMockMessage({
         workflowId: 'wf-spec-q',
-        executableSpecificationId: 'WG-SPECQ',
-        executableSpecification: { _key: 'WG-SPECQ', title: 'Test' },
+        executableSpecificationId: 'ES-SPECQ',
+        executableSpecification: { _key: 'ES-SPECQ', title: 'Test' },
         dryRun: false,
         specContent: 'The system SHALL thread specContent through the queue.',
       })
@@ -679,15 +679,15 @@ describe('specContent threading: pipeline -> queue -> DO -> graph nodes', () => 
           })),
         },
         COORDINATOR: {
-          idFromName: vi.fn(() => 'do-synth-WG-NOSPECQ'),
+          idFromName: vi.fn(() => 'do-synth-ES-NOSPECQ'),
           get: vi.fn(() => ({ fetch: mockDoFetch })),
         },
       })
 
       const msg = createMockMessage({
         workflowId: 'wf-nospec-q',
-        executableSpecificationId: 'WG-NOSPECQ',
-        executableSpecification: { _key: 'WG-NOSPECQ', title: 'Test' },
+        executableSpecificationId: 'ES-NOSPECQ',
+        executableSpecification: { _key: 'ES-NOSPECQ', title: 'Test' },
         dryRun: false,
         // specContent intentionally omitted
       })
@@ -755,8 +755,8 @@ describe('specContent threading: pipeline -> queue -> DO -> graph nodes', () => 
 
       const graph = buildSynthesisGraph(deps)
       // No specContent passed — default null
-      const state = createInitialState('WG-BC', {
-        id: 'WG-BC', title: 'BackCompat', atoms: [], invariants: [], dependencies: [],
+      const state = createInitialState('ES-BC', {
+        id: 'ES-BC', title: 'BackCompat', atoms: [], invariants: [], dependencies: [],
       })
 
       const visited: string[] = []

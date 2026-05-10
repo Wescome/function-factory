@@ -11,8 +11,8 @@ import type { GraphDeps } from './graph.js'
 
 function makeState(overrides: Partial<GraphState> = {}): GraphState {
   return {
-    ...createInitialState('WG-T6', {
-      id: 'WG-T6',
+    ...createInitialState('ES-T6', {
+      id: 'ES-T6',
       title: 'Test ExecutableSpecification',
       atoms: [{ id: 'atom-001', description: 'Stub', assignedTo: 'coder' }],
       invariants: [],
@@ -122,7 +122,7 @@ describe('sandboxRole()', () => {
       const task = JSON.parse(taskJson)
 
       expect(task.role).toBe('coder')
-      expect(task.executableSpecificationId).toBe('WG-T6')
+      expect(task.executableSpecificationId).toBe('ES-T6')
       expect(task.plan).toBeTruthy()
       expect(task.prompt).toBeDefined()
     })

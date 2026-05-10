@@ -231,7 +231,7 @@ describe('executeAtomSlice language gate', () => {
       atomSpec: { id: 'atom-lang-test', description: 'test', assignedTo: 'coder' },
       upstreamArtifacts: {},
       sharedContext: {
-        executableSpecificationId: 'WG-LANG',
+        executableSpecificationId: 'ES-LANG',
         specContent: null,
         briefingScript: {},
       },

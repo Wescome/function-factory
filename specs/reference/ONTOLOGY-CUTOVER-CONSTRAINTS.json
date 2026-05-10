@@ -2,12 +2,12 @@
   "schemaVersion": 1,
   "status": "active hard-cutover guardrails",
   "stableDirectories": [
-    "specs/prds",
-    "specs/workgraphs",
+    "specs/intent-specifications",
+    "specs/executable-specifications",
     "specs/invariants",
-    "specs/coverage-reports",
+    "specs/verification-reports",
     "packages/compiler",
-    "packages/coverage-gates",
+    "packages/verification",
     "packages/schemas",
     "packages/artifact-validator",
     "packages/function-synthesis",
@@ -27,12 +27,12 @@
       "name": "@factory/compiler"
     },
     {
-      "manifest": "packages/coverage-gates/package.json",
-      "name": "@factory/coverage-gates"
+      "manifest": "packages/verification/package.json",
+      "name": "@factory/verification"
     },
     {
-      "manifest": "packages/prd-authoring/package.json",
-      "name": "@factory/prd-authoring"
+      "manifest": "packages/intent-authoring/package.json",
+      "name": "@factory/intent-authoring"
     },
     {
       "manifest": "packages/runtime-admission/package.json",
@@ -93,17 +93,17 @@
     "workers/ff-gates/src/index.ts"
   ],
   "stableRuntimeDiscriminators": [
-    "gate-1",
-    "gate-2",
-    "gate-3",
-    "gate-1-failed",
-    "CR-*-GATE1-*",
-    "CR-*-GATE2-*",
-    "CR-*-GATE3-*",
+    "coherence-verification",
+    "fidelity-verification",
+    "persistence-verification",
+    "coherence-verification-failed",
+    "VR-*-COHERENCE-*",
+    "VR-*-FIDELITY-*",
+    "VR-*-PERSISTENCE-*",
     "gateReport",
-    "gate1Report",
-    "gate2Report",
-    "gate3Report"
+    "coherenceVerificationReport",
+    "fidelityVerificationReport",
+    "persistenceVerificationReport"
   ],
   "primaryRuntimeAliases": [
     "coherence-verification",
@@ -133,10 +133,10 @@
       "Stage 10": "Policy Activation / rollback control"
     },
     "gateLabels": {
-      "Gate 1": "Coherence Verification",
-      "Gate 2a": "Fidelity Verification (learned)",
-      "Gate 2b": "Fidelity Verification (deterministic)",
-      "Gate 3": "Persistence Verification"
+      "Coherence Verification": "Coherence Verification",
+      "Fidelity Verificationa": "Fidelity Verification (learned)",
+      "Fidelity Verificationb": "Fidelity Verification (deterministic)",
+      "Persistence Verification": "Persistence Verification"
     },
     "compilerPassLabels": {
       "Pass 1": "Decomposition",

@@ -21,13 +21,13 @@ Expected: 636 tests, 37 files, 0 failures, ~6 seconds.
 function-factory/
   workers/
     ff-pipeline/        -- THE Worker. Stages 1-7, synthesis, all agents
-    ff-gates/           -- Service binding: Gate 1 evaluation
+    ff-gates/           -- Service binding: Coherence Verification evaluation
     ff-gateway/         -- HTTP gateway (trigger, status, callback)
 
   packages/
     schemas/            -- Zod schemas, ArtifactId regex, FactoryMode enum
     compiler/           -- Stage 5 compiler (Passes 0-8), CLI
-    coverage-gates/     -- Gate 1 checks (atom, invariant, validation, deps, bootstrap)
+    verification/     -- Coherence Verification checks (atom, invariant, validation, deps, bootstrap)
     arango-client/      -- ArangoDB HTTP client (used everywhere)
     ontology-loader/    -- Seeds ontology + agent designs into ArangoDB
     artifact-validator/ -- SHACL-like constraint checking at persist time
@@ -45,9 +45,9 @@ function-factory/
   specs/
     reference/          -- ADRs (003-008), whitepaper, ConOps, SE assessments
     ontology/           -- factory-ontology.ttl, factory-shapes.ttl, extensions
-    prds/               -- 3 compiled PRDs (Gate-1, Detect-Regression, Pass-8)
-    workgraphs/         -- 3 WorkGraphs from compiler output
-    coverage-reports/   -- Gate 1 reports from each compile
+    prds/               -- 3 compiled Intent Specifications (Gate-1, Detect-Regression, Pass-8)
+    executable-specifications/         -- 3 Executable Specifications from compiler output
+    verification-reports/   -- Coherence Verification reports from each compile
     signals/            -- Stage 1 signals (SIG-META-*)
     pressures/          -- Pressures (PRS-META-*)
     capabilities/       -- Capabilities (BC-META-*)
@@ -71,9 +71,9 @@ POST /trigger-synthesis
     -> Stage 3: map-capability
     -> Stage 4: propose-function
     -> Stage 5: compile (6 LLM passes + 2 deterministic)
-    -> Gate 1: via ff-gates Service Binding
+    -> Coherence Verification: via ff-gates Service Binding
     -> SYNTHESIS_QUEUE -> SynthesisCoordinator DO (coordinator.ts, 683 lines)
-      -> Phase 1 (serial): architect, semantic-critic, compile, gate-1, planner
+      -> Phase 1 (serial): architect, semantic-critic, compile, coherence-verification, planner
       -> Phase 2 (parallel): AtomExecutor DOs per dependency layer
       -> Phase 3 (integration): merge + verify
     -> SYNTHESIS_RESULTS Queue -> Workflow resumes
@@ -143,8 +143,8 @@ Secrets are in `wrangler secret list`, NOT in source. Never read them.
 | Capability | Evidence |
 |------------|---------|
 | Pipeline Stages 1-5 end-to-end | 15 seconds, zero cost, llama-70b |
-| Gate 1 (5 checks, fail-closed) | 3 PRDs compiled, all PASS |
-| Compiler Passes 0-8 | WorkGraphs emitted for all 3 PRDs |
+| Coherence Verification (5 checks, fail-closed) | 3 Intent Specifications compiled, all PASS |
+| Compiler Passes 0-8 | Executable Specifications emitted for all 3 Intent Specifications |
 | ORL (7 failure modes, 5-tier parse) | 817-line module, 636 tests |
 | Hot-reloadable config from ArangoDB | alias tables, routing, model caps |
 | Event-driven Queue relay | SYNTHESIS_QUEUE, SYNTHESIS_RESULTS, ATOM_RESULTS |
@@ -176,8 +176,8 @@ Secrets are in `wrangler secret list`, NOT in source. Never read them.
 | Context Engineering pipeline | Not implemented | YES -- ORIENTATION-ONTOLOGY.md |
 | Phase G constraint validators (12 remaining) | Not implemented | YES -- IMPLEMENTATION-PLAN.md |
 | Sandbox Container execution | Container deployed but agent sessions not wired | YES -- IMPLEMENTATION-PLAN.md Phase C |
-| Gate 2 (simulation coverage) | Not implemented | Designed in whitepaper |
-| Gate 3 (assurance, continuous) | Not implemented | Designed in whitepaper |
+| Fidelity Verification (simulation coverage) | Not implemented | Designed in whitepaper |
+| Persistence Verification (assurance, continuous) | Not implemented | Designed in whitepaper |
 | v2 vertical: git-commit-triage | Not implemented | YES -- DECISIONS.md |
 | Effectiveness tracking (M7) | Not implemented | YES -- ADR-008 Phase 6 |
 | TTL indexes on event collections | Not implemented | YES -- ADR-008 Phase 7 |
@@ -190,7 +190,7 @@ Secrets are in `wrangler secret list`, NOT in source. Never read them.
 | Factory Memory Ontology (Module 7) | ORIENTATION-ONTOLOGY.md SS10 | After self-healing |
 | Adaptive slice depth (v5.1) | ADR-005 SS5.3 | After live synthesis |
 | Phase 3 integration verification | ADR-005 SS4.4 | After live synthesis |
-| Crystallization from execution | DECISIONS.md 2026-04-24 | After Gate 3 |
+| Crystallization from execution | DECISIONS.md 2026-04-24 | After Persistence Verification |
 | Memory writes as tool calls | DECISIONS.md 2026-04-24 | Steady state |
 
 ---
@@ -782,8 +782,8 @@ All ADRs at: `/Users/wes/Developer/function-factory/specs/reference/ADR-*.md`
 
 **Core pipeline:**
 `specs_signals`, `specs_pressures`, `specs_capabilities`,
-`specs_functions`, `specs_prds`, `specs_workgraphs`,
-`specs_coverage_reports`, `consultation_requests`,
+`specs_functions`, `intent_specifications`, `executable_specifications`,
+`verification_reports`, `consultation_requests`,
 `version_controlled_resolutions`
 
 **Ontology:**

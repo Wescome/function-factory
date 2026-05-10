@@ -36,8 +36,8 @@ const coordinatorSrc = readFileSync(
 
 function makeState(overrides: Partial<GraphState> = {}): GraphState {
   return {
-    ...createInitialState('WG-T12', {
-      id: 'WG-T12',
+    ...createInitialState('ES-T12', {
+      id: 'ES-T12',
       title: 'T12 Coordinator 9-Node Wiring Test',
       atoms: [{ id: 'atom-001', description: 'Stub', assignedTo: 'coder' }],
       invariants: [],
@@ -168,7 +168,7 @@ describe('T12: agent shape satisfies GraphDeps', () => {
       produceBriefingScript: (input) => architectAgent.produceBriefingScript(input),
     }
 
-    const result = await depsShape!.produceBriefingScript({ signal: { id: 'test-wg', test: true } })
+    const result = await depsShape!.produceBriefingScript({ signal: { id: 'test-executableSpecification', test: true } })
     expect(result.goal).toBe('Dry-run goal')
     expect(result.successCriteria).toEqual(['Dry-run criterion'])
   })
@@ -181,7 +181,7 @@ describe('T12: agent shape satisfies GraphDeps', () => {
       codeReview: (input) => criticAgent.codeReview(input as CodeReviewInput),
     }
 
-    const result = await depsShape!.semanticReview({ prd: { id: 'test-wg', test: true } })
+    const result = await depsShape!.semanticReview({ intentSpecification: { id: 'test-executableSpecification', test: true } })
     expect(result.alignment).toBe('aligned')
     expect(result.confidence).toBe(1.0)
   })
@@ -214,7 +214,7 @@ describe('T12: agent shape satisfies GraphDeps', () => {
     const result = await depsShape!.codeReview({
       code: { files: [], summary: 'test', testsIncluded: false },
       plan: { approach: 'test', atoms: [], executorRecommendation: 'gdk-agent', estimatedComplexity: 'low' },
-      executableSpecification: { id: 'test-wg', test: true },
+      executableSpecification: { id: 'test-executableSpecification', test: true },
       mentorRules: [],
     })
     expect(result.passed).toBe(true)

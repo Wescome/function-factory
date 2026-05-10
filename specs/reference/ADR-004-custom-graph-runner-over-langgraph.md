@@ -42,7 +42,7 @@ recovery, the graph resumes from the last checkpoint.
 
 | Layer | Primitive | What it checkpoints | Survives |
 |-------|-----------|-------------------|----------|
-| Workflow | `step.do()` | Each pipeline stage (Stages 1–5, Gate 1) | Worker restart, deploy, DO eviction |
+| Workflow | `step.do()` | Each pipeline stage (Stages 1–5, Coherence Verification) | Worker restart, deploy, DO eviction |
 | Fiber | `fiberCtx.stash()` | Graph state after each node (Stage 6) | DO eviction mid-synthesis |
 
 ```typescript
@@ -53,7 +53,7 @@ const pressure = await step.do('synthesize-pressure', async () => { ... })
 // Fiber layer — explicit checkpoint after each graph node
 const persistState = async (state: GraphState) => {
   await this.ctx.storage.put('graphState', state)
-  fiberCtx.stash({ workGraphId, state })  // survives DO eviction
+  fiberCtx.stash({ executableSpecificationId, state })  // survives DO eviction
 }
 ```
 
@@ -143,8 +143,8 @@ wall-clock timeout that fires independently of the execution thread.
 when the V8 isolate is suspended on I/O.
 
 ```typescript
-// Set wall-clock alarm scaled to WorkGraph complexity
-const atoms = (workGraph.atoms as unknown[])?.length ?? 0
+// Set wall-clock alarm scaled to Executable Specification complexity
+const atoms = (executableSpecification.atoms as unknown[])?.length ?? 0
 const timeoutMs = Math.max(180_000, 180_000 + atoms * 30_000)
 await this.ctx.storage.setAlarm(Date.now() + timeoutMs)
 
@@ -177,14 +177,14 @@ application-level restart logic.
 
 ```typescript
 // Wrap synthesis in a Fiber — crash recovery is automatic
-return this.runFiber(`synth-${workGraphId}`, async (fiberCtx) => {
+return this.runFiber(`synth-${executableSpecificationId}`, async (fiberCtx) => {
   // ... graph execution ...
-  fiberCtx.stash({ workGraphId, state })  // checkpoint
+  fiberCtx.stash({ executableSpecificationId, state })  // checkpoint
 })
 
 // If DO is evicted, this fires automatically on restart
 override async onFiberRecovered(ctx: FiberRecoveryContext): Promise<void> {
-  const snapshot = ctx.snapshot as { workGraphId?: string; state?: GraphState }
+  const snapshot = ctx.snapshot as { executableSpecificationId?: string; state?: GraphState }
   // Mark as interrupted so next call returns immediately
   await this.ctx.storage.put('graphState', {
     ...snapshot.state,

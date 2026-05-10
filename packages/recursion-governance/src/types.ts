@@ -13,7 +13,7 @@ export interface RecursionRunContext {
   readonly proposalId: string
   readonly sourceRefs: readonly string[]
   readonly lineageArtifactIds: readonly string[]
-  readonly alreadyAuthoredPrdIdsInRun: readonly string[]
+  readonly alreadyAuthoredIntentSpecificationIdsInRun: readonly string[]
 }
 
 export interface GovernanceEvaluationInput {

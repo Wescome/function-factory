@@ -76,7 +76,7 @@ export type VerificationRequirement = 'fidelity-verification' | 'persistence-ver
 
 export interface VerificationRequirementSpec {
   verification: VerificationRequirement
-  storageDiscriminator: 'gate-2' | 'gate-3'
+  storageDiscriminator: 'fidelity-verification' | 'persistence-verification'
 }
 
 /**
@@ -84,8 +84,8 @@ export interface VerificationRequirementSpec {
  * If a target state is in this map, the named verification must have passed.
  */
 export const VERIFICATION_REQUIREMENTS: Partial<Record<LifecycleState, VerificationRequirementSpec>> = {
-  accepted: { verification: 'fidelity-verification', storageDiscriminator: 'gate-2' },
-  monitored: { verification: 'persistence-verification', storageDiscriminator: 'gate-3' },
+  accepted: { verification: 'fidelity-verification', storageDiscriminator: 'fidelity-verification' },
+  monitored: { verification: 'persistence-verification', storageDiscriminator: 'persistence-verification' },
 }
 
 // ── Validation ─────────────────────────────────────────────────────
@@ -133,7 +133,7 @@ export function validateTransition(
  * 1. Fetches the current document from specs_functions
  * 2. Validates the transition
  * 3. If verification is required, verifies it has passed
- *    (via verificationReport or gate_status query)
+ *    (via verificationReport or verification_status query)
  * 4. Updates the document's lifecycleState field
  * 5. Records the transition in lifecycle_transitions edge collection
  *
@@ -197,16 +197,16 @@ export async function transitionLifecycle(
     }
 
     // Verify the required verification actually passed. Older paths write
-    // gate_status; diagnostic evidence writes schema-validated records to
-    // specs_coverage_reports with deferred gate-* storage discriminators.
+    // verification_status; diagnostic evidence writes schema-validated records to
+    // verification_reports with deferred gate-* storage discriminators.
     const gateStatus = await db.queryOne<{ passed: boolean; source_refs?: string[] }>(
        `LET gateStatus = FIRST(
-         FOR g IN gate_status
+         FOR g IN verification_status
            FILTER g._key == @key OR g.report._key == @key
            RETURN { passed: g.passed, source_refs: NOT_NULL(g.report.source_refs, g.source_refs, []) }
        )
        LET coverageReport = FIRST(
-         FOR report IN specs_coverage_reports
+         FOR report IN verification_reports
            FILTER report._key == @key OR report.id == @key
            RETURN {
                passed: report.passed == true

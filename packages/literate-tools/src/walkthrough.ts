@@ -4,7 +4,7 @@
  * Imports REAL Zod schemas from @factory/schemas and traces one synthetic
  * Function through the complete lifecycle:
  *
- *   Signal -> Pressure -> Capability -> Proposal -> PRD ->
+ *   Signal -> Pressure -> Capability -> Proposal -> Intent Specification ->
  *   CoherenceVerificationReport -> ExecutableSpecification -> ArchitectureCandidate ->
  *   ExecutionTrace -> FidelityVerificationVerdict -> TrustComposite
  *
@@ -133,7 +133,7 @@ function main(): void {
   // ── Step 5: IntentSpecification ────────────────────────────────────────────────
   const prd = step("IntentSpecification (Intent Specification)", () =>
     IntentSpecification.parse({
-      id: "PRD-WALK-001",
+      id: "IS-WALK-001",
       ...lineage([capability.id, proposal.id]),
       sourceCapabilityId: capability.id,
       sourceFunctionId: proposal.id,
@@ -150,10 +150,10 @@ function main(): void {
   // ── Step 6: CoherenceVerificationReport ────────────────────────────
   const coherenceVerification = step("CoherenceVerificationReport (compile coverage)", () =>
     CoherenceVerificationReport.parse({
-      id: "CR-WALK-001",
+      id: "VR-WALK-001",
       ...lineage([prd.id]),
       verification: "coherence",
-      prd_id: prd.id,
+      intent_specification_id: prd.id,
       timestamp: NOW,
       overall: "pass",
       checks: {
@@ -182,7 +182,7 @@ function main(): void {
   // ── Step 7: ExecutableSpecification ───────────────────────────────────────────────
   const executableSpecification = step("ExecutableSpecification (Executable Specification)", () =>
     ExecutableSpecification.parse({
-      id: "WG-WALK-001",
+      id: "ES-WALK-001",
       ...lineage([prd.id, coherenceVerification.id]),
       functionId: proposal.id,
       nodes: [
@@ -202,7 +202,7 @@ function main(): void {
     ArchitectureCandidate.parse({
       id: "AC-WALK-001",
       ...lineage([executableSpecification.id, prd.id]),
-      sourcePrdId: prd.id,
+      sourceIntentSpecificationId: prd.id,
       sourceExecutableSpecificationId: executableSpecification.id,
       candidateStatus: "selected",
       topology: { shape: "linear_chain", summary: "Signal -> ... -> TrustComposite linear pipeline" },
@@ -281,8 +281,8 @@ function main(): void {
   step("FidelityVerificationVerdict (Acceptance Review)", () =>
     FidelityVerificationVerdict.parse({
       verdict: "accepted",
-      evidence_reviewed: ["EXT-WALK-001", "CR-WALK-001"],
-      scenario_coverage_score: 1.0,
+      evidence_reviewed: ["EXT-WALK-001", "VR-WALK-001"],
+      scenario_verification_score: 1.0,
       invariant_exercise_rate: 1.0,
       remediation_notes: [],
     })

@@ -20,10 +20,10 @@ import type {
   Invariant,
   RequirementAtom,
 } from "@factory/schemas"
-import type { NormalizedPRD } from "../types.js"
+import type { NormalizedIntentSpecification } from "../types.js"
 
 export function deriveDependencies(
-  _normalized: NormalizedPRD,
+  _normalized: NormalizedIntentSpecification,
   _atoms: readonly RequirementAtom[],
   _contracts: readonly Contract[],
   _invariants: readonly Invariant[]

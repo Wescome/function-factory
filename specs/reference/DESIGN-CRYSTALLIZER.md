@@ -56,7 +56,7 @@ Signal arrives at pipeline
   │
   ├── Assembly (deterministic — no probe needed)
   │
-  ├── Gate 1 (existing structural check)
+  ├── Coherence Verification (existing structural check)
   │
   └── Atom Execution (code generation)
       └── PROBE → GATE (verify code preserves intent)
@@ -90,7 +90,7 @@ interface CrystallizationResult {
 ### Input
 
 The crystallizer receives the Signal's title, description, and specContent (if
-available). It does NOT receive the PRD, compilation state, or any downstream
+available). It does NOT receive the Intent Specification, compilation state, or any downstream
 artifacts — it operates on the ORIGINAL intent only.
 
 ### Model
@@ -219,7 +219,7 @@ The probe sees ONLY:
 It does NOT see:
 - The compilation prompt
 - The signal description
-- The PRD
+- The Intent Specification
 - Previous pass outputs
 
 This is the probe isolation principle from the corpus: "If the probe runs in the
@@ -336,14 +336,14 @@ ArangoDB collection: `compilation_drift_ledger`
 The decompose pass prompt (compile.ts line 30) currently says:
 
 ```
-Decompose this PRD into requirement atoms — minimal, independently
+Decompose this Intent Specification into requirement atoms — minimal, independently
 implementable units of work.
 ```
 
 Per SEO Section 3.3, atoms should be "truth-apt, verifiable claims." Change to:
 
 ```
-Decompose this PRD into requirement atoms. Each atom is a verifiable claim about
+Decompose this Intent Specification into requirement atoms. Each atom is a verifiable claim about
 what the system must do — it must be truth-apt (can be checked as true or false)
 and independently implementable.
 
@@ -442,7 +442,7 @@ The compile loop becomes:
 for (const passName of PROBED_PASSES) {
   for (let r = 0; r < 3; r++) {
     compState = await step.do(`compile-verify-${passName}-r${r}`, async () => {
-      const result = await compilePRD(passName, prevState, db, env, dryRun)
+      const result = await compileIntentSpecification(passName, prevState, db, env, dryRun)
       if (r > 0) { /* inject violation feedback into prompt */ }
       const delta = computeDelta(prevState, result)
       const probeResults = await probeAnchors(delta, anchors, env)

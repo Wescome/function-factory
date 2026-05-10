@@ -21,22 +21,22 @@ persisted artifact IDs, storage buckets, and ArangoDB collections stable:
 
 | Surface | Current residue | Target |
 | --- | --- | --- |
-| Coordinator state | WorkGraph-shaped type and field names | `PipelineExecutableSpecification`, executable-spec node/edge shapes, executable-specification state fields |
+| Coordinator state | Executable Specification-shaped type and field names | `PipelineExecutableSpecification`, executable-spec node/edge shapes, executable-specification state fields |
 | Lifecycle API | numbered gate compatibility evidence fields | Verification-only report and requirement fields |
 | Runtime statuses | numbered gate compatibility failure status metadata | Coherence Verification failure status only |
 | Worker diagnostics | numbered Fidelity Verification diagnostic route alias | `/debug/fidelity-verification` only |
 | Function synthesis tools | `readExecutableSpecification` | `readExecutableSpecification` |
 | Cross-package source fields | `sourceExecutableSpecificationId` | `sourceExecutableSpecificationId` |
-| Compiler comments and options | PRD/ExecutableSpecification path wording in active APIs | Intent Specification / Executable Specification wording |
+| Compiler comments and options | Intent Specification/ExecutableSpecification path wording in active APIs | Intent Specification / Executable Specification wording |
 | Reference guardrails | Compatibility contract framing | Hard-cutover constraints and explicit migration backlog |
 
 ## Cutover Rules
 
 1. Do not add new numbered Gate active APIs.
-2. Do not add new WorkGraph active APIs outside historical artifacts or
+2. Do not add new Executable Specification active APIs outside historical artifacts or
    deferred persisted-storage migration code.
-3. Do not add new `PRDDraft` active APIs; use `IntentSpecification`.
-4. Do not add new `CoverageReport` active APIs; use Verification Report
+3. Do not add new `IntentSpecificationDraft` active APIs; use `IntentSpecification`.
+4. Do not add new `VerificationReport` active APIs; use Verification Report
    variants.
 5. Keep persisted paths and collection names stable until a migration commit
    explicitly handles data movement and read/write cutover.
@@ -59,8 +59,8 @@ Completed scope:
 7. Compiler active options and comments use Intent Specification /
    Executable Specification wording.
 8. `pnpm audit:ontology` enforces the removed active names.
-9. Preserve only persisted `WG-*`, `specs/workgraphs`, and
-   `specs_workgraphs` identifiers until the storage/path migration slice.
+9. Preserve only persisted `ES-*`, `specs/executable-specifications`, and
+   `executable_specifications` identifiers until the storage/path migration slice.
 
 ## Out Of Scope
 

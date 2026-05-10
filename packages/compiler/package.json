@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "@factory/schemas": "workspace:*",
-    "@factory/coverage-gates": "workspace:*",
+    "@factory/verification": "workspace:*",
     "zod": "^3.22.4",
     "yaml": "^2.4.0"
   },

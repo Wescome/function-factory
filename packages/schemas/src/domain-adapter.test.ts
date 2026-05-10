@@ -58,8 +58,8 @@ describe("DomainExecutionRequest", () => {
     const parsed = DomainExecutionRequest.parse({
       adapterId: "adapter.coding",
       functionId: "FN-META-EXAMPLE",
-      intentSpecificationId: "PRD-META-EXAMPLE",
-      executableSpecificationId: "WG-META-EXAMPLE",
+      intentSpecificationId: "IS-META-EXAMPLE",
+      executableSpecificationId: "ES-META-EXAMPLE",
       runId: "run-1",
       mode: "simulate",
       parameters: {
@@ -67,7 +67,7 @@ describe("DomainExecutionRequest", () => {
       },
     })
 
-    expect(parsed.executableSpecificationId).toBe("WG-META-EXAMPLE")
+    expect(parsed.executableSpecificationId).toBe("ES-META-EXAMPLE")
   })
 })
 
@@ -75,7 +75,7 @@ describe("DomainExecutionEvidence", () => {
   it("records domain adapter evidence with kernel identity fields", () => {
     const parsed = DomainExecutionEvidence.parse({
       adapterId: "adapter.coding",
-      executableSpecificationId: "WG-META-EXAMPLE",
+      executableSpecificationId: "ES-META-EXAMPLE",
       runId: "run-1",
       status: "succeeded",
       evidenceRefs: ["ci:test:pass", "ci:typecheck:pass"],
@@ -84,22 +84,22 @@ describe("DomainExecutionEvidence", () => {
 
     expect(parsed.status).toBe("succeeded")
     expect(parsed.evidenceRefs).toHaveLength(2)
-    expect(parsed.executableSpecificationId).toBe("WG-META-EXAMPLE")
+    expect(parsed.executableSpecificationId).toBe("ES-META-EXAMPLE")
   })
 
   it("can bind execution evidence to a Trellis packet", () => {
     const parsed = DomainExecutionEvidence.parse({
       adapterId: "adapter.coding",
-      executableSpecificationId: "WG-META-EXAMPLE",
+      executableSpecificationId: "ES-META-EXAMPLE",
       runId: "run-1",
       status: "succeeded",
       evidenceRefs: ["ci:test:pass"],
       observationSummary: "Coding adapter execution produced passing evidence.",
-      packetId: "TEP-FN-META-EXAMPLE-WG-META-EXAMPLE",
+      packetId: "TEP-FN-META-EXAMPLE-ES-META-EXAMPLE",
       packetHash: "hash-packet",
     })
 
-    expect(parsed.packetId).toBe("TEP-FN-META-EXAMPLE-WG-META-EXAMPLE")
+    expect(parsed.packetId).toBe("TEP-FN-META-EXAMPLE-ES-META-EXAMPLE")
     expect(parsed.packetHash).toBe("hash-packet")
   })
 })

@@ -129,7 +129,7 @@ const mockEnv = {
   AI: { run: vi.fn() },
 } as Record<string, unknown>
 
-import { compilePRD, PASS_NAMES } from './compile'
+import { compileIntentSpecification, PASS_NAMES } from './compile'
 import type { ArangoClient } from '@factory/arango-client'
 import type { PipelineEnv } from '../types'
 
@@ -146,8 +146,8 @@ describe('compile assembly: atoms carry targetFiles from binding.target (discrep
     // After assembly, each atom should have a targetFiles array
     // derived from binding.target.
     let state: Record<string, unknown> = {
-      prd: {
-        _key: 'PRD-TGT',
+      intentSpecification: {
+        _key: 'IS-TGT',
         title: 'Target Files Test',
         objective: 'Test that atoms get targetFiles',
         invariants: ['Must propagate target files'],
@@ -155,7 +155,7 @@ describe('compile assembly: atoms carry targetFiles from binding.target (discrep
     }
 
     for (const passName of PASS_NAMES) {
-      state = await compilePRD(
+      state = await compileIntentSpecification(
         passName,
         state,
         mockDb as unknown as ArangoClient,
@@ -164,10 +164,10 @@ describe('compile assembly: atoms carry targetFiles from binding.target (discrep
       )
     }
 
-    const wg = state.executableSpecification as Record<string, unknown>
-    expect(wg).toBeDefined()
+    const executableSpecification = state.executableSpecification as Record<string, unknown>
+    expect(executableSpecification).toBeDefined()
 
-    const atoms = wg.atoms as Record<string, unknown>[]
+    const atoms = executableSpecification.atoms as Record<string, unknown>[]
     expect(atoms.length).toBeGreaterThanOrEqual(2)
 
     // Each atom should carry targetFiles from its binding.target
@@ -187,7 +187,7 @@ describe('compile assembly: atoms carry targetFiles from binding.target (discrep
   it('assembly does not add targetFiles when binding.target is TBD', async () => {
     // Binding with target='TBD' should NOT produce a targetFiles entry
     const state = {
-      prd: { _key: 'PRD-TBD', title: 'TBD Test', objective: 'Test', invariants: [] },
+      intentSpecification: { _key: 'IS-TBD', title: 'TBD Test', objective: 'Test', invariants: [] },
       atoms: [
         {
           id: 'atom-tbd',
@@ -208,7 +208,7 @@ describe('compile assembly: atoms carry targetFiles from binding.target (discrep
       validations: [],
     }
 
-    const result = await compilePRD(
+    const result = await compileIntentSpecification(
       'assembly',
       state,
       mockDb as unknown as ArangoClient,
@@ -216,8 +216,8 @@ describe('compile assembly: atoms carry targetFiles from binding.target (discrep
       false,
     )
 
-    const wg = result.executableSpecification as Record<string, unknown>
-    const atoms = wg.atoms as Record<string, unknown>[]
+    const executableSpecification = result.executableSpecification as Record<string, unknown>
+    const atoms = executableSpecification.atoms as Record<string, unknown>[]
     const atom = atoms.find(a => a.id === 'atom-tbd')
 
     // targetFiles should be empty or not present when target is TBD
@@ -230,7 +230,7 @@ describe('compile assembly: atoms carry targetFiles from binding.target (discrep
     // Some bindings might list multiple targets as "src/a.ts, src/b.ts"
     // The assembly pass should handle this by splitting.
     const state = {
-      prd: { _key: 'PRD-MULTI', title: 'Multi target', objective: 'Test', invariants: [] },
+      intentSpecification: { _key: 'IS-MULTI', title: 'Multi target', objective: 'Test', invariants: [] },
       atoms: [
         {
           id: 'atom-multi',
@@ -255,7 +255,7 @@ describe('compile assembly: atoms carry targetFiles from binding.target (discrep
       validations: [],
     }
 
-    const result = await compilePRD(
+    const result = await compileIntentSpecification(
       'assembly',
       state,
       mockDb as unknown as ArangoClient,
@@ -263,8 +263,8 @@ describe('compile assembly: atoms carry targetFiles from binding.target (discrep
       false,
     )
 
-    const wg = result.executableSpecification as Record<string, unknown>
-    const atoms = wg.atoms as Record<string, unknown>[]
+    const executableSpecification = result.executableSpecification as Record<string, unknown>
+    const atoms = executableSpecification.atoms as Record<string, unknown>[]
     const atom = atoms.find(a => a.id === 'atom-multi')
 
     const targetFiles = atom?.targetFiles as string[]
@@ -276,7 +276,7 @@ describe('compile assembly: atoms carry targetFiles from binding.target (discrep
   it('dry-run assembly also propagates targetFiles from binding.target', async () => {
     // Even in dry-run mode, atoms should get targetFiles
     const state = {
-      prd: { _key: 'PRD-DRY', title: 'Dry run target', objective: 'Test', invariants: [] },
+      intentSpecification: { _key: 'IS-DRY', title: 'Dry run target', objective: 'Test', invariants: [] },
       atoms: [
         {
           id: 'atom-dry',
@@ -293,7 +293,7 @@ describe('compile assembly: atoms carry targetFiles from binding.target (discrep
       validations: [],
     }
 
-    const result = await compilePRD(
+    const result = await compileIntentSpecification(
       'assembly',
       state,
       mockDb as unknown as ArangoClient,
@@ -301,8 +301,8 @@ describe('compile assembly: atoms carry targetFiles from binding.target (discrep
       true,  // dry-run
     )
 
-    const wg = result.executableSpecification as Record<string, unknown>
-    const atoms = wg.atoms as Record<string, unknown>[]
+    const executableSpecification = result.executableSpecification as Record<string, unknown>
+    const atoms = executableSpecification.atoms as Record<string, unknown>[]
     const atom = atoms.find(a => a.id === 'atom-dry')
 
     const targetFiles = atom?.targetFiles as string[]
@@ -399,8 +399,8 @@ describe('end-to-end: compile produces atoms that resolveTargetFiles can consume
     // can extract the target paths from the resulting atoms.
 
     let state: Record<string, unknown> = {
-      prd: {
-        _key: 'PRD-E2E',
+      intentSpecification: {
+        _key: 'IS-E2E',
         title: 'End-to-end test',
         objective: 'Verify targetFiles flow from compile to executor',
         invariants: ['All atoms must have targetFiles'],
@@ -408,7 +408,7 @@ describe('end-to-end: compile produces atoms that resolveTargetFiles can consume
     }
 
     for (const passName of PASS_NAMES) {
-      state = await compilePRD(
+      state = await compileIntentSpecification(
         passName,
         state,
         mockDb as unknown as ArangoClient,
@@ -417,8 +417,8 @@ describe('end-to-end: compile produces atoms that resolveTargetFiles can consume
       )
     }
 
-    const wg = state.executableSpecification as Record<string, unknown>
-    const atoms = wg.atoms as Record<string, unknown>[]
+    const executableSpecification = state.executableSpecification as Record<string, unknown>
+    const atoms = executableSpecification.atoms as Record<string, unknown>[]
 
     // Import the standalone resolveTargetFiles (after Engineer extracts it)
     const { resolveTargetFiles } = await import('../coordinator/atom-executor-do')

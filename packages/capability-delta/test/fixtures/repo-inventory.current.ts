@@ -7,7 +7,7 @@ export const repoInventoryCurrent: RepoInventory = {
   packages: {
     "@factory/schemas": "implemented",
     "@factory/compiler": "implemented",
-    "@factory/coverage-gates": "implemented",
+    "@factory/verification": "implemented",
     "@factory/runtime": "stub",
     "@factory/assurance-graph": "stub",
     "@factory/harness-bridge": "missing"
@@ -40,12 +40,12 @@ export const repoInventoryCurrent: RepoInventory = {
     functions: 4,
     prds: 4,
     executableSpecifications: 4,
-    coverageReports: 9,
+    verificationReports: 9,
     deltas: 0
   },
   runners: [
     "compiler",
-    "gate-1"
+    "coherence-verification"
   ],
   tests: {
     schemas: 39,

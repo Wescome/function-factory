@@ -12,8 +12,8 @@ indexed from [`../specs/reference/`](../specs/reference/README.md).
 
 Agent-facing Markdown files such as `AGENTS.md`, `spec.md`, and `tasks.md` are
 best understood as portable views the Factory may emit from native artifacts,
-not as replacements for `PRS-*`, `BC-*`, `FP-*`, `PRD-*`, `WG-*`, `INV-*`, or
-`CR-*` artifacts. See
+not as replacements for `PRS-*`, `BC-*`, `FP-*`, `IS-*`, `ES-*`, `INV-*`, or
+`VR-*` artifacts. See
 [`../specs/reference/ONTOLOGICAL-SELF-SENSING-2026-05-03.md`](../specs/reference/ONTOLOGICAL-SELF-SENSING-2026-05-03.md).
 
 ## Start Here

@@ -3,24 +3,24 @@ import type { ArtifactId } from "@factory/schemas"
 import { contractId } from "./_shared.js"
 
 describe("contractId", () => {
-  it("returns CONTRACT-META-FOO-BAR for PRD-META-FOO with tag BAR", () => {
-    expect(contractId("PRD-META-FOO" as ArtifactId, "BAR")).toBe(
+  it("returns CONTRACT-META-FOO-BAR for IS-META-FOO with tag BAR", () => {
+    expect(contractId("IS-META-FOO" as ArtifactId, "BAR")).toBe(
       "CONTRACT-META-FOO-BAR"
     )
   })
 
-  it("returns CONTRACT-VERTICAL-X-CONSTRAINT for PRD-VERTICAL-X with tag CONSTRAINT", () => {
-    expect(contractId("PRD-VERTICAL-X" as ArtifactId, "CONSTRAINT")).toBe(
+  it("returns CONTRACT-VERTICAL-X-CONSTRAINT for IS-VERTICAL-X with tag CONSTRAINT", () => {
+    expect(contractId("IS-VERTICAL-X" as ArtifactId, "CONSTRAINT")).toBe(
       "CONTRACT-VERTICAL-X-CONSTRAINT"
     )
   })
 
-  it("produces exactly what Binding was producing for the meta-PRD before the refactor", () => {
+  it("produces exactly what Binding was producing for the meta-Intent Specification before the refactor", () => {
     expect(
       contractId(
-        "PRD-META-GATE-1-COMPILE-COVERAGE" as ArtifactId,
+        "IS-META-COHERENCE-VERIFICATION" as ArtifactId,
         "CONSTRAINT"
       )
-    ).toBe("CONTRACT-META-GATE-1-COMPILE-COVERAGE-CONSTRAINT")
+    ).toBe("CONTRACT-META-COHERENCE-VERIFICATION-CONSTRAINT")
   })
 })

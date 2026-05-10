@@ -1,0 +1,75 @@
+id: FP-META-COHERENCE-VERIFICATION
+capabilityId: BC-META-ENFORCE-VERIFICATION-CHECKS
+name: compile_verification_gate
+purpose: >
+  Between Pass 7 (consistency_check) and Pass 8 (assemble_executable-specification) of the
+  Stage 5 compiler, verify that the compiled specification (RequirementAtom[],
+  Contract[], Invariant[], Dependency[], ValidationSpec[]) is internally
+  complete — every atom has downstream coverage, every invariant has at least
+  one validation and a well-formed detector, every validation backmaps to at
+  least one atom/contract/invariant, every dependency's endpoints resolve to
+  artifact IDs present in the compiler intermediates — and produce a lineage-
+  preserving CoherenceVerificationReport. Halt the compiler if any check fails; no Executable Specification
+  emits without a passing verdict. During Bootstrap mode, additionally enforce
+  the META- prefix on the Intent Specification and all artifact IDs referenced.
+functionType: control
+expectedInputs:
+  - RequirementAtom[] from compiler Pass 1 (with populated source_refs back to Intent Specification sections)
+  - Contract[] from compiler Pass 2 (with populated derivedFromAtomIds)
+  - Invariant[] from compiler Pass 3 (with required DetectorSpec per packages/schemas/src/core.ts)
+  - Dependency[] from compiler Pass 4 (typed- blocks | constrains | implements | validates | informs)
+  - ValidationSpec[] from compiler Pass 5 (with populated coversAtomIds | coversContractIds | coversInvariantIds arrays)
+  - Intent Specification ID of the compilation target
+  - Factory mode enum (bootstrap | steady_state) for Bootstrap-specific checks
+expectedOutputs:
+  - CoherenceVerificationReport conforming to packages/schemas/src/coverage.ts#CoherenceVerificationReport
+  - Halt signal to compiler orchestration when overall=fail (Pass 8 does not execute)
+  - Verification Report file written to specs/verification-reports/VR-<IS-ID>-COHERENCE-<ISO-timestamp>.yaml (per coherence-verification SKILL.md naming convention)
+governingConstraints:
+  - Fail-closed on any of four coverage misses plus the Bootstrap prefix check; partial pass is fail.
+  - Pure function over Zod-validated inputs; no side effects except Verification Report file emission.
+  - Emit a Verification Report on pass and on fail (not only on fail); silent passes are architecturally forbidden.
+  - Populate remediation text on every invocation- on fail, name the failing check and the upstream remediation per ConOps §7.2 Scenario B; on pass, the literal string "no remediation required".
+  - Bootstrap mode additionally verifies the META- prefix on the Intent Specification ID (must match IS-META-*) and on every artifact ID referenced in the compiler intermediates; non-META references during Bootstrap are a failure of the new bootstrap_prefix_check.
+  - Do not generate placeholder artifacts to paper over coverage misses (ConOps §7.2 anti-pattern- "Auto-generating placeholder validations to pass the verification. Never").
+  - Do not relax checks based on Intent Specification size, urgency, or Coding Agent request; relaxation is an Architect override per ConOps §5.4, logged in DECISIONS.md.
+  - Coherence Verification operates strictly within the I-layer- no observation of Work Orders, CCI, POE, PII, or any We-layer concept (whitepaper §2.1, §8).
+candidateInvariants:
+  - Coherence Verification is deterministic- identical validated inputs yield byte-identical CoherenceVerificationReport contents modulo the id and timestamp fields.
+  - Every emitted CoherenceVerificationReport validates against the CoherenceVerificationReport Zod schema; a schema-invalid report is a Coherence Verification implementation defect.
+  - Every CoherenceVerificationReport's source_refs cite the Intent Specification ID and every artifact ID flagged in any failing check.
+  - Compiler Pass 8 never runs when the most recent CoherenceVerificationReport for the active compilation has overall=fail.
+  - The Verification Report file is written to specs/verification-reports/ before Coherence Verification returns control to compiler orchestration.
+  - Coherence Verification's remediation text is non-empty on every invocation.
+successSignals:
+  - First Bootstrap Intent Specification compilation (IS-META-COHERENCE-VERIFICATION itself) produces a CoherenceVerificationReport with populated checks and valid lineage, pass or fail.
+  - Coherence Verification correctly identifies a seeded orphan atom in an integration test fixture and names it in orphan_atoms.
+  - Coherence Verification correctly identifies a seeded invariant-without-detector in an integration test fixture and names it in invariants_missing_detector.
+  - Coherence Verification correctly identifies a seeded dangling dependency in an integration test fixture and names it in dangling_dependencies.
+  - Coherence Verification correctly identifies a seeded validation-covering-nothing and names it in validations_covering_nothing.
+  - Coherence Verification correctly halts compilation on each of the failure cases above (Pass 8 never executes and no Executable Specification emits).
+  - Coherence Verification correctly rejects a non-META Intent Specification during Bootstrap mode and passes the same Intent Specification in Steady-State mode.
+  - Coherence Verification produces byte-identical CoherenceVerificationReport contents (modulo timestamp and id) across two runs over the same inputs.
+confidence: 1.0
+source_refs:
+  - BC-META-ENFORCE-VERIFICATION-CHECKS
+  - PRS-META-THREE-VERIFICATION-FAMILIES
+  - SIG-META-WHITEPAPER-V4
+explicitness: explicit
+rationale: >
+  Coherence Verification is a control Function per whitepaper §3 Stage 4 typing- it
+  constrains what the pipeline emits rather than executing primary work or
+  producing standalone evidence. Its Verification Report emission is a secondary
+  evidence aspect of the same control Function, not a separate evidence
+  Function — the execution/control/evidence triple from §3 Stage 3 applies
+  across the BC-META-ENFORCE-VERIFICATION-CHECKS Capability, not within a single
+  Function. The FP.name `compile_verification_gate` uses the semantic label from
+  the skill directory (.agent/skills/coherence-verification/SKILL.md is titled
+  "Compile Verification (Coherence Verification)"). The positional label "Coherence Verification" is
+  retained in the FP ID for continuity with the whitepaper, the ConOps, and
+  subsequent gate Intent Specifications, but the snake_case FP.name is semantic per the
+  convention that names describe behavior rather than slot position. The
+  Bootstrap META- prefix check (ConOps §4.1) is introduced here as a fifth
+  coverage dimension that was not present in the existing
+  coherence-verification/SKILL.md; the Intent Specification authored from this FP flags this as a
+  schema amendment required before implementation.

@@ -33,15 +33,15 @@ const defaultDetector: DetectorSpec = {
   incident_tags: ["test"],
 }
 
-export function makePRD(overrides: Partial<IntentSpecification> = {}): IntentSpecification {
+export function makeIntentSpecification(overrides: Partial<IntentSpecification> = {}): IntentSpecification {
   return {
-    id: "PRD-META-FOO" as ArtifactId,
+    id: "IS-META-FOO" as ArtifactId,
     source_refs: ["FP-META-FOO" as ArtifactId],
     explicitness: "explicit",
-    rationale: "test PRD",
+    rationale: "test Intent Specification",
     sourceCapabilityId: "BC-META-FOO" as ArtifactId,
     sourceFunctionId: "FP-META-FOO" as ArtifactId,
-    title: "Test PRD",
+    title: "Test Intent Specification",
     problem: "test problem",
     goal: "test goal",
     constraints: ["c1"],
@@ -55,7 +55,7 @@ export function makePRD(overrides: Partial<IntentSpecification> = {}): IntentSpe
 export function makeAtom(overrides: Partial<RequirementAtom> = {}): RequirementAtom {
   return {
     id: "ATOM-META-FOO-01" as ArtifactId,
-    source_refs: ["PRD-META-FOO" as ArtifactId],
+    source_refs: ["IS-META-FOO" as ArtifactId],
     explicitness: "explicit",
     rationale: "test atom",
     category: "acceptance",
@@ -69,7 +69,7 @@ export function makeAtom(overrides: Partial<RequirementAtom> = {}): RequirementA
 export function makeContract(overrides: Partial<Contract> = {}): Contract {
   return {
     id: "CONTRACT-META-FOO-BEHAVIOR" as ArtifactId,
-    source_refs: ["PRD-META-FOO" as ArtifactId],
+    source_refs: ["IS-META-FOO" as ArtifactId],
     explicitness: "explicit",
     rationale: "test contract",
     kind: "behavior",
@@ -86,7 +86,7 @@ export function makeInvariant(
 ): Invariant {
   return {
     id: "INV-META-FOO-01" as ArtifactId,
-    source_refs: ["PRD-META-FOO" as ArtifactId],
+    source_refs: ["IS-META-FOO" as ArtifactId],
     explicitness: "explicit",
     rationale: "test invariant",
     scope: "workflow",
@@ -107,7 +107,7 @@ export function makeDependency(
 ): Dependency {
   return {
     id,
-    source_refs: ["PRD-META-FOO" as ArtifactId],
+    source_refs: ["IS-META-FOO" as ArtifactId],
     explicitness: "explicit",
     rationale: "test dependency",
     from,
@@ -121,7 +121,7 @@ export function makeValidation(
 ): ValidationSpec {
   return {
     id: "VAL-META-FOO-01" as ArtifactId,
-    source_refs: ["PRD-META-FOO" as ArtifactId],
+    source_refs: ["IS-META-FOO" as ArtifactId],
     explicitness: "explicit",
     rationale: "test validation",
     kind: "unit",
@@ -139,12 +139,12 @@ export function makeCoherenceVerificationReportPassing(
   overrides: Partial<CoherenceVerificationReport> = {}
 ): CoherenceVerificationReport {
   return {
-    id: "CR-PRD-META-FOO-GATE1-2026-04-19T00-00-00-000Z" as ArtifactId,
-    source_refs: ["PRD-META-FOO" as ArtifactId],
+    id: "VR-IS-META-FOO-COHERENCE-2026-04-19T00-00-00-000Z" as ArtifactId,
+    source_refs: ["IS-META-FOO" as ArtifactId],
     explicitness: "explicit",
-    rationale: "test coverage report",
+    rationale: "test verification report",
     verification: "coherence",
-    prd_id: "PRD-META-FOO" as ArtifactId,
+    intent_specification_id: "IS-META-FOO" as ArtifactId,
     timestamp: "2026-04-19T00:00:00.000Z",
     overall: "pass",
     checks: {

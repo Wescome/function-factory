@@ -32,7 +32,7 @@ governing_constraints:
 candidate_invariants:
   - No synthesis completes without a persisted ExecutionTrace
   - CandidateSelectionReport is immutable once written; downstream outcomes live in lineage
-  - AcceptanceEvidence schema matches Gate2Input contract exactly
+  - AcceptanceEvidence schema matches FidelityVerificationInput contract exactly
 
 success_signals:
   - Every synthesis produces all three evidence artifacts

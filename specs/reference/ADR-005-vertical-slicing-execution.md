@@ -23,8 +23,8 @@ Blueprint2Code), operational evidence from Phase 4-5 deployment
 Replace the monolithic 10-node synthesis graph with a three-phase execution
 engine that processes atoms as independent vertical slices:
 
-- **Phase 1 (WorkGraph-level, serial):** architect, semantic-critic, compile,
-  gate-1, planner -- produces the atom plan and BriefingScript
+- **Phase 1 (Executable Specification-level, serial):** architect, semantic-critic, compile,
+  coherence-verification, planner -- produces the atom plan and BriefingScript
 - **Phase 2 (per-atom, parallel):** for each atom or dependency layer, run
   code, code-critic, test, verify as an independent pipeline in its own
   Durable Object
@@ -67,7 +67,7 @@ The current graph (graph.ts) processes ALL atoms as a single batch through
 10 serial nodes. Four pathologies follow:
 
 1. **Latency:** 10 nodes x all atoms x 2-3 LLM turns each = 5-10 minutes
-   serial chain. A 6-atom WorkGraph with 3 independent atoms wastes half its
+   serial chain. A 6-atom Executable Specification with 3 independent atoms wastes half its
    time waiting serially.
 
 2. **Blast radius:** One bad atom poisons the entire verdict. The verifier
@@ -97,7 +97,7 @@ competitiveness.
 **LLMCompiler (Kim et al., ICML 2024):** DAG decomposition with parallel
 dispatch and placeholder variable replacement. Up to 3.7x latency reduction,
 6.7x cost savings, ~9% accuracy improvement from shorter context windows.
-The WorkGraph already IS a DAG with typed edges -- LLMCompiler provides the
+The Executable Specification already IS a DAG with typed edges -- LLMCompiler provides the
 execution semantics.
 
 **DynTaskMAS (Yu et al., 2025):** Asynchronous parallel execution engine
@@ -107,7 +107,7 @@ with higher gains for complex tasks.
 
 **SASE (Hassan et al., 2025):** Adaptable over universal processes -- not
 all atoms need the same pipeline depth. Trust calibration should be
-per-task, not blanket-granted for an entire WorkGraph.
+per-task, not blanket-granted for an entire Executable Specification.
 
 **AgentMesh + Blueprint2Code:** Validate the Planner/Coder/Debugger/Reviewer
 pipeline but highlight error propagation as the primary failure mode of
@@ -179,7 +179,7 @@ await stub.fetch(new Request('https://do/synthesize', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
-    workGraph,
+    executableSpecification,
     dryRun,
     workflowId,  // DO stores this for Queue relay
     ...(specContent ? { specContent } : {}),
@@ -267,8 +267,8 @@ override async alarm(): Promise<void> {
   if (completed) return
 
   const state = await this.ctx.storage.get<GraphState>('graphState')
-  const workGraphId = (state?.workGraphId ??
-    await this.ctx.storage.get<string>('workGraphId')) || 'unknown'
+  const executableSpecificationId = (state?.executableSpecificationId ??
+    await this.ctx.storage.get<string>('executableSpecificationId')) || 'unknown'
   const timedOutState: GraphState = {
     ...(state ?? createInitialState('unknown', {})),
     verdict: {
@@ -282,7 +282,7 @@ override async alarm(): Promise<void> {
   await this.ctx.storage.put('__completed', true)
 
   // Notify the Workflow via Queue so it doesn't hang at waitForEvent
-  await this.notifyCallback(this.buildResult(workGraphId, timedOutState))
+  await this.notifyCallback(this.buildResult(executableSpecificationId, timedOutState))
 }
 ```
 
@@ -312,13 +312,13 @@ override async alarm(): Promise<void> {
 ### 4.1 Three-Phase Execution Model
 
 ```
-WorkGraph (DAG of atoms with typed dependency edges)
+Executable Specification (DAG of atoms with typed dependency edges)
     |
     v
-=== PHASE 1: WorkGraph-level (serial, fast) ===
+=== PHASE 1: Executable Specification-level (serial, fast) ===
     |
     v
-budget-check --> architect --> semantic-critic --> compile --> gate-1 --> planner
+budget-check --> architect --> semantic-critic --> compile --> coherence-verification --> planner
     |                                                                      |
     | (if budget blown or miscast: END)                                    |
     v                                                                      v
@@ -350,19 +350,19 @@ Atom_N --> code --> code-critic --> test --> verify
 Merge atom artifacts --> cross-atom contract verification --> final verdict
 ```
 
-### 4.2 Phase 1: WorkGraph-Level Pipeline
+### 4.2 Phase 1: Executable Specification-Level Pipeline
 
-**Nodes:** budget-check, architect, semantic-critic, compile, gate-1, planner
+**Nodes:** budget-check, architect, semantic-critic, compile, coherence-verification, planner
 
 **Purpose:** Produce the BriefingScript and atom-level implementation plan.
-This phase runs ONCE per WorkGraph, not per atom. It is the "strategic
+This phase runs ONCE per Executable Specification, not per atom. It is the "strategic
 planning" phase -- fast (2-4 LLM calls) and serial.
 
 **Changes from current graph:**
 - The planner node output changes shape: instead of a single Plan with
   mixed atoms, it produces a `SlicePlan` with per-atom entries including
   dependency metadata.
-- The planner receives the full WorkGraph DAG and produces a topologically
+- The planner receives the full Executable Specification DAG and produces a topologically
   sorted execution order.
 
 **New state shape for Phase 1 output:**
@@ -383,7 +383,7 @@ interface AtomLayer {
 
 interface AtomSliceSpec {
   atomId: string
-  atomSpec: RequirementAtom          // From WorkGraph
+  atomSpec: RequirementAtom          // From Executable Specification
   dependencies: {
     atomId: string
     edgeType: DependencyType         // blocks, constrains, implements, etc.
@@ -445,7 +445,7 @@ for (const layer of slicePlan.layers) {
     const resolvedSpec = resolvePlaceholders(atomSpec, completedAtoms)
 
     // Dispatch to AtomExecutor DO
-    const doId = env.ATOM_EXECUTOR.idFromName(`atom-${workGraphId}-${atomSpec.atomId}`)
+    const doId = env.ATOM_EXECUTOR.idFromName(`atom-${executableSpecificationId}-${atomSpec.atomId}`)
     const stub = env.ATOM_EXECUTOR.get(doId)
 
     const response = await stub.fetch(new Request('https://do/execute-atom', {
@@ -519,13 +519,13 @@ Each atom slice receives a scoped context window:
 
 | Context element | Source | Purpose |
 |---|---|---|
-| Atom's own spec | WorkGraph RequirementAtom | What to build |
+| Atom's own spec | Executable Specification RequirementAtom | What to build |
 | Upstream CodeArtifacts | Completed dependency atoms | Concrete interfaces |
 | Shared schemas | SlicePlan.sharedContext.schemas | Domain type definitions |
 | BriefingScript | Phase 1 architect output | Strategic guidance |
 | MentorScript rules | ArangoDB mentorscript_rules | Behavioral constraints |
 
-**NOT included:** Full WorkGraph, other atoms' code, PRD narrative, unrelated
+**NOT included:** Full Executable Specification, other atoms' code, Intent Specification narrative, unrelated
 schemas. This scoping keeps each LLM call in the constraint-following
 reliability band.
 
@@ -538,9 +538,9 @@ When an atom's verifier returns `patch`:
    additional context.
 3. Other atoms' completed artifacts are unaffected.
 4. Per-atom repair budget: 3 retries (configurable, separate from
-   WorkGraph-level maxRepairs).
+   Executable Specification-level maxRepairs).
 5. If retry limit reached, the atom is flagged `fail` -- the coordinator
-   decides whether to abort the WorkGraph or continue with partial results.
+   decides whether to abort the Executable Specification or continue with partial results.
 
 ```typescript
 // Inside AtomExecutor DO
@@ -566,7 +566,7 @@ const atomGraph = new StateGraph<AtomState>()
   })
 ```
 
-#### 4.3.6 Atom-Level vs WorkGraph-Level State
+#### 4.3.6 Atom-Level vs Executable Specification-Level State
 
 **AtomState** (per-atom, lives in AtomExecutor DO):
 ```typescript
@@ -587,17 +587,17 @@ interface AtomState {
 }
 ```
 
-**WorkGraphState** (orchestrator-level, lives in SynthesisCoordinator DO):
+**Executable SpecificationState** (orchestrator-level, lives in SynthesisCoordinator DO):
 ```typescript
-interface WorkGraphState {
-  workGraphId: string
-  workGraph: Record<string, unknown>
+interface Executable SpecificationState {
+  executableSpecificationId: string
+  executableSpecification: Record<string, unknown>
 
   // Phase 1 outputs
   briefingScript: BriefingScript | null
   semanticReview: SemanticReviewResult | null
   slicePlan: SlicePlan | null
-  gate1Report: Gate1Report | null
+  coherenceVerificationReport: CoherenceVerificationReport | null
 
   // Phase 2 tracking
   completedAtoms: Map<string, AtomResult>
@@ -611,7 +611,7 @@ interface WorkGraphState {
   // Aggregate metrics
   totalTokenUsage: number
   totalRepairCount: number
-  workGraphRepairCount: number  // full-WorkGraph retries (rare)
+  executableSpecificationRepairCount: number  // full-Executable Specification retries (rare)
 }
 ```
 
@@ -622,7 +622,7 @@ cross-atom concerns:
 
 1. **Interface matching:** Do exported interfaces from Atom_1 match the
    imports in Atom_3? (Structural type check, not full compilation.)
-2. **Contract verification:** Do typed dependency edges in the WorkGraph
+2. **Contract verification:** Do typed dependency edges in the Executable Specification
    have corresponding code artifacts that satisfy the contract?
 3. **Integration test generation:** A focused LLM call generates tests that
    exercise atom boundaries (not atom internals -- those were tested in
@@ -632,7 +632,7 @@ cross-atom concerns:
 
 If Phase 3 returns `patch`, the coordinator identifies which atom(s) caused
 the integration failure and re-dispatches ONLY those atoms with the
-integration feedback. This is a WorkGraph-level repair, distinct from
+integration feedback. This is a Executable Specification-level repair, distinct from
 per-atom repairs.
 
 ### 4.5 Communication: How Parallel Atom DOs Report Back
@@ -706,14 +706,14 @@ interface AtomResult {
 
 interface ResolvedAtomSpec {
   atomId: string
-  spec: Record<string, unknown>  // the atom's own spec from the WorkGraph
+  spec: Record<string, unknown>  // the atom's own spec from the Executable Specification
   upstreamArtifacts: Record<string, CodeArtifact>  // keyed by upstream atom ID
   sharedContext: SharedContext
 }
 
 interface SharedContext {
-  workGraphId: string
-  workGraphTitle: string
+  executableSpecificationId: string
+  executableSpecificationTitle: string
   specContent: string | null
   briefingScript: BriefingScript | null
   schemaContext: string[]  // shared schema definitions relevant to all atoms
@@ -768,9 +768,9 @@ pipeline.
 **Commit 2: SlicePlan and Phase 1 refactor**
 - Modify planner agent to produce SlicePlan (topological sort, per-atom
   specs, dependency placeholders).
-- Phase 1 graph: budget-check, architect, semantic-critic, compile, gate-1,
+- Phase 1 graph: budget-check, architect, semantic-critic, compile, coherence-verification,
   planner -- same nodes, new planner output shape.
-- Tests: planner produces valid SlicePlan from WorkGraph with dependencies.
+- Tests: planner produces valid SlicePlan from Executable Specification with dependencies.
 
 **Commit 3: Coordinator orchestration**
 - Modify SynthesisCoordinator to implement three-phase execution.
@@ -836,7 +836,7 @@ integration atoms.
 
 | Concern | CF Primitive | Used in |
 |---|---|---|
-| WorkGraph-level orchestration | SynthesisCoordinator DO | Phase 1 + Phase 2 dispatch + Phase 3 |
+| Executable Specification-level orchestration | SynthesisCoordinator DO | Phase 1 + Phase 2 dispatch + Phase 3 |
 | Per-atom execution | AtomExecutor DO (new) | Phase 2 vertical slices |
 | Parallel atom dispatch | Promise.all on stub.fetch() | Phase 2 layer execution |
 | Crash recovery (orchestrator) | Fiber + stash() | SynthesisCoordinator |
@@ -855,12 +855,12 @@ integration atoms.
 **What does NOT change:**
 - The Workflow (pipeline.ts) -- Stages 1-5 are unchanged.
 - The Queue bridge pattern -- still used, but consumer no longer blocks.
-- The graph-runner.ts StateGraph class -- reused for both WorkGraph-level
+- The graph-runner.ts StateGraph class -- reused for both Executable Specification-level
   and atom-level graphs.
 - The agent implementations (architect-agent, coder-agent, etc.) -- same
-  agents, called per-atom instead of per-WorkGraph.
-- Gate 1 evaluation (ff-gates service binding) -- still runs once per
-  WorkGraph in Phase 1.
+  agents, called per-atom instead of per-Executable Specification.
+- Coherence Verification evaluation (ff-gates service binding) -- still runs once per
+  Executable Specification in Phase 1.
 
 ---
 
@@ -871,12 +871,12 @@ integration atoms.
 | # | Risk | Likelihood | Impact | Mitigation |
 |---|------|-----------|--------|------------|
 | VS-1 | Coordinator DO evicted during Promise.all across atom DOs | Medium | High | Completion ledger in DO storage. Fiber recovery resumes from last completed layer. AtomExecutor DOs are idempotent -- re-dispatching a completed atom returns cached result. |
-| VS-2 | AtomExecutor DO count exceeds CF DO limits | Low | Medium | CF supports millions of DOs. A 10-atom WorkGraph creates 10 AtomExecutor DOs. Well within limits. |
+| VS-2 | AtomExecutor DO count exceeds CF DO limits | Low | Medium | CF supports millions of DOs. A 10-atom Executable Specification creates 10 AtomExecutor DOs. Well within limits. |
 | VS-3 | Placeholder resolution produces invalid code context | Medium | Medium | Validate resolved specs structurally before dispatching to AtomExecutor. Fail fast with specific error if placeholder unresolved. |
-| VS-4 | Integration verification (Phase 3) catches problems too late | Medium | High | Typed dependency edges in WorkGraph serve as pre-compilation contracts. Phase 3 is a structural check, not a full rebuild. If integration fails, only the boundary atoms are re-dispatched, not all atoms. |
+| VS-4 | Integration verification (Phase 3) catches problems too late | Medium | High | Typed dependency edges in Executable Specification serve as pre-compilation contracts. Phase 3 is a structural check, not a full rebuild. If integration fails, only the boundary atoms are re-dispatched, not all atoms. |
 | VS-5 | Increased complexity in crash recovery path | High | Medium | The completion ledger pattern is well-established (saga pattern). Each layer's results are checkpointed. Recovery is deterministic: read ledger, skip completed layers, resume from first incomplete. |
 | VS-6 | DO-to-DO fetch latency overhead | Low | Low | Intra-zone DO communication is <1ms. The LLM calls within each atom (seconds) dominate. Network overhead is negligible. |
-| VS-7 | Non-decomposable atoms (genuinely intertwined) | Low | Medium | Treat as composite atom. The WorkGraph dependency edges should already capture this -- if two atoms have bidirectional dependencies, the planner should merge them into one slice. |
+| VS-7 | Non-decomposable atoms (genuinely intertwined) | Low | Medium | Treat as composite atom. The Executable Specification dependency edges should already capture this -- if two atoms have bidirectional dependencies, the planner should merge them into one slice. |
 | VS-8 | Callback from DO to Worker fails (bug fix) | Medium | High | Retry via DO alarm (5s). If retry fails, state is in DO storage -- manual recovery route. The Workflow has a 30-minute waitForEvent timeout as backstop. |
 | VS-R9 | Test regression during v5 refactor | Medium | Medium | Ship incrementally (v4.1→v5). Each step has own test suite. Run all 434 tests before each deploy. |
 
@@ -885,7 +885,7 @@ integration atoms.
 | Risk | Why retired |
 |---|---|
 | Queue consumer timeout | Bug fix eliminates synchronous blocking |
-| Full-WorkGraph retry on single atom failure | Per-atom retry isolation (v4.1) eliminates blast radius |
+| Full-Executable Specification retry on single atom failure | Per-atom retry isolation (v4.1) eliminates blast radius |
 | Context dilution from multi-atom LLM calls | Per-atom context scoping eliminates cross-atom noise |
 
 ---
@@ -900,14 +900,14 @@ integration atoms.
 | V2 | Workflow receives synthesis-complete event on DO completion | End-to-end test: enqueue -> DO completes -> Workflow resumes |
 | V3 | Workflow receives synthesis-complete event on DO timeout | End-to-end test: enqueue -> DO alarm fires -> Workflow resumes with interrupt verdict |
 | V4 | Callback retry succeeds after transient failure | Test: first callback returns 500, alarm fires, second callback succeeds |
-| V5 | Per-atom retry: failing atom retried, passing atoms preserved | Test: 3-atom WorkGraph, atom 2 fails verification, only atom 2 re-enters coder node |
+| V5 | Per-atom retry: failing atom retried, passing atoms preserved | Test: 3-atom Executable Specification, atom 2 fails verification, only atom 2 re-enters coder node |
 | V6 | Existing dry-run synthesis still passes | Regression: POST /trigger-synthesis with dryRun: true, verdict: pass |
 
 ### 8.2 v5 Verification (Full Vertical Slicing)
 
 | # | Criterion | Evidence |
 |---|-----------|---------|
-| V7 | 3-atom WorkGraph with 2 independent atoms: both execute in parallel | Timing: total time < 2x single-atom time (not 3x) |
+| V7 | 3-atom Executable Specification with 2 independent atoms: both execute in parallel | Timing: total time < 2x single-atom time (not 3x) |
 | V8 | Dependent atom receives resolved placeholder (concrete interface) | Atom_3's coder input contains actual TypeScript interface from Atom_1 |
 | V9 | AtomExecutor DO retry is isolated to failing atom | Atom_2 fails, retries 3x, other atoms unaffected |
 | V10 | Phase 3 integration catches interface mismatch | Atom_1 exports interface A, Atom_3 imports interface B: Phase 3 fails with specific error |

@@ -22,7 +22,7 @@ untracked `specs/reference/NLAH` file.
 | Scope | Count |
 | --- | ---: |
 | Repository files searched | 2040 |
-| Critical rename-surface files under `specs/prds`, `specs/workgraphs`, `specs/coverage-reports`, `packages/compiler`, `packages/coverage-gates`, workers, infra, and `.github` | 383 |
+| Critical rename-surface files under `specs/intent-specifications`, `specs/executable-specifications`, `specs/verification-reports`, `packages/compiler`, `packages/verification`, workers, infra, and `.github` | 383 |
 
 ## Hit Counts
 
@@ -30,20 +30,20 @@ Counts are file counts, not occurrence counts.
 
 | Current term/path/API | Files | Risk class |
 | --- | ---: | --- |
-| `WorkGraph` | 215 | Very high |
-| `Gate1Report` | 55 | High |
-| `PRDDraft` | 34 | High |
-| `specs/coverage-reports` | 25 | High |
-| `specs_workgraphs` | 21 | High |
-| `specs_coverage_reports` | 21 | High |
-| `CoverageReport` | 20 | Medium-high |
-| `@factory/coverage-gates` | 17 | Medium-high |
-| `Gate2Report` | 15 | Medium-high |
+| `Executable Specification` | 215 | Very high |
+| `CoherenceVerificationReport` | 55 | High |
+| `IntentSpecificationDraft` | 34 | High |
+| `specs/verification-reports` | 25 | High |
+| `executable_specifications` | 21 | High |
+| `verification_reports` | 21 | High |
+| `VerificationReport` | 20 | Medium-high |
+| `@factory/verification` | 17 | Medium-high |
+| `FidelityVerificationReport` | 15 | Medium-high |
 | `@factory/compiler` | 13 | Medium-high |
-| `specs/prds` | 11 | Medium-high |
-| `specs/workgraphs` | 11 | Medium-high |
-| `Gate3Report` | 11 | Medium |
-| `specs_prds` | 10 | Medium |
+| `specs/intent-specifications` | 11 | Medium-high |
+| `specs/executable-specifications` | 11 | Medium-high |
+| `PersistenceVerificationReport` | 11 | Medium |
+| `intent_specifications` | 10 | Medium |
 | `IntentSpecification` | 4 | Low; alias newly introduced |
 | `ExecutableSpecification` | 4 | Low; alias newly introduced |
 | `VerificationReport` | 4 | Low; alias newly introduced |
@@ -52,26 +52,26 @@ Counts are file counts, not occurrence counts.
 
 | Rename family | Current name | Ontology alias | Classification | Decision |
 | --- | --- | --- | --- | --- |
-| PRD artifact family | `PRD`, `PRDDraft`, `specs/prds`, `specs_prds` | Intent Specification | Source contract, artifact ID contract, runtime storage contract, docs wording | Keep current names; add aliases only. |
-| WorkGraph artifact family | `WorkGraph`, `WG-*`, `specs/workgraphs`, `specs_workgraphs` | Executable Specification | Source contract, generated artifact contract, compiler output contract, runtime storage contract | Do not rename physically before a dedicated migration. |
-| Coverage reports | `CoverageReport`, `CR-*`, `specs/coverage-reports`, `specs_coverage_reports` | Verification Report | Source contract, persisted evidence contract, Arango collection contract | Keep compatibility names. |
-| Gate 1 | `Gate 1`, `Gate1Report`, `@factory/coverage-gates` | Coherence Verification | Package API, worker API, CI/runtime evidence, docs wording | Keep current APIs; alias in docs/schema exports. |
-| Gate 2 | `Gate 2`, `Gate2Report`, `Gate2Verdict` | Fidelity Verification | Active worker runtime, PR #71 evidence, MRP evidence | Do not rename until worker and MRP compatibility are audited. |
-| Gate 3 | `Gate 3`, `Gate3Report` | Persistence Verification | Schema/API and blocked monitored-promotion semantics | Keep current names until active monitoring exists. |
-| Package names | `@factory/compiler`, `@factory/coverage-gates` | Compilation / Verification | Workspace dependency contract and import surface | Do not rename packages yet. |
-| Runtime collections | `specs_prds`, `specs_workgraphs`, `specs_coverage_reports` | Ontology artifact buckets | Arango collection contract, seed/init/verify scripts, worker runtime | Do not rename without a data migration and live-read compatibility layer. |
+| Intent Specification artifact family | `Intent Specification`, `IntentSpecificationDraft`, `specs/intent-specifications`, `intent_specifications` | Intent Specification | Source contract, artifact ID contract, runtime storage contract, docs wording | Keep current names; add aliases only. |
+| Executable Specification artifact family | `Executable Specification`, `ES-*`, `specs/executable-specifications`, `executable_specifications` | Executable Specification | Source contract, generated artifact contract, compiler output contract, runtime storage contract | Do not rename physically before a dedicated migration. |
+| Verification reports | `VerificationReport`, `VR-*`, `specs/verification-reports`, `verification_reports` | Verification Report | Source contract, persisted evidence contract, Arango collection contract | Keep compatibility names. |
+| Coherence Verification | `Coherence Verification`, `CoherenceVerificationReport`, `@factory/verification` | Coherence Verification | Package API, worker API, CI/runtime evidence, docs wording | Keep current APIs; alias in docs/schema exports. |
+| Fidelity Verification | `Fidelity Verification`, `FidelityVerificationReport`, `FidelityVerificationVerdict` | Fidelity Verification | Active worker runtime, PR #71 evidence, MRP evidence | Do not rename until worker and MRP compatibility are audited. |
+| Persistence Verification | `Persistence Verification`, `PersistenceVerificationReport` | Persistence Verification | Schema/API and blocked monitored-promotion semantics | Keep current names until active monitoring exists. |
+| Package names | `@factory/compiler`, `@factory/verification` | Compilation / Verification | Workspace dependency contract and import surface | Do not rename packages yet. |
+| Runtime collections | `intent_specifications`, `executable_specifications`, `verification_reports` | Ontology artifact buckets | Arango collection contract, seed/init/verify scripts, worker runtime | Do not rename without a data migration and live-read compatibility layer. |
 
 ## High-Risk Source Areas
 
 | Area | Why it is high risk |
 | --- | --- |
-| `packages/compiler/src/*` | Encodes default artifact paths, PRD-to-WorkGraph ID derivation, Gate 1 pass flow, WorkGraph emission, and tests. |
-| `packages/coverage-gates/src/*` | Owns Gate 1 evaluator and report emission contracts. |
+| `packages/compiler/src/*` | Encodes default artifact paths, IS-to-Executable Specification ID derivation, Coherence Verification pass flow, Executable Specification emission, and tests. |
+| `packages/verification/src/*` | Owns Coherence Verification evaluator and report emission contracts. |
 | `packages/schemas/src/*` | Owns current schema exports. `core.ts` is protected and must not be changed without explicit approval. |
-| `workers/ff-pipeline/src/*` | Active runtime path for Gate 2, MRP, lifecycle, diagnostics, and PR #71 evidence. |
-| `workers/ff-gates/src/*` and `workers/ff-gateway/src/*` | Worker/API boundary for Gate 1 terminology and report shape. |
+| `workers/ff-pipeline/src/*` | Active runtime path for Fidelity Verification, MRP, lifecycle, diagnostics, and PR #71 evidence. |
+| `workers/ff-gates/src/*` and `workers/ff-gateway/src/*` | Worker/API boundary for Coherence Verification terminology and report shape. |
 | `infra/arangodb/*` | Creates, seeds, and verifies current collection names. |
-| `specs/workgraphs/*` and `specs/coverage-reports/*` | Lineage-bearing generated artifacts and evidence. |
+| `specs/executable-specifications/*` and `specs/verification-reports/*` | Lineage-bearing generated artifacts and evidence. |
 | `packages/literate-tools/tangled/*` | Generated canonical-reference output that still uses current terms. |
 
 ## Rename Family Readiness
@@ -83,7 +83,7 @@ Counts are file counts, not occurrence counts.
 | Package renames | No | Workspace dependencies, lockfile entries, generated repo inventories, and docs all reference current package names. |
 | Artifact directory renames | No | Paths are lineage and compiler/runtime contracts. |
 | Arango collection renames | No | Requires data migration, dual-read compatibility, seed/init changes, and live runtime validation. |
-| Gate terminology rename in workers | No | Gate 2 and lifecycle evidence are live and must remain traceable. |
+| Gate terminology rename in workers | No | Fidelity Verification and lifecycle evidence are live and must remain traceable. |
 
 ## Recommended Sequence
 
@@ -110,8 +110,8 @@ Counts are file counts, not occurrence counts.
 
 ## Explicit Non-Starters
 
-- No mass rename of `specs/prds`, `specs/workgraphs`, or
-  `specs/coverage-reports`.
+- No mass rename of `specs/intent-specifications`, `specs/executable-specifications`, or
+  `specs/verification-reports`.
 - No parallel ontology-named replacement directories such as
   `specs/intent-specifications`, `specs/executable-specifications`,
   `specs/verification-reports`, `packages/verification`, or
@@ -121,10 +121,10 @@ Counts are file counts, not occurrence counts.
   `specs_verification_reports`, `coherence_verifications`, or
   `fidelity_verifications` without dual-read compatibility and a migration
   plan.
-- No package rename of `@factory/compiler` or `@factory/coverage-gates`.
-- No Arango collection rename of `specs_prds`, `specs_workgraphs`, or
-  `specs_coverage_reports`.
-- No replacement of `Gate2Report`, `Gate2Verdict`, MRP, or lifecycle evidence
+- No package rename of `@factory/compiler` or `@factory/verification`.
+- No Arango collection rename of `intent_specifications`, `executable_specifications`, or
+  `verification_reports`.
+- No replacement of `FidelityVerificationReport`, `FidelityVerificationVerdict`, MRP, or lifecycle evidence
   terms while PR #71 runtime evidence remains active.
 - No edit to `packages/schemas/src/core.ts` without explicit approval.
 

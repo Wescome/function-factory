@@ -33,7 +33,7 @@ Respect these silently in agent output; do not cite them in deliverables.
 - Write DECISIONS.md entries for non-obvious architectural choices.
 - Small PRs over large ones.
 - Commits are artifact-attributable (see DECISIONS).
-- Draft PR early; mark ready when tests pass and coverage gates pass.
+- Draft PR early; mark ready when tests pass and verification checks pass.
 
 ## Constraints
 - Primary stack: TypeScript, Node.js 20+, pnpm workspaces.

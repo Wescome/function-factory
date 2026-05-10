@@ -250,7 +250,7 @@ const server = createServer(async (req, res) => {
   switch (`${req.method} ${req.url}`) {
 
     case 'POST /coder': {
-      const { provider, modelId, plan, workGraph, repairNotes,
+      const { provider, modelId, plan, executableSpecification, repairNotes,
               fileScope, commandPolicy } = body
       // No apiKey in body. Keys from process.env.
       const model = getModel(provider, modelId)
@@ -261,7 +261,7 @@ const server = createServer(async (req, res) => {
       })
       const events: unknown[] = []
       session.subscribe((event: unknown) => events.push(event))
-      session.prompt(buildCoderPrompt({ plan, workGraph, repairNotes }))
+      session.prompt(buildCoderPrompt({ plan, executableSpecification, repairNotes }))
       await waitForSessionComplete(session)
       await exec(`cd ${currentWorkspace!.workDir} && git add -A && git commit -m "factory: coder" --allow-empty`)
       const artifacts = await collectArtifacts(currentWorkspace!.workDir, currentWorkspace!.ref)
@@ -270,14 +270,14 @@ const server = createServer(async (req, res) => {
     }
 
     case 'POST /tester': {
-      const { provider, modelId, code, workGraph } = body
+      const { provider, modelId, code, executableSpecification } = body
       const model = getModel(provider, modelId)
       const session = await createAgentSession({
         model, cwd: currentWorkspace!.workDir,
       })
       const events: unknown[] = []
       session.subscribe((event: unknown) => events.push(event))
-      session.prompt(buildTesterPrompt({ code, workGraph }))
+      session.prompt(buildTesterPrompt({ code, executableSpecification }))
       await waitForSessionComplete(session)
       respond(res, 200, { status: 'complete', testReport: parseTestResults(events) })
       break
@@ -363,7 +363,7 @@ private containerRole(role: 'coder' | 'tester') {
 
     // Workspace prep: first Coder call or resample
     if (role === 'coder' && (!state.workspaceReady || state.verdict?.decision === 'resample')) {
-      const repo = (state.workGraph as any).repo
+      const repo = (state.executableSpecification as any).repo
       const wsRes = await this.containerFetch('/workspace', {
         repoUrl: repo.url, ref: repo.ref, branch: repo.branch,
         installCmd: 'pnpm install --frozen-lockfile',
@@ -374,10 +374,10 @@ private containerRole(role: 'coder' | 'tester') {
     // Call role endpoint. NO apiKey in body.
     const res = await this.containerFetch(role === 'coder' ? '/coder' : '/tester', {
       provider, modelId,
-      plan: state.plan, workGraph: state.workGraph, code: state.code,
+      plan: state.plan, executableSpecification: state.executableSpecification, code: state.code,
       repairNotes: state.verdict?.decision === 'patch' ? state.verdict.notes : undefined,
-      fileScope: (state.workGraph as any).fileScope,
-      commandPolicy: (state.workGraph as any).commandPolicy,
+      fileScope: (state.executableSpecification as any).fileScope,
+      commandPolicy: (state.executableSpecification as any).commandPolicy,
     })
     if (!res.ok) throw new Error(`Container ${role} failed: ${await res.text()}`)
 
@@ -614,7 +614,7 @@ interface CodeArtifact {
 - **API keys:** Set via `wrangler secret put`. Available as `this.env.*` in Container DO class, `process.env.*` in container process. NEVER in request bodies. `getModel(provider, modelId)` reads from env implicitly.
 - **File scope:** Enforced via `customTools` in `createAgentSession()`. Coordinator sends `fileScope`/`commandPolicy` in request body. Agent-server builds gated tools. Violations blocked pre-filesystem.
 - **Network isolation:** Allow outbound to LLM APIs, github.com, npm registries. Deny all else.
-- **Container lifetime:** Fresh DO instance per synthesis (deterministic ID from workGraphId). No cross-synthesis state. Cleaned up after terminal verdict.
+- **Container lifetime:** Fresh DO instance per synthesis (deterministic ID from executableSpecificationId). No cross-synthesis state. Cleaned up after terminal verdict.
 
 ---
 

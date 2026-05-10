@@ -1,21 +1,21 @@
 /**
  * Pass 0- normalize.
  *
- * Raw markdown → NormalizedPRD. Parses the PRD file's YAML frontmatter,
+ * Raw markdown → NormalizedIntentSpecification. Parses the Intent Specification file's YAML frontmatter,
  * validates it against the IntentSpecification Zod schema, and splits the body
  * into sections that populate the IntentSpecification's list-valued fields
  * (problem, goal, constraints, acceptanceCriteria, successMetrics,
  * outOfScope).
  *
  * Sections not mapped to a IntentSpecification field are flagged as unrecognized
- * but do not block compilation — a PRD can carry informational
+ * but do not block compilation — a Intent Specification can carry informational
  * sections alongside the structured IntentSpecification shape.
  */
 
 import type { IntentSpecification } from "@factory/schemas"
-import { IntentSpecification as PRDDraftSchema } from "@factory/schemas"
+import { IntentSpecification as IntentSpecificationDraftSchema } from "@factory/schemas"
 import { parseMarkdown } from "../parse-markdown.js"
-import type { NormalizedPRD } from "../types.js"
+import type { NormalizedIntentSpecification } from "../types.js"
 
 /**
  * Map of markdown section heading text (lowercased) to the
@@ -42,7 +42,7 @@ const LIST_FIELDS: ReadonlyArray<keyof IntentSpecification> = [
   "outOfScope",
 ]
 
-export function normalize(rawMarkdown: string, sourceFile: string): NormalizedPRD {
+export function normalize(rawMarkdown: string, sourceFile: string): NormalizedIntentSpecification {
   const { frontmatter, sections } = parseMarkdown(rawMarkdown)
 
   // Build a draft object combining frontmatter with body-derived fields.
@@ -74,10 +74,10 @@ export function normalize(rawMarkdown: string, sourceFile: string): NormalizedPR
   // Validate against IntentSpecification Zod schema — this enforces the
   // lineage fields from frontmatter (id, source_refs, explicitness,
   // rationale) plus all required body-derived fields.
-  const parsed = PRDDraftSchema.safeParse(draftObj)
+  const parsed = IntentSpecificationDraftSchema.safeParse(draftObj)
   if (!parsed.success) {
     throw new Error(
-      `Pass 0 (normalize)- PRD at ${sourceFile} failed IntentSpecification validation- ` +
+      `Pass 0 (normalize)- Intent Specification at ${sourceFile} failed IntentSpecification validation- ` +
         parsed.error.message
     )
   }

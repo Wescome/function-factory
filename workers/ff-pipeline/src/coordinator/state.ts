@@ -38,7 +38,7 @@ export interface PipelineExecutableSpecification {
   atoms?: Record<string, unknown>[]
   invariants?: Record<string, unknown>[]
   dependencies?: Record<string, unknown>[]
-  prdId?: string
+  intentSpecificationId?: string
 
   // Sandbox execution fields
   repoUrl?: string
@@ -180,7 +180,7 @@ export interface GraphState {
   coherenceVerificationReport: unknown | null
   domainExecutionRequest: DomainExecutionRequest
   domainExecutionEvidence: DomainExecutionEvidence | null
-  compiledPrd: unknown | null
+  compiledIntentSpecification: unknown | null
 
   // v4.1: per-atom retry isolation — which atoms need retry (null = retry all)
   failedAtomIds: string[] | null
@@ -243,7 +243,7 @@ export function createInitialState(
     coherenceVerificationReport: null,
     domainExecutionRequest,
     domainExecutionEvidence: null,
-    compiledPrd: null,
+    compiledIntentSpecification: null,
     sandboxName: null,
     freshBackupHandle: null,
     coderBackupHandle: null,
@@ -264,7 +264,7 @@ function buildDomainExecutionRequest(
     adapterId: CodingDomainAdapterContract.adapterId,
     functionId: artifactIdOrDerived('FN', executableSpecification.functionId ?? executableSpecificationId),
     intentSpecificationId,
-    executableSpecificationId: artifactIdOrDerived('WG', executableSpecificationId),
+    executableSpecificationId: artifactIdOrDerived('ES', executableSpecificationId),
     runId: `synthesis-${executableSpecificationId}`,
     mode: 'execute',
     parameters: {
@@ -276,22 +276,22 @@ function buildDomainExecutionRequest(
 function intentSpecificationIdFromExecutableSpecification(
   executableSpecification: PipelineExecutableSpecification,
 ): ArtifactId {
-  if (typeof executableSpecification.prdId === 'string' && executableSpecification.prdId.length > 0) {
-    return artifactIdOrDerived('PRD', executableSpecification.prdId)
+  if (typeof executableSpecification.intentSpecificationId === 'string' && executableSpecification.intentSpecificationId.length > 0) {
+    return artifactIdOrDerived('IS', executableSpecification.intentSpecificationId)
   }
 
   const sourceRefs = executableSpecification.source_refs ?? []
-  const sourceIntentSpecificationId = sourceRefs.find((ref) => ref.startsWith('PRD-'))
+  const sourceIntentSpecificationId = sourceRefs.find((ref) => ref.startsWith('IS-'))
   if (sourceIntentSpecificationId !== undefined) {
-    return artifactIdOrDerived('PRD', sourceIntentSpecificationId)
+    return artifactIdOrDerived('IS', sourceIntentSpecificationId)
   }
 
   const id = executableSpecification.id
-  const subject = id.startsWith('WG-') ? id.slice(3) : id
-  return artifactIdOrDerived('PRD', `PRD-${subject}`)
+  const subject = id.startsWith('ES-') ? id.slice(3) : id
+  return artifactIdOrDerived('IS', `IS-${subject}`)
 }
 
-function artifactIdOrDerived(prefix: 'FN' | 'PRD' | 'WG', candidate: string): ArtifactId {
+function artifactIdOrDerived(prefix: 'FN' | 'IS' | 'ES', candidate: string): ArtifactId {
   const parsed = ArtifactId.safeParse(candidate)
   if (parsed.success) return parsed.data
 

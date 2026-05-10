@@ -6,5 +6,5 @@ rationale: Bootstrap runtime admission must remain fail-closed and require selec
 bootstrapMode: true
 requireSelectedArchitectureCandidate: true
 description: >
-  A WorkGraph may be runtime-admitted only when bootstrap runtime mode is active
+  A Executable Specification may be runtime-admitted only when bootstrap runtime mode is active
   and its linked ArchitectureCandidate has a selected selection artifact.

@@ -38,9 +38,9 @@ export type { FactoryMode }
  * Unrecognized sections do not block compilation; they are logged so a
  * future pass (or a human reader) can decide what to do with them. In
  * a production compiler this would emit UncertaintyEntry; the MVP
- * keeps it as a plain list on the NormalizedPRD.
+ * keeps it as a plain list on the NormalizedIntentSpecification.
  */
-export interface NormalizedPRD {
+export interface NormalizedIntentSpecification {
   readonly draft: IntentSpecification
   readonly sections: Readonly<Record<string, string>>
   readonly unrecognizedSections: readonly string[]
@@ -49,10 +49,10 @@ export interface NormalizedPRD {
 
 /**
  * The aggregated output of all transformations. Coherence Verification consumes
- * this bundle via its `prdId` and the five artifact arrays.
+ * this bundle via its `intentSpecificationId` and the five artifact arrays.
  */
 export interface CompilerIntermediates {
-  readonly prd: IntentSpecification
+  readonly intentSpecification: IntentSpecification
   readonly atoms: readonly RequirementAtom[]
   readonly contracts: readonly Contract[]
   readonly invariants: readonly Invariant[]

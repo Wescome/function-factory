@@ -36,7 +36,7 @@ Executable Specification
 
 ## Non-Goals
 
-- No `WG-*`, `specs/workgraphs`, or `specs_workgraphs` storage migration.
+- No `ES-*`, `specs/executable-specifications`, or `executable_specifications` storage migration.
 - No package rename.
 - No model fine-tuning.
 - No lifecycle promotion inside Instruction Tuning or Trellis execution.
@@ -263,7 +263,7 @@ Negative tests:
 
 - Coherence Verification failure never runs Instruction Tuning
 - missing required tuning inputs returns blocked/not-requested result
-- emitted packet source refs include PRD, WG, ArchitectureCandidate, runtime
+- emitted packet source refs include Intent Specification, ES, ArchitectureCandidate, runtime
   admission, and adapter contract
 - packet hash is stable across deterministic compile runs
 
@@ -277,7 +277,7 @@ Acceptance:
 
 ## Phase 6: Packet Persistence Surface
 
-Purpose: persist `TEP-*` artifacts without changing deferred `WG-*` storage.
+Purpose: persist `TEP-*` artifacts without changing deferred `ES-*` storage.
 
 Files likely affected:
 

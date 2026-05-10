@@ -29,7 +29,7 @@ const VALID_CODE_ARTIFACT: CodeArtifact = {
 }
 
 const SAMPLE_WORKGRAPH = {
-  _key: 'WG-CODER-001',
+  _key: 'ES-CODER-001',
   title: 'User Authentication Module',
   atoms: [{ id: 'atom-001', description: 'Auth middleware' }],
   invariants: [{ id: 'INV-001', condition: 'All requests must be authenticated' }],

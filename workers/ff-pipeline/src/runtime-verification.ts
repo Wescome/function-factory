@@ -2,7 +2,7 @@
  * Runtime verification records for deployed Agent Call execution smoke results.
  *
  * This module materializes the code artifact produced by real-mode synthesis
- * for WG-MOTE4M1R-G7I0, with local repo style and explicit validation.
+ * for ES-MOTE4M1R-G7I0, with local repo style and explicit validation.
  */
 
 export interface SynthesisLineage {

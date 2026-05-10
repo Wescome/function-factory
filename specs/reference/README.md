@@ -107,8 +107,8 @@ Repository/process ADRs are indexed separately in
 
 `AGENTS.md`, `spec.md`, `tasks.md`, and similar files are treated as portable
 agent-facing views that the Factory can emit from native artifacts. They do not
-replace the typed internal artifact graph (`PRS-*`, `BC-*`, `FP-*`, `PRD-*`,
-`WG-*`, `INV-*`, `CR-*`) or its `source_refs` lineage. The current strategic
+replace the typed internal artifact graph (`PRS-*`, `BC-*`, `FP-*`, `IS-*`,
+`ES-*`, `INV-*`, `VR-*`) or its `source_refs` lineage. The current strategic
 reference for this boundary is
 [`ONTOLOGICAL-SELF-SENSING-2026-05-03.md`](ONTOLOGICAL-SELF-SENSING-2026-05-03.md).
 
@@ -137,7 +137,7 @@ deferred migration surfaces.
 | --- | --- |
 | Header status conflicts with `DECISIONS.md` in some canonical docs. | Agents can mistake draft/proposed headers for current truth. |
 | ADRs are split between `docs/adr/` and `specs/reference/`. | Requires explicit indexing and later migration decision if consolidation is desired. |
-| `ARCHITECTURE.md` may contain stale compiler-pass sequencing. | Use package/compiler docs and current PRDs before changing implementation based on that section. |
+| `ARCHITECTURE.md` may contain stale compiler-pass sequencing. | Use package/compiler docs and current Intent Specifications before changing implementation based on that section. |
 | `specs/reference/` mixes canonical references, designs, reviews, research, and handoffs. | This index classifies in place; do not move files without link and lineage checks. |
 
 ## Diataxis Rule For This Directory

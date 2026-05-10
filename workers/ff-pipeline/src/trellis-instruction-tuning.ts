@@ -30,7 +30,7 @@ export function buildTrellisPacketForSynthesis(
 
   const selectedArchitectureCandidate = ArchitectureCandidate.parse({
     id: ArtifactId.parse(`AC-${subject}`),
-    sourcePrdId: intentSpecificationId,
+    sourceIntentSpecificationId: intentSpecificationId,
     sourceExecutableSpecificationId: executableSpecification.id,
     candidateStatus: 'selected',
     topology: {
@@ -85,7 +85,7 @@ function projectExecutableSpecification(
   raw: PipelineExecutableSpecification | Record<string, unknown>,
   proposal: Record<string, unknown>,
 ): ExecutableSpecification {
-  const id = artifactIdOrDerived('WG', stringField(raw, '_key') ?? stringField(raw, 'id') ?? executableSpecificationId)
+  const id = artifactIdOrDerived('ES', stringField(raw, '_key') ?? stringField(raw, 'id') ?? executableSpecificationId)
   const sourceRefs = sourceRefsFor(raw, proposal, id)
   const nodes = projectNodes(raw)
   const edges = projectEdges(raw, new Set(nodes.map((node) => node.id)))
@@ -175,7 +175,7 @@ function sourceRefsFor(
   const refs = [
     ...artifactIdsFromArray(raw.source_refs),
     ...artifactIdsFromArray(raw.sourceRefs),
-    artifactIdOrDerived('PRD', stringField(raw, 'prdId') ?? prdIdFromProposal(proposal) ?? executableSpecificationId),
+    artifactIdOrDerived('IS', stringField(raw, 'intentSpecificationId') ?? intentSpecificationIdFromProposal(proposal) ?? executableSpecificationId),
   ]
   return [...new Set(refs)]
 }
@@ -184,15 +184,15 @@ function intentSpecificationIdFor(
   executableSpecification: ExecutableSpecification,
   proposal: Record<string, unknown>,
 ): ArtifactId {
-  const prdRef = executableSpecification.source_refs.find((ref) => ref.startsWith('PRD-'))
-  if (prdRef) return prdRef
-  return artifactIdOrDerived('PRD', prdIdFromProposal(proposal) ?? executableSpecification.id)
+  const intentSpecificationRef = executableSpecification.source_refs.find((ref) => ref.startsWith('IS-'))
+  if (intentSpecificationRef) return intentSpecificationRef
+  return artifactIdOrDerived('IS', intentSpecificationIdFromProposal(proposal) ?? executableSpecification.id)
 }
 
-function prdIdFromProposal(proposal: Record<string, unknown>): string | null {
-  const prd = proposal.prd
-  if (prd && typeof prd === 'object') {
-    return stringField(prd as Record<string, unknown>, '_key') ?? stringField(prd as Record<string, unknown>, 'id')
+function intentSpecificationIdFromProposal(proposal: Record<string, unknown>): string | null {
+  const intentSpecification = proposal.intentSpecification
+  if (intentSpecification && typeof intentSpecification === 'object') {
+    return stringField(intentSpecification as Record<string, unknown>, '_key') ?? stringField(intentSpecification as Record<string, unknown>, 'id')
   }
   return null
 }
@@ -243,7 +243,7 @@ function artifactIdField(record: Record<string, unknown>, key: string): Artifact
   return parsed.success ? parsed.data : null
 }
 
-function artifactIdOrDerived(prefix: 'FN' | 'PRD' | 'WG', candidate: string): ArtifactId {
+function artifactIdOrDerived(prefix: 'FN' | 'IS' | 'ES', candidate: string): ArtifactId {
   const parsed = ArtifactId.safeParse(candidate)
   if (parsed.success && candidate.startsWith(`${prefix}-`)) return parsed.data
   return ArtifactId.parse(`${prefix}-${subjectFor(candidate)}`)

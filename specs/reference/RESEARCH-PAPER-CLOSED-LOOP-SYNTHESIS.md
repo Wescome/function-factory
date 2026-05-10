@@ -84,17 +84,17 @@ The pipeline transforms external or internal signals into executable code throug
 
 5. **Semantic Review** (`semantic-review`): A Critic agent evaluates whether the Function proposal is aligned with the original signal. This catches "semantic miscast"---proposals that drift from the original intent during the compression of stages 2-4.
 
-6. **PRD Compilation** (`compile`): The proposal is compiled through eight sub-passes into a WorkGraph---a DAG of implementation atoms with typed dependencies, acceptance criteria, and verification rules.
+6. **Intent Specification Compilation** (`compile`): The proposal is compiled through eight sub-passes into a Executable Specification---a DAG of implementation atoms with typed dependencies, acceptance criteria, and verification rules.
 
-7. **Synthesis Execution**: The WorkGraph is dispatched for atom-level execution (Section 3.2), producing code artifacts, test reports, and verification verdicts.
+7. **Synthesis Execution**: The Executable Specification is dispatched for atom-level execution (Section 3.2), producing code artifacts, test reports, and verification verdicts.
 
-Each stage persists its output to ArangoDB and records lineage edges connecting the output to its inputs. The full lineage chain---Signal to Pressure to Capability to Proposal to WorkGraph to CodeArtifact---is traversable via graph queries.[^1]
+Each stage persists its output to ArangoDB and records lineage edges connecting the output to its inputs. The full lineage chain---Signal to Pressure to Capability to Proposal to Executable Specification to CodeArtifact---is traversable via graph queries.[^1]
 
 [^1]: Pipeline implementation: `workers/ff-pipeline/src/pipeline.ts`
 
 ### 3.2 Vertical Slicing with Atom-Level Parallelism
 
-Following LLMCompiler's DAG execution pattern, the Factory decomposes WorkGraphs into dependency layers using Kahn's algorithm for topological sorting.[^2] Each layer contains atoms with no mutual dependencies; atoms within a layer execute concurrently.
+Following LLMCompiler's DAG execution pattern, the Factory decomposes Executable Specifications into dependency layers using Kahn's algorithm for topological sorting.[^2] Each layer contains atoms with no mutual dependencies; atoms within a layer execute concurrently.
 
 Each atom receives its own Durable Object instance (AtomExecutor), solving the coordinator eviction problem inherent in Cloudflare's execution model.[^3] The AtomExecutor runs a four-node pipeline per atom:
 
@@ -107,7 +107,7 @@ Each AtomExecutor sets a 900-second alarm as a wall-clock deadline. If the atom 
 
 Coordination is managed through a completion ledger stored in ArangoDB.[^4] The ledger tracks per-atom completion state using atomic AQL updates to prevent race conditions when concurrent atoms complete simultaneously. When an atom completes, the ledger identifies newly-ready atoms (those whose upstream dependencies have all resolved) and dispatches them. When all atoms complete, the ledger transitions to the `complete` phase and triggers Phase 3 (integration verification).
 
-Context scoping follows DynTaskMAS's Semantic-Aware Context Management pattern: each atom receives only its own specification, the shared WorkGraph context, and the concrete outputs of its upstream dependencies. This prevents the context dilution that occurs when all atoms are processed in a single LLM call.
+Context scoping follows DynTaskMAS's Semantic-Aware Context Management pattern: each atom receives only its own specification, the shared Executable Specification context, and the concrete outputs of its upstream dependencies. This prevents the context dilution that occurs when all atoms are processed in a single LLM call.
 
 [^2]: Layer dispatch: `workers/ff-pipeline/src/coordinator/layer-dispatch.ts`
 [^3]: AtomExecutor Durable Object: `workers/ff-pipeline/src/coordinator/atom-executor-do.ts`
@@ -151,7 +151,7 @@ This is the central contribution. After synthesis completes (whether successfull
 | Signal Type | Trigger Condition | Auto-Approve |
 |-------------|-------------------|--------------|
 | `synthesis:atom-failed` | A critical atom's verdict is `fail` | Yes |
-| `synthesis:gate1-failed` | Coverage Gate 1 did not pass | No |
+| `synthesis:coherenceVerification-failed` | Verification Coherence Verification did not pass | No |
 | `synthesis:verdict-fail` | General synthesis failure (monolithic path) | No |
 | `synthesis:low-confidence` | Synthesis passed but confidence < 0.8 | No |
 | `synthesis:orl-degradation` | ORL repair count >= 2 in a single run | Yes |
@@ -167,7 +167,7 @@ The feedback loop must be provably bounded. Three independent circuit breakers g
 
 **Layer 2: Content-hash deduplication.** The signal ingestion stage (`ingest-signal`) computes a content hash over the signal's type, source, and payload. If an identical signal already exists in the database, ingestion is rejected. This prevents the same failure from generating the same re-entry signal repeatedly, even if the depth counter has not been exhausted.
 
-**Layer 3: Temporal cooldown.** A 30-minute cooldown window prevents rapid re-firing of signals for the same WorkGraph and signal subtype. Before generating a feedback signal, the system queries ArangoDB for recent signals matching the same `workGraphId` and `subtype`. If a matching signal was created within the cooldown window, the candidate signal is suppressed. This prevents thrashing when a deterministic failure generates identical signals in rapid succession.
+**Layer 3: Temporal cooldown.** A 30-minute cooldown window prevents rapid re-firing of signals for the same Executable Specification and signal subtype. Before generating a feedback signal, the system queries ArangoDB for recent signals matching the same `executableSpecificationId` and `subtype`. If a matching signal was created within the cooldown window, the candidate signal is suppressed. This prevents thrashing when a deterministic failure generates identical signals in rapid succession.
 
 These three layers operate independently. Any one of them is sufficient to prevent unbounded recursion; together they provide defense in depth against different classes of loop pathology.
 
@@ -196,7 +196,7 @@ The curation output is persisted to ArangoDB collections (`memory_curated`, `pat
 
 ### 3.6 Atom Criticality Classification
 
-Not all atoms are equally important. The Factory classifies atoms by criticality to determine the threshold for WorkGraph success:
+Not all atoms are equally important. The Factory classifies atoms by criticality to determine the threshold for Executable Specification success:
 
 - **Critical atoms** (implementation atoms): All must pass for the synthesis to be considered successful. A single critical atom failure generates a `synthesis:atom-failed` feedback signal.
 - **Non-critical atoms** (configuration, test scaffolding): A 70% pass threshold is acceptable. These atoms contribute to completeness but do not block the overall verdict.
@@ -229,7 +229,7 @@ The six feedback signal types map failure modes to appropriate responses:
 
 **ORL degradation** (`synthesis:orl-degradation`) indicates that the Output Reliability Layer required multiple repair cycles to extract valid output from an agent. This is a model-reliability signal, not a specification-quality signal. Auto-approval is appropriate because the underlying intent is unchanged; the retry may succeed due to LLM output stochasticity.
 
-**Gate failures** (`synthesis:gate1-failed`) indicate structural problems: the compiled WorkGraph does not meet coverage requirements. These require human review because the fix may require changes to the specification, not just re-execution of the same specification.
+**Gate failures** (`synthesis:coherenceVerification-failed`) indicate structural problems: the compiled Executable Specification does not meet coverage requirements. These require human review because the fix may require changes to the specification, not just re-execution of the same specification.
 
 **Low-confidence passes** (`synthesis:low-confidence`) are the most nuanced case. The synthesis technically succeeded, but the verifier's confidence score is below threshold. This may indicate a borderline specification, an edge case in the LLM's reasoning, or a genuine quality concern. Human judgment is required to determine whether to accept, reject, or revise.
 
@@ -245,7 +245,7 @@ The three-layer loop prevention system is designed around the principle that ind
 
 **Content-hash deduplication** addresses the case where the same signal is generated from different causal paths. If two different atoms fail in the same way and generate identical feedback signals, the second signal is suppressed at ingestion. This prevents fan-out amplification where N failing atoms each generate a feedback signal that processes all N atoms again.
 
-**Temporal cooldown** addresses rapid thrashing. Even if depth and content-hash checks pass, a 30-minute cooldown per WorkGraph-subtype pair prevents the system from consuming resources on a failure that is unlikely to resolve within minutes. The cooldown window is implemented as an AQL query against the signal collection, checking for recent signals with matching source, subtype, and WorkGraph reference.
+**Temporal cooldown** addresses rapid thrashing. Even if depth and content-hash checks pass, a 30-minute cooldown per Executable Specification-subtype pair prevents the system from consuming resources on a failure that is unlikely to resolve within minutes. The cooldown window is implemented as an AQL query against the signal collection, checking for recent signals with matching source, subtype, and Executable Specification reference.
 
 ### 4.4 From Retry to Learning
 
@@ -272,7 +272,7 @@ The Function Factory has been operational in production on Cloudflare Workers wi
 
 ### 5.1 Autonomous Synthesis Runs
 
-The system completed 6 autonomous synthesis runs processing WorkGraphs with 4-7 atoms each. Passing runs achieved a confidence score of 0.95 from the Verifier agent. Each atom was executed in its own Durable Object with a 900-second wall-clock deadline, and context was scoped to the atom's specification plus upstream artifacts.
+The system completed 6 autonomous synthesis runs processing Executable Specifications with 4-7 atoms each. Passing runs achieved a confidence score of 0.95 from the Verifier agent. Each atom was executed in its own Durable Object with a 900-second wall-clock deadline, and context was scoped to the atom's specification plus upstream artifacts.
 
 ### 5.2 Feedback Signal Generation
 

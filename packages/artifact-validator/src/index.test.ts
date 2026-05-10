@@ -8,8 +8,8 @@ describe('C1 — Lineage completeness', () => {
     'specs_pressures',
     'specs_capabilities',
     'specs_functions',
-    'specs_workgraphs',
-    'specs_coverage_reports',
+    'executable_specifications',
+    'verification_reports',
     'trellis_execution_packets',
   ]
 
@@ -91,9 +91,9 @@ describe('C1 — Lineage completeness', () => {
     expect(c1Violations).toHaveLength(0)
   })
 
-  it('skips lineage check for gate_status', () => {
-    const result = validateArtifact('gate_status', {
-      _key: 'verification: "coherence":WG-001',
+  it('skips lineage check for verification_status', () => {
+    const result = validateArtifact('verification_status', {
+      _key: 'verification: "coherence":ES-001',
       passed: true,
     })
     const c1Violations = result.violations.filter(
@@ -178,10 +178,10 @@ describe('C7 — CRP on low confidence', () => {
 // ─── C9: Gate Fail-Closed ───────────────────────────────────────────
 
 describe('C9 — Gate fail-closed', () => {
-  it('rejects coverage report without passed field', () => {
-    const result = validateArtifact('specs_coverage_reports', {
-      _key: 'CR-001',
-      type: 'gate-1',
+  it('rejects verification report without passed field', () => {
+    const result = validateArtifact('verification_reports', {
+      _key: 'VR-001',
+      type: 'coherence-verification',
       summary: 'Missing passed field',
       source_refs: ['FP:FP-001'],
     })
@@ -194,10 +194,10 @@ describe('C9 — Gate fail-closed', () => {
     )
   })
 
-  it('rejects coverage report with non-boolean passed field', () => {
-    const result = validateArtifact('specs_coverage_reports', {
-      _key: 'CR-001',
-      type: 'gate-1',
+  it('rejects verification report with non-boolean passed field', () => {
+    const result = validateArtifact('verification_reports', {
+      _key: 'VR-001',
+      type: 'coherence-verification',
       passed: 'yes',
       source_refs: ['FP:FP-001'],
     })
@@ -210,10 +210,10 @@ describe('C9 — Gate fail-closed', () => {
     )
   })
 
-  it('passes coverage report with passed: true', () => {
-    const result = validateArtifact('specs_coverage_reports', {
-      _key: 'CR-001',
-      type: 'gate-1',
+  it('passes verification report with passed: true', () => {
+    const result = validateArtifact('verification_reports', {
+      _key: 'VR-001',
+      type: 'coherence-verification',
       passed: true,
       source_refs: ['FP:FP-001'],
     })
@@ -223,10 +223,10 @@ describe('C9 — Gate fail-closed', () => {
     expect(c9Violations).toHaveLength(0)
   })
 
-  it('passes coverage report with passed: false', () => {
-    const result = validateArtifact('specs_coverage_reports', {
-      _key: 'CR-001',
-      type: 'gate-1',
+  it('passes verification report with passed: false', () => {
+    const result = validateArtifact('verification_reports', {
+      _key: 'VR-001',
+      type: 'coherence-verification',
       passed: false,
       source_refs: ['FP:FP-001'],
     })
@@ -348,8 +348,8 @@ describe('C15 — No secrets', () => {
 
 describe('Combined violations', () => {
   it('reports multiple violations from different constraints', () => {
-    const result = validateArtifact('specs_coverage_reports', {
-      _key: 'CR-BAD',
+    const result = validateArtifact('verification_reports', {
+      _key: 'VR-BAD',
       // C1: empty source_refs
       source_refs: [],
       // C9: missing passed field

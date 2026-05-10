@@ -19,8 +19,8 @@ import { createInitialState, type GraphState } from './state.js'
 
 function makeState(overrides: Partial<GraphState> = {}): GraphState {
   return {
-    ...createInitialState('WG-T7', {
-      id: 'WG-T7',
+    ...createInitialState('ES-T7', {
+      id: 'ES-T7',
       title: 'T7 Integration Test',
       atoms: [{ id: 'atom-001', description: 'Stub', assignedTo: 'coder' }],
       invariants: [],

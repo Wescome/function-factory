@@ -50,7 +50,7 @@ is permitted to be empty, and when empty, the `source` field is required
 to be non-empty and to name the external origin unambiguously.
 
 This exception applies only to the `SIG-*` prefix. Every other artifact
-prefix (PRS-, BC-, FN-, FP-, PRD-, WG-, INV-, VAL-, DEP-, ATOM-, CR-,
+prefix (PRS-, BC-, FN-, FP-, IS-, ES-, INV-, VAL-, DEP-, ATOM-, VR-,
 TRJ-, PF-, INC-, DET-, DEL-) must carry a non-empty `source_refs`.
 
 ## Audit algorithm
@@ -74,7 +74,7 @@ Given an artifact at path `specs/<type>/<id>.yaml`:
    Missing upstream artifacts are a lineage break.
 6. For every upstream artifact referenced, confirm this artifact is
    reachable from it via the expected pipeline direction (Signal →
-   Pressure → Capability → FunctionProposal → PRD → WorkGraph).
+   Pressure → Capability → FunctionProposal → Intent Specification → Executable Specification).
    Skipping stages is a lineage break.
 
 ## Outputs

@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
 describe("evaluatePrdQualityGate", () => {
-  it("passes for a good rendered PRD", () => {
+  it("passes for a good rendered Intent Specification", () => {
     const markdown = readFileSync(
       join(process.cwd(), "test/fixtures/rendered-prd-good.md"),
       "utf-8"
@@ -12,13 +12,13 @@ describe("evaluatePrdQualityGate", () => {
 
     expect(() =>
       evaluatePrdQualityGate({
-        id: "PRD-META-ARCHITECTURE-CANDIDATE-EXECUTION",
+        id: "IS-META-ARCHITECTURE-CANDIDATE-EXECUTION",
         markdown,
       })
     ).not.toThrow()
   })
 
-  it("fails for a bad rendered PRD", () => {
+  it("fails for a bad rendered Intent Specification", () => {
     const markdown = readFileSync(
       join(process.cwd(), "test/fixtures/rendered-prd-bad.md"),
       "utf-8"
@@ -26,7 +26,7 @@ describe("evaluatePrdQualityGate", () => {
 
     expect(() =>
       evaluatePrdQualityGate({
-        id: "PRD-BAD",
+        id: "IS-BAD",
         markdown,
       })
     ).toThrow()
