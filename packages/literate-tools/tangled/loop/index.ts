@@ -83,7 +83,7 @@ interface RoutingTableLintReport {
   generated_at: string;
 }
 
-// --- Block from line 2848 (Appendix C -- For the Coding Agent) ---
+// --- Block from line 2847 (Appendix C -- For the Coding Agent) ---
 /**
  * The Function Factory's closed-loop compiler.
  *
@@ -103,22 +103,22 @@ async function factoryLoop(
     // structural_coverage_passed + semantic review run internally
     const compiled = specification_compilePipeline(signals);
 
-    for (const workGraph of compiled.workGraphs) {
+    for (const executableSpecification of compiled.executableSpecifications) {
       const prd = compiled.prds.find(
-        (p) => p.function_id === workGraph.function_id
+        (p) => p.function_id === executableSpecification.function_id
       );
       if (!prd) continue;
 
       // SEARCH CONTEXT (Stages 4.5-4.75)
       const { selected: candidate } = search_selectCandidate(
-        workGraph, "config/routing-table.yaml", {}
+        executableSpecification, "config/routing-table.yaml", {}
       );
 
       // EXECUTION CONTEXT (Agent Call execution)
       // ACL: buildInitialDecisionState runs inside
       // ACL: bundleEvidenceForAcceptanceReview runs inside
       const { traceLog, adherenceReport, fidelityVerificationInput } =
-        execution_runDarkFactory(workGraph, candidate, prd);
+        execution_runDarkFactory(executableSpecification, candidate, prd);
 
       // ASSURANCE CONTEXT: Acceptance Review (scenarios_cover_invariants)
       const verdict = assurance_evaluateAcceptanceReview(fidelityVerificationInput);
@@ -129,7 +129,7 @@ async function factoryLoop(
 
     // OBSERVABILITY CONTEXT (Stages 7-7.25)
     const feedback = observability_processFeedback(
-      allObservations, 0.65 // birth gate threshold
+      allObservations, 0.65 // birth verification threshold
     );
 
     // ASSURANCE CONTEXT: evidence_base_intact (continuous)

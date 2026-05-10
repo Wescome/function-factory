@@ -112,7 +112,7 @@ const PIPELINE_STAGES: PipelineStage[] = [
   },
   {
     stage_number: 6,
-    name: "execute_workgraph_through_dark_factory",
+    name: "execute_executable_specification_through_dark_factory",
     context: "Execution",
     input: "DecisionState (D0)",
     output: "Stage6TraceLog + RoleAdherenceReport",
@@ -329,7 +329,7 @@ declare function specification_pass7_consistencyCheck(
 ): VerificationReport;
 
 /** Executable Specification Assembly. Only runs if structural_coverage_passed. */
-declare function specification_pass8_assembleWorkGraph(
+declare function specification_pass8_assembleExecutableSpecification(
   prd: PRD,
   intermediates: CompilerIntermediates
 ): ExecutableSpecification;
@@ -350,7 +350,7 @@ interface CompilerIntermediates {
 interface VerificationReport {
   id: string; // CR-*
   function_id: string;
-  gate: "compile" | "simulation" | "assurance";
+  verification: "coherence" | "fidelity" | "persistence";
   atom_coverage: boolean;
   invariant_coverage: boolean;
   validation_coverage: boolean;
@@ -388,7 +388,7 @@ declare function assurance_evaluateStructuralCoverage(
 interface SemanticReviewReport {
   id: string; // SRR-*
   prd_id: string;
-  workgraph_id: string;
+  executable_specification_id: string;
   status: "approved" | "rejected" | "needs_revision";
   rationale: string;
   source_refs: SourceRef[];
@@ -404,7 +404,7 @@ interface SemanticReviewReport {
  */
 declare function assurance_reviewSemanticCorrectness(
   prd: PRD,
-  workGraph: ExecutableSpecification
+  executableSpecification: ExecutableSpecification
 ): SemanticReviewReport;
 
 // --- Block from line 943 (Part II -- How Does a Function Come to Exist?) ---
@@ -416,12 +416,12 @@ declare function assurance_reviewSemanticCorrectness(
  *       structural_coverage_passed -> Semantic Review ->
  *       ExecutableSpecification emission
  *
- * Returns only WorkGraphs that pass both guards.
+ * Returns only ExecutableSpecifications that pass both guards.
  */
 declare function specification_compilePipeline(
   signals: ReadonlyArray<Signal>
 ): {
-  workGraphs: ExecutableSpecification[];
+  executableSpecifications: ExecutableSpecification[];
   coverageReports: VerificationReport[];
   prds: PRD[];
 };

@@ -32,7 +32,7 @@ interface FidelityVerificationInput {
   id: string;
   function_id: string;
   prd_id: string;
-  workgraph_id: string;
+  executable_specification_id: string;
   candidate_id: string; // AC-*
   stage6_run_id: string;
 

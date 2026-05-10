@@ -18,7 +18,7 @@ interface ArchitectureCandidate {
   source_refs: SourceRef[];
 
   /** Fingerprint of the ExecutableSpecification this candidate was generated for. */
-  workgraph_fingerprint: string;
+  executable_specification_fingerprint: string;
 
   /** Which routing rules produced this candidate. */
   routing_rule_refs: RoutingRuleRef[];
@@ -157,7 +157,7 @@ function blendedLineageReliability(
  * Acceptance review decides whether the result is accepted.
  */
 declare function search_selectCandidate(
-  workGraph: ExecutableSpecification,
+  executableSpecification: ExecutableSpecification,
   routingTablePath: string,
   lineageObservationCounts: Record<string, number>
 ): {
@@ -168,7 +168,7 @@ declare function search_selectCandidate(
 /** From ratified decisions lines 769-781. */
 interface CandidateSelectionReport {
   selected_candidate_id: string;
-  workgraph_id: string;
+  executable_specification_id: string;
   evaluated_candidates: number;
   admissible_candidates: number;
   selection_reason: string;
@@ -198,7 +198,7 @@ interface DecisionState {
 
   /** C (Context): operational state the role must act within. Set at D0, enriched by Planner. */
   context: {
-    work_graph: ExecutableSpecification;
+    executable_specification: ExecutableSpecification;
     target_node_ids: string[];
     edit_scopes: string[];
     repo_context: string;
@@ -282,7 +282,7 @@ declare function execution_enforceWriteDomain(
  *   T <- { repair_loop_count: 0, max_repair_loops: from candidate }
  */
 declare function execution_buildInitialDecisionState(
-  workGraph: ExecutableSpecification,
+  executableSpecification: ExecutableSpecification,
   candidate: ArchitectureCandidate,
   prd: PRD
 ): DecisionState;
@@ -354,7 +354,7 @@ interface Stage6TraceLog {
   run_id: string;
   function_id: string;
   prd_id: string;
-  workgraph_id: string;
+  executable_specification_id: string;
   candidate_id: string; // AC-*
   harness_command: string;
   prompt_pack_version: string;
@@ -443,7 +443,7 @@ interface RoleAdherenceReport {
   id: string; // RAR-*
   run_id: string;
   function_id: string;
-  workgraph_id: string;
+  executable_specification_id: string;
   generated_at: string;
   semantic_intent_unverified: true; // always true -- semantic intent needs Semantic Review
   roles: RoleAdherenceEntry[];
@@ -545,7 +545,7 @@ interface ConvergencePolicy {
  * to the Assurance Context. The boundary is the FidelityVerificationInput ACL.
  */
 declare function execution_runDarkFactory(
-  workGraph: ExecutableSpecification,
+  executableSpecification: ExecutableSpecification,
   candidate: ArchitectureCandidate,
   prd: PRD
 ): {

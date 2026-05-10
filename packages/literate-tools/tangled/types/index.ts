@@ -82,7 +82,7 @@ const LIFECYCLE_TRANSITIONS: LifecycleTransition[] = [
   {
     from: "planned",
     to: "in_progress",
-    trigger: "dark_factory_admits_workgraph",
+    trigger: "dark_factory_admits_executable_specification",
     guard: "candidate_passes_admissibility_filter",
     responsible_context: "Execution",
   },

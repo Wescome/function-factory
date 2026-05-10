@@ -2,13 +2,30 @@
 
 ## Status
 Active task: hard-cut active ontology names and Domain Adapter runtime routing;
-pending commit, push, and PR checks.
+main implementation pushed, literate-sync follow-up pending commit/push/checks.
 
 ## Last update
-2026-05-10T18:25:39Z
+2026-05-10T18:38:01Z
 
 ## Current actions
 
+- Completed: literate canonical source sync for hard-cut ontology names.
+  - Updated `specs/reference/literate-canonical-reference.md` so tangle now
+    emits `ExecutableSpecification`, `VerificationReport`, and descriptive
+    Verification names instead of `WorkGraph`, `CoverageReport`, or numbered
+    Gate strings.
+  - Regenerated `packages/literate-tools/tangled/*` from the canonical
+    literate source.
+  - Verification passed:
+    - `npx tsx packages/literate-tools/src/tangle.ts`
+    - `pnpm audit:docs`
+    - `pnpm audit:ontology`
+    - `pnpm -r typecheck`
+    - `git diff --check`
+  - CI after commit `3f392e8` passed Repository Audit, Test, Typecheck, and
+    Factory PR Gate; `literate-sync` failed only because tangled output was
+    stale against the canonical literate source.
+  - `specs/reference/NLAH` remains untouched and untracked by request.
 - Completed: active ontology hard-cut for items 1-4, 6, and 7; storage/path
   migration remains deferred by architect instruction.
   - Removed active schema aliases for `PRDDraft`, `WorkGraph`, numbered

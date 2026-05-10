@@ -17,7 +17,7 @@ interface Trajectory {
 
 /**
  * Detect drift trajectories in monitored Functions.
- * Trajectories that exceed the birth gate threshold trigger
+ * Trajectories that exceed the birth verification threshold trigger
  * new FunctionProposals, closing the loop.
  */
 declare function observability_detectTrajectories(
@@ -40,7 +40,7 @@ interface FunctionBirthScore {
 
 /**
  * Score birth proposals. High-scoring proposals above the birth
- * gate threshold are auto-drafted into PRDs and enter Intent-to-Executable compilation.
+ * verification threshold are auto-drafted into PRDs and enter Intent-to-Executable compilation.
  */
 declare function observability_scoreBirthProposals(
   trajectories: ReadonlyArray<Trajectory>
