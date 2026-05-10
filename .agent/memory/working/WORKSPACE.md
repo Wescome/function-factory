@@ -1,14 +1,24 @@
 # Current Workspace
 
 ## Status
-Active task: Trellis Execution Packet and Instruction Tuning specs drafted,
-reviewed, and verified.
+Active task: Trellis implementation plan created and verified.
 
 ## Last update
-2026-05-10T21:21:00Z
+2026-05-10T21:33:00Z
 
 ## Current actions
 
+- Completed: Trellis implementation roadmap.
+  - Added `specs/reference/TRELLIS-IMPLEMENTATION-PLAN.md` with a 10-phase
+    implementation sequence from schema foundation through packet-only runtime
+    execution and Verification integration.
+  - Indexed the plan from `specs/reference/README.md`.
+  - Plan covers phase ownership, likely files, negative tests, acceptance
+    commands, commit strategy, and refactor readiness criteria.
+  - Verification passed:
+    - `pnpm audit:docs`
+    - `pnpm audit:ontology`
+    - `git diff --check`
 - Completed: Trellis Execution Packet and Instruction Tuning reference specs.
   - Added `specs/reference/TRELLIS-EXECUTION-PACKET.md` defining the persistent
     `TEP-*` packet artifact, packet hash rules, runtime profile, adapter

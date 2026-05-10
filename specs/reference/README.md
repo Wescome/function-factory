@@ -28,6 +28,7 @@ Read these first when grounding work in the architecture.
 | [`TRELLIS-REFACTOR-FIRST-CUT.md`](TRELLIS-REFACTOR-FIRST-CUT.md) | Active Trellis refactor backlog | Names the first no-compatibility-baggage code slices and the active source residues they must remove. |
 | [`TRELLIS-EXECUTION-PACKET.md`](TRELLIS-EXECUTION-PACKET.md) | Active Trellis execution contract draft | Defines the immutable harness-facing packet that Trellis consumes after Instruction Tuning. |
 | [`INSTRUCTION-TUNING-SPEC.md`](INSTRUCTION-TUNING-SPEC.md) | Active compiler transformation draft | Defines the transformation from Executable Specification to Trellis Execution Packet. |
+| [`TRELLIS-IMPLEMENTATION-PLAN.md`](TRELLIS-IMPLEMENTATION-PLAN.md) | Active implementation roadmap | Orders the schema, compiler, runtime, Verification, and audit work needed to implement packet-driven Trellis execution. |
 | [`ONTOLOGY-RENAME-BLAST-RADIUS.md`](ONTOLOGY-RENAME-BLAST-RADIUS.md) | Pre-refactor assessment | Classifies current-name usage across source, specs, workers, infra, and docs; recommends no physical rename before one-family migration plans exist. |
 | [`ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md`](ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md) | Rename proposal template | Required structure for any future one-family physical rename proposal. |
 | [`ONTOLOGY-REFACTOR-READINESS-CHECKLIST.md`](ONTOLOGY-REFACTOR-READINESS-CHECKLIST.md) | Refactor readiness checklist | Required preflight checklist before any ontology-aligned physical rename or refactor. |
