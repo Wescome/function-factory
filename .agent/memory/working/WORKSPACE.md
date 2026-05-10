@@ -1,12 +1,35 @@
 # Current Workspace
 
 ## Status
-Active task: Production smoke recovery and dry-run side-effect repair complete.
+Active task: Arango bridge stabilization complete.
 
 ## Last update
-2026-05-10T23:25:40Z
+2026-05-10T23:34:24Z
 
 ## Current actions
+
+- Completed: Arango bridge stabilization.
+  - Added `scripts/ops/arango-bridge.sh` to supervise the local ArangoDB
+    container, start a Cloudflare quick tunnel, capture the active tunnel URL,
+    and update deployed Worker `ARANGO_URL` secrets for `ff-pipeline`,
+    `ff-gateway`, and `ff-gates`.
+  - Added `infra/launchd/com.koales.function-factory.arango-bridge.plist` and
+    installed it into `~/Library/LaunchAgents/`.
+  - Started the launchd job
+    `com.koales.function-factory.arango-bridge`; it now owns the Arango bridge
+    instead of the old screen session.
+  - Removed the old screen-held quick tunnel.
+  - Performed a controlled launchd restart; the bridge rotated from the old
+    tunnel URL to a new tunnel URL and production health recovered with Arango
+    healthy.
+  - Verification passed:
+    - `plutil -lint infra/launchd/com.koales.function-factory.arango-bridge.plist`
+    - `bash -n scripts/ops/arango-bridge.sh`
+    - `ff-pipeline /debug/health` returned HTTP 200 with `arango: true`
+    - `ff-gateway /health` returned HTTP 200 with `arango: true`
+  - Remaining durable infrastructure debt:
+    - replace the accountless quick tunnel with a named Cloudflare Tunnel or a
+      managed ArangoDB endpoint once credentials/cert are available.
 
 - Completed: production recovery after ontology hard-cut deploy.
   - Restored Worker-to-Arango connectivity by routing deployed Workers through
