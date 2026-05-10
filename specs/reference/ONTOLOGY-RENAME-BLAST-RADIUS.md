@@ -5,13 +5,14 @@
 **Source references:** `FF-ONTOLOGY-v0.2.md`,
 `ONTOLOGY-CURRENT-MAPPING.md`, `FF-REFACTORING-PLAN.md`
 
-This report estimates the blast radius of renaming current Function Factory
-compatibility names to ontology v0.2 names.
+This report estimates the blast radius of cutting current Function Factory
+implementation names to ontology v0.2 names.
 
 Conclusion: do not perform physical renames yet. The current names are active
-contracts across source, tests, generated artifacts, runtime collections,
-worker diagnostics, live PR evidence, and reference docs. Continue with
-aliases-first work until each rename family has its own compatibility plan.
+runtime and lineage surfaces across source, tests, generated artifacts, runtime
+collections, worker diagnostics, live PR evidence, and reference docs. Continue
+with hard-cut source slices and migration guardrails until each rename family
+has its own cutover plan.
 
 ## Search Scope
 
@@ -86,16 +87,17 @@ Counts are file counts, not occurrence counts.
 
 ## Recommended Sequence
 
-1. Keep current paths and APIs as compatibility names.
-2. Add focused aliases only where they reduce confusion and are covered by
-   package tests.
-3. Write package README alias notes for any packages not covered by the first
-   pass only when touched for related work.
+1. Keep current persisted paths and storage collections stable until their
+   migration slice.
+2. Remove active source-level compatibility aliases in behavior-preserving
+   slices.
+3. Update `pnpm audit:ontology` in each slice so removed names cannot re-enter
+   active source.
 4. For each candidate rename family, satisfy
    `ONTOLOGY-REFACTOR-READINESS-CHECKLIST.md`, then create a one-family
    migration proposal from `ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md` with:
    - exact files touched,
-   - old-to-new compatibility strategy,
+   - old-to-new cutover strategy,
    - rollback plan,
    - local tests,
    - docs audit,
@@ -103,8 +105,8 @@ Counts are file counts, not occurrence counts.
    - live runtime evidence validation where applicable.
 5. Keep `pnpm audit:ontology` and `pnpm audit:docs` green in CI before and
    after each rename-family proposal.
-6. Only after aliases and migration plans are green, decide whether the rename
-   is worth the churn.
+6. Only after migration plans are green, decide whether the rename is worth
+   the churn.
 
 ## Explicit Non-Starters
 
@@ -128,8 +130,8 @@ Counts are file counts, not occurrence counts.
 
 ## Next Safe Step
 
-The additive compatibility audit script now lives at
-`scripts/audit-ontology-compat.mjs` and runs with:
+The hard-cutover audit script now lives at
+`scripts/audit-ontology-hard-cut.mjs` and runs with:
 
 ```bash
 pnpm audit:ontology
@@ -137,8 +139,8 @@ pnpm audit:ontology
 
 It verifies:
 
-- current compatibility names remain exported,
-- ontology aliases resolve to the same schemas,
+- active source does not reintroduce banned legacy APIs,
+- required cutover guardrail files are present,
 - compiler default paths still resolve,
 - docs links still resolve,
 - runtime collection names used by workers match infra seed/init names.
@@ -149,5 +151,5 @@ satisfy `ONTOLOGY-REFACTOR-READINESS-CHECKLIST.md` and start from
 
 The root CI workflow also runs `pnpm audit:docs` and `pnpm audit:ontology` in
 the `Repository Audit` job. The Factory PR Gate depends on that job, so future
-rename proposals must preserve the compatibility contract before they can pass
+rename proposals must preserve the hard-cutover guardrails before they can pass
 the PR gate.

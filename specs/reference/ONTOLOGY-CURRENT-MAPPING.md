@@ -64,12 +64,12 @@ architecture.
 ## Legacy Pipeline Stage Concordance
 
 `FF-ONTOLOGY-ADDENDUM-A.md` maps legacy numbered stages to ontology terms.
-The numbered labels remain compatibility labels for interpreting historical
+The numbered labels remain historical labels for interpreting historical
 ConOps, memory, and skill material. Active docs and new code should lead with
 the ontology category and include the numbered label only when it clarifies a
-legacy interface.
+deferred migration surface.
 
-| Legacy label | Ontology term | Current compatibility surface |
+| Legacy label | Ontology term | Current implementation surface |
 | --- | --- | --- |
 | Stage 1 | Signal Artifact collection | `specs/signals/`, `SIG-*`, `ExternalSignal` |
 | Stage 2 | Pressure Artifact interpretation | `specs/pressures/`, `PRS-*`, `Pressure` |
@@ -82,34 +82,34 @@ legacy interface.
 
 ## Legacy Coverage Gate Concordance
 
-| Legacy label | Ontology term | Current compatibility surface |
+| Legacy label | Ontology term | Current implementation surface |
 | --- | --- | --- |
 | Gate 1 | Coherence Verification | `Gate1Report`, `runGate1`, `gate-1`, `CR-*-GATE1-*` |
 | Gate 2a | Fidelity Verification (learned) | simulated acceptance / model-assisted behavioral correspondence |
 | Gate 2b | Fidelity Verification (deterministic) | deterministic scenario, invariant, and validation-result checks |
-| Gate 2 | Fidelity Verification compatibility umbrella | `Gate2Report`, `Gate2Input`, `gate-2`, `CR-*-GATE2-*` |
+| Gate 2 | Fidelity Verification umbrella | `Gate2Report`, `Gate2Input`, `gate-2`, `CR-*-GATE2-*` |
 | Gate 3 | Persistence Verification | `Gate3Report`, `gate-3`, `CR-*-GATE3-*` |
 
 ## Legacy Compiler Pass Concordance
 
-The current compiler has a live compatibility implementation name conflict:
+The current compiler has a live implementation-name conflict:
 the repo historically implemented `Pass 8` as WorkGraph assembly, while
 `FF-ONTOLOGY-ADDENDUM-A.md` reserves `Pass 8` for future Instruction Tuning.
 Until a physical rename lands, current `08-assemble-workgraph.ts`,
-`assembleWorkgraph`, and `emitWorkgraph` remain compatibility names for the
-Structural Assembly completion step. New code should prefer
+`assembleWorkgraph`, and `emitWorkgraph` remain migration-debt names for the
+Structural Assembly completion step. New code must prefer
 `assembleExecutableSpecification` and `emitExecutableSpecification`.
 
-| Legacy label | Ontology term | Current compatibility surface |
+| Legacy label | Ontology term | Current implementation surface |
 | --- | --- | --- |
 | Pass 1 | Decomposition | `extractAtoms` |
 | Pass 2 | Binding | `deriveContracts` |
 | Pass 3 | Obligation Extraction | `deriveInvariants` |
 | Pass 4 | Structural Assembly (dependency resolution) | `deriveDependencies` |
 | Pass 5 | Structural Assembly (validation wiring) | `deriveValidations` |
-| Pass 6 | Structural Assembly (graph construction / consistency reservation) | `consistencyCheck` plus current assembly compatibility flow |
+| Pass 6 | Structural Assembly (graph construction / consistency reservation) | `consistencyCheck` plus current assembly flow |
 | Pass 7 | Completeness Certification / Coherence Verification | `runCoherenceVerificationPass`, legacy `runGate1Pass` |
-| Current repo Pass 8 | Structural Assembly completion compatibility label | `assembleWorkgraph`, `emitWorkgraph`, `08-assemble-workgraph.ts` |
+| Current repo Pass 8 | Structural Assembly completion migration-debt label | `assembleWorkgraph`, `emitWorkgraph`, `08-assemble-workgraph.ts` |
 | Ontology Pass 8 | Instruction Tuning (future) | Not implemented; do not use current WorkGraph assembly as this category |
 
 ## Artifact ID Prefix Concordance
@@ -128,7 +128,7 @@ These prefixes are stable implementation identifiers, not ontology names.
 
 ## Skill File Concordance
 
-Skill filenames remain stable compatibility names until a separate
+Skill filenames remain current implementation names until a separate
 charter/harness migration lands.
 
 | Legacy skill file | Ontology role | Charter or harness |
@@ -145,10 +145,10 @@ charter/harness migration lands.
 ## Post-v0.2 Stage Extensions
 
 The current repo contains later numbered labels that are outside Addendum A's
-original Stage 1-7 scope. They are compatibility labels for repo-local process
+original Stage 1-7 scope. They are repo-local process labels
 extensions until the ontology receives a v0.3/addendum-B update.
 
-| Current compatibility label | Ontology interpretation | Current surface |
+| Current label | Ontology interpretation | Current surface |
 | --- | --- | --- |
 | Stage 8 | Merge Readiness / PR Handoff / Function identity materialization | MRP assembly, PR draft evidence, `FP-*` to `FN-*` materialization |
 | Stage 8.5 | Selection-bias correction overlay | `packages/selection-bias`, historical adaptation notes |
@@ -177,7 +177,7 @@ extensions until the ontology receives a v0.3/addendum-B update.
 | `packages/schemas/` | Canonical artifact schemas | Keep path and exports. `core.ts` is protected. |
 | `packages/compiler/` | Compilation transformations | Keep path. Future docs may describe decomposition, binding, obligation extraction, assembly, and certification aliases. |
 | `packages/coverage-gates/` | Coherence/Fidelity/Persistence verification support | Keep path. Do not rename to `verification` in this slice. |
-| `packages/runtime/` | Runtime substrate | Keep path. Stubs and APIs remain compatibility names. |
+| `packages/runtime/` | Runtime substrate | Keep path. Stubs and APIs remain current names until implementation work lands. |
 | `packages/assurance-graph/` | Assurance Graph | Keep path. Alias already close to ontology. |
 | `packages/artifact-validator/` | Artifact creation constraint enforcement | Keep path. Maps to ontology constraints and fail-closed persistence checks. |
 | `packages/ontology-loader/` | Ontology loading/query substrate | Keep path. Implements the queryable ontology layer. |
@@ -193,7 +193,7 @@ extensions until the ontology receives a v0.3/addendum-B update.
 | Compile coverage | Coherence Verification | `@factory/coverage-gates`, compiler reports, `specs/coverage-reports/` |
 | Simulation coverage | Fidelity Verification | `workers/ff-pipeline/src/gate2-simulation.ts` and persisted Fidelity Verification reports |
 | Assurance coverage | Persistence Verification | Minimal blocker registration exists; monitored promotion remains out of scope here |
-| `Gate1Report`, `Gate2Report`, `Gate3Report` | Verification Report variants | Existing schemas remain compatibility APIs |
+| `Gate1Report`, `Gate2Report`, `Gate3Report` | Verification Report variants | Existing schemas are migration debt; new code should use Verification names. |
 | Merge Readiness Pack (MRP) | Readiness evidence overlay | Current runtime concept, not replaced by ontology v0.2 |
 | Function identity diagnostic | Lineage and identity consistency check | Current runtime concept, not replaced by ontology v0.2 |
 | Lifecycle transition guard | Fail-closed transition enforcement | Current runtime concept; ontology term is constraint enforcement |
@@ -207,8 +207,8 @@ Current repo state is materially ahead of that baseline:
 | --- | --- | --- |
 | `FN-MOTDWVR2-W7UN` | Materialized and accepted in live runtime evidence | Do not rename or rematerialize as part of ontology grounding. |
 | PR #71 evidence | Live worker, Fidelity Verification, MRP, lifecycle, and identity diagnostics exercised | Treat as authoritative current-state evidence. |
-| Worker pipeline | Active under `workers/ff-pipeline/` | Keep paths stable until compatibility checks exist. |
-| Fidelity Verification reports | Persisted in `specs_coverage_reports` live storage | Current legacy storage discriminators remain compatibility API. |
+| Worker pipeline | Active under `workers/ff-pipeline/` | Keep paths stable until cutover checks exist. |
+| Fidelity Verification reports | Persisted in `specs_coverage_reports` live storage | Current legacy storage discriminators remain deferred migration surfaces. |
 | MRP records | Active merge-readiness evidence | Keep MRP terminology unless a separate ontology extension replaces it. |
 | Function proposal/runtime split | `FP-*` proposal identity and `FN-*` function identity both matter | Preserve both identities and their lineage edge. |
 
@@ -219,14 +219,14 @@ Current repo state is materially ahead of that baseline:
 | Legacy implementation name | Current name exists in active implementation but is not the desired kernel term. |
 | Aligned | Current name already matches ontology vocabulary closely enough. |
 | Partial alias | Ontology term is useful but current implementation has extra semantics. |
-| Deferred | Requires a separate compatibility PR, tests, and approval. |
+| Deferred | Requires a separate cutover PR, tests, and approval. |
 
 ## Deferred Work
 
-- Package and specs README alias language has been added for low-risk docs.
-- Non-breaking schema aliases have been added in
-  `packages/schemas/src/ontology-aliases.ts`; existing schema names remain the
-  compatibility APIs.
+- Package and specs README alias language exists from earlier grounding work;
+  do not treat it as the target architecture.
+- Non-breaking schema aliases exist in `packages/schemas/src/ontology-aliases.ts`;
+  existing schema names are migration debt.
 - Do not edit `.agent/AGENTS.md`, `.agent/skills/*`, protected schema modules,
   or directory names in this ontology-alignment pass.
 - Do not promote any Function to `monitored` from this roadmap. Persistence
@@ -253,9 +253,8 @@ Do not introduce ontology-named replacement collection identifiers such as
 `fidelity_verifications` without the same one-family proposal and data
 migration plan.
 
-The machine-readable compatibility contract lives in
-`ONTOLOGY-COMPATIBILITY-CONTRACT.json` and is enforced by
-`pnpm audit:ontology`.
+The machine-readable hard-cutover guardrails live in
+`ONTOLOGY-CUTOVER-CONSTRAINTS.json` and are enforced by `pnpm audit:ontology`.
 
 A future cutover PR must first satisfy
 `ONTOLOGY-REFACTOR-READINESS-CHECKLIST.md`, be scoped to one rename family at a

@@ -1,14 +1,30 @@
 # Current Workspace
 
 ## Status
-Active task: hard-cut active ontology names and Domain Adapter runtime routing;
-main implementation pushed, literate-sync follow-up pending commit/push/checks.
+Active task: Trellis refactor hard-cut; first commit in progress to remove
+compatibility-as-strategy framing and set the executable-specification code
+slice backlog.
 
 ## Last update
 2026-05-10T18:38:01Z
 
 ## Current actions
 
+- Completed: Trellis first-cut refactor checkpoint.
+  - Renamed the ontology audit implementation from
+    `scripts/audit-ontology-compat.mjs` to
+    `scripts/audit-ontology-hard-cut.mjs`.
+  - Renamed the machine-readable guardrail file from
+    `ONTOLOGY-COMPATIBILITY-CONTRACT.json` to
+    `ONTOLOGY-CUTOVER-CONSTRAINTS.json`.
+  - Added `specs/reference/TRELLIS-REFACTOR-FIRST-CUT.md` to name the active
+    source residues and first code slice.
+  - Verification passed:
+    - `pnpm audit:ontology`
+    - `pnpm audit:docs`
+    - `pnpm -r typecheck`
+    - `git diff --check`
+  - `specs/reference/NLAH` remains untouched and untracked by request.
 - Completed: literate canonical source sync for hard-cut ontology names.
   - Updated `specs/reference/literate-canonical-reference.md` so tangle now
     emits `ExecutableSpecification`, `VerificationReport`, and descriptive

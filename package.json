@@ -50,7 +50,7 @@
     "autonomous-scheduler:typecheck": "pnpm --filter @factory/autonomous-scheduler run typecheck",
     "autonomous-scheduler:cli": "tsx packages/autonomous-scheduler/src/cli.ts",
     "audit:docs": "node scripts/audit-docs.mjs",
-    "audit:ontology": "node scripts/audit-ontology-compat.mjs",
+    "audit:ontology": "node scripts/audit-ontology-hard-cut.mjs",
     "dream": "tsx .agent/tools/dream.ts",
     "bootstrap": "tsx scripts/bootstrap.ts"
   },

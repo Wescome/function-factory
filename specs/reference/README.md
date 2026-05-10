@@ -24,7 +24,8 @@ Read these first when grounding work in the architecture.
 | [`FF-ONTOLOGY-ADDENDUM-A.md`](FF-ONTOLOGY-ADDENDUM-A.md) | Ontology v0.2 addendum; historical-number concordance | Maps legacy stages, gates, compiler passes, artifact prefixes, and skill files to ontology terms. Use when interpreting numbered source material; do not treat it as approval for physical renames. |
 | [`ONTOLOGY-ADDENDUM-B-STAGE-EXTENSIONS.md`](ONTOLOGY-ADDENDUM-B-STAGE-EXTENSIONS.md) | Repo-local stage extension concordance | Maps current Stage 8/8.5/9/10 compatibility labels to primary process interpretations until the ontology receives a later revision. |
 | [`ONTOLOGY-CURRENT-MAPPING.md`](ONTOLOGY-CURRENT-MAPPING.md) | Current implementation-to-kernel crosswalk | Maps existing repo terms, paths, packages, verification terms, and runtime concepts to domain-kernel terms; legacy implementation names are migration debt, not the target architecture. |
-| [`ONTOLOGY-COMPATIBILITY-CONTRACT.json`](ONTOLOGY-COMPATIBILITY-CONTRACT.json) | Machine-readable compatibility contract | Lists stable directories, package names, forbidden replacement paths, and forbidden collection identifiers enforced by `pnpm audit:ontology`. |
+| [`ONTOLOGY-CUTOVER-CONSTRAINTS.json`](ONTOLOGY-CUTOVER-CONSTRAINTS.json) | Machine-readable hard-cutover guardrails | Lists current physical surfaces, package names, forbidden replacement paths, and forbidden collection identifiers enforced by `pnpm audit:ontology`. |
+| [`TRELLIS-REFACTOR-FIRST-CUT.md`](TRELLIS-REFACTOR-FIRST-CUT.md) | Active Trellis refactor backlog | Names the first no-compatibility-baggage code slices and the active source residues they must remove. |
 | [`ONTOLOGY-RENAME-BLAST-RADIUS.md`](ONTOLOGY-RENAME-BLAST-RADIUS.md) | Pre-refactor assessment | Classifies current-name usage across source, specs, workers, infra, and docs; recommends no physical rename before one-family migration plans exist. |
 | [`ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md`](ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md) | Rename proposal template | Required structure for any future one-family physical rename proposal. |
 | [`ONTOLOGY-REFACTOR-READINESS-CHECKLIST.md`](ONTOLOGY-REFACTOR-READINESS-CHECKLIST.md) | Refactor readiness checklist | Required preflight checklist before any ontology-aligned physical rename or refactor. |
@@ -124,7 +125,8 @@ Do not rewrite them just to modernize vocabulary. Use
 [`FF-ONTOLOGY-ADDENDUM-A.md`](FF-ONTOLOGY-ADDENDUM-A.md) and
 [`ONTOLOGY-ADDENDUM-B-STAGE-EXTENSIONS.md`](ONTOLOGY-ADDENDUM-B-STAGE-EXTENSIONS.md)
 to interpret those numbers. Active docs and new code should lead with ontology
-terms and keep numbered labels only as explicit compatibility names.
+terms and keep numbered labels only when describing historical artifacts or
+deferred migration surfaces.
 
 ## Known Friction To Resolve Later
 

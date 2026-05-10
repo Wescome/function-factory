@@ -10,6 +10,7 @@ let checks = 0
 
 const requiredFiles = [
   'specs/reference/DOMAIN-FACTORY-KERNEL.md',
+  'specs/reference/ONTOLOGY-CUTOVER-CONSTRAINTS.json',
   'specs/reference/FF-ONTOLOGY-ADDENDUM-A.md',
   'specs/reference/ONTOLOGY-ADDENDUM-B-STAGE-EXTENSIONS.md',
   'packages/schemas/src/domain-adapter.ts',
@@ -26,7 +27,7 @@ const requiredFiles = [
 for (const file of requiredFiles) {
   checks += 1
   if (!existsSync(path.join(root, file))) {
-    failures.push(`missing required ontology file: ${file}`)
+    failures.push(`missing required ontology hard-cut file: ${file}`)
   }
 }
 

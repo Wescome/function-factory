@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "status": "active compatibility contract",
+  "status": "active hard-cutover guardrails",
   "stableDirectories": [
     "specs/prds",
     "specs/workgraphs",

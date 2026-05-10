@@ -2,17 +2,17 @@
 
 **Status:** Template for future one-family rename proposals
 **Use when:** A PR proposes any physical path, package, schema API, runtime
-collection, or worker terminology rename from current compatibility names to
+collection, or worker terminology rename from current implementation names to
 ontology v0.2 names.
 
 Do not use this template to justify a bulk rename. Each proposal must cover
-exactly one rename family and must preserve the current compatibility contract
-until the migration is proven green.
+exactly one rename family and must preserve the current live evidence and
+cutover guardrails until the migration is proven green.
 
 ## Rename Family
 
 - Family:
-- Current compatibility names:
+- Current implementation names:
 - Ontology target names:
 - Physical surfaces:
 - Runtime surfaces:
@@ -24,18 +24,18 @@ until the migration is proven green.
 - Proposed action:
 - Why the rename is worth the churn:
 - Why aliases alone are insufficient:
-- Compatibility names that remain valid after merge:
-- Compatibility names scheduled for later removal:
+- Current names that remain valid after merge:
+- Current names scheduled for later removal:
 
-## Compatibility Strategy
+## Cutover Strategy
 
 - Export aliases:
 - Import/path aliases:
-- Read compatibility:
-- Write compatibility:
-- Generated artifact compatibility:
-- Runtime data compatibility:
-- Documentation compatibility:
+- Read cutover:
+- Write cutover:
+- Generated artifact cutover:
+- Runtime data cutover:
+- Documentation cutover:
 
 ## Blast Radius
 
@@ -52,7 +52,7 @@ until the migration is proven green.
 - Data rollback:
 - Alias rollback:
 - Runtime rollback:
-- Evidence that rollback preserves current names:
+- Evidence that rollback preserves current live evidence:
 
 ## Verification Plan
 
@@ -64,8 +64,8 @@ Before merge, the PR must show:
 - `pnpm -r typecheck`
 - Reference search for stale old paths and stale new aliases
 - Remote `Repository Audit`, `Test`, `Typecheck`, and Factory PR Gate checks
-- Live worker, MRP, lifecycle, and Gate evidence validation when the rename
-  touches runtime or persisted surfaces
+- Live worker, MRP, lifecycle, and Verification evidence validation when the
+  rename touches runtime or persisted surfaces
 
 ## Non-Starters
 
@@ -73,7 +73,7 @@ Before merge, the PR must show:
 - No edit to `packages/schemas/src/core.ts` without explicit approval.
 - No edit to `.agent/AGENTS.md` or `.agent/skills/*` without explicit
   approval.
-- No Arango collection rename without dual-read compatibility and a data
+- No Arango collection rename without an explicit read cutover and a data
   migration plan.
-- No replacement of Gate 2, MRP, lifecycle, or accepted Function evidence terms
-  without live runtime validation.
+- No replacement of Fidelity Verification, MRP, lifecycle, or accepted Function
+  evidence terms without live runtime validation.
