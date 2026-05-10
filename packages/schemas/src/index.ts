@@ -19,6 +19,7 @@ export * from "./trust.js"
 export * from "./decision-state.js"
 export * from "./commit-triage.js"
 export * from "./sdlc.js"
+export * from "./domain-adapter.js"
 export * from "./ontology-aliases.js"
 export {
   CoherenceVerificationReport,

@@ -10,6 +10,7 @@
     "./core": "./src/core.ts",
     "./lineage": "./src/lineage.ts",
     "./coverage": "./src/coverage.ts",
+    "./domain-adapter": "./src/domain-adapter.ts",
     "./ontology-aliases": "./src/ontology-aliases.ts"
   },
   "scripts": {

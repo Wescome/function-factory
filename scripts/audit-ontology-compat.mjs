@@ -20,6 +20,8 @@ const files = {
   coverageSchema: 'packages/schemas/src/coverage.ts',
   sdlcSchema: 'packages/schemas/src/sdlc.ts',
   sdlcSchemaTest: 'packages/schemas/src/sdlc.test.ts',
+  domainAdapterSchema: 'packages/schemas/src/domain-adapter.ts',
+  domainAdapterSchemaTest: 'packages/schemas/src/domain-adapter.test.ts',
   compilerPackageJson: 'packages/compiler/package.json',
   coverageGatesPackageJson: 'packages/coverage-gates/package.json',
   prdAuthoringPackageJson: 'packages/prd-authoring/package.json',
@@ -104,6 +106,7 @@ checkNoUnapprovedOntologyRenameTargets()
 checkNoUnapprovedOntologyCollectionTargets()
 checkCiGate()
 checkSchemaAliases()
+checkDomainAdapterSchemas()
 checkLegacyNumberConcordance()
 checkCompilerPathContracts()
 checkDocsSurfaces()
@@ -358,6 +361,53 @@ function checkSchemaAliases() {
   expectIncludes('ontology loader constraints require Fidelity Verification', read(files.ontologyConstraints), "requires: 'FidelityVerification'")
   expectIncludes('ontology loader constraints require Persistence Verification', read(files.ontologyConstraints), "requires: 'PersistenceVerification'")
   expectIncludes('ontology loader properties use Coherence Verification language', read(files.ontologyProperties), 'Coherence Verification rejects')
+}
+
+function checkDomainAdapterSchemas() {
+  const domainAdapter = read(files.domainAdapterSchema)
+  const domainAdapterTest = read(files.domainAdapterSchemaTest)
+  const schemaIndex = read(files.schemaIndex)
+  const schemaPackage = read(files.schemaPackageJson)
+  const schemasReadme = read('packages/schemas/README.md')
+
+  const requiredSchemaTerms = [
+    'export const DomainAdapterId',
+    'export const KernelConcept',
+    'export const DomainAdapterTermMapping',
+    'export const DomainExecutionMode',
+    'export const DomainAdapterContract',
+    'export const DomainExecutionRequest',
+    'export const DomainExecutionEvidence',
+    'executableSpecificationId',
+    'intentSpecificationId',
+  ]
+
+  for (const term of requiredSchemaTerms) {
+    expectIncludes(`domain adapter schema includes ${term}`, domainAdapter, term)
+  }
+
+  const requiredKernelConcepts = [
+    'domain_substrate',
+    'execution_workspace',
+    'handoff_artifact',
+    'effector_realization_artifact',
+    'verification_evidence_source',
+    'human_governance_input',
+    'lifecycle_transition_substrate',
+    'agent_call_role',
+  ]
+
+  for (const term of requiredKernelConcepts) {
+    expectIncludes(`domain adapter schema maps ${term}`, domainAdapter, term)
+  }
+
+  expectIncludes('domain adapter tests keep pull request as adapter term', domainAdapterTest, 'adapterTerm: "pull request"')
+  expectIncludes('domain adapter tests keep CI check as evidence source mapping', domainAdapterTest, 'adapterTerm: "CI check"')
+  expectIncludes('domain adapter tests reject workGraphId in parsed request', domainAdapterTest, 'expect("workGraphId" in parsed).toBe(false)')
+  expectIncludes('schema index exports domain adapter module', schemaIndex, 'export * from "./domain-adapter.js"')
+  expectIncludes('schema package exports domain adapter subpath', schemaPackage, '"./domain-adapter": "./src/domain-adapter.ts"')
+  expectIncludes('schemas README documents domain-adapter module', schemasReadme, 'domain-adapter')
+  expectIncludes('schemas README keeps coding terms inside adapter mappings', schemasReadme, 'coding-adapter mappings')
 }
 
 function checkCompilerPathContracts() {

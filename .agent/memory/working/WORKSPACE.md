@@ -1,14 +1,35 @@
 # Current Workspace
 
 ## Status
-Active task: domain Factory kernel anchor completed; pending commit, push, and
-PR checks.
+Active task: domain adapter schema boundary completed; pending commit, push,
+and PR checks.
 
 ## Last update
-2026-05-10T15:15:25Z
+2026-05-10T15:41:39Z
 
 ## Current actions
 
+- Completed: Domain Adapter schema boundary.
+  - Added `packages/schemas/src/domain-adapter.ts` with
+    `DomainAdapterContract`, `DomainExecutionRequest`, and
+    `DomainExecutionEvidence`.
+  - Added test coverage proving coding terms such as pull request and CI check
+    are adapter-local substrate mappings while execution request/evidence fields
+    use kernel names such as `intentSpecificationId` and
+    `executableSpecificationId`.
+  - Exported the schema module from `@factory/schemas` and its package subpath.
+  - Updated `packages/schemas/README.md` and `pnpm audit:ontology` coverage for
+    the domain-adapter boundary.
+  - Verification passed:
+    - focused schema test failed before implementation
+    - `pnpm --filter @factory/schemas test -- src/domain-adapter.test.ts`
+    - `pnpm --filter @factory/schemas test`
+    - `pnpm --filter @factory/schemas typecheck`
+    - `pnpm audit:docs`
+    - `pnpm audit:ontology`
+    - `pnpm -r typecheck`
+    - `git diff --check`
+  - `specs/reference/NLAH` remains untouched and untracked by request.
 - Completed: Domain Factory kernel anchor.
   - Added `specs/reference/DOMAIN-FACTORY-KERNEL.md` as the active
     domain-neutral architecture anchor.
