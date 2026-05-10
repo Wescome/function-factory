@@ -22,6 +22,8 @@ const files = {
   sdlcSchemaTest: 'packages/schemas/src/sdlc.test.ts',
   domainAdapterSchema: 'packages/schemas/src/domain-adapter.ts',
   domainAdapterSchemaTest: 'packages/schemas/src/domain-adapter.test.ts',
+  codingDomainAdapter: 'packages/schemas/src/coding-domain-adapter.ts',
+  codingDomainAdapterTest: 'packages/schemas/src/coding-domain-adapter.test.ts',
   compilerPackageJson: 'packages/compiler/package.json',
   coverageGatesPackageJson: 'packages/coverage-gates/package.json',
   prdAuthoringPackageJson: 'packages/prd-authoring/package.json',
@@ -107,6 +109,7 @@ checkNoUnapprovedOntologyCollectionTargets()
 checkCiGate()
 checkSchemaAliases()
 checkDomainAdapterSchemas()
+checkCodingDomainAdapterContract()
 checkLegacyNumberConcordance()
 checkCompilerPathContracts()
 checkDocsSurfaces()
@@ -408,6 +411,54 @@ function checkDomainAdapterSchemas() {
   expectIncludes('schema package exports domain adapter subpath', schemaPackage, '"./domain-adapter": "./src/domain-adapter.ts"')
   expectIncludes('schemas README documents domain-adapter module', schemasReadme, 'domain-adapter')
   expectIncludes('schemas README keeps coding terms inside adapter mappings', schemasReadme, 'coding-adapter mappings')
+}
+
+function checkCodingDomainAdapterContract() {
+  const codingAdapter = read(files.codingDomainAdapter)
+  const codingAdapterTest = read(files.codingDomainAdapterTest)
+  const schemaIndex = read(files.schemaIndex)
+  const schemaPackage = read(files.schemaPackageJson)
+  const schemasReadme = read('packages/schemas/README.md')
+
+  expectIncludes('coding adapter exports parsed contract', codingAdapter, 'export const CodingDomainAdapterContract = DomainAdapterContract.parse')
+  expectIncludes('coding adapter uses canonical adapter id', codingAdapter, 'adapterId: "adapter.coding"')
+  expectIncludes('coding adapter names git/github/ci substrate', codingAdapter, 'substrate: "git-github-ci"')
+
+  const requiredMappings = [
+    ['repository', 'domain_substrate'],
+    ['branch', 'execution_workspace'],
+    ['pull request', 'handoff_artifact'],
+    ['diff', 'effector_realization_artifact'],
+    ['CI check', 'verification_evidence_source'],
+    ['code review', 'human_governance_input'],
+    ['deployment', 'lifecycle_transition_substrate'],
+    ['Coder', 'agent_call_role'],
+    ['Tester', 'agent_call_role'],
+  ]
+
+  for (const [adapterTerm, kernelConcept] of requiredMappings) {
+    expectIncludes(`coding adapter maps ${adapterTerm}`, codingAdapter, `adapterTerm: "${adapterTerm}"`)
+    expectIncludes(`coding adapter maps ${adapterTerm} to ${kernelConcept}`, codingAdapter, `kernelConcept: "${kernelConcept}"`)
+  }
+
+  const evidenceSources = [
+    'test-result',
+    'typecheck-result',
+    'repository-audit',
+    'literate-sync',
+    'factory-pr-gate',
+    'runtime-diagnostic',
+  ]
+
+  for (const evidenceSource of evidenceSources) {
+    expectIncludes(`coding adapter declares evidence source ${evidenceSource}`, codingAdapter, `"${evidenceSource}"`)
+  }
+
+  expectIncludes('coding adapter test asserts adapter identity', codingAdapterTest, 'adapterId).toBe("adapter.coding")')
+  expectIncludes('coding adapter test asserts exact substrate mappings', codingAdapterTest, 'toEqual([')
+  expectIncludes('schema index exports coding adapter module', schemaIndex, 'export * from "./coding-domain-adapter.js"')
+  expectIncludes('schema package exports coding adapter subpath', schemaPackage, '"./coding-domain-adapter": "./src/coding-domain-adapter.ts"')
+  expectIncludes('schemas README documents coding-domain-adapter module', schemasReadme, 'coding-domain-adapter')
 }
 
 function checkCompilerPathContracts() {

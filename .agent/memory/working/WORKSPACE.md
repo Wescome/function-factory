@@ -1,14 +1,33 @@
 # Current Workspace
 
 ## Status
-Active task: domain adapter schema boundary completed; pending commit, push,
-and PR checks.
+Active task: coding Domain Adapter contract materialized; pending commit,
+push, and PR checks.
 
 ## Last update
-2026-05-10T15:41:39Z
+2026-05-10T16:54:19Z
 
 ## Current actions
 
+- Completed: Coding Domain Adapter contract materialization.
+  - Added `packages/schemas/src/coding-domain-adapter.ts` exporting
+    `CodingDomainAdapterContract` as a parsed `DomainAdapterContract`.
+  - Added tests proving coding substrate terms map exactly to kernel concepts:
+    repository, branch, pull request, diff, CI check, code review, deployment,
+    Coder, and Tester.
+  - Exported `@factory/schemas/coding-domain-adapter` and updated schemas docs.
+  - Expanded `pnpm audit:ontology` to enforce the coding adapter record and
+    its evidence/effectors.
+  - Verification passed:
+    - focused coding adapter test failed before implementation
+    - `pnpm --filter @factory/schemas test -- src/coding-domain-adapter.test.ts src/domain-adapter.test.ts`
+    - `pnpm --filter @factory/schemas test`
+    - `pnpm --filter @factory/schemas typecheck`
+    - `pnpm audit:docs`
+    - `pnpm audit:ontology`
+    - `pnpm -r typecheck`
+    - `git diff --check`
+  - `specs/reference/NLAH` remains untouched and untracked by request.
 - Completed: Domain Adapter schema boundary.
   - Added `packages/schemas/src/domain-adapter.ts` with
     `DomainAdapterContract`, `DomainExecutionRequest`, and

@@ -42,6 +42,9 @@ Re-exports from the following modules:
 - `commit-triage` -- Commit triage schemas
 - `domain-adapter` -- `DomainAdapterContract`, `DomainExecutionRequest`, and
   `DomainExecutionEvidence` kernel boundary schemas
+- `coding-domain-adapter` -- the bootstrap coding Domain Adapter contract that
+  maps repository/branch/pull request/diff/CI/deployment terms into kernel
+  concepts
 - `ontology-aliases` -- Non-breaking aliases from ontology v0.2 terms to
   current stable schema names (`IntentSpecification` -> `PRDDraft`,
   `ExecutableSpecification` -> `WorkGraph`, `VerificationReport` ->
