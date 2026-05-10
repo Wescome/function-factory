@@ -45,6 +45,31 @@ typecheck, and PR checks remain green.
 
 **Status:** Active.
 
+## 2026-05-10: Domain Factory kernel is canonical; coding is an adapter
+
+**Decision:** Treat the Function Factory as a domain-neutral kernel whose
+canonical concepts are Signal, Pressure, Capability, Function Proposal,
+Function, Intent Specification, Executable Specification, Verification,
+Evidence, Lifecycle, and Domain Adapter. Coding terms such as repository,
+branch, pull request, diff, CI check, code review, Coder, Tester, and deployment
+belong to the coding Domain Adapter, not the Factory kernel.
+
+**Rationale:** The Factory is being generalized from a code-generation factory
+into a domain factory. If coding substrate terms remain first-class architecture
+categories, every downstream domain will inherit software-specific baggage and
+the ontology exercise will collapse back into a repo/PR pipeline. The bootstrap
+coding implementation remains useful evidence, but it is not the product
+boundary.
+
+**Consequences:** Active architecture docs and new source should use kernel
+terms first. New refactors should hard-cut active surfaces to kernel terms
+rather than adding permanent dual names. Persisted data migrations still need
+explicit migration plans, but compatibility should be treated as migration debt,
+not as architecture. Coding-specific terms may remain inside adapter
+implementation, tests, historical references, and live PR evidence.
+
+**Status:** Active.
+
 ## 2026-04-18: Function as the canonical executable unit
 **Decision:** Use `Function` as the single-word name for the core executable
 unit. All other candidates (Capability, Instrument, Decision-Capability,

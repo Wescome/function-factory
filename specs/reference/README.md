@@ -19,10 +19,11 @@ Read these first when grounding work in the architecture.
 
 | Document | Current status | Role |
 | --- | --- | --- |
+| [`DOMAIN-FACTORY-KERNEL.md`](DOMAIN-FACTORY-KERNEL.md) | Active architecture anchor | Defines the domain-neutral kernel vocabulary and makes coding one Domain Adapter rather than the Factory identity. Read before coding-adapter or physical refactor work. |
 | [`FF-ONTOLOGY-v0.2.md`](FF-ONTOLOGY-v0.2.md) | Newest architecture reference; working document | Ontology anchor for current architecture vocabulary and categorical structure. Use with the compatibility mapping before proposing renames. |
 | [`FF-ONTOLOGY-ADDENDUM-A.md`](FF-ONTOLOGY-ADDENDUM-A.md) | Ontology v0.2 addendum; historical-number concordance | Maps legacy stages, gates, compiler passes, artifact prefixes, and skill files to ontology terms. Use when interpreting numbered source material; do not treat it as approval for physical renames. |
 | [`ONTOLOGY-ADDENDUM-B-STAGE-EXTENSIONS.md`](ONTOLOGY-ADDENDUM-B-STAGE-EXTENSIONS.md) | Repo-local stage extension concordance | Maps current Stage 8/8.5/9/10 compatibility labels to primary process interpretations until the ontology receives a later revision. |
-| [`ONTOLOGY-CURRENT-MAPPING.md`](ONTOLOGY-CURRENT-MAPPING.md) | Current compatibility crosswalk | Maps existing repo terms, paths, packages, verification terms, and runtime concepts to ontology v0.2 aliases while preserving current physical names. |
+| [`ONTOLOGY-CURRENT-MAPPING.md`](ONTOLOGY-CURRENT-MAPPING.md) | Current implementation-to-kernel crosswalk | Maps existing repo terms, paths, packages, verification terms, and runtime concepts to domain-kernel terms; legacy implementation names are migration debt, not the target architecture. |
 | [`ONTOLOGY-COMPATIBILITY-CONTRACT.json`](ONTOLOGY-COMPATIBILITY-CONTRACT.json) | Machine-readable compatibility contract | Lists stable directories, package names, forbidden replacement paths, and forbidden collection identifiers enforced by `pnpm audit:ontology`. |
 | [`ONTOLOGY-RENAME-BLAST-RADIUS.md`](ONTOLOGY-RENAME-BLAST-RADIUS.md) | Pre-refactor assessment | Classifies current-name usage across source, specs, workers, infra, and docs; recommends no physical rename before one-family migration plans exist. |
 | [`ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md`](ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md) | Rename proposal template | Required structure for any future one-family physical rename proposal. |
@@ -106,6 +107,14 @@ replace the typed internal artifact graph (`PRS-*`, `BC-*`, `FP-*`, `PRD-*`,
 `WG-*`, `INV-*`, `CR-*`) or its `source_refs` lineage. The current strategic
 reference for this boundary is
 [`ONTOLOGICAL-SELF-SENSING-2026-05-03.md`](ONTOLOGICAL-SELF-SENSING-2026-05-03.md).
+
+## Domain Adapter Rule
+
+The Factory kernel is domain-neutral. Coding, GitHub, pull requests, branches,
+diffs, CI checks, repositories, and deployments are coding-adapter terms. They
+may appear in adapter docs and historical references, but they must not be
+introduced as kernel categories in active architecture. The current anchor for
+this rule is [`DOMAIN-FACTORY-KERNEL.md`](DOMAIN-FACTORY-KERNEL.md).
 
 ## Legacy Number Policy
 

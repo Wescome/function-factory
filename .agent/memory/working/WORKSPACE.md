@@ -1,14 +1,33 @@
 # Current Workspace
 
 ## Status
-Active task: completed ontology addendum and legacy-number concordance backlog;
-pending commit, push, and PR checks.
+Active task: domain Factory kernel anchor completed; pending commit, push, and
+PR checks.
 
 ## Last update
-2026-05-10T14:57:53Z
+2026-05-10T15:15:25Z
 
 ## Current actions
 
+- Completed: Domain Factory kernel anchor.
+  - Added `specs/reference/DOMAIN-FACTORY-KERNEL.md` as the active
+    domain-neutral architecture anchor.
+  - Updated `README.md`, `ARCHITECTURE.md`, `.agent/AGENTS.md`, and
+    `specs/reference/README.md` so coding is framed as the bootstrap Domain
+    Adapter, not the Factory kernel.
+  - Updated `specs/reference/ONTOLOGY-CURRENT-MAPPING.md` from
+    compatibility-as-strategy language to legacy implementation names as
+    migration debt under a hard-cutover policy.
+  - Added a DECISIONS entry: Domain Factory kernel is canonical; coding is an
+    adapter.
+  - Expanded `pnpm audit:ontology` to enforce the domain kernel anchor,
+    adapter boundary, and decision-log entry.
+  - Verification passed:
+    - `pnpm audit:docs`
+    - `pnpm audit:ontology`
+    - `pnpm -r typecheck`
+    - `git diff --check`
+  - `specs/reference/NLAH` remains untouched and untracked by request.
 - Completed: Addendum A/B pre-refactor concordance pass.
   - Added `specs/reference/ONTOLOGY-ADDENDUM-B-STAGE-EXTENSIONS.md` for
     Stage 8 Merge Readiness / PR Handoff, Stage 8.5 Selection-Bias Correction,

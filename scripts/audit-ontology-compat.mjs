@@ -59,6 +59,7 @@ const files = {
   arangoReadme: 'infra/arangodb/README.md',
   specsReadme: 'specs/README.md',
   referenceReadme: 'specs/reference/README.md',
+  domainKernel: 'specs/reference/DOMAIN-FACTORY-KERNEL.md',
   compatibilityContract: 'specs/reference/ONTOLOGY-COMPATIBILITY-CONTRACT.json',
   addendumA: 'specs/reference/FF-ONTOLOGY-ADDENDUM-A.md',
   addendumB: 'specs/reference/ONTOLOGY-ADDENDUM-B-STAGE-EXTENSIONS.md',
@@ -106,6 +107,7 @@ checkSchemaAliases()
 checkLegacyNumberConcordance()
 checkCompilerPathContracts()
 checkDocsSurfaces()
+checkDomainFactoryKernel()
 checkActiveTerminologySurfaces()
 checkPackageAliasReadmes()
 checkWorkerAliasReadmes()
@@ -459,6 +461,59 @@ function checkDocsSurfaces() {
   expectIncludes('current mapping requires rename proposal template', mapping, 'ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md')
   expectIncludes('current mapping requires refactor readiness checklist', mapping, 'ONTOLOGY-REFACTOR-READINESS-CHECKLIST.md')
   expectIncludes('current mapping links compatibility contract manifest', mapping, 'ONTOLOGY-COMPATIBILITY-CONTRACT.json')
+}
+
+function checkDomainFactoryKernel() {
+  const domainKernel = read(files.domainKernel)
+  const referenceReadme = read(files.referenceReadme)
+  const mapping = read(files.mapping)
+  const rootReadme = read(files.rootReadme)
+  const architecture = read('ARCHITECTURE.md')
+  const agentMap = read(files.agentMap)
+  const decisions = read('.agent/memory/semantic/DECISIONS.md')
+
+  const kernelTerms = [
+    'domain-neutral compiler',
+    'Coding is one adapter domain',
+    'Intent Specification',
+    'Executable Specification',
+    'Verification',
+    'Evidence',
+    'Lifecycle',
+    'Domain Adapter',
+    'Hard Cutover Rule',
+  ]
+
+  for (const term of kernelTerms) {
+    expectIncludes(`domain kernel defines ${term}`, domainKernel, term)
+  }
+
+  const adapterTerms = [
+    'repository | domain substrate',
+    'branch | execution workspace',
+    'pull request | handoff artifact',
+    'diff | effector realization artifact',
+    'CI check | Verification evidence source',
+    'code review | human governance input',
+    'deployment | lifecycle transition substrate',
+  ]
+
+  for (const term of adapterTerms) {
+    expectIncludes(`domain kernel maps coding adapter term ${term}`, domainKernel, term)
+  }
+
+  expectIncludes('reference index links domain kernel', referenceReadme, 'DOMAIN-FACTORY-KERNEL.md')
+  expectIncludes('reference index documents domain adapter rule', referenceReadme, '## Domain Adapter Rule')
+  expectIncludes('current mapping cites domain kernel as source', mapping, 'DOMAIN-FACTORY-KERNEL.md')
+  expectIncludes('current mapping documents domain kernel policy', mapping, '## Domain Kernel Policy')
+  expectIncludes('current mapping documents coding adapter boundary', mapping, '## Coding Adapter Boundary')
+  expectIncludes('root README declares domain-neutral Factory', rootReadme, 'A domain-neutral compiler for trustworthy executable Functions.')
+  expectIncludes('root README makes coding one Domain Adapter', rootReadme, 'coding is one Domain')
+  expectIncludes('architecture declares domain-neutral compiler', architecture, 'domain-neutral closed-loop compiler')
+  expectIncludes('architecture makes coding the bootstrap adapter', architecture, 'Coding is the bootstrap Domain Adapter')
+  expectIncludes('agent map names implementation agent', agentMap, 'implementation agent working on the **Function Factory**')
+  expectIncludes('agent map defines domain adapter boundary', agentMap, 'Domain adapter boundary')
+  expectIncludes('decision log records domain kernel decision', decisions, 'Domain Factory kernel is canonical; coding is an adapter')
 }
 
 function checkActiveTerminologySurfaces() {

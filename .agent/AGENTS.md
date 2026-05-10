@@ -4,15 +4,15 @@ This file is the map. Read it before doing anything.
 
 ## Who you are
 
-You are a coding agent working on the **Function Factory** — a closed-loop
-compiler that turns Pressures (forcing functions on the organization) into
-trustworthy executable Functions. See `README.md` for the project shape and
-`specs/` for current Factory artifacts.
+You are an implementation agent working on the **Function Factory** — a
+domain-neutral closed-loop compiler that turns Pressures (forcing functions on
+the organization or system) into trustworthy executable Functions. See
+`README.md` for the project shape and `specs/` for current Factory artifacts.
 
 The Factory is being built by the Factory. That means the work you do here is
 itself subject to Factory discipline: every artifact you produce carries
-lineage, every invariant you specify must have a detector, every PR must cite
-the Function ID it implements.
+lineage, every invariant you specify must have a detector, every change must
+cite the Function ID it implements.
 
 ## What to read, in order
 
@@ -50,6 +50,9 @@ the Function ID it implements.
 - **Commit message format.** `FN-XXX: summary` for Function work,
   `GATE-N: summary` for Coverage Gate work, `META: summary` for
   Factory-about-the-Factory changes, `INFRA: summary` for repo plumbing.
+- **Domain adapter boundary.** Coding concepts such as repositories, branches,
+  diffs, pull requests, CI checks, code review, and deployments belong to the
+  coding Domain Adapter. They are not Factory kernel categories.
 
 ## Rules
 
@@ -63,17 +66,13 @@ the Function ID it implements.
    permission seems wrong rather than bypassing it.
 5. **When a skill's self-rewrite hook fires, propose conservative edits only.**
    Aggressive rewrites ossify into ossified mistakes.
-6. **Never generate a WorkGraph/Executable Specification that fails Coherence
-   Verification.** Legacy Gate 1 compatibility names still appear in reports
-   and APIs, but the ontology term is primary. A failed Coherence Verification
-   means the PRD/Intent Specification is incomplete; go back upstream, do not
-   proceed.
+6. **Never generate an Executable Specification that fails Coherence
+   Verification.** A failed Coherence Verification means the Intent
+   Specification is incomplete; go back upstream, do not proceed.
 7. **Never promote a Function from `verified` to `monitored` without Fidelity
-   Verification passing.** Legacy Gate 2 compatibility names still appear in
-   reports and APIs. Fidelity evidence is a hard precondition.
+   Verification passing.** Fidelity evidence is a hard precondition.
 8. **Never mark a Function `monitored` without active Persistence
-   Verification monitoring.** Legacy Gate 3 compatibility names still appear
-   in reports and APIs. Detector freshness is continuous; silence is a
+   Verification monitoring.** Detector freshness is continuous; silence is a
    regression.
 
 ## Bootstrap state
@@ -85,10 +84,11 @@ The Factory is in the `bootstrap` phase. In this phase:
 - The first Pressures are meta-Pressures — forcing functions that the
   Factory's own construction is responding to.
 - The first Capabilities are the Factory's own required abilities
-  (Compile PRDs, Execute WorkGraphs, Compute Trust, etc.).
-- The first Functions *are* the Factory. Every compiler pass, every gate,
+  (compile Intent Specifications, execute Executable Specifications, compute
+  trust, etc.).
+- The first Functions *are* the Factory. Every compiler pass, every Verification,
   every schema validator is a Function with a full lineage.
-- Coverage Reports are generated even when coverage fails. The Report is the
+- Verification Reports are generated even when Verification fails. The Report is the
   product at this stage, more than the implementation it reports on.
 
 ## How to behave

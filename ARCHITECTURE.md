@@ -1,9 +1,14 @@
 # Architecture
 
-The Function Factory is a closed-loop compiler that transforms Signals
-(observations about the world) into trustworthy executable Functions, then
-feeds runtime observations back as new Signals. Every artifact carries full
-lineage. Every invariant has a detector. Every gate is fail-closed.
+The Function Factory is a domain-neutral closed-loop compiler that transforms
+Signals (observations about any domain substrate) into trustworthy executable
+Functions, then feeds runtime observations back as new Signals. Every artifact
+carries full lineage. Every invariant has a detector. Every Verification is
+fail-closed.
+
+Coding is the bootstrap Domain Adapter. It supplies repositories, branches,
+diffs, pull requests, CI checks, and deployments as one execution substrate.
+Those concepts are adapter terms, not Factory kernel categories.
 
 This document covers the full pipeline, every artifact type, every package,
 and every governance policy. A new engineer should be able to navigate the
@@ -32,13 +37,13 @@ entire system after reading it.
 
   SPECIFICATION                   EXECUTION                   OBSERVATION
   -------------                   ---------                   -----------
-  PRD ---> compiler (8 passes)    RAD ---> EXS ---> EFF       OBS
+  INTENT -> compiler              RAD ---> EXS ---> EFF       OBS
            |                                |         |         |
            v                                v         v         v
-         WG + AC                          EXT <-- EFFR        SIG (feedback)
+         EXEC + AC                        EXT <-- EFFR        SIG (feedback)
            |                                |                   |
            v                                v                   |
-         CR (coverage)                    EXR                   |
+         VR (verification)                EXR                   |
                                                                 |
                       <-------- feedback loop ---------<--------+
 
@@ -57,9 +62,9 @@ Stage 4:     BC + DDI --> DEL (capability delta) --> FP (function proposals)
 Stage 4.5:   FP --> AC (architecture candidates)
 Stage 8.5:   AC + DDI --> CRL --> SBI (selection bias adjustment)
 Stage 4.75:  AC + SBI --> ACS (selected candidate)
-Stage 5:     FP --> PRD --> [8 compiler passes] --> WG + ATOM + CONTRACT + INV + DEP + VAL
-Stage 5.5:   WG --> CR (coverage gates 1/2/3, fail-closed)
-Stage 6:     ACS + WG --> RAD (runtime admission, allow/deny)
+Stage 5:     FP --> Intent Specification --> compiler --> Executable Specification + ATOM + CONTRACT + INV + DEP + VAL
+Stage 5.5:   Executable Specification --> Verification Report (Coherence/Fidelity/Persistence, fail-closed)
+Stage 6:     ACS + Executable Specification --> RAD (runtime admission, allow/deny)
 Stage 6.25:  RAD --> EXS (execution start) --> EXT (execution trace) --> EXR (result)
 Stage 6.5:   EXS --> EFF (controlled effectors, tool policy enforcement)
 Stage 6.75:  EFF --> EFFR (effector realization, safe_execute)
@@ -90,15 +95,15 @@ canonical regex lives in `packages/schemas/src/lineage.ts`.
 | `CRL` | Candidate Reliability | `schemas/selection-bias.ts` | 8.5 -- Selection Bias |
 | `SBI` | Selection Bias Input | `schemas/selection-bias.ts` | 8.5 -- Selection Bias |
 | `ACS` | Architecture Candidate Selection | `schemas/candidate-selection.ts` | 4.75 -- Candidate Selection |
-| `PRD` | PRD Draft | `schemas/core.ts` | 5 -- PRD Authoring |
+| `PRD` | Intent Specification | `schemas/core.ts` | 5 -- Intent Specification Authoring |
 | `ATOM` | Requirement Atom | `schemas/core.ts` | 5 -- Compiler Pass 1 |
 | `CONTRACT` | Contract | `schemas/core.ts` | 5 -- Compiler Pass 2 |
 | `INV` | Invariant (with detector) | `schemas/core.ts` | 5 -- Compiler Pass 3 |
 | `DET` | Detector | reserved (embedded in INV) | 5 -- Compiler Pass 3 |
 | `DEP` | Dependency | `schemas/core.ts` | 5 -- Compiler Pass 4 |
 | `VAL` | Validation Spec | `schemas/core.ts` | 5 -- Compiler Pass 5 |
-| `WG` | Work Graph | `schemas/core.ts` | 5 -- Compiler Pass 6 |
-| `CR` | Coverage Report | `schemas/coverage.ts` | 5.5 -- Coverage Gates |
+| `WG` | Executable Specification | `schemas/core.ts` | 5 -- Structural Assembly |
+| `CR` | Verification Report | `schemas/coverage.ts` | 5.5 -- Verification |
 | `CTR` | Commit Triage Record | `schemas/commit-triage.ts` | Infrastructure |
 | `TRJ` | Trajectory | `schemas/core.ts` | 7 -- Observability |
 | `PF` | Problem Frame | `schemas/core.ts` | 7 -- Observability |
@@ -173,8 +178,8 @@ Key observations:
 | 4 | Capability Delta | `capability-delta` | `BC`, `DDI` | `DEL`, `FP` |
 | 4.5 | Architecture Candidates | `architecture-candidates` | `FP` | `AC` |
 | 4.75 | Candidate Selection | `candidate-selection` | `AC`, `SBI` | `ACS` |
-| 5 | PRD Compilation | `prd-authoring`, `compiler` | `FP`, `PRD` | `ATOM`, `CONTRACT`, `INV`, `DEP`, `VAL`, `WG` |
-| 5.5 | Coverage Gates | `coverage-gates` | `WG`, `INV`, `VAL`, `DEP` | `CR` (Gate 1/2/3) |
+| 5 | Intent-to-Executable Compilation | `prd-authoring`, `compiler` | `FP`, `PRD` | `ATOM`, `CONTRACT`, `INV`, `DEP`, `VAL`, `WG` |
+| 5.5 | Verification | `coverage-gates` | `WG`, `INV`, `VAL`, `DEP` | `CR` |
 | 6 | Runtime Admission | `runtime-admission` | `ACS`, `WG` | `RAD` |
 | 6.25 | Execution Lifecycle | `execution-lifecycle` | `RAD` | `EXS`, `EXT`, `EXR` |
 | 6.5 | Controlled Effectors | `controlled-effectors` | `EXS`, `WG` | `EFF` |
@@ -193,42 +198,44 @@ Cross-cutting packages:
 | `schemas` | Canonical Zod schemas for every artifact type. Foundation for all packages. |
 | `assurance-graph` | Incident propagation via typed dependencies (5 types: blocks, constrains, implements, validates, informs). |
 | `runtime` | Trust scoring, invariant health, regression detection (`TRJ`, `PF`, `INC`). |
-| `recursion-governance` | Prevents unbounded self-modification. PRD quality gate and recursion depth checks. |
-| `harness-bridge` | Connects the pipeline to external execution harnesses (Claude Code, etc.). |
+| `recursion-governance` | Prevents unbounded self-modification. Intent Specification quality gate and recursion depth checks. |
+| `harness-bridge` | Connects the kernel to Domain Adapters and execution harnesses. |
 
-### Compiler passes (Stage 5 detail)
+### Compiler Transformations
 
-The `compiler` package runs 8 narrow passes over a `PRDDraft`:
+The `compiler` package runs narrow transformations over an Intent
+Specification:
 
 | Pass | Name | Input | Output |
 |------|------|-------|--------|
-| 1 | Atomize | `PRD` | `ATOM` (requirement atoms) |
+| 1 | Decomposition | `PRD` | `ATOM` (requirement atoms) |
 | 2 | Contract extraction | `ATOM` | `CONTRACT` |
 | 3 | Invariant derivation | `ATOM`, `CONTRACT` | `INV` (each with `DetectorSpec`) |
 | 4 | Dependency analysis | `ATOM`, `CONTRACT`, `INV` | `DEP` |
 | 5 | Validation planning | `ATOM`, `CONTRACT`, `INV` | `VAL` |
-| 6 | Work graph synthesis | All prior passes | `WG` |
-| 7 | Cross-reference audit | All artifacts | Lineage consistency check |
-| 8 | Coverage evaluation | `WG` vs `ATOM`/`CONTRACT`/`INV` | `CR` (via coverage-gates) |
+| 6 | Structural assembly | All prior passes | `WG` |
+| 7 | Completeness Certification / Coherence Verification | All artifacts | `CR` |
+| Current implementation assembly | Executable Specification Assembly | All prior passes + Coherence Verification | `WG` |
 
 Each pass is narrow: it reads only its declared inputs and writes only its
 declared outputs. No pass may skip or reorder.
 
 ---
 
-## 5. Coverage Gates
+## 5. Verification
 
-Three gates, all fail-closed:
+Three Verification families, all fail-closed:
 
-| Gate | Name | What it checks | When it runs |
-|------|------|----------------|--------------|
-| 1 | Compile Coverage | Every ATOM, CONTRACT, and INV is reachable from the WG. Detectors exist for all invariants. In bootstrap mode, verifies META- prefix on all artifact IDs. | After compiler pass 8 |
-| 2 | Simulation Coverage | WorkGraph execution in simulation produces expected outputs and no invariant violations. | Before promoting from `verified` to `monitored` |
-| 3 | Monitoring Coverage | Active detectors are fresh and firing. Silence is a regression. | Continuous, while Function is `monitored` |
+| Verification | What it checks | When it runs |
+|------|----------------|--------------|
+| Coherence Verification | Every ATOM, CONTRACT, and INV is reachable from the Executable Specification. Detectors exist for all invariants. In bootstrap mode, verifies META- prefix on all artifact IDs. | Before execution assembly completes |
+| Fidelity Verification | Execution evidence corresponds to the Intent Specification and no invariant violations are observed. | Before promoting beyond verified execution evidence |
+| Persistence Verification | Active detectors are fresh and firing. Silence is a regression. | Continuous, while Function is monitored |
 
-A failed gate blocks downstream progress. Gate 1 failure means the PRD is
-incomplete -- go back upstream. Gate 2 failure means the implementation
-is untested. Gate 3 failure means production monitoring has gone silent.
+A failed Verification blocks downstream progress. Coherence failure means the
+Intent Specification is incomplete -- go back upstream. Fidelity failure means
+the implementation or domain realization is unproven. Persistence failure means
+active assurance has gone silent.
 
 ---
 
@@ -239,7 +246,7 @@ specific aspect of the pipeline's self-modification behavior:
 
 | Order | Policy ID | Governs |
 |-------|-----------|---------|
-| 1 | `GOV-META-BOOTSTRAP-RUNTIME-ADMISSION` | Which WorkGraphs are admitted for execution |
+| 1 | `GOV-META-BOOTSTRAP-RUNTIME-ADMISSION` | Which Executable Specifications are admitted for execution |
 | 2 | `GOV-META-SIGNAL-HYGIENE-WEIGHTING` | How signals are normalized, deduped, and weighted |
 | 3 | `GOV-META-ADAPTIVE-PRESSURE-RECALIBRATION` | How feedback adjusts Pressure strength/urgency |
 | 4 | `GOV-META-SELECTION-BIAS-ADAPTATION` | How observation outcomes adjust candidate scoring |
@@ -282,10 +289,10 @@ Six rules from the whitepaper that have no exceptions:
 
 1. **Lineage preservation** -- every artifact carries `source_refs`.
 2. **Narrow-pass discipline** -- compiler passes read only declared inputs, write only declared outputs.
-3. **Explicit invariants with detectors** -- an `INV` without a `DetectorSpec` is rejected at Gate 1.
+3. **Explicit invariants with detectors** -- an `INV` without a `DetectorSpec` is rejected by Coherence Verification.
 4. **Typed assurance dependencies** -- 5 types (`blocks`, `constrains`, `implements`, `validates`, `informs`), no defaults.
 5. **Trajectory-driven closure** -- drift detection feeds back as new Signals.
-6. **Three coverage gates, fail-closed** -- Gate 1 (compile), Gate 2 (simulation), Gate 3 (monitoring).
+6. **Three Verification families, fail-closed** -- Coherence, Fidelity, and Persistence Verification.
 
 ---
 
@@ -301,10 +308,10 @@ function-factory/
     architecture-candidates/    Stage 4.5: generate architecture candidates
     selection-bias/             Stage 8.5: adjust candidate scoring from observations
     candidate-selection/        Stage 4.75: score and select candidates
-    prd-authoring/              Stage 5: author PRD drafts from function proposals
-    compiler/                   Stage 5: 8-pass PRD-to-WorkGraph compiler
-    coverage-gates/             Stage 5.5: fail-closed coverage evaluation
-    runtime-admission/          Stage 6: admit/deny WorkGraphs for execution
+    prd-authoring/              Stage 5: author Intent Specifications from Function Proposals
+    compiler/                   Stage 5: Intent-to-Executable compiler
+    coverage-gates/             Stage 5.5: fail-closed Verification
+    runtime-admission/          Stage 6: admit/deny Executable Specifications for execution
     execution-lifecycle/        Stage 6.25: start, trace, result lifecycle
     controlled-effectors/       Stage 6.5: tool policy enforcement
     effector-realization/       Stage 6.75: safe execution of effector actions
@@ -320,11 +327,11 @@ function-factory/
     pressures/                  PRS-* artifacts
     capabilities/               BC-* artifacts
     functions/                  FP-* artifacts
-    prds/                       PRD-* artifacts
-    workgraphs/                 WG-* artifacts
+    prds/                       Intent Specification artifacts
+    workgraphs/                 Executable Specification artifacts
     invariants/                 INV-* + detector specs
-    coverage-reports/           CR-* artifacts (Gate 1/2/3 outputs)
-  .agent/                       Coding agent infrastructure (memory, skills, protocols)
+    coverage-reports/           Verification Report artifacts
+  .agent/                       Implementation agent infrastructure (memory, skills, protocols)
 ```
 
 ---
@@ -337,10 +344,10 @@ The Factory is currently in `bootstrap` mode (`FactoryMode = "bootstrap"` in
 - Signals are internal (whitepaper, ConOps, build events, agent traces).
 - The first Pressures are meta-Pressures on the Factory's own construction.
 - The first Capabilities are the Factory's own abilities.
-- The first Functions **are** the Factory -- every compiler pass, gate, and
+- The first Functions **are** the Factory -- every compiler pass, Verification, and
   schema validator is a Function with full lineage.
-- Gate 1 enforces the `META-` prefix on all bootstrap artifact IDs.
-- Coverage Reports are generated even when coverage fails. The Report is the
+- Coherence Verification enforces the `META-` prefix on all bootstrap artifact IDs.
+- Verification Reports are generated even when Verification fails. The Report is the
   product at this stage.
 
 The Factory builds itself. Its operational history is the proof that it works.

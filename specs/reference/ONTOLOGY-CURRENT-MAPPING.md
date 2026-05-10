@@ -2,33 +2,64 @@
 
 **Status:** Current-state compatibility crosswalk
 **Date:** 2026-05-08
-**Source references:** `FF-ONTOLOGY-v0.2.md`, `FF-ONTOLOGY-ADDENDUM-A.md`,
+**Source references:** `DOMAIN-FACTORY-KERNEL.md`,
+`FF-ONTOLOGY-v0.2.md`, `FF-ONTOLOGY-ADDENDUM-A.md`,
 `FF-REFACTORING-PLAN.md`,
 `.agent/memory/semantic/DECISIONS.md`,
 `.agent/memory/working/WORKSPACE.md`
 
-This document maps the current repository vocabulary to the ontology v0.2
-vocabulary without renaming live paths, packages, schemas, or APIs.
+This document maps the current repository vocabulary to the domain-neutral
+Factory kernel and ontology v0.2 vocabulary.
 
-The current physical names are stable compatibility names. Ontology terms are
-aliases for interpretation, documentation, and future non-breaking API aliases.
-Physical renames require a separate compatibility audit, docs audit, tests, and
-explicit rename decision.
+The domain-neutral kernel is canonical. Coding-specific names are adapter terms
+or implementation debt, not ontology categories. New refactors should hard-cut
+active surfaces to kernel names rather than accumulating permanent dual names.
+Physical renames still require an explicit migration plan, docs audit, tests,
+and an explicit rename decision.
 
-## Alias Policy
+## Domain Kernel Policy
+
+The Factory kernel terms are Signal, Pressure, Capability, Function Proposal,
+Function, Intent Specification, Executable Specification, Verification,
+Evidence, Lifecycle, and Domain Adapter. Coding terms such as repository,
+branch, pull request, diff, CI check, code review, deployment, Coder, and Tester
+belong inside the coding Domain Adapter.
+
+Do not promote coding-adapter terms into the kernel. When an active surface is
+refactored, remove the old active name in that slice and migrate persisted data
+where needed. Historical artifacts may keep their original names.
+
+## Legacy Implementation Name Policy
 
 | Current term | Ontology term | Status | Notes |
 | --- | --- | --- | --- |
-| PRD | Intent Specification | Stable compatibility name | `PRD-*` IDs and `specs/prds/` remain current. |
-| WorkGraph | Executable Specification | Stable compatibility name | `WG-*` IDs and `specs/workgraphs/` remain current. |
-| Compile coverage numbered compatibility term | Coherence Verification | Stable compatibility name | Existing numbered APIs and IDs remain compatibility surfaces only. |
-| Simulation coverage numbered compatibility term | Fidelity Verification | Stable compatibility name | Existing numbered APIs and IDs remain compatibility surfaces only. |
-| Assurance coverage numbered compatibility term | Persistence Verification | Stable compatibility name | Existing numbered APIs and IDs remain compatibility surfaces only. |
-| Coverage Report | Verification Report | Stable compatibility name | `CR-*` IDs and `specs/coverage-reports/` remain current. |
+| PRD | Intent Specification | Legacy implementation name | `PRD-*` IDs and `specs/prds/` exist today; active refactors should cut to Intent Specification names. |
+| WorkGraph | Executable Specification | Legacy implementation name | `WG-*` IDs and `specs/workgraphs/` exist today; active refactors should cut to Executable Specification names. |
+| Compile coverage numbered compatibility term | Coherence Verification | Legacy implementation name | Existing numbered APIs and IDs are migration debt. |
+| Simulation coverage numbered compatibility term | Fidelity Verification | Legacy implementation name | Existing numbered APIs and IDs are migration debt. |
+| Assurance coverage numbered compatibility term | Persistence Verification | Legacy implementation name | Existing numbered APIs and IDs are migration debt. |
+| Coverage Report | Verification Report | Legacy implementation name | `CR-*` IDs and `specs/coverage-reports/` exist today; active refactors should cut to Verification Report names. |
 | FunctionProposal | Function Proposal | Aligned | `FP-*` remains the proposal identity prefix. |
 | Function | Function | Aligned | `FN-*` remains the executable unit identity prefix. |
-| Invariant | Invariant Specification | Stable compatibility name | `INV-*` IDs and `specs/invariants/` remain current. |
+| Invariant | Invariant Specification | Legacy implementation name | `INV-*` IDs and `specs/invariants/` exist today. |
 | Contract | Execution Contract | Partial alias | `CONTRACT-*` artifacts remain current; Pan-aligned term is interpretive. |
+
+## Coding Adapter Boundary
+
+The current repository proves the kernel through a coding adapter. These terms
+are adapter-local and should not appear as kernel categories in new
+architecture.
+
+| Coding adapter term | Kernel role | Migration status |
+| --- | --- | --- |
+| repository | Domain substrate | Keep inside coding adapter docs and runtime integration. |
+| branch | Execution workspace | Do not model as a kernel lifecycle state. |
+| pull request | Handoff artifact | Do not generalize as the Function output. |
+| diff | Effector realization artifact | Domain-specific evidence/effect, not kernel evidence itself. |
+| CI check | Verification evidence source | One possible evidence source among many. |
+| code review | Human governance input | Adapter-local review workflow. |
+| deployment | Lifecycle substrate transition | Adapter-local realization of promotion. |
+| Coder / Tester | Adapter execution roles | Kernel role is Agent Call / Domain Adapter execution. |
 
 ## Legacy Pipeline Stage Concordance
 
@@ -185,7 +216,7 @@ Current repo state is materially ahead of that baseline:
 
 | Status | Meaning |
 | --- | --- |
-| Stable compatibility name | Current name remains valid and should not be mass-renamed. |
+| Legacy implementation name | Current name exists in active implementation but is not the desired kernel term. |
 | Aligned | Current name already matches ontology vocabulary closely enough. |
 | Partial alias | Ontology term is useful but current implementation has extra semantics. |
 | Deferred | Requires a separate compatibility PR, tests, and approval. |
@@ -201,14 +232,16 @@ Current repo state is materially ahead of that baseline:
 - Do not promote any Function to `monitored` from this roadmap. Persistence
   Verification active monitoring remains a separate runtime workstream.
 
-## Physical Rename Decision
+## Physical Cutover Decision
 
-Physical renames are deferred. The compatibility names in this document remain
-the active paths, package names, artifact IDs, schema exports, and runtime API
-terms.
+Physical renames are still explicit migration work, but the target is a hard
+cutover to kernel terms rather than permanent compatibility baggage. The legacy
+implementation names in this document remain present in current paths, package
+names, artifact IDs, schema exports, and runtime API terms until their
+respective cutover slices migrate them.
 
 Do not create ontology-named replacement directories or packages in parallel
-with the compatibility paths as a shortcut around the rename process. Examples
+with legacy paths as a shortcut around the rename process. Examples
 include `specs/intent-specifications`, `specs/executable-specifications`,
 `specs/verification-reports`, `packages/verification`, or
 `workers/ff-fidelity-verification`. Those targets require the same one-family
@@ -217,24 +250,24 @@ rename proposal and audit updates as any physical rename.
 Do not introduce ontology-named replacement collection identifiers such as
 `specs_intent_specifications`, `specs_executable_specifications`,
 `specs_verification_reports`, `coherence_verifications`, or
-`fidelity_verifications` without the same one-family proposal, dual-read
-compatibility, and migration plan.
+`fidelity_verifications` without the same one-family proposal and data
+migration plan.
 
 The machine-readable compatibility contract lives in
 `ONTOLOGY-COMPATIBILITY-CONTRACT.json` and is enforced by
 `pnpm audit:ontology`.
 
-A future rename PR must first satisfy
+A future cutover PR must first satisfy
 `ONTOLOGY-REFACTOR-READINESS-CHECKLIST.md`, be scoped to one rename family at a
 time, start from `ONTOLOGY-RENAME-PROPOSAL-TEMPLATE.md`, and include:
 
-1. Compatibility aliases already merged.
+1. A hard-cutover decision for the rename family.
 2. `pnpm audit:docs`.
 3. `pnpm audit:ontology`.
 4. Package tests for affected exports.
 5. Full `pnpm -r typecheck`.
 6. Reference search for stale paths and stale ontology aliases.
-7. Explicit confirmation that live worker, MRP, lifecycle, and Verification evidence
-   references remain valid.
+7. Explicit migration handling for live worker, MRP, lifecycle, and
+   Verification evidence references.
 8. Green remote `Repository Audit`, `Test`, `Typecheck`, and Factory PR Gate
    checks.

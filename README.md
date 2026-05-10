@@ -1,15 +1,16 @@
 # Function Factory
 
-An upstream-to-downstream compiler for trustworthy executable Functions.
+A domain-neutral compiler for trustworthy executable Functions.
 
 **Reference:** `The Function Factory` whitepaper v4 (Celestin, 2026-04-18) in
 `/WeOps/Architecture/inbox/The_Function_Factory_2026-04-18_v4.md`
 
 **First application:** the Factory built by the Factory. Every artifact in this
 repository carries lineage back to the Pressure that birthed it, the Capability
-it implements, the PRD that specified it, the WorkGraph that realized it, and
-the Coverage Reports it passed. The repository's own construction is the
-bootstrap proof.
+it implements, the Intent Specification that specified it, the Executable
+Specification that realized it, and the Verification Reports it passed. The
+repository's own construction is the bootstrap proof, but coding is one Domain
+Adapter, not the Factory's identity.
 
 ## Architecture
 
@@ -17,41 +18,41 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full pipeline diagram, artifact
 prefix glossary, package dependency map, stage-by-stage breakdown, and
 governance policy chain. Every package also has its own README.
 
+The active domain-neutral kernel is
+[`specs/reference/DOMAIN-FACTORY-KERNEL.md`](specs/reference/DOMAIN-FACTORY-KERNEL.md).
 Ontology v0.2 is indexed in
 [`specs/reference/FF-ONTOLOGY-v0.2.md`](specs/reference/FF-ONTOLOGY-v0.2.md).
 Use
 [`specs/reference/ONTOLOGY-CURRENT-MAPPING.md`](specs/reference/ONTOLOGY-CURRENT-MAPPING.md)
-as the compatibility crosswalk: ontology terms such as Intent Specification,
-Executable Specification, Coherence Verification, Fidelity Verification,
-Persistence Verification, and Verification Report are primary; current PRD,
-WorkGraph, Coverage Report, and legacy numbered verification names remain
-stable compatibility surfaces.
+to interpret implementation names that predate the kernel cutover. Kernel terms
+such as Intent Specification, Executable Specification, Verification, Evidence,
+Lifecycle, and Domain Adapter are primary.
 
 ## Repository layout
 
 ```
-.agent/                         # Coding agent entry point. Read AGENTS.md first.
+.agent/                         # Implementation agent entry point. Read AGENTS.md first.
   memory/                       # Four-layer memory (working, episodic, semantic, personal)
   skills/                       # Self-rewriting skill files with YAML frontmatter
   protocols/                    # Tool schemas, permissions, delegation rules
   harness/                      # Conductor hooks (pre/post/on-failure)
   tools/                        # Skill loader, budget tracker, memory writer
 
-packages/                       # TypeScript monorepo (pnpm workspaces)
+packages/                       # TypeScript implementation monorepo (pnpm workspaces)
   schemas/                      # Canonical Zod schemas for every Factory object
   compiler/                     # Intent → Executable Specification compilation
   coverage-gates/               # §6: Coherence/Fidelity/Persistence Verification
   assurance-graph/              # §5: incident propagation via typed dependencies
   runtime/                      # Persistence Verification, trust, invariant health, regression
-  autonomous-scheduler/          # Agent Call orchestration boundary: WorkGraph → AgentRequest → evidence
+  autonomous-scheduler/          # Agent Call orchestration boundary: Executable Specification → AgentRequest → evidence
 
 specs/                          # Factory artifacts (Factory-built-by-Factory)
   signals/                      # Signal Artifacts (legacy Stage 1, ExternalSignal, SIG-*)
   pressures/                    # Pressure Artifacts (legacy Stage 2)
   capabilities/                 # Capability Artifacts (legacy Stage 3)
   functions/                    # Function Proposals and Function records (legacy Stage 4)
-  prds/                         # Intent Specifications (legacy Stage 5 input)
-  workgraphs/                   # Executable Specifications (legacy Stage 5 output)
+  prds/                         # Intent Specifications
+  workgraphs/                   # Executable Specifications
   invariants/                   # Invariant + detector specs; ontology alias: Invariant Specifications
   coverage-reports/             # Verification Reports
 ```
@@ -65,11 +66,12 @@ specs/                          # Factory artifacts (Factory-built-by-Factory)
 3. Compile Pressures into Capabilities (what the Factory must be able to do).
 4. Generate FunctionProposals for each Capability's execution/control/evidence
    triple.
-5. Draft PRDs per FunctionProposal.
-6. Run Intent-to-Executable compilation against each PRD — even when incomplete, it
-   emits Coverage Reports that tell you what's missing.
-7. Execute the resulting WorkGraphs via Claude Code or another harness, with
-   strict lineage logging into `.agent/memory/episodic/`.
+5. Draft Intent Specifications per Function Proposal.
+6. Run Intent-to-Executable compilation against each Intent Specification --
+   even when incomplete, it emits Verification Reports that tell you what's
+   missing.
+7. Execute the resulting Executable Specifications through a Domain Adapter,
+   with strict lineage logging into `.agent/memory/episodic/`.
 8. Validate against invariants, compute trust, detect regression.
 9. Feed runtime drift back as new Signals. Loop.
 
@@ -87,13 +89,13 @@ The Factory's own operational history *is* the proof that the Factory works.
 - **Every commit is attributable to a Function ID.** Commit messages use the
   format `FN-XXX: summary` or `META: summary`; legacy `GATE-N: summary`
   remains accepted for compatibility work on numbered verification surfaces.
-- **Coverage Reports are first-class artifacts.** They live in
+- **Verification Reports are first-class artifacts.** They live in
   `specs/coverage-reports/` and are versioned alongside code.
 - **Memory is markdown. Skills are markdown. The harness is a thin conductor.**
   This is Avid's rule and it applies here: the agent's intelligence lives in
   the files, not in the loop.
 
-## Quickstart for coding agents
+## Quickstart For Implementation Agents
 
 1. Read `.agent/AGENTS.md` first. That is the map.
 2. Check `.agent/memory/working/WORKSPACE.md` for the current task state.
@@ -112,7 +114,7 @@ The whitepaper's six non-negotiables apply literally here:
 3. Explicit invariants with detector specs.
 4. Assurance dependency typing (5 types, no defaults).
 5. Trajectory-driven closure with a birth gate.
-6. The three Coverage Gates, fail-closed.
+6. Coherence, Fidelity, and Persistence Verification, fail-closed.
 
-A PR that violates any of the six must be justified in its description or
+A change that violates any of the six must be justified in its description or
 rejected at review.
