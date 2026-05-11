@@ -3,6 +3,33 @@
 Past architectural choices that would be costly to revisit. Do not
 re-litigate without explicit architect approval.
 
+## 2026-05-11: Learning evidence substrate precedes Dream DO
+
+**Decision:** Implement Factory learning as a disabled-by-default Learning
+Evidence Substrate before any active Dream Durable Object. Learning documents
+are Arango collection documents with `source_refs`, not canonical artifact
+families, until a later artifact identity decision. Phases 1-6 use collection
+documents only and do not write `lineage_edges` or participate in
+`lineage_graph`.
+
+**Rationale:** The DREAM-DO source material is directionally useful, but the
+current runtime has concrete constraints: Workflow steps must not call Durable
+Objects, terminal pipeline results exit through multiple return paths, the
+Arango client's create path is not retry-safe under Workflow replay, and no
+complete governance apply path exists for template or routing changes. Starting
+with durable evidence capture gives the Factory learning memory without
+creating a second control loop or allowing unreviewed learning output to affect
+Verification, compilation, routing, or lifecycle.
+
+**Consequences:** `@factory/learning` owns pure schemas and deterministic
+derivations. Pipeline integration is optional and disabled by default. Runtime
+writes must use deterministic keys, UPSERT semantics, bounded timeout, and
+caught failure behavior. Template promotion, warm-start, routing proposals, and
+Dream DO mutation remain blocked until typed governance requests, mutation
+journals, detectors, and negative tests exist.
+
+**Status:** Active.
+
 ## 2026-05-10: Intent/Executable/Verification IDs and storage are canonical
 
 **Decision:** Hard-cut active repository surfaces from `IS-*`,

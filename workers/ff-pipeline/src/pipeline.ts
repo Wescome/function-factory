@@ -21,6 +21,7 @@ import { loadCrystallizerEnabled } from './config/crystallizer-config'
 import { createCRP } from './crp'
 import { transitionLifecycle } from './lifecycle'
 import { buildTrellisPacketForSynthesis } from './trellis-instruction-tuning'
+import { captureLearningTranscript } from './learning-capture'
 import type {
   CoherenceVerificationReport,
   PipelineEnv,
@@ -88,12 +89,26 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     db.setValidator(validateArtifact)
     const params = event.payload
     const dryRun = params.dryRun ?? false
+    const workflowRunId = typeof (event as { instanceId?: unknown }).instanceId === 'string'
+      ? (event as { instanceId: string }).instanceId
+      : undefined
 
     // ── Signal Artifact collection (legacy Stage 1) ──
     const signal = await step.do('ingest-signal', DB_STEP_CONFIG, async () => {
       return toStep(await ingestSignal(params.signal, db))
     })
     const signalKey = signal._key as string
+    const captureTerminal = (
+      terminalResult: PipelineResult,
+      trellis?: { id?: unknown; audit?: { packetHash?: unknown } },
+    ): Promise<PipelineResult> => captureLearningTranscript({
+      env: this.env,
+      db,
+      runId: workflowRunId ?? terminalResult.signalId ?? signalKey,
+      terminalResult,
+      ...(typeof trellis?.id === 'string' ? { trellisExecutionPacketId: trellis.id } : {}),
+      ...(typeof trellis?.audit?.packetHash === 'string' ? { trellisExecutionPacketHash: trellis.audit.packetHash } : {}),
+    })
 
     // ── Pressure Artifact interpretation (legacy Stage 2) ──
     const pressure = await step.do('synthesize-pressure', AI_STEP_CONFIG, async () => {
@@ -178,11 +193,12 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
         })
         return { persisted: true }
       })
-      return {
+      const rejectionResult: PipelineResult = {
         status: 'rejected',
         reason: approvalPayload?.reason ?? 'Architect declined',
         signalId: signalKey,
       }
+      return captureTerminal(rejectionResult)
     }
 
     // ── Semantic review (Critic-at-authoring, pre-compile) ──
@@ -369,11 +385,12 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
 
     // SE-2: Handle intent-violation escalation
     if (intentViolation) {
-      return {
+      const intentViolationResult: PipelineResult = {
         status: 'synthesis:intent-violation',
         signalId: signalKey,
         reason: `Block-severity intent anchors violated after ${MAX_REMEDIATION} remediation attempts. Violated anchors: ${((compState as Rec)._violatedAnchors ?? []).join(', ')}`,
       }
+      return captureTerminal(intentViolationResult)
     }
 
     const executableSpecificationKey = (compState.executableSpecification as { _key?: string })?._key ?? 'unknown'
@@ -442,7 +459,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
         return { enqueued: true }
       })
 
-      return coherenceVerificationFailResult
+      return captureTerminal(coherenceVerificationFailResult)
     }
 
     // ── Persist gate pass ──
@@ -472,11 +489,12 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     // Instead: queue a synthesis request, wait for an external trigger
     // to call the DO via HTTP and send the result back as a workflow event.
     if (!compState.executableSpecification) {
-      return {
+      const compileIncompleteResult: PipelineResult = {
         status: 'compile-incomplete',
         signalId: signalKey,
         reason: 'No ExecutableSpecification produced by compilation',
       }
+      return captureTerminal(compileIncompleteResult)
     }
 
     const executableSpecification = compState.executableSpecification as { _key?: string; [k: string]: unknown }
@@ -503,13 +521,14 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
         })
         return { persisted: true }
       })
-      return {
+      const instructionTuningBlockedResult: PipelineResult = {
         status: 'instruction-tuning-blocked',
         signalId: signalKey,
         executableSpecificationId: executableSpecificationKey,
         reason: 'Instruction Tuning could not emit a certified Trellis Execution Packet.',
         diagnostics: instructionTuning.diagnostics,
       } as PipelineResult
+      return captureTerminal(instructionTuningBlockedResult)
     }
 
     const trellisExecutionPacket = instructionTuning.packet as Record<string, unknown>
@@ -594,7 +613,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
         atomResults = atomsPayload.atomResults
       } catch {
         // Timeout or error waiting for atoms — report as synthesis-timeout
-        return {
+        const synthesisTimeoutResult: PipelineResult = {
           status: 'synthesis-timeout',
           signalId: signalKey,
           pressureId: pressureKey,
@@ -608,6 +627,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
             repairCount: synthPayload.repairCount,
           },
         }
+        return captureTerminal(synthesisTimeoutResult, trellisExecutionPacket)
       }
     }
 
@@ -666,6 +686,6 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       })
     }
 
-    return finalResult
+    return captureTerminal(finalResult, trellisExecutionPacket)
   }
 }

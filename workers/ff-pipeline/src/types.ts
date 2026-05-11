@@ -45,6 +45,12 @@ export interface PipelineEnv {
   /** GitHub personal access token for PR creation */
   GITHUB_TOKEN?: string
 
+  LEARNING_ENABLED?: string
+  LEARNING_OBSERVATIONS_ENABLED?: string
+  LEARNING_WRITE_TIMEOUT_MS?: string
+  LEARNING_WARMSTART_ENABLED?: string
+  DREAM_DO_ENABLED?: string
+
   ENVIRONMENT: string
 }
 

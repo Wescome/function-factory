@@ -76,6 +76,7 @@ Repository/process ADRs are indexed separately in
 | [`DESIGN-CRYSTALLIZER-NEXT.md`](DESIGN-CRYSTALLIZER-NEXT.md) | Approved next-priority crystallizer design notes. |
 | [`DESIGN-DIFF-ATOMS.md`](DESIGN-DIFF-ATOMS.md) | Diff-based atom code generation design. |
 | [`DESIGN-GOVERNOR-AGENT.md`](DESIGN-GOVERNOR-AGENT.md) | GovernorAgent design. |
+| [`FACTORY-LEARNING-ARCHITECTURE.md`](FACTORY-LEARNING-ARCHITECTURE.md) | Reviewed and foundation-implemented architecture for the repo-native Factory learning substrate that precedes any Dream DO rollout. |
 | [`PIPELINE-SEMANTIC-GROUNDING.md`](PIPELINE-SEMANTIC-GROUNDING.md) | Semantic grounding proposal for the pipeline. |
 | [`SIGNAL-TAXONOMY-CLOSED-WORLD.md`](SIGNAL-TAXONOMY-CLOSED-WORLD.md) | Closed-world signal taxonomy contract. |
 | [`ORIENTATION-ONTOLOGY.md`](ORIENTATION-ONTOLOGY.md) | Orientation-agent ontology. |

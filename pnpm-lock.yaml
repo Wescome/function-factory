@@ -130,12 +130,12 @@ importers:
 
   packages/compiler:
     dependencies:
-      '@factory/verification':
-        specifier: workspace:*
-        version: link:../verification
       '@factory/schemas':
         specifier: workspace:*
         version: link:../schemas
+      '@factory/verification':
+        specifier: workspace:*
+        version: link:../verification
       yaml:
         specifier: ^2.4.0
         version: 2.8.3
@@ -168,28 +168,6 @@ importers:
       vitest:
         specifier: ^1.4.0
         version: 1.6.1(@types/node@24.12.2)
-
-  packages/verification:
-    dependencies:
-      '@factory/schemas':
-        specifier: workspace:*
-        version: link:../schemas
-      yaml:
-        specifier: ^2.4.0
-        version: 2.8.3
-      zod:
-        specifier: ^3.22.4
-        version: 3.25.76
-    devDependencies:
-      '@types/node':
-        specifier: ^20.11.0
-        version: 20.19.39
-      typescript:
-        specifier: ^5.4.0
-        version: 5.9.3
-      vitest:
-        specifier: ^1.4.0
-        version: 1.6.1(@types/node@20.19.39)
 
   packages/diff-engine:
     devDependencies:
@@ -354,6 +332,35 @@ importers:
         specifier: ^5
         version: 5.9.3
 
+  packages/intent-authoring:
+    dependencies:
+      '@factory/schemas':
+        specifier: workspace:*
+        version: link:../schemas
+    devDependencies:
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.4.0
+        version: 1.6.1(@types/node@24.12.2)
+
+  packages/learning:
+    dependencies:
+      '@factory/schemas':
+        specifier: workspace:*
+        version: link:../schemas
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.4.0
+        version: 1.6.1(@types/node@24.12.2)
+
   packages/literate-tools:
     dependencies:
       '@factory/schemas':
@@ -416,19 +423,6 @@ importers:
         version: 2.1.9(@types/node@24.12.2)
 
   packages/policy-activation:
-    dependencies:
-      '@factory/schemas':
-        specifier: workspace:*
-        version: link:../schemas
-    devDependencies:
-      typescript:
-        specifier: ^5.4.0
-        version: 5.9.3
-      vitest:
-        specifier: ^1.4.0
-        version: 1.6.1(@types/node@24.12.2)
-
-  packages/intent-authoring:
     dependencies:
       '@factory/schemas':
         specifier: workspace:*
@@ -549,6 +543,28 @@ importers:
         specifier: ^2.0.0
         version: 2.1.9(@types/node@24.12.2)
 
+  packages/verification:
+    dependencies:
+      '@factory/schemas':
+        specifier: workspace:*
+        version: link:../schemas
+      yaml:
+        specifier: ^2.4.0
+        version: 2.8.3
+      zod:
+        specifier: ^3.22.4
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.11.0
+        version: 20.19.39
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.4.0
+        version: 1.6.1(@types/node@20.19.39)
+
   workers/ff-gates:
     dependencies:
       '@factory/arango-client':
@@ -604,6 +620,9 @@ importers:
       '@factory/file-context':
         specifier: workspace:*
         version: link:../../packages/file-context
+      '@factory/learning':
+        specifier: workspace:*
+        version: link:../../packages/learning
       '@factory/ontology-loader':
         specifier: workspace:*
         version: link:../../packages/ontology-loader
