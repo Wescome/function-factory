@@ -22,6 +22,8 @@ export type {
   // artifacts.ts
   ArtifactManager,
   ArtifactStorageHandle,
+  ArtifactStatus,
+  ArtifactContractResult,
   // compiler.ts
   CompiledHarness,
   HarnessSource,

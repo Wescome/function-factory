@@ -5,6 +5,9 @@ import {
 } from 'cloudflare:workers'
 import { createClientFromEnv } from '@factory/arango-client'
 import { validateArtifact } from '@factory/artifact-validator'
+import type { HarnessRunResult } from '@factory/nlah'
+import { startHarnessRun } from './harness-bridge'
+import type { HarnessBridgeEnv, HarnessJob } from './harness-env'
 import { ingestSignal } from './stages/ingest-signal'
 import { synthesizePressure } from './stages/synthesize-pressure'
 import { mapCapability } from './stages/map-capability'
@@ -92,6 +95,61 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     const workflowRunId = typeof (event as { instanceId?: unknown }).instanceId === 'string'
       ? (event as { instanceId: string }).instanceId
       : undefined
+
+    // ── Harness routing branch (IS-HARNESS-DSL-v1 §2, ADR-009 Phase 3) ──
+    // When the inbound FunctionJob declares a `harnessKey`, the harness
+    // runtime owns this run end-to-end. The legacy synthesis path below
+    // (ingest → synthesize → map → propose → review → compile → coherence
+    // → synthesis queue → atoms) is intentionally NOT touched in this
+    // mode. The Workflow suspends on `harness-complete`; the
+    // RunCoordinator DO sends that event from its terminal-state hook
+    // (see coordinator/run-coordinator.ts:notifyWorkflowComplete).
+    const job = params.job
+    if (job?.harnessKey) {
+      const harnessEnv = this.env as PipelineEnv & HarnessBridgeEnv
+
+      const { runId } = await step.do('init-harness', DB_STEP_CONFIG, async () => {
+        return startHarnessRun(job.harnessKey!, harnessEnv, job as HarnessJob)
+      })
+
+      const completion = await step.waitForEvent<HarnessRunResult>(
+        'harness-complete',
+        { type: 'harness-complete', timeout: '7 days' },
+      )
+
+      const result = completion.payload
+
+      // Match the existing synthesis-path persistence shape: write a
+      // verification_reports row keyed by functionRunId so the run is
+      // auditable from the same collection the rest of the pipeline
+      // writes into. No D1 — Factory persists to ArangoDB.
+      await step.do('record-harness-result', DB_STEP_CONFIG, async () => {
+        await db.save('verification_reports', {
+          _key: `VR-HARNESS-${runId}-${Date.now().toString(36)}`,
+          type: 'harness-run',
+          passed: result.overall === 'pass',
+          summary: result.reason ?? `Harness ${result.overall} at stage ${result.finalStage}`,
+          checks: [
+            {
+              name: 'harness-overall',
+              passed: result.overall === 'pass',
+              detail: `finalStage=${result.finalStage}${result.failureClass ? ` failureClass=${result.failureClass}` : ''}`,
+            },
+          ],
+          sourceRefs: [`FUNCTION_RUN:${runId}`],
+          source_refs: [runId],
+          timestamp: new Date().toISOString(),
+        })
+        return { persisted: true }
+      })
+
+      return {
+        status: result.overall === 'pass'
+          ? 'harness-passed'
+          : `harness-${result.overall}`,
+        ...(result.reason ? { reason: result.reason } : {}),
+      } as PipelineResult
+    }
 
     // ── Signal Artifact collection (legacy Stage 1) ──
     const signal = await step.do('ingest-signal', DB_STEP_CONFIG, async () => {

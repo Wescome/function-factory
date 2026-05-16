@@ -1,3 +1,4 @@
+import type { FunctionJob } from "@factory/schemas"
 import type { HarnessQueueMessage } from "./harness-env"
 
 export interface PipelineEnv {
@@ -74,6 +75,13 @@ export interface PipelineEnv {
 export interface PipelineParams {
   signal: SignalInput
   dryRun?: boolean
+  /**
+   * Optional FunctionJob descriptor. When `job.harnessKey` is set, the
+   * pipeline routes through the harness runtime (IS-HARNESS-DSL-v1 §2)
+   * via `startHarnessRun` instead of the synthesis graph. When absent
+   * or when `harnessKey` is undefined, the legacy synthesis path runs.
+   */
+  job?: FunctionJob
 }
 
 export interface SignalInput {

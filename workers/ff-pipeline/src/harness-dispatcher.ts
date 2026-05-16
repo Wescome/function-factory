@@ -59,6 +59,7 @@ import type {
   HarnessQueueMessage,
   StageCompletePayload,
 } from "./harness-env"
+import { CfArtifactManager } from "./cf-artifact-manager"
 
 const MAX_RETRIES = 3
 
@@ -125,7 +126,7 @@ export default {
     batch: MessageBatch<HarnessQueueMessage>,
     env: HarnessBridgeEnv,
   ): Promise<void> {
-    const deps = buildDefaultDispatcherDeps()
+    const deps = buildDefaultDispatcherDeps(env)
     for (const msg of batch.messages) {
       try {
         await dispatchOne(msg.body, env, deps)
@@ -356,24 +357,29 @@ export async function dispatchOne(
 
 /**
  * Build the default dependency wiring used by the queue consumer at
- * deploy time. CF-side worker adapters and the CfArtifactManager live in
- * follow-up files (cf-workers.ts, cf-artifact-manager.ts) that are out of
- * scope for this commit. Until those land, this factory throws — which is
+ * deploy time. The CfArtifactManager wiring is live (cf-artifact-manager.ts,
+ * IS-HARNESS-DSL-v1 §4). CF-side worker adapters and the StageContext
+ * builder live in cf-workers.ts (IS-HARNESS-DSL-v1 §5 / §3.1 step 4) and
+ * remain stubbed here until that file lands — those stubs throw, which is
  * the intended bound failure if the harness path runs without complete
  * wiring.
+ *
+ * `env` is required so the artifact manager can be bound to the run's
+ * R2 bucket. The dispatcher's queue handler always has `env` in scope, so
+ * threading it through is a no-cost change.
  */
-export function buildDefaultDispatcherDeps(): HarnessDispatcherDeps {
+export function buildDefaultDispatcherDeps(env: HarnessBridgeEnv): HarnessDispatcherDeps {
   return {
     resolveWorkerAdapter() {
       throw new Error(
         "harness-dispatcher: resolveWorkerAdapter is not wired; build cf-workers.ts (IS-HARNESS-DSL-v1 §5) and inject HarnessDispatcherDeps explicitly",
       )
     },
-    buildArtifactManager() {
-      throw new Error(
-        "harness-dispatcher: buildArtifactManager is not wired; build cf-artifact-manager.ts (IS-HARNESS-DSL-v1 §4) and inject HarnessDispatcherDeps explicitly",
-      )
-    },
+    buildArtifactManager: (runId) =>
+      new CfArtifactManager(
+        env.WORKSPACE_BUCKET,
+        `runs/${runId}/artifacts/`,
+      ),
     buildStageContextForRun() {
       throw new Error(
         "harness-dispatcher: buildStageContextForRun is not wired; build cf-workers.ts buildStageContext shim (IS-HARNESS-DSL-v1 §3.1 step 4) and inject HarnessDispatcherDeps explicitly",

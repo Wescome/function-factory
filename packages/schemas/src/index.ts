@@ -24,6 +24,7 @@ export * from "./coding-domain-adapter.js"
 export * from "./ontology-aliases.js"
 export * from "./trellis-execution-packet.js"
 export * from "./trellis-canonical-json.js"
+export * from "./function-job.js"
 export {
   CoherenceVerificationReport,
   FidelityVerificationReport,
