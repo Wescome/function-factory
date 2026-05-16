@@ -77,11 +77,17 @@ export interface HarnessQueueMessage {
 /**
  * The shape POSTed by the RunCoordinator DO to itself on /init (and read
  * back from /get-compiled by the dispatcher).
+ *
+ * `taskText` is persisted separately under `harness:taskText` because the
+ * live NLAH `HarnessState` (see /Users/wes/nlah/src/runtime.ts) discards it
+ * via `void context.taskText` in `initHarness`. The dispatcher reads it
+ * back from `/get-compiled` and threads it into `buildStageContextForRun`.
  */
 export interface RunCoordinatorInitPayload {
   compiled: CompiledHarness
   initialState: HarnessState
   workflowId: string
+  taskText: string
 }
 
 /**

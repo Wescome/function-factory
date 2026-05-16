@@ -11,9 +11,11 @@
  *   4. Every stage `worker` (if declared) is provided by the supplied
  *      `workerNames` set (optional second-stage check used by the
  *      bridge to validate Container bindings at startHarnessRun time) → MISSING_WORKER_BINDING
- *   5. `lineage.source_refs` is non-empty on nlahspec 0.2 harnesses
- *      (warning-only on nlahspec 0.1, until NLAH contribution #4
- *      lands and the Zod schema preserves the `lineage` key)         → MISSING_LINEAGE
+ *   5. `lineage.source_refs` is non-empty (warning-only on both
+ *      nlahspec 0.1 AND 0.2 until NLAH contribution #4 lands; the Zod
+ *      schema currently strips the `lineage` key on parse so a hard
+ *      fail would block every 0.2 harness)                             → MISSING_LINEAGE
+ *   6. `nlahspec` is one of the supported versions (`"0.1"`, `"0.2"`) → UNSUPPORTED_NLAHSPEC
  *
  * Specification: IS-HARNESS-DSL-v1 §6 and ADR-009 Phase 4.
  *
@@ -30,6 +32,7 @@ export type HarnessCompletenessFailureCode =
   | "UNREGISTERED_GATE"
   | "MISSING_WORKER_BINDING"
   | "MISSING_LINEAGE"
+  | "UNSUPPORTED_NLAHSPEC"
 
 export interface HarnessCompletenessCheck {
   name: string
@@ -81,7 +84,7 @@ export async function runHarnessCompletenessVerification(
   if (nlahspec !== "0.1" && nlahspec !== "0.2") {
     return fail(
       checks,
-      "EMPTY_FAILURE_TAXONOMY",
+      "UNSUPPORTED_NLAHSPEC",
       [`unsupported nlahspec: ${String(nlahspec)}`],
       {
         name: "nlahspec-version",
@@ -199,34 +202,32 @@ export async function runHarnessCompletenessVerification(
   }
 
   // ── Lineage check (INV-4) ─────────────────────────────────────────────────
-  // NLAH's HarnessSpecSchema is default-strip until contribution #4 lands;
-  // therefore on nlahspec 0.1 a missing `lineage` is non-blocking. On 0.2
-  // (after #4), it is blocking.
+  // NLAH's HarnessSpecSchema is default-strip — it does NOT preserve the
+  // `lineage` key on parse — until upstream contribution #4 lands. That
+  // means `compiled.spec.lineage` is ALWAYS undefined here even when the
+  // source YAML carries `lineage: { source_refs: [...] }`. Hard-failing
+  // 0.2 harnesses on a stripped field would block EVERY 0.2 harness, not
+  // just the ones that legitimately omit lineage — so until #4 lands, a
+  // missing lineage is a warning on BOTH 0.1 and 0.2. Once #4 ships and
+  // the field survives parse, the 0.2 branch should be flipped back to
+  // a hard fail (see TODO marker below).
   const lineage = (compiled.spec as unknown as {
     lineage?: { source_refs?: string[] }
   }).lineage
   const hasLineage = Boolean(lineage?.source_refs?.length)
   if (!hasLineage) {
-    if (nlahspec === "0.2") {
-      return fail(
-        checks,
-        "MISSING_LINEAGE",
-        ["lineage.source_refs absent or empty (required on nlahspec 0.2)"],
-        {
-          name: "lineage-present",
-          passed: false,
-          detail: "lineage.source_refs absent or empty",
-        },
-      )
-    }
-    // 0.1 path: warn but do not fail.
+    // TODO(NLAH contribution #4): when the upstream schema preserves
+    // `lineage`, upgrade the 0.2 branch back to:
+    //   if (nlahspec === "0.2") return fail(checks, "MISSING_LINEAGE", ...)
+    // and keep the 0.1 branch as a warning.
     details.push(
-      "lineage.source_refs absent — non-blocking until contribution #4 lands (nlahspec 0.1)",
+      `lineage.source_refs absent on nlahspec ${nlahspec} — non-blocking ` +
+        `until NLAH contribution #4 preserves the field through compileHarness`,
     )
     checks.push({
       name: "lineage-present",
       passed: true,
-      detail: "warning: lineage absent (nlahspec 0.1, non-blocking)",
+      detail: `warning: lineage absent (nlahspec ${nlahspec}, non-blocking — Zod schema strips field until contribution #4)`,
     })
   } else {
     checks.push({

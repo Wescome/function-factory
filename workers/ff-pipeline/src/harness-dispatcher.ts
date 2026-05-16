@@ -63,6 +63,15 @@ import type {
 const MAX_RETRIES = 3
 
 /**
+ * Cap on the size of `workerThrew.message` written into the
+ * StageCompletePayload. CF queue messages are bounded (currently 128 KiB)
+ * and an unbounded error message — for example a stack trace embedded in
+ * an LLM response — could push a payload past that limit AND blow the
+ * DO storage value cap on the persisted state.
+ */
+const MAX_WORKER_ERROR_MESSAGE_BYTES = 4096
+
+/**
  * Dependencies the dispatcher needs from the rest of the system. Held as
  * an explicit shape so cf-workers.ts and cf-artifact-manager.ts can supply
  * concrete implementations without coupling this file to them.
@@ -83,16 +92,19 @@ export interface HarnessDispatcherDeps {
 
   /**
    * Build the per-stage StageContext. CF-friendly: no filesystem reads;
-   * task text comes from HarnessState.taskText (injected at initHarness).
-   * Returns a value of `unknown` here because NLAH's StageContext is
-   * authored in upstream contribution #1b; binding to it concretely is
-   * deferred to cf-workers.ts.
+   * `taskText` is round-tripped through the RunCoordinator DO storage
+   * because NLAH's `HarnessState` does NOT carry it (the live signature
+   * at /Users/wes/nlah/src/runtime.ts:154 discards taskText via
+   * `void context.taskText`). Returns a value of `unknown` here because
+   * NLAH's StageContext is authored in upstream contribution #1b; binding
+   * to it concretely is deferred to cf-workers.ts.
    */
   buildStageContextForRun(args: {
     state: HarnessState
     compiled: CompiledHarness
     stage: StageSpec
     artifacts: ArtifactManager
+    taskText: string
   }): Promise<unknown>
 
   /**
@@ -145,7 +157,7 @@ export async function dispatchOne(
   env: HarnessBridgeEnv,
   deps: HarnessDispatcherDeps,
 ): Promise<void> {
-  // ── 1. Fetch CompiledHarness + HarnessState from the RunCoordinator DO ──
+  // ── 1. Fetch CompiledHarness + HarnessState + taskText from the DO ────
   const doId = env.RUN_COORDINATOR.idFromName(message.runId)
   const stub = env.RUN_COORDINATOR.get(doId)
   const compiledResp = await stub.fetch("https://run-coordinator/get-compiled", {
@@ -156,9 +168,10 @@ export async function dispatchOne(
       `RunCoordinator /get-compiled failed (${compiledResp.status}) for run ${message.runId}`,
     )
   }
-  const { compiled, state } = (await compiledResp.json()) as {
+  const { compiled, state, taskText } = (await compiledResp.json()) as {
     compiled: CompiledHarness
     state: HarnessState
+    taskText?: string
   }
 
   const stage: StageSpec | undefined = compiled.spec.stages[message.stageName]
@@ -173,6 +186,12 @@ export async function dispatchOne(
     compiled,
     stage,
     artifacts,
+    // `taskText` is sourced from RunCoordinator DO storage (KEY_TASK_TEXT)
+    // rather than HarnessState because NLAH's runtime discards it (see
+    // /Users/wes/nlah/src/runtime.ts:154). Default to empty string when
+    // an older DO state predates the field — the bridge ALWAYS sends it
+    // for new runs, so this only matters during a rolling deploy window.
+    taskText: taskText ?? "",
   })
 
   // ── 3. Resolve worker + run it ─────────────────────────────────────────
@@ -186,14 +205,17 @@ export async function dispatchOne(
       stageName: message.stageName,
       roleName: stage.role,
       context: stageContext as WorkerInput["context"],
-      state: stateView,
+      state: stateView as WorkerInput["state"],
       declaredInputs: stage.inputs,
       declaredOutputs: stage.outputs,
     }
     workerOutput = await adapter.execute(workerInput, artifacts)
   } catch (err) {
+    // Truncate to keep DO storage + queue payload bounded — see comment on
+    // MAX_WORKER_ERROR_MESSAGE_BYTES above.
+    const raw = err instanceof Error ? err.message : String(err)
     workerThrew = {
-      message: err instanceof Error ? err.message : String(err),
+      message: raw.slice(0, MAX_WORKER_ERROR_MESSAGE_BYTES),
     }
   }
 
@@ -201,38 +223,113 @@ export async function dispatchOne(
   // Gates run only when the worker did not throw. If the worker threw,
   // the gate set is empty and the RunCoordinator's synthetic
   // `worker_executed` gate handles the failure path.
+  //
+  // `gate.all` and `gate.any` have DIFFERENT semantics and CANNOT be
+  // flattened into a single array:
+  //   - all-gates: pass iff EVERY member passes (boolean AND).
+  //   - any-gates: pass iff AT LEAST ONE member passes (boolean OR);
+  //                pass vacuously when no any-gates are declared.
+  // We evaluate each group separately, decide the overall verdict from
+  // the two booleans, and emit one synthetic anchor gate carrying that
+  // verdict alongside the per-member results so the RunCoordinator's
+  // failure path (which looks at gateResults.find(!passed)) sees the
+  // right answer when any-gates rescue the stage.
   const gateResults: StageCompletePayload["gateResults"] = []
   if (!workerThrew && workerOutput) {
     const stateView = synthesizeRuntimeStateView(state, compiled)
     const all = stage.gate?.all ?? []
     const any = stage.gate?.any ?? []
-    const expressions: unknown[] = [...all, ...any]
 
-    for (let i = 0; i < expressions.length; i++) {
-      const expr = expressions[i]
-      const fallbackId = `${message.stageName}-gate-${i}`
-      try {
-        const contract = normalizeGateContract(expr, fallbackId)
-        const gate = deps.gateRegistry[contract.uses]
-        if (!gate) {
-          gateResults.push({
-            gateName: contract.uses,
-            passed: false,
-            detail: `gate ${contract.uses} not registered`,
-          })
-          continue
+    const evaluateExpressions = async (
+      expressions: unknown[],
+      bucket: "all" | "any",
+    ): Promise<StageCompletePayload["gateResults"]> => {
+      const out: StageCompletePayload["gateResults"] = []
+      for (let i = 0; i < expressions.length; i++) {
+        const expr = expressions[i]
+        const fallbackId = `${message.stageName}-${bucket}-gate-${i}`
+        try {
+          const contract = normalizeGateContract(expr, fallbackId)
+          const gate = deps.gateRegistry[contract.uses]
+          if (!gate) {
+            out.push({
+              gateName: contract.uses,
+              passed: false,
+              detail: `gate ${contract.uses} not registered`,
+            })
+            continue
+          }
+          const record = await gate(
+            stateView as unknown as Parameters<GateFn>[0],
+            artifacts,
+            contract.args,
+          )
+          out.push(mapGateResult(record))
+        } catch (gateErr) {
+          const detail = gateErr instanceof Error ? gateErr.message : String(gateErr)
+          const name = extractGateName(expr) ?? fallbackId
+          out.push({ gateName: name, passed: false, detail })
         }
-        const record = await gate(
-          stateView as unknown as Parameters<GateFn>[0],
-          artifacts,
-          contract.args,
-        )
-        gateResults.push(mapGateResult(record))
-      } catch (gateErr) {
-        const message = gateErr instanceof Error ? gateErr.message : String(gateErr)
-        const name = extractGateName(expr) ?? fallbackId
-        gateResults.push({ gateName: name, passed: false, detail: message })
       }
+      return out
+    }
+
+    const allResults = await evaluateExpressions(all as unknown[], "all")
+    const anyResults = await evaluateExpressions(any as unknown[], "any")
+
+    const allPassed = allResults.every((r) => r.passed)
+    // Vacuously true when no any-gates declared (matches the all/any spec).
+    const anyPassed = anyResults.length === 0 || anyResults.some((r) => r.passed)
+    const gatePassed = allPassed && anyPassed
+
+    // RunCoordinator interprets `gateResults.find(!passed)` as "gate failure"
+    // when calling advanceHarness. To preserve `gate.any` semantics we MUST
+    // ensure `gateResults.every(passed) === gatePassed`:
+    //
+    //   - all-results are always emitted as-is (their failures are real).
+    //   - any-results are emitted as-is ONLY when the any-bucket failed
+    //     (so the failures surface). When the any-bucket passed (one member
+    //     passed), we project any-results to all-passing so a sibling any
+    //     failure does not falsely trip the overall failure path.
+    //
+    // We also append a synthetic anchor gate per bucket so the trace records
+    // the composed verdict even when individual records are rewritten.
+    gateResults.push(...allResults)
+
+    if (any.length > 0) {
+      if (anyPassed) {
+        // Mark each any-member as passed for the overall verdict, but
+        // preserve its individual outcome in `detail` so the trace stays
+        // honest. Without this, a stage with `any: [A, B]` where A passes
+        // and B fails would report `passed:false` overall because B's
+        // failure surfaces in find(!passed).
+        for (const r of anyResults) {
+          gateResults.push({
+            gateName: r.gateName,
+            passed: true,
+            ...(r.passed
+              ? r.detail
+                ? { detail: r.detail }
+                : {}
+              : {
+                  detail:
+                    `member failed but any-bucket satisfied: ` +
+                    (r.detail ?? "no detail"),
+                }),
+          })
+        }
+      } else {
+        // Any-bucket failed: surface every member failure verbatim.
+        gateResults.push(...anyResults)
+      }
+      // Synthetic anchor recording the composed verdict for traceability.
+      gateResults.push({
+        gateName: `${message.stageName}-gate-overall`,
+        passed: gatePassed,
+        detail:
+          `gate composition: all=${allPassed} (${allResults.length} members) ` +
+          `any=${anyPassed} (${anyResults.length} members)`,
+      })
     }
   }
 

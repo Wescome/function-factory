@@ -1,3 +1,5 @@
+import type { HarnessQueueMessage } from "./harness-env"
+
 export interface PipelineEnv {
   ARANGO_URL: string
   ARANGO_DATABASE: string
@@ -51,8 +53,8 @@ export interface PipelineEnv {
   // narrow these via the HarnessBridgeEnv interface where they are required.
   /** Durable Object namespace for the RunCoordinator (one DO per run) */
   RUN_COORDINATOR?: DurableObjectNamespace
-  /** Queue producer for stage dispatch */
-  HARNESS_QUEUE?: Queue
+  /** Queue producer for stage dispatch — typed body for callsite safety. */
+  HARNESS_QUEUE?: Queue<HarnessQueueMessage>
   /** Pi container service binding */
   PI_CONTAINER?: { fetch: (req: Request) => Promise<Response> }
   /** Aider container service binding */

@@ -78,7 +78,19 @@ export async function startHarnessRun(
   const compiled: CompiledHarness = compileHarness(spec)
 
   // ── 3. Harness completeness verification (Factory governance gate) ──────
-  const report = await runHarnessCompletenessVerification(compiled, gateRegistry)
+  // Pass an empty workerNames set so the MISSING_WORKER_BINDING check runs
+  // and fails closed for any harness that references a worker. Until
+  // cf-workers.ts lands and the real worker registry is wired here, every
+  // harness with a `worker:` declared in any stage will trip this check
+  // — that is the correct behaviour: we MUST fail closed when the
+  // dispatcher cannot actually resolve the named worker, rather than
+  // letting a run proceed past /init only to throw at dispatch time.
+  const workerNames: string[] = []
+  const report = await runHarnessCompletenessVerification(
+    compiled,
+    gateRegistry,
+    { workerNames },
+  )
   if (report.overall !== "pass") {
     const failureCode = report.failure_code ?? "UNKNOWN_FAILURE"
     const detail = report.details.join("; ")
@@ -108,6 +120,11 @@ export async function startHarnessRun(
       compiled,
       initialState,
       workflowId,
+      // taskText is persisted separately in the DO under harness:taskText
+      // because NLAH's runtime discards it from HarnessState (see
+      // /Users/wes/nlah/src/runtime.ts:154). The dispatcher re-reads it
+      // via /get-compiled.
+      taskText: job.objective,
     }),
   })
 
