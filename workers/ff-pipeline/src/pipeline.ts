@@ -152,8 +152,11 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     }
 
     // ── Signal Artifact collection (legacy Stage 1) ──
+    if (!params.signal) {
+      throw new Error('synthesis path requires signal in PipelineParams')
+    }
     const signal = await step.do('ingest-signal', DB_STEP_CONFIG, async () => {
-      return toStep(await ingestSignal(params.signal, db))
+      return toStep(await ingestSignal(params.signal!, db))
     })
     const signalKey = signal._key as string
     const captureTerminal = (
@@ -299,7 +302,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
         signalId: signalKey,
         title: signal.title as string,
         description: signal.description as string,
-        ...(typeof params.signal.specContent === 'string' && { specContent: params.signal.specContent }),
+        ...(typeof params.signal!.specContent === 'string' && { specContent: params.signal!.specContent }),
       }
       const result = await crystallizeIntent(
         crystallizeInput,

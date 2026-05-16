@@ -13,7 +13,7 @@ export interface PipelineEnv {
   }
 
   FACTORY_PIPELINE: {
-    create(opts: { params: PipelineParams }): Promise<{ id: string }>
+    create(opts: { id?: string; params: PipelineParams }): Promise<{ id: string }>
     get(id: string): Promise<WorkflowInstance>
   }
 
@@ -73,7 +73,8 @@ export interface PipelineEnv {
 }
 
 export interface PipelineParams {
-  signal: SignalInput
+  /** Required for synthesis path. Omitted on harness-only runs. */
+  signal?: SignalInput
   dryRun?: boolean
   /**
    * Optional FunctionJob descriptor. When `job.harnessKey` is set, the

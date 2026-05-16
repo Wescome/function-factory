@@ -1345,7 +1345,52 @@ export default {
       }
     }
 
-    return new Response('ff-pipeline: POST /trigger-synthesis, POST /synthesis-callback, or use Queue consumer', { status: 404 })
+    // ── Harness trigger: start a FactoryPipeline Workflow in harness mode ──
+    // Accepts a FunctionJob with harnessKey. The Workflow is created with
+    // id=functionRunId so the RunCoordinator DO can deliver harness-complete
+    // via FACTORY_PIPELINE.get(functionRunId).sendEvent(...).
+    if (url.pathname === '/trigger-harness' && request.method === 'POST') {
+      try {
+        const body = await request.json() as {
+          functionRunId?: string
+          objective?: string
+          harnessKey?: string
+          workflowInstanceId?: string
+        }
+
+        if (!body.functionRunId || !body.objective || !body.harnessKey) {
+          return new Response(JSON.stringify({
+            error: 'Missing required fields: functionRunId, objective, harnessKey',
+          }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+        }
+
+        const job = {
+          functionRunId: body.functionRunId,
+          objective: body.objective,
+          harnessKey: body.harnessKey,
+          ...(body.workflowInstanceId ? { workflowInstanceId: body.workflowInstanceId } : {}),
+        }
+
+        const created = await env.FACTORY_PIPELINE.create({
+          id: body.functionRunId,
+          params: { job },
+        })
+
+        return new Response(JSON.stringify({
+          accepted: true,
+          runId: body.functionRunId,
+          workflowId: created.id,
+        }), { status: 202, headers: { 'Content-Type': 'application/json' } })
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        return new Response(JSON.stringify({ error: message }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+    }
+
+    return new Response('ff-pipeline: POST /trigger-synthesis, POST /synthesis-callback, POST /trigger-harness, or use Queue consumer', { status: 404 })
   },
 
   async scheduled(event: ScheduledEvent, env: PipelineEnv, ctx: ExecutionContext): Promise<void> {
@@ -1367,7 +1412,7 @@ export default {
           await dispatchOne(
             msg.body as import('./harness-env').HarnessQueueMessage,
             harnessEnv,
-            buildDefaultDispatcherDeps(),
+            buildDefaultDispatcherDeps(harnessEnv),
           )
           msg.ack()
         } catch (err) {

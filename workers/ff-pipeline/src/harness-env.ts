@@ -60,7 +60,7 @@ export interface WorkflowInstanceLike {
 
 export interface FactoryPipelineBinding {
   get(id: string): Promise<WorkflowInstanceLike>
-  create(opts: { params: unknown }): Promise<{ id: string }>
+  create(opts: { id?: string; params: unknown }): Promise<{ id: string }>
 }
 
 /**
