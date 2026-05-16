@@ -3,6 +3,61 @@
 Past architectural choices that would be costly to revisit. Do not
 re-litigate without explicit architect approval.
 
+## 2026-05-16: NLAH is the Trellis harness runtime substrate
+
+**Decision:** `/Users/wes/nlah` (TypeScript `"nlah"` v0.1.0, unscoped — scoping to
+`@wescome/nlah` is upstream contribution #0) is adopted as the **single,
+domain-agnostic execution primitive** for all Trellis task flows. NLAH owns the
+authoritative `HarnessSpec` Zod schema, `compileHarness()`, harness state machine
+(`initHarness` + `advanceHarness` pure functions after contribution #1c), gate
+registry, worker adapters (`LoomCliWorkerAdapter`), and failure-taxonomy execution.
+There is one execution primitive. ADR-004's core principle — Cloudflare platform
+primitives over LangGraph — is preserved: NLAH itself uses CF primitives, not LangGraph.
+
+**Execution model:** Event-driven. `initHarness()` initializes state in the
+RunCoordinator DO; `advanceHarness()` is called on each stage completion; a CF Queue
+delivers stage work; the Workflow issues `step.waitForEvent('harness-complete', {
+timeout: '7 days' })`. A blocking `runHarness()` loop inside `step.do()` cannot handle
+real agent wall-clock durations (25–100 min coding, unbounded synthesis repair).
+
+**Rationale:** NLAH already implements what IS-HARNESS-DSL-v1 was speccing from
+scratch: typed schema (Zod), compiler with 9 assertion checks, linear-graph runner,
+8-gate registry, `LoomCliWorkerAdapter` wrapping pi CLI, failure taxonomy execution.
+Authoring a parallel TypeScript schema and runtime inside Trellis would create two
+competing harness runtimes — a substrate fork the Factory does not support. The
+correct boundary is: NLAH = execution substrate; Factory = governance layer
+(verification reports, lineage enforcement, CF-compatible ArtifactManager interface).
+
+**Integration approach:**
+- `packages/nlah` workspace package — wraps `@wescome/nlah`; exposes `HarnessSpec`,
+  `compileHarness`, `initHarness`, `advanceHarness` to ff-pipeline
+- Event-driven `harness-bridge.ts` — `startHarnessRun()` initializes RunCoordinator DO;
+  DO calls `advanceHarness()` on each stage completion; Workflow waits on event
+- `packages/verification/src/harness-completeness-verification.ts` — Factory
+  contributes VR-* artifacts; input is NLAH's `CompiledHarness`, not a re-parsed spec
+- Upstream NLAH contributions required (9 total): #0 (scoping), #1a (ArtifactManager
+  interface), #1b (injectable fileReader), #1c (initHarness + advanceHarness), #1d
+  (loadHarness string overload), #2 (failure semantics), #3 (trace provenance), #4
+  (lineage field), #5 (gate registry export)
+
+**IS impact:** IS-HARNESS-DSL-v1 (v3) is an integration and governance spec. It does
+not author a schema, compiler, or `HarnessBindings`. It specifies the event-driven
+bridge, RunCoordinator DO extension, all 9 upstream contribution requests, type
+contracts, CfArtifactManager constructor, Container dispatch API, and test infrastructure.
+
+**StateGraph retirement gates:** `graph-runner.ts` and `coordinator/graph.ts` are
+retired only when all of: (1) NLAH v0.2 Phase 3 (return_to_stage) lands; (2)
+`synthesis.harness.yaml` compiles; (3) `runHarnessCompletenessVerification` passes on
+it; (4) all synthesis DO integration tests pass with event-driven path; (5) Architect
+reviews migrated synthesis harness. Not an accomplished fact — gated.
+
+**Gate:** ADR-009 (`specs/reference/ADR-009-nlah-runtime-replaces-state-graph.md`)
+must be Architect-approved before IS-HARNESS-DSL-v1 is revised and before any code lands.
+
+**Status:** Active. ADR-009 authored, pending Architect approval.
+
+---
+
 ## 2026-05-11: Learning evidence substrate precedes Dream DO
 
 **Decision:** Implement Factory learning as a disabled-by-default Learning
