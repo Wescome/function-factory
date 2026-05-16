@@ -309,6 +309,7 @@ export async function dispatchOne(
           gateResults.push({
             gateName: r.gateName,
             passed: true,
+            ...(r.failureClass ? { failureClass: r.failureClass } : {}),
             ...(r.passed
               ? r.detail
                 ? { detail: r.detail }
@@ -430,15 +431,19 @@ function synthesizeRuntimeStateView(state: HarnessState, _compiled: CompiledHarn
   }
 }
 
-function mapGateResult(record: GateResult | { gate: string; passed: boolean; message?: string }): StageCompletePayload["gateResults"][number] {
+function mapGateResult(record: GateResult | { gate: string; passed: boolean; message?: string; failureClass?: string }): StageCompletePayload["gateResults"][number] {
   // Normalise from NLAH's GateEvalRecord (gates.ts) OR the runtime
-  // GateResult shape (runtime.ts) into our wire shape.
-  const r = record as Partial<GateResult> & Partial<{ gate: string; message: string }>
+  // GateResult shape (runtime.ts) into our wire shape. failureClass is the
+  // semantic failure category (e.g. missing_artifact, verifier_rejects) that
+  // advanceHarness uses for on_failure/failure_taxonomy lookup.
+  const r = record as Partial<GateResult> & Partial<{ gate: string; message: string; failureClass: string }>
   const gateName = (r.gateName as string | undefined) ?? (r.gate as string | undefined) ?? "unknown"
   const detail = (r.detail as string | undefined) ?? (r.message as string | undefined)
+  const failureClass = r.failureClass as string | undefined
   return {
     gateName,
     passed: r.passed === true,
+    ...(failureClass ? { failureClass } : {}),
     ...(detail ? { detail } : {}),
   }
 }

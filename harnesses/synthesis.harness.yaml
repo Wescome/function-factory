@@ -1,0 +1,86 @@
+nlahspec: "0.2"
+
+harness:
+  name: SYNTHESIS
+  task_family: intent_specification_synthesis
+  objective: >
+    Synthesize an intent specification into a working implementation by
+    planning the approach, coding a solution (via pi-swarm parallel
+    execution), and verifying the result. Repair loop returns to CODE
+    on verifier rejection; aborts on budget exhaustion.
+
+runtime:
+  state_root: state
+  artifact_root: artifacts
+  graph_mode: linear
+  default_failure_action: abort
+  max_repair_rounds: 2
+
+roles:
+  Planner:
+    responsibility: >
+      Decompose the intent specification into a concrete, step-by-step
+      execution plan. Must not produce implementation code; output is the
+      plan only. Reads the objective from StageContext.taskText.
+  SynthesisCoder:
+    responsibility: >
+      Implement the execution plan, producing working code that satisfies
+      all criteria in the intent specification. Uses pi-swarm parallel
+      execution internally; the winner is written under the declared output
+      names. Must not skip the plan.
+  SynthesisVerifier:
+    responsibility: >
+      Independently verify the implementation against the intent
+      specification criteria. Must not modify the implementation; output is
+      a verdict document only.
+
+artifacts:
+  SynthesisPlan:
+    path: artifacts/synthesis_plan.md
+    required: true
+  SynthesisOutput:
+    path: artifacts/synthesis_output.md
+    required: true
+  SynthesisVerdict:
+    path: artifacts/synthesis_verdict.md
+    required: true
+
+stages:
+  PLAN:
+    from: TaskReceived
+    to: Planned
+    role: Planner
+    worker: pi-swarm
+    outputs: [SynthesisPlan]
+    gate:
+      all:
+        - { exists: SynthesisPlan }
+    max_stage_attempts: 2
+
+  CODE:
+    from: Planned
+    to: Coded
+    role: SynthesisCoder
+    worker: pi-swarm
+    outputs: [SynthesisOutput]
+    gate:
+      all:
+        - { exists: SynthesisOutput }
+    max_stage_attempts: 3
+
+  VERIFY:
+    from: Coded
+    to: SynthesisComplete
+    role: SynthesisVerifier
+    worker: pi-swarm
+    outputs: [SynthesisVerdict]
+    gate:
+      all:
+        - { exists: SynthesisVerdict }
+    on_failure:
+      verifier_rejects: return_to_CODE
+      missing_artifact: retry_stage
+    max_stage_attempts: 2
+
+failure_taxonomy:
+  missing_artifact: retry_stage

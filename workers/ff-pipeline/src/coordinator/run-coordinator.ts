@@ -178,6 +178,7 @@ export class RunCoordinator extends DurableObject<HarnessBridgeEnv> {
       gateResults: payload.gateResults.map((gate) => ({
         gateName: gate.gateName,
         passed: gate.passed,
+        ...(gate.failureClass ? { failureClass: gate.failureClass } : {}),
         ...(gate.detail ? { detail: gate.detail } : {}),
       })),
     }

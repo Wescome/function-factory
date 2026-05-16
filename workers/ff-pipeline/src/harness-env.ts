@@ -103,6 +103,7 @@ export interface StageCompletePayload {
   gateResults: Array<{
     gateName: string
     passed: boolean
+    failureClass?: string
     detail?: string
   }>
   workerThrew?: { message: string }
