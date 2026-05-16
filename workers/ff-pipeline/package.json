@@ -19,10 +19,12 @@
     "@factory/diff-engine": "workspace:*",
     "@factory/file-context": "workspace:*",
     "@factory/learning": "workspace:*",
+    "@factory/nlah": "workspace:*",
     "@factory/ontology-loader": "workspace:*",
     "@factory/schemas": "workspace:*",
     "@factory/task-routing": "workspace:*",
     "@factory/transmission-adapters": "workspace:*",
+    "@factory/verification": "workspace:*",
     "@weops/gdk-agent": "workspace:*",
     "@weops/gdk-ai": "workspace:*",
     "agents": "0.11.6"

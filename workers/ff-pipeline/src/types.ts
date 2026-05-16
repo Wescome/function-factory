@@ -45,6 +45,21 @@ export interface PipelineEnv {
   /** GitHub personal access token for PR creation */
   GITHUB_TOKEN?: string
 
+  // ── Harness path bindings (IS-HARNESS-DSL-v1 §2–§3, ADR-009 Phase 3) ─────
+  // Optional here because not every Worker invocation touches the harness
+  // path. harness-bridge.ts / run-coordinator.ts / harness-dispatcher.ts
+  // narrow these via the HarnessBridgeEnv interface where they are required.
+  /** Durable Object namespace for the RunCoordinator (one DO per run) */
+  RUN_COORDINATOR?: DurableObjectNamespace
+  /** Queue producer for stage dispatch */
+  HARNESS_QUEUE?: Queue
+  /** Pi container service binding */
+  PI_CONTAINER?: { fetch: (req: Request) => Promise<Response> }
+  /** Aider container service binding */
+  AIDER_CONTAINER?: { fetch: (req: Request) => Promise<Response> }
+  /** Claude Code container service binding */
+  CLAUDE_CODE_CONTAINER?: { fetch: (req: Request) => Promise<Response> }
+
   LEARNING_ENABLED?: string
   LEARNING_OBSERVATIONS_ENABLED?: string
   LEARNING_WRITE_TIMEOUT_MS?: string

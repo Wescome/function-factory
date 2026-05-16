@@ -17,3 +17,11 @@ export type {
   CoherenceVerificationReport,
 } from "./coherence-verification.js"
 export { emitCoherenceVerificationReport } from "./emit.js"
+
+export { runHarnessCompletenessVerification } from "./harness-completeness-verification.js"
+export type {
+  HarnessCompletenessReport,
+  HarnessCompletenessCheck,
+  HarnessCompletenessFailureCode,
+  HarnessCompletenessOptions,
+} from "./harness-completeness-verification.js"

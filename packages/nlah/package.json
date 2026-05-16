@@ -1,5 +1,5 @@
 {
-  "name": "@factory/verification",
+  "name": "@factory/nlah",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -11,17 +11,13 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "lint": "echo 'lint: TODO'"
   },
   "dependencies": {
-    "@factory/nlah": "workspace:*",
-    "@factory/schemas": "workspace:*",
-    "yaml": "^2.4.0",
-    "zod": "^3.22.4"
+    "@wescome/nlah": "file:/Users/wes/nlah"
   },
   "devDependencies": {
-    "@types/node": "^20.11.0",
     "typescript": "^5.4.0",
     "vitest": "^1.4.0"
   }

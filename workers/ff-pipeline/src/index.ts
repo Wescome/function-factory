@@ -2,7 +2,13 @@ export { FactoryPipeline } from './pipeline'
 export { SynthesisCoordinator } from './coordinator'
 export { validateCodeLanguage } from './coordinator/atom-executor'
 export { AtomExecutor } from './coordinator/atom-executor-do'
+export { RunCoordinator } from './coordinator/run-coordinator'
 export { Sandbox } from '@cloudflare/sandbox'
+
+// Harness path (IS-HARNESS-DSL-v1 §2–§3, ADR-009 §4 Phase 3)
+export { startHarnessRun } from './harness-bridge'
+export { dispatchOne as dispatchHarnessStage, buildDefaultDispatcherDeps } from './harness-dispatcher'
+export type { HarnessBridgeEnv, HarnessJob, HarnessQueueMessage } from './harness-env'
 
 export { ingestSignal } from './stages/ingest-signal'
 export { generateFeedbackSignals } from './stages/generate-feedback'
@@ -1349,6 +1355,34 @@ export default {
 
   async queue(batch: MessageBatch, env: PipelineEnv, _ctx: ExecutionContext): Promise<void> {
     for (const msg of batch.messages) {
+
+      // ── harness-queue: NLAH-driven stage dispatch (IS-HARNESS-DSL-v1 §3.1) ──
+      // The dispatcher MUST NOT live on the RunCoordinator DO (self-fetch deadlock);
+      // routing it through the index.ts queue handler keeps it on a separate Worker
+      // module while reusing the established consumer wiring.
+      if (batch.queue === 'harness-queue') {
+        try {
+          const { dispatchOne, buildDefaultDispatcherDeps } = await import('./harness-dispatcher.js')
+          const harnessEnv = env as unknown as import('./harness-env').HarnessBridgeEnv
+          await dispatchOne(
+            msg.body as import('./harness-env').HarnessQueueMessage,
+            harnessEnv,
+            buildDefaultDispatcherDeps(),
+          )
+          msg.ack()
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : String(err)
+          const body = msg.body as { runId?: string; stageName?: string }
+          console.error(`[harness-dispatcher] dispatch failed for run=${body.runId} stage=${body.stageName}: ${errorMessage}`)
+          if (msg.attempts >= 3) {
+            console.error(`[INFRA SIGNAL] infra:queue-retry-exhausted: harness-queue message for ${body.runId}/${body.stageName} exhausted ${msg.attempts} attempts`)
+            msg.ack()
+          } else {
+            msg.retry()
+          }
+        }
+        continue
+      }
 
       // ── feedback-signals queue: governor-cycle messages ──
       if (batch.queue === 'feedback-signals' && (msg.body as any).type === 'governor-cycle') {

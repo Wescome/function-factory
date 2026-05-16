@@ -6419,3 +6419,130 @@
 {"timestamp":"2026-05-16T18:37:24.279Z","tool":"Bash","summary":"curl -sS -X POST http://localhost:8888/notify -H \"Content-Type: application/json\" -d '{\"message\":\"Gate review complete. ","session_id":"40032595-027e-410e-a426-04ac8d941262"}
 {"timestamp":"2026-05-16T18:39:15.430Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/specs/intent-specifications/IS-HARNESS-DSL-v1.md","session_id":"40032595-027e-410e-a426-04ac8d941262"}
 {"timestamp":"2026-05-16T18:39:18.610Z","tool":"Bash","summary":"git status && git log --oneline -3","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:39:33.713Z","tool":"Bash","summary":"git add specs/intent-specifications/IS-HARNESS-DSL-v1.md specs/reference/ADR-009-nlah-runtime-replaces-state-graph.md .a","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:41:30.890Z","tool":"Agent","summary":"NLAH contribution #0 — scope package to @wescome/nlah","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:41:37.693Z","tool":"Agent","summary":"NLAH contribution #1b — injectable fileReader in buildStageContext","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:41:39.291Z","tool":"Bash","summary":"ls -la /Users/wes/nlah/","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:41:43.448Z","tool":"Bash","summary":"grep -rn '\"nlah\"' /Users/wes/nlah/ --include=\"*.json\" --include=\"*.md\" --include=\"*.yaml\" --include=\"*.yml\" --include=\"*","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:41:45.242Z","tool":"Agent","summary":"NLAH contribution #1d — loadHarness string overload","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:41:45.535Z","tool":"Bash","summary":"grep -rn \"from ['\\\"]nlah['\\\"]\" /Users/wes/nlah/ --include=\"*.ts\" --include=\"*.js\" --exclude-dir=node_modules --exclude-d","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:41:50.606Z","tool":"Agent","summary":"NLAH contribution #5 — registerGate helper","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:41:52.511Z","tool":"Bash","summary":"ls /Users/wes/nlah/src/ 2>&1","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:41:55.734Z","tool":"Edit","summary":"/Users/wes/nlah/package.json","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:41:58.845Z","tool":"Edit","summary":"/Users/wes/nlah/src/context.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:42:01.826Z","tool":"Edit","summary":"/Users/wes/nlah/Implementation_contract.md","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:42:06.671Z","tool":"Bash","summary":"grep -rn '\"name\": \"nlah\"' /Users/wes/nlah/ --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=runs --exclude-di","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:42:07.556Z","tool":"Edit","summary":"/Users/wes/nlah/src/gates.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:42:08.032Z","tool":"Edit","summary":"/Users/wes/nlah/src/compiler.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:44:15.301Z","tool":"Agent","summary":"NLAH contribution #1a — ArtifactManager interface extraction","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:44:30.837Z","tool":"Bash","summary":"grep -rn \"new ArtifactManager\" /Users/wes/nlah --include=\"*.ts\" 2>/dev/null","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:44:31.747Z","tool":"Bash","summary":"grep -rn \"ArtifactManager\" /Users/wes/nlah/src --include=\"*.ts\" 2>/dev/null","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:44:45.701Z","tool":"Bash","summary":"grep -l \"ArtifactManager\" /Users/wes/nlah/test/*.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:45:00.065Z","tool":"Edit","summary":"/Users/wes/nlah/src/artifacts.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:45:05.837Z","tool":"Edit","summary":"/Users/wes/nlah/src/runtime.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:45:07.875Z","tool":"Edit","summary":"/Users/wes/nlah/src/runtime.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:45:09.512Z","tool":"Edit","summary":"/Users/wes/nlah/src/runtime.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:46:28.423Z","tool":"Agent","summary":"NLAH test file migration — FsArtifactManager rename","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:46:38.051Z","tool":"Bash","summary":"ls /Users/wes/nlah/test/ 2>&1 | head -50","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:46:57.440Z","tool":"Agent","summary":"NLAH contribution #1c — initHarness + advanceHarness pure functions","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:47:01.570Z","tool":"Bash","summary":"grep -n \"export.*ArtifactManager\\|export.*FsArtifactManager\" /Users/wes/nlah/src/artifacts.ts 2>&1 | head -20","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:47:08.493Z","tool":"Bash","summary":"cd /Users/wes/nlah/test && for f in artifacts.test.ts workers.test.ts gates.test.ts llm_worker.test.ts aider_cli_worker.","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:47:16.921Z","tool":"Edit","summary":"/Users/wes/nlah/test/artifacts.test.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:47:18.920Z","tool":"Edit","summary":"/Users/wes/nlah/test/artifacts.test.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:47:20.914Z","tool":"Edit","summary":"/Users/wes/nlah/test/artifacts.test.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:47:22.945Z","tool":"Edit","summary":"/Users/wes/nlah/test/artifacts.test.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:47:24.380Z","tool":"Edit","summary":"/Users/wes/nlah/test/artifacts.test.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:47:26.915Z","tool":"Edit","summary":"/Users/wes/nlah/test/artifacts.test.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:47:28.438Z","tool":"Edit","summary":"/Users/wes/nlah/test/artifacts.test.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:47:30.442Z","tool":"Edit","summary":"/Users/wes/nlah/test/artifacts.test.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:47:32.372Z","tool":"Edit","summary":"/Users/wes/nlah/test/artifacts.test.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:47:36.679Z","tool":"Edit","summary":"/Users/wes/nlah/test/workers.test.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:47:37.596Z","tool":"Edit","summary":"/Users/wes/nlah/test/workers.test.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:47:41.308Z","tool":"Edit","summary":"/Users/wes/nlah/test/gates.test.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:47:42.758Z","tool":"Edit","summary":"/Users/wes/nlah/test/gates.test.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:47:46.742Z","tool":"Edit","summary":"/Users/wes/nlah/test/llm_worker.test.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:47:47.733Z","tool":"Edit","summary":"/Users/wes/nlah/test/llm_worker.test.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:47:52.080Z","tool":"Edit","summary":"/Users/wes/nlah/test/aider_cli_worker.test.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:47:53.152Z","tool":"Edit","summary":"/Users/wes/nlah/test/aider_cli_worker.test.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:47:57.454Z","tool":"Edit","summary":"/Users/wes/nlah/test/command_worker.test.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:47:58.530Z","tool":"Edit","summary":"/Users/wes/nlah/test/command_worker.test.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:48:02.467Z","tool":"Edit","summary":"/Users/wes/nlah/test/script_worker.test.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:48:03.818Z","tool":"Edit","summary":"/Users/wes/nlah/test/script_worker.test.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:48:08.066Z","tool":"Edit","summary":"/Users/wes/nlah/test/loom_cli_worker.test.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:48:09.115Z","tool":"Edit","summary":"/Users/wes/nlah/test/loom_cli_worker.test.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:48:13.136Z","tool":"Edit","summary":"/Users/wes/nlah/test/local_cli_coding_worker.test.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:48:14.187Z","tool":"Edit","summary":"/Users/wes/nlah/test/local_cli_coding_worker.test.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:48:17.064Z","tool":"Edit","summary":"/Users/wes/nlah/src/runtime.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:48:18.484Z","tool":"Edit","summary":"/Users/wes/nlah/test/context.test.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:48:19.319Z","tool":"Edit","summary":"/Users/wes/nlah/test/context.test.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:48:23.616Z","tool":"Edit","summary":"/Users/wes/nlah/test/pi_cli_worker.test.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:48:24.729Z","tool":"Edit","summary":"/Users/wes/nlah/test/pi_cli_worker.test.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:48:29.917Z","tool":"Bash","summary":"cd /Users/wes/nlah/test && grep -rn \"new ArtifactManager(\" . 2>&1 || echo \"NO MATCHES — all constructor calls renamed\"","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:48:31.183Z","tool":"Bash","summary":"cd /Users/wes/nlah/test && grep -rn \"ArtifactManager\\b\" . 2>&1 | grep -v \"FsArtifactManager\"","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:49:12.437Z","tool":"Bash","summary":"cd /Users/wes/nlah && git status && git log --oneline -3","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:49:23.133Z","tool":"Bash","summary":"cd /Users/wes/nlah && git add -A && git commit -m \"$(cat <<'EOF'\nfeat: CF-compatible pure execution API (#0, #1a-#1d, #5","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:49:44.973Z","tool":"Agent","summary":"CF integration Phase 2 — packages/nlah workspace package","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:49:53.945Z","tool":"Bash","summary":"ls /Users/wes/Developer/function-factory/packages/","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:49:54.998Z","tool":"Bash","summary":"ls /Users/wes/nlah/src/","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:49:59.133Z","tool":"Bash","summary":"ls /Users/wes/Developer/function-factory/packages/harness-bridge/","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:50:02.049Z","tool":"Bash","summary":"ls /Users/wes/Developer/function-factory/packages/schemas/ && echo \"---\" && ls /Users/wes/Developer/function-factory/pac","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:50:11.904Z","tool":"Bash","summary":"grep -r \"@wescome/nlah\" /Users/wes/Developer/function-factory/packages/ --include=\"package.json\" -l 2>/dev/null | head -","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:50:12.850Z","tool":"Bash","summary":"grep -r \"nlah\" /Users/wes/Developer/function-factory/packages/ --include=\"package.json\" 2>/dev/null | head -30","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:50:16.239Z","tool":"Bash","summary":"grep -r \"nlah\" /Users/wes/Developer/function-factory/packages/ -l 2>/dev/null | grep -v node_modules | grep -v dist | he","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:50:16.978Z","tool":"Bash","summary":"cat /Users/wes/nlah/package.json | head -50","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:50:21.678Z","tool":"Bash","summary":"grep -n \"^export\" /Users/wes/nlah/src/artifacts.ts /Users/wes/nlah/src/runtime.ts /Users/wes/nlah/src/compiler.ts /Users","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:50:31.090Z","tool":"Bash","summary":"cd /Users/wes/nlah && tsc --noEmit 2>&1 | head -30","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:50:34.632Z","tool":"Bash","summary":"cd /Users/wes/nlah && grep -n \"GateResult\" src/index.ts src/*.ts 2>/dev/null | grep -v \"node_modules\" | head -20","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:50:41.771Z","tool":"Bash","summary":"cd /Users/wes/nlah && ls dist/ 2>/dev/null | head -5","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:50:44.849Z","tool":"Bash","summary":"ls /Users/wes/nlah/dist 2>&1 | head -5; echo \"---\"; ls /Users/wes/nlah/","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:51:00.824Z","tool":"Bash","summary":"find /Users/wes/Developer/function-factory/packages -name \"package.json\" -not -path \"*/node_modules/*\" -exec grep -l \"fi","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:51:01.692Z","tool":"Bash","summary":"find /Users/wes/Developer/function-factory/packages -name \"package.json\" -not -path \"*/node_modules/*\" -not -path \"*/dis","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:51:13.148Z","tool":"Bash","summary":"grep -n \"^export\" /Users/wes/nlah/src/worker_registry.ts | head -10","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:51:30.650Z","tool":"Bash","summary":"mkdir -p /Users/wes/Developer/function-factory/packages/nlah/src","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:51:40.344Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/nlah/package.json","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:51:41.853Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/nlah/tsconfig.json","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:51:50.331Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/nlah/src/index.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:51:58.680Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/nlah/README.md","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:52:59.254Z","tool":"Agent","summary":"NLAH quick fixes — GateResult rename + package.json exports","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:53:03.781Z","tool":"Bash","summary":"curl -sS -X POST http://localhost:8888/notify -H \"Content-Type: application/json\" -d '{\"message\":\"Loading Engineer conte","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:53:09.119Z","tool":"Bash","summary":"grep -rn \"GateResult\" /Users/wes/nlah/src/ 2>/dev/null","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:53:09.949Z","tool":"Bash","summary":"grep -rn \"from .*gates\" /Users/wes/nlah/src/ 2>/dev/null","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:53:18.086Z","tool":"Bash","summary":"grep -rn \"GateResult\" /Users/wes/nlah/tests/ /Users/wes/nlah/test/ 2>/dev/null; echo \"---\"; find /Users/wes/nlah -maxdep","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:53:20.717Z","tool":"Bash","summary":"grep -rn \"GateResult\" /Users/wes/nlah/test/ 2>/dev/null","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:53:25.184Z","tool":"Edit","summary":"/Users/wes/nlah/package.json","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:53:28.622Z","tool":"Edit","summary":"/Users/wes/nlah/src/gates.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:53:32.130Z","tool":"Bash","summary":"grep -rn \"GateResult\" /Users/wes/nlah/src/ 2>/dev/null","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:53:32.760Z","tool":"Bash","summary":"grep -rn \"GateEvalRecord\" /Users/wes/nlah/src/ 2>/dev/null","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:53:37.761Z","tool":"Agent","summary":"CF integration Phase 3+4 — harness bridge, dispatcher, completeness verification","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:53:55.603Z","tool":"Bash","summary":"ls -la /Users/wes/Developer/function-factory/workers/ff-pipeline/src/ /Users/wes/Developer/function-factory/packages/","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:54:01.332Z","tool":"Bash","summary":"ls /Users/wes/Developer/function-factory/workers/ff-pipeline/ /Users/wes/Developer/function-factory/workers/ff-pipeline/","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:54:09.446Z","tool":"Bash","summary":"cd /Users/wes/nlah && git add package.json src/gates.ts && git commit -m \"$(cat <<'EOF'\nfix: resolve barrel collision + ","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:54:16.794Z","tool":"Bash","summary":"ls -la /Users/wes/Developer/function-factory/packages/harness-bridge/ /Users/wes/Developer/function-factory/packages/ver","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:54:20.901Z","tool":"Bash","summary":"cat /Users/wes/Developer/function-factory/packages/harness-bridge/README.md","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:54:26.896Z","tool":"Bash","summary":"grep -rn \"FunctionJob\\|functionRunId\" /Users/wes/Developer/function-factory/packages/schemas/src/ 2>/dev/null | head -20","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:54:32.508Z","tool":"Bash","summary":"grep -rn \"FACTORY_PIPELINE\\|sendEvent\\|harness-complete\\|synthesis-complete\" /Users/wes/Developer/function-factory/worke","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:54:45.610Z","tool":"Bash","summary":"grep -n \"WorkerOutput\\|workerOutput\\|createdArtifacts\\|allStatuses\\|validateContract\" /Users/wes/nlah/src/workers.ts | h","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:54:55.698Z","tool":"Bash","summary":"grep -n \"gate\\b\\|stage\\.worker\\|StageSpec\\|stages:\" /Users/wes/nlah/src/schema.ts | head -30","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:55:00.241Z","tool":"Bash","summary":"grep -n \"export\\|loadHarness\\|HarnessSource\" /Users/wes/nlah/src/compiler.ts | head -20\necho \"---\"\nls /Users/wes/Develop","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:55:10.066Z","tool":"Bash","summary":"grep -n \"^export\" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/graph-runner.ts\necho \"---\"\nl","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:56:02.012Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/packages/verification/src/harness-completeness-verification.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:56:08.187Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/verification/src/index.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:56:12.502Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/verification/package.json","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:56:38.833Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/harness-bridge.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:57:06.402Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/harness-env.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:57:45.588Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/coordinator/run-coordinator.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:58:52.226Z","tool":"Write","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/harness-dispatcher.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:59:04.127Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/wrangler.jsonc","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:59:14.413Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/wrangler.jsonc","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:59:21.281Z","tool":"Bash","summary":"grep -n \"async queue\\|queue(batch\\|export default\\|MessageBatch\" /Users/wes/Developer/function-factory/workers/ff-pipeli","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:59:45.261Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/index.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T18:59:56.389Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/index.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T19:00:06.791Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/src/types.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T19:00:16.374Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/workers/ff-pipeline/package.json","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T19:00:24.320Z","tool":"Bash","summary":"grep -n \"normalizeGateContract\\|registerGate\" /Users/wes/Developer/function-factory/packages/nlah/src/index.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T19:00:32.095Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/nlah/src/index.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T19:00:41.593Z","tool":"Edit","summary":"/Users/wes/Developer/function-factory/packages/nlah/src/index.ts","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T19:01:05.817Z","tool":"Bash","summary":"ls /Users/wes/Developer/function-factory/packages/nlah/src/\necho \"---\"\nls /Users/wes/Developer/function-factory/packages","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T19:01:10.027Z","tool":"Bash","summary":"ls -la /Users/wes/Developer/function-factory/workers/ff-pipeline/src/harness-*.ts /Users/wes/Developer/function-factory/","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T19:01:15.190Z","tool":"Bash","summary":"grep -n \"RunCoordinator\\|HARNESS_QUEUE\\|harness-queue\" /Users/wes/Developer/function-factory/workers/ff-pipeline/wrangle","session_id":"40032595-027e-410e-a426-04ac8d941262"}
+{"timestamp":"2026-05-16T19:02:13.059Z","tool":"Bash","summary":"git -C /Users/wes/Developer/function-factory status --short","session_id":"40032595-027e-410e-a426-04ac8d941262"}

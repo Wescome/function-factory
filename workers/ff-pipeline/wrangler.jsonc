@@ -19,13 +19,15 @@
     "bindings": [
       { "name": "COORDINATOR", "class_name": "SynthesisCoordinator" },
       { "name": "SANDBOX", "class_name": "Sandbox" },
-      { "name": "ATOM_EXECUTOR", "class_name": "AtomExecutor" }
+      { "name": "ATOM_EXECUTOR", "class_name": "AtomExecutor" },
+      { "name": "RUN_COORDINATOR", "class_name": "RunCoordinator" }
     ]
   },
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["SynthesisCoordinator"] },
     { "tag": "v2", "new_sqlite_classes": ["Sandbox"] },
-    { "tag": "v3", "new_sqlite_classes": ["AtomExecutor"] }
+    { "tag": "v3", "new_sqlite_classes": ["AtomExecutor"] },
+    { "tag": "v4", "new_sqlite_classes": ["RunCoordinator"] }
   ],
 
   // Sandbox Container for Coder/Tester execution
@@ -50,13 +52,18 @@
       { "binding": "SYNTHESIS_QUEUE", "queue": "synthesis-queue" },
       { "binding": "SYNTHESIS_RESULTS", "queue": "synthesis-results" },
       { "binding": "ATOM_RESULTS", "queue": "atom-results" },
-      { "binding": "FEEDBACK_QUEUE", "queue": "feedback-signals" }
+      { "binding": "FEEDBACK_QUEUE", "queue": "feedback-signals" },
+      { "binding": "HARNESS_QUEUE", "queue": "harness-queue" }
     ],
     "consumers": [
       { "queue": "synthesis-queue", "max_batch_size": 1, "max_retries": 5 },
       { "queue": "synthesis-results", "max_batch_size": 1, "max_retries": 3 },
       { "queue": "atom-results", "max_batch_size": 1, "max_retries": 3 },
-      { "queue": "feedback-signals", "max_batch_size": 1, "max_retries": 2 }
+      { "queue": "feedback-signals", "max_batch_size": 1, "max_retries": 2 },
+      // NOTE: the harness-queue consumer is bound to the harness-dispatcher.ts
+      // entry, NOT the RunCoordinator DO. The DO consuming its own queue would
+      // self-fetch-deadlock — see MEMORY for Phase 3/4 and IS-HARNESS-DSL-v1 §3.1.
+      { "queue": "harness-queue", "max_batch_size": 1, "max_retries": 3, "dead_letter_queue": "harness-dlq" }
     ]
   },
 
