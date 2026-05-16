@@ -60,6 +60,7 @@ import type {
   StageCompletePayload,
 } from "./harness-env"
 import { CfArtifactManager } from "./cf-artifact-manager"
+import { buildCfWorkerRegistry, buildStageContextFromJob } from "./cf-workers"
 
 const MAX_RETRIES = 3
 
@@ -370,21 +371,35 @@ export async function dispatchOne(
  */
 export function buildDefaultDispatcherDeps(env: HarnessBridgeEnv): HarnessDispatcherDeps {
   return {
-    resolveWorkerAdapter() {
-      throw new Error(
-        "harness-dispatcher: resolveWorkerAdapter is not wired; build cf-workers.ts (IS-HARNESS-DSL-v1 §5) and inject HarnessDispatcherDeps explicitly",
-      )
+    resolveWorkerAdapter(workerName, envForLookup) {
+      if (!workerName || !workerName.trim()) {
+        throw new Error(
+          "harness-dispatcher: stage spec missing `worker` field; cannot resolve adapter",
+        )
+      }
+      // Build a fresh registry per resolution. Cheap (it just constructs a
+      // few adapter wrappers around env bindings) and avoids holding a
+      // registry reference across the deps object's lifetime. The registry
+      // throws `unknown worker: <name>` when the binding is absent — this
+      // is the MISSING_WORKER_BINDING bound-failure path per
+      // IS-HARNESS-DSL-v1 §5.
+      const registry = buildCfWorkerRegistry(envForLookup)
+      return registry.get(workerName)
     },
     buildArtifactManager: (runId) =>
       new CfArtifactManager(
         env.WORKSPACE_BUCKET,
         `runs/${runId}/artifacts/`,
       ),
-    buildStageContextForRun() {
-      throw new Error(
-        "harness-dispatcher: buildStageContextForRun is not wired; build cf-workers.ts buildStageContext shim (IS-HARNESS-DSL-v1 §3.1 step 4) and inject HarnessDispatcherDeps explicitly",
-      )
-    },
+    buildStageContextForRun: ({ state, stage, artifacts, taskText }) =>
+      buildStageContextFromJob({
+        taskText,
+        runId: state.runId,
+        stageName: state.currentStage,
+        declaredInputs: stage.inputs,
+        declaredOutputs: stage.outputs,
+        artifacts,
+      }),
     gateRegistry: defaultGateRegistry,
   }
 }

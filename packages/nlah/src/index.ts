@@ -39,6 +39,7 @@ export type {
   WorkerOutput,
   // context.ts
   FileReader,
+  StageContext,
   // gates.ts
   GateFn,
   GateEvalRecord,
