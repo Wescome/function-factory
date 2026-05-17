@@ -9,16 +9,16 @@
  * Container produced.
  *
  * The Container is responsible for:
- *   - Reading any declared input artifacts directly from R2 (using
- *     `artifactPrefix` + `r2Bucket`).
  *   - Executing the role's instructions against the supplied StageContext.
- *   - Writing each declared output back to R2 under the same prefix.
- *   - Returning a JSON body `{ artifacts: string[], message?: string }` listing
- *     the artifact names it created.
+ *   - Writing each declared output to the working directory.
+ *   - Returning a JSON body `{ artifacts: string[], artifactContents: Record<string,string>,
+ *     message?: string }` — the adapter writes contents to R2 via ArtifactManager.writeText().
+ *
+ * Artifacts flow back in the response body so R2 bindings stay on the Worker
+ * side where CF puts them. Container is stateless; Worker holds persistence.
  *
  * The adapter is intentionally thin. Failure modes:
  *   - Non-2xx Container response  → throw (dispatcher records `workerThrew`).
- *   - Wrong storage handle kind   → throw (Container path requires R2).
  *   - Missing Container binding   → throw at registry-construction time when
  *     the dispatcher resolves an unbound worker name.
  *
@@ -38,12 +38,13 @@ import {
 import type { ContainerBinding, HarnessBridgeEnv } from "./harness-env"
 
 /**
- * The wire shape the Container is expected to return from `POST /execute`.
- * Kept as a discrete type so the parsing site can validate the shape rather
- * than blindly casting `response.json()` to `WorkerOutput`.
+ * The wire shape the Container returns from `POST /execute`.
+ * `artifactContents` carries the file contents so the Worker can write them
+ * to R2 via ArtifactManager.writeText() — Containers cannot use Worker bindings.
  */
 interface ContainerExecuteResponse {
   artifacts: string[]
+  artifactContents: Record<string, string>
   message?: string
 }
 
@@ -68,19 +69,8 @@ abstract class ContainerWorkerAdapter implements WorkerAdapter {
   ) {}
 
   async execute(input: WorkerInput, artifacts: ArtifactManager): Promise<WorkerOutput> {
-    // F9 in the spec: read the storage handle via the ArtifactManager
-    // interface, never via a cast. CF Containers can only address R2 from
-    // inside the runtime, so any non-r2 handle is a wiring bug — fail loudly.
-    const handle = artifacts.getStorageHandle()
-    if (handle.kind !== "r2") {
-      throw new Error(
-        `${this.name}: container adapter requires r2 storage handle, got ${handle.kind}`,
-      )
-    }
-
-    // The Container expects everything it needs to act on the stage in the
-    // POST body. `state` is intentionally omitted — Containers do not read
-    // the synthesized RuntimeState view (gates run Worker-side, not
+    // `state` is intentionally omitted — Containers do not read the
+    // synthesized RuntimeState view (gates run Worker-side, not
     // Container-side). Including only what the Container consumes keeps the
     // contract tight and the payload small.
     const body = {
@@ -90,8 +80,6 @@ abstract class ContainerWorkerAdapter implements WorkerAdapter {
       context: input.context,
       declaredInputs: input.declaredInputs,
       declaredOutputs: input.declaredOutputs,
-      artifactPrefix: handle.prefix,
-      r2Bucket: handle.bucketBinding,
     }
 
     const response = await this.container.fetch(
@@ -105,8 +93,6 @@ abstract class ContainerWorkerAdapter implements WorkerAdapter {
     if (!response.ok) {
       // Throwing surfaces this through the dispatcher's try/catch as
       // `workerThrew` on the StageCompletePayload (see harness-dispatcher.ts).
-      // We pull the body into the error message so a 4xx misconfiguration
-      // is debuggable from the queue-retry-exhausted signal.
       const text = await response.text().catch(() => "<unreadable body>")
       throw new Error(
         `${this.name}: container dispatch failed (${response.status}): ${text}`,
@@ -118,6 +104,13 @@ abstract class ContainerWorkerAdapter implements WorkerAdapter {
       throw new Error(
         `${this.name}: container response missing artifacts[]: ${JSON.stringify(parsed)}`,
       )
+    }
+
+    // Write artifact contents to R2 via ArtifactManager — bindings live on
+    // the Worker side; the Container returns contents in the response body.
+    const contents = parsed.artifactContents ?? {}
+    for (const [name, content] of Object.entries(contents)) {
+      await artifacts.writeText(name, content)
     }
 
     return {
