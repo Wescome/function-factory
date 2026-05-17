@@ -20,10 +20,12 @@ The re-export `export { StateGraph, END } from './graph-runner'` in
 
 ## Rollback procedure
 
+Deletion commit: **f830279** ("INFRA: ADR-009 §8 gate 6 — delete graph-runner, stub synthesize()")
+
 If the NLAH harness path (`synthesis.harness.yaml` + `startHarnessRun`) is
 found to be broken after deletion, the rollback path is:
 
-1. `git revert <deletion-commit>` — restores graph-runner.ts and graph.ts.
+1. `git revert f830279` — restores graph-runner.ts and graph.ts.
 2. `git revert <caller-migration-commit>` — restores the synthesis queue path
    in pipeline.ts and the coordinator DO synthesize handler.
 3. Redeploy the previous Worker bundle.

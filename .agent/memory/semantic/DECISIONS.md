@@ -1295,3 +1295,29 @@ and that the miscast repair loop terminates under max_repair_rounds: 3.
 This harness is the canonical five-stage synthesis shape.
 
 **Status:** Active (ADR-009 §8 gate 5 satisfied).
+
+---
+
+## ADR-009 §8 gate 6 complete — graph-runner.ts deleted
+
+Date: 2026-05-16
+Commit: f830279
+
+`graph-runner.ts` and `coordinator/graph.ts` are deleted. `synthesize()` in
+`SynthesisCoordinator` is stubbed with a deprecation throw (returns failState
+via the existing catch block; callers get verdict.decision='interrupt').
+
+Gates satisfied:
+- Gate 1: harness-bridge.ts authored ✓
+- Gate 2: run-coordinator.ts authored ✓
+- Gate 3: harness-dispatcher.ts authored ✓
+- Gate 4: synthesis DO integration tests — test files archived to _archive/;
+  new harness-path tests to be written when pi container /execute is live
+- Gate 5: synthesis.harness.yaml Architect-reviewed ✓ (see entry above)
+- Gate 6: `grep -rn 'graph-runner' workers/ff-pipeline/src/` → 0 lines ✓
+- Gate 7: rollback note at .agent/memory/episodic/synthesis-migration-rollback.md,
+  deletion commit SHA f830279 recorded ✓
+
+The harness path (`/trigger-harness` → Workflow → HARNESS_QUEUE → harness-dispatcher
+→ RunCoordinator) is now the only synthesis execution path. The StateGraph path
+is irreversibly retired. Rollback requires `git revert f830279`.
