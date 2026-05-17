@@ -313,6 +313,30 @@ export class ClaudeCodeContainerAdapter extends ContainerWorkerAdapter {
 }
 
 /**
+ * Adapter for artifacts that are intentionally written before harness
+ * execution starts. It proves the artifact is present in the run's R2
+ * namespace and returns it as the created output for the seed stage.
+ */
+export class PreseedArtifactAdapter implements WorkerAdapter {
+  readonly name = "preseed"
+
+  async execute(input: WorkerInput, artifacts: ArtifactManager): Promise<WorkerOutput> {
+    const createdArtifacts: string[] = []
+    for (const output of input.declaredOutputs) {
+      const status = await artifacts.status(output)
+      if (!status.exists || (status.sizeBytes ?? 0) === 0) {
+        throw new Error(`preseed artifact missing or empty: ${output}`)
+      }
+      createdArtifacts.push(output)
+    }
+    return {
+      createdArtifacts,
+      message: `preseeded ${createdArtifacts.join(", ")}`,
+    }
+  }
+}
+
+/**
  * Build the CF-side `WorkerRegistry` for the harness dispatcher.
  *
  * Only registers an adapter when its Container binding is present on the
@@ -340,6 +364,7 @@ export function buildCfWorkerRegistry(
   _artifacts?: ArtifactManager,
 ): WorkerRegistry {
   const registry = new WorkerRegistry()
+  registry.register("preseed", new PreseedArtifactAdapter())
   if (env.PI_CONTAINER) {
     // CF Containers in wrangler 4 are DO-backed: PI_CONTAINER is a namespace.
     // Use a singleton DO ID so all harness stages share one warm container

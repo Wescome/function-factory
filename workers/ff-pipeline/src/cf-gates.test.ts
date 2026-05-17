@@ -12,6 +12,16 @@ const validPatch = [
   '',
 ].join('\n')
 
+const seedWorkspace = JSON.stringify({
+  schemaVersion: '1.0',
+  files: [
+    {
+      path: 'src/coding-adapter-smoke.ts',
+      content: 'coding-adapter smoke\n',
+    },
+  ],
+})
+
 describe('validateUnifiedDiff', () => {
   it('accepts a syntactically valid unified diff', () => {
     expect(validateUnifiedDiff(validPatch)).toEqual({ passed: true })
@@ -29,12 +39,33 @@ describe('cfPatchAppliesCleanly', () => {
   it('reads the requested artifact from R2-compatible ArtifactManager', async () => {
     const artifacts = {
       readText: vi.fn(async () => validPatch),
+      status: vi.fn(async () => ({ name: 'SeedWorkspace', exists: false })),
     }
 
     const result = await cfPatchAppliesCleanly({} as never, artifacts as never, 'FinalPatch')
 
     expect(artifacts.readText).toHaveBeenCalledWith('FinalPatch')
     expect(result).toMatchObject({ gate: 'patch_applies_cleanly', passed: true })
+  })
+
+  it('validates the patch against SeedWorkspace when that artifact is present', async () => {
+    const artifacts = {
+      status: vi.fn(async (name: string) => ({
+        name,
+        exists: true,
+        sizeBytes: name === 'SeedWorkspace' ? seedWorkspace.length : validPatch.length,
+      })),
+      readText: vi.fn(async (name: string) => name === 'SeedWorkspace' ? seedWorkspace : validPatch),
+    }
+
+    const result = await cfPatchAppliesCleanly({} as never, artifacts as never, 'CandidatePatch')
+
+    expect(artifacts.readText).toHaveBeenCalledWith('SeedWorkspace')
+    expect(result).toMatchObject({
+      gate: 'patch_applies_cleanly',
+      passed: false,
+    })
+    expect(result.message).toContain('target file')
   })
 })
 

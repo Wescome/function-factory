@@ -9,6 +9,7 @@
  */
 
 import type { GateFn } from "@factory/nlah"
+import { validatePatchAgainstSeedWorkspace } from "./coding-adapter-workspace"
 
 export function buildCfGateRegistry(base: Record<string, GateFn>): Record<string, GateFn> {
   return {
@@ -20,10 +21,29 @@ export function buildCfGateRegistry(base: Record<string, GateFn>): Record<string
 export const cfPatchAppliesCleanly: GateFn = async (_state, artifacts, args) => {
   const artifactName = typeof args === "string" ? args : "CandidatePatch"
   const content = await artifacts.readText(artifactName)
-  const result = validateUnifiedDiff(content)
+  const seedWorkspace = await readOptionalSeedWorkspace(artifacts)
+  const result = seedWorkspace
+    ? validatePatchAgainstSeedWorkspace(seedWorkspace, content)
+    : validateUnifiedDiff(content)
   return result.passed
-    ? { gate: "patch_applies_cleanly", passed: true, message: `${artifactName} is a syntactically valid unified diff` }
+    ? {
+        gate: "patch_applies_cleanly",
+        passed: true,
+        message: seedWorkspace
+          ? `${artifactName} applies to SeedWorkspace`
+          : `${artifactName} is a syntactically valid unified diff`,
+      }
     : { gate: "patch_applies_cleanly", passed: false, message: result.message }
+}
+
+async function readOptionalSeedWorkspace(artifacts: Parameters<GateFn>[1]): Promise<string | null> {
+  try {
+    const status = await artifacts.status("SeedWorkspace")
+    if (!status.exists || (status.sizeBytes ?? 0) === 0) return null
+    return await artifacts.readText("SeedWorkspace")
+  } catch {
+    return null
+  }
 }
 
 export function validateUnifiedDiff(content: string): { passed: true } | { passed: false; message: string } {

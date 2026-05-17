@@ -44,6 +44,13 @@ export interface HarnessJob {
    * Defaults to `functionRunId` when omitted (the common case).
    */
   workflowInstanceId?: string
+
+  /**
+   * Optional text artifacts to place in the run artifact namespace before
+   * the first stage dispatch. Used by production smoke harnesses that need a
+   * pre-seeded workspace or fixture artifact available as a first-stage input.
+   */
+  seedArtifacts?: Record<string, string>
 }
 
 /**

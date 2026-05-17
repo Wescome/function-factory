@@ -81,7 +81,10 @@ function makeEnv(overrides: Record<string, unknown> = {}) {
     get: vi.fn(() => stub),
   }
   return {
-    WORKSPACE_BUCKET: { get: vi.fn(async () => makeR2Object('nlahspec: "0.2"')) } as unknown as R2Bucket,
+    WORKSPACE_BUCKET: {
+      get: vi.fn(async () => makeR2Object('nlahspec: "0.2"')),
+      put: vi.fn(async () => undefined),
+    } as unknown as R2Bucket,
     RUN_COORDINATOR: doNamespace as unknown as DurableObjectNamespace,
     HARNESS_QUEUE: { send: vi.fn(async () => {}) },
     FACTORY_PIPELINE: { get: vi.fn(), create: vi.fn() },
@@ -163,6 +166,39 @@ describe('startHarnessRun', () => {
     expect(payload.initialState).toEqual(makeHarnessState())
     expect(payload.workflowId).toBe('run-bridge-001') // defaults to functionRunId
     expect(payload.taskText).toBe(job.objective)
+  })
+
+  it('pre-seeds initial artifacts into the run R2 namespace before init', async () => {
+    const { startHarnessRun } = await import('./harness-bridge.js')
+    const env = makeEnv()
+    const job = {
+      ...makeJob(),
+      seedArtifacts: {
+        SeedWorkspace: JSON.stringify({ schemaVersion: '1.0', files: [] }),
+      },
+    }
+
+    await startHarnessRun('harnesses/synthesis.harness.yaml', env as never, job)
+
+    expect(env.WORKSPACE_BUCKET.put).toHaveBeenCalledWith(
+      'runs/run-bridge-001/artifacts/SeedWorkspace',
+      JSON.stringify({ schemaVersion: '1.0', files: [] }),
+      expect.objectContaining({
+        httpMetadata: { contentType: 'text/plain; charset=utf-8' },
+      }),
+    )
+    expect(env._doFetch).toHaveBeenCalledOnce()
+  })
+
+  it('rejects unsafe seed artifact names', async () => {
+    const { startHarnessRun } = await import('./harness-bridge.js')
+    const env = makeEnv()
+
+    await expect(startHarnessRun(
+      'harnesses/synthesis.harness.yaml',
+      env as never,
+      { ...makeJob(), seedArtifacts: { '../escape': 'bad' } },
+    )).rejects.toThrow('unsafe seed artifact name')
   })
 
   it('uses workflowInstanceId when provided', async () => {

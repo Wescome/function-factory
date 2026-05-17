@@ -26,6 +26,8 @@ import { fileURLToPath } from 'node:url'
 import { buildPrompt } from './execution-contract.mjs'
 import { evaluateContracts, defaultContract, buildContractRepairPrompt } from './contract-evaluator.mjs'
 import { contractMaterializeCommand } from './contract-materializer.mjs'
+import { hasSeedWorkspace, prepareSeedWorkspace, workspacePromptSection } from './workspace-seed.mjs'
+import { workspaceDerivedArtifactCommand } from './workspace-derived-artifacts.mjs'
 
 const PORT = Number(process.env.PORT ?? 8080)
 const PI_BIN = join(dirname(fileURLToPath(import.meta.url)), 'node_modules', '.bin', 'pi')
@@ -342,6 +344,25 @@ async function handleExecute(req, res) {
     pushObservationEvent(observation, { type: 'input_artifact_written', name, bytes: content.length })
   }
 
+  let promptInput = input
+  if (hasSeedWorkspace(input)) {
+    const prepared = await prepareSeedWorkspace(workDir, inputArtifacts.SeedWorkspace)
+    const workspaceSection = workspacePromptSection(prepared)
+    promptInput = {
+      ...input,
+      context: {
+        ...(input.context ?? {}),
+        taskText: `${input.context?.taskText ?? ''}\n\n${workspaceSection}`.trim(),
+      },
+    }
+    log('info', 'execute.seed_workspace_prepared', { stageName, workspaceDir: prepared.workspaceDir, fileCount: prepared.seed.files.length })
+    pushObservationEvent(observation, {
+      type: 'seed_workspace.prepared',
+      fileCount: prepared.seed.files.length,
+      hasTestCommand: typeof prepared.seed.testCommand === 'string',
+    })
+  }
+
   const pi = spawn(PI_BIN, ['--mode', 'rpc', '--model', selectedModel.id], {
     cwd: workDir,
     env: process.env,
@@ -431,7 +452,25 @@ async function handleExecute(req, res) {
     // Deterministic shortcuts: materialize simple contracts via pi bash before prompt.
     // This covers smoke-grade exact_line, json.required_fields, text, and markdown contracts
     // without relying on a chat turn to choose a filesystem tool.
+    const seedWorkspacePresent = hasSeedWorkspace(input)
+    const workspaceDerivedCommands = seedWorkspacePresent
+      ? contracts
+        .map((contract) => workspaceDerivedArtifactCommand(contract, input))
+        .filter(Boolean)
+      : []
+    for (const item of workspaceDerivedCommands) {
+      pushObservationEvent(observation, { type: 'workspace.derived_command', artifact: item.artifact, kind: item.kind })
+      try {
+        const rsp = await sendRpcCommand(pi, reader, { type: 'bash', command: item.command }, 30_000)
+        pushObservationEvent(observation, { type: 'workspace.derived_response', artifact: item.artifact, kind: item.kind, success: rsp.success })
+      } catch (err) {
+        pushObservationEvent(observation, { type: 'workspace.derived_error', artifact: item.artifact, kind: item.kind, error: err.message })
+      }
+    }
+
     const materializeCommands = contracts
+      .filter((contract) => !workspaceDerivedCommands.some((item) => item.artifact === contract.artifact))
+      .filter((contract) => !seedWorkspacePresent || contract.artifact === 'IssueContract' || contract.artifact === 'RepoMap')
       .map((contract) => contractMaterializeCommand(contract, input))
       .filter(Boolean)
     for (const item of materializeCommands) {
@@ -447,9 +486,10 @@ async function handleExecute(req, res) {
     let evaluation = await evaluateContracts({ workDir, contracts })
     pushObservationEvent(observation, { type: 'contract.evaluation', attempt: 'pre-prompt', findings: evaluation.findings })
 
-    const skipPrompt = materializeCommands.length === contracts.length && evaluation.missing.length === 0
+    const deterministicCommandCount = workspaceDerivedCommands.length + materializeCommands.length
+    const skipPrompt = deterministicCommandCount === contracts.length && evaluation.missing.length === 0
     if (!skipPrompt) {
-      const prompt = buildPrompt(input)
+      const prompt = buildPrompt(promptInput)
       const agentEndPromise = waitForAgentEnd(reader, EXECUTE_TIMEOUT_MS)
       pi.stdin.write(JSON.stringify({ type: 'prompt', message: prompt }) + '\n')
       await agentEndPromise

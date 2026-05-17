@@ -14,18 +14,33 @@ runtime:
   artifact_root: artifacts
   graph_mode: linear
   default_failure_action: abort
+  max_repair_rounds: 2
 
 roles:
   Cartographer:
-    responsibility: Map relevant files, tests, dependencies. Must not edit files.
+    responsibility: >
+      Read SeedWorkspace and produce issue/repository mapping artifacts.
+      Must not edit workspace files.
   PatchWorker:
-    responsibility: Produce one candidate patch from issue contract and repo map.
+    responsibility: >
+      Inspect ./workspace and produce one unified diff CandidatePatch that
+      satisfies the SeedWorkspace issue and acceptance criteria.
   Verifier:
-    responsibility: Independently evaluate candidate patch. Must not repair patch.
+    responsibility: >
+      Independently evaluate CandidatePatch against SeedWorkspace. Must not
+      repair patch. Report test evidence.
   ReleaseAgent:
-    responsibility: Produce final patch, evidence, and PR-ready summary.
+    responsibility: >
+      Copy the verified CandidatePatch to FinalPatch and produce a PR-ready
+      summary with test evidence.
 
 artifacts:
+  SeedWorkspace:
+    path: artifacts/seed_workspace.json
+    required: true
+    contract:
+      kind: json
+      required_fields: [schemaVersion, files, testCommand]
   IssueContract:
     path: artifacts/issue_contract.md
     required: true
@@ -43,7 +58,7 @@ artifacts:
         - "## Relevant files"
         - "src/coding-adapter-smoke.ts"
         - "## Test entrypoints"
-        - "pnpm --filter @factory/ff-pipeline test"
+        - "node test/coding-adapter-smoke.test.js"
   CandidatePatch:
     path: artifacts/candidate.patch
     required: true
@@ -51,10 +66,11 @@ artifacts:
       kind: text
       required_patterns:
         - "diff --git a/src/coding-adapter-smoke.ts b/src/coding-adapter-smoke.ts"
-        - "--- /dev/null"
+        - "--- a/src/coding-adapter-smoke.ts"
         - "\\+\\+\\+ b/src/coding-adapter-smoke.ts"
-        - "@@ -0,0 \\+1 @@"
-        - "\\+coding-adapter smoke"
+        - "@@ -1(,1)? \\+1(,1)? @@"
+        - "-export const message = \"before\""
+        - "\\+export const message = \"coding-adapter smoke\""
   VerifierReport:
     path: artifacts/verifier_report.md
     required: true
@@ -63,7 +79,7 @@ artifacts:
       required_patterns:
         - "Verdict: PASS"
         - "Tests run"
-        - "pnpm --filter @factory/ff-pipeline test"
+        - "node test/coding-adapter-smoke.test.js"
   FinalPatch:
     path: artifacts/final.patch
     required: true
@@ -71,10 +87,11 @@ artifacts:
       kind: text
       required_patterns:
         - "diff --git a/src/coding-adapter-smoke.ts b/src/coding-adapter-smoke.ts"
-        - "--- /dev/null"
+        - "--- a/src/coding-adapter-smoke.ts"
         - "\\+\\+\\+ b/src/coding-adapter-smoke.ts"
-        - "@@ -0,0 \\+1 @@"
-        - "\\+coding-adapter smoke"
+        - "@@ -1(,1)? \\+1(,1)? @@"
+        - "-export const message = \"before\""
+        - "\\+export const message = \"coding-adapter smoke\""
   PRSummary:
     path: artifacts/pr_summary.md
     required: true
@@ -85,12 +102,22 @@ artifacts:
         - "Tests:"
 
 stages:
-  CONTRACT:
+  SEED:
     from: TaskReceived
+    to: WorkspaceSeeded
+    role: Cartographer
+    worker: preseed
+    inputs: []
+    outputs: [SeedWorkspace]
+    gate:
+      all: [{ exists: SeedWorkspace }]
+
+  CONTRACT:
+    from: WorkspaceSeeded
     to: IssueContracted
     role: Cartographer
     worker: pi
-    inputs: []
+    inputs: [SeedWorkspace]
     outputs: [IssueContract]
     gate:
       all: [{ exists: IssueContract }]
@@ -100,7 +127,7 @@ stages:
     to: RepoMapped
     role: Cartographer
     worker: pi
-    inputs: [IssueContract]
+    inputs: [SeedWorkspace, IssueContract]
     outputs: [RepoMap]
     gate:
       all:
@@ -113,7 +140,7 @@ stages:
     to: PatchCandidate
     role: PatchWorker
     worker: pi
-    inputs: [RepoMap]
+    inputs: [SeedWorkspace, RepoMap]
     outputs: [CandidatePatch]
     gate:
       all:
@@ -125,7 +152,7 @@ stages:
     to: VerifiedPatch
     role: Verifier
     worker: pi
-    inputs: [CandidatePatch]
+    inputs: [SeedWorkspace, CandidatePatch]
     outputs: [VerifierReport]
     gate:
       all:
@@ -138,7 +165,7 @@ stages:
     to: PullRequestReady
     role: ReleaseAgent
     worker: pi
-    inputs: [CandidatePatch, VerifierReport]
+    inputs: [SeedWorkspace, CandidatePatch, VerifierReport]
     outputs: [FinalPatch, PRSummary]
     gate:
       all:

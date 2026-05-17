@@ -303,6 +303,20 @@ describe('PiContainerAdapter', () => {
 })
 
 describe('buildCfWorkerRegistry', () => {
+  it('registers preseed without a container binding', async () => {
+    const { buildCfWorkerRegistry } = await import('./cf-workers.js')
+    const env = {
+      WORKSPACE_BUCKET: {},
+      HARNESS_QUEUE: { send: vi.fn() },
+      FACTORY_PIPELINE: { get: vi.fn(), create: vi.fn() },
+    }
+
+    const registry = buildCfWorkerRegistry(env as never)
+    const adapter = registry.get('preseed')
+    expect(adapter).toBeDefined()
+    expect((adapter as unknown as { name: string }).name).toBe('preseed')
+  })
+
   it('registers pi when PI_CONTAINER binding is present', async () => {
     const { buildCfWorkerRegistry } = await import('./cf-workers.js')
     const env = {
@@ -329,5 +343,32 @@ describe('buildCfWorkerRegistry', () => {
 
     const registry = buildCfWorkerRegistry(env as never)
     expect(() => registry.get('pi')).toThrow('unknown worker: pi')
+  })
+})
+
+describe('PreseedArtifactAdapter', () => {
+  it('returns declared outputs that already exist in artifacts', async () => {
+    const { PreseedArtifactAdapter } = await import('./cf-workers.js')
+    const artifacts = makeArtifacts({
+      status: vi.fn(async (name: string) => ({ name, path: name, exists: true, sizeBytes: 12 })),
+    })
+    const adapter = new PreseedArtifactAdapter()
+
+    const result = await adapter.execute(
+      makeInput({ declaredOutputs: ['SeedWorkspace'] }) as never,
+      artifacts as never,
+    )
+
+    expect(result.createdArtifacts).toEqual(['SeedWorkspace'])
+  })
+
+  it('throws when a declared preseed output is missing', async () => {
+    const { PreseedArtifactAdapter } = await import('./cf-workers.js')
+    const adapter = new PreseedArtifactAdapter()
+
+    await expect(adapter.execute(
+      makeInput({ declaredOutputs: ['SeedWorkspace'] }) as never,
+      makeArtifacts() as never,
+    )).rejects.toThrow('preseed artifact missing or empty')
   })
 })

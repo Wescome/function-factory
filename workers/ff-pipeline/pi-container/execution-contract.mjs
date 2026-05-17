@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 export function buildPrompt(input) {
-  const { roleName, rolePrompt, context = {}, declaredOutputs = [] } = input
+  const { roleName, rolePrompt, context = {}, declaredOutputs = [], outputContracts = [] } = input
   const { taskText = '', inputArtifacts = {} } = context
 
   const parts = []
@@ -26,6 +26,32 @@ export function buildPrompt(input) {
       '\n\nUse your filesystem tools or shell commands to create the files. ' +
       'The file name must match the artifact name exactly.',
     )
+  }
+
+  if (Array.isArray(outputContracts) && outputContracts.length > 0) {
+    const lines = ['## Output Contract Requirements', '']
+    for (const contract of outputContracts) {
+      if (!contract?.artifact || !contract?.body) continue
+      lines.push(`### ${contract.artifact}`)
+      lines.push(`- kind: ${contract.body.kind}`)
+      if (Array.isArray(contract.body.requiredFields)) {
+        lines.push(`- required JSON fields: ${contract.body.requiredFields.join(', ')}`)
+      }
+      if (Array.isArray(contract.body.requiredSections)) {
+        lines.push(`- required markdown sections: ${contract.body.requiredSections.join(', ')}`)
+      }
+      if (Array.isArray(contract.body.requiredPatterns)) {
+        lines.push('- required regex/literal patterns:')
+        for (const pattern of contract.body.requiredPatterns) {
+          lines.push(`  - ${pattern}`)
+        }
+      }
+      if (contract.body.line) {
+        lines.push(`- exact line: ${contract.body.line}`)
+      }
+      lines.push('')
+    }
+    parts.push(lines.join('\n').trimEnd())
   }
 
   return parts.join('\n\n')

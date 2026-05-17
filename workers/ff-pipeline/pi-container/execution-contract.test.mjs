@@ -28,6 +28,30 @@ describe('pi container execution contract', () => {
     expect(prompt).toContain('file name must match the artifact name exactly')
   })
 
+  it('includes output contract requirements when supplied', () => {
+    const prompt = buildPrompt({
+      roleName: 'PatchWorker',
+      context: { taskText: 'write a patch' },
+      declaredOutputs: ['CandidatePatch'],
+      outputContracts: [
+        {
+          artifact: 'CandidatePatch',
+          body: {
+            kind: 'text',
+            requiredPatterns: [
+              'diff --git a/src/coding-adapter-smoke.ts b/src/coding-adapter-smoke.ts',
+              '\\+export const message = "coding-adapter smoke"',
+            ],
+          },
+        },
+      ],
+    })
+
+    expect(prompt).toContain('## Output Contract Requirements')
+    expect(prompt).toContain('CandidatePatch')
+    expect(prompt).toContain('diff --git a/src/coding-adapter-smoke.ts b/src/coding-adapter-smoke.ts')
+  })
+
   it('builds a bounded repair prompt for missing outputs', () => {
     const prompt = buildRepairPrompt(['SmokeArtifact'])
 

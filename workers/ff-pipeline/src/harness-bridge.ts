@@ -104,6 +104,8 @@ export async function startHarnessRun(
     runId: job.functionRunId,
   })
 
+  await seedInitialArtifacts(env, job.functionRunId, job.seedArtifacts)
+
   // ── 5. POST /init to the per-run RunCoordinator DO ──────────────────────
   // Stores compiled + initialState + workflowId in DO storage and dispatches
   // the start stage to HARNESS_QUEUE.
@@ -135,4 +137,25 @@ export async function startHarnessRun(
   }
 
   return { runId: job.functionRunId }
+}
+
+async function seedInitialArtifacts(
+  env: HarnessBridgeEnv,
+  runId: string,
+  seedArtifacts: Record<string, string> | undefined,
+): Promise<void> {
+  if (!seedArtifacts) return
+  for (const [name, content] of Object.entries(seedArtifacts)) {
+    if (!/^[A-Za-z0-9._/-]+$/.test(name) || name.startsWith("/") || name.includes("..")) {
+      throw new Error(`unsafe seed artifact name: ${name}`)
+    }
+    if (typeof content !== "string") {
+      throw new Error(`seed artifact content must be a string: ${name}`)
+    }
+    await env.WORKSPACE_BUCKET.put(
+      `runs/${runId}/artifacts/${name}`,
+      content,
+      { httpMetadata: { contentType: "text/plain; charset=utf-8" } },
+    )
+  }
 }

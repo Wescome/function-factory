@@ -1371,6 +1371,7 @@ export default {
           objective?: string
           harnessKey?: string
           workflowInstanceId?: string
+          seedArtifacts?: Record<string, string>
         }
 
         if (!body.functionRunId || !body.objective || !body.harnessKey) {
@@ -1384,6 +1385,7 @@ export default {
           objective: body.objective,
           harnessKey: body.harnessKey,
           ...(body.workflowInstanceId ? { workflowInstanceId: body.workflowInstanceId } : {}),
+          ...(body.seedArtifacts ? { seedArtifacts: body.seedArtifacts } : {}),
         }
 
         const created = await env.FACTORY_PIPELINE.create({
