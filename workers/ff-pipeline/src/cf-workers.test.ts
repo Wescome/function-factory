@@ -44,7 +44,7 @@ function makeArtifacts(overrides: Record<string, unknown> = {}) {
 }
 
 function makeContainer(resp: Response) {
-  return { fetch: vi.fn(async () => resp) }
+  return { fetch: vi.fn(async (_req: Request) => resp) }
 }
 
 function makeInput(overrides: Record<string, unknown> = {}) {
@@ -84,8 +84,10 @@ describe('PiContainerAdapter', () => {
 
     await adapter.execute(makeInput() as never, makeArtifacts() as never)
 
-    const [req] = container.fetch.mock.calls[0] as [Request]
+    const req = container.fetch.mock.calls[0]?.[0]
+    if (!(req instanceof Request)) throw new Error('expected Container fetch Request')
     expect(req.method).toBe('POST')
+    expect(new URL(req.url).protocol).toBe('http:')
     expect(new URL(req.url).pathname).toBe('/execute')
 
     const payload = await req.clone().json() as Record<string, unknown>
@@ -142,7 +144,8 @@ describe('PiContainerAdapter', () => {
       makeArtifacts() as never,
     )
 
-    const [req] = container.fetch.mock.calls[0] as [Request]
+    const req = container.fetch.mock.calls[0]?.[0]
+    if (!(req instanceof Request)) throw new Error('expected Container fetch Request')
     const payload = await req.clone().json() as Record<string, unknown>
     expect(payload.rolePrompt).toBe('You are an expert mapper.')
   })
@@ -198,7 +201,7 @@ describe('buildCfWorkerRegistry', () => {
     const registry = buildCfWorkerRegistry(env as never)
     const adapter = registry.get('pi')
     expect(adapter).toBeDefined()
-    expect((adapter as { name: string }).name).toBe('pi')
+    expect((adapter as unknown as { name: string }).name).toBe('pi')
   })
 
   it('throws unknown worker when PI_CONTAINER not bound', async () => {

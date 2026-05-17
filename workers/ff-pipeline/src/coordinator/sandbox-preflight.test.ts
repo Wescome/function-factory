@@ -27,7 +27,7 @@ describe('Phase 5 sandbox preflight', () => {
   })
 
   it('declares the sandbox container image and workspace backup bucket', () => {
-    expect(wranglerConfig).toMatch(/"containers":\s*\{[\s\S]*"Sandbox"[\s\S]*"image":\s*"\.\/Dockerfile"/)
+    expect(wranglerConfig).toMatch(/"containers":\s*\[[\s\S]*"Sandbox"[\s\S]*"image":\s*"\.\/Dockerfile"/)
     expect(wranglerConfig).toMatch(/"binding":\s*"WORKSPACE_BUCKET"/)
     expect(wranglerConfig).toMatch(/"bucket_name":\s*"ff-workspaces"/)
   })

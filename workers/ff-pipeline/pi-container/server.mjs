@@ -1,24 +1,20 @@
 /**
  * pi-container/server.mjs
  *
- * HTTP server that wraps pi in RPC mode for NLAH harness stage execution.
+ * HTTP server wrapping pi in RPC mode for NLAH harness stage execution.
  *
  * POST /execute  — accepts WorkerInput JSON, runs pi, returns ContainerExecuteResponse
  * GET  /health   — liveness probe
  *
- * Protocol:
- *   1. Spawn `pi --mode rpc` in a fresh temp workdir.
- *   2. Wait for initial {type:"state",state:"idle"} (pi ready).
- *   3. Send {type:"message",text:<prompt>} to stdin.
- *   4. Wait for next {type:"state",state:"idle"} (pi done).
- *   5. Read each declaredOutput file from workdir.
- *   6. Return {artifacts, artifactContents, message}.
+ * pi RPC protocol (from RpcClient in @earendil-works/pi-coding-agent):
+ *   1. Spawn `pi --mode rpc`
+ *   2. Wait 100ms for init (no startup signal emitted — just a fixed delay)
+ *   3. Send {type:"prompt", message:"..."} to stdin
+ *   4. Wait for {type:"agent_end"} event on stdout  ← NOT "state:idle"
+ *   5. Read each declaredOutput file from workdir
+ *   6. Return {artifacts, artifactContents, message}
  *
- * Cannot use Node readline — it splits on U+2028/U+2029 which breaks JSONL.
- * Uses a manual byte-buffer reader instead (LF-only delimiter per pi docs).
- *
- * Environment vars required at runtime:
- *   ANTHROPIC_API_KEY — or whichever key pi is configured to use
+ * Uses LF-only JSONL byte-buffer reader (readline splits on U+2028/U+2029).
  */
 
 import { createServer } from 'node:http'
@@ -31,14 +27,19 @@ import { fileURLToPath } from 'node:url'
 const PORT = Number(process.env.PORT ?? 8080)
 const PI_BIN = join(dirname(fileURLToPath(import.meta.url)), 'node_modules', '.bin', 'pi')
 
-// Idle timeout for the initial pi startup (ms)
-const STARTUP_TIMEOUT_MS = 30_000
-// Idle timeout while pi is executing a stage (ms) — generous for complex tasks
+// Max time for a stage execution (ms) — 5 minutes is generous for complex LLM tasks
 const EXECUTE_TIMEOUT_MS = 300_000
+// Delay after spawning pi before sending the first command (pi has no startup signal)
+const PI_INIT_DELAY_MS = 200
+
+// ── Logging ───────────────────────────────────────────────────────────────────
+
+function log(level, msg, data) {
+  const entry = { ts: new Date().toISOString(), level, msg, ...(data ?? {}) }
+  process.stderr.write(JSON.stringify(entry) + '\n')
+}
 
 // ── JSONL byte-buffer reader ──────────────────────────────────────────────────
-// Node readline cannot be used: it splits on U+2028/U+2029 in addition to \n,
-// which corrupts pi's JSONL framing. This reader splits on 0x0a only.
 
 class JsonlReader {
   constructor(stream) {
@@ -60,26 +61,25 @@ class JsonlReader {
     }
   }
 
-  /** Register a handler; returns an unsubscribe function. */
   on(fn) {
     this._handlers.push(fn)
     return () => { this._handlers = this._handlers.filter((h) => h !== fn) }
   }
 }
 
-// ── Wait for pi state:idle ────────────────────────────────────────────────────
+// ── Wait for pi agent_end ─────────────────────────────────────────────────────
 
-function waitForIdle(reader, timeoutMs) {
+function waitForAgentEnd(reader, timeoutMs) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       off()
-      reject(new Error(`pi timed out after ${timeoutMs}ms waiting for state:idle`))
+      reject(new Error(`pi timed out after ${timeoutMs}ms waiting for agent_end`))
     }, timeoutMs)
     const off = reader.on((msg) => {
-      if (msg.type === 'state' && msg.state === 'idle') {
+      if (msg.type === 'agent_end') {
         clearTimeout(timer)
         off()
-        resolve()
+        resolve(msg)
       }
     })
   })
@@ -92,11 +92,7 @@ function buildPrompt(input) {
   const { taskText = '', inputArtifacts = {} } = context
 
   const parts = []
-
-  parts.push(
-    `You are ${roleName}${rolePrompt ? `: ${rolePrompt}` : '.'}`,
-  )
-
+  parts.push(`You are ${roleName}${rolePrompt ? `: ${rolePrompt}` : '.'}`)
   parts.push(`## Task\n\n${taskText}`)
 
   const inputNames = Object.keys(inputArtifacts)
@@ -126,12 +122,17 @@ async function handleExecute(req, res) {
   for await (const chunk of req) raw += chunk
   const input = JSON.parse(raw)
 
-  const workDir = await mkdtemp(join(tmpdir(), `pi-${input.stageName ?? 'stage'}-`))
+  const { stageName = 'stage', runId = 'unknown', roleName = 'Agent' } = input
+  const t0 = Date.now()
+  log('info', 'execute.start', { stageName, runId, roleName, declaredOutputs: input.declaredOutputs ?? [] })
 
-  // Write input artifacts to workdir so pi can read them as local files if needed
+  const workDir = await mkdtemp(join(tmpdir(), `pi-${stageName}-`))
+  log('info', 'execute.workdir', { stageName, workDir })
+
   const inputArtifacts = input.context?.inputArtifacts ?? {}
   for (const [name, content] of Object.entries(inputArtifacts)) {
     await writeFile(join(workDir, name), content, 'utf8')
+    log('info', 'execute.input_artifact_written', { stageName, name, bytes: content.length })
   }
 
   const pi = spawn(PI_BIN, ['--mode', 'rpc'], {
@@ -140,17 +141,47 @@ async function handleExecute(req, res) {
     stdio: ['pipe', 'pipe', 'pipe'],
   })
 
+  log('info', 'pi.spawned', { stageName, pid: pi.pid })
+
   const reader = new JsonlReader(pi.stdout)
   const stderrChunks = []
   pi.stderr.on('data', (c) => stderrChunks.push(c))
 
+  // Log every pi stdout event for observability
+  reader.on((msg) => {
+    const type = msg.type
+    if (type === 'agent_end' || type === 'agent_start' || type === 'turn_start' || type === 'turn_end') {
+      log('info', `pi.event.${type}`, { stageName })
+    } else if (type === 'response') {
+      log('info', 'pi.response', { stageName, command: msg.command, success: msg.success, error: msg.error })
+    } else if (type === 'extension_error') {
+      log('warn', 'pi.extension_error', { stageName, ...msg })
+    }
+    // tool_call, message_start etc. not logged to avoid noise
+  })
+
+  pi.on('exit', (code, signal) => {
+    log('info', 'pi.exit', { stageName, code, signal })
+  })
+
   try {
-    await waitForIdle(reader, STARTUP_TIMEOUT_MS)
+    // pi emits no startup signal — wait a brief delay for the process to initialize
+    await new Promise((resolve) => setTimeout(resolve, PI_INIT_DELAY_MS))
+
+    if (pi.exitCode !== null) {
+      const stderr = Buffer.concat(stderrChunks).toString('utf8').slice(0, 4000)
+      throw new Error(`pi exited immediately (code ${pi.exitCode}): ${stderr}`)
+    }
 
     const prompt = buildPrompt(input)
-    pi.stdin.write(JSON.stringify({ type: 'message', text: prompt }) + '\n')
+    log('info', 'pi.prompt_send', { stageName, promptBytes: prompt.length })
 
-    await waitForIdle(reader, EXECUTE_TIMEOUT_MS)
+    // Register agent_end listener BEFORE writing to stdin to avoid race
+    const agentEndPromise = waitForAgentEnd(reader, EXECUTE_TIMEOUT_MS)
+    pi.stdin.write(JSON.stringify({ type: 'prompt', message: prompt }) + '\n')
+
+    await agentEndPromise
+    log('info', 'pi.agent_end_received', { stageName, elapsedMs: Date.now() - t0 })
 
     const declaredOutputs = input.declaredOutputs ?? []
     const artifactContents = {}
@@ -162,23 +193,24 @@ async function handleExecute(req, res) {
         if (content.trim().length > 0) {
           artifactContents[name] = content
           artifacts.push(name)
+          log('info', 'execute.artifact_read', { stageName, name, bytes: content.length })
+        } else {
+          log('warn', 'execute.artifact_empty', { stageName, name })
         }
-      } catch {
-        // File absent — gate on Worker side will handle missing artifact
+      } catch (e) {
+        log('warn', 'execute.artifact_missing', { stageName, name, error: e.message })
       }
     }
 
     pi.kill('SIGTERM')
 
+    log('info', 'execute.complete', { stageName, artifacts, elapsedMs: Date.now() - t0 })
     res.writeHead(200, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({
-      artifacts,
-      artifactContents,
-      message: `${input.stageName ?? 'stage'} complete`,
-    }))
+    res.end(JSON.stringify({ artifacts, artifactContents, message: `${stageName} complete` }))
   } catch (err) {
     pi.kill('SIGTERM')
-    const stderr = Buffer.concat(stderrChunks).toString('utf8').slice(0, 2000)
+    const stderr = Buffer.concat(stderrChunks).toString('utf8').slice(0, 4000)
+    log('error', 'execute.failed', { stageName, error: err.message, stderr, elapsedMs: Date.now() - t0 })
     res.writeHead(500, { 'Content-Type': 'application/json' })
     res.end(JSON.stringify({ error: err.message, stderr }))
   }
@@ -191,13 +223,14 @@ const server = createServer(async (req, res) => {
     if (req.method === 'POST' && req.url === '/execute') {
       await handleExecute(req, res)
     } else if (req.method === 'GET' && req.url === '/health') {
-      res.writeHead(200)
-      res.end('ok')
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ status: 'ok', ts: new Date().toISOString() }))
     } else {
       res.writeHead(404)
       res.end('not found')
     }
   } catch (err) {
+    log('error', 'server.error', { error: String(err) })
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' })
       res.end(JSON.stringify({ error: String(err) }))
@@ -206,5 +239,5 @@ const server = createServer(async (req, res) => {
 })
 
 server.listen(PORT, () => {
-  console.log(`pi-container listening on :${PORT}`)
+  log('info', 'server.ready', { port: PORT, piBin: PI_BIN })
 })

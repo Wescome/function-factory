@@ -200,6 +200,9 @@ export async function dispatchOne(
   let workerOutput: WorkerOutput | null = null
   let workerThrew: { message: string } | undefined
 
+  console.log(`[harness-dispatcher] worker.start run=${message.runId} stage=${message.stageName} worker=${stage.worker}`)
+  const t0 = Date.now()
+
   try {
     const adapter = deps.resolveWorkerAdapter(stage.worker, env)
     const stateView = synthesizeRuntimeStateView(state, compiled)
@@ -212,10 +215,12 @@ export async function dispatchOne(
       declaredOutputs: stage.outputs,
     }
     workerOutput = await adapter.execute(workerInput, artifacts)
+    console.log(`[harness-dispatcher] worker.complete run=${message.runId} stage=${message.stageName} artifacts=${JSON.stringify(workerOutput.createdArtifacts)} elapsedMs=${Date.now() - t0}`)
   } catch (err) {
     // Truncate to keep DO storage + queue payload bounded — see comment on
     // MAX_WORKER_ERROR_MESSAGE_BYTES above.
     const raw = err instanceof Error ? err.message : String(err)
+    console.error(`[harness-dispatcher] worker.threw run=${message.runId} stage=${message.stageName} error=${raw.slice(0, 500)} elapsedMs=${Date.now() - t0}`)
     workerThrew = {
       message: raw.slice(0, MAX_WORKER_ERROR_MESSAGE_BYTES),
     }
@@ -337,6 +342,9 @@ export async function dispatchOne(
   }
 
   // ── 5. POST /stage-complete back to the RunCoordinator DO ──────────────
+  const gatesSummary = gateResults.map((g) => `${g.gateName}:${g.passed ? 'pass' : 'fail'}`).join(',')
+  console.log(`[harness-dispatcher] gates.results run=${message.runId} stage=${message.stageName} gates=[${gatesSummary}] workerThrew=${!!workerThrew}`)
+
   const completePayload: StageCompletePayload = {
     stageName: message.stageName,
     workerOutput: workerOutput ?? { createdArtifacts: [] },
@@ -351,10 +359,13 @@ export async function dispatchOne(
   })
   if (!completeResp.ok) {
     const body = await completeResp.text().catch(() => "<no body>")
+    console.error(`[harness-dispatcher] stage-complete.failed run=${message.runId} stage=${message.stageName} status=${completeResp.status} body=${body.slice(0, 500)}`)
     throw new Error(
       `RunCoordinator /stage-complete failed (${completeResp.status}): ${body}`,
     )
   }
+  const completeBody = await completeResp.json().catch(() => ({})) as Record<string, unknown>
+  console.log(`[harness-dispatcher] stage-complete.ok run=${message.runId} stage=${message.stageName} action=${completeBody.action} nextStage=${completeBody.nextStage ?? '(terminal)'}`)
 }
 
 /**

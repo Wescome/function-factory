@@ -65,10 +65,14 @@ abstract class ContainerWorkerAdapter implements WorkerAdapter {
 
   constructor(
     protected readonly container: ContainerBinding,
-    protected readonly endpoint: string = "https://pi-worker/execute",
+    // CF Containers require HTTP for internal connections — HTTPS not supported.
+    protected readonly endpoint: string = "http://pi-worker/execute",
   ) {}
 
   async execute(input: WorkerInput, artifacts: ArtifactManager): Promise<WorkerOutput> {
+    const t0 = Date.now()
+    console.log(`[${this.name}] dispatch.start stage=${input.stageName} endpoint=${this.endpoint}`)
+
     // `state` is intentionally omitted — Containers do not read the
     // synthesized RuntimeState view (gates run Worker-side, not
     // Container-side). Including only what the Container consumes keeps the
@@ -82,18 +86,28 @@ abstract class ContainerWorkerAdapter implements WorkerAdapter {
       declaredOutputs: input.declaredOutputs,
     }
 
-    const response = await this.container.fetch(
-      new Request(this.endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      }),
-    )
+    let response: Response
+    try {
+      response = await this.container.fetch(
+        new Request(this.endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }),
+      )
+    } catch (fetchErr) {
+      const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr)
+      console.error(`[${this.name}] dispatch.fetch_error stage=${input.stageName} error=${msg} elapsedMs=${Date.now() - t0}`)
+      throw fetchErr
+    }
+
+    console.log(`[${this.name}] dispatch.response stage=${input.stageName} status=${response.status} elapsedMs=${Date.now() - t0}`)
 
     if (!response.ok) {
       // Throwing surfaces this through the dispatcher's try/catch as
       // `workerThrew` on the StageCompletePayload (see harness-dispatcher.ts).
       const text = await response.text().catch(() => "<unreadable body>")
+      console.error(`[${this.name}] dispatch.non2xx stage=${input.stageName} status=${response.status} body=${text.slice(0, 500)}`)
       throw new Error(
         `${this.name}: container dispatch failed (${response.status}): ${text}`,
       )
@@ -106,11 +120,14 @@ abstract class ContainerWorkerAdapter implements WorkerAdapter {
       )
     }
 
+    console.log(`[${this.name}] dispatch.complete stage=${input.stageName} artifacts=${JSON.stringify(parsed.artifacts)} elapsedMs=${Date.now() - t0}`)
+
     // Write artifact contents to R2 via ArtifactManager — bindings live on
     // the Worker side; the Container returns contents in the response body.
     const contents = parsed.artifactContents ?? {}
     for (const [name, content] of Object.entries(contents)) {
       await artifacts.writeText(name, content)
+      console.log(`[${this.name}] artifact.written name=${name} bytes=${content.length}`)
     }
 
     return {
