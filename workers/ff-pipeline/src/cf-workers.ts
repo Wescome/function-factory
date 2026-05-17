@@ -46,6 +46,64 @@ interface ContainerExecuteResponse {
   artifacts: string[]
   artifactContents: Record<string, string>
   message?: string
+  observation?: ContainerExecutionObservation
+  error?: ContainerExecutionError
+}
+
+interface RoutedPiModel {
+  id: string
+  provider: string
+  model: string
+  routeKind: string
+  resolvedVia: string
+  fallback?: {
+    id: string
+    provider: string
+    model: string
+  }
+}
+
+interface RoutedWorkerInput extends WorkerInput {
+  runId?: string
+  model?: RoutedPiModel
+}
+
+interface ContainerExecutionObservation {
+  runId?: string
+  stageName?: string
+  roleName?: string
+  model?: RoutedPiModel | null
+  pid?: number | null
+  elapsedMs?: number
+  events?: Array<Record<string, unknown>>
+  artifacts?: Array<Record<string, unknown>>
+  stderrTail?: string
+  truncated?: boolean
+}
+
+interface ContainerExecutionError {
+  code?: string
+  message?: string
+  stderrTail?: string
+}
+
+async function persistObservation(
+  stageName: string,
+  observation: ContainerExecutionObservation | undefined,
+  artifacts: ArtifactManager,
+): Promise<string | undefined> {
+  if (!observation) return undefined
+  const key = `__observability/${stageName}.container-observation.json`
+  await artifacts.writeText(key, JSON.stringify(observation, null, 2))
+  return key
+}
+
+async function parseContainerResponse(response: Response): Promise<ContainerExecuteResponse | null> {
+  try {
+    return (await response.clone().json()) as ContainerExecuteResponse
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -77,10 +135,13 @@ abstract class ContainerWorkerAdapter implements WorkerAdapter {
     // synthesized RuntimeState view (gates run Worker-side, not
     // Container-side). Including only what the Container consumes keeps the
     // contract tight and the payload small.
+    const routedInput = input as RoutedWorkerInput
     const body = {
+      ...(routedInput.runId === undefined ? {} : { runId: routedInput.runId }),
       stageName: input.stageName,
       roleName: input.roleName,
       ...(input.rolePrompt === undefined ? {} : { rolePrompt: input.rolePrompt }),
+      ...(routedInput.model === undefined ? {} : { model: routedInput.model }),
       context: input.context,
       declaredInputs: input.declaredInputs,
       declaredOutputs: input.declaredOutputs,
@@ -106,10 +167,21 @@ abstract class ContainerWorkerAdapter implements WorkerAdapter {
     if (!response.ok) {
       // Throwing surfaces this through the dispatcher's try/catch as
       // `workerThrew` on the StageCompletePayload (see harness-dispatcher.ts).
-      const text = await response.text().catch(() => "<unreadable body>")
+      const parsed = await parseContainerResponse(response)
+      const observationKey = await persistObservation(input.stageName, parsed?.observation, artifacts)
+      const text = parsed
+        ? JSON.stringify({
+            error: parsed.error ?? { message: "container dispatch failed" },
+            ...(observationKey ? { observationKey } : {}),
+          })
+        : await response.text().catch(() => "<unreadable body>")
       console.error(`[${this.name}] dispatch.non2xx stage=${input.stageName} status=${response.status} body=${text.slice(0, 500)}`)
+      const error = parsed?.error
+      const message = error?.message ?? text
       throw new Error(
-        `${this.name}: container dispatch failed (${response.status}): ${text}`,
+        `${this.name}: container dispatch failed (${response.status}): ${message}` +
+          `${observationKey ? ` observation=${observationKey}` : ""}` +
+          `${error?.stderrTail ? ` stderrTail=${error.stderrTail.slice(0, 1000)}` : ""}`,
       )
     }
 
@@ -122,6 +194,8 @@ abstract class ContainerWorkerAdapter implements WorkerAdapter {
 
     console.log(`[${this.name}] dispatch.complete stage=${input.stageName} artifacts=${JSON.stringify(parsed.artifacts)} elapsedMs=${Date.now() - t0}`)
 
+    const observationKey = await persistObservation(input.stageName, parsed.observation, artifacts)
+
     // Write artifact contents to R2 via ArtifactManager — bindings live on
     // the Worker side; the Container returns contents in the response body.
     const contents = parsed.artifactContents ?? {}
@@ -132,7 +206,9 @@ abstract class ContainerWorkerAdapter implements WorkerAdapter {
 
     return {
       createdArtifacts: parsed.artifacts,
-      ...(parsed.message ? { message: parsed.message } : {}),
+      ...(parsed.message || observationKey
+        ? { message: [parsed.message, observationKey ? `observation=${observationKey}` : undefined].filter(Boolean).join(" ") }
+        : {}),
     }
   }
 }

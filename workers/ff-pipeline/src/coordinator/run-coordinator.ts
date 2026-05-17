@@ -52,7 +52,7 @@ const KEY_RESULT = "harness:result"
 const KEY_DISPATCHED = "harness:dispatched"
 
 export class RunCoordinator extends DurableObject<HarnessBridgeEnv> {
-  async fetch(request: Request): Promise<Response> {
+  override async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url)
 
     try {

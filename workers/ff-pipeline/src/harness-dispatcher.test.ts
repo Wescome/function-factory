@@ -9,6 +9,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { GateFn } from '@factory/nlah'
 import type { HarnessDispatcherDeps } from './harness-dispatcher.js'
 
 // ── Mock @factory/nlah ────────────────────────────────────────────────────────
@@ -100,6 +101,7 @@ function makeEnv(stub: { fetch: ReturnType<typeof vi.fn> }) {
     WORKSPACE_BUCKET: {} as R2Bucket,
     HARNESS_QUEUE: { send: vi.fn() },
     FACTORY_PIPELINE: { get: vi.fn(), create: vi.fn() },
+    PI_MODEL: 'anthropic/claude-sonnet-4.5',
   }
 }
 
@@ -116,16 +118,21 @@ function makeDeps(overrides: Partial<HarnessDispatcherDeps> = {}): HarnessDispat
     list: vi.fn(async () => []),
     delete: vi.fn(async () => {}),
   }
+  const existsGate: GateFn = async (_state, _artifacts, args) => {
+    const artifact = typeof args === 'object' && args !== null && 'artifact' in args
+      ? String((args as { artifact?: unknown }).artifact)
+      : 'exists'
+    return {
+      gate: artifact,
+      passed: true,
+    }
+  }
   return {
     resolveWorkerAdapter: vi.fn(() => mockAdapter as never),
     buildArtifactManager: vi.fn(() => mockArtifacts as never),
     buildStageContextForRun: vi.fn(async () => ({ taskText: 'Do the thing' })),
     gateRegistry: {
-      exists: vi.fn(async (_state: unknown, artifacts: { exists: (name: string) => Promise<boolean> }, args: { artifact?: string }) => ({
-        gate: args.artifact ?? 'exists',
-        passed: true,
-        failureClass: undefined as string | undefined,
-      })),
+      exists: vi.fn(existsGate),
     },
     ...overrides,
   }
@@ -156,6 +163,13 @@ describe('dispatchOne', () => {
     expect((deps.resolveWorkerAdapter as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith('pi', env)
     const adapter = (deps.resolveWorkerAdapter as ReturnType<typeof vi.fn>).mock.results[0]!.value as { execute: ReturnType<typeof vi.fn> }
     expect(adapter.execute).toHaveBeenCalledOnce()
+    const workerInput = adapter.execute.mock.calls[0]?.[0] as { runId?: string; model?: { id: string; routeKind: string; resolvedVia: string } }
+    expect(workerInput.runId).toBe('run-dispatch-001')
+    expect(workerInput.model).toMatchObject({
+      id: 'anthropic/claude-sonnet-4.5',
+      routeKind: 'planner',
+      resolvedVia: 'config-default',
+    })
 
     // POST /stage-complete was called
     const completeCall = stub.fetch.mock.calls.find((c: unknown[]) => (c[0] as string).includes('/stage-complete'))

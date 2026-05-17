@@ -232,6 +232,12 @@ vi.mock('./stages/compile', () => ({
   })),
 }))
 
+vi.mock('./harness-bridge', () => ({
+  startHarnessRun: vi.fn(async (_harnessKey: string, _env: unknown, job: { functionRunId: string }) => ({
+    runId: job.functionRunId,
+  })),
+}))
+
 
 // ─── Global fetch mock (needed for fire-synthesis-trigger step) ───
 
@@ -492,6 +498,53 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
       expect(sentMessage.executableSpecificationId).toBe('ES-TEST')
       expect(sentMessage.executableSpecification).toBeDefined()
       expect(sentMessage.dryRun).toBe(false)
+    })
+  })
+
+  describe('harness path', () => {
+    it('falls back to R2 when harness result verification_reports persistence fails', async () => {
+      const { FactoryPipeline } = await import('./pipeline')
+
+      sharedMockDb.save.mockRejectedValueOnce(new Error('verification_reports missing'))
+      const put = vi.fn(async () => undefined)
+      const env = createMockEnv({
+        WORKSPACE_BUCKET: { put },
+      })
+      const mockStep = createMockStep()
+      mockStep.step.waitForEvent = vi.fn((name: string) => {
+        if (name === 'harness-complete') {
+          return Promise.resolve({
+            payload: {
+              overall: 'pass',
+              finalStage: 'SMOKE',
+            },
+          })
+        }
+        return Promise.reject(new Error(`Unexpected waitForEvent: ${name}`))
+      })
+
+      const pipeline = Object.create(FactoryPipeline.prototype)
+      pipeline.env = env
+
+      const result = await pipeline.run({
+        payload: {
+          job: {
+            functionRunId: 'smoke-test',
+            objective: 'smoke',
+            harnessKey: 'pi-smoke',
+          },
+        },
+      }, mockStep.step as never)
+
+      expect(result.status).toBe('harness-passed')
+      expect(result.harnessResultFallbackKey).toBe(
+        'runs/smoke-test/artifacts/__observability/harness-result-record-fallback.json',
+      )
+      expect(put).toHaveBeenCalledWith(
+        'runs/smoke-test/artifacts/__observability/harness-result-record-fallback.json',
+        expect.stringContaining('verification_reports missing'),
+        expect.objectContaining({ httpMetadata: expect.any(Object) }),
+      )
     })
   })
 

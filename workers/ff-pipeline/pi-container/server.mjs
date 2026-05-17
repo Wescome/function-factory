@@ -31,13 +31,103 @@ const PI_BIN = join(dirname(fileURLToPath(import.meta.url)), 'node_modules', '.b
 const EXECUTE_TIMEOUT_MS = 300_000
 // Delay after spawning pi before sending the first command (pi has no startup signal)
 const PI_INIT_DELAY_MS = 200
-const PI_MODEL = process.env.PI_MODEL ?? 'anthropic/claude-sonnet-4'
+const PI_MODEL = process.env.PI_MODEL ?? 'anthropic/claude-sonnet-4.5'
+const MAX_OBSERVATION_EVENTS = 256
+const MAX_STDERR_TAIL_BYTES = 16_384
+const MAX_OBSERVATION_BYTES = 32_768
+const ALLOWED_MODELS = new Set([
+  'anthropic/claude-sonnet-4.5',
+  'anthropic/claude-sonnet-4.6',
+])
 
 // ── Logging ───────────────────────────────────────────────────────────────────
 
 function log(level, msg, data) {
   const entry = { ts: new Date().toISOString(), level, msg, ...(data ?? {}) }
   process.stderr.write(JSON.stringify(entry) + '\n')
+}
+
+function redact(value) {
+  return String(value)
+    .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, 'Bearer [REDACTED]')
+    .replace(/(OPENROUTER_API_KEY|OFOX_API_KEY)\s*[:=]\s*[^\s,}]+/gi, '$1=[REDACTED]')
+    .replace(/sk-[A-Za-z0-9_-]{8,}/g, 'sk-[REDACTED]')
+    .replace(/api[_-]?key=([^&\s]+)/gi, 'api_key=[REDACTED]')
+    .replace(/authorization["']?\s*:\s*["'][^"']+["']/gi, 'authorization:"[REDACTED]"')
+}
+
+function parseModelId(id) {
+  const [provider, ...rest] = String(id ?? '').split('/')
+  const model = rest.join('/')
+  if (!provider || !model) return null
+  return { id: `${provider}/${model}`, provider, model }
+}
+
+function resolveDispatchModel(input) {
+  const explicit = input.model?.id
+  const candidate = explicit ?? PI_MODEL
+  const parsed = parseModelId(candidate)
+  if (!parsed) {
+    return {
+      error: {
+        code: explicit ? 'INVALID_MODEL' : 'MISSING_MODEL',
+        message: explicit
+          ? `invalid explicit model id: ${candidate}`
+          : 'missing PI model route and PI_MODEL fallback',
+      },
+    }
+  }
+  if (!ALLOWED_MODELS.has(parsed.id)) {
+    return {
+      error: {
+        code: 'UNSUPPORTED_MODEL',
+        message: `unsupported pi model: ${parsed.id}`,
+      },
+    }
+  }
+  return {
+    model: {
+      ...parsed,
+      routeKind: input.model?.routeKind ?? 'fallback',
+      resolvedVia: explicit ? (input.model?.resolvedVia ?? 'dispatch') : 'env-default',
+      ...(input.model?.fallback ? { fallback: input.model.fallback } : {}),
+    },
+  }
+}
+
+function pushObservationEvent(observation, event) {
+  observation.events.push({ ts: new Date().toISOString(), ...event })
+  if (observation.events.length > MAX_OBSERVATION_EVENTS) {
+    observation.events.shift()
+    observation.truncated = true
+  }
+}
+
+function stderrTail(chunks) {
+  const raw = Buffer.concat(chunks).toString('utf8')
+  return redact(raw.slice(Math.max(0, raw.length - MAX_STDERR_TAIL_BYTES)))
+}
+
+function observationPayload(observation, stderrChunks, extra = {}) {
+  const out = {
+    ...observation,
+    ...extra,
+    stderrTail: stderrTail(stderrChunks),
+  }
+  let encoded = JSON.stringify(out)
+  if (Buffer.byteLength(encoded, 'utf8') <= MAX_OBSERVATION_BYTES) return out
+
+  out.truncated = true
+  while (out.events.length > 0 && Buffer.byteLength(encoded, 'utf8') > MAX_OBSERVATION_BYTES) {
+    out.events.shift()
+    encoded = JSON.stringify(out)
+  }
+  return out
+}
+
+function writeJson(res, status, body) {
+  res.writeHead(status, { 'Content-Type': 'application/json' })
+  res.end(JSON.stringify(body))
 }
 
 // ── JSONL byte-buffer reader ──────────────────────────────────────────────────
@@ -125,24 +215,50 @@ async function handleExecute(req, res) {
 
   const { stageName = 'stage', runId = 'unknown', roleName = 'Agent' } = input
   const t0 = Date.now()
-  log('info', 'execute.start', { stageName, runId, roleName, declaredOutputs: input.declaredOutputs ?? [] })
+  const resolved = resolveDispatchModel(input)
+  const selectedModel = resolved.model
+  const observation = {
+    runId,
+    stageName,
+    roleName,
+    model: selectedModel ?? null,
+    events: [],
+    artifacts: [],
+    truncated: false,
+  }
+
+  if (resolved.error) {
+    pushObservationEvent(observation, { type: 'model.rejected', code: resolved.error.code })
+    log('warn', 'execute.model_rejected', { stageName, runId, error: resolved.error.message })
+    writeJson(res, 400, {
+      error: resolved.error,
+      observation: observationPayload(observation, [], { elapsedMs: Date.now() - t0 }),
+    })
+    return
+  }
+
+  log('info', 'execute.start', { stageName, runId, roleName, model: selectedModel.id, declaredOutputs: input.declaredOutputs ?? [] })
 
   const workDir = await mkdtemp(join(tmpdir(), `pi-${stageName}-`))
   log('info', 'execute.workdir', { stageName, workDir })
+  pushObservationEvent(observation, { type: 'execute.workdir' })
 
   const inputArtifacts = input.context?.inputArtifacts ?? {}
   for (const [name, content] of Object.entries(inputArtifacts)) {
     await writeFile(join(workDir, name), content, 'utf8')
     log('info', 'execute.input_artifact_written', { stageName, name, bytes: content.length })
+    pushObservationEvent(observation, { type: 'input_artifact_written', name, bytes: content.length })
   }
 
-  const pi = spawn(PI_BIN, ['--mode', 'rpc', '--model', PI_MODEL], {
+  const pi = spawn(PI_BIN, ['--mode', 'rpc', '--model', selectedModel.id], {
     cwd: workDir,
     env: process.env,
     stdio: ['pipe', 'pipe', 'pipe'],
   })
 
-  log('info', 'pi.spawned', { stageName, pid: pi.pid, model: PI_MODEL })
+  observation.pid = pi.pid ?? null
+  log('info', 'pi.spawned', { stageName, pid: pi.pid, model: selectedModel.id, resolvedVia: selectedModel.resolvedVia })
+  pushObservationEvent(observation, { type: 'pi.spawned', pid: pi.pid ?? null, model: selectedModel.id })
 
   const reader = new JsonlReader(pi.stdout)
   const stderrChunks = []
@@ -153,16 +269,21 @@ async function handleExecute(req, res) {
     const type = msg.type
     if (type === 'agent_end' || type === 'agent_start' || type === 'turn_start' || type === 'turn_end') {
       log('info', `pi.event.${type}`, { stageName })
+      pushObservationEvent(observation, { type })
     } else if (type === 'response') {
       log('info', 'pi.response', { stageName, command: msg.command, success: msg.success, error: msg.error })
+      pushObservationEvent(observation, { type, command: msg.command, success: msg.success, error: msg.error ? redact(msg.error) : undefined })
     } else if (type === 'extension_error') {
       log('warn', 'pi.extension_error', { stageName, ...msg })
+      pushObservationEvent(observation, { type, error: msg.error ? redact(msg.error) : undefined })
     }
     // tool_call, message_start etc. not logged to avoid noise
   })
 
   pi.on('exit', (code, signal) => {
     log('info', 'pi.exit', { stageName, code, signal })
+    observation.exit = { code, signal }
+    pushObservationEvent(observation, { type: 'pi.exit', code, signal })
   })
 
   try {
@@ -195,25 +316,37 @@ async function handleExecute(req, res) {
           artifactContents[name] = content
           artifacts.push(name)
           log('info', 'execute.artifact_read', { stageName, name, bytes: content.length })
+          observation.artifacts.push({ name, status: 'read', bytes: content.length })
         } else {
           log('warn', 'execute.artifact_empty', { stageName, name })
+          observation.artifacts.push({ name, status: 'empty' })
         }
       } catch (e) {
         log('warn', 'execute.artifact_missing', { stageName, name, error: e.message })
+        observation.artifacts.push({ name, status: 'missing', error: redact(e.message) })
       }
     }
 
     pi.kill('SIGTERM')
 
-    log('info', 'execute.complete', { stageName, artifacts, elapsedMs: Date.now() - t0 })
-    res.writeHead(200, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ artifacts, artifactContents, message: `${stageName} complete` }))
+    const elapsedMs = Date.now() - t0
+    log('info', 'execute.complete', { stageName, artifacts, elapsedMs })
+    writeJson(res, 200, {
+      artifacts,
+      artifactContents,
+      message: `${stageName} complete`,
+      observation: observationPayload(observation, stderrChunks, { elapsedMs }),
+    })
   } catch (err) {
     pi.kill('SIGTERM')
-    const stderr = Buffer.concat(stderrChunks).toString('utf8').slice(0, 4000)
-    log('error', 'execute.failed', { stageName, error: err.message, stderr, elapsedMs: Date.now() - t0 })
-    res.writeHead(500, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ error: err.message, stderr }))
+    const elapsedMs = Date.now() - t0
+    const message = err instanceof Error ? err.message : String(err)
+    const observationOut = observationPayload(observation, stderrChunks, { elapsedMs })
+    log('error', 'execute.failed', { stageName, error: redact(message), stderrTail: observationOut.stderrTail, elapsedMs })
+    writeJson(res, 500, {
+      error: { code: 'PI_EXECUTION_FAILED', message: redact(message), stderrTail: observationOut.stderrTail },
+      observation: observationOut,
+    })
   }
 }
 

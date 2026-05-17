@@ -63,9 +63,10 @@ function makeOkResponse(
   artifacts: string[],
   artifactContents: Record<string, string>,
   message?: string,
+  observation?: Record<string, unknown>,
 ): Response {
   return new Response(
-    JSON.stringify({ artifacts, artifactContents, ...(message ? { message } : {}) }),
+    JSON.stringify({ artifacts, artifactContents, ...(message ? { message } : {}), ...(observation ? { observation } : {}) }),
     { status: 200, headers: { 'Content-Type': 'application/json' } },
   )
 }
@@ -82,7 +83,7 @@ describe('PiContainerAdapter', () => {
     )
     const adapter = new PiContainerAdapter(container as never)
 
-    await adapter.execute(makeInput() as never, makeArtifacts() as never)
+    await adapter.execute(makeInput({ runId: 'run-42' }) as never, makeArtifacts() as never)
 
     const req = container.fetch.mock.calls[0]?.[0]
     if (!(req instanceof Request)) throw new Error('expected Container fetch Request')
@@ -91,12 +92,44 @@ describe('PiContainerAdapter', () => {
     expect(new URL(req.url).pathname).toBe('/execute')
 
     const payload = await req.clone().json() as Record<string, unknown>
+    expect(payload.runId).toBe('run-42')
     expect(payload.stageName).toBe('CONTRACT')
     expect(payload.roleName).toBe('Cartographer')
     expect(payload.context).toEqual({ taskText: 'Resolve issue #42' })
     expect(payload.declaredOutputs).toEqual(['IssueContract'])
     expect(payload).not.toHaveProperty('r2Bucket')
     expect(payload).not.toHaveProperty('artifactPrefix')
+  })
+
+  it('includes per-dispatch model route when provided and never includes secrets', async () => {
+    const { PiContainerAdapter } = await import('./cf-workers.js')
+    const container = makeContainer(
+      makeOkResponse(['IssueContract'], { IssueContract: '# Contract' }),
+    )
+    const adapter = new PiContainerAdapter(container as never)
+
+    await adapter.execute(
+      makeInput({
+        model: {
+          id: 'anthropic/claude-sonnet-4.5',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4.5',
+          routeKind: 'planner',
+          resolvedVia: 'config-default',
+        },
+      }) as never,
+      makeArtifacts() as never,
+    )
+
+    const req = container.fetch.mock.calls[0]?.[0]
+    if (!(req instanceof Request)) throw new Error('expected Container fetch Request')
+    const payload = await req.clone().json() as Record<string, unknown>
+    expect(payload.model).toMatchObject({
+      id: 'anthropic/claude-sonnet-4.5',
+      routeKind: 'planner',
+    })
+    expect(JSON.stringify(payload)).not.toContain('OFOX_API_KEY')
+    expect(JSON.stringify(payload)).not.toContain('OPENROUTER_API_KEY')
   })
 
   it('calls artifacts.writeText for every entry in artifactContents', async () => {
@@ -119,6 +152,52 @@ describe('PiContainerAdapter', () => {
     expect((artifacts.writeText as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith('IssueContract', '# Contract\ncontent')
     expect((artifacts.writeText as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith('RepoMap', '# Repo Map\ncontent')
     expect(result.createdArtifacts).toEqual(['IssueContract', 'RepoMap'])
+  })
+
+  it('persists container observation as a synthetic artifact', async () => {
+    const { PiContainerAdapter } = await import('./cf-workers.js')
+    const observation = {
+      stageName: 'CONTRACT',
+      model: { id: 'anthropic/claude-sonnet-4.5' },
+      stderrTail: 'safe stderr',
+    }
+    const container = makeContainer(
+      makeOkResponse(['IssueContract'], { IssueContract: '# Contract' }, 'CONTRACT complete', observation),
+    )
+    const artifacts = makeArtifacts()
+    const adapter = new PiContainerAdapter(container as never)
+
+    const result = await adapter.execute(makeInput() as never, artifacts as never)
+
+    expect((artifacts.writeText as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith(
+      '__observability/CONTRACT.container-observation.json',
+      JSON.stringify(observation, null, 2),
+    )
+    expect(result.message).toContain('observation=__observability/CONTRACT.container-observation.json')
+  })
+
+  it('persists non-2xx observation and throws compact error reference', async () => {
+    const { PiContainerAdapter } = await import('./cf-workers.js')
+    const artifacts = makeArtifacts()
+    const container = makeContainer(
+      new Response(
+        JSON.stringify({
+          error: { code: 'UNSUPPORTED_MODEL', message: 'unsupported pi model' },
+          observation: { stageName: 'CONTRACT', stderrTail: 'redacted tail' },
+        }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+    const adapter = new PiContainerAdapter(container as never)
+
+    await expect(
+      adapter.execute(makeInput() as never, artifacts as never),
+    ).rejects.toThrow('__observability/CONTRACT.container-observation.json')
+
+    expect((artifacts.writeText as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith(
+      '__observability/CONTRACT.container-observation.json',
+      expect.stringContaining('redacted tail'),
+    )
   })
 
   it('returns optional message from Container response', async () => {

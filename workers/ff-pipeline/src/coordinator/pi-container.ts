@@ -37,7 +37,7 @@ export class PiContainer extends DurableObject<HarnessBridgeEnv> {
       this.ctx.container.start({
         enableInternet: true,
         env: {
-          PI_MODEL: this.env.PI_MODEL ?? 'anthropic/claude-sonnet-4',
+          PI_MODEL: this.env.PI_MODEL ?? 'anthropic/claude-sonnet-4.5',
           OPENROUTER_API_KEY: this.env.OFOX_API_KEY,
         },
       })

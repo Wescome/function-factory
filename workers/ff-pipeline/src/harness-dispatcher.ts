@@ -72,6 +72,54 @@ const MAX_RETRIES = 3
  * DO storage value cap on the persisted state.
  */
 const MAX_WORKER_ERROR_MESSAGE_BYTES = 4096
+const DEFAULT_PI_MODEL_ID = "anthropic/claude-sonnet-4.5"
+
+type RoutedPiModel = {
+  id: string
+  provider: string
+  model: string
+  routeKind: string
+  resolvedVia: string
+  fallback?: {
+    id: string
+    provider: string
+    model: string
+  }
+}
+
+type RoutedWorkerInput = WorkerInput & {
+  runId?: string
+  model?: RoutedPiModel
+}
+
+function parseModelId(id: string): Pick<RoutedPiModel, "id" | "provider" | "model"> {
+  const [provider, ...rest] = id.split("/")
+  const model = rest.join("/")
+  if (!provider || !model) {
+    throw new Error(`invalid pi model id: ${id}`)
+  }
+  return { id, provider, model }
+}
+
+function routeKindForRole(role: string): string {
+  const lower = role.toLowerCase()
+  if (lower.includes("plan")) return "planner"
+  if (lower.includes("code") || lower.includes("patch")) return "coder"
+  if (lower.includes("critic") || lower.includes("review")) return "critic"
+  if (lower.includes("test") || lower.includes("verify")) return "tester"
+  if (lower.includes("govern")) return "governor"
+  return "worker"
+}
+
+function resolvePiModelRoute(stage: StageSpec, env: HarnessBridgeEnv): RoutedPiModel {
+  const selected = parseModelId(env.PI_MODEL ?? DEFAULT_PI_MODEL_ID)
+  return {
+    ...selected,
+    routeKind: routeKindForRole(stage.role),
+    resolvedVia: env.PI_MODEL ? "config-default" : "env-default",
+    fallback: parseModelId(DEFAULT_PI_MODEL_ID),
+  }
+}
 
 /**
  * Dependencies the dispatcher needs from the rest of the system. Held as
@@ -206,13 +254,15 @@ export async function dispatchOne(
   try {
     const adapter = deps.resolveWorkerAdapter(stage.worker, env)
     const stateView = synthesizeRuntimeStateView(state, compiled)
-    const workerInput: WorkerInput = {
+    const workerInput: RoutedWorkerInput = {
+      runId: message.runId,
       stageName: message.stageName,
       roleName: stage.role,
       context: stageContext as WorkerInput["context"],
       state: stateView as WorkerInput["state"],
       declaredInputs: stage.inputs,
       declaredOutputs: stage.outputs,
+      ...(stage.worker === "pi" ? { model: resolvePiModelRoute(stage, env) } : {}),
     }
     workerOutput = await adapter.execute(workerInput, artifacts)
     console.log(`[harness-dispatcher] worker.complete run=${message.runId} stage=${message.stageName} artifacts=${JSON.stringify(workerOutput.createdArtifacts)} elapsedMs=${Date.now() - t0}`)

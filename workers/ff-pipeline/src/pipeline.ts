@@ -61,6 +61,30 @@ function verificationStatusKey(family: string, artifactKey: string): string {
   return `verification-${safeFamily}-${safeArtifactKey}-${Date.now().toString(36)}`
 }
 
+async function writeHarnessResultFallback(
+  env: PipelineEnv,
+  runId: string,
+  record: Record<string, unknown>,
+  error: unknown,
+): Promise<{ persisted: false; fallbackKey?: string; error: string }> {
+  const message = error instanceof Error ? error.message : String(error)
+  const fallbackKey = `runs/${runId}/artifacts/__observability/harness-result-record-fallback.json`
+  const bucket = (env as PipelineEnv & { WORKSPACE_BUCKET?: R2Bucket }).WORKSPACE_BUCKET
+  if (!bucket) {
+    console.error(`[FactoryPipeline] harness result persistence failed and WORKSPACE_BUCKET unavailable: ${message}`)
+    return { persisted: false, error: message }
+  }
+  await bucket.put(fallbackKey, JSON.stringify({
+    record,
+    persistenceError: message,
+    timestamp: new Date().toISOString(),
+  }, null, 2), {
+    httpMetadata: { contentType: 'application/json; charset=utf-8' },
+  })
+  console.error(`[FactoryPipeline] harness result persistence fell back to R2 ${fallbackKey}: ${message}`)
+  return { persisted: false, fallbackKey, error: message }
+}
+
 /**
  * C2 resolution: extract only the fields added by the current pass.
  * The probe receives the delta, not the full accumulated state.
@@ -123,8 +147,8 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       // verification_reports row keyed by functionRunId so the run is
       // auditable from the same collection the rest of the pipeline
       // writes into. No D1 — Factory persists to ArangoDB.
-      await step.do('record-harness-result', DB_STEP_CONFIG, async () => {
-        await db.save('verification_reports', {
+      const recordResult = await step.do('record-harness-result', DB_STEP_CONFIG, async () => {
+        const record = {
           _key: `VR-HARNESS-${runId}-${Date.now().toString(36)}`,
           type: 'harness-run',
           passed: result.overall === 'pass',
@@ -139,8 +163,13 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
           sourceRefs: [`FUNCTION_RUN:${runId}`],
           source_refs: [runId],
           timestamp: new Date().toISOString(),
-        })
-        return { persisted: true }
+        }
+        try {
+          await db.save('verification_reports', record)
+          return { persisted: true }
+        } catch (err) {
+          return writeHarnessResultFallback(this.env, runId, record, err)
+        }
       })
 
       return {
@@ -148,6 +177,9 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
           ? 'harness-passed'
           : `harness-${result.overall}`,
         ...(result.reason ? { reason: result.reason } : {}),
+        ...(recordResult && typeof recordResult === 'object' && typeof (recordResult as { fallbackKey?: unknown }).fallbackKey === 'string'
+          ? { harnessResultFallbackKey: (recordResult as { fallbackKey: string }).fallbackKey }
+          : {}),
       } as PipelineResult
     }
 
