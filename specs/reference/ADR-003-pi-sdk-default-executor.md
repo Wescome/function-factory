@@ -2,7 +2,9 @@
 
 ## Status
 
-Proposed — requires architect review before DECISIONS.md entry
+**Superseded by ADR-003a** (2026-05-17) — Pi RPC-in-Container is the accepted path.
+SDK embedding rejected: DO platform constraints, deprecated `@mariozechner/*` package,
+and production evidence from smoke-1779050655 all invalidate this proposal.
 
 ## Date
 

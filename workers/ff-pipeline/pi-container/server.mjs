@@ -19,7 +19,7 @@
 
 import { createServer } from 'node:http'
 import { spawn } from 'node:child_process'
-import { mkdtemp, writeFile } from 'node:fs/promises'
+import { mkdtemp, writeFile, stat, readdir } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -204,6 +204,82 @@ function sendRpcCommand(pi, reader, command, timeoutMs) {
   })
 }
 
+// ── Session archive (tar pi's session dir) ────────────────────────────────────
+
+const MAX_SESSION_ARCHIVE_BYTES = 1_048_576 // 1 MB
+
+async function dirHasFiles(dir) {
+  try {
+    const st = await stat(dir)
+    if (!st.isDirectory()) return false
+    const entries = await readdir(dir)
+    return entries.length > 0
+  } catch {
+    return false
+  }
+}
+
+async function captureSessionArchive(workDir) {
+  const candidates = [
+    join(workDir, '.pi', 'sessions'),
+    join(process.env.HOME ?? '/root', '.pi', 'sessions'),
+  ]
+  let sessionDir = null
+  for (const candidate of candidates) {
+    if (await dirHasFiles(candidate)) {
+      sessionDir = candidate
+      break
+    }
+  }
+  if (!sessionDir) return { skipped: true, reason: 'not_found' }
+
+  const chunks = []
+  let total = 0
+  let overflow = false
+  return await new Promise((resolve) => {
+    const tar = spawn('tar', ['-czf', '-', '-C', sessionDir, '.'], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    const stderrBuf = []
+    tar.stdout.on('data', (chunk) => {
+      if (overflow) return
+      total += chunk.length
+      if (total > MAX_SESSION_ARCHIVE_BYTES) {
+        overflow = true
+        try { tar.kill('SIGTERM') } catch {}
+        return
+      }
+      chunks.push(chunk)
+    })
+    tar.stderr.on('data', (c) => stderrBuf.push(c))
+    tar.on('error', (err) => {
+      resolve({ skipped: true, reason: 'spawn_error', error: String(err) })
+    })
+    tar.on('close', (code) => {
+      if (overflow) {
+        resolve({ skipped: true, reason: 'too_large', bytes: total, sessionDir })
+        return
+      }
+      if (code !== 0) {
+        resolve({
+          skipped: true,
+          reason: 'tar_exit',
+          code,
+          stderr: Buffer.concat(stderrBuf).toString('utf8').slice(0, 1024),
+        })
+        return
+      }
+      const buf = Buffer.concat(chunks)
+      resolve({
+        skipped: false,
+        sessionDir,
+        bytes: buf.length,
+        data: buf.toString('base64'),
+      })
+    })
+  })
+}
+
 // ── /execute handler ──────────────────────────────────────────────────────────
 
 async function handleExecute(req, res) {
@@ -281,6 +357,26 @@ async function handleExecute(req, res) {
       const role = msg.message?.role
       log('info', 'pi.message_end', { stageName, role })
       pushObservationEvent(observation, { type, role })
+      if (msg.usage && typeof msg.usage === 'object') {
+        const {
+          inputTokens,
+          outputTokens,
+          cacheReadTokens,
+          cacheWriteTokens,
+        } = msg.usage
+        pushObservationEvent(observation, {
+          type: 'pi.usage',
+          inputTokens,
+          outputTokens,
+          cacheReadTokens,
+          cacheWriteTokens,
+        })
+        const prev = observation.totalUsage ?? { inputTokens: 0, outputTokens: 0 }
+        observation.totalUsage = {
+          inputTokens: (prev.inputTokens ?? 0) + (Number(inputTokens) || 0),
+          outputTokens: (prev.outputTokens ?? 0) + (Number(outputTokens) || 0),
+        }
+      }
     } else if (type === 'extension_error') {
       log('warn', 'pi.extension_error', { stageName, ...msg })
       pushObservationEvent(observation, { type, error: msg.error ? redact(msg.error) : undefined })
@@ -396,6 +492,21 @@ async function handleExecute(req, res) {
       }
     }
 
+    let sessionArchive = null
+    try {
+      const captured = await captureSessionArchive(workDir)
+      if (!captured.skipped) {
+        sessionArchive = { data: captured.data, bytes: captured.bytes }
+        log('info', 'execute.session_archive', { stageName, bytes: captured.bytes, sessionDir: captured.sessionDir })
+        pushObservationEvent(observation, { type: 'execute.session_archive', bytes: captured.bytes })
+      } else {
+        log('info', 'execute.session_archive_skipped', { stageName, reason: captured.reason, bytes: captured.bytes })
+        pushObservationEvent(observation, { type: 'execute.session_archive_skipped', reason: captured.reason })
+      }
+    } catch (archiveErr) {
+      log('warn', 'execute.session_archive_failed', { stageName, error: String(archiveErr) })
+    }
+
     pi.kill('SIGTERM')
 
     const elapsedMs = Date.now() - t0
@@ -405,6 +516,7 @@ async function handleExecute(req, res) {
       artifactContents: readResult.artifactContents,
       message: `${stageName} complete`,
       observation: observationPayload(observation, stderrChunks, { elapsedMs }),
+      ...(sessionArchive ? { sessionArchive } : {}),
     })
   } catch (err) {
     pi.kill('SIGTERM')

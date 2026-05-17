@@ -48,6 +48,7 @@ interface ContainerExecuteResponse {
   message?: string
   observation?: ContainerExecutionObservation
   error?: ContainerExecutionError
+  sessionArchive?: { data: string; bytes: number }
 }
 
 interface RoutedPiModel {
@@ -195,6 +196,15 @@ abstract class ContainerWorkerAdapter implements WorkerAdapter {
     console.log(`[${this.name}] dispatch.complete stage=${input.stageName} artifacts=${JSON.stringify(parsed.artifacts)} elapsedMs=${Date.now() - t0}`)
 
     const observationKey = await persistObservation(input.stageName, parsed.observation, artifacts)
+
+    // Write pi session archive to R2 if the container captured one.
+    // Stored as base64 text — ArtifactManager.writeText is the only binary-safe
+    // path without adding a binary method to the interface. Caller decodes with Buffer.from(data,'base64').
+    if (parsed.sessionArchive?.data) {
+      const archiveKey = `__observability/${input.stageName}.pi-session.tar.gz.b64`
+      await artifacts.writeText(archiveKey, parsed.sessionArchive.data)
+      console.log(`[${this.name}] session_archive.written stage=${input.stageName} bytes=${parsed.sessionArchive.bytes}`)
+    }
 
     // Write artifact contents to R2 via ArtifactManager — bindings live on
     // the Worker side; the Container returns contents in the response body.
