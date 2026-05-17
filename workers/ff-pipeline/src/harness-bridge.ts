@@ -34,6 +34,7 @@ import {
   type HarnessState,
 } from "@factory/nlah"
 import { runHarnessCompletenessVerification } from "@factory/verification"
+import { buildCfWorkerRegistry } from "./cf-workers"
 import type { HarnessBridgeEnv, HarnessJob } from "./harness-env"
 
 export interface StartHarnessRunResult {
@@ -78,14 +79,12 @@ export async function startHarnessRun(
   const compiled: CompiledHarness = compileHarness(spec)
 
   // ── 3. Harness completeness verification (Factory governance gate) ──────
-  // Pass an empty workerNames set so the MISSING_WORKER_BINDING check runs
-  // and fails closed for any harness that references a worker. Until
-  // cf-workers.ts lands and the real worker registry is wired here, every
-  // harness with a `worker:` declared in any stage will trip this check
-  // — that is the correct behaviour: we MUST fail closed when the
-  // dispatcher cannot actually resolve the named worker, rather than
-  // letting a run proceed past /init only to throw at dispatch time.
-  const workerNames: string[] = []
+  // Build the live worker registry from env so completeness verification
+  // knows which workers are actually bound at this deployment. WorkerRegistry
+  // always includes "deterministic"; CF container bindings add "pi", "aider",
+  // "claude-code" when present. Fail closed if the registry cannot resolve
+  // every worker name declared in the harness stages.
+  const workerNames: string[] = buildCfWorkerRegistry(env).names()
   const report = await runHarnessCompletenessVerification(
     compiled,
     gateRegistry,

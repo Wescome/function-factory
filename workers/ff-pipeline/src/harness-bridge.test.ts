@@ -28,6 +28,17 @@ vi.mock('@factory/nlah', () => ({
   compileHarness: (...args: unknown[]) => mockCompileHarness(...args),
   initHarness: (...args: unknown[]) => mockInitHarness(...args),
   gateRegistry: {},
+  // WorkerRegistry is used by buildCfWorkerRegistry (imported by harness-bridge)
+  WorkerRegistry: class {
+    private map = new Map<string, unknown>()
+    register(name: string, adapter: unknown) { this.map.set(name, adapter) }
+    get(name: string) {
+      const a = this.map.get(name)
+      if (!a) throw new Error(`unknown worker: ${name}`)
+      return a
+    }
+    names() { return [...this.map.keys()].sort() }
+  },
 }))
 
 // ── Mock @factory/verification ────────────────────────────────────────────────
