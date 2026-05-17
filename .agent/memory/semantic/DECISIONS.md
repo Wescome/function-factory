@@ -1257,3 +1257,41 @@ accepted Function state; Fidelity Verification and later lifecycle transitions r
 separate.
 
 **Status:** Active.
+
+---
+
+## synthesis.harness.yaml approved
+
+Date: 2026-05-16
+Reviewer: Architect agent (second pass)
+File: harnesses/synthesis.harness.yaml
+Authority: ADR-009 §8 gate 5, IS-HARNESS-DSL-v1
+
+Verdict: APPROVE
+
+Topology: PLAN -> CRITIQUE -> VERIFY -> ARCH -> CODE (five stages, five
+roles, five artifacts, linear graph_mode).
+
+Resolved from first-pass review:
+- H-1: CRITIQUE, VERIFY, ARCH stages added. Miscast fast-fail wired via
+  CRITIQUE.on_failure.critique_failed: return_to_PLAN. Matches ADR-009
+  miscast-as-happy-path invariant.
+- H-2: worker: pi-swarm bound to CODE stage only. PLAN, CRITIQUE, VERIFY,
+  ARCH bind worker: pi. Implements ADR §4 Phase 5 Option C.
+- M-1: lineage.source_refs cites IS-HARNESS-DSL-v1 and ADR-009.
+- M-2: failure_taxonomy includes critique_failed, verification_failed,
+  missing_artifact, budget_exceeded with correct routings.
+- M-3: max_repair_rounds at runtime scope; per-stage uses max_stage_attempts.
+- M-4: Five distinct required artifacts, one per stage, each gated via exists.
+- L-1: Role names symmetric (Planner, Critic, Verifier, Architect, Coder).
+
+Gate status:
+- 9.2 compiles: PASS
+- 9.3 completeness verification: PASS
+- 9.5 architecture review: PASS (this review, closes gate)
+
+Follow-up on first live run: confirm critique_failed routes back to PLAN
+and that the miscast repair loop terminates under max_repair_rounds: 3.
+This harness is the canonical five-stage synthesis shape.
+
+**Status:** Active (ADR-009 §8 gate 5 satisfied).
