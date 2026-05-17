@@ -1,8 +1,6 @@
 import { Agent, callable, type FiberContext, type FiberRecoveryContext } from 'agents'
 import { createClientFromEnv, type ArangoClient } from '@factory/arango-client'
 import { validateArtifact } from '@factory/artifact-validator'
-import { buildSynthesisGraph } from './graph'
-import type { GraphDeps } from './graph'
 import { createModelBridge } from './model-bridge-do'
 import {
   buildDomainExecutionEvidence,
@@ -347,7 +345,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         contextPrompt,
       })
 
-      const deps: GraphDeps = {
+      const deps = {
         callModel,
         persistState,
         fetchMentorRules,
@@ -387,25 +385,11 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         verticalSlicing: true,
       }
 
-      const graph = buildSynthesisGraph(deps)
-
-      // Set wall-clock alarm — survives I/O suspension and DO hibernation
-      await this.ctx.storage.put('__completed', false)
-      await this.ctx.storage.put('__alarm_fired', false)
-      const atomCount = (executableSpecification.atoms as unknown[] | undefined)?.length ?? 0
-      // v5: shorter Phase 1 (5 nodes) + parallel Phase 2, so less total serial time
-      const timeoutMs = Math.max(900_000, 900_000 + atomCount * 30_000)
-      await this.ctx.storage.setAlarm(Date.now() + timeoutMs)
-
+      // ADR-009 §8 gate 6: graph path removed. Use harness path via /trigger-harness.
+      // Rollback: git revert <gate-6-commit> — see .agent/memory/episodic/synthesis-migration-rollback.md
       let finalState: GraphState
       try {
-        // ── Phase 1: serial planning graph (architect -> critic -> compile -> coherence-verification -> planner) ──
-        finalState = await graph.run(initialState, {
-          onNodeStart: (name, state) => {
-            console.log(`[Agent Call execution] Phase 1: ${name} starting (tokens ${state.tokenUsage})`)
-          },
-          maxSteps: 20,
-        })
+        throw new Error('[DEPRECATED] SynthesisCoordinator.synthesize: graph path removed — use harness path via /trigger-harness')
       } catch (err) {
         await this.ctx.storage.deleteAlarm()
         const alarmFired = await this.ctx.storage.get<boolean>('__alarm_fired')

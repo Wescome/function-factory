@@ -43,9 +43,7 @@ import type {
   StageCompletePayload,
 } from "../harness-env"
 
-// DO storage keys. Disjoint from any existing coordinator DO's keys so the
-// rollback note in ADR-009 §8 holds: graph-runner state and harness state
-// never share a namespace.
+// DO storage keys. Disjoint from any legacy coordinator DO keys (ADR-009 §8).
 const KEY_COMPILED = "harness:compiled"
 const KEY_STATE = "harness:state"
 const KEY_WORKFLOW_ID = "harness:workflowId"
