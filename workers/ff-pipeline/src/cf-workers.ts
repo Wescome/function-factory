@@ -36,6 +36,7 @@ import {
   type WorkerOutput,
 } from "@factory/nlah"
 import type { ContainerBinding, HarnessBridgeEnv } from "./harness-env"
+import type { OutputContract } from "./contract-compiler"
 
 /**
  * The wire shape the Container returns from `POST /execute`.
@@ -67,6 +68,17 @@ interface RoutedPiModel {
 interface RoutedWorkerInput extends WorkerInput {
   runId?: string
   model?: RoutedPiModel
+  outputContracts?: OutputContract[]
+  maxRepairRounds?: number
+}
+
+interface ContractFinding {
+  artifact: string
+  status: "pass" | "fail"
+  kind: "exact_line" | "json" | "markdown" | "text"
+  failureCode?: string
+  detail?: string
+  bytes?: number
 }
 
 interface ContainerExecutionObservation {
@@ -80,6 +92,13 @@ interface ContainerExecutionObservation {
   artifacts?: Array<Record<string, unknown>>
   stderrTail?: string
   truncated?: boolean
+  contractEvaluation?: {
+    finalAttempt: string
+    repairsUsed: number
+    maxRepairRounds: number
+    findings: ContractFinding[]
+    failedArtifacts: string[]
+  }
 }
 
 interface ContainerExecutionError {
@@ -96,6 +115,26 @@ async function persistObservation(
   if (!observation) return undefined
   const key = `__observability/${stageName}.container-observation.json`
   await artifacts.writeText(key, JSON.stringify(observation, null, 2))
+  return key
+}
+
+async function persistContractEvaluation(
+  stageName: string,
+  observation: ContainerExecutionObservation | undefined,
+  artifacts: ArtifactManager,
+): Promise<string | undefined> {
+  if (!observation?.contractEvaluation) return undefined
+  const key = `__observability/${stageName}.contract-evaluation.json`
+  const payload = {
+    schemaVersion: "1.0",
+    runId: observation.runId,
+    stageName: observation.stageName,
+    roleName: observation.roleName,
+    model: observation.model,
+    ...observation.contractEvaluation,
+    outcome: observation.contractEvaluation.failedArtifacts.length === 0 ? "pass" : "fail",
+  }
+  await artifacts.writeText(key, JSON.stringify(payload, null, 2))
   return key
 }
 
@@ -146,6 +185,8 @@ abstract class ContainerWorkerAdapter implements WorkerAdapter {
       context: input.context,
       declaredInputs: input.declaredInputs,
       declaredOutputs: input.declaredOutputs,
+      ...(routedInput.outputContracts ? { outputContracts: routedInput.outputContracts } : {}),
+      ...(routedInput.maxRepairRounds !== undefined ? { maxRepairRounds: routedInput.maxRepairRounds } : {}),
     }
 
     let response: Response
@@ -170,6 +211,7 @@ abstract class ContainerWorkerAdapter implements WorkerAdapter {
       // `workerThrew` on the StageCompletePayload (see harness-dispatcher.ts).
       const parsed = await parseContainerResponse(response)
       const observationKey = await persistObservation(input.stageName, parsed?.observation, artifacts)
+      await persistContractEvaluation(input.stageName, parsed?.observation, artifacts)
       const text = parsed
         ? JSON.stringify({
             error: parsed.error ?? { message: "container dispatch failed" },
@@ -196,6 +238,7 @@ abstract class ContainerWorkerAdapter implements WorkerAdapter {
     console.log(`[${this.name}] dispatch.complete stage=${input.stageName} artifacts=${JSON.stringify(parsed.artifacts)} elapsedMs=${Date.now() - t0}`)
 
     const observationKey = await persistObservation(input.stageName, parsed.observation, artifacts)
+    await persistContractEvaluation(input.stageName, parsed.observation, artifacts)
 
     // Write pi session archive to R2 if the container captured one.
     // Stored as base64 text — ArtifactManager.writeText is the only binary-safe

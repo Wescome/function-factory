@@ -54,6 +54,12 @@ function makeCompiledHarness(stages?: Record<string, unknown>) {
         },
       },
       runtime: {},
+      artifacts: {
+        ExecutionPlan: {
+          required: true,
+          path: 'artifacts/execution_plan.md',
+        },
+      },
     },
     stageOrder: ['PLAN'],
     artifactPaths: { ExecutionPlan: 'artifacts/execution_plan.md' },

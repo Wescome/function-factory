@@ -48,6 +48,11 @@ function shellQuote(value) {
   return `'${String(value).replace(/'/g, `'\\''`)}'`
 }
 
+/**
+ * @deprecated Superseded by the contract-driven flow in server.mjs that uses
+ *   contract-evaluator.mjs. Retained as an export for tests and any out-of-tree
+ *   callers; not invoked by server.mjs anymore.
+ */
 export function deriveExactLineContent(input, artifactName) {
   const taskText = String(input.context?.taskText ?? '')
   const escaped = artifactName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -63,6 +68,11 @@ export function deriveExactLineContent(input, artifactName) {
   return undefined
 }
 
+/**
+ * @deprecated Superseded by the contract-driven flow in server.mjs that uses
+ *   contract-evaluator.mjs. Retained as an export for tests and any out-of-tree
+ *   callers; not invoked by server.mjs anymore.
+ */
 export function buildMaterializeCommands(input, missingOutputs) {
   const commands = []
   for (const name of missingOutputs) {
@@ -77,6 +87,11 @@ export function buildMaterializeCommands(input, missingOutputs) {
   return commands
 }
 
+/**
+ * @deprecated Superseded by the contract-driven flow in server.mjs that uses
+ *   contract-evaluator.mjs. Retained as an export for tests and any out-of-tree
+ *   callers; not invoked by server.mjs anymore.
+ */
 export async function readDeclaredArtifacts({
   workDir,
   declaredOutputs,

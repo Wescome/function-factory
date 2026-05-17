@@ -61,6 +61,7 @@ import type {
 } from "./harness-env"
 import { CfArtifactManager } from "./cf-artifact-manager"
 import { buildCfWorkerRegistry, buildStageContextFromJob } from "./cf-workers"
+import { compileOutputContracts } from "./contract-compiler"
 
 const MAX_RETRIES = 3
 
@@ -90,6 +91,8 @@ type RoutedPiModel = {
 type RoutedWorkerInput = WorkerInput & {
   runId?: string
   model?: RoutedPiModel
+  outputContracts?: import("./contract-compiler").OutputContract[]
+  maxRepairRounds?: number
 }
 
 function parseModelId(id: string): Pick<RoutedPiModel, "id" | "provider" | "model"> {
@@ -254,6 +257,8 @@ export async function dispatchOne(
   try {
     const adapter = deps.resolveWorkerAdapter(stage.worker, env)
     const stateView = synthesizeRuntimeStateView(state, compiled)
+    const outputContracts = compileOutputContracts(stage, compiled)
+    const maxRepairRounds = compiled.spec.runtime?.max_repair_rounds ?? 1
     const workerInput: RoutedWorkerInput = {
       runId: message.runId,
       stageName: message.stageName,
@@ -262,6 +267,8 @@ export async function dispatchOne(
       state: stateView as WorkerInput["state"],
       declaredInputs: stage.inputs,
       declaredOutputs: stage.outputs,
+      outputContracts,
+      maxRepairRounds,
       ...(stage.worker === "pi" ? { model: resolvePiModelRoute(stage, env) } : {}),
     }
     workerOutput = await adapter.execute(workerInput, artifacts)

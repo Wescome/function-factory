@@ -23,12 +23,8 @@ import { mkdtemp, writeFile, stat, readdir } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import {
-  buildMaterializeCommands,
-  buildPrompt,
-  buildRepairPrompt,
-  readDeclaredArtifacts,
-} from './execution-contract.mjs'
+import { buildPrompt } from './execution-contract.mjs'
+import { evaluateContracts, defaultContract, buildContractRepairPrompt } from './contract-evaluator.mjs'
 
 const PORT = Number(process.env.PORT ?? 8080)
 const PI_BIN = join(dirname(fileURLToPath(import.meta.url)), 'node_modules', '.bin', 'pi')
@@ -134,6 +130,10 @@ function observationPayload(observation, stderrChunks, extra = {}) {
 function writeJson(res, status, body) {
   res.writeHead(status, { 'Content-Type': 'application/json' })
   res.end(JSON.stringify(body))
+}
+
+function shellQuote(s) {
+  return "'" + String(s).replace(/'/g, "'\\''") + "'"
 }
 
 // ── JSONL byte-buffer reader ──────────────────────────────────────────────────
@@ -400,97 +400,66 @@ async function handleExecute(req, res) {
     }
 
     const declaredOutputs = input.declaredOutputs ?? []
-    let readResult = { artifacts: [], artifactContents: {}, missing: declaredOutputs }
+    const maxRepairRounds = Number.isFinite(input.maxRepairRounds) ? Math.max(0, input.maxRepairRounds) : 1
 
-    const contractCommands = buildMaterializeCommands(input, declaredOutputs)
-    if (contractCommands.length > 0) {
-      for (const item of contractCommands) {
-        pushObservationEvent(observation, { type: 'output.contract_command', artifact: item.artifact })
-        log('info', 'pi.contract_command', { stageName, artifact: item.artifact })
-        const response = await sendRpcCommand(pi, reader, { type: 'bash', command: item.command }, 30_000)
-        pushObservationEvent(observation, {
-          type: 'output.contract_response',
-          artifact: item.artifact,
-          success: response.success,
-          exitCode: response.data?.exitCode,
-        })
+    const contracts = Array.isArray(input.outputContracts) && input.outputContracts.length > 0
+      ? input.outputContracts
+      : declaredOutputs.map(defaultContract)
+
+    // Exact-line shortcut: pre-materialize via pi bash before prompt
+    const exactLineContracts = contracts.filter((c) => c.body?.kind === 'exact_line')
+    for (const c of exactLineContracts) {
+      const cmd = `printf '%s\\n' ${shellQuote(c.body.line)} > ${shellQuote(c.artifact)}`
+      pushObservationEvent(observation, { type: 'contract.materialize_command', artifact: c.artifact })
+      try {
+        const rsp = await sendRpcCommand(pi, reader, { type: 'bash', command: cmd }, 30_000)
+        pushObservationEvent(observation, { type: 'contract.materialize_response', artifact: c.artifact, success: rsp.success })
+      } catch (err) {
+        pushObservationEvent(observation, { type: 'contract.materialize_error', artifact: c.artifact, error: err.message })
       }
-      readResult = await readDeclaredArtifacts({
-        workDir,
-        declaredOutputs,
-        observation,
-        redact,
-        attempt: 'contract',
-        log: (level, msg, data) => log(level, msg, { stageName, ...data }),
-      })
     }
 
-    if (declaredOutputs.length === 0 || readResult.missing.length > 0) {
-      const prompt = buildPrompt(input)
-      log('info', 'pi.prompt_send', { stageName, promptBytes: prompt.length, attempt: 'initial' })
+    let evaluation = await evaluateContracts({ workDir, contracts })
+    pushObservationEvent(observation, { type: 'contract.evaluation', attempt: 'pre-prompt', findings: evaluation.findings })
 
-      // Register agent_end listener BEFORE writing to stdin to avoid race
+    const skipPrompt = exactLineContracts.length === contracts.length && evaluation.missing.length === 0
+    if (!skipPrompt) {
+      const prompt = buildPrompt(input)
       const agentEndPromise = waitForAgentEnd(reader, EXECUTE_TIMEOUT_MS)
       pi.stdin.write(JSON.stringify({ type: 'prompt', message: prompt }) + '\n')
-
       await agentEndPromise
-      log('info', 'pi.agent_end_received', { stageName, elapsedMs: Date.now() - t0 })
-
-      readResult = await readDeclaredArtifacts({
-        workDir,
-        declaredOutputs,
-        observation,
-        redact,
-        attempt: 'initial',
-        log: (level, msg, data) => log(level, msg, { stageName, ...data }),
-      })
-    } else {
-      pushObservationEvent(observation, { type: 'output.contract_satisfied', artifacts: readResult.artifacts })
-      log('info', 'pi.contract_satisfied', { stageName, artifacts: readResult.artifacts })
+      evaluation = await evaluateContracts({ workDir, contracts })
+      pushObservationEvent(observation, { type: 'contract.evaluation', attempt: 'initial', findings: evaluation.findings })
     }
 
-    if (readResult.missing.length > 0) {
-      pushObservationEvent(observation, { type: 'output.repair_requested', missing: readResult.missing })
-      const repairPrompt = buildRepairPrompt(readResult.missing)
-      log('info', 'pi.prompt_send', { stageName, promptBytes: repairPrompt.length, attempt: 'repair', missing: readResult.missing })
-      const repairEndPromise = waitForAgentEnd(reader, EXECUTE_TIMEOUT_MS)
+    let repairsUsed = 0
+    while (evaluation.missing.length > 0 && repairsUsed < maxRepairRounds) {
+      repairsUsed++
+      const repairPrompt = buildContractRepairPrompt(evaluation.findings)
+      pushObservationEvent(observation, { type: 'contract.repair_requested', round: repairsUsed })
+      const endPromise = waitForAgentEnd(reader, EXECUTE_TIMEOUT_MS)
       pi.stdin.write(JSON.stringify({ type: 'prompt', message: repairPrompt }) + '\n')
-      await repairEndPromise
-      log('info', 'pi.agent_end_received', { stageName, elapsedMs: Date.now() - t0, attempt: 'repair' })
-      readResult = await readDeclaredArtifacts({
-        workDir,
-        declaredOutputs,
-        observation,
-        redact,
-        attempt: 'repair',
-        log: (level, msg, data) => log(level, msg, { stageName, ...data }),
-      })
+      await endPromise
+      evaluation = await evaluateContracts({ workDir, contracts })
+      pushObservationEvent(observation, { type: 'contract.evaluation', attempt: `repair-${repairsUsed}`, findings: evaluation.findings })
     }
 
-    if (readResult.missing.length > 0) {
-      const commands = buildMaterializeCommands(input, readResult.missing)
-      for (const item of commands) {
-        pushObservationEvent(observation, { type: 'output.materialize_command', artifact: item.artifact })
-        log('info', 'pi.materialize_command', { stageName, artifact: item.artifact })
-        const response = await sendRpcCommand(pi, reader, { type: 'bash', command: item.command }, 30_000)
-        pushObservationEvent(observation, {
-          type: 'output.materialize_response',
-          artifact: item.artifact,
-          success: response.success,
-          exitCode: response.data?.exitCode,
-        })
-      }
-      if (commands.length > 0) {
-        readResult = await readDeclaredArtifacts({
-          workDir,
-          declaredOutputs,
-          observation,
-          redact,
-          attempt: 'materialize',
-          log: (level, msg, data) => log(level, msg, { stageName, ...data }),
-        })
-      }
+    observation.contractEvaluation = {
+      finalAttempt: skipPrompt ? 'pre-prompt' : (repairsUsed > 0 ? `repair-${repairsUsed}` : 'initial'),
+      repairsUsed,
+      maxRepairRounds,
+      findings: evaluation.findings,
+      failedArtifacts: evaluation.missing,
     }
+
+    if (evaluation.missing.length > 0) {
+      throw new Error(
+        `pi container: contract evaluation failed for [${evaluation.missing.join(', ')}] after ${repairsUsed} repair round(s)`
+      )
+    }
+
+    const artifactNames = evaluation.findings.filter((f) => f.status === 'pass').map((f) => f.artifact)
+    const artifactContents = evaluation.contents
 
     let sessionArchive = null
     try {
@@ -510,10 +479,10 @@ async function handleExecute(req, res) {
     pi.kill('SIGTERM')
 
     const elapsedMs = Date.now() - t0
-    log('info', 'execute.complete', { stageName, artifacts: readResult.artifacts, missing: readResult.missing, elapsedMs })
+    log('info', 'execute.complete', { stageName, artifacts: artifactNames, missing: evaluation.missing, elapsedMs })
     writeJson(res, 200, {
-      artifacts: readResult.artifacts,
-      artifactContents: readResult.artifactContents,
+      artifacts: artifactNames,
+      artifactContents,
       message: `${stageName} complete`,
       observation: observationPayload(observation, stderrChunks, { elapsedMs }),
       ...(sessionArchive ? { sessionArchive } : {}),
