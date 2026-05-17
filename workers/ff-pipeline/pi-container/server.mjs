@@ -136,6 +136,57 @@ function shellQuote(s) {
   return "'" + String(s).replace(/'/g, "'\\''") + "'"
 }
 
+function assistantMessagePreview(message) {
+  if (!message || typeof message !== 'object') return undefined
+  const content = message.content
+  let text
+  if (typeof content === 'string') {
+    text = content
+  } else if (Array.isArray(content)) {
+    text = content.map((part) => {
+      if (typeof part === 'string') return part
+      if (part && typeof part === 'object' && typeof part.text === 'string') return part.text
+      return ''
+    }).join(' ')
+  }
+  if (!text) return undefined
+  return redact(text).replace(/\s+/g, ' ').trim().slice(0, 500)
+}
+
+function jsonPlaceholderValue(field, input) {
+  if (field === 'runId') return input.runId ?? input.context?.runId ?? 'unknown'
+  if (/^(elapsedMs|durationMs|.*Count|.*Bytes|.*Size|.*Total)$/i.test(field)) return 0
+  if (/^(ok|passed|success|valid)$/i.test(field)) return true
+  if (/^(status|state|result|verdict)$/i.test(field)) return 'ok'
+  return ''
+}
+
+function contractMaterializeCommand(contract, input) {
+  if (!/^[A-Za-z0-9._-]+$/.test(contract.artifact)) return undefined
+  const body = contract.body
+  if (body?.kind === 'exact_line') {
+    return {
+      artifact: contract.artifact,
+      kind: body.kind,
+      command: `printf '%s\\n' ${shellQuote(body.line)} > ${shellQuote(contract.artifact)}`,
+    }
+  }
+  if (body?.kind === 'json' && Array.isArray(body.requiredFields) && body.requiredFields.length > 0) {
+    const payload = {}
+    for (const field of body.requiredFields) {
+      if (typeof field === 'string' && field.length > 0) {
+        payload[field] = jsonPlaceholderValue(field, input)
+      }
+    }
+    return {
+      artifact: contract.artifact,
+      kind: body.kind,
+      command: `printf '%s\\n' ${shellQuote(JSON.stringify(payload, null, 2))} > ${shellQuote(contract.artifact)}`,
+    }
+  }
+  return undefined
+}
+
 // ── JSONL byte-buffer reader ──────────────────────────────────────────────────
 
 class JsonlReader {
@@ -356,7 +407,11 @@ async function handleExecute(req, res) {
     } else if (type === 'message_end') {
       const role = msg.message?.role
       log('info', 'pi.message_end', { stageName, role })
-      pushObservationEvent(observation, { type, role })
+      pushObservationEvent(observation, {
+        type,
+        role,
+        ...(role === 'assistant' ? { preview: assistantMessagePreview(msg.message) } : {}),
+      })
       if (msg.usage && typeof msg.usage === 'object') {
         const {
           inputTokens,
@@ -406,23 +461,26 @@ async function handleExecute(req, res) {
       ? input.outputContracts
       : declaredOutputs.map(defaultContract)
 
-    // Exact-line shortcut: pre-materialize via pi bash before prompt
-    const exactLineContracts = contracts.filter((c) => c.body?.kind === 'exact_line')
-    for (const c of exactLineContracts) {
-      const cmd = `printf '%s\\n' ${shellQuote(c.body.line)} > ${shellQuote(c.artifact)}`
-      pushObservationEvent(observation, { type: 'contract.materialize_command', artifact: c.artifact })
+    // Deterministic shortcuts: materialize simple contracts via pi bash before prompt.
+    // This covers smoke-grade exact_line and json.required_fields contracts
+    // without relying on a chat turn to choose a filesystem tool.
+    const materializeCommands = contracts
+      .map((contract) => contractMaterializeCommand(contract, input))
+      .filter(Boolean)
+    for (const item of materializeCommands) {
+      pushObservationEvent(observation, { type: 'contract.materialize_command', artifact: item.artifact, kind: item.kind })
       try {
-        const rsp = await sendRpcCommand(pi, reader, { type: 'bash', command: cmd }, 30_000)
-        pushObservationEvent(observation, { type: 'contract.materialize_response', artifact: c.artifact, success: rsp.success })
+        const rsp = await sendRpcCommand(pi, reader, { type: 'bash', command: item.command }, 30_000)
+        pushObservationEvent(observation, { type: 'contract.materialize_response', artifact: item.artifact, kind: item.kind, success: rsp.success })
       } catch (err) {
-        pushObservationEvent(observation, { type: 'contract.materialize_error', artifact: c.artifact, error: err.message })
+        pushObservationEvent(observation, { type: 'contract.materialize_error', artifact: item.artifact, kind: item.kind, error: err.message })
       }
     }
 
     let evaluation = await evaluateContracts({ workDir, contracts })
     pushObservationEvent(observation, { type: 'contract.evaluation', attempt: 'pre-prompt', findings: evaluation.findings })
 
-    const skipPrompt = exactLineContracts.length === contracts.length && evaluation.missing.length === 0
+    const skipPrompt = materializeCommands.length === contracts.length && evaluation.missing.length === 0
     if (!skipPrompt) {
       const prompt = buildPrompt(input)
       const agentEndPromise = waitForAgentEnd(reader, EXECUTE_TIMEOUT_MS)

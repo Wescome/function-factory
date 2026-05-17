@@ -114,8 +114,15 @@ async function persistObservation(
 ): Promise<string | undefined> {
   if (!observation) return undefined
   const key = `__observability/${stageName}.container-observation.json`
-  await artifacts.writeText(key, JSON.stringify(observation, null, 2))
-  return key
+  try {
+    const storageKey = await artifacts.writeText(key, JSON.stringify(observation, null, 2))
+    console.log(`[pi] diagnostic.written kind=observation key=${storageKey}`)
+    return storageKey
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error(`[pi] diagnostic.write_failed kind=observation logicalKey=${key} error=${message}`)
+    return undefined
+  }
 }
 
 async function persistContractEvaluation(
@@ -134,8 +141,15 @@ async function persistContractEvaluation(
     ...observation.contractEvaluation,
     outcome: observation.contractEvaluation.failedArtifacts.length === 0 ? "pass" : "fail",
   }
-  await artifacts.writeText(key, JSON.stringify(payload, null, 2))
-  return key
+  try {
+    const storageKey = await artifacts.writeText(key, JSON.stringify(payload, null, 2))
+    console.log(`[pi] diagnostic.written kind=contract-evaluation key=${storageKey}`)
+    return storageKey
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error(`[pi] diagnostic.write_failed kind=contract-evaluation logicalKey=${key} error=${message}`)
+    return undefined
+  }
 }
 
 async function parseContainerResponse(response: Response): Promise<ContainerExecuteResponse | null> {
@@ -211,11 +225,12 @@ abstract class ContainerWorkerAdapter implements WorkerAdapter {
       // `workerThrew` on the StageCompletePayload (see harness-dispatcher.ts).
       const parsed = await parseContainerResponse(response)
       const observationKey = await persistObservation(input.stageName, parsed?.observation, artifacts)
-      await persistContractEvaluation(input.stageName, parsed?.observation, artifacts)
+      const contractEvaluationKey = await persistContractEvaluation(input.stageName, parsed?.observation, artifacts)
       const text = parsed
         ? JSON.stringify({
             error: parsed.error ?? { message: "container dispatch failed" },
             ...(observationKey ? { observationKey } : {}),
+            ...(contractEvaluationKey ? { contractEvaluationKey } : {}),
           })
         : await response.text().catch(() => "<unreadable body>")
       console.error(`[${this.name}] dispatch.non2xx stage=${input.stageName} status=${response.status} body=${text.slice(0, 500)}`)
@@ -224,6 +239,7 @@ abstract class ContainerWorkerAdapter implements WorkerAdapter {
       throw new Error(
         `${this.name}: container dispatch failed (${response.status}): ${message}` +
           `${observationKey ? ` observation=${observationKey}` : ""}` +
+          `${contractEvaluationKey ? ` contractEvaluation=${contractEvaluationKey}` : ""}` +
           `${error?.stderrTail ? ` stderrTail=${error.stderrTail.slice(0, 1000)}` : ""}`,
       )
     }

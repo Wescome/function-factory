@@ -26,13 +26,14 @@ vi.mock('@factory/nlah', () => ({
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function makeArtifacts(overrides: Record<string, unknown> = {}) {
+  const prefix = 'runs/run-001/artifacts/'
   return {
     getStorageHandle: vi.fn(() => ({
       kind: 'r2',
-      prefix: 'runs/run-001/artifacts/',
+      prefix,
       bucketBinding: 'WORKSPACE_BUCKET',
     })),
-    writeText: vi.fn(async (_name: string, _content: string) => 'runs/run-001/artifacts/_name'),
+    writeText: vi.fn(async (name: string, _content: string) => `${prefix}${name}`),
     readText: vi.fn(async () => ''),
     exists: vi.fn(async () => false),
     list: vi.fn(async () => []),
@@ -173,7 +174,7 @@ describe('PiContainerAdapter', () => {
       '__observability/CONTRACT.container-observation.json',
       JSON.stringify(observation, null, 2),
     )
-    expect(result.message).toContain('observation=__observability/CONTRACT.container-observation.json')
+    expect(result.message).toContain('observation=runs/run-001/artifacts/__observability/CONTRACT.container-observation.json')
   })
 
   it('persists non-2xx observation and throws compact error reference', async () => {
@@ -192,11 +193,46 @@ describe('PiContainerAdapter', () => {
 
     await expect(
       adapter.execute(makeInput() as never, artifacts as never),
-    ).rejects.toThrow('__observability/CONTRACT.container-observation.json')
+    ).rejects.toThrow('runs/run-001/artifacts/__observability/CONTRACT.container-observation.json')
 
     expect((artifacts.writeText as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith(
       '__observability/CONTRACT.container-observation.json',
       expect.stringContaining('redacted tail'),
+    )
+  })
+
+  it('persists contract evaluation diagnostics on non-2xx responses', async () => {
+    const { PiContainerAdapter } = await import('./cf-workers.js')
+    const artifacts = makeArtifacts()
+    const observation = {
+      runId: 'run-001',
+      stageName: 'CONTRACT',
+      contractEvaluation: {
+        finalAttempt: 'repair-2',
+        repairsUsed: 2,
+        maxRepairRounds: 2,
+        findings: [{ artifact: 'Report', status: 'fail', kind: 'json', failureCode: 'invalid_json' }],
+        failedArtifacts: ['Report'],
+      },
+    }
+    const container = makeContainer(
+      new Response(
+        JSON.stringify({
+          error: { code: 'PI_EXECUTION_FAILED', message: 'contract failed' },
+          observation,
+        }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+    const adapter = new PiContainerAdapter(container as never)
+
+    await expect(
+      adapter.execute(makeInput() as never, artifacts as never),
+    ).rejects.toThrow('runs/run-001/artifacts/__observability/CONTRACT.contract-evaluation.json')
+
+    expect((artifacts.writeText as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith(
+      '__observability/CONTRACT.contract-evaluation.json',
+      expect.stringContaining('"outcome": "fail"'),
     )
   })
 
