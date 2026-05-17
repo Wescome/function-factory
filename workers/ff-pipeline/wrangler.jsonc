@@ -31,10 +31,15 @@
   ],
 
   // Sandbox Container for Coder/Tester execution
+  // PI_CONTAINER: pi coding agent — dispatched by PiContainerAdapter (cf-workers.ts)
   "containers": {
     "Sandbox": {
       "image": "./Dockerfile",
       "max_instances": 5
+    },
+    "PI_CONTAINER": {
+      "image": "./pi-container/Dockerfile",
+      "max_instances": 3
     }
   },
 

@@ -1,0 +1,11 @@
+{
+  "name": "pi-container",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "CF Container that runs pi in RPC mode and dispatches NLAH stage execution.",
+  "main": "server.mjs",
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "^0.74.1"
+  }
+}
