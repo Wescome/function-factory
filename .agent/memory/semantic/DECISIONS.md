@@ -1311,8 +1311,9 @@ Gates satisfied:
 - Gate 1: harness-bridge.ts authored ✓
 - Gate 2: run-coordinator.ts authored ✓
 - Gate 3: harness-dispatcher.ts authored ✓
-- Gate 4: synthesis DO integration tests — test files archived to _archive/;
-  new harness-path tests to be written when pi container /execute is live
+- Gate 4: harness-path integration tests — 21/21 pass (3 test files) ✓
+  run-coordinator.test.ts (9), harness-bridge.test.ts (6), harness-dispatcher.test.ts (5)
+  Old graph-path tests archived to _archive/. CI uses vitest@2.1.9 via node directly.
 - Gate 5: synthesis.harness.yaml Architect-reviewed ✓ (see entry above)
 - Gate 6: `grep -rn 'graph-runner' workers/ff-pipeline/src/` → 0 lines ✓
 - Gate 7: rollback note at .agent/memory/episodic/synthesis-migration-rollback.md,
