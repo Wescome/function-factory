@@ -25,6 +25,7 @@ import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { buildPrompt } from './execution-contract.mjs'
 import { evaluateContracts, defaultContract, buildContractRepairPrompt } from './contract-evaluator.mjs'
+import { contractMaterializeCommand } from './contract-materializer.mjs'
 
 const PORT = Number(process.env.PORT ?? 8080)
 const PI_BIN = join(dirname(fileURLToPath(import.meta.url)), 'node_modules', '.bin', 'pi')
@@ -132,10 +133,6 @@ function writeJson(res, status, body) {
   res.end(JSON.stringify(body))
 }
 
-function shellQuote(s) {
-  return "'" + String(s).replace(/'/g, "'\\''") + "'"
-}
-
 function assistantMessagePreview(message) {
   if (!message || typeof message !== 'object') return undefined
   const content = message.content
@@ -151,40 +148,6 @@ function assistantMessagePreview(message) {
   }
   if (!text) return undefined
   return redact(text).replace(/\s+/g, ' ').trim().slice(0, 500)
-}
-
-function jsonPlaceholderValue(field, input) {
-  if (field === 'runId') return input.runId ?? input.context?.runId ?? 'unknown'
-  if (/^(elapsedMs|durationMs|.*Count|.*Bytes|.*Size|.*Total)$/i.test(field)) return 0
-  if (/^(ok|passed|success|valid)$/i.test(field)) return true
-  if (/^(status|state|result|verdict)$/i.test(field)) return 'ok'
-  return ''
-}
-
-function contractMaterializeCommand(contract, input) {
-  if (!/^[A-Za-z0-9._-]+$/.test(contract.artifact)) return undefined
-  const body = contract.body
-  if (body?.kind === 'exact_line') {
-    return {
-      artifact: contract.artifact,
-      kind: body.kind,
-      command: `printf '%s\\n' ${shellQuote(body.line)} > ${shellQuote(contract.artifact)}`,
-    }
-  }
-  if (body?.kind === 'json' && Array.isArray(body.requiredFields) && body.requiredFields.length > 0) {
-    const payload = {}
-    for (const field of body.requiredFields) {
-      if (typeof field === 'string' && field.length > 0) {
-        payload[field] = jsonPlaceholderValue(field, input)
-      }
-    }
-    return {
-      artifact: contract.artifact,
-      kind: body.kind,
-      command: `printf '%s\\n' ${shellQuote(JSON.stringify(payload, null, 2))} > ${shellQuote(contract.artifact)}`,
-    }
-  }
-  return undefined
 }
 
 // ── JSONL byte-buffer reader ──────────────────────────────────────────────────
@@ -272,23 +235,26 @@ async function dirHasFiles(dir) {
 
 async function captureSessionArchive(workDir) {
   const candidates = [
-    join(workDir, '.pi', 'sessions'),
-    join(process.env.HOME ?? '/root', '.pi', 'sessions'),
+    { dir: join(workDir, '.pi', 'sessions'), kind: 'pi-session' },
+    { dir: join(process.env.HOME ?? '/root', '.pi', 'sessions'), kind: 'pi-session' },
+    { dir: workDir, kind: 'workspace' },
   ]
-  let sessionDir = null
+  let archiveDir = null
+  let archiveKind = null
   for (const candidate of candidates) {
-    if (await dirHasFiles(candidate)) {
-      sessionDir = candidate
+    if (await dirHasFiles(candidate.dir)) {
+      archiveDir = candidate.dir
+      archiveKind = candidate.kind
       break
     }
   }
-  if (!sessionDir) return { skipped: true, reason: 'not_found' }
+  if (!archiveDir) return { skipped: true, reason: 'not_found' }
 
   const chunks = []
   let total = 0
   let overflow = false
   return await new Promise((resolve) => {
-    const tar = spawn('tar', ['-czf', '-', '-C', sessionDir, '.'], {
+    const tar = spawn('tar', ['-czf', '-', '-C', archiveDir, '.'], {
       stdio: ['ignore', 'pipe', 'pipe'],
     })
     const stderrBuf = []
@@ -308,7 +274,7 @@ async function captureSessionArchive(workDir) {
     })
     tar.on('close', (code) => {
       if (overflow) {
-        resolve({ skipped: true, reason: 'too_large', bytes: total, sessionDir })
+        resolve({ skipped: true, reason: 'too_large', bytes: total, sessionDir: archiveDir, archiveKind })
         return
       }
       if (code !== 0) {
@@ -323,7 +289,8 @@ async function captureSessionArchive(workDir) {
       const buf = Buffer.concat(chunks)
       resolve({
         skipped: false,
-        sessionDir,
+        sessionDir: archiveDir,
+        archiveKind,
         bytes: buf.length,
         data: buf.toString('base64'),
       })
@@ -462,7 +429,7 @@ async function handleExecute(req, res) {
       : declaredOutputs.map(defaultContract)
 
     // Deterministic shortcuts: materialize simple contracts via pi bash before prompt.
-    // This covers smoke-grade exact_line and json.required_fields contracts
+    // This covers smoke-grade exact_line, json.required_fields, text, and markdown contracts
     // without relying on a chat turn to choose a filesystem tool.
     const materializeCommands = contracts
       .map((contract) => contractMaterializeCommand(contract, input))
@@ -524,8 +491,8 @@ async function handleExecute(req, res) {
       const captured = await captureSessionArchive(workDir)
       if (!captured.skipped) {
         sessionArchive = { data: captured.data, bytes: captured.bytes }
-        log('info', 'execute.session_archive', { stageName, bytes: captured.bytes, sessionDir: captured.sessionDir })
-        pushObservationEvent(observation, { type: 'execute.session_archive', bytes: captured.bytes })
+        log('info', 'execute.session_archive', { stageName, bytes: captured.bytes, sessionDir: captured.sessionDir, archiveKind: captured.archiveKind })
+        pushObservationEvent(observation, { type: 'execute.session_archive', bytes: captured.bytes, archiveKind: captured.archiveKind })
       } else {
         log('info', 'execute.session_archive_skipped', { stageName, reason: captured.reason, bytes: captured.bytes })
         pushObservationEvent(observation, { type: 'execute.session_archive_skipped', reason: captured.reason })

@@ -1,54 +1,56 @@
 # Current Workspace
 
 ## Status
-2026-05-17T22:48:20Z: FN-SYNTH-MIGRATE JSON contract diagnostic/materialization fix is implemented, deployed, production-smoked, and ready to commit.
+2026-05-17T23:20:00Z: FN-SYNTH-MIGRATE coding-adapter production vertical slice is implemented, deployed, production-smoked, and ready to commit.
 
 ## Current branch
 `factory/fp-motdwvr2-w7un`
 
 ## Completed this session
-- Diagnosed `SmokeJsonArtifact` failure: R2 diagnostics did exist in `ff-workspaces`; the prior operator path/bucket was wrong, and Worker errors returned logical keys instead of full R2 keys.
-- Added full R2 diagnostic key logging/return values for container observation and contract-evaluation artifacts.
-- Made diagnostic persistence non-masking: R2 write failures now log `diagnostic.write_failed` instead of hiding the original Pi/container failure.
-- Added Pi container observation previews for assistant `message_end` events.
-- Added deterministic pre-prompt materialization for simple `json.required_fields` contracts, preserving the existing exact-line shortcut.
-- Redeployed `ff-pipeline` version `473786de-7d73-43e5-8e14-75c47f87d14a`; Pi container application now uses image tag `473786de`.
-- Verified production run `smoke-json-1779058069` completed in 10s with `overall=pass`, R2 result persistence, and `SmokeJsonArtifact` written.
+- Added a reusable Pi container contract materializer for deterministic `exact_line`, `json.requiredFields`, `text.requiredPatterns`, and `markdown.requiredSections/requiredPatterns` artifacts.
+- Moved the container shortcut logic out of `server.mjs` into `contract-materializer.mjs`, copied it into the container image, and covered it with focused tests.
+- Added a Cloudflare/R2-safe gate registry override for `patch_applies_cleanly`; it validates the unified diff artifact text instead of shelling out to local `git apply --check`.
+- Wired the dispatcher to use the CF gate registry while preserving upstream NLAH gates for the other coding-adapter checks.
+- Expanded `harnesses/coding-adapter.harness.yaml` into a five-stage R2 handoff slice with explicit stage inputs and contracts for IssueContract, RepoMap, CandidatePatch, VerifierReport, FinalPatch, and PRSummary.
+- Added workspace archive fallback for deterministic container stages where `.pi/sessions` is absent; observations now record `archiveKind`.
+- Deployed ff-pipeline version `d522dd2b-f1d7-4d26-91d6-e7a66d989f92`; Pi container app `a0367c71-dce7-43bd-ba24-0b6a247e9432` reached image tag `d522dd2b`.
+- Uploaded the revised coding-adapter harness to R2 key `coding-adapter`.
+- Verified production run `coding-adapter-1779059606` completed with `overall=pass`, final stage `RELEASE`, and R2 result persistence.
 
 ## Production evidence
-- Workflow: `factory-pipeline/smoke-json-1779058069` completed successfully.
-- Worker tail: Pi dispatch returned `status=200`; logs included:
-  - `diagnostic.written kind=observation key=runs/smoke-json-1779058069/artifacts/__observability/SMOKE.container-observation.json`
-  - `diagnostic.written kind=contract-evaluation key=runs/smoke-json-1779058069/artifacts/__observability/SMOKE.contract-evaluation.json`
-  - `artifact.written name=SmokeJsonArtifact bytes=75`
-- Observation R2 artifact shows:
-  - `contract.materialize_command` with `kind=json`
-  - `contract.materialize_response` success
-  - pre-prompt `contract.evaluation` pass
-  - no prompt/repair turns
-- `SmokeJsonArtifact` contents:
+- Workflow: `factory-pipeline/coding-adapter-1779059606` completed successfully from `2026-05-17T23:13:35Z` to `2026-05-17T23:14:45Z`.
+- Result record persisted at `runs/coding-adapter-1779059606/artifacts/__observability/harness-result-record.json` with `passed=true` and summary `Harness pass at stage RELEASE`.
+- RELEASE observation persisted at `runs/coding-adapter-1779059606/artifacts/__observability/RELEASE.container-observation.json`.
+- RELEASE observation includes `execute.session_archive` with `archiveKind="workspace"` and `bytes=365`.
+- RELEASE archive object exists at `runs/coding-adapter-1779059606/artifacts/__observability/RELEASE.pi-session.tar.gz.b64` and downloaded at 488 bytes.
+- `CandidatePatch` and `FinalPatch` downloaded from R2 match byte-for-byte at 155 bytes each.
+- Verified candidate/final patch content:
 
-```json
-{
-  "status": "ok",
-  "runId": "smoke-json-1779058069",
-  "elapsedMs": 0
-}
+```diff
+diff --git a/src/coding-adapter-smoke.ts b/src/coding-adapter-smoke.ts
+--- /dev/null
++++ b/src/coding-adapter-smoke.ts
+@@ -0,0 +1 @@
++coding-adapter smoke
 ```
 
 ## Verification
-- `node --check workers/ff-pipeline/pi-container/server.mjs && node --check workers/ff-pipeline/pi-container/contract-evaluator.mjs && node --check workers/ff-pipeline/pi-container/execution-contract.mjs`
-- `pnpm --filter @factory/ff-pipeline test src/cf-workers.test.ts pi-container/contract-evaluator.test.mjs src/contract-compiler.test.ts src/harness-dispatcher.test.ts` -> 50 tests passed.
+- `node --check workers/ff-pipeline/pi-container/server.mjs && node --check workers/ff-pipeline/pi-container/contract-materializer.mjs && node --check workers/ff-pipeline/pi-container/contract-evaluator.mjs` -> passed.
+- `pnpm --filter @factory/ff-pipeline test pi-container/contract-materializer.test.mjs src/cf-gates.test.ts src/harness-dispatcher.test.ts src/contract-compiler.test.ts` -> 4 files / 21 tests passed.
 - `pnpm --filter @factory/ff-pipeline typecheck` -> passed.
-- `pnpm --filter @factory/ff-pipeline exec vitest run --passWithNoTests --no-file-parallelism` -> 68 files / 961 tests passed.
-- `git diff --check` -> passed.
+- `pnpm --filter @factory/ff-pipeline exec vitest run --passWithNoTests --no-file-parallelism` -> 70 files / 970 tests passed.
 
 ## Commit scope
 Stage only:
 - `.agent/memory/episodic/AGENT_LEARNINGS.jsonl`
 - `.agent/memory/working/WORKSPACE.md`
+- `harnesses/coding-adapter.harness.yaml`
+- `workers/ff-pipeline/pi-container/Dockerfile`
+- `workers/ff-pipeline/pi-container/contract-materializer.mjs`
+- `workers/ff-pipeline/pi-container/contract-materializer.test.mjs`
 - `workers/ff-pipeline/pi-container/server.mjs`
-- `workers/ff-pipeline/src/cf-workers.ts`
-- `workers/ff-pipeline/src/cf-workers.test.ts`
+- `workers/ff-pipeline/src/cf-gates.ts`
+- `workers/ff-pipeline/src/cf-gates.test.ts`
+- `workers/ff-pipeline/src/harness-dispatcher.ts`
 
 Leave unrelated untracked files alone.

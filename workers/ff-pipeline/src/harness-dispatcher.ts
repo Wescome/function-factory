@@ -61,6 +61,7 @@ import type {
 } from "./harness-env"
 import { CfArtifactManager } from "./cf-artifact-manager"
 import { buildCfWorkerRegistry, buildStageContextFromJob } from "./cf-workers"
+import { buildCfGateRegistry } from "./cf-gates"
 import { compileOutputContracts } from "./contract-compiler"
 
 const MAX_RETRIES = 3
@@ -469,7 +470,7 @@ export function buildDefaultDispatcherDeps(env: HarnessBridgeEnv): HarnessDispat
         declaredOutputs: stage.outputs,
         artifacts,
       }),
-    gateRegistry: defaultGateRegistry,
+    gateRegistry: buildCfGateRegistry(defaultGateRegistry),
   }
 }
 

@@ -26,12 +26,63 @@ roles:
     responsibility: Produce final patch, evidence, and PR-ready summary.
 
 artifacts:
-  IssueContract:  { path: artifacts/issue_contract.md,   required: true }
-  RepoMap:        { path: artifacts/repo_map.md,         required: true }
-  CandidatePatch: { path: artifacts/candidate.patch,     required: true }
-  VerifierReport: { path: artifacts/verifier_report.md,  required: true }
-  FinalPatch:     { path: artifacts/final.patch,         required: true }
-  PRSummary:      { path: artifacts/pr_summary.md,       required: true }
+  IssueContract:
+    path: artifacts/issue_contract.md
+    required: true
+    contract:
+      kind: text
+      required_patterns:
+        - "Issue:"
+        - "Acceptance:"
+  RepoMap:
+    path: artifacts/repo_map.md
+    required: true
+    contract:
+      kind: text
+      required_patterns:
+        - "## Relevant files"
+        - "src/coding-adapter-smoke.ts"
+        - "## Test entrypoints"
+        - "pnpm --filter @factory/ff-pipeline test"
+  CandidatePatch:
+    path: artifacts/candidate.patch
+    required: true
+    contract:
+      kind: text
+      required_patterns:
+        - "diff --git a/src/coding-adapter-smoke.ts b/src/coding-adapter-smoke.ts"
+        - "--- /dev/null"
+        - "\\+\\+\\+ b/src/coding-adapter-smoke.ts"
+        - "@@ -0,0 \\+1 @@"
+        - "\\+coding-adapter smoke"
+  VerifierReport:
+    path: artifacts/verifier_report.md
+    required: true
+    contract:
+      kind: text
+      required_patterns:
+        - "Verdict: PASS"
+        - "Tests run"
+        - "pnpm --filter @factory/ff-pipeline test"
+  FinalPatch:
+    path: artifacts/final.patch
+    required: true
+    contract:
+      kind: text
+      required_patterns:
+        - "diff --git a/src/coding-adapter-smoke.ts b/src/coding-adapter-smoke.ts"
+        - "--- /dev/null"
+        - "\\+\\+\\+ b/src/coding-adapter-smoke.ts"
+        - "@@ -0,0 \\+1 @@"
+        - "\\+coding-adapter smoke"
+  PRSummary:
+    path: artifacts/pr_summary.md
+    required: true
+    contract:
+      kind: text
+      required_patterns:
+        - "Summary:"
+        - "Tests:"
 
 stages:
   CONTRACT:
@@ -39,6 +90,7 @@ stages:
     to: IssueContracted
     role: Cartographer
     worker: pi
+    inputs: []
     outputs: [IssueContract]
     gate:
       all: [{ exists: IssueContract }]
@@ -48,6 +100,7 @@ stages:
     to: RepoMapped
     role: Cartographer
     worker: pi
+    inputs: [IssueContract]
     outputs: [RepoMap]
     gate:
       all:
@@ -60,6 +113,7 @@ stages:
     to: PatchCandidate
     role: PatchWorker
     worker: pi
+    inputs: [RepoMap]
     outputs: [CandidatePatch]
     gate:
       all:
@@ -71,6 +125,7 @@ stages:
     to: VerifiedPatch
     role: Verifier
     worker: pi
+    inputs: [CandidatePatch]
     outputs: [VerifierReport]
     gate:
       all:
@@ -83,6 +138,7 @@ stages:
     to: PullRequestReady
     role: ReleaseAgent
     worker: pi
+    inputs: [CandidatePatch, VerifierReport]
     outputs: [FinalPatch, PRSummary]
     gate:
       all:
