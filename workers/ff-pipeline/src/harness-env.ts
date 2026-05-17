@@ -135,8 +135,13 @@ export interface HarnessBridgeEnv {
   /** Existing Workflow binding — used to deliver harness-complete events. */
   FACTORY_PIPELINE: FactoryPipelineBinding
 
-  /** Pi container worker. Required when the registry binds the `pi` worker. */
-  PI_CONTAINER?: ContainerBinding
+  /**
+   * Pi container worker. CF Containers in wrangler 4 are DO-backed — this is
+   * a DurableObjectNamespace. `buildCfWorkerRegistry` gets a singleton stub
+   * via `idFromName("pi")` and wraps it as a ContainerBinding so the adapter
+   * layer stays unchanged.
+   */
+  PI_CONTAINER?: DurableObjectNamespace
 
   /** Aider container worker. Required when the registry binds `aider`. */
   AIDER_CONTAINER?: ContainerBinding

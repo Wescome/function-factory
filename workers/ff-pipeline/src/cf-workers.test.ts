@@ -188,7 +188,8 @@ describe('buildCfWorkerRegistry', () => {
   it('registers pi when PI_CONTAINER binding is present', async () => {
     const { buildCfWorkerRegistry } = await import('./cf-workers.js')
     const env = {
-      PI_CONTAINER: { fetch: vi.fn() },
+      // PI_CONTAINER is a DurableObjectNamespace in wrangler 4 (DO-backed containers)
+      PI_CONTAINER: { idFromName: vi.fn(() => 'pi-id'), get: vi.fn(() => ({ fetch: vi.fn() })) },
       WORKSPACE_BUCKET: {},
       HARNESS_QUEUE: { send: vi.fn() },
       FACTORY_PIPELINE: { get: vi.fn(), create: vi.fn() },

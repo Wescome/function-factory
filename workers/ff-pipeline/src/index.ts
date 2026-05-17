@@ -3,6 +3,7 @@ export { SynthesisCoordinator } from './coordinator'
 export { validateCodeLanguage } from './coordinator/atom-executor'
 export { AtomExecutor } from './coordinator/atom-executor-do'
 export { RunCoordinator } from './coordinator/run-coordinator'
+export { PiContainer } from './coordinator/pi-container'
 export { Sandbox } from '@cloudflare/sandbox'
 
 // Harness path (IS-HARNESS-DSL-v1 §2–§3, ADR-009 §4 Phase 3)

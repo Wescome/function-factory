@@ -179,7 +179,12 @@ export function buildCfWorkerRegistry(
 ): WorkerRegistry {
   const registry = new WorkerRegistry()
   if (env.PI_CONTAINER) {
-    registry.register("pi", new PiContainerAdapter(env.PI_CONTAINER))
+    // CF Containers in wrangler 4 are DO-backed: PI_CONTAINER is a namespace.
+    // Use a singleton DO ID so all harness stages share one warm container
+    // rather than spawning a new process per stage. The DO's fetch() forwards
+    // to the container's HTTP server via getTcpPort(8080).fetch().
+    const piStub = env.PI_CONTAINER.get(env.PI_CONTAINER.idFromName("pi"))
+    registry.register("pi", new PiContainerAdapter(piStub as unknown as ContainerBinding))
   }
   if (env.AIDER_CONTAINER) {
     registry.register("aider", new AiderContainerAdapter(env.AIDER_CONTAINER))

@@ -20,28 +20,25 @@
       { "name": "COORDINATOR", "class_name": "SynthesisCoordinator" },
       { "name": "SANDBOX", "class_name": "Sandbox" },
       { "name": "ATOM_EXECUTOR", "class_name": "AtomExecutor" },
-      { "name": "RUN_COORDINATOR", "class_name": "RunCoordinator" }
+      { "name": "RUN_COORDINATOR", "class_name": "RunCoordinator" },
+      { "name": "PI_CONTAINER", "class_name": "PiContainer" }
     ]
   },
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["SynthesisCoordinator"] },
     { "tag": "v2", "new_sqlite_classes": ["Sandbox"] },
     { "tag": "v3", "new_sqlite_classes": ["AtomExecutor"] },
-    { "tag": "v4", "new_sqlite_classes": ["RunCoordinator"] }
+    { "tag": "v4", "new_sqlite_classes": ["RunCoordinator"] },
+    { "tag": "v5", "new_sqlite_classes": ["PiContainer"] }
   ],
 
   // Sandbox Container for Coder/Tester execution
   // PI_CONTAINER: pi coding agent — dispatched by PiContainerAdapter (cf-workers.ts)
-  "containers": {
-    "Sandbox": {
-      "image": "./Dockerfile",
-      "max_instances": 5
-    },
-    "PI_CONTAINER": {
-      "image": "./pi-container/Dockerfile",
-      "max_instances": 3
-    }
-  },
+  // CF Containers are DO-backed (wrangler 4): class_name must match an exported DO class.
+  "containers": [
+    { "class_name": "Sandbox", "image": "./Dockerfile", "max_instances": 5 },
+    { "class_name": "PiContainer", "image": "./pi-container/Dockerfile", "max_instances": 3 }
+  ],
 
   // Service Bindings
   "services": [
