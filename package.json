@@ -64,6 +64,9 @@
   "pnpm": {
     "peerDependencyRules": {
       "ignoreMissing": []
+    },
+    "overrides": {
+      "execa": "^8.0.0"
     }
   },
   "workspaces": [

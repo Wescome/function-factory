@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  execa: ^8.0.0
+
 importers:
 
   .:
@@ -390,6 +393,19 @@ importers:
         specifier: ^1.4.0
         version: 1.6.1(@types/node@24.12.2)
 
+  packages/nlah:
+    dependencies:
+      '@wescome/nlah':
+        specifier: file:/Users/wes/nlah
+        version: file:../../nlah
+    devDependencies:
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.4.0
+        version: 1.6.1(@types/node@24.12.2)
+
   packages/observability-feedback:
     dependencies:
       '@factory/schemas':
@@ -545,6 +561,9 @@ importers:
 
   packages/verification:
     dependencies:
+      '@factory/nlah':
+        specifier: workspace:*
+        version: link:../nlah
       '@factory/schemas':
         specifier: workspace:*
         version: link:../schemas
@@ -623,6 +642,9 @@ importers:
       '@factory/learning':
         specifier: workspace:*
         version: link:../../packages/learning
+      '@factory/nlah':
+        specifier: workspace:*
+        version: link:../../packages/nlah
       '@factory/ontology-loader':
         specifier: workspace:*
         version: link:../../packages/ontology-loader
@@ -635,6 +657,9 @@ importers:
       '@factory/transmission-adapters':
         specifier: workspace:*
         version: link:../../packages/transmission-adapters
+      '@factory/verification':
+        specifier: workspace:*
+        version: link:../../packages/verification
       '@weops/gdk-agent':
         specifier: workspace:*
         version: link:../../packages/gdk-agent
@@ -2259,6 +2284,11 @@ packages:
   '@vitest/utils@3.2.4':
     resolution: {integrity: sha512-fB2V0JFrQSMsCo9HiSq3Ezpdv4iYaXRG1Sx8edX3MwxfyNn83mKiGzOcH+Fkxt4MHxr3y42fQi1oeAInqgX2QA==}
 
+  '@wescome/nlah@file:../../nlah':
+    resolution: {directory: ../../nlah, type: directory}
+    engines: {node: '>=20'}
+    hasBin: true
+
   abort-controller@3.0.0:
     resolution: {integrity: sha512-h8lQ8tacZYnR3vNQTgibj+tODHI5/+l06Au2Pcriv/Gmet0eaj4TwWH41sO9wnHDiQsEj19q0drzdWdeAHtweg==}
     engines: {node: '>=6.5'}
@@ -2483,6 +2513,10 @@ packages:
   color@4.2.3:
     resolution: {integrity: sha512-1rXeuUUiGGrykh+CeBdu5Ie7OJwinCgQY0bc7GCRxy5xVHy+moaqkpL/jqQq0MtQOeYcrqEz4abc5f0KtU7W4A==}
     engines: {node: '>=12.5.0'}
+
+  commander@12.1.0:
+    resolution: {integrity: sha512-Vw8qHK3bZM9y/P10u3Vib8o/DdkvA2OtPtZvD871QKjy74Wj1WSKFILMPRPSdUSx5RFK1arlJzEtA4PkFgnbuA==}
+    engines: {node: '>=18'}
 
   confbox@0.1.8:
     resolution: {integrity: sha512-RMtmw0iFkeR4YV+fUOSucriAQNb9g8zFR52MWCtl+cCZOFRNL6zeB395vPzFhEjjn4fMxXudmELnl/KF/WrK6w==}
@@ -5577,6 +5611,13 @@ snapshots:
       loupe: 3.2.1
       tinyrainbow: 2.0.0
 
+  '@wescome/nlah@file:../../nlah':
+    dependencies:
+      commander: 12.1.0
+      execa: 8.0.1
+      yaml: 2.8.3
+      zod: 3.25.76
+
   abort-controller@3.0.0:
     dependencies:
       event-target-shim: 5.0.1
@@ -5808,6 +5849,8 @@ snapshots:
       color-convert: 2.0.1
       color-string: 1.9.1
     optional: true
+
+  commander@12.1.0: {}
 
   confbox@0.1.8: {}
 
