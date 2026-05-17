@@ -42,6 +42,20 @@ export type { ExtractionConfidence } from '@factory/file-context'
 
 import type { PipelineEnv } from './types'
 
+function isHarnessQueueMessage(body: unknown): body is import('./harness-env').HarnessQueueMessage {
+  if (!body || typeof body !== 'object') return false
+  const candidate = body as Record<string, unknown>
+  return (
+    typeof candidate.runId === 'string' &&
+    candidate.runId.length > 0 &&
+    typeof candidate.stageName === 'string' &&
+    candidate.stageName.length > 0 &&
+    !('workflowId' in candidate) &&
+    !('executableSpecificationId' in candidate) &&
+    !('type' in candidate)
+  )
+}
+
 export default {
   async fetch(request: Request, env: PipelineEnv, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url)
@@ -1406,7 +1420,7 @@ export default {
       // The dispatcher MUST NOT live on the RunCoordinator DO (self-fetch deadlock);
       // routing it through the index.ts queue handler keeps it on a separate Worker
       // module while reusing the established consumer wiring.
-      if (batch.queue === 'harness-queue') {
+      if (batch.queue === 'harness-queue' || isHarnessQueueMessage(msg.body)) {
         try {
           const { dispatchOne, buildDefaultDispatcherDeps } = await import('./harness-dispatcher.js')
           const harnessEnv = env as unknown as import('./harness-env').HarnessBridgeEnv

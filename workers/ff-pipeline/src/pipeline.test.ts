@@ -502,10 +502,10 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
   })
 
   describe('harness path', () => {
-    it('falls back to R2 when harness result verification_reports persistence fails', async () => {
+    it('persists harness result records to R2 without writing verification_reports', async () => {
       const { FactoryPipeline } = await import('./pipeline')
 
-      sharedMockDb.save.mockRejectedValueOnce(new Error('verification_reports missing'))
+      sharedMockDb.save.mockClear()
       const put = vi.fn(async () => undefined)
       const env = createMockEnv({
         WORKSPACE_BUCKET: { put },
@@ -537,14 +537,15 @@ describe('Agent Call execution: event-driven synthesis handoff', () => {
       }, mockStep.step as never)
 
       expect(result.status).toBe('harness-passed')
-      expect(result.harnessResultFallbackKey).toBe(
-        'runs/smoke-test/artifacts/__observability/harness-result-record-fallback.json',
+      expect(result.harnessResultKey).toBe(
+        'runs/smoke-test/artifacts/__observability/harness-result-record.json',
       )
       expect(put).toHaveBeenCalledWith(
-        'runs/smoke-test/artifacts/__observability/harness-result-record-fallback.json',
-        expect.stringContaining('verification_reports missing'),
+        'runs/smoke-test/artifacts/__observability/harness-result-record.json',
+        expect.stringContaining('"substrate": "r2"'),
         expect.objectContaining({ httpMetadata: expect.any(Object) }),
       )
+      expect(sharedMockDb.save).not.toHaveBeenCalled()
     })
   })
 

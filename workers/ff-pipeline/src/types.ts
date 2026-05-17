@@ -119,6 +119,7 @@ export interface PipelineResult {
     repairCount: number
   }
   atomResults?: Record<string, unknown>
+  harnessResultKey?: string
 }
 
 export interface CoherenceVerificationReport {

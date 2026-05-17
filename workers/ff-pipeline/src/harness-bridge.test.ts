@@ -154,7 +154,7 @@ describe('startHarnessRun', () => {
     // DO stub was fetched at the /init path
     expect(env._doFetch).toHaveBeenCalledOnce()
     // stub.fetch is called as (urlString, init) — not a Request object
-    const [initUrl, initOpts] = env._doFetch.mock.calls[0] as [string, RequestInit]
+    const [initUrl, initOpts] = env._doFetch.mock.calls[0] as unknown as [string, RequestInit]
     expect(new URL(initUrl).pathname).toBe('/init')
     expect(initOpts.method).toBe('POST')
 
@@ -172,7 +172,7 @@ describe('startHarnessRun', () => {
 
     await startHarnessRun('harnesses/synthesis.harness.yaml', env as never, job)
 
-    const [, initOpts] = env._doFetch.mock.calls[0] as [string, RequestInit]
+    const [, initOpts] = env._doFetch.mock.calls[0] as unknown as [string, RequestInit]
     const payload = JSON.parse(initOpts.body as string) as Record<string, unknown>
     expect(payload.workflowId).toBe('wf-external-99')
   })

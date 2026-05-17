@@ -14,6 +14,11 @@
 
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 
+const harnessDispatcherMocks = vi.hoisted(() => ({
+  dispatchOne: vi.fn(async () => {}),
+  buildDefaultDispatcherDeps: vi.fn(() => ({ mocked: true })),
+}))
+
 // ─── Mock cloudflare:workers (unavailable outside CF runtime) ───
 
 vi.mock('cloudflare:workers', () => {
@@ -127,6 +132,11 @@ vi.mock('./stages/compile', () => ({
       dependencies: [],
     },
   })),
+}))
+
+vi.mock('./harness-dispatcher.js', () => ({
+  dispatchOne: harnessDispatcherMocks.dispatchOne,
+  buildDefaultDispatcherDeps: harnessDispatcherMocks.buildDefaultDispatcherDeps,
 }))
 
 // ─── Test helpers ───
@@ -269,6 +279,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
   beforeEach(() => {
     mockDb.save.mockClear()
     mockDb.saveEdge.mockClear()
+    harnessDispatcherMocks.dispatchOne.mockClear()
+    harnessDispatcherMocks.buildDefaultDispatcherDeps.mockClear()
     globalThis.fetch = mockGlobalFetch as unknown as typeof fetch
     mockGlobalFetch.mockClear()
   })
@@ -319,6 +331,34 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
       // Queue fallback: workflowId is passed, callbackUrl is NOT (DO uses Queue instead)
       expect(fetchBody.workflowId).toBe('wf-123')
       expect(fetchBody.callbackUrl).toBeUndefined()
+    })
+
+    it('routes harness messages by body shape when batch.queue is unavailable', async () => {
+      const { default: worker } = await import('./index')
+
+      const env = createEnv()
+      const msg = createMockMessage({
+        runId: 'smoke-shape-route',
+        stageName: 'SMOKE',
+      })
+      const batch = {
+        messages: [msg],
+        metadata: { metrics: { backlogCount: 1, backlogBytes: 0 } },
+        retryAll: vi.fn(),
+        ackAll: vi.fn(),
+      }
+      const ctx = createMockCtx()
+
+      await worker.queue(batch as never, env as never, ctx as never)
+
+      expect(harnessDispatcherMocks.buildDefaultDispatcherDeps).toHaveBeenCalledOnce()
+      expect(harnessDispatcherMocks.dispatchOne).toHaveBeenCalledWith(
+        { runId: 'smoke-shape-route', stageName: 'SMOKE' },
+        expect.anything(),
+        { mocked: true },
+      )
+      expect(msg.ack).toHaveBeenCalledOnce()
+      expect(msg.retry).not.toHaveBeenCalled()
     })
 
     it('acks IMMEDIATELY after dispatching — does NOT await DO synthesis result', async () => {

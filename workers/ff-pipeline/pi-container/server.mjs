@@ -19,10 +19,16 @@
 
 import { createServer } from 'node:http'
 import { spawn } from 'node:child_process'
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises'
+import { mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import {
+  buildMaterializeCommands,
+  buildPrompt,
+  buildRepairPrompt,
+  readDeclaredArtifacts,
+} from './execution-contract.mjs'
 
 const PORT = Number(process.env.PORT ?? 8080)
 const PI_BIN = join(dirname(fileURLToPath(import.meta.url)), 'node_modules', '.bin', 'pi')
@@ -176,34 +182,26 @@ function waitForAgentEnd(reader, timeoutMs) {
   })
 }
 
-// ── Prompt builder ────────────────────────────────────────────────────────────
-
-function buildPrompt(input) {
-  const { stageName, roleName, rolePrompt, context = {}, declaredOutputs = [] } = input
-  const { taskText = '', inputArtifacts = {} } = context
-
-  const parts = []
-  parts.push(`You are ${roleName}${rolePrompt ? `: ${rolePrompt}` : '.'}`)
-  parts.push(`## Task\n\n${taskText}`)
-
-  const inputNames = Object.keys(inputArtifacts)
-  if (inputNames.length > 0) {
-    parts.push('## Input Artifacts\n')
-    for (const [name, content] of Object.entries(inputArtifacts)) {
-      parts.push(`### ${name}\n\n${content}`)
-    }
-  }
-
-  if (declaredOutputs.length > 0) {
-    parts.push(
-      '## Required Outputs\n\n' +
-      'Write each of the following files to your current working directory using the artifact name as the filename:\n\n' +
-      declaredOutputs.map((n) => `- \`${n}\``).join('\n') +
-      '\n\nDo not finish until every required file has been written.',
-    )
-  }
-
-  return parts.join('\n\n')
+function sendRpcCommand(pi, reader, command, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const id = `cmd-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const timer = setTimeout(() => {
+      off()
+      reject(new Error(`pi timed out after ${timeoutMs}ms waiting for ${command.type} response`))
+    }, timeoutMs)
+    const off = reader.on((msg) => {
+      if (msg.type === 'response' && msg.id === id) {
+        clearTimeout(timer)
+        off()
+        if (msg.success) {
+          resolve(msg)
+        } else {
+          reject(new Error(msg.error ?? `${command.type} command failed`))
+        }
+      }
+    })
+    pi.stdin.write(JSON.stringify({ ...command, id }) + '\n')
+  })
 }
 
 // ── /execute handler ──────────────────────────────────────────────────────────
@@ -273,6 +271,16 @@ async function handleExecute(req, res) {
     } else if (type === 'response') {
       log('info', 'pi.response', { stageName, command: msg.command, success: msg.success, error: msg.error })
       pushObservationEvent(observation, { type, command: msg.command, success: msg.success, error: msg.error ? redact(msg.error) : undefined })
+    } else if (type === 'tool_call') {
+      log('info', 'pi.tool_call', { stageName, toolName: msg.toolName })
+      pushObservationEvent(observation, { type, toolName: msg.toolName })
+    } else if (type === 'tool_result') {
+      log('info', 'pi.tool_result', { stageName, toolName: msg.toolName, isError: msg.isError })
+      pushObservationEvent(observation, { type, toolName: msg.toolName, isError: Boolean(msg.isError) })
+    } else if (type === 'message_end') {
+      const role = msg.message?.role
+      log('info', 'pi.message_end', { stageName, role })
+      pushObservationEvent(observation, { type, role })
     } else if (type === 'extension_error') {
       log('warn', 'pi.extension_error', { stageName, ...msg })
       pushObservationEvent(observation, { type, error: msg.error ? redact(msg.error) : undefined })
@@ -296,7 +304,7 @@ async function handleExecute(req, res) {
     }
 
     const prompt = buildPrompt(input)
-    log('info', 'pi.prompt_send', { stageName, promptBytes: prompt.length })
+    log('info', 'pi.prompt_send', { stageName, promptBytes: prompt.length, attempt: 'initial' })
 
     // Register agent_end listener BEFORE writing to stdin to avoid race
     const agentEndPromise = waitForAgentEnd(reader, EXECUTE_TIMEOUT_MS)
@@ -306,34 +314,65 @@ async function handleExecute(req, res) {
     log('info', 'pi.agent_end_received', { stageName, elapsedMs: Date.now() - t0 })
 
     const declaredOutputs = input.declaredOutputs ?? []
-    const artifactContents = {}
-    const artifacts = []
+    let readResult = await readDeclaredArtifacts({
+      workDir,
+      declaredOutputs,
+      observation,
+      redact,
+      attempt: 'initial',
+      log: (level, msg, data) => log(level, msg, { stageName, ...data }),
+    })
 
-    for (const name of declaredOutputs) {
-      try {
-        const content = await readFile(join(workDir, name), 'utf8')
-        if (content.trim().length > 0) {
-          artifactContents[name] = content
-          artifacts.push(name)
-          log('info', 'execute.artifact_read', { stageName, name, bytes: content.length })
-          observation.artifacts.push({ name, status: 'read', bytes: content.length })
-        } else {
-          log('warn', 'execute.artifact_empty', { stageName, name })
-          observation.artifacts.push({ name, status: 'empty' })
-        }
-      } catch (e) {
-        log('warn', 'execute.artifact_missing', { stageName, name, error: e.message })
-        observation.artifacts.push({ name, status: 'missing', error: redact(e.message) })
+    if (readResult.missing.length > 0) {
+      pushObservationEvent(observation, { type: 'output.repair_requested', missing: readResult.missing })
+      const repairPrompt = buildRepairPrompt(readResult.missing)
+      log('info', 'pi.prompt_send', { stageName, promptBytes: repairPrompt.length, attempt: 'repair', missing: readResult.missing })
+      const repairEndPromise = waitForAgentEnd(reader, EXECUTE_TIMEOUT_MS)
+      pi.stdin.write(JSON.stringify({ type: 'prompt', message: repairPrompt }) + '\n')
+      await repairEndPromise
+      log('info', 'pi.agent_end_received', { stageName, elapsedMs: Date.now() - t0, attempt: 'repair' })
+      readResult = await readDeclaredArtifacts({
+        workDir,
+        declaredOutputs,
+        observation,
+        redact,
+        attempt: 'repair',
+        log: (level, msg, data) => log(level, msg, { stageName, ...data }),
+      })
+    }
+
+    if (readResult.missing.length > 0) {
+      const commands = buildMaterializeCommands(input, readResult.missing)
+      for (const item of commands) {
+        pushObservationEvent(observation, { type: 'output.materialize_command', artifact: item.artifact })
+        log('info', 'pi.materialize_command', { stageName, artifact: item.artifact })
+        const response = await sendRpcCommand(pi, reader, { type: 'bash', command: item.command }, 30_000)
+        pushObservationEvent(observation, {
+          type: 'output.materialize_response',
+          artifact: item.artifact,
+          success: response.success,
+          exitCode: response.data?.exitCode,
+        })
+      }
+      if (commands.length > 0) {
+        readResult = await readDeclaredArtifacts({
+          workDir,
+          declaredOutputs,
+          observation,
+          redact,
+          attempt: 'materialize',
+          log: (level, msg, data) => log(level, msg, { stageName, ...data }),
+        })
       }
     }
 
     pi.kill('SIGTERM')
 
     const elapsedMs = Date.now() - t0
-    log('info', 'execute.complete', { stageName, artifacts, elapsedMs })
+    log('info', 'execute.complete', { stageName, artifacts: readResult.artifacts, missing: readResult.missing, elapsedMs })
     writeJson(res, 200, {
-      artifacts,
-      artifactContents,
+      artifacts: readResult.artifacts,
+      artifactContents: readResult.artifactContents,
       message: `${stageName} complete`,
       observation: observationPayload(observation, stderrChunks, { elapsedMs }),
     })

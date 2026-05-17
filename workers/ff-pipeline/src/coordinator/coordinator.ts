@@ -11,12 +11,12 @@ import {
 } from './state'
 import { makeExecutionRole, type SandboxDeps } from './sandbox-role'
 import { buildSandboxDeps as buildRealSandboxDeps } from './sandbox-deps-factory'
-import { ArchitectAgent } from '../agents/architect-agent'
-import { CoderAgent } from '../agents/coder-agent'
-import { PlannerAgent } from '../agents/planner-agent'
-import { TesterAgent } from '../agents/tester-agent'
-import { VerifierAgent } from '../agents/verifier-agent'
-import { CriticAgent, type CodeReviewInput } from '../agents/critic-agent'
+import { ArchitectAgent, type BriefingInput } from '../agents/architect-agent'
+import { CoderAgent, type CoderInput } from '../agents/coder-agent'
+import { PlannerAgent, type PlannerInput } from '../agents/planner-agent'
+import { TesterAgent, type TesterInput } from '../agents/tester-agent'
+import { VerifierAgent, type VerifierInput } from '../agents/verifier-agent'
+import { CriticAgent, type CodeReviewInput, type SemanticReviewInput } from '../agents/critic-agent'
 import { prefetchAgentContext, formatContextForPrompt } from '../agents/context-prefetch'
 import { resolveAgentModel, keyForModel } from '../agents/resolve-model'
 import { HotConfigLoader, seedHotConfig } from '../config/hot-config'
@@ -64,6 +64,14 @@ export interface SynthesisResult {
   packetHash: string | null
   domainExecutionRequest: DomainExecutionRequest
   domainExecutionEvidence: DomainExecutionEvidence
+}
+
+function messageFromUnknown(err: unknown, fallback: string): string {
+  if (typeof err === 'object' && err !== null && 'message' in err) {
+    const message = (err as { message?: unknown }).message
+    if (typeof message === 'string') return message
+  }
+  return fallback
 }
 
 export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
@@ -359,28 +367,28 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
           callModel,
           persistState,
           fetchMentorRules,
-          coderAgent: { produceCode: (input) => coderAgent.produceCode(input) },
-          testerAgent: { runTests: (input) => testerAgent.runTests(input) },
+          coderAgent: { produceCode: (input: CoderInput) => coderAgent.produceCode(input) },
+          testerAgent: { runTests: (input: TesterInput) => testerAgent.runTests(input) },
         }),
         // 9-node topology: architect pipeline + planner agent + code-critic
         architectAgent: {
-          produceBriefingScript: (input) => architectAgent.produceBriefingScript(input),
+          produceBriefingScript: (input: BriefingInput) => architectAgent.produceBriefingScript(input),
         },
         plannerAgent: {
-          producePlan: (input) => plannerAgent.producePlan(input),
+          producePlan: (input: PlannerInput) => plannerAgent.producePlan(input),
         },
         coderAgent: {
-          produceCode: (input) => coderAgent.produceCode(input),
+          produceCode: (input: CoderInput) => coderAgent.produceCode(input),
         },
         criticAgent: {
-          semanticReview: (input) => criticAgent.semanticReview(input),
-          codeReview: (input) => criticAgent.codeReview(input as CodeReviewInput),
+          semanticReview: (input: SemanticReviewInput) => criticAgent.semanticReview(input),
+          codeReview: (input: CodeReviewInput) => criticAgent.codeReview(input),
         },
         testerAgent: {
-          runTests: (input) => testerAgent.runTests(input),
+          runTests: (input: TesterInput) => testerAgent.runTests(input),
         },
         verifierAgent: {
-          verify: (input) => verifierAgent.verify(input),
+          verify: (input: VerifierInput) => verifierAgent.verify(input),
         },
         verticalSlicing: true,
       }
@@ -451,21 +459,28 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
 
         // Dispatch Layer 0 atoms to SYNTHESIS_QUEUE (type: 'atom-execute')
         const layer0 = layers[0]
-        if (layer0 && this.env.SYNTHESIS_QUEUE) {
-          for (const atomId of layer0.atomIds) {
-            await this.env.SYNTHESIS_QUEUE.send({
+        const synthesisQueue = this.env.SYNTHESIS_QUEUE
+        if (layer0 !== undefined && synthesisQueue !== undefined) {
+          const queue = synthesisQueue
+          const atomIds = layer0!.atomIds
+          for (const atomId of atomIds) {
+            const atomSpec = allAtomSpecs[atomId]
+            if (!atomSpec) {
+              throw new Error(`missing atom spec for ${atomId}`)
+            }
+            await queue!.send({
               type: 'atom-execute',
               executableSpecificationId,
               workflowId: workflowId ?? '',
               atomId,
-              atomSpec: allAtomSpecs[atomId],
+              atomSpec,
               sharedContext,
               upstreamArtifacts: {},
               maxRetries: 3,
               dryRun,
             })
           }
-          console.log(`[Agent Call execution] Phase 2 dispatch: ${layer0.atomIds.length} Layer 0 atoms dispatched to queue`)
+          console.log(`[Agent Call execution] Phase 2 dispatch: ${atomIds.length} Layer 0 atoms dispatched to queue`)
         }
 
         // Coordinator exits — does NOT wait for atoms.
@@ -487,8 +502,10 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
         })
 
         // Notify via SYNTHESIS_RESULTS that Phase 1 is done + atoms dispatched
-        if (workflowId && this.env.SYNTHESIS_RESULTS) {
-          await this.env.SYNTHESIS_RESULTS.send({
+        const synthesisResults = this.env.SYNTHESIS_RESULTS
+        if (workflowId && synthesisResults !== undefined) {
+          const resultsQueue = synthesisResults
+          await resultsQueue!.send({
             type: 'phase1-complete',
             workflowId,
             executableSpecificationId,
@@ -506,11 +523,11 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
           },
           tokenUsage: finalState.tokenUsage,
           repairCount: 0,
-        roleHistory: finalState.roleHistory.map(r => ({
-          role: r.role,
-          tokenUsage: r.tokenUsage,
-          timestamp: r.timestamp,
-        })),
+          roleHistory: finalState.roleHistory.map(r => ({
+            role: r.role,
+            tokenUsage: r.tokenUsage,
+            timestamp: r.timestamp,
+          })),
           ...(finalState.briefingScript != null ? { briefingScript: finalState.briefingScript } : {}),
           ...(finalState.semanticReview != null ? { semanticReview: finalState.semanticReview } : {}),
           trellisExecutionPacket: finalState.trellisExecutionPacket,
@@ -526,7 +543,7 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
           ),
         } as unknown as SynthesisResult
       } catch (err) {
-        const reason = err instanceof Error ? err.message : 'Phase 2 dispatch failed'
+        const reason = messageFromUnknown(err, 'Phase 2 dispatch failed')
         finalState = {
           ...finalState,
           verdict: { decision: 'interrupt', confidence: 1.0, reason },
