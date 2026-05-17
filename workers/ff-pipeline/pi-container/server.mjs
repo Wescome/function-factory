@@ -303,25 +303,55 @@ async function handleExecute(req, res) {
       throw new Error(`pi exited immediately (code ${pi.exitCode}): ${stderr}`)
     }
 
-    const prompt = buildPrompt(input)
-    log('info', 'pi.prompt_send', { stageName, promptBytes: prompt.length, attempt: 'initial' })
-
-    // Register agent_end listener BEFORE writing to stdin to avoid race
-    const agentEndPromise = waitForAgentEnd(reader, EXECUTE_TIMEOUT_MS)
-    pi.stdin.write(JSON.stringify({ type: 'prompt', message: prompt }) + '\n')
-
-    await agentEndPromise
-    log('info', 'pi.agent_end_received', { stageName, elapsedMs: Date.now() - t0 })
-
     const declaredOutputs = input.declaredOutputs ?? []
-    let readResult = await readDeclaredArtifacts({
-      workDir,
-      declaredOutputs,
-      observation,
-      redact,
-      attempt: 'initial',
-      log: (level, msg, data) => log(level, msg, { stageName, ...data }),
-    })
+    let readResult = { artifacts: [], artifactContents: {}, missing: declaredOutputs }
+
+    const contractCommands = buildMaterializeCommands(input, declaredOutputs)
+    if (contractCommands.length > 0) {
+      for (const item of contractCommands) {
+        pushObservationEvent(observation, { type: 'output.contract_command', artifact: item.artifact })
+        log('info', 'pi.contract_command', { stageName, artifact: item.artifact })
+        const response = await sendRpcCommand(pi, reader, { type: 'bash', command: item.command }, 30_000)
+        pushObservationEvent(observation, {
+          type: 'output.contract_response',
+          artifact: item.artifact,
+          success: response.success,
+          exitCode: response.data?.exitCode,
+        })
+      }
+      readResult = await readDeclaredArtifacts({
+        workDir,
+        declaredOutputs,
+        observation,
+        redact,
+        attempt: 'contract',
+        log: (level, msg, data) => log(level, msg, { stageName, ...data }),
+      })
+    }
+
+    if (declaredOutputs.length === 0 || readResult.missing.length > 0) {
+      const prompt = buildPrompt(input)
+      log('info', 'pi.prompt_send', { stageName, promptBytes: prompt.length, attempt: 'initial' })
+
+      // Register agent_end listener BEFORE writing to stdin to avoid race
+      const agentEndPromise = waitForAgentEnd(reader, EXECUTE_TIMEOUT_MS)
+      pi.stdin.write(JSON.stringify({ type: 'prompt', message: prompt }) + '\n')
+
+      await agentEndPromise
+      log('info', 'pi.agent_end_received', { stageName, elapsedMs: Date.now() - t0 })
+
+      readResult = await readDeclaredArtifacts({
+        workDir,
+        declaredOutputs,
+        observation,
+        redact,
+        attempt: 'initial',
+        log: (level, msg, data) => log(level, msg, { stageName, ...data }),
+      })
+    } else {
+      pushObservationEvent(observation, { type: 'output.contract_satisfied', artifacts: readResult.artifacts })
+      log('info', 'pi.contract_satisfied', { stageName, artifacts: readResult.artifacts })
+    }
 
     if (readResult.missing.length > 0) {
       pushObservationEvent(observation, { type: 'output.repair_requested', missing: readResult.missing })
