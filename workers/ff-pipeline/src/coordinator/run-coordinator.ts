@@ -49,6 +49,7 @@ const KEY_STATE = "harness:state"
 const KEY_WORKFLOW_ID = "harness:workflowId"
 const KEY_TASK_TEXT = "harness:taskText"
 const KEY_RESULT = "harness:result"
+const KEY_DISPATCHED = "harness:dispatched"
 
 export class RunCoordinator extends DurableObject<HarnessBridgeEnv> {
   async fetch(request: Request): Promise<Response> {
@@ -92,6 +93,20 @@ export class RunCoordinator extends DurableObject<HarnessBridgeEnv> {
       )
     }
 
+    // Idempotency guard — CF Workflow retries call /init multiple times.
+    const [existingState, alreadyDispatched] = await Promise.all([
+      this.ctx.storage.get<HarnessState>(KEY_STATE),
+      this.ctx.storage.get<string>(KEY_DISPATCHED),
+    ])
+
+    if (existingState && alreadyDispatched) {
+      // True replay: state persisted AND queue already sent. No-op.
+      return new Response(
+        JSON.stringify({ ok: true, runId: existingState.runId, replayed: true }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      )
+    }
+
     // Persist before dispatching so a queue redelivery can recover. Batch
     // into one atomic put so a DO crash between writes cannot leave state
     // partial — CF DO storage supports multi-key puts.
@@ -110,11 +125,14 @@ export class RunCoordinator extends DurableObject<HarnessBridgeEnv> {
       stageName: payload.initialState.currentStage,
     })
 
+    await this.ctx.storage.put(KEY_DISPATCHED, "1")
+
     return new Response(
       JSON.stringify({
         ok: true,
         runId: payload.initialState.runId,
         firstStage: payload.initialState.currentStage,
+        ...(existingState && !alreadyDispatched ? { resumed: true } : {}),
       }),
       { status: 200, headers: { "Content-Type": "application/json" } },
     )

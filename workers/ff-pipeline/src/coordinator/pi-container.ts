@@ -13,6 +13,7 @@
  */
 
 import { DurableObject } from "cloudflare:workers"
+import type { HarnessBridgeEnv } from "../harness-env.js"
 
 const CONTAINER_PORT = 8080
 // Retry parameters for container cold-start: up to 15 attempts × 500ms = 7.5s
@@ -23,7 +24,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-export class PiContainer extends DurableObject {
+export class PiContainer extends DurableObject<HarnessBridgeEnv> {
   override async fetch(request: Request): Promise<Response> {
     if (!this.ctx.container) {
       return new Response(
@@ -33,7 +34,13 @@ export class PiContainer extends DurableObject {
     }
 
     if (!this.ctx.container.running) {
-      this.ctx.container.start()
+      this.ctx.container.start({
+        enableInternet: true,
+        env: {
+          PI_MODEL: this.env.PI_MODEL ?? 'anthropic/claude-sonnet-4',
+          OPENROUTER_API_KEY: this.env.OFOX_API_KEY,
+        },
+      })
       // Non-blocking: fire monitor() so the DO can detect container crashes,
       // but do not await — we want to proceed with the request immediately.
       this.ctx.container.monitor().catch(() => {})

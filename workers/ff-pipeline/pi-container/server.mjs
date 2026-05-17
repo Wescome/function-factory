@@ -31,6 +31,7 @@ const PI_BIN = join(dirname(fileURLToPath(import.meta.url)), 'node_modules', '.b
 const EXECUTE_TIMEOUT_MS = 300_000
 // Delay after spawning pi before sending the first command (pi has no startup signal)
 const PI_INIT_DELAY_MS = 200
+const PI_MODEL = process.env.PI_MODEL ?? 'anthropic/claude-sonnet-4'
 
 // ── Logging ───────────────────────────────────────────────────────────────────
 
@@ -135,13 +136,13 @@ async function handleExecute(req, res) {
     log('info', 'execute.input_artifact_written', { stageName, name, bytes: content.length })
   }
 
-  const pi = spawn(PI_BIN, ['--mode', 'rpc'], {
+  const pi = spawn(PI_BIN, ['--mode', 'rpc', '--model', PI_MODEL], {
     cwd: workDir,
     env: process.env,
     stdio: ['pipe', 'pipe', 'pipe'],
   })
 
-  log('info', 'pi.spawned', { stageName, pid: pi.pid })
+  log('info', 'pi.spawned', { stageName, pid: pi.pid, model: PI_MODEL })
 
   const reader = new JsonlReader(pi.stdout)
   const stderrChunks = []

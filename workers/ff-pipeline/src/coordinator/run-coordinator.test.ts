@@ -163,6 +163,142 @@ describe('RunCoordinator DO', () => {
       const resp = await rc.fetch(req)
       expect(resp.status).toBe(400)
     })
+
+    it('replay: second /init with identical payload does NOT re-dispatch and returns replayed: true', async () => {
+      const { RunCoordinator } = await import('./run-coordinator.js')
+      const ctx = makeMockCtx()
+      const env = makeMockEnv()
+      const rc = new RunCoordinator(ctx as never, env as never)
+
+      const compiled = makeCompiledHarness()
+      const initialState = makeHarnessState()
+      const body = JSON.stringify({ compiled, initialState, workflowId: 'wf-001', taskText: 'Build X' })
+
+      // First call — fresh init
+      const resp1 = await rc.fetch(new Request('https://do/init', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      }))
+      expect(resp1.status).toBe(200)
+      const body1 = await resp1.json() as Record<string, unknown>
+      expect(body1.ok).toBe(true)
+      expect(body1.replayed).toBeUndefined()
+      expect(body1.resumed).toBeUndefined()
+
+      // Second call — true replay (state + dispatched both set)
+      const resp2 = await rc.fetch(new Request('https://do/init', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      }))
+      expect(resp2.status).toBe(200)
+      const body2 = await resp2.json() as Record<string, unknown>
+      expect(body2.ok).toBe(true)
+      expect(body2.replayed).toBe(true)
+      expect(body2.runId).toBe('run-test-001')
+
+      // HARNESS_QUEUE.send must be called exactly ONCE across both calls
+      expect((env.HARNESS_QUEUE.send as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1)
+    })
+
+    it('crash-recovery: state set but dispatched flag absent re-dispatches and returns resumed: true', async () => {
+      const { RunCoordinator } = await import('./run-coordinator.js')
+      const ctx = makeMockCtx()
+      const env = makeMockEnv()
+      const rc = new RunCoordinator(ctx as never, env as never)
+
+      const compiled = makeCompiledHarness()
+      const initialState = makeHarnessState()
+
+      // Simulate crash between storage.put and HARNESS_QUEUE.send:
+      // KEY_STATE (and the rest) are set, but KEY_DISPATCHED is NOT.
+      ctx.storage._data.set('harness:compiled', compiled)
+      ctx.storage._data.set('harness:state', initialState)
+      ctx.storage._data.set('harness:workflowId', 'wf-001')
+      ctx.storage._data.set('harness:taskText', 'Build X')
+      // Intentionally do NOT set 'harness:dispatched'
+
+      const req = new Request('https://do/init', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ compiled, initialState, workflowId: 'wf-001', taskText: 'Build X' }),
+      })
+      const resp = await rc.fetch(req)
+      expect(resp.status).toBe(200)
+
+      const body = await resp.json() as Record<string, unknown>
+      expect(body.ok).toBe(true)
+      expect(body.resumed).toBe(true)
+      expect(body.replayed).toBeUndefined()
+      expect(body.runId).toBe('run-test-001')
+      expect(body.firstStage).toBe('PLAN')
+
+      // HARNESS_QUEUE.send IS called on crash-recovery path
+      expect((env.HARNESS_QUEUE.send as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1)
+
+      // KEY_DISPATCHED is now set in storage
+      expect(ctx.storage._data.get('harness:dispatched')).toBe('1')
+    })
+
+    it('first-write-wins: replay with DIFFERENT payload does not mutate stored state', async () => {
+      const { RunCoordinator } = await import('./run-coordinator.js')
+      const ctx = makeMockCtx()
+      const env = makeMockEnv()
+      const rc = new RunCoordinator(ctx as never, env as never)
+
+      const compiledFirst = makeCompiledHarness()
+      const stateFirst = makeHarnessState({ runId: 'run-first', currentStage: 'PLAN' })
+
+      // First call — fresh init with first payload
+      const resp1 = await rc.fetch(new Request('https://do/init', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          compiled: compiledFirst,
+          initialState: stateFirst,
+          workflowId: 'wf-first',
+          taskText: 'first task',
+        }),
+      }))
+      expect(resp1.status).toBe(200)
+
+      // Snapshot stored state after first call
+      const storedCompiledAfterFirst = ctx.storage._data.get('harness:compiled')
+      const storedStateAfterFirst = ctx.storage._data.get('harness:state')
+      const storedWorkflowAfterFirst = ctx.storage._data.get('harness:workflowId')
+      const storedTaskAfterFirst = ctx.storage._data.get('harness:taskText')
+
+      // Second call — DIFFERENT payload; should be a true replay (no-op)
+      const compiledSecond = makeCompiledHarness()
+      compiledSecond.spec.harness.name = 'DIFFERENT'
+      const stateSecond = makeHarnessState({ runId: 'run-second', currentStage: 'CODE' })
+
+      const resp2 = await rc.fetch(new Request('https://do/init', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          compiled: compiledSecond,
+          initialState: stateSecond,
+          workflowId: 'wf-second',
+          taskText: 'second task',
+        }),
+      }))
+      expect(resp2.status).toBe(200)
+      const body2 = await resp2.json() as Record<string, unknown>
+      expect(body2.replayed).toBe(true)
+      // Replay returns the EXISTING runId, not the new payload's runId
+      expect(body2.runId).toBe('run-first')
+
+      // Stored state matches the FIRST call — replay did not mutate
+      expect(ctx.storage._data.get('harness:compiled')).toBe(storedCompiledAfterFirst)
+      expect(ctx.storage._data.get('harness:state')).toBe(storedStateAfterFirst)
+      expect(ctx.storage._data.get('harness:workflowId')).toBe(storedWorkflowAfterFirst)
+      expect(ctx.storage._data.get('harness:taskText')).toBe(storedTaskAfterFirst)
+
+      // And only one dispatch occurred across both calls
+      expect((env.HARNESS_QUEUE.send as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1)
+    })
   })
 
   describe('GET /get-compiled', () => {

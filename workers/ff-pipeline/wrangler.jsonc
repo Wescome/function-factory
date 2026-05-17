@@ -82,7 +82,8 @@
   },
 
   "vars": {
-    "ENVIRONMENT": "production"
+    "ENVIRONMENT": "production",
+    "PI_MODEL": "anthropic/claude-sonnet-4"
   }
 
   // Secrets (set via `wrangler secret put`):

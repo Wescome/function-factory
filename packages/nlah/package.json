@@ -15,7 +15,7 @@
     "lint": "echo 'lint: TODO'"
   },
   "dependencies": {
-    "@wescome/nlah": "file:/Users/wes/nlah"
+    "@wescome/nlah": "github:Wescome/NLAH#v0.1.0-ff1"
   },
   "devDependencies": {
     "typescript": "^5.4.0",

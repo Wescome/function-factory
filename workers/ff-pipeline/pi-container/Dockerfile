@@ -8,6 +8,10 @@ RUN npm install --omit=dev
 
 COPY server.mjs ./
 
+RUN mkdir -p /root/.pi/agent && \
+    printf '{"providers":{"openrouter":{"baseUrl":"https://api.ofox.ai/v1"}}}\n' \
+    > /root/.pi/agent/models.json
+
 EXPOSE 8080
 
 CMD ["node", "server.mjs"]

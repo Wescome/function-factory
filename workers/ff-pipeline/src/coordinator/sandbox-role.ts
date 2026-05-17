@@ -18,7 +18,12 @@ import type {
   CodeArtifact,
   TestReport,
 } from './state.js'
-import type { GraphDeps } from './graph.js'
+
+interface GraphDeps {
+  callModel: (taskKind: string, system: string, user: string) => Promise<string>
+  persistState: (state: GraphState, role: string) => Promise<void>
+  fetchMentorRules: () => Promise<{ ruleId: string; rule: string }[]>
+}
 
 // ────────────────────────────────────────────────────────────
 // SandboxDeps — mockable interface over @cloudflare/sandbox

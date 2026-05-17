@@ -148,4 +148,10 @@ export interface HarnessBridgeEnv {
 
   /** Claude Code container worker. Required when the registry binds `claude-code`. */
   CLAUDE_CODE_CONTAINER?: ContainerBinding
+
+  /** ofox.ai API key — passed into the pi Container as OPENROUTER_API_KEY at start(). */
+  OFOX_API_KEY: string
+
+  /** Model identifier passed to pi via --model flag. Defaults to anthropic/claude-sonnet-4. */
+  PI_MODEL?: string
 }
