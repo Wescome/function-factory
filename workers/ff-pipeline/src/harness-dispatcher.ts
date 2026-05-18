@@ -90,7 +90,7 @@ type RoutedPiModel = {
 }
 
 type PiExecutionRoute = {
-  surface: "rpc" | "sdk"
+  surface: "rpc"
   requiredCapabilities: string[]
   resolvedVia: string
 }
@@ -150,7 +150,7 @@ function resolvePiExecutionRoute(stage: StageSpec): PiExecutionRoute {
     }
   }
   return {
-    surface: "sdk",
+    surface: "rpc",
     requiredCapabilities: ["filesystem_tools"],
     resolvedVia: "stage-contract",
   }

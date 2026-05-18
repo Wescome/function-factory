@@ -69,7 +69,7 @@ interface RoutedWorkerInput extends WorkerInput {
   runId?: string
   model?: RoutedPiModel
   execution?: {
-    surface: "rpc" | "sdk"
+    surface: "rpc"
     requiredCapabilities: string[]
     resolvedVia: string
   }

@@ -227,7 +227,7 @@ describe('dispatchOne', () => {
     expect((payload.gateResults as unknown[]).length).toBe(0)
   })
 
-  it('routes autonomous filesystem-authoring stages through SDK execution surface', async () => {
+  it('routes autonomous filesystem-authoring stages through RPC with filesystem tool capability metadata', async () => {
     const { dispatchOne } = await import('./harness-dispatcher.js')
     const compiled = makeCompiledHarness({
       PATCH: {
@@ -262,7 +262,7 @@ describe('dispatchOne', () => {
     }
     expect(workerInput.model).toMatchObject({ routeKind: 'coder' })
     expect(workerInput.execution).toMatchObject({
-      surface: 'sdk',
+      surface: 'rpc',
       requiredCapabilities: ['filesystem_tools'],
       resolvedVia: 'stage-contract',
     })

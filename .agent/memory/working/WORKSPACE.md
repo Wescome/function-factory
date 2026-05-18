@@ -1,49 +1,60 @@
 # Current Workspace
 
 ## Status
-2026-05-18T01:55:00Z: FN-SYNTH-MIGRATE Pi SDK execution-surface routing implemented, deployed, production-verified, and ready to commit.
+2026-05-18T02:25:00Z: FN-SYNTH-MIGRATE corrective RPC observability patch implemented, deployed, production-smoked, and ready to commit.
 
 ## Current branch
 `factory/fp-motdwvr2-w7un`
 
 ## Completed this session
-- Added per-dispatch Pi execution routing: deterministic/non-filesystem stages use RPC, autonomous filesystem-authoring stages use SDK.
-- Forwarded `execution` route metadata through harness dispatcher, Worker dispatch, and Pi container requests.
-- Added `sdk-executor.mjs` to invoke `@earendil-works/pi-coding-agent` directly with runtime model/provider selection and filesystem tools enabled.
-- Added SDK-surface filesystem probe handling before autonomous PATCH prompt turns, with container observations recording `executionSurface`, lifecycle events, and `tool_execution_*` counts.
-- Kept deterministic materialization commands on the established RPC path for RPC surface and direct shell execution for SDK surface.
-- Added dispatcher and Worker tests proving PATCH routes to SDK with `filesystem_tools` while PLAN remains RPC.
-- Deployed ff-pipeline Worker version `082ceb5d-d9e6-4c24-b977-8559f2106d85`; Pi container app `a0367c71-dce7-43bd-ba24-0b6a247e9432` now uses image tag `082ceb5d`.
-- Triggered production SDK run `coding-adapter-sdk2-1779068504` with the coding-adapter autonomous harness.
+- Read the actual Pi source from `github.com/earendil-works/pi-mono` at installed tag `v0.74.1` before making the corrective decision.
+- Verified Pi RPC mode wraps the same `AgentSession` tool stack as the SDK path:
+  - `packages/coding-agent/src/modes/rpc/rpc-mode.ts` creates/rebinds `AgentSession`.
+  - `packages/coding-agent/src/core/sdk.ts` defaults built-ins to `read,bash,edit,write` unless `--no-tools`.
+  - `packages/agent/src/agent-loop.ts` sends `context.tools` to the model and emits `tool_execution_*` after tool calls.
+  - `packages/ai/src/providers/openai-completions.ts` forwards `params.tools` and parses streamed `tool_calls` into `toolcall_*`.
+- Reverted the premature SDK execution surface:
+  - deleted `pi-container/sdk-executor.mjs`
+  - removed SDK branches from the Pi container
+  - kept autonomous filesystem-authoring stages on `executionSurface: "rpc"`
+- Added RPC-native tool-call observability:
+  - records streamed `toolcall_start/toolcall_delta/toolcall_end` as `toolcall_stream`
+  - summarizes assistant `message_end` with `stopReason`, `contentTypes`, and tool call names/counts without persisting arguments
+  - records `toolCallEventCount`, `assistantToolCallCount`, and `toolExecutionEventCount` in filesystem tool probes
+  - distinguishes no tool calls from tool calls that fail to execute
+- Updated dispatcher/Worker types and tests so Pi execution surface is RPC-only while preserving `requiredCapabilities: ["filesystem_tools"]`.
+- Redeployed ff-pipeline twice; final Worker version is `a5831588-f7af-4689-bb2d-57a5cae38bce`.
 
 ## Production evidence
-- Workflow `factory-pipeline/coding-adapter-sdk2-1779068504` completed from `2026-05-18T01:41:48Z` to `2026-05-18T01:42:58Z`.
+- First post-deploy run `coding-adapter-autonomous-1779070357` completed in 48s but hit the previous Pi image (`082ceb5d`), proving the container rollout had not yet taken effect.
+- Final smoke run `coding-adapter-rpcobs-1779071043` completed from `2026-05-18T02:24:07Z` to `2026-05-18T02:24:26Z`.
 - Workflow result: `overall=fail`, `finalStage=PATCH`, `failureClass=gate_abort`.
-- Result record persisted at `runs/coding-adapter-sdk2-1779068504/artifacts/__observability/harness-result-record.json`.
-- PATCH observation persisted at `runs/coding-adapter-sdk2-1779068504/artifacts/__observability/PATCH.container-observation.json`.
+- Result record persisted in R2 at `runs/coding-adapter-rpcobs-1779071043/artifacts/__observability/harness-result-record.json`.
+- PATCH observation persisted in R2 at `runs/coding-adapter-rpcobs-1779071043/artifacts/__observability/PATCH.container-observation.json`.
 - PATCH observation shows:
-  - `executionSurface: "sdk"`
+  - `executionSurface: "rpc"`
   - model route `openrouter/moonshotai/kimi-k2`
-  - `routeKind: "coder"`
-  - `seed_workspace.prepared` with file count 3
-  - pre-prompt contract evaluation failed for missing `CandidatePatch`
-  - `tool_capability.probe_start` with `surface: "sdk"`
-  - SDK emitted `agent_start`, `turn_start`, assistant `message_end`, `turn_end`, and `agent_end`
-  - `tool_capability.probe_result` with `passed=false`
-  - reason `no tool_execution_* events observed during filesystem probe`
+  - `tool_capability.probe_result.passed=false`
+  - reason `no toolcall_* or tool_execution_* events observed during filesystem probe`
   - `toolExecutionEventCount=0`
-  - `fileReadable=false`
-- PATCH failed fast with `PI_TOOL_CAPABILITY_UNAVAILABLE` after the SDK probe, before repair rounds.
+  - `toolCallEventCount=0`
+  - `assistantToolCallCount=0`
+  - assistant `message_end` summary: `stopReason: "error"`, `contentTypes: []`, `toolCallCount: 0`
+- Current Cloudflare container status after smoke: Pi app still reports rollout/provisioning and `containers info` shows prior active config `082ceb5d`, but the production observation schema confirms the new Pi container code executed for `coding-adapter-rpcobs-1779071043`.
 
 ## Verification
-- `node --check workers/ff-pipeline/pi-container/server.mjs && node --check workers/ff-pipeline/pi-container/sdk-executor.mjs` -> passed.
-- Focused tests for Pi/container/harness path -> 3 files / 27 tests passed.
+- `node --check workers/ff-pipeline/pi-container/server.mjs && node --check workers/ff-pipeline/pi-container/tool-capability-probe.mjs` -> passed.
+- Focused tests:
+  `pnpm --filter @factory/ff-pipeline test src/harness-dispatcher.test.ts src/cf-workers.test.ts pi-container/tool-capability-probe.test.mjs pi-container/workspace-derived-artifacts.test.mjs`
+  -> 4 files / 34 tests passed.
 - `pnpm --filter @factory/ff-pipeline typecheck` -> passed.
-- `git diff --check` -> passed before deploy.
-- Full suite: `pnpm --filter @factory/ff-pipeline exec vitest run --passWithNoTests --no-file-parallelism` -> 74 files / 997 tests passed.
+- Full suite:
+  `pnpm --filter @factory/ff-pipeline exec vitest run --passWithNoTests --no-file-parallelism`
+  -> 74 files / 1000 tests passed.
+- `git diff --check` -> passed.
 
 ## Current conclusion
-The latest production code proves the issue is not only RPC transport. In the autonomous seed path, the Pi SDK completed a probe chat turn on `openrouter/moonshotai/kimi-k2` but emitted zero `tool_execution_*` events and did not create the probe file. Coding-adapter autonomous authoring is blocked on a verified tool-capable model/provider route, or on an explicit architecture decision to add a constrained text-to-command fallback.
+The SDK switch was not justified by Pi source. RPC already exposes the same tool definitions and event stream. The verified production symptom is now sharper: on `openrouter/moonshotai/kimi-k2`, Pi returns an assistant message with `stopReason: "error"` and emits zero streamed tool-call events and zero tool executions during the filesystem probe. The next milestone is model/provider routing for a tool-capable route or a constrained fallback architecture; not another transport switch.
 
 ## Commit scope
 Stage only:
@@ -52,6 +63,8 @@ Stage only:
 - `workers/ff-pipeline/pi-container/Dockerfile`
 - `workers/ff-pipeline/pi-container/sdk-executor.mjs`
 - `workers/ff-pipeline/pi-container/server.mjs`
+- `workers/ff-pipeline/pi-container/tool-capability-probe.mjs`
+- `workers/ff-pipeline/pi-container/tool-capability-probe.test.mjs`
 - `workers/ff-pipeline/src/cf-workers.ts`
 - `workers/ff-pipeline/src/cf-workers.test.ts`
 - `workers/ff-pipeline/src/harness-dispatcher.ts`

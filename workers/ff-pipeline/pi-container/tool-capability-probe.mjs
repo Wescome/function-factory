@@ -7,8 +7,44 @@ const TOOL_EXECUTION_EVENT_TYPES = new Set([
   'tool_execution_end',
 ])
 
+const TOOL_CALL_STREAM_EVENT_TYPES = new Set([
+  'toolcall_start',
+  'toolcall_delta',
+  'toolcall_end',
+])
+
 export function isToolExecutionEvent(msg) {
   return TOOL_EXECUTION_EVENT_TYPES.has(msg?.type)
+}
+
+export function getToolCallStreamEventType(msg) {
+  const type = msg?.assistantMessageEvent?.type
+  return TOOL_CALL_STREAM_EVENT_TYPES.has(type) ? type : undefined
+}
+
+export function summarizeAssistantMessage(message) {
+  if (!message || typeof message !== 'object') {
+    return {
+      stopReason: undefined,
+      contentTypes: [],
+      toolCallCount: 0,
+      toolCalls: [],
+    }
+  }
+  const content = Array.isArray(message.content) ? message.content : []
+  const toolCalls = content
+    .filter((part) => part && typeof part === 'object' && part.type === 'toolCall')
+    .map((part) => ({
+      id: typeof part.id === 'string' ? part.id : undefined,
+      name: typeof part.name === 'string' ? part.name : undefined,
+    }))
+  return {
+    stopReason: typeof message.stopReason === 'string' ? message.stopReason : undefined,
+    responseModel: typeof message.responseModel === 'string' ? message.responseModel : undefined,
+    contentTypes: content.map((part) => part?.type).filter((type) => typeof type === 'string'),
+    toolCallCount: toolCalls.length,
+    toolCalls,
+  }
 }
 
 export function requiresFilesystemAuthoring(evaluation, declaredOutputs) {
@@ -26,11 +62,14 @@ export function buildToolCapabilityProbePrompt() {
   ].join('\n')
 }
 
-export function assessToolCapabilityProbe({ toolExecutionEventCount, fileContent, fileError }) {
+export function assessToolCapabilityProbe({ toolExecutionEventCount, toolCallEventCount = 0, assistantToolCallCount = 0, fileContent, fileError }) {
   if (toolExecutionEventCount <= 0) {
+    const observedToolCalls = toolCallEventCount > 0 || assistantToolCallCount > 0
     return {
       passed: false,
-      reason: 'no tool_execution_* events observed during filesystem probe',
+      reason: observedToolCalls
+        ? 'tool calls observed but no tool_execution_* events observed during filesystem probe'
+        : 'no toolcall_* or tool_execution_* events observed during filesystem probe',
     }
   }
   if (fileError) {

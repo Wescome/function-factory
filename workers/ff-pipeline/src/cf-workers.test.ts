@@ -119,7 +119,7 @@ describe('PiContainerAdapter', () => {
           resolvedVia: 'config-default',
         },
         execution: {
-          surface: 'sdk',
+          surface: 'rpc',
           requiredCapabilities: ['filesystem_tools'],
           resolvedVia: 'stage-contract',
         },
@@ -135,7 +135,7 @@ describe('PiContainerAdapter', () => {
       routeKind: 'planner',
     })
     expect(payload.execution).toMatchObject({
-      surface: 'sdk',
+      surface: 'rpc',
       requiredCapabilities: ['filesystem_tools'],
       resolvedVia: 'stage-contract',
     })
