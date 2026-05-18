@@ -241,6 +241,48 @@ describe('ff-pipeline diagnostic routes', () => {
     expect(await response.text()).toContain('legacy')
   })
 
+  it('GET /run-artifacts/:runId returns the R2 run artifact manifest', async () => {
+    const { default: worker } = await import('./index')
+    const bucket = new MemoryR2Bucket()
+    await bucket.put('runs/run-artifacts-001/manifest.json', JSON.stringify({
+      schemaVersion: '1.0',
+      runId: 'run-artifacts-001',
+      rootKey: 'runs/run-artifacts-001/',
+      summaryKey: 'runs/run-artifacts-001/events/_summary.json',
+      eventPrefix: 'runs/run-artifacts-001/events/',
+      attemptLogPrefix: 'runs/_attempt-logs/run-artifacts-001/',
+      createdAt: '2026-05-18T17:00:00.000Z',
+      updatedAt: '2026-05-18T17:00:01.000Z',
+      status: 'completed',
+      phases: {
+        intent: {
+          key: 'runs/run-artifacts-001/00_intent/intent.json',
+          updatedAt: '2026-05-18T17:00:00.000Z',
+        },
+      },
+      stages: [],
+      artifacts: [],
+      diagnostics: {
+        observations: [],
+        contractEvaluations: [],
+        attemptLogsPrefix: 'runs/_attempt-logs/run-artifacts-001/',
+      },
+    }))
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/run-artifacts/run-artifacts-001'),
+      createEnv({ WORKSPACE_BUCKET: bucket }) as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(200)
+    expect(await jsonBody(response)).toMatchObject({
+      runId: 'run-artifacts-001',
+      status: 'completed',
+      rootKey: 'runs/run-artifacts-001/',
+    })
+  })
+
   it('GET /debug/health reports Arango and AI binding status', async () => {
     const { default: worker } = await import('./index')
 

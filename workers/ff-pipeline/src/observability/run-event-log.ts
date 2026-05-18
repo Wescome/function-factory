@@ -1,6 +1,7 @@
 import type {
   ActiveRunIndex,
   Counterfactual,
+  RunArtifactManifest,
   RunErrorClass,
   RunEvent,
   RunEventInput,
@@ -14,6 +15,14 @@ const ACTIVE_INDEX_KEY = "runs/_active-index.json"
 const SCHEMA_VERSION = "1.0" as const
 const MAX_ACTIVE_INDEX_RETRIES = 5
 const ATTEMPT_LOG_PREFIX = "runs/_attempt-logs"
+const PHASE_KEYS = {
+  intent: "00_intent/intent.json",
+  plan: "01_plan/harness.json",
+  execution: "02_execution/execution.json",
+  traces: "03_traces/trace-index.json",
+  eval: "04_eval/eval.json",
+  report: "05_report/report.json",
+} as const
 
 export class RunEventLog {
   constructor(private readonly bucket: R2Bucket) {}
@@ -24,6 +33,7 @@ export class RunEventLog {
       await this.writeEvent(event)
       const summary = await this.updateSummary(event)
       await this.updateAttemptLog(event)
+      await this.updateManifest(event, summary)
       await this.updateActiveIndex(event, summary)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
@@ -74,6 +84,16 @@ export class RunEventLog {
     return (await this.readActiveIndex()).index
   }
 
+  async getManifest(runId: string): Promise<RunArtifactManifest | null> {
+    const obj = await this.bucket.get(manifestKey(runId))
+    if (!obj) return null
+    try {
+      return await obj.json<RunArtifactManifest>()
+    } catch {
+      return null
+    }
+  }
+
   async removeActiveRun(runId: string): Promise<void> {
     const { index, etag } = await this.readActiveIndex()
     await this.writeActiveIndex({
@@ -119,6 +139,118 @@ export class RunEventLog {
       text,
       { httpMetadata: { contentType: "text/plain; charset=utf-8" } },
     )
+  }
+
+  private async updateManifest(event: RunEvent, summary: RunSummary): Promise<void> {
+    const existing = await this.getManifest(event.runId)
+    const manifest = buildNextManifest(existing, event, summary)
+    await this.writePhaseArtifacts(event, summary, manifest)
+    await this.bucket.put(
+      manifestKey(event.runId),
+      JSON.stringify(manifest, null, 2),
+      { httpMetadata: { contentType: "application/json; charset=utf-8" } },
+    )
+  }
+
+  private async writePhaseArtifacts(
+    event: RunEvent,
+    summary: RunSummary,
+    manifest: RunArtifactManifest,
+  ): Promise<void> {
+    const writes: Array<{ key: string; value: unknown }> = [
+      {
+        key: phaseKey(event.runId, "traces"),
+        value: {
+          schemaVersion: SCHEMA_VERSION,
+          runId: event.runId,
+          eventPrefix: `runs/${event.runId}/events/`,
+          summaryKey: summaryKey(event.runId),
+          latestEvent: event,
+          updatedAt: event.timestamp,
+        },
+      },
+    ]
+
+    if (event.type === "run_started") {
+      writes.push({
+        key: phaseKey(event.runId, "intent"),
+        value: {
+          schemaVersion: SCHEMA_VERSION,
+          runId: event.runId,
+          workflowId: event.workflowId,
+          harnessKey: typeof event.data.harnessKey === "string" ? event.data.harnessKey : undefined,
+          objectiveBytes: typeof event.data.objectiveBytes === "number" ? event.data.objectiveBytes : undefined,
+          eventKey: eventKey(event),
+          at: event.timestamp,
+        },
+      })
+    }
+
+    if (event.type === "harness_loaded") {
+      writes.push({
+        key: phaseKey(event.runId, "plan"),
+        value: {
+          schemaVersion: SCHEMA_VERSION,
+          runId: event.runId,
+          workflowId: event.workflowId ?? summary.workflowId,
+          harness: manifest.harness,
+          eventKey: eventKey(event),
+          at: event.timestamp,
+        },
+      })
+    }
+
+    if (event.stageName && (event.type === "stage_started" || event.type === "worker_executed" || event.type === "stage_completed" || event.type === "stage_failed")) {
+      const stage = manifest.stages.find((entry) => entry.name === event.stageName)
+      writes.push({
+        key: phaseKey(event.runId, "execution"),
+        value: {
+          schemaVersion: SCHEMA_VERSION,
+          runId: event.runId,
+          stages: manifest.stages,
+          updatedBy: event.type,
+          updatedStage: stage,
+          at: event.timestamp,
+        },
+      })
+    }
+
+    if (event.type === "gate_evaluated" || event.type === "coherence_verified" || event.type === "fidelity_verified" || event.type === "persistence_verified") {
+      writes.push({
+        key: phaseKey(event.runId, "eval"),
+        value: {
+          schemaVersion: SCHEMA_VERSION,
+          runId: event.runId,
+          stageName: event.stageName,
+          verificationResults: summary.verificationResults,
+          gateResults: Array.isArray(event.data.results) ? event.data.results : undefined,
+          allPassed: event.data.allPassed,
+          eventKey: eventKey(event),
+          at: event.timestamp,
+        },
+      })
+    }
+
+    if (terminalStatus(summary.status)) {
+      writes.push({
+        key: phaseKey(event.runId, "report"),
+        value: {
+          schemaVersion: SCHEMA_VERSION,
+          runId: event.runId,
+          summary,
+          manifestKey: manifestKey(event.runId),
+          at: event.timestamp,
+        },
+      })
+    }
+
+    for (const write of writes) {
+      await this.bucket.put(
+        write.key,
+        JSON.stringify(dropUndefined(write.value), null, 2),
+        { httpMetadata: { contentType: "application/json; charset=utf-8" } },
+      )
+    }
   }
 
   private async findLatestAttemptLogKey(prefix: string): Promise<string | undefined> {
@@ -258,6 +390,14 @@ function summaryKey(runId: string): string {
   return `runs/${runId}/events/_summary.json`
 }
 
+function manifestKey(runId: string): string {
+  return `runs/${runId}/manifest.json`
+}
+
+function phaseKey(runId: string, phase: keyof typeof PHASE_KEYS): string {
+  return `runs/${runId}/${PHASE_KEYS[phase]}`
+}
+
 function safePathPart(value: string): string {
   return value.replace(/[^A-Za-z0-9._-]/g, "_")
 }
@@ -289,6 +429,218 @@ function buildStageResultBlock(event: RunEvent): Record<string, unknown> {
     reason: event.data.reason ?? event.error?.message ?? event.data.message ?? "",
     artifacts: Array.isArray(event.data.artifacts) ? event.data.artifacts : [],
   }
+}
+
+function buildNextManifest(
+  existing: RunArtifactManifest | null,
+  event: RunEvent,
+  summary: RunSummary,
+): RunArtifactManifest {
+  const base = existing ?? emptyManifest(event, summary)
+  const workflowId = event.workflowId ?? summary.workflowId ?? base.workflowId
+  const harness = updateManifestHarness(base.harness, event)
+  const manifest: RunArtifactManifest = {
+    ...base,
+    ...(workflowId ? { workflowId } : {}),
+    status: summary.status,
+    updatedAt: event.timestamp,
+    ...(summary.terminalAt ? { terminalAt: summary.terminalAt } : base.terminalAt ? { terminalAt: base.terminalAt } : {}),
+    ...(harness ? { harness } : {}),
+    phases: updateManifestPhases(base.phases, event, summary),
+    stages: updateManifestStages(base.stages, event),
+    artifacts: mergeManifestArtifacts(base.artifacts, event),
+    diagnostics: updateManifestDiagnostics(base.diagnostics, event),
+  }
+  return manifest
+}
+
+function emptyManifest(event: RunEvent, summary: RunSummary): RunArtifactManifest {
+  return {
+    schemaVersion: SCHEMA_VERSION,
+    runId: event.runId,
+    rootKey: `runs/${event.runId}/`,
+    summaryKey: summaryKey(event.runId),
+    eventPrefix: `runs/${event.runId}/events/`,
+    attemptLogPrefix: `${ATTEMPT_LOG_PREFIX}/${safePathPart(event.runId)}/`,
+    createdAt: summary.startedAt,
+    updatedAt: event.timestamp,
+    ...(event.workflowId ?? summary.workflowId ? { workflowId: event.workflowId ?? summary.workflowId } : {}),
+    status: summary.status,
+    phases: {},
+    stages: [],
+    artifacts: [],
+    diagnostics: {
+      observations: [],
+      contractEvaluations: [],
+      attemptLogsPrefix: `${ATTEMPT_LOG_PREFIX}/${safePathPart(event.runId)}/`,
+    },
+    ...(summary.terminalAt ? { terminalAt: summary.terminalAt } : {}),
+  }
+}
+
+function updateManifestHarness(
+  existing: RunArtifactManifest["harness"] | undefined,
+  event: RunEvent,
+): RunArtifactManifest["harness"] | undefined {
+  const harness = { ...(existing ?? {}) }
+  if (event.type === "run_started" && typeof event.data.harnessKey === "string") {
+    harness.key = event.data.harnessKey
+  }
+  if (event.type === "harness_loaded") {
+    if (typeof event.data.harnessKey === "string") harness.key = event.data.harnessKey
+    if (typeof event.data.harnessName === "string") harness.name = event.data.harnessName
+    if (Array.isArray(event.data.executionNodes)) {
+      harness.executionNodes = event.data.executionNodes.filter((node): node is string => typeof node === "string")
+    }
+    if (Array.isArray(event.data.workerNames)) {
+      harness.workerNames = event.data.workerNames.filter((name): name is string => typeof name === "string")
+    }
+    const thresholds = normalizeNumberMap(event.data.watchdogThresholdsMs)
+    if (thresholds) harness.watchdogThresholdsMs = thresholds
+  }
+  return Object.keys(harness).length > 0 ? harness : existing
+}
+
+function updateManifestPhases(
+  existing: RunArtifactManifest["phases"],
+  event: RunEvent,
+  summary: RunSummary,
+): RunArtifactManifest["phases"] {
+  const phases = { ...existing }
+  phases.traces = { key: phaseKey(event.runId, "traces"), updatedAt: event.timestamp }
+
+  if (event.type === "run_started") {
+    phases.intent = { key: phaseKey(event.runId, "intent"), updatedAt: event.timestamp }
+  }
+  if (event.type === "harness_loaded") {
+    phases.plan = { key: phaseKey(event.runId, "plan"), updatedAt: event.timestamp }
+  }
+  if (event.stageName && (event.type === "stage_started" || event.type === "worker_executed" || event.type === "stage_completed" || event.type === "stage_failed")) {
+    phases.execution = { key: phaseKey(event.runId, "execution"), updatedAt: event.timestamp }
+  }
+  if (event.type === "gate_evaluated" || event.type === "coherence_verified" || event.type === "fidelity_verified" || event.type === "persistence_verified") {
+    phases.eval = { key: phaseKey(event.runId, "eval"), updatedAt: event.timestamp }
+  }
+  if (terminalStatus(summary.status)) {
+    phases.report = { key: phaseKey(event.runId, "report"), updatedAt: event.timestamp }
+  }
+  return phases
+}
+
+function updateManifestStages(
+  existing: RunArtifactManifest["stages"],
+  event: RunEvent,
+): RunArtifactManifest["stages"] {
+  if (!event.stageName) return existing
+  if (!stageManifestEventTypes.has(event.type)) return existing
+  const current = existing.find((stage) => stage.name === event.stageName) ?? {
+    name: event.stageName,
+    attempts: 0,
+  }
+  const next: RunArtifactManifest["stages"][number] = { ...current }
+  if (event.attemptNumber) next.attempts = Math.max(next.attempts, event.attemptNumber)
+  if (event.type === "stage_started") {
+    next.status = "running"
+    next.startedAt = next.startedAt ?? event.timestamp
+    if (typeof event.data.worker === "string") next.worker = event.data.worker
+    if (typeof event.data.role === "string") next.role = event.data.role
+    if (Array.isArray(event.data.declaredInputs)) next.declaredInputs = stringArray(event.data.declaredInputs)
+    if (Array.isArray(event.data.declaredOutputs)) next.declaredOutputs = stringArray(event.data.declaredOutputs)
+  }
+  if (event.type === "worker_executed") {
+    if (typeof event.data.elapsedMs === "number") next.elapsedMs = event.data.elapsedMs
+    next.artifacts = unique([...(next.artifacts ?? []), ...stringArray(event.data.artifacts)])
+    const extracted = extractDiagnosticKeys(event)
+    next.observationKeys = unique([...(next.observationKeys ?? []), ...extracted.observations])
+    next.contractEvaluationKeys = unique([...(next.contractEvaluationKeys ?? []), ...extracted.contractEvaluations])
+    if (typeof event.data.reason === "string") next.reason = event.data.reason
+  }
+  if (event.type === "gate_evaluated" && Array.isArray(event.data.results)) {
+    next.gateResults = event.data.results.filter((result): result is Record<string, unknown> =>
+      Boolean(result && typeof result === "object" && !Array.isArray(result)),
+    )
+  }
+  if (event.type === "stage_completed" || event.type === "stage_failed") {
+    next.status = event.type === "stage_completed" ? "pass" : "fail"
+    next.completedAt = event.timestamp
+    next.artifacts = unique([...(next.artifacts ?? []), ...stringArray(event.data.artifacts)])
+    if (typeof event.data.reason === "string") next.reason = event.data.reason
+  }
+
+  return [...existing.filter((stage) => stage.name !== event.stageName), next]
+}
+
+const stageManifestEventTypes = new Set<RunEventType>([
+  "stage_started",
+  "worker_executed",
+  "gate_evaluated",
+  "stage_completed",
+  "stage_failed",
+])
+
+function mergeManifestArtifacts(
+  existing: RunArtifactManifest["artifacts"],
+  event: RunEvent,
+): RunArtifactManifest["artifacts"] {
+  const byName = new Map(existing.map((artifact) => [artifact.name, artifact]))
+  for (const name of stringArray(event.data.artifacts)) {
+    if (!name || name.startsWith("__observability/")) continue
+    byName.set(name, {
+      ...(byName.get(name) ?? {}),
+      name,
+      key: `runs/${event.runId}/artifacts/${name}`,
+      ...(event.stageName ? { stage: event.stageName } : {}),
+      producedAt: event.timestamp,
+    })
+  }
+  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name))
+}
+
+function updateManifestDiagnostics(
+  existing: RunArtifactManifest["diagnostics"],
+  event: RunEvent,
+): RunArtifactManifest["diagnostics"] {
+  const extracted = extractDiagnosticKeys(event)
+  return {
+    attemptLogsPrefix: existing.attemptLogsPrefix,
+    observations: unique([...existing.observations, ...extracted.observations]),
+    contractEvaluations: unique([...existing.contractEvaluations, ...extracted.contractEvaluations]),
+  }
+}
+
+function extractDiagnosticKeys(event: RunEvent): { observations: string[]; contractEvaluations: string[] } {
+  const out = { observations: [] as string[], contractEvaluations: [] as string[] }
+  for (const key of ["observationKey", "contractEvaluationKey"]) {
+    const value = event.data[key]
+    if (typeof value === "string") {
+      if (key === "observationKey") out.observations.push(value)
+      if (key === "contractEvaluationKey") out.contractEvaluations.push(value)
+    }
+  }
+  if (typeof event.data.message === "string") {
+    const observation = event.data.message.match(/\bobservation=(runs\/\S+)/)?.[1]
+    const contractEvaluation = event.data.message.match(/\bcontractEvaluation=(runs\/\S+)/)?.[1]
+    if (observation) out.observations.push(observation)
+    if (contractEvaluation) out.contractEvaluations.push(contractEvaluation)
+  }
+  return out
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : []
+}
+
+function normalizeNumberMap(value: unknown): Record<string, number> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined
+  const out: Record<string, number> = {}
+  for (const [key, entry] of Object.entries(value)) {
+    if (typeof entry === "number" && Number.isFinite(entry)) out[key] = entry
+  }
+  return Object.keys(out).length > 0 ? out : undefined
+}
+
+function dropUndefined<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T
 }
 
 function attemptNumberFromKey(key: string): number {

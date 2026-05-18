@@ -118,6 +118,148 @@ describe("RunEventLog", () => {
     expect(attemptLog).toContain('"status":"pass"')
   })
 
+  it("persists a canonical run artifact manifest and phase records", async () => {
+    const bucket = new MemoryR2Bucket()
+    const log = new RunEventLog(bucket as unknown as R2Bucket)
+
+    await log.emit({
+      runId: "run-artifacts-001",
+      workflowId: "wf-artifacts-001",
+      type: "run_started",
+      emitter: "harness-bridge",
+      timestamp: "2026-05-18T17:00:00.000Z",
+      data: { harnessKey: "harnesses/pi-author-smoke-json.harness.yaml", objectiveBytes: 128 },
+    })
+    await log.emit({
+      runId: "run-artifacts-001",
+      workflowId: "wf-artifacts-001",
+      type: "harness_loaded",
+      emitter: "harness-bridge",
+      timestamp: "2026-05-18T17:00:01.000Z",
+      data: {
+        harnessKey: "harnesses/pi-author-smoke-json.harness.yaml",
+        harnessName: "PI_AUTHOR_SMOKE_JSON",
+        executionNodes: ["SMOKE"],
+        workerNames: ["pi", "pi-author"],
+      },
+    })
+    await log.emit({
+      runId: "run-artifacts-001",
+      stageName: "SMOKE",
+      attemptNumber: 1,
+      type: "stage_started",
+      emitter: "harness-dispatcher",
+      timestamp: "2026-05-18T17:00:02.000Z",
+      data: {
+        worker: "pi-author",
+        role: "SmokeJsonWriter",
+        declaredInputs: [],
+        declaredOutputs: ["SmokeJsonArtifact"],
+      },
+    })
+    await log.emit({
+      runId: "run-artifacts-001",
+      stageName: "SMOKE",
+      attemptNumber: 1,
+      type: "worker_executed",
+      emitter: "harness-dispatcher",
+      timestamp: "2026-05-18T17:00:03.000Z",
+      data: {
+        status: "pass",
+        artifacts: ["SmokeJsonArtifact"],
+        elapsedMs: 1200,
+        message: "SMOKE complete observation=runs/run-artifacts-001/artifacts/__observability/SMOKE.container-observation.json",
+      },
+    })
+    await log.emit({
+      runId: "run-artifacts-001",
+      stageName: "SMOKE",
+      attemptNumber: 1,
+      type: "gate_evaluated",
+      emitter: "harness-dispatcher",
+      timestamp: "2026-05-18T17:00:04.000Z",
+      data: {
+        allPassed: true,
+        results: [
+          { gateName: "exists", passed: true },
+          { gateName: "json_field_equals", passed: true },
+        ],
+      },
+    })
+    await log.emit({
+      runId: "run-artifacts-001",
+      stageName: "SMOKE",
+      attemptNumber: 1,
+      type: "stage_completed",
+      emitter: "harness-dispatcher",
+      timestamp: "2026-05-18T17:00:05.000Z",
+      data: { action: "complete", status: "pass", artifacts: ["SmokeJsonArtifact"] },
+    })
+    await log.emit({
+      runId: "run-artifacts-001",
+      stageName: "SMOKE",
+      type: "harness_complete",
+      emitter: "run-coordinator",
+      timestamp: "2026-05-18T17:00:06.000Z",
+      data: { overall: "pass", finalExecutionNode: "SMOKE" },
+    })
+
+    const manifest = await log.getManifest("run-artifacts-001")
+    expect(manifest).toMatchObject({
+      schemaVersion: "1.0",
+      runId: "run-artifacts-001",
+      workflowId: "wf-artifacts-001",
+      status: "completed",
+      rootKey: "runs/run-artifacts-001/",
+      summaryKey: "runs/run-artifacts-001/events/_summary.json",
+      eventPrefix: "runs/run-artifacts-001/events/",
+      harness: {
+        key: "harnesses/pi-author-smoke-json.harness.yaml",
+        name: "PI_AUTHOR_SMOKE_JSON",
+        executionNodes: ["SMOKE"],
+        workerNames: ["pi", "pi-author"],
+      },
+    })
+    expect(manifest?.phases).toMatchObject({
+      intent: { key: "runs/run-artifacts-001/00_intent/intent.json" },
+      plan: { key: "runs/run-artifacts-001/01_plan/harness.json" },
+      execution: { key: "runs/run-artifacts-001/02_execution/execution.json" },
+      traces: { key: "runs/run-artifacts-001/03_traces/trace-index.json" },
+      eval: { key: "runs/run-artifacts-001/04_eval/eval.json" },
+      report: { key: "runs/run-artifacts-001/05_report/report.json" },
+    })
+    expect(manifest?.stages).toContainEqual(expect.objectContaining({
+      name: "SMOKE",
+      worker: "pi-author",
+      role: "SmokeJsonWriter",
+      status: "pass",
+      attempts: 1,
+      artifacts: ["SmokeJsonArtifact"],
+      observationKeys: ["runs/run-artifacts-001/artifacts/__observability/SMOKE.container-observation.json"],
+      gateResults: [
+        { gateName: "exists", passed: true },
+        { gateName: "json_field_equals", passed: true },
+      ],
+    }))
+    expect(manifest?.artifacts).toEqual([
+      {
+        name: "SmokeJsonArtifact",
+        key: "runs/run-artifacts-001/artifacts/SmokeJsonArtifact",
+        stage: "SMOKE",
+        producedAt: "2026-05-18T17:00:05.000Z",
+      },
+    ])
+    expect(manifest?.diagnostics.observations).toEqual([
+      "runs/run-artifacts-001/artifacts/__observability/SMOKE.container-observation.json",
+    ])
+    expect(bucket.objects.has("runs/run-artifacts-001/00_intent/intent.json")).toBe(true)
+    expect(bucket.objects.has("runs/run-artifacts-001/01_plan/harness.json")).toBe(true)
+    expect(bucket.objects.has("runs/run-artifacts-001/02_execution/execution.json")).toBe(true)
+    expect(bucket.objects.has("runs/run-artifacts-001/03_traces/trace-index.json")).toBe(true)
+    expect(bucket.objects.has("runs/run-artifacts-001/04_eval/eval.json")).toBe(true)
+    expect(bucket.objects.has("runs/run-artifacts-001/05_report/report.json")).toBe(true)
+  })
+
   it("does not throw upstream when R2 writes fail", async () => {
     const log = new RunEventLog({
       get: vi.fn(async () => null),

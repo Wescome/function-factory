@@ -208,6 +208,18 @@ export default {
       return json(summary)
     }
 
+    if (url.pathname.startsWith('/run-artifacts/') && request.method === 'GET') {
+      if (!env.WORKSPACE_BUCKET) {
+        return json({ error: 'WORKSPACE_BUCKET binding unavailable' }, 503)
+      }
+      const runId = decodeURIComponent(url.pathname.slice('/run-artifacts/'.length))
+      if (!runId) return json({ error: 'missing runId' }, 400)
+      const log = new RunEventLog(env.WORKSPACE_BUCKET as R2Bucket)
+      const manifest = await log.getManifest(runId)
+      if (!manifest) return json({ error: 'run artifact manifest not found', runId }, 404)
+      return json(manifest)
+    }
+
     // ── Synthesis trigger: external route that bridges Workflow <-> DO ──
     if (url.pathname === '/trigger-synthesis' && request.method === 'POST') {
       const body = await request.json() as {
@@ -1480,7 +1492,7 @@ export default {
       }
     }
 
-    return new Response('ff-pipeline: POST /trigger-synthesis, POST /synthesis-callback, POST /trigger-harness, or use Queue consumer', { status: 404 })
+    return new Response('ff-pipeline: POST /trigger-synthesis, POST /synthesis-callback, POST /trigger-harness, GET /run-status/:runId, GET /run-artifacts/:runId, or use Queue consumer', { status: 404 })
   },
 
   async scheduled(event: ScheduledEvent, env: PipelineEnv, ctx: ExecutionContext): Promise<void> {

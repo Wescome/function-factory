@@ -128,6 +128,63 @@ export interface ActiveRunIndex {
   }>
 }
 
+export interface RunArtifactManifest {
+  schemaVersion: "1.0"
+  runId: string
+  rootKey: string
+  summaryKey: string
+  eventPrefix: string
+  attemptLogPrefix: string
+  createdAt: string
+  updatedAt: string
+  workflowId?: string
+  status?: RunStatus
+  harness?: {
+    key?: string
+    name?: string
+    executionNodes?: string[]
+    workerNames?: string[]
+    watchdogThresholdsMs?: Record<string, number>
+  }
+  phases: {
+    intent?: { key: string; updatedAt: string }
+    plan?: { key: string; updatedAt: string }
+    execution?: { key: string; updatedAt: string }
+    traces?: { key: string; updatedAt: string }
+    eval?: { key: string; updatedAt: string }
+    report?: { key: string; updatedAt: string }
+  }
+  stages: Array<{
+    name: string
+    worker?: string
+    role?: string
+    status?: "running" | "pass" | "fail"
+    attempts: number
+    startedAt?: string
+    completedAt?: string
+    elapsedMs?: number
+    declaredInputs?: string[]
+    declaredOutputs?: string[]
+    artifacts?: string[]
+    gateResults?: Array<Record<string, unknown>>
+    observationKeys?: string[]
+    contractEvaluationKeys?: string[]
+    reason?: string
+  }>
+  artifacts: Array<{
+    name: string
+    key: string
+    stage?: string
+    producedAt: string
+  }>
+  diagnostics: {
+    observations: string[]
+    contractEvaluations: string[]
+    attemptLogsPrefix: string
+  }
+  terminalAt?: string
+}
+
 export type RunEventInput =
   & Omit<RunEvent, "schemaVersion" | "eventId" | "timestamp">
   & {
