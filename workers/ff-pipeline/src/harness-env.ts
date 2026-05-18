@@ -80,6 +80,8 @@ export interface FactoryPipelineBinding {
 export interface HarnessQueueMessage {
   runId: string
   stageName: string
+  /** 1-based attempt for per-attempt observability logs. */
+  attemptNumber?: number
 }
 
 /**

@@ -80,6 +80,15 @@ describe("RunEventLog", () => {
       timestamp: "2026-05-18T15:04:00.000Z",
       data: { overall: "pass", finalExecutionNode: "CONTRACT" },
     })
+    await log.emit({
+      runId: "run-obs-001",
+      stageName: "CONTRACT",
+      attemptNumber: 1,
+      type: "stage_completed",
+      emitter: "harness-dispatcher",
+      timestamp: "2026-05-18T15:04:01.000Z",
+      data: { action: "complete", status: "pass" },
+    })
 
     const summary = await log.getSummary("run-obs-001")
     expect(summary).toMatchObject({
@@ -87,8 +96,9 @@ describe("RunEventLog", () => {
       workflowId: "wf-001",
       status: "completed",
       currentPhase: "report",
-      lastEventType: "harness_complete",
-      eventCount: 5,
+      lastEventType: "stage_completed",
+      terminalAt: "2026-05-18T15:04:00.000Z",
+      eventCount: 6,
     })
     expect(summary?.stageHistory).toContainEqual(expect.objectContaining({
       stage: "CONTRACT",

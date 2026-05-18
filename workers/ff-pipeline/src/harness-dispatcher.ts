@@ -269,7 +269,10 @@ export default {
     const deps = buildDefaultDispatcherDeps(env)
     for (const msg of batch.messages) {
       try {
-        await dispatchOne(msg.body, env, deps)
+        await dispatchOne({
+          ...msg.body,
+          attemptNumber: msg.body.attemptNumber ?? Math.max(1, msg.attempts),
+        }, env, deps)
         msg.ack()
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err)

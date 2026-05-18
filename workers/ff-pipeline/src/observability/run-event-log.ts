@@ -282,7 +282,8 @@ const attemptLogEventTypes = new Set<RunEventType>([
 
 function buildNextSummary(existing: RunSummary | null, event: RunEvent): RunSummary {
   const startedAt = existing?.startedAt ?? event.timestamp
-  const currentPhase = phaseForEvent(event)
+  const previousTerminal = existing ? terminalStatus(existing.status) : false
+  const currentPhase = previousTerminal ? (existing?.currentPhase ?? phaseForEvent(event)) : phaseForEvent(event)
   const base: RunSummary = existing ?? {
     schemaVersion: SCHEMA_VERSION,
     runId: event.runId,
@@ -326,7 +327,7 @@ function buildNextSummary(existing: RunSummary | null, event: RunEvent): RunSumm
     ...(counterfactuals.length > 0 ? { counterfactuals } : {}),
     ...(watchdogThresholdsMs ? { watchdogThresholdsMs } : {}),
     startedAt,
-    ...(terminalStatus(status) ? { terminalAt: event.timestamp } : base.terminalAt ? { terminalAt: base.terminalAt } : {}),
+    ...(terminalStatus(status) ? { terminalAt: base.terminalAt ?? event.timestamp } : base.terminalAt ? { terminalAt: base.terminalAt } : {}),
     eventCount: base.eventCount + 1,
   }
 }

@@ -353,7 +353,7 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       expect(harnessDispatcherMocks.buildDefaultDispatcherDeps).toHaveBeenCalledOnce()
       expect(harnessDispatcherMocks.dispatchOne).toHaveBeenCalledWith(
-        { runId: 'smoke-shape-route', stageName: 'SMOKE' },
+        { runId: 'smoke-shape-route', stageName: 'SMOKE', attemptNumber: 1 },
         expect.anything(),
         { mocked: true },
       )

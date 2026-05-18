@@ -140,6 +140,7 @@ export class RunCoordinator extends DurableObject<HarnessBridgeEnv> {
     await this.env.HARNESS_QUEUE.send({
       runId: payload.initialState.runId,
       stageName: payload.initialState.currentStage,
+      attemptNumber: 1,
     })
     await emitRunEvent(this.env, {
       runId: payload.initialState.runId,
@@ -255,14 +256,16 @@ export class RunCoordinator extends DurableObject<HarnessBridgeEnv> {
         // In practice runId never mutates across advance() — but reading
         // from advance.newState makes that contract explicit and survives
         // any future change to the pure function.
+        const attemptNumber = inferAttemptNumber(advance.newState, advance.stage)
         await this.env.HARNESS_QUEUE.send({
           runId: advance.newState.runId,
           stageName: advance.stage,
+          attemptNumber,
         })
         await emitRunEvent(this.env, {
           runId: advance.newState.runId,
           stageName: advance.stage,
-          attemptNumber: inferAttemptNumber(advance.newState, advance.stage),
+          attemptNumber,
           type: "stage_dispatched",
           emitter: "run-coordinator",
           data: { action: advance.action, fromExecutionNode: payload.stageName },

@@ -1510,8 +1510,12 @@ export default {
         try {
           const { dispatchOne, buildDefaultDispatcherDeps } = await import('./harness-dispatcher.js')
           const harnessEnv = env as unknown as import('./harness-env').HarnessBridgeEnv
+          const body = msg.body as import('./harness-env').HarnessQueueMessage
           await dispatchOne(
-            msg.body as import('./harness-env').HarnessQueueMessage,
+            {
+              ...body,
+              attemptNumber: body.attemptNumber ?? Math.max(1, msg.attempts),
+            },
             harnessEnv,
             buildDefaultDispatcherDeps(harnessEnv),
           )
