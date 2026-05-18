@@ -46,6 +46,7 @@ export function workspacePromptSection(prepared) {
     '',
     'A repository fixture has been prepared at `./workspace` in the current working directory.',
     'Inspect and operate on files relative to `./workspace`.',
+    'The runtime provides POSIX shell, Node.js, npm, and git. Python is not installed.',
   ]
   if (prepared.seed.issue) {
     lines.push('', `Issue: ${prepared.seed.issue}`)
@@ -61,6 +62,7 @@ export function workspacePromptSection(prepared) {
     '',
     'For patch outputs, write a unified diff relative to the workspace root.',
     'Use paths like `a/src/file.ts` and `b/src/file.ts` in diff headers.',
+    'For verification outputs, copy `./workspace` to a temporary directory, run `git apply ../CandidatePatch` from that copy, then run the declared test command.',
   )
   return lines.join('\n')
 }

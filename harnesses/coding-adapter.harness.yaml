@@ -30,7 +30,12 @@ roles:
   Verifier:
     responsibility: >
       Independently evaluate CandidatePatch against SeedWorkspace. Must not
-      repair patch. Report test evidence.
+      repair patch. Verify by copying ./workspace to a temporary directory,
+      applying ./CandidatePatch with git apply from the temporary workspace
+      root, then running the declared Node test command. Do not use python.
+      If git apply and the declared test command pass, write VerifierReport
+      with exact line "Verdict: PASS" and a Tests run section. Otherwise write
+      "Verdict: FAIL" with the failed command evidence.
   ReleaseAgent:
     responsibility: >
       Copy the verified CandidatePatch to FinalPatch and produce a PR-ready
@@ -114,7 +119,7 @@ stages:
     from: WorkspaceSeeded
     to: IssueContracted
     role: Cartographer
-    worker: pi
+    worker: pi-author
     inputs: [SeedWorkspace]
     outputs: [IssueContract]
     gate:
@@ -124,7 +129,7 @@ stages:
     from: IssueContracted
     to: RepoMapped
     role: Cartographer
-    worker: pi
+    worker: pi-author
     inputs: [SeedWorkspace, IssueContract]
     outputs: [RepoMap]
     gate:
@@ -137,7 +142,7 @@ stages:
     from: RepoMapped
     to: PatchCandidate
     role: PatchWorker
-    worker: pi
+    worker: pi-author
     inputs: [SeedWorkspace, RepoMap]
     outputs: [CandidatePatch]
     gate:
@@ -149,7 +154,7 @@ stages:
     from: PatchCandidate
     to: VerifiedPatch
     role: Verifier
-    worker: pi
+    worker: pi-author
     inputs: [SeedWorkspace, CandidatePatch]
     outputs: [VerifierReport]
     gate:
@@ -162,7 +167,7 @@ stages:
     from: VerifiedPatch
     to: PullRequestReady
     role: ReleaseAgent
-    worker: pi
+    worker: pi-author
     inputs: [SeedWorkspace, CandidatePatch, VerifierReport]
     outputs: [FinalPatch, PRSummary]
     gate:

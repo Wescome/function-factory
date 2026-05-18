@@ -206,6 +206,62 @@ describe('ff-pipeline diagnostic routes', () => {
     })
   })
 
+  it('GET /run-status/:runId reconciles stale summary state from immutable run events', async () => {
+    const { default: worker } = await import('./index')
+    const bucket = new MemoryR2Bucket()
+    await bucket.put('runs/run-status-002/events/_summary.json', JSON.stringify({
+      schemaVersion: '1.0',
+      runId: 'run-status-002',
+      slug: 'run-status-002',
+      status: 'running',
+      currentPhase: 'execution',
+      currentStage: 'PATCH',
+      lastEventType: 'stage_completed',
+      lastEventAt: '2026-05-18T20:01:00.000Z',
+      stageHistory: [
+        { stage: 'CONTRACT', phase: 'execution', verdict: 'in_progress', attempts: 1, at: '2026-05-18T20:00:00.000Z' },
+      ],
+      stepAccounting: { ok: [], failed: [], neverDispatched: [] },
+      startedAt: '2026-05-18T20:00:00.000Z',
+      eventCount: 2,
+    }))
+    await bucket.put('runs/run-status-002/events/2026-05-18T20:00:00.000Z-a.json', JSON.stringify({
+      schemaVersion: '1.0',
+      eventId: 'a',
+      runId: 'run-status-002',
+      type: 'stage_started',
+      timestamp: '2026-05-18T20:00:00.000Z',
+      emitter: 'harness-dispatcher',
+      stageName: 'CONTRACT',
+      attemptNumber: 1,
+      data: {},
+    }))
+    await bucket.put('runs/run-status-002/events/2026-05-18T20:01:00.000Z-b.json', JSON.stringify({
+      schemaVersion: '1.0',
+      eventId: 'b',
+      runId: 'run-status-002',
+      type: 'stage_completed',
+      timestamp: '2026-05-18T20:01:00.000Z',
+      emitter: 'harness-dispatcher',
+      stageName: 'CONTRACT',
+      attemptNumber: 1,
+      data: { status: 'pass' },
+    }))
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/run-status/run-status-002'),
+      createEnv({ WORKSPACE_BUCKET: bucket }) as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(200)
+    const body = await jsonBody(response)
+    expect(body.stageHistory).toEqual([
+      expect.objectContaining({ stage: 'CONTRACT', verdict: 'pass' }),
+    ])
+    expect(body.stepAccounting).toMatchObject({ ok: ['CONTRACT'] })
+  })
+
   it('GET /run-status/:runId?logs=VERIFY returns the latest attempt log', async () => {
     const { default: worker } = await import('./index')
     const bucket = new MemoryR2Bucket()
@@ -281,6 +337,86 @@ describe('ff-pipeline diagnostic routes', () => {
       status: 'completed',
       rootKey: 'runs/run-artifacts-001/',
     })
+  })
+
+  it('GET /run-monitor/:runId returns a live operator snapshot from reconciled events', async () => {
+    const { default: worker } = await import('./index')
+    const bucket = new MemoryR2Bucket()
+    await bucket.put('runs/run-monitor-001/events/2026-05-18T20:00:00.000Z-a.json', JSON.stringify({
+      schemaVersion: '1.0',
+      eventId: 'a',
+      runId: 'run-monitor-001',
+      workflowId: 'wf-monitor-001',
+      type: 'run_started',
+      timestamp: '2026-05-18T20:00:00.000Z',
+      emitter: 'harness-bridge',
+      data: { harnessKey: 'harnesses/coding-adapter.harness.yaml' },
+    }))
+    await bucket.put('runs/run-monitor-001/events/2026-05-18T20:00:01.000Z-b.json', JSON.stringify({
+      schemaVersion: '1.0',
+      eventId: 'b',
+      runId: 'run-monitor-001',
+      type: 'stage_started',
+      timestamp: '2026-05-18T20:00:01.000Z',
+      emitter: 'harness-dispatcher',
+      stageName: 'PATCH',
+      attemptNumber: 1,
+      data: { worker: 'pi-author', role: 'PatchWorker', declaredOutputs: ['CandidatePatch'] },
+    }))
+    await bucket.put('runs/run-monitor-001/events/2026-05-18T20:00:03.000Z-c.json', JSON.stringify({
+      schemaVersion: '1.0',
+      eventId: 'c',
+      runId: 'run-monitor-001',
+      type: 'worker_executed',
+      timestamp: '2026-05-18T20:00:03.000Z',
+      emitter: 'harness-dispatcher',
+      stageName: 'PATCH',
+      attemptNumber: 1,
+      data: {
+        artifacts: ['CandidatePatch'],
+        message: 'PATCH complete observation=runs/run-monitor-001/artifacts/__observability/PATCH.container-observation.json',
+      },
+    }))
+    await bucket.put('runs/run-monitor-001/events/2026-05-18T20:00:04.000Z-d.json', JSON.stringify({
+      schemaVersion: '1.0',
+      eventId: 'd',
+      runId: 'run-monitor-001',
+      type: 'stage_completed',
+      timestamp: '2026-05-18T20:00:04.000Z',
+      emitter: 'harness-dispatcher',
+      stageName: 'PATCH',
+      attemptNumber: 1,
+      data: { status: 'pass', artifacts: ['CandidatePatch'] },
+    }))
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/run-monitor/run-monitor-001?limit=3'),
+      createEnv({ WORKSPACE_BUCKET: bucket }) as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(200)
+    const body = await jsonBody(response)
+    expect(body).toMatchObject({
+      schemaVersion: '1.0',
+      runId: 'run-monitor-001',
+      status: 'running',
+      currentStage: 'PATCH',
+      diagnostics: {
+        observations: ['runs/run-monitor-001/artifacts/__observability/PATCH.container-observation.json'],
+      },
+    })
+    expect(body.stages).toContainEqual(expect.objectContaining({
+      name: 'PATCH',
+      worker: 'pi-author',
+      status: 'pass',
+      artifacts: ['CandidatePatch'],
+    }))
+    expect(body.timeline).toHaveLength(3)
+    expect(body.artifacts).toContainEqual(expect.objectContaining({
+      name: 'CandidatePatch',
+      key: 'runs/run-monitor-001/artifacts/CandidatePatch',
+    }))
   })
 
   it('GET /debug/health reports Arango and AI binding status', async () => {

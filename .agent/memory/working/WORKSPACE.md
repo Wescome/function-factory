@@ -1,33 +1,33 @@
 # Current Workspace
 
 ## Status
-2026-05-18T18:35:00Z: Deployed and verified container rollout transient retry/recovery hardening.
+2026-05-18T20:55:00Z: Deployed and verified production Pi free-form coding authoring plus live run monitoring.
 
 ## Changes in progress
-- Added bounded retry around Cloudflare container dispatch when fetch throws `The container is not running, consider calling start()`.
-- Retry policy is infra-specific: up to 3 attempts with backoff, no retry for normal non-2xx/model/tool failures.
-- Emits `container_dispatch_retried` and `container_dispatch_recovered` events, plus Tier-1 `[INFRA SIGNAL] infra:container-dispatch-recovered`.
-- Exhausted container-not-running failures are classified as `infrastructure_error`, not `step_error`.
-- Manifest stage records now include `containerDispatchRetries` recovery evidence.
+- Coding-adapter harness routes every non-preseed stage through `worker: pi-author`.
+- Pi authoring container now includes `git` so verifier stages can apply candidate patches and run real Node test commands.
+- Seeded workspace prompt advertises the actual runtime: POSIX shell, Node.js, npm, git; Python is not installed.
+- Verifier role now explicitly verifies by copying `./workspace`, applying `CandidatePatch` with `git apply`, and running the declared Node test command.
+- Run status/artifact reads now reconcile from immutable per-event R2 records to avoid stale mutable summary/manifest stage displays.
+- Added `/run-monitor/:runId` as a first-class operator snapshot: reconciled summary, stages, recent timeline, diagnostics, and artifacts.
+- Manifest writes now use etag retry to reduce R2 read-modify-write races.
 
 ## Verification
-- Focused tests passed: `pnpm --filter @factory/ff-pipeline test src/cf-workers.test.ts src/harness-dispatcher.test.ts src/observability/run-event-log.test.ts` (3 files / 31 tests).
+- Focused tests passed: `pnpm --filter @factory/ff-pipeline test src/coding-adapter-harness.test.ts pi-container/workspace-seed.test.mjs pi-container/execution-policy.test.mjs` (3 files / 10 tests).
+- Focused observability/diagnostic tests passed: `pnpm --filter @factory/ff-pipeline test src/diagnostic-routes.test.ts src/observability/run-event-log.test.ts` (2 files / 51 tests).
 - `pnpm --filter @factory/ff-pipeline typecheck` passed.
-- Default ff-pipeline tests passed: `pnpm --filter @factory/ff-pipeline test` (78 files / 1039 tests).
-- `pnpm --filter @factory/ff-pipeline exec wrangler deploy --dry-run` passed.
+- Default ff-pipeline tests passed: `pnpm --filter @factory/ff-pipeline test` (79 files / 1045 tests).
 - `git diff --check` passed.
-- Commit `4bacca3 FN-SYNTH-MIGRATE: retry container rollout transient` pushed to `factory/fp-motdwvr2-w7un`.
-- Deployed ff-pipeline Worker version `90c9a684-d569-4cdb-ac4e-d668eea6004c` with `--containers-rollout=immediate`.
-- Triggered production smoke `pi-rollout-retry-smoke-1779129097` without manually warming `/debug/pi-container/health` first.
-- Smoke completed/pass with `stepAccounting.ok=["SMOKE"]`, `eventCount=11`, and no `container_dispatch_*` retry events needed in this run.
-- `/run-artifacts/pi-rollout-retry-smoke-1779129097` returned completed manifest with `SMOKE` stage pass, observation key, artifact key, and value-level gate results.
-- Attempt log `runs/_attempt-logs/pi-rollout-retry-smoke-1779129097/SMOKE/attempt-1.log` showed `exists`, `json_field_equals`, and `json_field_type` passed.
-- Direct R2 artifact `runs/pi-rollout-retry-smoke-1779129097/artifacts/SmokeJsonArtifact` is valid JSON with matching runId and numeric elapsedMs.
-- Direct R2 observation proves `authoringMode="autonomous_filesystem"`, `materializeContracts=false`, tool execution present, no failed contract artifacts, and matching container `workerVersionId`.
+- Uploaded `harnesses/coding-adapter.harness.yaml` to remote R2.
+- Deployed ff-pipeline Worker version `9dae0374-2c1b-4ffb-b965-93b70fdef307` with `--containers-rollout=immediate`.
+- Production run `coding-freeform-prod-1779136814` completed/pass with all six coding-adapter stages passed.
+- PATCH observation proved `authoringMode="autonomous_filesystem"`, `materializeContracts=false`, `assistantToolCalls=5`, `toolExecutionEvents=12`, and write-tool execution.
+- VERIFY report proved `git apply /tmp/pi-VERIFY-B3byLW/CandidatePatch` and `node test/coding-adapter-smoke.test.js` both passed.
+- `/run-status/coding-freeform-prod-1779136814` now shows all stages passed: SEED, CONTRACT, MAP, PATCH, VERIFY, RELEASE.
+- `/run-monitor/coding-freeform-prod-1779136814?limit=8` returns stage table, recent timeline, 5 observation records, and all expected artifacts.
 
 ## Commit
-- `4bacca3 FN-SYNTH-MIGRATE: retry container rollout transient`
-- Pending memory closeout commit.
+- Pending commit for Pi free-form authoring and live monitoring.
 
 ## Notes
 - Existing unrelated untracked files remain out of scope.

@@ -195,6 +195,33 @@ export interface RunArtifactManifest {
   terminalAt?: string
 }
 
+export interface RunMonitorSnapshot {
+  schemaVersion: "1.0"
+  runId: string
+  status: RunStatus
+  currentPhase?: RunStage
+  currentStage?: string
+  summary: RunSummary
+  manifest?: RunArtifactManifest
+  stages: RunArtifactManifest["stages"]
+  timeline: Array<{
+    at: string
+    type: RunEventType
+    emitter: RunEventEmitter
+    stageName?: string
+    attemptNumber?: number
+    message?: string
+    error?: string
+  }>
+  diagnostics: {
+    observations: string[]
+    contractEvaluations: string[]
+    attemptLogsPrefix?: string
+  }
+  artifacts: RunArtifactManifest["artifacts"]
+  updatedAt: string
+}
+
 export type RunEventInput =
   & Omit<RunEvent, "schemaVersion" | "eventId" | "timestamp">
   & {

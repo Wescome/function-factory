@@ -208,6 +208,20 @@ export default {
       return json(summary)
     }
 
+    if (url.pathname.startsWith('/run-monitor/') && request.method === 'GET') {
+      if (!env.WORKSPACE_BUCKET) {
+        return json({ error: 'WORKSPACE_BUCKET binding unavailable' }, 503)
+      }
+      const runId = decodeURIComponent(url.pathname.slice('/run-monitor/'.length))
+      if (!runId) return json({ error: 'missing runId' }, 400)
+      const limit = Number(url.searchParams.get('limit') ?? '50')
+      const eventLimit = Number.isFinite(limit) ? Math.max(1, Math.min(250, Math.trunc(limit))) : 50
+      const log = new RunEventLog(env.WORKSPACE_BUCKET as R2Bucket)
+      const snapshot = await log.getMonitorSnapshot(runId, eventLimit)
+      if (!snapshot) return json({ error: 'run monitor snapshot not found', runId }, 404)
+      return json(snapshot)
+    }
+
     if (url.pathname.startsWith('/run-artifacts/') && request.method === 'GET') {
       if (!env.WORKSPACE_BUCKET) {
         return json({ error: 'WORKSPACE_BUCKET binding unavailable' }, 503)
@@ -1492,7 +1506,7 @@ export default {
       }
     }
 
-    return new Response('ff-pipeline: POST /trigger-synthesis, POST /synthesis-callback, POST /trigger-harness, GET /run-status/:runId, GET /run-artifacts/:runId, or use Queue consumer', { status: 404 })
+    return new Response('ff-pipeline: POST /trigger-synthesis, POST /synthesis-callback, POST /trigger-harness, GET /run-status/:runId, GET /run-monitor/:runId, GET /run-artifacts/:runId, or use Queue consumer', { status: 404 })
   },
 
   async scheduled(event: ScheduledEvent, env: PipelineEnv, ctx: ExecutionContext): Promise<void> {

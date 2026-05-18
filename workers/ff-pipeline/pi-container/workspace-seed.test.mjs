@@ -64,5 +64,7 @@ describe('workspacePromptSection', () => {
     expect(section).toContain('./workspace')
     expect(section).toContain('node test/coding-adapter-smoke.test.js')
     expect(section).toContain('Change the smoke file.')
+    expect(section).toContain('git apply ../CandidatePatch')
+    expect(section).toContain('Python is not installed')
   })
 })

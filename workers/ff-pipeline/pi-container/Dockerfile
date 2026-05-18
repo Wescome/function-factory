@@ -2,6 +2,10 @@ FROM node:22-slim
 
 WORKDIR /app
 
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends git ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
 # Install pi and HTTP server deps
 COPY package.json ./
 RUN npm install --omit=dev

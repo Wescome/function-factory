@@ -17,7 +17,19 @@ class MemoryR2Bucket {
     return value === undefined ? null : new MemoryR2Object(value, this.etags.get(key))
   }
 
-  async put(key: string, value: string | ArrayBuffer | ArrayBufferView | ReadableStream, _options?: unknown) {
+  async put(key: string, value: string | ArrayBuffer | ArrayBufferView | ReadableStream, options?: unknown) {
+    const onlyIf = (options as { onlyIf?: { etagMatches?: string; etagDoesNotMatch?: string } } | undefined)?.onlyIf
+    const currentEtag = this.etags.get(key)
+    if (onlyIf?.etagMatches && currentEtag !== onlyIf.etagMatches) {
+      const err = new Error("PreconditionFailed")
+      Object.assign(err, { name: "PreconditionFailed", status: 412 })
+      throw err
+    }
+    if (onlyIf?.etagDoesNotMatch === "*" && currentEtag !== undefined) {
+      const err = new Error("PreconditionFailed")
+      Object.assign(err, { name: "PreconditionFailed", status: 412 })
+      throw err
+    }
     this.objects.set(key, typeof value === "string" ? value : String(value))
     this.etags.set(key, String(this.nextEtag++))
     return null
@@ -354,5 +366,95 @@ describe("RunEventLog", () => {
       lastEventAt: "2026-05-18T16:00:00.000Z",
     }))
     expect(put.mock.calls.filter((call) => call[0] === "runs/_active-index.json")).toHaveLength(3)
+  })
+
+  it("retries summary writes after R2 precondition races without losing adjacent stage updates", async () => {
+    const bucket = new MemoryR2Bucket()
+    const rawPut = bucket.put.bind(bucket)
+    const summaryKey = "runs/run-summary-race/events/_summary.json"
+    let injectedRace = false
+    const put = vi.fn(async (
+      key: string,
+      value: string | ArrayBuffer | ArrayBufferView | ReadableStream,
+      options?: unknown,
+    ) => {
+      if (key === summaryKey && !injectedRace) {
+        const parsed = JSON.parse(String(value)) as {
+          lastEventType?: string
+          stageHistory?: Array<Record<string, unknown>>
+          stepAccounting?: { ok?: string[]; failed?: string[]; neverDispatched?: string[] }
+          eventCount?: number
+        }
+        if (parsed.lastEventType === "stage_completed") {
+          injectedRace = true
+          const existing = JSON.parse(bucket.objects.get(summaryKey) ?? "{}") as Record<string, unknown>
+          await rawPut(summaryKey, JSON.stringify({
+            ...existing,
+            lastEventType: "stage_started",
+            lastEventAt: "2026-05-18T18:00:03.500Z",
+            currentStage: "MAP",
+            stageHistory: [
+              ...((existing.stageHistory as Array<Record<string, unknown>> | undefined) ?? []),
+              {
+                stage: "MAP",
+                phase: "execution",
+                verdict: "in_progress",
+                attempts: 1,
+                at: "2026-05-18T18:00:03.500Z",
+              },
+            ],
+            stepAccounting: parsed.stepAccounting,
+            eventCount: (typeof parsed.eventCount === "number" ? parsed.eventCount : 0) + 1,
+          }), {})
+          const err = new Error("PreconditionFailed")
+          Object.assign(err, { name: "PreconditionFailed", status: 412 })
+          throw err
+        }
+      }
+      return rawPut(key, value, options)
+    })
+    bucket.put = put
+    const log = new RunEventLog(bucket as unknown as R2Bucket)
+
+    await log.emit({
+      runId: "run-summary-race",
+      type: "run_started",
+      emitter: "harness-bridge",
+      timestamp: "2026-05-18T18:00:00.000Z",
+      data: {},
+    })
+    await log.emit({
+      runId: "run-summary-race",
+      stageName: "CONTRACT",
+      attemptNumber: 1,
+      type: "stage_started",
+      emitter: "harness-dispatcher",
+      timestamp: "2026-05-18T18:00:01.000Z",
+      data: {},
+    })
+    await log.emit({
+      runId: "run-summary-race",
+      stageName: "CONTRACT",
+      attemptNumber: 1,
+      type: "stage_completed",
+      emitter: "harness-dispatcher",
+      timestamp: "2026-05-18T18:00:04.000Z",
+      data: { action: "dispatch", status: "pass", artifacts: ["IssueContract"] },
+    })
+
+    const summary = JSON.parse(bucket.objects.get(summaryKey) ?? "{}") as {
+      stageHistory?: Array<Record<string, unknown>>
+      stepAccounting?: { ok?: string[] }
+    }
+    expect(summary?.stageHistory).toContainEqual(expect.objectContaining({
+      stage: "CONTRACT",
+      verdict: "pass",
+    }))
+    expect(summary?.stageHistory).toContainEqual(expect.objectContaining({
+      stage: "MAP",
+      verdict: "in_progress",
+    }))
+    expect(summary?.stepAccounting?.ok).toContain("CONTRACT")
+    expect(put.mock.calls.filter((call) => call[0] === summaryKey && String(call[1]).includes('"lastEventType": "stage_completed"'))).toHaveLength(2)
   })
 })

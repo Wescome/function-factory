@@ -2,6 +2,7 @@ import type {
   ActiveRunIndex,
   Counterfactual,
   RunArtifactManifest,
+  RunMonitorSnapshot,
   RunErrorClass,
   RunEvent,
   RunEventInput,
@@ -14,6 +15,7 @@ import type {
 const ACTIVE_INDEX_KEY = "runs/_active-index.json"
 const SCHEMA_VERSION = "1.0" as const
 const MAX_ACTIVE_INDEX_RETRIES = 5
+const MAX_SUMMARY_RETRIES = 5
 const ATTEMPT_LOG_PREFIX = "runs/_attempt-logs"
 const PHASE_KEYS = {
   intent: "00_intent/intent.json",
@@ -42,6 +44,8 @@ export class RunEventLog {
   }
 
   async getSummary(runId: string): Promise<RunSummary | null> {
+    const replayed = await this.replaySummary(runId)
+    if (replayed) return replayed
     const obj = await this.bucket.get(summaryKey(runId))
     if (!obj) return null
     try {
@@ -52,12 +56,15 @@ export class RunEventLog {
   }
 
   async getRecentEvents(runId: string, limit = 20): Promise<RunEvent[]> {
+    return (await this.getEvents(runId)).slice(-Math.max(1, limit))
+  }
+
+  async getEvents(runId: string): Promise<RunEvent[]> {
     const listed = await this.bucket.list({ prefix: `runs/${runId}/events/` })
     const keys = listed.objects
       .map((object) => object.key)
       .filter((key) => !key.endsWith("/_summary.json"))
       .sort()
-      .slice(-Math.max(1, limit))
 
     const events: RunEvent[] = []
     for (const key of keys) {
@@ -85,12 +92,47 @@ export class RunEventLog {
   }
 
   async getManifest(runId: string): Promise<RunArtifactManifest | null> {
+    const replayed = await this.replayManifest(runId)
+    if (replayed) return replayed
     const obj = await this.bucket.get(manifestKey(runId))
     if (!obj) return null
     try {
       return await obj.json<RunArtifactManifest>()
     } catch {
       return null
+    }
+  }
+
+  async getMonitorSnapshot(runId: string, limit = 50): Promise<RunMonitorSnapshot | null> {
+    const summary = await this.getSummary(runId)
+    if (!summary) return null
+    const manifest = await this.getManifest(runId)
+    const events = await this.getRecentEvents(runId, limit)
+    return {
+      schemaVersion: SCHEMA_VERSION,
+      runId,
+      status: summary.status,
+      ...(summary.currentPhase ? { currentPhase: summary.currentPhase } : {}),
+      ...(summary.currentStage ? { currentStage: summary.currentStage } : {}),
+      summary,
+      ...(manifest ? { manifest } : {}),
+      stages: manifest?.stages ?? stagesFromSummary(summary),
+      timeline: events.map((event) => ({
+        at: event.timestamp,
+        type: event.type,
+        emitter: event.emitter,
+        ...(event.stageName ? { stageName: event.stageName } : {}),
+        ...(event.attemptNumber ? { attemptNumber: event.attemptNumber } : {}),
+        ...(typeof event.data.message === "string" ? { message: event.data.message } : {}),
+        ...(event.error?.message ? { error: event.error.message } : {}),
+      })),
+      diagnostics: {
+        observations: manifest?.diagnostics.observations ?? [],
+        contractEvaluations: manifest?.diagnostics.contractEvaluations ?? [],
+        ...(manifest?.diagnostics.attemptLogsPrefix ? { attemptLogsPrefix: manifest.diagnostics.attemptLogsPrefix } : {}),
+      },
+      artifacts: manifest?.artifacts ?? [],
+      updatedAt: manifest?.updatedAt ?? summary.lastEventAt,
     }
   }
 
@@ -112,14 +154,20 @@ export class RunEventLog {
   }
 
   private async updateSummary(event: RunEvent): Promise<RunSummary> {
-    const existing = await this.getSummary(event.runId)
-    const summary = buildNextSummary(existing, event)
-    await this.bucket.put(
-      summaryKey(event.runId),
-      JSON.stringify(summary, null, 2),
-      { httpMetadata: { contentType: "application/json; charset=utf-8" } },
-    )
-    return summary
+    let lastError: unknown
+    for (let attempt = 1; attempt <= MAX_SUMMARY_RETRIES; attempt += 1) {
+      const { summary: existing, etag } = await this.readSummary(event.runId)
+      const summary = buildNextSummary(existing, event)
+      try {
+        await this.writeSummary(event.runId, summary, etag)
+        return summary
+      } catch (err) {
+        lastError = err
+      }
+    }
+    throw lastError instanceof Error
+      ? lastError
+      : new Error(`summary update failed after ${MAX_SUMMARY_RETRIES} attempts`)
   }
 
   private async updateAttemptLog(event: RunEvent): Promise<void> {
@@ -142,14 +190,21 @@ export class RunEventLog {
   }
 
   private async updateManifest(event: RunEvent, summary: RunSummary): Promise<void> {
-    const existing = await this.getManifest(event.runId)
-    const manifest = buildNextManifest(existing, event, summary)
-    await this.writePhaseArtifacts(event, summary, manifest)
-    await this.bucket.put(
-      manifestKey(event.runId),
-      JSON.stringify(manifest, null, 2),
-      { httpMetadata: { contentType: "application/json; charset=utf-8" } },
-    )
+    let lastError: unknown
+    for (let attempt = 1; attempt <= MAX_SUMMARY_RETRIES; attempt += 1) {
+      const { manifest: existing, etag } = await this.readManifest(event.runId)
+      const manifest = buildNextManifest(existing, event, summary)
+      try {
+        await this.writePhaseArtifacts(event, summary, manifest)
+        await this.writeManifest(event.runId, manifest, etag)
+        return
+      } catch (err) {
+        lastError = err
+      }
+    }
+    throw lastError instanceof Error
+      ? lastError
+      : new Error(`manifest update failed after ${MAX_SUMMARY_RETRIES} attempts`)
   }
 
   private async writePhaseArtifacts(
@@ -338,6 +393,65 @@ export class RunEventLog {
         httpMetadata: { contentType: "application/json; charset=utf-8" },
       },
     )
+  }
+
+  private async readSummary(runId: string): Promise<{ summary: RunSummary | null; etag?: string }> {
+    const obj = await this.bucket.get(summaryKey(runId))
+    if (!obj) return { summary: null }
+    try {
+      return { summary: await obj.json<RunSummary>(), etag: obj.etag }
+    } catch {
+      return { summary: null, etag: obj.etag }
+    }
+  }
+
+  private async writeSummary(runId: string, summary: RunSummary, etag?: string): Promise<void> {
+    await this.bucket.put(
+      summaryKey(runId),
+      JSON.stringify(summary, null, 2),
+      {
+        ...(etag ? { onlyIf: { etagMatches: etag } } : { onlyIf: { etagDoesNotMatch: "*" } }),
+        httpMetadata: { contentType: "application/json; charset=utf-8" },
+      },
+    )
+  }
+
+  private async readManifest(runId: string): Promise<{ manifest: RunArtifactManifest | null; etag?: string }> {
+    const obj = await this.bucket.get(manifestKey(runId))
+    if (!obj) return { manifest: null }
+    try {
+      return { manifest: await obj.json<RunArtifactManifest>(), etag: obj.etag }
+    } catch {
+      return { manifest: null, etag: obj.etag }
+    }
+  }
+
+  private async writeManifest(runId: string, manifest: RunArtifactManifest, etag?: string): Promise<void> {
+    await this.bucket.put(
+      manifestKey(runId),
+      JSON.stringify(manifest, null, 2),
+      {
+        ...(etag ? { onlyIf: { etagMatches: etag } } : { onlyIf: { etagDoesNotMatch: "*" } }),
+        httpMetadata: { contentType: "application/json; charset=utf-8" },
+      },
+    )
+  }
+
+  private async replaySummary(runId: string): Promise<RunSummary | null> {
+    const events = await this.getEvents(runId)
+    if (events.length === 0) return null
+    return events.reduce<RunSummary | null>((summary, event) => buildNextSummary(summary, event), null)
+  }
+
+  private async replayManifest(runId: string): Promise<RunArtifactManifest | null> {
+    const events = await this.getEvents(runId)
+    let summary: RunSummary | null = null
+    let manifest: RunArtifactManifest | null = null
+    for (const event of events) {
+      summary = buildNextSummary(summary, event)
+      manifest = buildNextManifest(manifest, event, summary)
+    }
+    return manifest
   }
 }
 
@@ -778,7 +892,7 @@ function updateStageHistory(
       : "fail"
   // attempts = max(attemptNumber) seen for this stage — monotonically increases through retries
   const attempts = event.attemptNumber ?? 1
-  const without = existing.filter((entry) => entry.stage !== event.stageName || entry.verdict !== "in_progress")
+  const without = existing.filter((entry) => entry.stage !== event.stageName)
   return [
     ...without,
     {
@@ -789,6 +903,15 @@ function updateStageHistory(
       at: event.timestamp,
     },
   ]
+}
+
+function stagesFromSummary(summary: RunSummary): RunArtifactManifest["stages"] {
+  return summary.stageHistory.map((entry) => ({
+    name: entry.stage,
+    status: entry.verdict === "in_progress" ? "running" : entry.verdict,
+    attempts: entry.attempts,
+    ...(entry.verdict === "in_progress" ? { startedAt: entry.at } : { completedAt: entry.at }),
+  }))
 }
 
 function updateStepAccounting(
