@@ -106,6 +106,7 @@ type PiExecutionRoute = {
   surface: "rpc"
   requiredCapabilities: string[]
   resolvedVia: string
+  authoringMode: "contract_materialized_when_possible" | "autonomous_filesystem"
 }
 
 type RoutedWorkerInput = WorkerInput & {
@@ -153,6 +154,10 @@ function routeKindForRole(role: string): string {
   return "worker"
 }
 
+function isPiWorker(worker: string | undefined): boolean {
+  return worker === "pi" || worker === "pi-author"
+}
+
 function resolvePiModelRoute(stage: StageSpec, env: HarnessBridgeEnv): RoutedPiModel {
   const selectedId = env.PI_MODEL ?? DEFAULT_PI_MODEL_ID
   const filesystemCandidateIds = dedupeModelIds([
@@ -189,7 +194,7 @@ function resolvePiModelRoute(stage: StageSpec, env: HarnessBridgeEnv): RoutedPiM
 }
 
 function requiresAutonomousFilesystemTools(stage: StageSpec): boolean {
-  return stage.outputs.some((name) =>
+  return stage.worker === "pi-author" || stage.outputs.some((name) =>
     name === "CandidatePatch"
     || name === "VerifierReport"
     || name === "FinalPatch"
@@ -203,12 +208,16 @@ function resolvePiExecutionRoute(stage: StageSpec): PiExecutionRoute {
       surface: "rpc",
       requiredCapabilities: [],
       resolvedVia: "stage-contract",
+      authoringMode: "contract_materialized_when_possible",
     }
   }
   return {
     surface: "rpc",
     requiredCapabilities: ["filesystem_tools"],
     resolvedVia: "stage-contract",
+    authoringMode: stage.worker === "pi-author"
+      ? "autonomous_filesystem"
+      : "contract_materialized_when_possible",
   }
 }
 
@@ -374,7 +383,7 @@ export async function dispatchOne(
       declaredOutputs: stage.outputs,
       outputContracts,
       maxRepairRounds,
-      ...(stage.worker === "pi" ? {
+      ...(isPiWorker(stage.worker) ? {
         model: resolvePiModelRoute(stage, env),
         execution: resolvePiExecutionRoute(stage),
       } : {}),

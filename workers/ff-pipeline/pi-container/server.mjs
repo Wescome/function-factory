@@ -26,6 +26,7 @@ import { fileURLToPath } from 'node:url'
 import { buildPrompt } from './execution-contract.mjs'
 import { evaluateContracts, defaultContract, buildContractRepairPrompt } from './contract-evaluator.mjs'
 import { contractMaterializeCommand } from './contract-materializer.mjs'
+import { executionPolicyObservation, shouldMaterializeContracts } from './execution-policy.mjs'
 import { hasSeedWorkspace, prepareSeedWorkspace, workspacePromptSection } from './workspace-seed.mjs'
 import { workspaceDerivedArtifactCommand } from './workspace-derived-artifacts.mjs'
 import {
@@ -526,6 +527,7 @@ async function handleExecute(req, res) {
       resolvedVia: model.resolvedVia,
     })),
     executionSurface,
+    executionPolicy: executionPolicyObservation(input),
     containerRuntime: containerRuntimeIdentity(),
     events: [],
     artifacts: [],
@@ -654,8 +656,17 @@ async function handleExecute(req, res) {
     // Deterministic shortcuts: materialize simple contracts via pi bash before prompt.
     // This covers smoke-grade exact_line, json.required_fields, text, and markdown contracts
     // without relying on a chat turn to choose a filesystem tool.
+    const materializeContracts = shouldMaterializeContracts(input)
+    pushObservationEvent(observation, {
+      type: 'execution.policy',
+      authoringMode: observation.executionPolicy.authoringMode,
+      requiredCapabilities: observation.executionPolicy.requiredCapabilities,
+      expectedToolNames: observation.executionPolicy.expectedToolNames,
+      materializeContracts,
+    })
+
     const seedWorkspacePresent = hasSeedWorkspace(input)
-    const workspaceDerivedCommands = seedWorkspacePresent
+    const workspaceDerivedCommands = materializeContracts && seedWorkspacePresent
       ? contracts
         .map((contract) => workspaceDerivedArtifactCommand(contract, input))
         .filter(Boolean)
@@ -670,11 +681,13 @@ async function handleExecute(req, res) {
       }
     }
 
-    const materializeCommands = contracts
-      .filter((contract) => !workspaceDerivedCommands.some((item) => item.artifact === contract.artifact))
-      .filter((contract) => !seedWorkspacePresent || contract.artifact === 'IssueContract' || contract.artifact === 'RepoMap')
-      .map((contract) => contractMaterializeCommand(contract, input))
-      .filter(Boolean)
+    const materializeCommands = materializeContracts
+      ? contracts
+        .filter((contract) => !workspaceDerivedCommands.some((item) => item.artifact === contract.artifact))
+        .filter((contract) => !seedWorkspacePresent || contract.artifact === 'IssueContract' || contract.artifact === 'RepoMap')
+        .map((contract) => contractMaterializeCommand(contract, input))
+        .filter(Boolean)
+      : []
     for (const item of materializeCommands) {
       pushObservationEvent(observation, { type: 'contract.materialize_command', artifact: item.artifact, kind: item.kind })
       try {

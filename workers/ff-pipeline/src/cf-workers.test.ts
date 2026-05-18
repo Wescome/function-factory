@@ -130,6 +130,7 @@ describe('PiContainerAdapter', () => {
           surface: 'rpc',
           requiredCapabilities: ['filesystem_tools'],
           resolvedVia: 'stage-contract',
+          authoringMode: 'autonomous_filesystem',
         },
       }) as never,
       makeArtifacts() as never,
@@ -149,6 +150,7 @@ describe('PiContainerAdapter', () => {
       surface: 'rpc',
       requiredCapabilities: ['filesystem_tools'],
       resolvedVia: 'stage-contract',
+      authoringMode: 'autonomous_filesystem',
     })
     expect(JSON.stringify(payload)).not.toContain('OFOX_API_KEY')
     expect(JSON.stringify(payload)).not.toContain('OPENROUTER_API_KEY')
@@ -350,6 +352,21 @@ describe('buildCfWorkerRegistry', () => {
 
     const registry = buildCfWorkerRegistry(env as never)
     const adapter = registry.get('pi')
+    expect(adapter).toBeDefined()
+    expect((adapter as unknown as { name: string }).name).toBe('pi')
+  })
+
+  it('registers pi-author when PI_CONTAINER binding is present', async () => {
+    const { buildCfWorkerRegistry } = await import('./cf-workers.js')
+    const env = {
+      PI_CONTAINER: { idFromName: vi.fn(() => 'pi-id'), get: vi.fn(() => ({ fetch: vi.fn() })) },
+      WORKSPACE_BUCKET: {},
+      HARNESS_QUEUE: { send: vi.fn() },
+      FACTORY_PIPELINE: { get: vi.fn(), create: vi.fn() },
+    }
+
+    const registry = buildCfWorkerRegistry(env as never)
+    const adapter = registry.get('pi-author')
     expect(adapter).toBeDefined()
     expect((adapter as unknown as { name: string }).name).toBe('pi')
   })

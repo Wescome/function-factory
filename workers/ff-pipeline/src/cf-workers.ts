@@ -73,6 +73,7 @@ interface RoutedWorkerInput extends WorkerInput {
     surface: "rpc"
     requiredCapabilities: string[]
     resolvedVia: string
+    authoringMode?: "contract_materialized_when_possible" | "autonomous_filesystem"
   }
   outputContracts?: OutputContract[]
   maxRepairRounds?: number
@@ -406,6 +407,7 @@ export function buildCfWorkerRegistry(
     // to the container's HTTP server via getTcpPort(8080).fetch().
     const piStub = env.PI_CONTAINER.get(env.PI_CONTAINER.idFromName("pi"))
     registry.register("pi", new PiContainerAdapter(piStub as unknown as ContainerBinding, "http://pi-worker/execute", env))
+    registry.register("pi-author", new PiContainerAdapter(piStub as unknown as ContainerBinding, "http://pi-worker/execute", env))
   }
   if (env.AIDER_CONTAINER) {
     registry.register("aider", new AiderContainerAdapter(env.AIDER_CONTAINER, "http://pi-worker/execute", env))
