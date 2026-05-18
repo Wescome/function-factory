@@ -9,7 +9,7 @@ const ACTIONS = new Set(['note', 'cancel', 'retry-stage', 'redispatch-stage'])
 export function parseControlArgs(argv) {
   const args = {
     baseUrl: process.env.FF_PIPELINE_URL || DEFAULT_BASE_URL,
-    token: process.env.FF_OPERATOR_TOKEN || process.env.OPERATOR_CONTROL_TOKEN || process.env.CLOUDFLARE_API_TOKEN || process.env.CF_API_TOKEN || '',
+    token: process.env.FF_OPERATOR_TOKEN || process.env.OPERATOR_CONTROL_TOKEN || '',
     operator: process.env.USER || 'operator',
     idempotencyKey: '',
     json: false,

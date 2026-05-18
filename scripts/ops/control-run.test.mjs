@@ -62,4 +62,25 @@ describe('control-run CLI helpers', () => {
       effect: { deduped: true },
     })).toContain('deduped=true')
   })
+
+  it('does not accept broad Cloudflare API tokens as operator control tokens', () => {
+    const previous = {
+      FF_OPERATOR_TOKEN: process.env.FF_OPERATOR_TOKEN,
+      OPERATOR_CONTROL_TOKEN: process.env.OPERATOR_CONTROL_TOKEN,
+      CLOUDFLARE_API_TOKEN: process.env.CLOUDFLARE_API_TOKEN,
+      CF_API_TOKEN: process.env.CF_API_TOKEN,
+    }
+    delete process.env.FF_OPERATOR_TOKEN
+    delete process.env.OPERATOR_CONTROL_TOKEN
+    process.env.CLOUDFLARE_API_TOKEN = 'cloudflare-token'
+    process.env.CF_API_TOKEN = 'cf-token'
+    try {
+      expect(() => parseControlArgs(['note', 'run-001', 'watch closely'])).toThrow(/missing operator token/)
+    } finally {
+      for (const [key, value] of Object.entries(previous)) {
+        if (value === undefined) delete process.env[key]
+        else process.env[key] = value
+      }
+    }
+  })
 })

@@ -523,6 +523,39 @@ describe('ff-pipeline diagnostic routes', () => {
     ])
   })
 
+  it('POST /run-interventions/:runId/:action does not accept CF_API_TOKEN as operator auth', async () => {
+    const { default: worker } = await import('./index')
+    const bucket = new MemoryR2Bucket()
+    await bucket.put('runs/run-auth-cf-token/events/2026-05-18T20:00:00.000Z-a.json', JSON.stringify({
+      schemaVersion: '1.0',
+      eventId: 'a',
+      runId: 'run-auth-cf-token',
+      type: 'run_started',
+      timestamp: '2026-05-18T20:00:00.000Z',
+      emitter: 'harness-bridge',
+      data: {},
+    }))
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/run-interventions/run-auth-cf-token/note', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer broad-cf-token' },
+        body: JSON.stringify({ operator: 'ops', note: 'blocked' }),
+      }),
+      createEnv({
+        WORKSPACE_BUCKET: bucket,
+        ENVIRONMENT: 'production',
+        CF_API_TOKEN: 'broad-cf-token',
+      }) as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(503)
+    expect(await jsonBody(response)).toMatchObject({
+      error: 'operator control auth is not configured',
+    })
+  })
+
   it('POST /run-interventions/:runId/cancel records intent and force-completes through RunCoordinator', async () => {
     const { default: worker } = await import('./index')
     const bucket = new MemoryR2Bucket()

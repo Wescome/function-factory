@@ -2265,7 +2265,7 @@ type OperatorAuthorizationResult =
   | { ok: false; status: number; error: string }
 
 function authorizeOperatorControl(request: Request, env: PipelineEnv): OperatorAuthorizationResult {
-  const expected = env.OPERATOR_CONTROL_TOKEN || env.CF_API_TOKEN
+  const expected = env.OPERATOR_CONTROL_TOKEN
   if (!expected) {
     return env.ENVIRONMENT === 'production'
       ? { ok: false, status: 503, error: 'operator control auth is not configured' }

@@ -8,6 +8,7 @@ also being the canonical architecture, contract, or backlog for that area.
 
 | Guide | Task |
 | --- | --- |
+| [`OPERATOR_RUN_CONTROLS.md`](OPERATOR_RUN_CONTROLS.md) | Use authenticated live run note, retry, redispatch, and cancel controls. |
 | [`STRATEGY_RECIPES_DOGFOOD.md`](STRATEGY_RECIPES_DOGFOOD.md) | Run the Strategy.Recipes autonomous-scheduler dogfood flow. |
 
 ## Current Boundary
