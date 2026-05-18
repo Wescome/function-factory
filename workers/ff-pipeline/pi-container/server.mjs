@@ -19,7 +19,7 @@
 
 import { createServer } from 'node:http'
 import { spawn } from 'node:child_process'
-import { mkdtemp, readFile, writeFile, stat, readdir, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, writeFile, stat, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -38,6 +38,15 @@ import {
   requiresFilesystemAuthoring,
   summarizeAssistantMessage,
 } from './tool-capability-probe.mjs'
+import {
+  cleanupWorkDir,
+  createStageLogCollector,
+  createStageLogStore,
+  redact,
+  resolvePiHomeDir,
+  resolvePiSessionDir,
+  sessionArchiveCandidates,
+} from './stage-runtime.mjs'
 
 const PORT = Number(process.env.PORT ?? 8080)
 const PI_BIN = join(dirname(fileURLToPath(import.meta.url)), 'node_modules', '.bin', 'pi')
@@ -54,34 +63,18 @@ const DEFAULT_FILESYSTEM_MODEL_CANDIDATES = [
   'openrouter/x-ai/grok-4.20',
 ]
 const MAX_OBSERVATION_EVENTS = 256
-const MAX_STDERR_TAIL_BYTES = 16_384
 const MAX_OBSERVATION_BYTES = 32_768
 const VALID_EXECUTION_SURFACES = new Set(['rpc'])
-let stderrRingBuffer = ''
+const serverLog = createStageLogCollector()
+const stageLogs = createStageLogStore()
 
 // ── Logging ───────────────────────────────────────────────────────────────────
 
-function log(level, msg, data) {
+function log(level, msg, data, collector = serverLog) {
   const entry = { ts: new Date().toISOString(), level, msg, ...(data ?? {}) }
   const line = JSON.stringify(entry) + '\n'
-  appendStderrRing(line)
+  collector.append(line)
   process.stderr.write(line)
-}
-
-function appendStderrRing(value) {
-  stderrRingBuffer += redact(value)
-  if (Buffer.byteLength(stderrRingBuffer, 'utf8') > MAX_STDERR_TAIL_BYTES) {
-    stderrRingBuffer = stderrRingBuffer.slice(Math.max(0, stderrRingBuffer.length - MAX_STDERR_TAIL_BYTES))
-  }
-}
-
-function redact(value) {
-  return String(value)
-    .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, 'Bearer [REDACTED]')
-    .replace(/(OPENROUTER_API_KEY|OFOX_API_KEY)\s*[:=]\s*[^\s,}]+/gi, '$1=[REDACTED]')
-    .replace(/sk-[A-Za-z0-9_-]{8,}/g, 'sk-[REDACTED]')
-    .replace(/api[_-]?key=([^&\s]+)/gi, 'api_key=[REDACTED]')
-    .replace(/authorization["']?\s*:\s*["'][^"']+["']/gi, 'authorization:"[REDACTED]"')
 }
 
 function parseModelId(id) {
@@ -170,16 +163,11 @@ function pushObservationEvent(observation, event) {
   }
 }
 
-function stderrTail(chunks) {
-  const raw = Buffer.concat(chunks).toString('utf8')
-  return redact(raw.slice(Math.max(0, raw.length - MAX_STDERR_TAIL_BYTES)))
-}
-
-function observationPayload(observation, stderrChunks, extra = {}) {
+function observationPayload(observation, stageLog, extra = {}) {
   const out = {
     ...observation,
     ...extra,
-    stderrTail: stderrTail(stderrChunks),
+    stderrTail: stageLog.tail(),
   }
   let encoded = JSON.stringify(out)
   if (Buffer.byteLength(encoded, 'utf8') <= MAX_OBSERVATION_BYTES) return out
@@ -436,12 +424,8 @@ async function dirHasFiles(dir) {
   }
 }
 
-async function captureSessionArchive(workDir) {
-  const candidates = [
-    { dir: join(workDir, '.pi', 'sessions'), kind: 'pi-session' },
-    { dir: join(process.env.HOME ?? '/root', '.pi', 'sessions'), kind: 'pi-session' },
-    { dir: workDir, kind: 'workspace' },
-  ]
+async function captureSessionArchive(workDir, sessionDir) {
+  const candidates = sessionArchiveCandidates(workDir, sessionDir)
   let archiveDir = null
   let archiveKind = null
   for (const candidate of candidates) {
@@ -510,6 +494,8 @@ async function handleExecute(req, res) {
 
   const { stageName = 'stage', runId = 'unknown', roleName = 'Agent' } = input
   const t0 = Date.now()
+  const stageLog = createStageLogCollector()
+  const stageLogFn = (level, msg, data) => log(level, msg, data, stageLog)
   const resolved = resolveDispatchModels(input)
   const modelCandidates = resolved.models ?? []
   let selectedModel = modelCandidates[0]
@@ -536,24 +522,29 @@ async function handleExecute(req, res) {
 
   if (resolved.error) {
     pushObservationEvent(observation, { type: 'model.rejected', code: resolved.error.code })
-    log('warn', 'execute.model_rejected', { stageName, runId, error: resolved.error.message })
+    stageLogFn('warn', 'execute.model_rejected', { stageName, runId, error: resolved.error.message })
+    stageLogs.set(runId, stageName, stageLog.tail())
     writeJson(res, 400, {
       error: resolved.error,
-      observation: observationPayload(observation, [], { elapsedMs: Date.now() - t0 }),
+      observation: observationPayload(observation, stageLog, { elapsedMs: Date.now() - t0 }),
     })
     return
   }
 
-  log('info', 'execute.start', { stageName, runId, roleName, model: selectedModel.id, executionSurface, declaredOutputs: input.declaredOutputs ?? [] })
+  stageLogFn('info', 'execute.start', { stageName, runId, roleName, model: selectedModel.id, executionSurface, declaredOutputs: input.declaredOutputs ?? [] })
 
   const workDir = await mkdtemp(join(tmpdir(), `pi-${stageName}-`))
-  log('info', 'execute.workdir', { stageName, workDir })
+  const sessionDir = resolvePiSessionDir(workDir)
+  const homeDir = resolvePiHomeDir(workDir)
+  await mkdir(sessionDir, { recursive: true })
+  await mkdir(homeDir, { recursive: true })
+  stageLogFn('info', 'execute.workdir', { stageName, workDir, sessionDir, homeDir })
   pushObservationEvent(observation, { type: 'execute.workdir' })
 
   const inputArtifacts = input.context?.inputArtifacts ?? {}
   for (const [name, content] of Object.entries(inputArtifacts)) {
     await writeFile(join(workDir, name), content, 'utf8')
-    log('info', 'execute.input_artifact_written', { stageName, name, bytes: content.length })
+    stageLogFn('info', 'execute.input_artifact_written', { stageName, name, bytes: content.length })
     pushObservationEvent(observation, { type: 'input_artifact_written', name, bytes: content.length })
   }
 
@@ -568,7 +559,7 @@ async function handleExecute(req, res) {
         taskText: `${input.context?.taskText ?? ''}\n\n${workspaceSection}`.trim(),
       },
     }
-    log('info', 'execute.seed_workspace_prepared', { stageName, workspaceDir: prepared.workspaceDir, fileCount: prepared.seed.files.length })
+    stageLogFn('info', 'execute.seed_workspace_prepared', { stageName, workspaceDir: prepared.workspaceDir, fileCount: prepared.seed.files.length })
     pushObservationEvent(observation, {
       type: 'seed_workspace.prepared',
       fileCount: prepared.seed.files.length,
@@ -576,7 +567,6 @@ async function handleExecute(req, res) {
     })
   }
 
-  const stderrChunks = []
   let toolExecutionEventCount = 0
   let pi = null
   let reader = null
@@ -600,18 +590,21 @@ async function handleExecute(req, res) {
     })
     pi = spawn(PI_BIN, ['--mode', 'rpc', '--model', model.id], {
       cwd: workDir,
-      env: process.env,
+      env: {
+        ...process.env,
+        PI_SESSION_DIR: sessionDir,
+        HOME: homeDir,
+      },
       stdio: ['pipe', 'pipe', 'pipe'],
     })
 
     observation.pid = pi.pid ?? null
-    log('info', 'pi.spawned', { stageName, pid: pi.pid, model: model.id, modelIndex, resolvedVia: model.resolvedVia })
+    stageLogFn('info', 'pi.spawned', { stageName, pid: pi.pid, model: model.id, modelIndex, resolvedVia: model.resolvedVia })
     pushObservationEvent(observation, { type: 'pi.spawned', pid: pi.pid ?? null, model: model.id, modelIndex })
 
     reader = new JsonlReader(pi.stdout)
     pi.stderr.on('data', (c) => {
-      stderrChunks.push(c)
-      appendStderrRing(c.toString('utf8'))
+      stageLog.append(c.toString('utf8'))
     })
 
     // Log every pi stdout event for observability
@@ -620,7 +613,7 @@ async function handleExecute(req, res) {
         msg,
         observation,
         stageName,
-        log,
+        log: stageLogFn,
         incrementToolExecutionEventCount: () => {
           toolExecutionEventCount++
           observation.toolExecutionEventCount = toolExecutionEventCount
@@ -629,7 +622,7 @@ async function handleExecute(req, res) {
     })
 
     pi.on('exit', (code, signal) => {
-      log('info', 'pi.exit', { stageName, code, signal, model: model.id, modelIndex })
+      stageLogFn('info', 'pi.exit', { stageName, code, signal, model: model.id, modelIndex })
       observation.exit = { code, signal, model: model.id, modelIndex }
       pushObservationEvent(observation, { type: 'pi.exit', code, signal, model: model.id, modelIndex })
     })
@@ -638,7 +631,7 @@ async function handleExecute(req, res) {
     await new Promise((resolve) => setTimeout(resolve, PI_INIT_DELAY_MS))
 
     if (pi.exitCode !== null) {
-      const stderr = redact(Buffer.concat(stderrChunks).toString('utf8').slice(0, 4000))
+      const stderr = stageLog.tail().slice(0, 4000)
       throw new Error(`pi exited immediately (code ${pi.exitCode}) for ${model.id}: ${stderr}`)
     }
   }
@@ -724,7 +717,7 @@ async function handleExecute(req, res) {
               to: nextModel.id,
               reason: activeProbe.reason,
             })
-            log('warn', 'pi.model_failover', { stageName, from: failedModel.id, to: nextModel.id, reason: activeProbe.reason })
+            stageLogFn('warn', 'pi.model_failover', { stageName, from: failedModel.id, to: nextModel.id, reason: activeProbe.reason })
             stopPi()
             try {
               await startPi(nextModel, nextIndex, 'tool-capability-probe-failed')
@@ -806,37 +799,45 @@ async function handleExecute(req, res) {
 
     let sessionArchive = null
     try {
-      const captured = await captureSessionArchive(workDir)
+      const captured = await captureSessionArchive(workDir, sessionDir)
       if (!captured.skipped) {
         sessionArchive = { data: captured.data, bytes: captured.bytes }
-        log('info', 'execute.session_archive', { stageName, bytes: captured.bytes, sessionDir: captured.sessionDir, archiveKind: captured.archiveKind })
+        stageLogFn('info', 'execute.session_archive', { stageName, bytes: captured.bytes, sessionDir: captured.sessionDir, archiveKind: captured.archiveKind })
         pushObservationEvent(observation, { type: 'execute.session_archive', bytes: captured.bytes, archiveKind: captured.archiveKind })
       } else {
-        log('info', 'execute.session_archive_skipped', { stageName, reason: captured.reason, bytes: captured.bytes })
+        stageLogFn('info', 'execute.session_archive_skipped', { stageName, reason: captured.reason, bytes: captured.bytes })
         pushObservationEvent(observation, { type: 'execute.session_archive_skipped', reason: captured.reason })
       }
     } catch (archiveErr) {
-      log('warn', 'execute.session_archive_failed', { stageName, error: String(archiveErr) })
+      stageLogFn('warn', 'execute.session_archive_failed', { stageName, error: String(archiveErr) })
     }
 
     stopPi()
+    const cleanup = await cleanupWorkDir(workDir)
+    observation.workspaceCleanup = cleanup
+    pushObservationEvent(observation, { type: 'execute.workdir_cleanup', ...cleanup })
 
     const elapsedMs = Date.now() - t0
-    log('info', 'execute.complete', { stageName, artifacts: artifactNames, missing: evaluation.missing, elapsedMs })
+    stageLogFn('info', 'execute.complete', { stageName, artifacts: artifactNames, missing: evaluation.missing, elapsedMs })
+    stageLogs.set(runId, stageName, stageLog.tail())
     writeJson(res, 200, {
       artifacts: artifactNames,
       artifactContents,
       message: `${stageName} complete`,
-      observation: observationPayload(observation, stderrChunks, { elapsedMs }),
+      observation: observationPayload(observation, stageLog, { elapsedMs }),
       ...(sessionArchive ? { sessionArchive } : {}),
     })
   } catch (err) {
     stopPi()
+    const cleanup = await cleanupWorkDir(workDir)
+    observation.workspaceCleanup = cleanup
+    pushObservationEvent(observation, { type: 'execute.workdir_cleanup', ...cleanup })
     const elapsedMs = Date.now() - t0
     const message = err instanceof Error ? err.message : String(err)
     const code = err instanceof PiExecutionError ? err.code : 'PI_EXECUTION_FAILED'
-    const observationOut = observationPayload(observation, stderrChunks, { elapsedMs })
-    log('error', 'execute.failed', { stageName, error: redact(message), stderrTail: observationOut.stderrTail, elapsedMs })
+    const observationOut = observationPayload(observation, stageLog, { elapsedMs })
+    stageLogFn('error', 'execute.failed', { stageName, error: redact(message), stderrTail: observationOut.stderrTail, elapsedMs })
+    stageLogs.set(runId, stageName, stageLog.tail())
     writeJson(res, 500, {
       error: { code, message: redact(message), stderrTail: observationOut.stderrTail },
       observation: observationOut,
@@ -857,9 +858,15 @@ const server = createServer(async (req, res) => {
         ts: new Date().toISOString(),
         runtime: containerRuntimeIdentity(),
       }))
-    } else if (req.method === 'GET' && req.url === '/logs/tail') {
+    } else if (req.method === 'GET' && req.url?.startsWith('/logs/tail')) {
+      const url = new URL(req.url, 'http://pi-worker')
+      const runId = url.searchParams.get('runId')
+      const stageName = url.searchParams.get('stageName')
+      const tail = runId && stageName
+        ? stageLogs.consume(runId, stageName)
+        : serverLog.tail()
       res.writeHead(200, { 'Content-Type': 'application/jsonl; charset=utf-8' })
-      res.end(stderrRingBuffer)
+      res.end(tail)
     } else {
       res.writeHead(404)
       res.end('not found')

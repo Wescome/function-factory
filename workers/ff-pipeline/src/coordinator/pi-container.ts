@@ -19,6 +19,7 @@ import {
   resolveDesiredPiContainerBuildId,
   shouldRestartPiContainerForBuild,
 } from "./pi-container-version.js"
+import { BoundedSerialQueue } from "./pi-container-backpressure.js"
 
 const CONTAINER_PORT = 8080
 // Retry parameters for container cold-start: up to 15 attempts × 500ms = 7.5s
@@ -27,6 +28,7 @@ const STARTUP_RETRY_DELAY_MS = 500
 const STARTED_BUILD_ID_KEY = "pi:container:started-build-id"
 const STARTED_AT_KEY = "pi:container:started-at"
 const LAST_MONITOR_EVENT_KEY = "pi:container:last-monitor-event"
+const MAX_EXECUTE_QUEUE_DEPTH = 4
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -34,6 +36,7 @@ function sleep(ms: number): Promise<void> {
 
 export class PiContainer extends DurableObject<HarnessBridgeEnv> {
   private startPromise: Promise<void> | null = null
+  private executeQueue = new BoundedSerialQueue(MAX_EXECUTE_QUEUE_DEPTH)
 
   override async fetch(request: Request): Promise<Response> {
     if (!this.ctx.container) {
@@ -58,6 +61,70 @@ export class PiContainer extends DurableObject<HarnessBridgeEnv> {
     const requestMeta = request.method === "POST" && url.pathname === "/execute"
       ? await readRunRequestMeta(request)
       : null
+
+    if (requestMeta) {
+      const queued = await this.executeQueue.run(async () => {
+        return this.forwardToContainer(request, requestMeta)
+      })
+      if (!queued.accepted) {
+        await emitRunEvent(this.env, {
+          runId: requestMeta.runId,
+          stageName: requestMeta.stageName,
+          type: "container_backpressure_rejected",
+          emitter: "pi-container",
+          data: {
+            reason: queued.reason,
+            active: queued.active,
+            waiting: queued.waiting,
+            maxQueued: queued.maxQueued,
+          },
+        })
+        return new Response(
+          JSON.stringify({
+            error: {
+              code: "PI_CONTAINER_BUSY",
+              message: "pi singleton container queue is full",
+            },
+            queue: {
+              active: queued.active,
+              waiting: queued.waiting,
+              maxQueued: queued.maxQueued,
+            },
+          }),
+          {
+            status: 429,
+            headers: {
+              "Content-Type": "application/json",
+              "Retry-After": "5",
+            },
+          },
+        )
+      }
+      if (queued.queued) {
+        this.ctx.waitUntil(emitRunEvent(this.env, {
+          runId: requestMeta.runId,
+          stageName: requestMeta.stageName,
+          type: "container_backpressure_waited",
+          emitter: "pi-container",
+          data: { waitedMs: queued.waitedMs },
+        }))
+      }
+      return queued.value
+    }
+
+    return this.forwardToContainer(request, null)
+  }
+
+  private async forwardToContainer(
+    request: Request,
+    requestMeta: { runId: string; stageName: string } | null,
+  ): Promise<Response> {
+    if (!this.ctx.container) {
+      return new Response(
+        JSON.stringify({ error: "pi container not available on this runtime" }),
+        { status: 503, headers: { "Content-Type": "application/json" } },
+      )
+    }
 
     // Retry with backoff on cold start: the container needs a moment to boot
     // before server.mjs is listening on port 8080. Clone the request each
@@ -193,7 +260,7 @@ export class PiContainer extends DurableObject<HarnessBridgeEnv> {
     if (!this.ctx.container) return
     try {
       const response = await this.ctx.container.getTcpPort(CONTAINER_PORT).fetch(
-        new Request("http://pi-worker/logs/tail"),
+        new Request(`http://pi-worker/logs/tail?runId=${encodeURIComponent(runId)}&stageName=${encodeURIComponent(stageName)}`),
       )
       const tail = await response.text()
       await this.env.WORKSPACE_BUCKET.put(

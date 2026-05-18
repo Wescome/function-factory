@@ -28,6 +28,8 @@ export type RunEventType =
   | "container_started"
   | "container_dispatch_retried"
   | "container_dispatch_recovered"
+  | "container_backpressure_rejected"
+  | "container_backpressure_waited"
   | "container_stderr_flush"
   | "container_crashed"
 
