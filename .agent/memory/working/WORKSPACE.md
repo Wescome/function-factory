@@ -1,12 +1,18 @@
 # Current Workspace
 
 ## Status
-2026-05-18T14:48:17Z: FN-SYNTH-MIGRATE Cloudflare Pi container rollout fix implemented locally. Worker now binds CF_VERSION_METADATA, PiContainer restarts stale singleton instances by persisted Worker version, exposes `/debug/pi-container/status` and `/debug/pi-container/restart`, and container health/observations include runtime identity. Commit pending.
+2026-05-18T15:09:30Z: FN-SYNTH-MIGRATE stuck-workflow recovery patch implemented, tested, committed, pushed, and deployed. Context-building exceptions are captured as worker failures, terminal harness-complete sendEvent failures retry via DO alarm, and harness-dlq messages force-complete the run through RunCoordinator. Production Worker version `4af8970e-1465-4ca4-b6bc-9a4fb376f423`; Pi singleton desired/started build IDs match that Worker version.
 
 ## Current branch
 `factory/fp-motdwvr2-w7un`
 
 ## Completed this session
+- Added stuck-workflow recovery fixes from `specs/reference/observability-se-diagnosis.md`:
+  - moved `buildStageContextForRun` inside the dispatcher try/catch so missing input artifacts become captured worker failures instead of queue/DLQ hangs
+  - added RunCoordinator alarm retry for failed `harness-complete` workflow notifications
+  - added RunCoordinator `/force-complete` for idempotent terminal recovery
+  - added `harness-dlq` consumer wiring and `consumeHarnessDlq`
+  - kept new user-facing logs/comments on ontology language (`executionNode`, verification checks) while preserving existing NLAH compatibility fields (`stageName`, `gateResults`, `finalStage`)
 - Added Cloudflare rollout architecture fix:
   - `version_metadata` binding `CF_VERSION_METADATA`
   - persisted Pi singleton `startedBuildId` in the Durable Object
@@ -51,7 +57,16 @@
 - Full suite first run hit 5 unrelated timeout/queue failures under file parallelism; rerunning the failed subset passed: 4 files / 82 tests.
 - Stable full suite:
   `pnpm --filter @factory/ff-pipeline exec vitest run --passWithNoTests --no-file-parallelism`
-  -> 75 files / 1011 tests passed.
+  -> 75 files / 1017 tests passed.
+- Stuck-workflow focused tests:
+  `pnpm --filter @factory/ff-pipeline test src/harness-dispatcher.test.ts src/coordinator/run-coordinator.test.ts src/queue-bridge.test.ts`
+  -> 3 files / 51 tests passed.
+- Wrangler deploy dry-run passed with the added `harness-dlq` queue consumer binding.
+- Deployed with `pnpm exec wrangler deploy --containers-rollout=immediate`.
+  - Worker version: `4af8970e-1465-4ca4-b6bc-9a4fb376f423`
+  - Wrangler output includes `Consumer for harness-dlq`
+  - `/debug/pi-container/health` returned runtime `workerVersionId=4af8970e-1465-4ca4-b6bc-9a4fb376f423`
+  - `/debug/pi-container/status` returned matching `desiredBuildId` and `startedBuildId`
 - `node --check workers/ff-pipeline/pi-container/server.mjs`
 - `node --check workers/ff-pipeline/pi-container/tool-capability-probe.mjs`
 - `node --check workers/ff-pipeline/pi-container/workspace-derived-artifacts.mjs`

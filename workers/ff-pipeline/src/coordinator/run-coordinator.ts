@@ -50,6 +50,8 @@ const KEY_WORKFLOW_ID = "harness:workflowId"
 const KEY_TASK_TEXT = "harness:taskText"
 const KEY_RESULT = "harness:result"
 const KEY_DISPATCHED = "harness:dispatched"
+const KEY_NOTIFY_ATTEMPTS = "harness:notifyAttempts"
+const NOTIFY_RETRY_DELAY_MS = 30_000
 
 export class RunCoordinator extends DurableObject<HarnessBridgeEnv> {
   override async fetch(request: Request): Promise<Response> {
@@ -61,6 +63,9 @@ export class RunCoordinator extends DurableObject<HarnessBridgeEnv> {
       }
       if (request.method === "POST" && url.pathname === "/stage-complete") {
         return await this.handleStageComplete(request)
+      }
+      if (request.method === "POST" && url.pathname === "/force-complete") {
+        return await this.handleForceComplete(request)
       }
       if (request.method === "GET" && url.pathname === "/get-compiled") {
         return await this.handleGetCompiled()
@@ -74,6 +79,17 @@ export class RunCoordinator extends DurableObject<HarnessBridgeEnv> {
         headers: { "Content-Type": "application/json" },
       })
     }
+  }
+
+  override async alarm(): Promise<void> {
+    const result = await this.ctx.storage.get<HarnessRunResult>(KEY_RESULT)
+    if (!result) {
+      console.error("[RunCoordinator] alarm fired but no terminal result is persisted")
+      await this.ctx.storage.deleteAlarm()
+      return
+    }
+    const state = await this.ctx.storage.get<HarnessState>(KEY_STATE)
+    await this.notifyWorkflowComplete(state?.runId ?? "unknown", result)
   }
 
   // ── /init ───────────────────────────────────────────────────────────────
@@ -259,6 +275,46 @@ export class RunCoordinator extends DurableObject<HarnessBridgeEnv> {
     }
   }
 
+  // ── /force-complete ────────────────────────────────────────────────────
+  private async handleForceComplete(request: Request): Promise<Response> {
+    const payload = (await request.json()) as {
+      runId?: string
+      result?: HarnessRunResult
+      reason?: string
+    }
+    if (!payload?.result) {
+      return new Response(
+        JSON.stringify({ error: "missing result" }),
+        { status: 400, headers: { "Content-Type": "application/json" } },
+      )
+    }
+
+    const [existingResult, state] = await Promise.all([
+      this.ctx.storage.get<HarnessRunResult>(KEY_RESULT),
+      this.ctx.storage.get<HarnessState>(KEY_STATE),
+    ])
+    if (existingResult) {
+      await this.notifyWorkflowComplete(payload.runId ?? state?.runId ?? "unknown", existingResult)
+      return new Response(
+        JSON.stringify({ ok: true, action: "already-complete", result: existingResult }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      )
+    }
+
+    await this.ctx.storage.put(KEY_RESULT, payload.result)
+    if (state) {
+      await this.ctx.storage.put(KEY_STATE, {
+        ...state,
+        status: "failed",
+      } satisfies HarnessState)
+    }
+    await this.notifyWorkflowComplete(payload.runId ?? state?.runId ?? "unknown", payload.result)
+    return new Response(
+      JSON.stringify({ ok: true, action: "force-complete", result: payload.result }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    )
+  }
+
   /**
    * Notify the suspended Workflow that the harness has reached a terminal
    * state. Matches the established sendEvent pattern from
@@ -287,8 +343,13 @@ export class RunCoordinator extends DurableObject<HarnessBridgeEnv> {
         type: "harness-complete",
         payload: result,
       })
+      await this.ctx.storage.delete(KEY_NOTIFY_ATTEMPTS)
+      await this.ctx.storage.deleteAlarm()
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
+      const attempts = (await this.ctx.storage.get<number>(KEY_NOTIFY_ATTEMPTS)) ?? 0
+      await this.ctx.storage.put(KEY_NOTIFY_ATTEMPTS, attempts + 1)
+      await this.ctx.storage.setAlarm(Date.now() + NOTIFY_RETRY_DELAY_MS)
       // Tier-1 signal: workflow sendEvent failed. Result is persisted at
       // KEY_RESULT; a future HARNESS_RESULTS relay queue or a poll endpoint
       // can drain it. This matches the console-only signal pattern in

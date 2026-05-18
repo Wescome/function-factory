@@ -47,6 +47,8 @@ function makeMockStorage() {
       }
     }),
     delete: vi.fn(async (key: string) => data.delete(key)),
+    setAlarm: vi.fn(async (_time: number | Date) => {}),
+    deleteAlarm: vi.fn(async () => {}),
     _data: data,
   }
 }
@@ -428,6 +430,63 @@ describe('RunCoordinator DO', () => {
       expect((env.FACTORY_PIPELINE.get as ReturnType<typeof vi.fn>).mock.calls[0]![0]).toBe('wf-001')
     })
 
+    it('sendEvent failure schedules an alarm retry using persisted terminal result', async () => {
+      const sendEvent = vi.fn(async () => {
+        throw new Error('workflow event temporarily unavailable')
+      })
+      const { RunCoordinator } = await import('./run-coordinator.js')
+      const ctx = makeMockCtx()
+      const env = makeMockEnv({
+        FACTORY_PIPELINE: {
+          get: vi.fn(async () => ({ id: 'wf-001', status: vi.fn(async () => ({})), sendEvent })),
+          create: vi.fn(async () => ({ id: 'wf-001' })),
+        },
+      })
+      const rc = new RunCoordinator(ctx as never, env as never)
+      const result = makeHarnessRunResult('pass')
+      ctx.storage._data.set('harness:compiled', makeCompiledHarness())
+      ctx.storage._data.set('harness:state', makeHarnessState())
+      ctx.storage._data.set('harness:workflowId', 'wf-001')
+      mockAdvanceHarness.mockReturnValue({
+        action: 'complete',
+        result,
+        newState: makeHarnessState({ status: 'completed' }),
+      })
+
+      const resp = await rc.fetch(new Request('https://do/stage-complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(makeStageCompletePayload()),
+      }))
+
+      expect(resp.status).toBe(200)
+      expect(ctx.storage._data.get('harness:result')).toEqual(result)
+      expect(ctx.storage.setAlarm).toHaveBeenCalledOnce()
+    })
+
+    it('alarm retries persisted terminal notification and clears alarm on success', async () => {
+      const sendEvent = vi.fn(async () => {})
+      const { RunCoordinator } = await import('./run-coordinator.js')
+      const ctx = makeMockCtx()
+      const env = makeMockEnv({
+        FACTORY_PIPELINE: {
+          get: vi.fn(async () => ({ id: 'wf-001', status: vi.fn(async () => ({})), sendEvent })),
+          create: vi.fn(async () => ({ id: 'wf-001' })),
+        },
+      })
+      const rc = new RunCoordinator(ctx as never, env as never)
+      const result = makeHarnessRunResult('pass')
+      ctx.storage._data.set('harness:result', result)
+      ctx.storage._data.set('harness:workflowId', 'wf-001')
+      ctx.storage._data.set('harness:state', makeHarnessState())
+
+      await rc.alarm()
+
+      expect(sendEvent).toHaveBeenCalledWith({ type: 'harness-complete', payload: result })
+      expect(ctx.storage.deleteAlarm).toHaveBeenCalledOnce()
+      expect(ctx.storage._data.get('harness:notifyAttempts')).toBeUndefined()
+    })
+
     it('fail action: persists result and notifies Workflow', async () => {
       const { rc, env } = await initRc()
       const result = makeHarnessRunResult('fail')
@@ -489,6 +548,34 @@ describe('RunCoordinator DO', () => {
       })
       const resp = await rc.fetch(req)
       expect(resp.status).toBe(409)
+    })
+  })
+
+  describe('POST /force-complete', () => {
+    it('persists a forced failure result and notifies Workflow', async () => {
+      const sendEvent = vi.fn(async () => {})
+      const { RunCoordinator } = await import('./run-coordinator.js')
+      const ctx = makeMockCtx()
+      const env = makeMockEnv({
+        FACTORY_PIPELINE: {
+          get: vi.fn(async () => ({ id: 'wf-001', status: vi.fn(async () => ({})), sendEvent })),
+          create: vi.fn(async () => ({ id: 'wf-001' })),
+        },
+      })
+      const rc = new RunCoordinator(ctx as never, env as never)
+      const result = makeHarnessRunResult('fail')
+      ctx.storage._data.set('harness:state', makeHarnessState())
+      ctx.storage._data.set('harness:workflowId', 'wf-001')
+
+      const resp = await rc.fetch(new Request('https://do/force-complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ runId: 'run-test-001', result, reason: 'dlq' }),
+      }))
+
+      expect(resp.status).toBe(200)
+      expect(ctx.storage._data.get('harness:result')).toEqual(result)
+      expect(sendEvent).toHaveBeenCalledWith({ type: 'harness-complete', payload: result })
     })
   })
 })

@@ -361,6 +361,45 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
       expect(msg.retry).not.toHaveBeenCalled()
     })
 
+    it('routes harness-dlq messages to RunCoordinator /force-complete and acks', async () => {
+      const { default: worker } = await import('./index')
+      const mockRunFetch = vi.fn(async (_request: Request) => new Response(JSON.stringify({ ok: true }), {
+        headers: { 'Content-Type': 'application/json' },
+      }))
+      const env = createEnv({
+        RUN_COORDINATOR: {
+          idFromName: vi.fn(() => 'run-do-id'),
+          get: vi.fn(() => ({ fetch: mockRunFetch })),
+        },
+      })
+      const msg = createMockMessage({
+        runId: 'run-dlq-001',
+        stageName: 'PATCH',
+      })
+      const batch = {
+        messages: [msg],
+        queue: 'harness-dlq',
+        metadata: { metrics: { backlogCount: 1, backlogBytes: 0 } },
+        retryAll: vi.fn(),
+        ackAll: vi.fn(),
+      }
+      const ctx = createMockCtx()
+
+      await worker.queue(batch as never, env as never, ctx as never)
+
+      expect(mockRunFetch).toHaveBeenCalledOnce()
+      const req = mockRunFetch.mock.calls[0]![0] as Request
+      expect(new URL(req.url).pathname).toBe('/force-complete')
+      const body = await req.json() as { result: { failureClass?: string; finalStage?: string } }
+      expect(body.result).toMatchObject({
+        overall: 'fail',
+        finalStage: 'PATCH',
+        failureClass: 'DLQ_EXHAUSTED',
+      })
+      expect(msg.ack).toHaveBeenCalledOnce()
+      expect(msg.retry).not.toHaveBeenCalled()
+    })
+
     it('acks IMMEDIATELY after dispatching — does NOT await DO synthesis result', async () => {
       const { default: worker } = await import('./index')
 

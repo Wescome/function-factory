@@ -227,6 +227,27 @@ describe('dispatchOne', () => {
     expect((payload.gateResults as unknown[]).length).toBe(0)
   })
 
+  it('context build throw: surfaces as workerThrew instead of escaping to queue retry', async () => {
+    const { dispatchOne } = await import('./harness-dispatcher.js')
+    const stub = makeDoStub(makeGetCompiledResponse(), makeStageCompleteOkResponse())
+    const env = makeEnv(stub)
+    const deps = makeDeps({
+      buildStageContextForRun: vi.fn(async () => {
+        throw new Error('preseed artifact missing: SeedWorkspace')
+      }),
+    })
+
+    await dispatchOne({ runId: 'run-dispatch-001', stageName: 'PLAN' }, env as never, deps)
+
+    expect(deps.resolveWorkerAdapter).not.toHaveBeenCalled()
+    const completeCall = stub.fetch.mock.calls.find((c: unknown[]) => (c[0] as string).includes('/stage-complete'))
+    const completeOpts = completeCall![1] as RequestInit
+    const payload = JSON.parse(completeOpts.body as string) as Record<string, unknown>
+    expect(payload.workerThrew).toBeDefined()
+    expect((payload.workerThrew as { message: string }).message).toContain('preseed artifact missing')
+    expect((payload.gateResults as unknown[]).length).toBe(0)
+  })
+
   it('routes autonomous filesystem-authoring stages through RPC with filesystem tool capability metadata', async () => {
     const { dispatchOne } = await import('./harness-dispatcher.js')
     const compiled = makeCompiledHarness({

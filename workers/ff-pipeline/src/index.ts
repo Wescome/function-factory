@@ -1460,6 +1460,13 @@ export default {
 
   async queue(batch: MessageBatch, env: PipelineEnv, _ctx: ExecutionContext): Promise<void> {
     for (const msg of batch.messages) {
+      // ── harness-dlq: force-complete stuck harness Workflows ────────────────
+      if (batch.queue === 'harness-dlq') {
+        const { consumeHarnessDlq } = await import('./harness-dlq-consumer.js')
+        const harnessEnv = env as unknown as import('./harness-env').HarnessBridgeEnv
+        await consumeHarnessDlq(batch as MessageBatch<import('./harness-env').HarnessQueueMessage>, harnessEnv)
+        break
+      }
 
       // ── harness-queue: NLAH-driven stage dispatch (IS-HARNESS-DSL-v1 §3.1) ──
       // The dispatcher MUST NOT live on the RunCoordinator DO (self-fetch deadlock);

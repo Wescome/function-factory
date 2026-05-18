@@ -319,20 +319,8 @@ export async function dispatchOne(
     throw new Error(`unknown stage in compiled harness: ${message.stageName}`)
   }
 
-  // ── 2. Build artifact manager + stage context ──────────────────────────
+  // ── 2. Build artifact manager ──────────────────────────────────────────
   const artifacts = deps.buildArtifactManager(message.runId, compiled, env)
-  const stageContext = await deps.buildStageContextForRun({
-    state,
-    compiled,
-    stage,
-    artifacts,
-    // `taskText` is sourced from RunCoordinator DO storage (KEY_TASK_TEXT)
-    // rather than HarnessState because NLAH's runtime discards it (see
-    // /Users/wes/nlah/src/runtime.ts:154). Default to empty string when
-    // an older DO state predates the field — the bridge ALWAYS sends it
-    // for new runs, so this only matters during a rolling deploy window.
-    taskText: taskText ?? "",
-  })
 
   // ── 3. Resolve worker + run it ─────────────────────────────────────────
   let workerOutput: WorkerOutput | null = null
@@ -342,6 +330,18 @@ export async function dispatchOne(
   const t0 = Date.now()
 
   try {
+    const stageContext = await deps.buildStageContextForRun({
+      state,
+      compiled,
+      stage,
+      artifacts,
+      // `taskText` is sourced from RunCoordinator DO storage (KEY_TASK_TEXT)
+      // rather than HarnessState because NLAH's runtime discards it (see
+      // /Users/wes/nlah/src/runtime.ts:154). Default to empty string when
+      // an older DO state predates the field — the bridge ALWAYS sends it
+      // for new runs, so this only matters during a rolling deploy window.
+      taskText: taskText ?? "",
+    })
     const adapter = deps.resolveWorkerAdapter(stage.worker, env)
     const stateView = synthesizeRuntimeStateView(state, compiled)
     const outputContracts = compileOutputContracts(stage, compiled)
@@ -373,10 +373,10 @@ export async function dispatchOne(
     }
   }
 
-  // ── 4. Evaluate gates against produced artifacts ───────────────────────
-  // Gates run only when the worker did not throw. If the worker threw,
-  // the gate set is empty and the RunCoordinator's synthetic
-  // `worker_executed` gate handles the failure path.
+  // ── 4. Evaluate verification checks against produced artifacts ─────────
+  // Verification checks run only when the worker did not throw. If the worker
+  // threw, the RunCoordinator's synthetic `worker_executed` result handles
+  // the failure path through the current NLAH compatibility field.
   //
   // `gate.all` and `gate.any` have DIFFERENT semantics and CANNOT be
   // flattened into a single array:

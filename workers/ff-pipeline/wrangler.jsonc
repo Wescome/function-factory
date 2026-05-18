@@ -65,7 +65,8 @@
       // NOTE: the harness-queue consumer is bound to the harness-dispatcher.ts
       // entry, NOT the RunCoordinator DO. The DO consuming its own queue would
       // self-fetch-deadlock — see MEMORY for Phase 3/4 and IS-HARNESS-DSL-v1 §3.1.
-      { "queue": "harness-queue", "max_batch_size": 1, "max_retries": 3, "dead_letter_queue": "harness-dlq" }
+      { "queue": "harness-queue", "max_batch_size": 1, "max_retries": 3, "dead_letter_queue": "harness-dlq" },
+      { "queue": "harness-dlq", "max_batch_size": 10, "max_retries": 1 }
     ]
   },
 
