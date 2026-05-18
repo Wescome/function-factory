@@ -21,51 +21,121 @@ operators can observe and recover live runs. The next production priority is
 the coding Domain Adapter's full Pi-backed authoring path, followed by
 observability across the entire Function Factory pipeline.
 
-## Milestone 1: Pi Coding Infrastructure Production Readiness
+Architect production-readiness review adds a sharper boundary:
 
-**Goal:** The end-to-end Factory coding path can produce, verify, repair, and
-report a real Pi-authored change without deterministic authoring shortcuts.
+- The deterministic materialization path is production-ready.
+- The autonomous Pi reasoning path is not production-ready until it authors a
+  real diff in production and the singleton container cannot contaminate
+  stage-scoped evidence.
+
+## Milestone 0: Container Isolation and Backpressure
+
+**Goal:** The singleton Pi container cannot corrupt stage evidence, share mutable
+session state across stages, or accept unbounded concurrent work.
 
 Scope:
 
-- Full coding-domain production run from objective or seeded workspace through
-  compiled intent, executable specification, harness runtime, Pi authoring,
-  verification, repair, and final report.
-- R2 harness load and NLAH compilation through the production path.
-- RunCoordinator state transitions and queue dispatch across the whole coding
-  run.
-- Pi free-form patch authoring with no deterministic patch materialization
-  shortcuts.
-- Multi-file patch smokes, invalid patch recovery, and failing-test repair loop.
-- Per-dispatch model-route evidence.
-- CandidatePatch, VerifierReport, FinalPatch, and PRSummary artifacts.
-- R2 manifest, phase record, attempt log, observation, and report persistence.
-- Production smoke command through `pnpm prod:smoke:coding` or inclusion in
-  `pnpm prod:smoke`.
+- Per-stage stderr collector instead of module-global stderr ring persistence.
+- Per-stage Pi session directory:
+  `PI_SESSION_DIR=${workDir}/.pi-sessions`.
+- Workdir cleanup in `finally` after stage completion or failure.
+- Backpressure for `POST /execute` against the singleton container.
+- Concurrent-stage smoke proving two stages cannot cross-contaminate
+  observations, stderr, session archive, or contract artifacts.
 
 Exit criteria:
 
-- A production smoke proves Pi authored and repaired a realistic multi-file
-  change through the same infrastructure used by the full Factory pipeline.
-- The smoke fails closed on skipped authoring, missing tool-call evidence,
-  missing artifacts, bad model-route evidence, failed verification, or
-  persistence gaps.
-- The coding Domain Adapter evidence is linked back to the Factory artifacts
-  that caused the run.
-- A passing run emits a committed
-  `VR-FN-MOTDWVR2-W7UN-PROD-CODING-E2E-*` report or successor Function-linked
-  report.
+- No stage writes stderr, session, or archive data produced by another stage.
+- Concurrent dispatches are queued, rejected with a clear retryable response, or
+  otherwise bounded by an explicit container policy.
+- Warm containers do not accrete unbounded workdirs or shared `$HOME/.pi`
+  session state.
+- Operator-facing artifacts identify whether an archive was complete, capped,
+  or dropped.
 
 Evidence:
 
-- `pnpm prod:smoke:coding` or `pnpm prod:smoke` output.
-- Production run ID and Worker/container version identity.
-- R2 artifact keys for CandidatePatch, VerifierReport, FinalPatch, PRSummary,
-  observations, and attempt logs.
-- Model-route evidence for every Pi dispatch.
-- Committed `VR-FN-MOTDWVR2-W7UN-PROD-CODING-E2E-*` report or successor.
+- Unit tests for per-stage collectors and cleanup.
+- Concurrency smoke output.
+- R2 observation, stderr, and session archive keys for two overlapping stages.
+- Committed `VR-FN-PI-CONTAINER-ISOLATION-*` report or successor.
 
-## Milestone 2: Full Pipeline Observability
+## Milestone 1: Autonomous Pi Authoring Production Proof
+
+**Goal:** Pi LLM authoring executes in production and produces a real, verified
+filesystem patch without deterministic patch synthesis.
+
+Scope:
+
+- Production smoke with `authoringMode: "autonomous_filesystem"` against a
+  seeded workspace with no `expectedChanges` deterministic patch materializer.
+- Tool capability probe evidence when the deterministic path cannot satisfy all
+  contracts.
+- Free-form Pi patch authoring, invalid patch recovery, and failing-test repair
+  loop.
+- Per-dispatch model-route evidence from the Worker input that actually reaches
+  Pi.
+- CandidatePatch, VerifierReport, FinalPatch, and PRSummary artifacts.
+- R2 manifest, phase record, attempt log, observation, and report persistence.
+
+Exit criteria:
+
+- Pi independently authors a non-empty CandidatePatch in production.
+- `finalAttempt` is `initial` or `repair-1` for the smoke.
+- CandidatePatch is a valid unified diff and `git apply --check` accepts it.
+- Session archive is non-empty and linked from R2.
+- The smoke fails closed on `skipPrompt = true`, zero tool calls, missing
+  model-route evidence, missing CandidatePatch, missing verifier evidence, or
+  missing R2 artifacts.
+- A passing run emits a committed `VR-FN-PI-AUTONOMOUS-AUTHORING-*` report or
+  successor Function-linked report.
+
+Evidence:
+
+- `pnpm prod:smoke:coding` or focused autonomous-authoring smoke output.
+- Production run ID and Worker/container version identity.
+- CandidatePatch artifact and `git apply --check` result.
+- Pi session archive, tool-call trace, stderr, and contract-evaluation keys.
+- Model-route evidence for every Pi dispatch.
+- Committed `VR-FN-PI-AUTONOMOUS-AUTHORING-*` report or successor.
+
+## Milestone 2: Pi Runtime Hardening
+
+**Goal:** Autonomous Pi authoring cannot silently fail open, monopolize the
+singleton container, or forge verification evidence.
+
+Scope:
+
+- Startup secret validation: container exits clearly if `OFOX_API_KEY` or its
+  configured equivalent is missing.
+- `POST /__pi-container/restart` protected by `OPERATOR_CONTROL_TOKEN`.
+- End-to-end execution budget covering probe, initial attempt, and repairs.
+- Failover waits for the previous Pi process to exit before spawning the next
+  candidate.
+- Repair prompts include current file content or explicit file context.
+- Contract failure can use model failover according to the routing policy.
+- Workspace-derived VerifierReport artifacts are marked `synthesized: true` or
+  renamed to `SyntheticVerifierReport`.
+- Session archive cap or truncation is surfaced as operator-visible evidence.
+
+Exit criteria:
+
+- Missing model credential fails at startup with a specific missing-secret
+  signal.
+- Unauthenticated restart requests fail in production.
+- A stage cannot hold the singleton container past the configured total budget.
+- Failed Pi processes cannot leak trailing events into the next candidate's
+  tool-call counts.
+- Synthetic verifier evidence is distinguishable from real verifier execution.
+
+Evidence:
+
+- Unit tests for secret validation, restart auth, timeout budget, failover
+  cleanup, and synthetic verifier tagging.
+- Production auth probe for restart.
+- Production smoke showing timeout and archive-cap diagnostics are visible.
+
+## Milestone 3: Full Pipeline Observability
 
 **Goal:** Operators can watch and diagnose the whole Function Factory pipeline,
 not only the harness-runtime slice.
@@ -105,15 +175,17 @@ Evidence:
 - CLI rendering tests.
 - Committed full-pipeline observability `VR-*` report.
 
-## Milestone 3: Full Production Smoke Standardization
+## Milestone 4: Full Production Smoke Standardization
 
 **Goal:** One command verifies the full deploy surface, not only live controls
 or the coding smoke.
 
 Scope:
 
-- Pi coding infrastructure smoke from Milestone 1.
-- Full-pipeline observability smoke from Milestone 2.
+- Container isolation smoke from Milestone 0.
+- Autonomous Pi authoring smoke from Milestone 1.
+- Pi runtime hardening checks from Milestone 2.
+- Full-pipeline observability smoke from Milestone 3.
 - Container rollout transient smoke.
 - R2 artifact, manifest, phase-record, and attempt-log checks.
 - Run monitor projection checks.
@@ -135,7 +207,7 @@ Evidence:
 - R2 artifact keys.
 - Committed `VR-FN-MOTDWVR2-W7UN-PROD-*` report or successor.
 
-## Milestone 4: Security Boundary
+## Milestone 5: Security Boundary
 
 **Goal:** Production endpoints are intentionally exposed, protected, or removed.
 
@@ -162,7 +234,7 @@ Evidence:
 - Production auth probes.
 - Tests.
 
-## Milestone 5: Operator Audit Hardening
+## Milestone 6: Operator Audit Hardening
 
 **Goal:** Operator actions are attributable and auditable beyond free-text labels.
 
@@ -187,7 +259,7 @@ Evidence:
 - Production smoke showing audit fields.
 - Updated operator runbook.
 
-## Milestone 6: Run Lifecycle Cleanup
+## Milestone 7: Run Lifecycle Cleanup
 
 **Goal:** Runs cannot remain invisible, orphaned, or permanently active without
 detection.
@@ -212,7 +284,7 @@ Evidence:
 - Watchdog tests.
 - Production drill with a disposable stuck/abandoned run.
 
-## Milestone 7: Release and Rollback Discipline
+## Milestone 8: Release and Rollback Discipline
 
 **Goal:** Deploys are repeatable, reversible, and evidence-backed.
 
@@ -236,7 +308,7 @@ Evidence:
 - Rollback drill.
 - Deploy-level `VR-*`.
 
-## Milestone 8: Durable Workflow Reliability
+## Milestone 9: Durable Workflow Reliability
 
 **Goal:** Workflow and queue failure modes terminate cleanly with evidence.
 
@@ -260,7 +332,7 @@ Evidence:
 - DLQ production-like drill.
 - Monitor output for abandoned/failure cases.
 
-## Milestone 9: R2 and Artifact Governance
+## Milestone 10: R2 and Artifact Governance
 
 **Goal:** Run evidence has clear lifecycle, retention, and inspection behavior.
 
@@ -283,7 +355,7 @@ Evidence:
 - Inspection command output.
 - Artifact governance doc.
 
-## Milestone 10: Operator UX Completion
+## Milestone 11: Operator UX Completion
 
 **Goal:** The operator workflow is efficient enough for repeated production use.
 
@@ -306,7 +378,7 @@ Evidence:
 - Recorded operator walkthrough.
 - Updated runbook.
 
-## Milestone 11: Docs and Runbooks
+## Milestone 12: Docs and Runbooks
 
 **Goal:** Production operation does not depend on session memory.
 
@@ -328,7 +400,7 @@ Evidence:
 - Docs index.
 - Link/audit checks.
 
-## Milestone 12: Final Production Readiness Review
+## Milestone 13: Final Production Readiness Review
 
 **Goal:** Produce a single decision artifact for production readiness.
 
@@ -355,13 +427,19 @@ Evidence:
 
 ## Recommended Next Work
 
-Start with Milestone 1, then Milestone 2:
+Start with Milestone 0, then Milestone 1:
 
-1. Build and verify `pnpm prod:smoke:coding` or equivalent for the
-   end-to-end Pi coding infrastructure path.
-2. Implement the full-pipeline correlation envelope and monitor projection.
-3. Consolidate coding, observability, rollout, artifact, and control checks
+1. Implement per-stage stderr/session isolation, workdir cleanup, and singleton
+   container backpressure.
+2. Run a production autonomous Pi authoring smoke with
+   `authoringMode: "autonomous_filesystem"` and no deterministic expected
+   changes.
+3. Close runtime hardening gaps for missing secrets, restart auth, execution
+   budgets, failover cleanup, repair context, and synthetic verifier tagging.
+4. Implement the full-pipeline correlation envelope and monitor projection.
+5. Consolidate coding, observability, rollout, artifact, and control checks
    into broad `pnpm prod:smoke`.
 
-These reduce the largest production risks in order: unproven Pi-backed coding
-execution, partial observability, then fragmented deploy verification.
+These reduce the largest production risks in order: shared singleton state,
+unproven autonomous authoring, unsafe runtime failure modes, partial
+observability, then fragmented deploy verification.
