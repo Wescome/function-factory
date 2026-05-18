@@ -23,8 +23,10 @@ roles:
       Must not edit workspace files.
   PatchWorker:
     responsibility: >
-      Inspect ./workspace and produce one unified diff CandidatePatch that
-      satisfies the SeedWorkspace issue and acceptance criteria.
+      Read the SeedWorkspace issue, acceptance criteria, and seeded files under
+      ./workspace. Produce a unified diff as ./CandidatePatch that, when applied
+      to the seeded workspace files, satisfies the issue and passes the declared
+      test command. The diff must cover only the files that need to change.
   Verifier:
     responsibility: >
       Independently evaluate CandidatePatch against SeedWorkspace. Must not
@@ -65,33 +67,28 @@ artifacts:
     contract:
       kind: text
       required_patterns:
-        - "diff --git a/src/coding-adapter-smoke.ts b/src/coding-adapter-smoke.ts"
-        - "--- a/src/coding-adapter-smoke.ts"
-        - "\\+\\+\\+ b/src/coding-adapter-smoke.ts"
-        - "@@ -1(,1)? \\+1(,1)? @@"
-        - "-export const message = \"before\""
-        - "\\+export const message = \"coding-adapter smoke\""
+        - "^diff --git a/.+ b/.+"
+        - "^--- a/"
+        - "^\\+\\+\\+ b/"
+        - "^@@ -\\d+(,\\d+)? \\+\\d+(,\\d+)? @@"
   VerifierReport:
     path: artifacts/verifier_report.md
     required: true
     contract:
-      kind: text
+      kind: markdown
+      required_sections:
+        - "Verdict"
+        - "Tests"
+        - "Evidence"
       required_patterns:
-        - "Verdict: PASS"
-        - "Tests run"
-        - "node test/coding-adapter-smoke.test.js"
+        - "^Verdict:\\s+(PASS|FAIL)\\s*$"
   FinalPatch:
     path: artifacts/final.patch
     required: true
     contract:
       kind: text
       required_patterns:
-        - "diff --git a/src/coding-adapter-smoke.ts b/src/coding-adapter-smoke.ts"
-        - "--- a/src/coding-adapter-smoke.ts"
-        - "\\+\\+\\+ b/src/coding-adapter-smoke.ts"
-        - "@@ -1(,1)? \\+1(,1)? @@"
-        - "-export const message = \"before\""
-        - "\\+export const message = \"coding-adapter smoke\""
+        - "^diff --git a/.+ b/.+"
   PRSummary:
     path: artifacts/pr_summary.md
     required: true
