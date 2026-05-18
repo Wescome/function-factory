@@ -51,6 +51,7 @@
     "autonomous-scheduler:cli": "tsx packages/autonomous-scheduler/src/cli.ts",
     "audit:docs": "node scripts/audit-docs.mjs",
     "audit:ontology": "node scripts/audit-ontology-hard-cut.mjs",
+    "watch:run": "node scripts/ops/watch-run.mjs",
     "dream": "tsx .agent/tools/dream.ts",
     "bootstrap": "tsx scripts/bootstrap.ts"
   },
