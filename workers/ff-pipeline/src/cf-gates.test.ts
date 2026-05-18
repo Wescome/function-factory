@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
-import { buildCfGateRegistry, cfPatchAppliesCleanly, validateUnifiedDiff } from './cf-gates'
+import {
+  buildCfGateRegistry,
+  cfJsonFieldEquals,
+  cfJsonFieldType,
+  cfPatchAppliesCleanly,
+  installCfGateRegistryForCompile,
+  validateUnifiedDiff,
+} from './cf-gates'
 
 const validPatch = [
   'diff --git a/src/coding-adapter-smoke.ts b/src/coding-adapter-smoke.ts',
@@ -69,6 +76,77 @@ describe('cfPatchAppliesCleanly', () => {
   })
 })
 
+describe('json field gates', () => {
+  it('checks a JSON field against runtime state', async () => {
+    const artifacts = {
+      readText: vi.fn(async () => JSON.stringify({ status: 'ok', runId: 'run-123', elapsedMs: 42 })),
+    }
+
+    const result = await cfJsonFieldEquals(
+      { runId: 'run-123' } as never,
+      artifacts as never,
+      { artifact: 'SmokeJsonArtifact', field: 'runId', valueFrom: 'runId' },
+    )
+
+    expect(artifacts.readText).toHaveBeenCalledWith('SmokeJsonArtifact')
+    expect(result).toMatchObject({ gate: 'json_field_equals', passed: true })
+  })
+
+  it('fails when a JSON field does not match runtime state', async () => {
+    const artifacts = {
+      readText: vi.fn(async () => JSON.stringify({ status: 'ok', runId: 'wrong', elapsedMs: 42 })),
+    }
+
+    const result = await cfJsonFieldEquals(
+      { runId: 'run-123' } as never,
+      artifacts as never,
+      { artifact: 'SmokeJsonArtifact', field: 'runId', valueFrom: 'runId' },
+    )
+
+    expect(result).toMatchObject({
+      gate: 'json_field_equals',
+      passed: false,
+      failureClass: 'gate_abort',
+    })
+    expect(result.message).toContain('expected "run-123"')
+    expect(result.message).toContain('found "wrong"')
+  })
+
+  it('checks a JSON field type', async () => {
+    const artifacts = {
+      readText: vi.fn(async () => JSON.stringify({ status: 'ok', runId: 'run-123', elapsedMs: 42 })),
+    }
+
+    const result = await cfJsonFieldType(
+      {} as never,
+      artifacts as never,
+      { artifact: 'SmokeJsonArtifact', field: 'elapsedMs', type: 'number' },
+    )
+
+    expect(result).toMatchObject({ gate: 'json_field_type', passed: true })
+  })
+
+  it('fails when a JSON field type does not match', async () => {
+    const artifacts = {
+      readText: vi.fn(async () => JSON.stringify({ status: 'ok', runId: 'run-123', elapsedMs: '42' })),
+    }
+
+    const result = await cfJsonFieldType(
+      {} as never,
+      artifacts as never,
+      { artifact: 'SmokeJsonArtifact', field: 'elapsedMs', type: 'number' },
+    )
+
+    expect(result).toMatchObject({
+      gate: 'json_field_type',
+      passed: false,
+      failureClass: 'gate_abort',
+    })
+    expect(result.message).toContain('expected type number')
+    expect(result.message).toContain('found string')
+  })
+})
+
 describe('buildCfGateRegistry', () => {
   it('preserves base gates and overrides patch_applies_cleanly', () => {
     const existing = vi.fn()
@@ -76,5 +154,21 @@ describe('buildCfGateRegistry', () => {
 
     expect(registry.exists).toBe(existing)
     expect(registry.patch_applies_cleanly).toBe(cfPatchAppliesCleanly)
+    expect(registry.json_field_equals).toBe(cfJsonFieldEquals)
+    expect(registry.json_field_type).toBe(cfJsonFieldType)
+  })
+
+  it('installs custom gates into the compile-time registry without replacing existing gates', () => {
+    const existing = vi.fn()
+    const registry: Record<string, never> = {
+      exists: existing as never,
+      json_field_equals: existing as never,
+    }
+
+    installCfGateRegistryForCompile(registry)
+
+    expect(registry.exists).toBe(existing)
+    expect(registry.json_field_equals).toBe(existing)
+    expect(registry.json_field_type).toBe(cfJsonFieldType)
   })
 })

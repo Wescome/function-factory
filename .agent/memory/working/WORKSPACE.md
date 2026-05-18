@@ -1,34 +1,24 @@
 # Current Workspace
 
 ## Status
-2026-05-18T17:37:00Z: Completed and deployed real Pi filesystem-authoring smoke slice.
+2026-05-18T17:50:00Z: Implemented value-level Pi authoring smoke validation; deploy/smoke verification in progress.
 
 ## Changes in progress
-- Added `worker: pi-author` as a DSL-visible alias for the existing Pi container adapter.
-- Added per-dispatch `execution.authoringMode` routing: normal `pi` keeps `contract_materialized_when_possible`; `pi-author` uses `autonomous_filesystem`.
-- Added Pi container `execution-policy.mjs` so autonomous filesystem runs skip deterministic contract materialization and record expected Pi tool inventory (`read`, `bash`, `edit`, `write`) in container observations.
-- Added `harnesses/pi-author-smoke-json.harness.yaml` for real authoring smoke without preseed/materializer.
-- Updated Pi container Dockerfile to copy `execution-policy.mjs`.
+- Added CF-side JSON field gates `json_field_equals` and `json_field_type`.
+- Added compile-time registration for CF custom gates so NLAH compilation accepts ontology-facing gate declarations.
+- Updated `pi-author-smoke-json.harness.yaml` to assert `SmokeJsonArtifact.runId == runtime runId` and `elapsedMs` is numeric.
+- Updated Pi container prompts to include `runId` and `stageName` under `Run Context`.
+- Threaded role responsibility into container `rolePrompt` so role text declared in harness YAML is visible to Pi.
 
 ## Verification
-- Inspected `@earendil-works/pi-coding-agent@0.74.1` npm tarball in `/tmp`; RPC docs/source confirm streamed `agent_start`, `turn_*`, `message_update`, `tool_execution_*`, and `agent_end` events. No RPC command exposes active tools directly; default tool inventory comes from packaged system prompt/SDK defaults.
-- Focused tests passed: `pnpm --filter @factory/ff-pipeline test src/harness-dispatcher.test.ts src/cf-workers.test.ts pi-container/execution-policy.test.mjs pi-container/tool-capability-probe.test.mjs` (4 files / 36 tests).
-- Default ff-pipeline tests passed: `pnpm --filter @factory/ff-pipeline test` (78 files / 1030 tests).
+- Focused tests passed: `pnpm --filter @factory/ff-pipeline test src/cf-gates.test.ts src/harness-bridge.test.ts src/harness-dispatcher.test.ts pi-container/execution-contract.test.mjs` (4 files / 33 tests).
 - `pnpm --filter @factory/ff-pipeline typecheck` passed.
-- `pnpm exec wrangler deploy --dry-run` passed after Dockerfile copy fix and confirmed `execution-policy.mjs` included in the Pi container image layer.
+- Harness compile sanity passed for `harnesses/pi-author-smoke-json.harness.yaml` with gates `exists`, `json_field_equals`, `json_field_type`.
+- `pnpm --filter @factory/ff-pipeline exec wrangler deploy --dry-run` passed.
 - `git diff --check` passed.
-- Commit `e65b7e9 FN-SYNTH-MIGRATE: add pi authoring smoke route` pushed to `factory/fp-motdwvr2-w7un`.
-- Deployed ff-pipeline Worker version `36eabb81-11f8-4783-9528-47fb2757ddc8` with `--containers-rollout=immediate`.
-- Uploaded `harnesses/pi-author-smoke-json.harness.yaml` to remote R2 bucket `ff-workspaces`.
-- Verified `/version`, `/debug/pi-container/status`, and `/debug/pi-container/health` all resolve to Worker/container version `36eabb81-11f8-4783-9528-47fb2757ddc8`.
-- Production authoring smoke `pi-author-smoke-1779125728` completed with `stepAccounting.ok=["SMOKE"]`, `currentPhase="report"`, and `eventCount=11`.
-- `/run-status/pi-author-smoke-1779125728?logs=SMOKE` returned `X-Run-Log-Key: runs/_attempt-logs/pi-author-smoke-1779125728/SMOKE/attempt-1.log` and final `===STAGE_RESULT===` pass.
-- Direct R2 observation `runs/pi-author-smoke-1779125728/artifacts/__observability/SMOKE.container-observation.json` proves `authoringMode="autonomous_filesystem"`, `materializeContracts=false`, `toolCallEventCount=55`, `assistantToolCallCount=2`, `toolExecutionEventCount=4`, tool `write`, and no failed contract artifacts.
-- Direct R2 artifact `runs/pi-author-smoke-1779125728/artifacts/SmokeJsonArtifact` is valid JSON with required fields.
 
 ## Commit
-- `e65b7e9 FN-SYNTH-MIGRATE: add pi authoring smoke route`
-- Pending memory closeout commit.
+- Pending commit for value-level smoke validation.
 
 ## Notes
 - Existing unrelated untracked files remain out of scope.

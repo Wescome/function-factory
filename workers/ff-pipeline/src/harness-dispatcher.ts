@@ -373,10 +373,12 @@ export async function dispatchOne(
     const stateView = synthesizeRuntimeStateView(state, compiled)
     const outputContracts = compileOutputContracts(stage, compiled)
     const maxRepairRounds = compiled.spec.runtime?.max_repair_rounds ?? 1
+    const rolePrompt = compiled.spec.roles?.[stage.role]?.responsibility
     const workerInput: RoutedWorkerInput = {
       runId: message.runId,
       stageName: message.stageName,
       roleName: stage.role,
+      ...(rolePrompt ? { rolePrompt } : {}),
       context: stageContext as WorkerInput["context"],
       state: stateView as WorkerInput["state"],
       declaredInputs: stage.inputs,

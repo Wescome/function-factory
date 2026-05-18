@@ -35,6 +35,7 @@ import {
 } from "@factory/nlah"
 import { runHarnessCompletenessVerification } from "@factory/verification"
 import { buildCfWorkerRegistry } from "./cf-workers"
+import { installCfGateRegistryForCompile } from "./cf-gates"
 import type { HarnessBridgeEnv, HarnessJob } from "./harness-env"
 import { emitRunEvent } from "./observability/run-event-log"
 
@@ -83,6 +84,7 @@ export async function startHarnessRun(
   // ── 2. Parse + compile ──────────────────────────────────────────────────
   // NLAH's loadHarness accepts a `{ yaml: string }` source (contribution #1d)
   // so we never need a filesystem path in CF.
+  installCfGateRegistryForCompile(gateRegistry)
   const spec = await loadHarness({ yaml: yamlText })
   const compiled: CompiledHarness = compileHarness(spec)
 

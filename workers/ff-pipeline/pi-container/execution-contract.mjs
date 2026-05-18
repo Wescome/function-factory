@@ -7,6 +7,12 @@ export function buildPrompt(input) {
 
   const parts = []
   parts.push(`You are ${roleName}${rolePrompt ? `: ${rolePrompt}` : '.'}`)
+  if (input.runId || input.stageName) {
+    const lines = ['## Run Context', '']
+    if (input.runId) lines.push(`- runId: ${input.runId}`)
+    if (input.stageName) lines.push(`- stageName: ${input.stageName}`)
+    parts.push(lines.join('\n'))
+  }
   parts.push(`## Task\n\n${taskText}`)
 
   const inputNames = Object.keys(inputArtifacts)

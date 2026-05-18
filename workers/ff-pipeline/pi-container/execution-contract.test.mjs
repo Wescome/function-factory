@@ -14,6 +14,8 @@ describe('pi container execution contract', () => {
   it('prompts Pi to create exact local files for declared outputs', () => {
     const prompt = buildPrompt({
       roleName: 'SmokeWriter',
+      runId: 'run-1',
+      stageName: 'SMOKE',
       context: {
         taskText: 'write the smoke artifact',
         outputArtifactPaths: {
@@ -26,6 +28,8 @@ describe('pi container execution contract', () => {
     expect(prompt).toContain('Artifact `SmokeArtifact`: write local file `./SmokeArtifact`')
     expect(prompt).toContain('A final chat response is not an artifact')
     expect(prompt).toContain('file name must match the artifact name exactly')
+    expect(prompt).toContain('- runId: run-1')
+    expect(prompt).toContain('- stageName: SMOKE')
   })
 
   it('includes output contract requirements when supplied', () => {

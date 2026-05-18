@@ -11,6 +11,7 @@ harness:
   objective: >
     Validate real Pi filesystem authoring: pi must use filesystem tools to
     create artifacts/smoke.json with top-level keys status, runId, and elapsedMs.
+    The runId field must equal the current run id and elapsedMs must be a number.
 
 runtime:
   state_root: state
@@ -23,9 +24,10 @@ roles:
   SmokeJsonWriter:
     responsibility: >
       Write artifacts/smoke.json as a valid JSON object containing
-      status (string), runId (string), and elapsedMs (number). The artifact
-      must be created by the Pi filesystem-authoring path, not by deterministic
-      contract materialization.
+      status (string), runId (string), and elapsedMs (number). The runId value
+      must exactly match the runId shown in Run Context. The artifact must be
+      created by the Pi filesystem-authoring path, not by deterministic contract
+      materialization.
 
 artifacts:
   SmokeJsonArtifact:
@@ -45,6 +47,22 @@ stages:
     gate:
       all:
         - { exists: SmokeJsonArtifact }
+        - id: smoke-run-id-matches
+          uses: json_field_equals
+          reads: [SmokeJsonArtifact]
+          proves: SmokeJsonArtifact.runId equals the current run id
+          args:
+            artifact: SmokeJsonArtifact
+            field: runId
+            valueFrom: runId
+        - id: smoke-elapsed-ms-is-number
+          uses: json_field_type
+          reads: [SmokeJsonArtifact]
+          proves: SmokeJsonArtifact.elapsedMs is numeric
+          args:
+            artifact: SmokeJsonArtifact
+            field: elapsedMs
+            type: number
 
 failure_taxonomy:
   missing_artifact: mark_incomplete
