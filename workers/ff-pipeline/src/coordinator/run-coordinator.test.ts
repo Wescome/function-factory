@@ -10,6 +10,8 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+const mockEmitRunEvent = vi.hoisted(() => vi.fn(async (_env: unknown, _input: unknown) => {}))
+
 // ── Mock cloudflare:workers (DurableObject base) ──────────────────────────────
 vi.mock('cloudflare:workers', () => {
   class DurableObject {
@@ -28,6 +30,10 @@ const mockAdvanceHarness = vi.fn()
 
 vi.mock('@factory/nlah', () => ({
   advanceHarness: (...args: unknown[]) => mockAdvanceHarness(...args),
+}))
+
+vi.mock('../observability/run-event-log', () => ({
+  emitRunEvent: (env: unknown, input: unknown) => mockEmitRunEvent(env, input),
 }))
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -485,6 +491,46 @@ describe('RunCoordinator DO', () => {
       expect(sendEvent).toHaveBeenCalledWith({ type: 'harness-complete', payload: result })
       expect(ctx.storage.deleteAlarm).toHaveBeenCalledOnce()
       expect(ctx.storage._data.get('harness:notifyAttempts')).toBeUndefined()
+    })
+
+    it('caps terminal Workflow notification retries and permanently abandons after attempt 100', async () => {
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const sendEvent = vi.fn(async () => {
+        throw new Error('workflow event permanently unavailable')
+      })
+      const { RunCoordinator } = await import('./run-coordinator.js')
+      const ctx = makeMockCtx()
+      const env = makeMockEnv({
+        FACTORY_PIPELINE: {
+          get: vi.fn(async () => ({ id: 'wf-001', status: vi.fn(async () => ({})), sendEvent })),
+          create: vi.fn(async () => ({ id: 'wf-001' })),
+        },
+      })
+      const rc = new RunCoordinator(ctx as never, env as never)
+      const result = makeHarnessRunResult('pass')
+      ctx.storage._data.set('harness:result', result)
+      ctx.storage._data.set('harness:workflowId', 'wf-001')
+      ctx.storage._data.set('harness:state', makeHarnessState())
+
+      for (let i = 0; i < 101; i += 1) {
+        await rc.alarm()
+      }
+
+      expect(sendEvent).toHaveBeenCalledTimes(100)
+      expect(ctx.storage._data.get('harness:notifyAttempts')).toBe(100)
+      expect(ctx.storage.setAlarm).toHaveBeenCalledTimes(99)
+      expect(ctx.storage.deleteAlarm).toHaveBeenCalled()
+      expect(mockEmitRunEvent).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+        runId: 'run-test-001',
+        type: 'workflow_notify_failed',
+        emitter: 'run-coordinator',
+        data: expect.objectContaining({
+          workflowId: 'wf-001',
+          attempts: 100,
+          permanentlyAbandoned: true,
+        }),
+      }))
+      consoleError.mockRestore()
     })
 
     it('fail action: persists result and notifies Workflow', async () => {

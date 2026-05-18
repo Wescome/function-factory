@@ -52,7 +52,9 @@ const KEY_TASK_TEXT = "harness:taskText"
 const KEY_RESULT = "harness:result"
 const KEY_DISPATCHED = "harness:dispatched"
 const KEY_NOTIFY_ATTEMPTS = "harness:notifyAttempts"
+const KEY_NOTIFY_ABANDONED = "harness:notifyAbandoned"
 const NOTIFY_RETRY_DELAY_MS = 30_000
+const MAX_NOTIFY_ATTEMPTS = 100
 
 export class RunCoordinator extends DurableObject<HarnessBridgeEnv> {
   override async fetch(request: Request): Promise<Response> {
@@ -89,8 +91,23 @@ export class RunCoordinator extends DurableObject<HarnessBridgeEnv> {
       await this.ctx.storage.deleteAlarm()
       return
     }
-    const state = await this.ctx.storage.get<HarnessState>(KEY_STATE)
-    await this.notifyWorkflowComplete(state?.runId ?? "unknown", result)
+    const [state, attempts, workflowId] = await Promise.all([
+      this.ctx.storage.get<HarnessState>(KEY_STATE),
+      this.ctx.storage.get<number>(KEY_NOTIFY_ATTEMPTS),
+      this.ctx.storage.get<string>(KEY_WORKFLOW_ID),
+    ])
+    const runId = state?.runId ?? "unknown"
+    if ((attempts ?? 0) >= MAX_NOTIFY_ATTEMPTS) {
+      await this.ctx.storage.deleteAlarm()
+      await this.permanentlyAbandonWorkflowNotification(
+        runId,
+        result,
+        workflowId ?? "unknown",
+        attempts ?? MAX_NOTIFY_ATTEMPTS,
+      )
+      return
+    }
+    await this.notifyWorkflowComplete(runId, result)
   }
 
   // ── /init ───────────────────────────────────────────────────────────────
@@ -402,14 +419,20 @@ export class RunCoordinator extends DurableObject<HarnessBridgeEnv> {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       const attempts = (await this.ctx.storage.get<number>(KEY_NOTIFY_ATTEMPTS)) ?? 0
-      await this.ctx.storage.put(KEY_NOTIFY_ATTEMPTS, attempts + 1)
+      const nextAttempts = attempts + 1
+      await this.ctx.storage.put(KEY_NOTIFY_ATTEMPTS, nextAttempts)
+      if (nextAttempts >= MAX_NOTIFY_ATTEMPTS) {
+        await this.ctx.storage.deleteAlarm()
+        await this.permanentlyAbandonWorkflowNotification(runId, result, workflowId, nextAttempts, message)
+        return
+      }
       await this.ctx.storage.setAlarm(Date.now() + NOTIFY_RETRY_DELAY_MS)
       await emitRunEvent(this.env, {
         runId,
         stageName: result.finalStage,
         type: "workflow_notify_failed",
         emitter: "run-coordinator",
-        data: { workflowId, attempts: attempts + 1, failureClass: "infrastructure_error" },
+        data: { workflowId, attempts: nextAttempts, failureClass: "infrastructure_error" },
         error: { message },
       })
       // Tier-1 signal: workflow sendEvent failed. Result is persisted at
@@ -426,6 +449,34 @@ export class RunCoordinator extends DurableObject<HarnessBridgeEnv> {
       )
       // Result already persisted at KEY_RESULT; recovery path can read it.
     }
+  }
+
+  private async permanentlyAbandonWorkflowNotification(
+    runId: string,
+    result: HarnessRunResult,
+    workflowId: string,
+    attempts: number,
+    message = "maximum harness-complete notification attempts exhausted",
+  ): Promise<void> {
+    const alreadyAbandoned = await this.ctx.storage.get<string>(KEY_NOTIFY_ABANDONED)
+    if (alreadyAbandoned) return
+    await this.ctx.storage.put(KEY_NOTIFY_ABANDONED, new Date().toISOString())
+    await emitRunEvent(this.env, {
+      runId,
+      stageName: result.finalStage,
+      type: "workflow_notify_failed",
+      emitter: "run-coordinator",
+      data: {
+        workflowId,
+        attempts,
+        failureClass: "infrastructure_error",
+        permanentlyAbandoned: true,
+      },
+      error: { message },
+    })
+    console.error(
+      `[INFRA SIGNAL] infra:harness-complete-permanently-abandoned: runId=${runId} workflowId=${workflowId} attempts=${attempts} error=${message}`,
+    )
   }
 }
 

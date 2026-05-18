@@ -12,6 +12,8 @@ import type {
 
 const ACTIVE_INDEX_KEY = "runs/_active-index.json"
 const SCHEMA_VERSION = "1.0" as const
+const MAX_ACTIVE_INDEX_RETRIES = 5
+const ATTEMPT_LOG_PREFIX = "runs/_attempt-logs"
 
 export class RunEventLog {
   constructor(private readonly bucket: R2Bucket) {}
@@ -57,13 +59,11 @@ export class RunEventLog {
   }
 
   async getLatestAttemptLog(runId: string, stageName: string): Promise<{ key: string; text: string } | null> {
-    const prefix = `runs/${runId}/logs/${safePathPart(stageName)}/`
-    const listed = await this.bucket.list({ prefix })
-    const key = listed.objects
-      .map((object) => object.key)
-      .filter((candidate) => /\/attempt-\d+\.log$/.test(candidate))
-      .sort((a, b) => attemptNumberFromKey(a) - attemptNumberFromKey(b))
-      .at(-1)
+    const key = await this.findLatestAttemptLogKey(
+      `${ATTEMPT_LOG_PREFIX}/${safePathPart(runId)}/${safePathPart(stageName)}/`,
+    ) ?? await this.findLatestAttemptLogKey(
+      `runs/${runId}/logs/${safePathPart(stageName)}/`,
+    )
     if (!key) return null
     const obj = await this.bucket.get(key)
     if (!obj) return null
@@ -121,16 +121,18 @@ export class RunEventLog {
     )
   }
 
+  private async findLatestAttemptLogKey(prefix: string): Promise<string | undefined> {
+    const listed = await this.bucket.list({ prefix })
+    return listed.objects
+      .map((object) => object.key)
+      .filter((candidate) => /\/attempt-\d+\.log$/.test(candidate))
+      .sort((a, b) => attemptNumberFromKey(a) - attemptNumberFromKey(b))
+      .at(-1)
+  }
+
   private async updateActiveIndex(event: RunEvent, summary: RunSummary): Promise<void> {
     if (event.type === "run_started") {
-      const { index, etag } = await this.readActiveIndex()
-      const nextRuns = index.runs.filter((entry) => entry.runId !== event.runId)
-      nextRuns.push({
-        runId: event.runId,
-        lastEventAt: summary.lastEventAt,
-        ...(summary.currentStage ? { currentStage: summary.currentStage } : {}),
-      })
-      await this.writeActiveIndex({ ...index, updatedAt: event.timestamp, runs: nextRuns }, etag)
+      await this.writeRunStartedActiveIndex(event, summary)
       return
     }
 
@@ -154,6 +156,28 @@ export class RunEventLog {
           : entry,
       ),
     }, etag)
+  }
+
+  private async writeRunStartedActiveIndex(event: RunEvent, summary: RunSummary): Promise<void> {
+    let lastError: unknown
+    for (let attempt = 1; attempt <= MAX_ACTIVE_INDEX_RETRIES; attempt += 1) {
+      try {
+        const { index, etag } = await this.readActiveIndex()
+        const nextRuns = index.runs.filter((entry) => entry.runId !== event.runId)
+        nextRuns.push({
+          runId: event.runId,
+          lastEventAt: summary.lastEventAt,
+          ...(summary.currentStage ? { currentStage: summary.currentStage } : {}),
+        })
+        await this.writeActiveIndex({ ...index, updatedAt: event.timestamp, runs: nextRuns }, etag)
+        return
+      } catch (err) {
+        lastError = err
+      }
+    }
+    throw lastError instanceof Error
+      ? lastError
+      : new Error(`active index update failed after ${MAX_ACTIVE_INDEX_RETRIES} attempts`)
   }
 
   private async readActiveIndex(): Promise<{ index: ActiveRunIndex; etag?: string }> {
@@ -239,7 +263,7 @@ function safePathPart(value: string): string {
 }
 
 function attemptLogKey(runId: string, stageName: string, attemptNumber: number): string {
-  return `runs/${runId}/logs/${safePathPart(stageName)}/attempt-${attemptNumber}.log`
+  return `${ATTEMPT_LOG_PREFIX}/${safePathPart(runId)}/${safePathPart(stageName)}/attempt-${attemptNumber}.log`
 }
 
 function attemptLogHeader(event: RunEvent): string {
@@ -261,7 +285,7 @@ function buildStageResultBlock(event: RunEvent): Record<string, unknown> {
   return {
     stage: event.stageName,
     status,
-    failureClass: event.data.failureClass ?? (status === "pass" ? undefined : "step_error"),
+    failureClass: event.data.failureClass ?? (status === "pass" ? undefined : event.error ? "step_error" : "gate_abort"),
     reason: event.data.reason ?? event.error?.message ?? event.data.message ?? "",
     artifacts: Array.isArray(event.data.artifacts) ? event.data.artifacts : [],
   }
@@ -369,6 +393,7 @@ function updateStageHistory(
     : event.type === "stage_completed"
       ? "pass"
       : "fail"
+  // attempts = max(attemptNumber) seen for this stage — monotonically increases through retries
   const attempts = event.attemptNumber ?? 1
   const without = existing.filter((entry) => entry.stage !== event.stageName || entry.verdict !== "in_progress")
   return [

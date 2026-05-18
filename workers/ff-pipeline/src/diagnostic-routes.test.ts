@@ -210,8 +210,8 @@ describe('ff-pipeline diagnostic routes', () => {
     const { default: worker } = await import('./index')
     const bucket = new MemoryR2Bucket()
     await bucket.put('runs/run-status-001/events/_summary.json', '{}')
-    await bucket.put('runs/run-status-001/logs/VERIFY/attempt-1.log', 'old')
-    await bucket.put('runs/run-status-001/logs/VERIFY/attempt-2.log', 'latest\n===STAGE_RESULT===\n{"status":"pass"}\n')
+    await bucket.put('runs/_attempt-logs/run-status-001/VERIFY/attempt-1.log', 'old')
+    await bucket.put('runs/_attempt-logs/run-status-001/VERIFY/attempt-2.log', 'latest\n===STAGE_RESULT===\n{"status":"pass"}\n')
 
     const response = await worker.fetch(
       new Request('https://ff-pipeline.example.com/run-status/run-status-001?logs=VERIFY'),
@@ -220,8 +220,25 @@ describe('ff-pipeline diagnostic routes', () => {
     )
 
     expect(response.status).toBe(200)
-    expect(response.headers.get('X-Run-Log-Key')).toBe('runs/run-status-001/logs/VERIFY/attempt-2.log')
+    expect(response.headers.get('X-Run-Log-Key')).toBe('runs/_attempt-logs/run-status-001/VERIFY/attempt-2.log')
     expect(await response.text()).toContain('===STAGE_RESULT===')
+  })
+
+  it('GET /run-status/:runId?logs=VERIFY still reads pre-lifecycle attempt log keys', async () => {
+    const { default: worker } = await import('./index')
+    const bucket = new MemoryR2Bucket()
+    await bucket.put('runs/run-status-001/events/_summary.json', '{}')
+    await bucket.put('runs/run-status-001/logs/VERIFY/attempt-1.log', 'legacy\n===STAGE_RESULT===\n{"status":"pass"}\n')
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/run-status/run-status-001?logs=VERIFY'),
+      createEnv({ WORKSPACE_BUCKET: bucket }) as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('X-Run-Log-Key')).toBe('runs/run-status-001/logs/VERIFY/attempt-1.log')
+    expect(await response.text()).toContain('legacy')
   })
 
   it('GET /debug/health reports Arango and AI binding status', async () => {
