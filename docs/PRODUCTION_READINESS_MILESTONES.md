@@ -17,15 +17,103 @@ The current branch has production-verified live controls:
   `VR-FN-SYNTH-MIGRATE-PROD-LIVE-CONTROL-2026-05-18T22-37-36-823Z`.
 
 This baseline is not final production readiness. It proves one critical slice:
-operators can observe and recover live runs.
+operators can observe and recover live runs. The next production priority is
+the coding Domain Adapter's full Pi-backed authoring path, followed by
+observability across the entire Function Factory pipeline.
 
-## Milestone 1: Full Production Smoke Standardization
+## Milestone 1: Pi Coding Infrastructure Production Readiness
 
-**Goal:** One command verifies the full deploy surface, not only live controls.
+**Goal:** The end-to-end Factory coding path can produce, verify, repair, and
+report a real Pi-authored change without deterministic authoring shortcuts.
 
 Scope:
 
-- Pi authoring smoke.
+- Full coding-domain production run from objective or seeded workspace through
+  compiled intent, executable specification, harness runtime, Pi authoring,
+  verification, repair, and final report.
+- R2 harness load and NLAH compilation through the production path.
+- RunCoordinator state transitions and queue dispatch across the whole coding
+  run.
+- Pi free-form patch authoring with no deterministic patch materialization
+  shortcuts.
+- Multi-file patch smokes, invalid patch recovery, and failing-test repair loop.
+- Per-dispatch model-route evidence.
+- CandidatePatch, VerifierReport, FinalPatch, and PRSummary artifacts.
+- R2 manifest, phase record, attempt log, observation, and report persistence.
+- Production smoke command through `pnpm prod:smoke:coding` or inclusion in
+  `pnpm prod:smoke`.
+
+Exit criteria:
+
+- A production smoke proves Pi authored and repaired a realistic multi-file
+  change through the same infrastructure used by the full Factory pipeline.
+- The smoke fails closed on skipped authoring, missing tool-call evidence,
+  missing artifacts, bad model-route evidence, failed verification, or
+  persistence gaps.
+- The coding Domain Adapter evidence is linked back to the Factory artifacts
+  that caused the run.
+- A passing run emits a committed
+  `VR-FN-MOTDWVR2-W7UN-PROD-CODING-E2E-*` report or successor Function-linked
+  report.
+
+Evidence:
+
+- `pnpm prod:smoke:coding` or `pnpm prod:smoke` output.
+- Production run ID and Worker/container version identity.
+- R2 artifact keys for CandidatePatch, VerifierReport, FinalPatch, PRSummary,
+  observations, and attempt logs.
+- Model-route evidence for every Pi dispatch.
+- Committed `VR-FN-MOTDWVR2-W7UN-PROD-CODING-E2E-*` report or successor.
+
+## Milestone 2: Full Pipeline Observability
+
+**Goal:** Operators can watch and diagnose the whole Function Factory pipeline,
+not only the harness-runtime slice.
+
+Scope:
+
+- One correlation envelope from Pressure or objective through intent,
+  executable specification, harness runtime, Pi authoring, verification,
+  repair, final Function artifact, and report.
+- Compile, planning, dispatch, verification, repair, intervention, and terminal
+  events emitted into a unified trace or bridged into `RunEventLog`.
+- Upstream Factory artifacts aligned with R2 run manifests and Verification
+  Reports.
+- `/run-monitor` or its successor shows whole-pipeline phase, current blocking
+  unit, last decision, last dispatch, latest artifact, and terminal cause.
+- Event streaming or low-latency monitor refresh for live progress.
+- Diagnosis block covering tool-call traces, container stderr, contract
+  evaluations, artifact links, model routing, and next operator action.
+
+Exit criteria:
+
+- A run can be followed from initial Factory input to final report with one
+  correlation ID.
+- Every operator-visible failure class includes enough persisted evidence to
+  diagnose without ad hoc `wrangler tail` or direct R2 guessing.
+- The monitor distinguishes compile failure, dispatch failure, Pi tool failure,
+  verification failure, repair exhaustion, operator cancellation, and
+  infrastructure abandonment.
+- A production smoke proves the monitor projection is coherent across the full
+  pipeline.
+
+Evidence:
+
+- Full-pipeline monitor snapshot for passing, repair, verification-failed,
+  infrastructure-failed, and operator-cancelled runs.
+- R2 trace keys and manifest links.
+- CLI rendering tests.
+- Committed full-pipeline observability `VR-*` report.
+
+## Milestone 3: Full Production Smoke Standardization
+
+**Goal:** One command verifies the full deploy surface, not only live controls
+or the coding smoke.
+
+Scope:
+
+- Pi coding infrastructure smoke from Milestone 1.
+- Full-pipeline observability smoke from Milestone 2.
 - Container rollout transient smoke.
 - R2 artifact, manifest, phase-record, and attempt-log checks.
 - Run monitor projection checks.
@@ -36,7 +124,7 @@ Exit criteria:
 
 - `pnpm prod:smoke` or equivalent exists.
 - The command fails closed on any missing artifact, bad projection, stuck run,
-  auth regression, or failed production smoke.
+  auth regression, skipped Pi authoring, or failed production smoke.
 - A passing run emits one deploy-level Verification Report.
 
 Evidence:
@@ -45,34 +133,9 @@ Evidence:
 - Production run IDs.
 - Worker version ID.
 - R2 artifact keys.
-- Committed `VR-FN-SYNTH-MIGRATE-PROD-*` report.
+- Committed `VR-FN-MOTDWVR2-W7UN-PROD-*` report or successor.
 
-## Milestone 2: Operator Audit Hardening
-
-**Goal:** Operator actions are attributable and auditable beyond free-text labels.
-
-Scope:
-
-- Stable operator identity policy.
-- Auth subject recorded on intervention events.
-- Command origin metadata.
-- Idempotency key surfaced in monitor/audit views.
-- Client metadata recorded without leaking secrets.
-
-Exit criteria:
-
-- Intervention events include operator identity, authenticated subject, action
-  origin, idempotency key, and timestamp.
-- `/run-monitor` exposes audit-safe control metadata.
-- Tests cover audit field persistence for note, retry, redispatch, and cancel.
-
-Evidence:
-
-- Unit tests.
-- Production smoke showing audit fields.
-- Updated operator runbook.
-
-## Milestone 3: Security Boundary
+## Milestone 4: Security Boundary
 
 **Goal:** Production endpoints are intentionally exposed, protected, or removed.
 
@@ -99,7 +162,32 @@ Evidence:
 - Production auth probes.
 - Tests.
 
-## Milestone 4: Run Lifecycle Cleanup
+## Milestone 5: Operator Audit Hardening
+
+**Goal:** Operator actions are attributable and auditable beyond free-text labels.
+
+Scope:
+
+- Stable operator identity policy.
+- Auth subject recorded on intervention events.
+- Command origin metadata.
+- Idempotency key surfaced in monitor/audit views.
+- Client metadata recorded without leaking secrets.
+
+Exit criteria:
+
+- Intervention events include operator identity, authenticated subject, action
+  origin, idempotency key, and timestamp.
+- `/run-monitor` exposes audit-safe control metadata.
+- Tests cover audit field persistence for note, retry, redispatch, and cancel.
+
+Evidence:
+
+- Unit tests.
+- Production smoke showing audit fields.
+- Updated operator runbook.
+
+## Milestone 6: Run Lifecycle Cleanup
 
 **Goal:** Runs cannot remain invisible, orphaned, or permanently active without
 detection.
@@ -123,57 +211,6 @@ Evidence:
 - Reconciliation tests.
 - Watchdog tests.
 - Production drill with a disposable stuck/abandoned run.
-
-## Milestone 5: Live Observability v2
-
-**Goal:** Operators get a direct explanation of what happened and what to do next.
-
-Scope:
-
-- Event streaming or lower-latency updates beyond polling snapshots.
-- Failure diagnosis block in `/run-monitor`.
-- Container stderr, Pi tool-call traces, contract evaluations, and artifact
-  links surfaced cleanly.
-- Compact operator view for cause, current state, and next action.
-
-Exit criteria:
-
-- Monitor output contains diagnosis and next-action guidance for common failure
-  classes.
-- Tool-call traces are persisted and linked from run artifacts.
-- Container logs are visible without ad hoc `wrangler tail`.
-
-Evidence:
-
-- Monitor snapshots for pass, retryable fail, infrastructure fail, and cancel.
-- R2 diagnostic artifact keys.
-- CLI rendering tests.
-
-## Milestone 6: Pi Production Authoring Hardening
-
-**Goal:** Free-form Pi patch authoring is robust across realistic coding changes.
-
-Scope:
-
-- Multi-file patch authoring smokes.
-- Invalid patch recovery.
-- Test failure repair loop.
-- Per-dispatch model-route fallback evidence.
-- First-class tool-call trace artifacts.
-
-Exit criteria:
-
-- Pi can author and repair multi-file changes without deterministic patch
-  materialization shortcuts.
-- Invalid patch and failing-test paths produce useful diagnostics and recovery.
-- Model routing decisions are recorded per dispatch.
-
-Evidence:
-
-- Production coding-adapter smokes.
-- CandidatePatch artifacts.
-- Verifier reports.
-- Tool-call trace artifacts.
 
 ## Milestone 7: Release and Rollback Discipline
 
@@ -305,7 +342,7 @@ Scope:
 
 Exit criteria:
 
-- Final `VR-FN-SYNTH-MIGRATE-PROD-READINESS-*` report exists.
+- Final `VR-FN-MOTDWVR2-W7UN-PROD-READINESS-*` report or successor exists.
 - All blocking milestones are pass or explicitly waived with rationale.
 - Residual risks are documented with owners and detectors.
 
@@ -318,10 +355,13 @@ Evidence:
 
 ## Recommended Next Work
 
-Start with Milestone 1 and Milestone 3:
+Start with Milestone 1, then Milestone 2:
 
-1. Expand `pnpm prod:smoke:controls` into a broader `pnpm prod:smoke`.
-2. Create the endpoint exposure matrix and protect/remove public debug routes.
+1. Build and verify `pnpm prod:smoke:coding` or equivalent for the
+   end-to-end Pi coding infrastructure path.
+2. Implement the full-pipeline correlation envelope and monitor projection.
+3. Consolidate coding, observability, rollout, artifact, and control checks
+   into broad `pnpm prod:smoke`.
 
-These two reduce the largest production risks: unverified deploy surface and
-unclear endpoint security posture.
+These reduce the largest production risks in order: unproven Pi-backed coding
+execution, partial observability, then fragmented deploy verification.
