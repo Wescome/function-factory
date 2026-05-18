@@ -50,7 +50,7 @@ describe('prod-live-control-smoke helpers', () => {
 
     expect(report).toMatchObject({
       artifact_type: 'VerificationReport',
-      source_refs: ['FN-SYNTH-MIGRATE'],
+      source_refs: ['FN-MOTDWVR2-W7UN'],
       verdict: 'pass',
       target: {
         worker_version_id: 'worker-123',

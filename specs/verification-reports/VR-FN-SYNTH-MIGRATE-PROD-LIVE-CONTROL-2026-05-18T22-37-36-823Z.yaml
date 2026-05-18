@@ -2,7 +2,7 @@ id: VR-FN-SYNTH-MIGRATE-PROD-LIVE-CONTROL-2026-05-18T22-37-36-823Z
 artifact_type: VerificationReport
 verification_kind: production-live-control-smoke
 source_refs:
-  - FN-SYNTH-MIGRATE
+  - FN-MOTDWVR2-W7UN
 created_at: 2026-05-18T22:39:11.301Z
 target:
   base_url: https://ff-pipeline.koales.workers.dev

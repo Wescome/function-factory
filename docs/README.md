@@ -60,6 +60,7 @@ in place because many are canonical or lineage-relevant inputs.
 | Document | Purpose |
 | --- | --- |
 | [`AUTONOMOUS_FACTORY_TRANSITION.md`](AUTONOMOUS_FACTORY_TRANSITION.md) | Explains the transition from manual Codex work to queued runner work. |
+| [`PRODUCTION_READINESS_MILESTONES.md`](PRODUCTION_READINESS_MILESTONES.md) | Tracks remaining production readiness milestones, exit criteria, and evidence. |
 
 ### Tutorials
 

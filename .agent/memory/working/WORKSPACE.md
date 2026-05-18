@@ -1,7 +1,7 @@
 # Current Workspace
 
 ## Status
-2026-05-18T22:40:00Z: Completed production live-control smoke command and emitted deploy Verification Report.
+2026-05-18T23:03:00Z: Drafted production readiness milestone document.
 
 ## Completed
 - Protected `POST /run-interventions/:runId/*` with operator token auth in production.
@@ -16,6 +16,9 @@
 - Added `docs/how-to/OPERATOR_RUN_CONTROLS.md` runbook.
 - Added `pnpm watch:run <runId> --interactive` operator loop with note, retry, redispatch, cancel confirmation, refresh, and quit actions.
 - Added `pnpm prod:smoke:controls` to run production live-control verification through the interactive monitor control path and emit a `VR-*` YAML report.
+- Added `docs/PRODUCTION_READINESS_MILESTONES.md` covering remaining production milestones, exit criteria, and evidence requirements.
+- Added compatibility stub `docs/OPERATOR_RUN_CONTROLS.md` for the moved operator runbook.
+- Corrected production live-control smoke report source refs from commit prefix `FN-SYNTH-MIGRATE` to materialized Function artifact `FN-MOTDWVR2-W7UN`.
 
 ## Verification
 - `pnpm --filter @factory/ff-pipeline test src/observability/run-event-log.test.ts src/diagnostic-routes.test.ts src/coordinator/run-coordinator.test.ts src/harness-dispatcher.test.ts` passed (86 tests).
@@ -28,6 +31,8 @@
 - `git diff --check` passed.
 - `node scripts/ops/watch-run.mjs --help` prints the interactive options.
 - `node scripts/ops/prod-live-control-smoke.mjs --help` prints the production smoke options.
+- `pnpm audit:docs` passed after the milestone doc and lineage/stub fixes.
+- `pnpm exec vitest run scripts/ops/prod-live-control-smoke.test.mjs` passed (4 tests).
 - Deployed production Worker version `8d03426f-b52b-4d1d-9c1f-8094517e7bf3`.
 - Production operator recovery smoke `operator-recovery-1779140553` completed with an authenticated `run:retry`; replay now shows status `completed`, stage `SEED` as `pass`, exactly one `harness_complete`, and operator retry evidence present.
 - Fresh production retry smoke `prod-retry-mpbr9o2s` completed/pass with operator retry attempt 2.
@@ -43,4 +48,4 @@
 - Existing unrelated untracked files remain out of scope.
 
 ## Commit
-- Pending scoped commit for production smoke command/report.
+- Pending scoped commit for production readiness milestone draft.

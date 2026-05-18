@@ -136,7 +136,7 @@ export function buildVerificationReport({ id, createdAt, baseUrl, harnessKey, wo
     id,
     artifact_type: 'VerificationReport',
     verification_kind: 'production-live-control-smoke',
-    source_refs: ['FN-SYNTH-MIGRATE'],
+    source_refs: ['FN-MOTDWVR2-W7UN'],
     created_at: createdAt,
     target: {
       base_url: baseUrl,
