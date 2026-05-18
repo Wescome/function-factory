@@ -29,5 +29,23 @@ pnpm run:redispatch <runId> <stageName> "reason" --idempotency-key <stable-key>
 pnpm run:cancel <runId> "reason"
 ```
 
+## Interactive Monitor
+
+Use interactive mode when watching a live run:
+
+```bash
+pnpm watch:run <runId> --interactive
+```
+
+Actions:
+
+```text
+n  add note
+r  retry current stage
+d  redispatch current stage
+c  cancel after confirmation
+q  quit
+```
+
 Use `pnpm watch:run <runId> --once --limit 20` or `/run-monitor/:runId` to
 confirm the intervention event, stage projection, and terminal status.

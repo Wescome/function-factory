@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildInteractiveControlArgs,
+  currentStageName,
+  executeInteractiveCommand,
   formatSnapshot,
   parseArgs,
   selectLogStage,
@@ -54,10 +57,103 @@ describe('watch-run CLI helpers', () => {
     })
   })
 
+  it('parses interactive mode with an operator token', () => {
+    expect(parseArgs(['run-001', '--interactive', '--token', 'tok', '--operator', 'ops'])).toMatchObject({
+      runId: 'run-001',
+      interactive: true,
+      token: 'tok',
+      operator: 'ops',
+    })
+  })
+
+  it('rejects interactive mode without an operator token', () => {
+    const previous = {
+      FF_OPERATOR_TOKEN: process.env.FF_OPERATOR_TOKEN,
+      OPERATOR_CONTROL_TOKEN: process.env.OPERATOR_CONTROL_TOKEN,
+    }
+    delete process.env.FF_OPERATOR_TOKEN
+    delete process.env.OPERATOR_CONTROL_TOKEN
+    try {
+      expect(() => parseArgs(['run-001', '--interactive'])).toThrow(/missing operator token/)
+    } finally {
+      for (const [key, value] of Object.entries(previous)) {
+        if (value === undefined) delete process.env[key]
+        else process.env[key] = value
+      }
+    }
+  })
+
   it('selects the running stage for active logs', () => {
     expect(selectLogStage(snapshot, 'active')).toBe('PATCH')
     expect(selectLogStage(snapshot, 'VERIFY')).toBe('VERIFY')
     expect(selectLogStage(snapshot, 'none')).toBe('')
+    expect(currentStageName(snapshot)).toBe('PATCH')
+  })
+
+  it('builds interactive retry and redispatch payloads for the current stage', () => {
+    const args = parseArgs(['run-001', '--interactive', '--token', 'tok', '--operator', 'ops'])
+    expect(buildInteractiveControlArgs(args, snapshot, 'retry-stage', 'try again')).toMatchObject({
+      action: 'retry-stage',
+      runId: 'run-001',
+      stageName: 'PATCH',
+      message: 'try again',
+      token: 'tok',
+      operator: 'ops',
+    })
+    expect(buildInteractiveControlArgs(args, snapshot, 'redispatch-stage', 'send again')).toMatchObject({
+      action: 'redispatch-stage',
+      stageName: 'PATCH',
+      message: 'send again',
+    })
+  })
+
+  it('requires cancel confirmation before dispatching', async () => {
+    const args = parseArgs(['run-001', '--interactive', '--token', 'tok'])
+    const calls = []
+    const result = await executeInteractiveCommand(
+      async (...call) => {
+        calls.push(call)
+        return new Response('{}')
+      },
+      args,
+      snapshot,
+      'c',
+      async () => 'no',
+    )
+
+    expect(result).toMatchObject({ refresh: false, message: 'cancel aborted' })
+    expect(calls).toHaveLength(0)
+  })
+
+  it('dispatches interactive actions and asks the caller to refresh after acceptance', async () => {
+    const args = parseArgs(['run-001', '--interactive', '--token', 'tok'])
+    const requests = []
+    const result = await executeInteractiveCommand(
+      async (url, init) => {
+        requests.push({ url, init })
+        return new Response(JSON.stringify({
+          ok: true,
+          action: 'stage_retry_requested',
+          runId: 'run-001',
+          stageName: 'PATCH',
+          effect: { enqueued: true },
+        }), { status: 202 })
+      },
+      args,
+      snapshot,
+      'r',
+      async () => 'recover patch',
+    )
+
+    expect(result.refresh).toBe(true)
+    expect(result.message).toContain('stage_retry_requested accepted')
+    expect(requests).toHaveLength(1)
+    expect(requests[0].url.pathname).toBe('/run-interventions/run-001/retry-stage')
+    expect(requests[0].init.headers.Authorization).toBe('Bearer tok')
+    expect(JSON.parse(requests[0].init.body)).toMatchObject({
+      stageName: 'PATCH',
+      reason: 'recover patch',
+    })
   })
 
   it('formats a compact operator snapshot', () => {

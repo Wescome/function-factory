@@ -1,18 +1,27 @@
 #!/usr/bin/env node
 
+import { randomUUID } from 'node:crypto'
+import { createInterface } from 'node:readline/promises'
+import { stdin as input, stdout as output } from 'node:process'
+import { formatControlResponse, postIntervention } from './control-run.mjs'
+
 const DEFAULT_BASE_URL = 'https://ff-pipeline.koales.workers.dev'
 const DEFAULT_INTERVAL_MS = 5_000
 const DEFAULT_EVENT_LIMIT = 12
 const DEFAULT_LOG_LINES = 24
+const INTERACTIVE_ACTIONS = new Set(['', 'n', 'r', 'd', 'c', 'q'])
 
 export function parseArgs(argv) {
   const args = {
     baseUrl: process.env.FF_PIPELINE_URL || DEFAULT_BASE_URL,
+    token: process.env.FF_OPERATOR_TOKEN || process.env.OPERATOR_CONTROL_TOKEN || '',
+    operator: process.env.USER || 'operator',
     intervalMs: DEFAULT_INTERVAL_MS,
     eventLimit: DEFAULT_EVENT_LIMIT,
     logLines: DEFAULT_LOG_LINES,
     once: false,
     json: false,
+    interactive: false,
     noClear: false,
     logs: 'active',
     runId: '',
@@ -30,11 +39,17 @@ export function parseArgs(argv) {
       args.logLines = parsePositiveInteger(requiredValue(argv, ++i, arg), arg)
     } else if (arg === '--logs') {
       args.logs = requiredValue(argv, ++i, arg)
+    } else if (arg === '--token') {
+      args.token = requiredValue(argv, ++i, arg)
+    } else if (arg === '--operator') {
+      args.operator = requiredValue(argv, ++i, arg)
     } else if (arg === '--once') {
       args.once = true
     } else if (arg === '--json') {
       args.json = true
       args.once = true
+    } else if (arg === '--interactive') {
+      args.interactive = true
     } else if (arg === '--no-clear') {
       args.noClear = true
     } else if (arg === '-h' || arg === '--help') {
@@ -48,6 +63,12 @@ export function parseArgs(argv) {
 
   if (!args.help && !args.runId) {
     throw new Error('missing runId')
+  }
+  if (!args.help && args.interactive && args.json) {
+    throw new Error('--interactive cannot be combined with --json')
+  }
+  if (!args.help && args.interactive && !args.token) {
+    throw new Error('missing operator token: set FF_OPERATOR_TOKEN')
   }
   return args
 }
@@ -65,6 +86,9 @@ export function usage() {
     '  --logs <stage|active|none>',
     '                         Attempt log to tail; default active',
     '  --log-lines <count>    Attempt log tail lines; default 24',
+    '  --interactive          Prompt for note/retry/redispatch/cancel controls',
+    '  --token <token>        Operator token for --interactive; defaults to FF_OPERATOR_TOKEN',
+    '  --operator <name>      Operator label for --interactive; defaults to USER',
     '  --no-clear             Do not clear the terminal between polls',
     '  -h, --help             Show this help',
   ].join('\n')
@@ -211,6 +235,67 @@ export function tailLines(text, maxLines) {
   return lines.slice(-Math.max(1, maxLines)).map((line) => `  ${line}`).join('\n')
 }
 
+export function currentStageName(snapshot) {
+  const stages = Array.isArray(snapshot.stages) ? snapshot.stages : []
+  const running = stages.find((stage) => stage.status === 'running')
+  return running?.name || snapshot.currentStage || [...stages].reverse().find((stage) => stage.name)?.name || ''
+}
+
+export function buildInteractiveControlArgs(args, snapshot, action, message) {
+  const stageName = action === 'retry-stage' || action === 'redispatch-stage' ? currentStageName(snapshot) : ''
+  if ((action === 'retry-stage' || action === 'redispatch-stage') && !stageName) {
+    throw new Error(`${action} requires an active stage`)
+  }
+  return {
+    baseUrl: args.baseUrl,
+    token: args.token,
+    operator: args.operator,
+    idempotencyKey: action === 'retry-stage' || action === 'redispatch-stage'
+      ? `${action}:${args.runId}:${stageName}:${randomUUID()}`
+      : '',
+    json: false,
+    action,
+    runId: args.runId,
+    stageName,
+    message,
+  }
+}
+
+export async function executeInteractiveCommand(fetchFn, args, snapshot, command, promptFn) {
+  const normalized = command.trim().toLowerCase()
+  if (!INTERACTIVE_ACTIONS.has(normalized)) {
+    return { refresh: false, message: `unknown command: ${command}` }
+  }
+  if (normalized === 'q') return { quit: true, refresh: false, message: 'quit' }
+  if (normalized === '') return { refresh: true, message: 'refresh' }
+
+  let action = ''
+  let message = ''
+  if (normalized === 'n') {
+    action = 'note'
+    message = (await promptFn('Note: ')).trim()
+    if (!message) return { refresh: false, message: 'note skipped' }
+  } else if (normalized === 'r') {
+    action = 'retry-stage'
+    message = (await promptFn(`Retry ${currentStageName(snapshot) || 'current stage'} reason: `)).trim() || 'operator retry requested'
+  } else if (normalized === 'd') {
+    action = 'redispatch-stage'
+    message = (await promptFn(`Redispatch ${currentStageName(snapshot) || 'current stage'} reason: `)).trim() || 'operator redispatch requested'
+  } else if (normalized === 'c') {
+    const confirmation = (await promptFn('Type cancel to confirm: ')).trim().toLowerCase()
+    if (confirmation !== 'cancel') return { refresh: false, message: 'cancel aborted' }
+    action = 'cancel'
+    message = (await promptFn('Cancel reason: ')).trim() || 'operator cancel requested'
+  }
+
+  const body = await postIntervention(fetchFn, buildInteractiveControlArgs(args, snapshot, action, message))
+  return {
+    refresh: true,
+    body,
+    message: formatControlResponse(body),
+  }
+}
+
 async function renderOnce(args, fetchFn = fetch) {
   const snapshot = await fetchMonitorSnapshot(fetchFn, args.baseUrl, args.runId, args.eventLimit)
   if (args.json) {
@@ -219,6 +304,44 @@ async function renderOnce(args, fetchFn = fetch) {
   const stageName = selectLogStage(snapshot, args.logs)
   const attemptLog = stageName ? await fetchAttemptLog(fetchFn, args.baseUrl, args.runId, stageName) : null
   return formatSnapshot(snapshot, attemptLog ? { ...attemptLog, text: tailRaw(attemptLog.text, args.logLines) } : null)
+}
+
+async function renderSnapshot(args, fetchFn = fetch) {
+  const snapshot = await fetchMonitorSnapshot(fetchFn, args.baseUrl, args.runId, args.eventLimit)
+  const stageName = selectLogStage(snapshot, args.logs)
+  const attemptLog = stageName ? await fetchAttemptLog(fetchFn, args.baseUrl, args.runId, stageName) : null
+  return {
+    snapshot,
+    output: formatSnapshot(snapshot, attemptLog ? { ...attemptLog, text: tailRaw(attemptLog.text, args.logLines) } : null),
+  }
+}
+
+async function runInteractive(args, fetchFn = fetch) {
+  const rl = createInterface({ input, output })
+  try {
+    let notice = ''
+    while (true) {
+      const rendered = await renderSnapshot(args, fetchFn)
+      if (!args.noClear && process.stdout.isTTY) process.stdout.write('\x1Bc')
+      console.log(rendered.output)
+      if (notice) {
+        console.log('')
+        console.log(`Control: ${notice}`)
+        notice = ''
+      }
+      console.log('')
+      const command = await rl.question('Action [enter refresh, n note, r retry, d redispatch, c cancel, q quit]: ')
+      try {
+        const result = await executeInteractiveCommand(fetchFn, args, rendered.snapshot, command, (question) => rl.question(question))
+        if (result.quit) return
+        notice = result.message || ''
+      } catch (err) {
+        notice = err instanceof Error ? err.message : String(err)
+      }
+    }
+  } finally {
+    rl.close()
+  }
 }
 
 function tailRaw(text, maxLines) {
@@ -239,6 +362,11 @@ async function main() {
 
   if (args.help) {
     console.log(usage())
+    return
+  }
+
+  if (args.interactive) {
+    await runInteractive(args)
     return
   }
 
