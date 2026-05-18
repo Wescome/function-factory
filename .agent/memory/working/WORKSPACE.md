@@ -1,7 +1,7 @@
 # Current Workspace
 
 ## Status
-2026-05-18T18:36:00Z: Implemented real Pi filesystem-authoring smoke slice locally; deploy and production smoke pending.
+2026-05-18T17:37:00Z: Completed and deployed real Pi filesystem-authoring smoke slice.
 
 ## Changes in progress
 - Added `worker: pi-author` as a DSL-visible alias for the existing Pi container adapter.
@@ -17,9 +17,18 @@
 - `pnpm --filter @factory/ff-pipeline typecheck` passed.
 - `pnpm exec wrangler deploy --dry-run` passed after Dockerfile copy fix and confirmed `execution-policy.mjs` included in the Pi container image layer.
 - `git diff --check` passed.
+- Commit `e65b7e9 FN-SYNTH-MIGRATE: add pi authoring smoke route` pushed to `factory/fp-motdwvr2-w7un`.
+- Deployed ff-pipeline Worker version `36eabb81-11f8-4783-9528-47fb2757ddc8` with `--containers-rollout=immediate`.
+- Uploaded `harnesses/pi-author-smoke-json.harness.yaml` to remote R2 bucket `ff-workspaces`.
+- Verified `/version`, `/debug/pi-container/status`, and `/debug/pi-container/health` all resolve to Worker/container version `36eabb81-11f8-4783-9528-47fb2757ddc8`.
+- Production authoring smoke `pi-author-smoke-1779125728` completed with `stepAccounting.ok=["SMOKE"]`, `currentPhase="report"`, and `eventCount=11`.
+- `/run-status/pi-author-smoke-1779125728?logs=SMOKE` returned `X-Run-Log-Key: runs/_attempt-logs/pi-author-smoke-1779125728/SMOKE/attempt-1.log` and final `===STAGE_RESULT===` pass.
+- Direct R2 observation `runs/pi-author-smoke-1779125728/artifacts/__observability/SMOKE.container-observation.json` proves `authoringMode="autonomous_filesystem"`, `materializeContracts=false`, `toolCallEventCount=55`, `assistantToolCallCount=2`, `toolExecutionEventCount=4`, tool `write`, and no failed contract artifacts.
+- Direct R2 artifact `runs/pi-author-smoke-1779125728/artifacts/SmokeJsonArtifact` is valid JSON with required fields.
 
 ## Commit
-- Pending.
+- `e65b7e9 FN-SYNTH-MIGRATE: add pi authoring smoke route`
+- Pending memory closeout commit.
 
 ## Notes
 - Existing unrelated untracked files remain out of scope.
