@@ -40,9 +40,6 @@ const PI_MODEL = process.env.PI_MODEL ?? 'openrouter/moonshotai/kimi-k2'
 const MAX_OBSERVATION_EVENTS = 256
 const MAX_STDERR_TAIL_BYTES = 16_384
 const MAX_OBSERVATION_BYTES = 32_768
-const ALLOWED_MODELS = new Set([
-  'openrouter/moonshotai/kimi-k2',
-])
 
 // ── Logging ───────────────────────────────────────────────────────────────────
 
@@ -78,14 +75,6 @@ function resolveDispatchModel(input) {
         message: explicit
           ? `invalid explicit model id: ${candidate}`
           : 'missing PI model route and PI_MODEL fallback',
-      },
-    }
-  }
-  if (!ALLOWED_MODELS.has(parsed.id)) {
-    return {
-      error: {
-        code: 'UNSUPPORTED_MODEL',
-        message: `unsupported pi model: ${parsed.id}`,
       },
     }
   }
