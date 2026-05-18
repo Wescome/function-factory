@@ -161,6 +161,35 @@ describe("RunEventLog", () => {
       runId: "run-artifacts-001",
       stageName: "SMOKE",
       attemptNumber: 1,
+      type: "container_dispatch_retried",
+      emitter: "harness-dispatcher",
+      timestamp: "2026-05-18T17:00:02.500Z",
+      data: {
+        worker: "pi",
+        attempt: 1,
+        maxAttempts: 3,
+        delayMs: 1000,
+        reason: "The container is not running, consider calling start()",
+      },
+    })
+    await log.emit({
+      runId: "run-artifacts-001",
+      stageName: "SMOKE",
+      attemptNumber: 1,
+      type: "container_dispatch_recovered",
+      emitter: "harness-dispatcher",
+      timestamp: "2026-05-18T17:00:02.900Z",
+      data: {
+        worker: "pi",
+        attempt: 2,
+        maxAttempts: 3,
+        reason: "The container is not running, consider calling start()",
+      },
+    })
+    await log.emit({
+      runId: "run-artifacts-001",
+      stageName: "SMOKE",
+      attemptNumber: 1,
       type: "worker_executed",
       emitter: "harness-dispatcher",
       timestamp: "2026-05-18T17:00:03.000Z",
@@ -236,6 +265,23 @@ describe("RunEventLog", () => {
       attempts: 1,
       artifacts: ["SmokeJsonArtifact"],
       observationKeys: ["runs/run-artifacts-001/artifacts/__observability/SMOKE.container-observation.json"],
+      containerDispatchRetries: [
+        {
+          status: "retry_scheduled",
+          attempt: 1,
+          maxAttempts: 3,
+          delayMs: 1000,
+          reason: "The container is not running, consider calling start()",
+          at: "2026-05-18T17:00:02.500Z",
+        },
+        {
+          status: "recovered",
+          attempt: 2,
+          maxAttempts: 3,
+          reason: "The container is not running, consider calling start()",
+          at: "2026-05-18T17:00:02.900Z",
+        },
+      ],
       gateResults: [
         { gateName: "exists", passed: true },
         { gateName: "json_field_equals", passed: true },

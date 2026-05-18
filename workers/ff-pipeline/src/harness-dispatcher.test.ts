@@ -392,4 +392,11 @@ describe('dispatchOne', () => {
     const failedGate = gateResults.find((g) => !g.passed)
     expect(failedGate?.failureClass).toBe('missing_artifact')
   })
+
+  it('classifies exhausted container-not-running dispatch failures as infrastructure errors', async () => {
+    const { classifyWorkerFailureClass } = await import('./harness-dispatcher.js')
+
+    expect(classifyWorkerFailureClass('The container is not running, consider calling start()')).toBe('infrastructure_error')
+    expect(classifyWorkerFailureClass('container exploded')).toBe('step_error')
+  })
 })

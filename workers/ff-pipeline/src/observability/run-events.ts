@@ -22,6 +22,8 @@ export type RunEventType =
   | "dlq_recovered"
   | "stuck_detected"
   | "container_started"
+  | "container_dispatch_retried"
+  | "container_dispatch_recovered"
   | "container_stderr_flush"
   | "container_crashed"
 
@@ -169,6 +171,14 @@ export interface RunArtifactManifest {
     gateResults?: Array<Record<string, unknown>>
     observationKeys?: string[]
     contractEvaluationKeys?: string[]
+    containerDispatchRetries?: Array<{
+      status: "retry_scheduled" | "recovered"
+      attempt: number
+      maxAttempts: number
+      delayMs?: number
+      reason?: string
+      at: string
+    }>
     reason?: string
   }>
   artifacts: Array<{

@@ -39,6 +39,14 @@ import type { ContainerBinding, HarnessBridgeEnv } from "./harness-env"
 import type { OutputContract } from "./contract-compiler"
 import { emitRunEvent } from "./observability/run-event-log"
 
+const MAX_CONTAINER_DISPATCH_INFRA_ATTEMPTS = 3
+const CONTAINER_DISPATCH_RETRY_DELAYS_MS = [1_000, 3_000]
+let containerDispatchRetryDelayOverrideMs: number | undefined
+
+export function setContainerDispatchRetryDelayForTest(delayMs: number | undefined): void {
+  containerDispatchRetryDelayOverrideMs = delayMs
+}
+
 /**
  * The wire shape the Container returns from `POST /execute`.
  * `artifactContents` carries the file contents so the Worker can write them
@@ -68,6 +76,7 @@ interface RoutedPiModel {
 
 interface RoutedWorkerInput extends WorkerInput {
   runId?: string
+  attemptNumber?: number
   model?: RoutedPiModel
   execution?: {
     surface: "rpc"
@@ -212,20 +221,7 @@ abstract class ContainerWorkerAdapter implements WorkerAdapter {
       ...(routedInput.maxRepairRounds !== undefined ? { maxRepairRounds: routedInput.maxRepairRounds } : {}),
     }
 
-    let response: Response
-    try {
-      response = await this.container.fetch(
-        new Request(this.endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        }),
-      )
-    } catch (fetchErr) {
-      const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr)
-      console.error(`[${this.name}] dispatch.fetch_error stage=${input.stageName} error=${msg} elapsedMs=${Date.now() - t0}`)
-      throw fetchErr
-    }
+    const response = await this.fetchWithInfrastructureRetry(input, body, t0)
 
     console.log(`[${this.name}] dispatch.response stage=${input.stageName} status=${response.status} elapsedMs=${Date.now() - t0}`)
 
@@ -315,6 +311,102 @@ abstract class ContainerWorkerAdapter implements WorkerAdapter {
       })
     }
   }
+
+  private async fetchWithInfrastructureRetry(
+    input: WorkerInput,
+    body: Record<string, unknown>,
+    startMs: number,
+  ): Promise<Response> {
+    const routedInput = input as RoutedWorkerInput
+    let lastRetryReason: string | undefined
+    for (let attempt = 1; attempt <= MAX_CONTAINER_DISPATCH_INFRA_ATTEMPTS; attempt += 1) {
+      try {
+        const response = await this.container.fetch(
+          new Request(this.endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          }),
+        )
+        if (attempt > 1) {
+          await this.emitContainerDispatchRecovered(routedInput, attempt, lastRetryReason)
+        }
+        return response
+      } catch (fetchErr) {
+        const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr)
+        console.error(`[${this.name}] dispatch.fetch_error stage=${input.stageName} attempt=${attempt} error=${msg} elapsedMs=${Date.now() - startMs}`)
+        if (!isContainerNotRunningTransient(msg) || attempt >= MAX_CONTAINER_DISPATCH_INFRA_ATTEMPTS) {
+          throw fetchErr
+        }
+        const delayMs = containerDispatchRetryDelayMs(attempt)
+        lastRetryReason = msg
+        await this.emitContainerDispatchRetryScheduled(routedInput, attempt, delayMs, msg)
+        await sleep(delayMs)
+      }
+    }
+    throw new Error("container dispatch retry loop exhausted")
+  }
+
+  private async emitContainerDispatchRetryScheduled(
+    input: RoutedWorkerInput,
+    attempt: number,
+    delayMs: number,
+    reason: string,
+  ): Promise<void> {
+    if (!this.envForObservability || !input.runId) return
+    await emitRunEvent(this.envForObservability, {
+      runId: input.runId,
+      stageName: input.stageName,
+      ...(input.attemptNumber === undefined ? {} : { attemptNumber: input.attemptNumber }),
+      type: "container_dispatch_retried",
+      emitter: "harness-dispatcher",
+      data: {
+        worker: this.name,
+        attempt,
+        maxAttempts: MAX_CONTAINER_DISPATCH_INFRA_ATTEMPTS,
+        delayMs,
+        reason,
+      },
+    })
+  }
+
+  private async emitContainerDispatchRecovered(
+    input: RoutedWorkerInput,
+    attempt: number,
+    reason: string | undefined,
+  ): Promise<void> {
+    if (!this.envForObservability || !input.runId) return
+    console.log(`[INFRA SIGNAL] infra:container-dispatch-recovered: runId=${input.runId} stage=${input.stageName} worker=${this.name} attempt=${attempt}`)
+    await emitRunEvent(this.envForObservability, {
+      runId: input.runId,
+      stageName: input.stageName,
+      ...(input.attemptNumber === undefined ? {} : { attemptNumber: input.attemptNumber }),
+      type: "container_dispatch_recovered",
+      emitter: "harness-dispatcher",
+      data: {
+        worker: this.name,
+        attempt,
+        maxAttempts: MAX_CONTAINER_DISPATCH_INFRA_ATTEMPTS,
+        ...(reason ? { reason } : {}),
+      },
+    })
+  }
+}
+
+export function isContainerNotRunningTransient(message: string): boolean {
+  return /container is not running,?\s+consider calling start\(\)/i.test(message)
+}
+
+function containerDispatchRetryDelayMs(attempt: number): number {
+  if (containerDispatchRetryDelayOverrideMs !== undefined) {
+    return containerDispatchRetryDelayOverrideMs
+  }
+  return CONTAINER_DISPATCH_RETRY_DELAYS_MS[Math.max(0, attempt - 1)] ?? CONTAINER_DISPATCH_RETRY_DELAYS_MS.at(-1) ?? 0
+}
+
+function sleep(ms: number): Promise<void> {
+  if (ms <= 0) return Promise.resolve()
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 /**

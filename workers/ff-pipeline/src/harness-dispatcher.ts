@@ -111,6 +111,7 @@ type PiExecutionRoute = {
 
 type RoutedWorkerInput = WorkerInput & {
   runId?: string
+  attemptNumber?: number
   model?: RoutedPiModel
   execution?: PiExecutionRoute
   outputContracts?: import("./contract-compiler").OutputContract[]
@@ -376,6 +377,7 @@ export async function dispatchOne(
     const rolePrompt = compiled.spec.roles?.[stage.role]?.responsibility
     const workerInput: RoutedWorkerInput = {
       runId: message.runId,
+      attemptNumber,
       stageName: message.stageName,
       roleName: stage.role,
       ...(rolePrompt ? { rolePrompt } : {}),
@@ -410,7 +412,7 @@ export async function dispatchOne(
     data: workerThrew
       ? {
           status: "fail",
-          failureClass: "step_error",
+          failureClass: classifyWorkerFailureClass(workerThrew.message),
           reason: workerThrew.message,
           artifacts: [],
           elapsedMs: Date.now() - t0,
@@ -598,7 +600,7 @@ export async function dispatchOne(
       nextExecutionNode: completeBody.nextStage,
       artifacts: workerOutput?.createdArtifacts ?? [],
       failureClass: workerThrew
-        ? "step_error"
+        ? classifyWorkerFailureClass(workerThrew.message)
         : classifyRunErrorClass(failedGate?.failureClass) ?? (failedGate ? "gate_abort" : undefined),
       reason: workerThrew?.message ?? failedGate?.detail,
     },
@@ -713,6 +715,13 @@ function inferAttemptNumber(message: HarnessQueueMessage & { attemptNumber?: num
   return typeof message.attemptNumber === "number" && Number.isFinite(message.attemptNumber)
     ? Math.max(1, Math.floor(message.attemptNumber))
     : 1
+}
+
+export function classifyWorkerFailureClass(message: string): "infrastructure_error" | "step_error" {
+  if (/container is not running,?\s+consider calling start\(\)/i.test(message)) {
+    return "infrastructure_error"
+  }
+  return "step_error"
 }
 
 function verificationEventsForGateResults(

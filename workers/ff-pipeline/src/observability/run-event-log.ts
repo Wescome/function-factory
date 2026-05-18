@@ -200,7 +200,14 @@ export class RunEventLog {
       })
     }
 
-    if (event.stageName && (event.type === "stage_started" || event.type === "worker_executed" || event.type === "stage_completed" || event.type === "stage_failed")) {
+    if (event.stageName && (
+      event.type === "stage_started" ||
+      event.type === "container_dispatch_retried" ||
+      event.type === "container_dispatch_recovered" ||
+      event.type === "worker_executed" ||
+      event.type === "stage_completed" ||
+      event.type === "stage_failed"
+    )) {
       const stage = manifest.stages.find((entry) => entry.name === event.stageName)
       writes.push({
         key: phaseKey(event.runId, "execution"),
@@ -515,7 +522,14 @@ function updateManifestPhases(
   if (event.type === "harness_loaded") {
     phases.plan = { key: phaseKey(event.runId, "plan"), updatedAt: event.timestamp }
   }
-  if (event.stageName && (event.type === "stage_started" || event.type === "worker_executed" || event.type === "stage_completed" || event.type === "stage_failed")) {
+  if (event.stageName && (
+    event.type === "stage_started" ||
+    event.type === "container_dispatch_retried" ||
+    event.type === "container_dispatch_recovered" ||
+    event.type === "worker_executed" ||
+    event.type === "stage_completed" ||
+    event.type === "stage_failed"
+  )) {
     phases.execution = { key: phaseKey(event.runId, "execution"), updatedAt: event.timestamp }
   }
   if (event.type === "gate_evaluated" || event.type === "coherence_verified" || event.type === "fidelity_verified" || event.type === "persistence_verified") {
@@ -555,6 +569,19 @@ function updateManifestStages(
     next.contractEvaluationKeys = unique([...(next.contractEvaluationKeys ?? []), ...extracted.contractEvaluations])
     if (typeof event.data.reason === "string") next.reason = event.data.reason
   }
+  if (event.type === "container_dispatch_retried" || event.type === "container_dispatch_recovered") {
+    next.containerDispatchRetries = [
+      ...(next.containerDispatchRetries ?? []),
+      {
+        status: event.type === "container_dispatch_recovered" ? "recovered" : "retry_scheduled",
+        attempt: typeof event.data.attempt === "number" ? event.data.attempt : 0,
+        maxAttempts: typeof event.data.maxAttempts === "number" ? event.data.maxAttempts : 0,
+        ...(typeof event.data.delayMs === "number" ? { delayMs: event.data.delayMs } : {}),
+        ...(typeof event.data.reason === "string" ? { reason: event.data.reason } : {}),
+        at: event.timestamp,
+      },
+    ]
+  }
   if (event.type === "gate_evaluated" && Array.isArray(event.data.results)) {
     next.gateResults = event.data.results.filter((result): result is Record<string, unknown> =>
       Boolean(result && typeof result === "object" && !Array.isArray(result)),
@@ -572,6 +599,8 @@ function updateManifestStages(
 
 const stageManifestEventTypes = new Set<RunEventType>([
   "stage_started",
+  "container_dispatch_retried",
+  "container_dispatch_recovered",
   "worker_executed",
   "gate_evaluated",
   "stage_completed",
@@ -650,6 +679,8 @@ function attemptNumberFromKey(key: string): number {
 
 const attemptLogEventTypes = new Set<RunEventType>([
   "stage_started",
+  "container_dispatch_retried",
+  "container_dispatch_recovered",
   "worker_executed",
   "gate_evaluated",
   "stage_completed",

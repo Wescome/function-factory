@@ -10,6 +10,8 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+const mockEmitRunEvent = vi.hoisted(() => vi.fn(async (_env: unknown, _input: unknown) => undefined))
+
 // ── Mock @factory/nlah ────────────────────────────────────────────────────────
 vi.mock('@factory/nlah', () => ({
   WorkerRegistry: class {
@@ -21,6 +23,10 @@ vi.mock('@factory/nlah', () => ({
       return a
     }
   },
+}))
+
+vi.mock('./observability/run-event-log', () => ({
+  emitRunEvent: (env: unknown, input: unknown) => mockEmitRunEvent(env, input),
 }))
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -75,7 +81,11 @@ function makeOkResponse(
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('PiContainerAdapter', () => {
-  beforeEach(() => { vi.clearAllMocks() })
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    const { setContainerDispatchRetryDelayForTest } = await import('./cf-workers.js')
+    setContainerDispatchRetryDelayForTest(undefined)
+  })
 
   it('POSTs to /execute with stage fields — no r2Bucket in body', async () => {
     const { PiContainerAdapter } = await import('./cf-workers.js')
@@ -322,6 +332,56 @@ describe('PiContainerAdapter', () => {
 
     expect((artifacts.writeText as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled()
     expect(result.createdArtifacts).toEqual([])
+  })
+
+  it('retries Cloudflare container rollout not-running transient and records recovery events', async () => {
+    const { PiContainerAdapter, setContainerDispatchRetryDelayForTest } = await import('./cf-workers.js')
+    setContainerDispatchRetryDelayForTest(0)
+    const env = { WORKSPACE_BUCKET: {} }
+    const container = {
+      fetch: vi.fn()
+        .mockRejectedValueOnce(new Error('The container is not running, consider calling start()'))
+        .mockResolvedValueOnce(makeOkResponse(['IssueContract'], { IssueContract: '# Contract' })),
+    }
+    const adapter = new PiContainerAdapter(container as never, 'http://pi-worker/execute', env as never)
+
+    const result = await adapter.execute(
+      makeInput({ runId: 'run-retry-001', attemptNumber: 2 }) as never,
+      makeArtifacts() as never,
+    )
+
+    expect(container.fetch).toHaveBeenCalledTimes(2)
+    expect(result.createdArtifacts).toEqual(['IssueContract'])
+    expect(mockEmitRunEvent).toHaveBeenCalledWith(
+      env,
+      expect.objectContaining({
+        runId: 'run-retry-001',
+        stageName: 'CONTRACT',
+        attemptNumber: 2,
+        type: 'container_dispatch_retried',
+        data: expect.objectContaining({
+          worker: 'pi',
+          attempt: 1,
+          maxAttempts: 3,
+          delayMs: 0,
+          reason: 'The container is not running, consider calling start()',
+        }),
+      }),
+    )
+    expect(mockEmitRunEvent).toHaveBeenCalledWith(
+      env,
+      expect.objectContaining({
+        runId: 'run-retry-001',
+        stageName: 'CONTRACT',
+        attemptNumber: 2,
+        type: 'container_dispatch_recovered',
+        data: expect.objectContaining({
+          worker: 'pi',
+          attempt: 2,
+          maxAttempts: 3,
+        }),
+      }),
+    )
   })
 })
 
