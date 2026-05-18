@@ -14,6 +14,7 @@
  */
 
 import type { CompiledHarness, HarnessState } from "@factory/nlah"
+import type { PiWorkerVersionMetadata } from "./coordinator/pi-container-version.js"
 
 /**
  * The job descriptor passed to `startHarnessRun`. Modeled after FunctionJob
@@ -172,4 +173,16 @@ export interface HarnessBridgeEnv {
 
   /** Generic ordered comma-separated Pi fallback candidates. */
   PI_MODEL_CANDIDATES?: string
+
+  /**
+   * Cloudflare Worker version metadata. PiContainer uses this as the desired
+   * runtime identity for its singleton container instance.
+   */
+  CF_VERSION_METADATA?: PiWorkerVersionMetadata
+
+  /**
+   * Local/test fallback for environments where Cloudflare version metadata is
+   * not bound. Production should prefer CF_VERSION_METADATA.id.
+   */
+  PI_CONTAINER_BUILD_ID?: string
 }

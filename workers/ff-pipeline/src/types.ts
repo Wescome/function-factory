@@ -1,5 +1,6 @@
 import type { FunctionJob } from "@factory/schemas"
 import type { HarnessQueueMessage } from "./harness-env"
+import type { PiWorkerVersionMetadata } from "./coordinator/pi-container-version"
 
 export interface PipelineEnv {
   ARANGO_URL: string
@@ -57,7 +58,7 @@ export interface PipelineEnv {
   /** Queue producer for stage dispatch — typed body for callsite safety. */
   HARNESS_QUEUE?: Queue<HarnessQueueMessage>
   /** Pi container service binding */
-  PI_CONTAINER?: { fetch: (req: Request) => Promise<Response> }
+  PI_CONTAINER?: DurableObjectNamespace
   /** Aider container service binding */
   AIDER_CONTAINER?: { fetch: (req: Request) => Promise<Response> }
   /** Claude Code container service binding */
@@ -70,6 +71,9 @@ export interface PipelineEnv {
   DREAM_DO_ENABLED?: string
 
   ENVIRONMENT: string
+
+  /** Cloudflare Worker version metadata binding. */
+  CF_VERSION_METADATA?: PiWorkerVersionMetadata
 }
 
 export interface PipelineParams {

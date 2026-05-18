@@ -1,12 +1,19 @@
 # Current Workspace
 
 ## Status
-2026-05-18T03:02:29Z: FN-SYNTH-MIGRATE OpenClaw-informed Pi routing patch implemented, tested, deployed, and production-smoked. Commit pending.
+2026-05-18T14:48:17Z: FN-SYNTH-MIGRATE Cloudflare Pi container rollout fix implemented locally. Worker now binds CF_VERSION_METADATA, PiContainer restarts stale singleton instances by persisted Worker version, exposes `/debug/pi-container/status` and `/debug/pi-container/restart`, and container health/observations include runtime identity. Commit pending.
 
 ## Current branch
 `factory/fp-motdwvr2-w7un`
 
 ## Completed this session
+- Added Cloudflare rollout architecture fix:
+  - `version_metadata` binding `CF_VERSION_METADATA`
+  - persisted Pi singleton `startedBuildId` in the Durable Object
+  - restart-on-mismatch when the Worker version changes or when a legacy running container has no persisted build id
+  - `/__pi-container/status` and `/__pi-container/restart` internal DO routes
+  - public Worker diagnostics `/debug/pi-container/status`, `/debug/pi-container/health`, and `POST /debug/pi-container/restart`
+  - Pi `/health` and R2 observations now include `containerRuntime`
 - Used OpenClaw's working pattern at the right FF boundary: model/provider capability is now explicit Agent Call route metadata and observable worker behavior, not embedded deep in prompt logic.
 - Kept OFOX as the provider boundary:
   - `OPENROUTER_API_KEY` is sourced from `OFOX_API_KEY`.
@@ -32,6 +39,19 @@
   - added test proving the derived verifier report satisfies the smoke harness contract
 
 ## Verification
+- `pnpm --filter @factory/ff-pipeline typecheck` -> passed.
+- Focused rollout/diagnostic tests:
+  `pnpm --filter @factory/ff-pipeline test src/diagnostic-routes.test.ts src/coordinator/pi-container-version.test.ts src/coordinator/sandbox-preflight.test.ts src/cf-workers.test.ts`
+  -> 4 files / 67 tests passed.
+- Added `/debug/pi-container/health` and reran:
+  `pnpm --filter @factory/ff-pipeline test src/diagnostic-routes.test.ts`
+  -> 1 file / 40 tests passed.
+- `pnpm exec wrangler deploy --dry-run` from `workers/ff-pipeline` -> passed; validated `env.CF_VERSION_METADATA` as Worker Version Metadata and built both container images locally.
+- Local Pi image health check on `ff-pipeline-picontainer:worker` returned `runtime.workerVersionId="local-check"`.
+- Full suite first run hit 5 unrelated timeout/queue failures under file parallelism; rerunning the failed subset passed: 4 files / 82 tests.
+- Stable full suite:
+  `pnpm --filter @factory/ff-pipeline exec vitest run --passWithNoTests --no-file-parallelism`
+  -> 75 files / 1011 tests passed.
 - `node --check workers/ff-pipeline/pi-container/server.mjs`
 - `node --check workers/ff-pipeline/pi-container/tool-capability-probe.mjs`
 - `node --check workers/ff-pipeline/pi-container/workspace-derived-artifacts.mjs`
@@ -73,7 +93,7 @@
   - `wrangler containers instances` shows the Pi instance inactive; container rollout/visibility remains inconsistent.
 
 ## Current conclusion
-The original tool-call blocker is resolved on OFOX via RPC when the routed model is `openrouter/openai/gpt-5.4`: production PATCH emitted real toolcall and tool_execution events and wrote `CandidatePatch`. The remaining blocker for a fully clean smoke is Cloudflare container rollout observability/control: production continues to serve stale Pi image `a5831588` despite successful deploys and an immediate rollout request.
+The original tool-call blocker is resolved on OFOX via RPC when the routed model is `openrouter/openai/gpt-5.4`: production PATCH emitted real toolcall and tool_execution events and wrote `CandidatePatch`. The Cloudflare rollout blocker is architectural, not Pi: Worker code updates immediately, container instances roll separately, and the old singleton had no build identity. The fix is now version-coordinated singleton lifecycle at the PiContainer DO boundary plus runtime diagnostics.
 
 ## Commit scope
 Stage only:

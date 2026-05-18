@@ -32,6 +32,10 @@ describe('Phase 5 sandbox preflight', () => {
     expect(wranglerConfig).toMatch(/"bucket_name":\s*"ff-workspaces"/)
   })
 
+  it('binds Worker version metadata for singleton container rollout coordination', () => {
+    expect(wranglerConfig).toMatch(/"version_metadata":\s*\{\s*"binding":\s*"CF_VERSION_METADATA"\s*\}/)
+  })
+
   it('declares the Agent Call execution queue bridge bindings', () => {
     for (const binding of ['SYNTHESIS_QUEUE', 'SYNTHESIS_RESULTS', 'ATOM_RESULTS']) {
       expect(wranglerConfig).toContain(`"binding": "${binding}"`)

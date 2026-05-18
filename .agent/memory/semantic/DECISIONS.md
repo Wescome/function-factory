@@ -3,6 +3,31 @@
 Past architectural choices that would be costly to revisit. Do not
 re-litigate without explicit architect approval.
 
+## 2026-05-18: Pi singleton Containers are coordinated by Worker version
+
+**Decision:** The Pi Cloudflare Container remains a singleton Durable Object
+instance for warm stage dispatch, but its lifecycle is governed by the active
+Worker version. The Worker binds `CF_VERSION_METADATA`; `PiContainer` persists
+the Worker version that started the singleton container; any running container
+with a missing or mismatched started version is destroyed and restarted before
+stage dispatch. Pi container health and execution observations must expose the
+runtime identity used to start the process.
+
+**Rationale:** Cloudflare updates Worker code immediately while Container
+instances roll separately. A singleton Durable Object addressed by
+`idFromName("pi")` can therefore keep serving a stale image after a successful
+Worker deploy unless the Worker/container boundary carries explicit version
+state. `containers info` is useful platform telemetry, but it is not an
+application invariant. The application needs its own desired-vs-started
+version contract.
+
+**Consequences:** Rollout verification must check `/debug/pi-container/status`
+and Pi `/health` or stage observations for matching `desiredBuildId`,
+`startedBuildId`, and `containerRuntime.workerVersionId` before trusting a
+smoke result. Manual restarts are explicit via `POST /debug/pi-container/restart`.
+
+**Status:** Active.
+
 ## 2026-05-16: NLAH is the Trellis harness runtime substrate
 
 **Decision:** `/Users/wes/nlah` (TypeScript `"nlah"` v0.1.0, unscoped — scoping to

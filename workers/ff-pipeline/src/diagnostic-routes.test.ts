@@ -223,6 +223,99 @@ describe('ff-pipeline diagnostic routes', () => {
     })
   })
 
+  it('GET /debug/pi-container/status proxies singleton Pi container status', async () => {
+    const { default: worker } = await import('./index')
+    const stubFetch = vi.fn(async (_request: Request) => new Response(JSON.stringify({
+      status: 'ok',
+      running: true,
+      desiredBuildId: 'worker-version-1',
+      startedBuildId: 'worker-version-1',
+    }), { headers: { 'Content-Type': 'application/json' } }))
+    const idFromName = vi.fn(() => 'pi-id')
+    const get = vi.fn(() => ({ fetch: stubFetch }))
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/debug/pi-container/status'),
+      createEnv({ PI_CONTAINER: { idFromName, get } }) as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(200)
+    expect(idFromName).toHaveBeenCalledWith('pi')
+    expect(get).toHaveBeenCalledWith('pi-id')
+    const forwarded = stubFetch.mock.calls[0]?.[0]
+    expect(forwarded?.method).toBe('GET')
+    expect(forwarded ? new URL(forwarded.url).pathname : '').toBe('/__pi-container/status')
+    expect(await jsonBody(response)).toMatchObject({
+      status: 'ok',
+      running: true,
+      desiredBuildId: 'worker-version-1',
+      startedBuildId: 'worker-version-1',
+    })
+  })
+
+  it('POST /debug/pi-container/restart proxies singleton Pi container restart', async () => {
+    const { default: worker } = await import('./index')
+    const stubFetch = vi.fn(async (_request: Request) => new Response(JSON.stringify({
+      status: 'ok',
+      running: true,
+    }), { headers: { 'Content-Type': 'application/json' } }))
+    const idFromName = vi.fn(() => 'pi-id')
+    const get = vi.fn(() => ({ fetch: stubFetch }))
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/debug/pi-container/restart', { method: 'POST' }),
+      createEnv({ PI_CONTAINER: { idFromName, get } }) as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(200)
+    const forwarded = stubFetch.mock.calls[0]?.[0]
+    expect(forwarded?.method).toBe('POST')
+    expect(forwarded ? new URL(forwarded.url).pathname : '').toBe('/__pi-container/restart')
+  })
+
+  it('GET /debug/pi-container/health proxies Pi container process health', async () => {
+    const { default: worker } = await import('./index')
+    const stubFetch = vi.fn(async (_request: Request) => new Response(JSON.stringify({
+      status: 'ok',
+      runtime: { workerVersionId: 'worker-version-1' },
+    }), { headers: { 'Content-Type': 'application/json' } }))
+    const idFromName = vi.fn(() => 'pi-id')
+    const get = vi.fn(() => ({ fetch: stubFetch }))
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/debug/pi-container/health'),
+      createEnv({ PI_CONTAINER: { idFromName, get } }) as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(200)
+    const forwarded = stubFetch.mock.calls[0]?.[0]
+    expect(forwarded?.method).toBe('GET')
+    expect(forwarded ? new URL(forwarded.url).pathname : '').toBe('/health')
+    expect(await jsonBody(response)).toMatchObject({
+      status: 'ok',
+      runtime: { workerVersionId: 'worker-version-1' },
+    })
+  })
+
+  it('GET /debug/pi-container/status fails closed when PI_CONTAINER is unbound', async () => {
+    const { default: worker } = await import('./index')
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/debug/pi-container/status'),
+      createEnv() as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(503)
+    expect(await jsonBody(response)).toMatchObject({
+      ok: false,
+      error: 'PI_CONTAINER binding unavailable',
+    })
+  })
+
   it('POST /debug/pr-outcome enqueues a PR outcome observation', async () => {
     const { default: worker } = await import('./index')
     const send = vi.fn(async () => undefined)

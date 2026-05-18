@@ -181,6 +181,15 @@ function observationPayload(observation, stderrChunks, extra = {}) {
   return out
 }
 
+function containerRuntimeIdentity() {
+  return {
+    workerVersionId: process.env.PI_WORKER_VERSION_ID ?? null,
+    workerVersionTag: process.env.PI_WORKER_VERSION_TAG ?? null,
+    workerVersionTimestamp: process.env.PI_WORKER_VERSION_TIMESTAMP ?? null,
+    containerStartedAt: process.env.PI_CONTAINER_STARTED_AT ?? null,
+  }
+}
+
 function writeJson(res, status, body) {
   res.writeHead(status, { 'Content-Type': 'application/json' })
   res.end(JSON.stringify(body))
@@ -507,6 +516,7 @@ async function handleExecute(req, res) {
       resolvedVia: model.resolvedVia,
     })),
     executionSurface,
+    containerRuntime: containerRuntimeIdentity(),
     events: [],
     artifacts: [],
     truncated: false,
@@ -816,7 +826,11 @@ const server = createServer(async (req, res) => {
       await handleExecute(req, res)
     } else if (req.method === 'GET' && req.url === '/health') {
       res.writeHead(200, { 'Content-Type': 'application/json' })
-      res.end(JSON.stringify({ status: 'ok', ts: new Date().toISOString() }))
+      res.end(JSON.stringify({
+        status: 'ok',
+        ts: new Date().toISOString(),
+        runtime: containerRuntimeIdentity(),
+      }))
     } else {
       res.writeHead(404)
       res.end('not found')

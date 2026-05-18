@@ -56,6 +56,35 @@ function isHarnessQueueMessage(body: unknown): body is import('./harness-env').H
   )
 }
 
+function piContainerStub(env: PipelineEnv): DurableObjectStub | null {
+  if (!env.PI_CONTAINER) return null
+  return env.PI_CONTAINER.get(env.PI_CONTAINER.idFromName('pi'))
+}
+
+async function fetchPiContainerDiagnostic(
+  env: PipelineEnv,
+  path: '/__pi-container/status' | '/__pi-container/restart' | '/health',
+  method: 'GET' | 'POST',
+): Promise<Response> {
+  const stub = piContainerStub(env)
+  if (!stub) {
+    return json({
+      ok: false,
+      error: 'PI_CONTAINER binding unavailable',
+      timestamp: new Date().toISOString(),
+    }, 503)
+  }
+
+  const response = await stub.fetch(new Request(`http://pi-container.local${path}`, { method }))
+  const body = await response.text()
+  return new Response(body, {
+    status: response.status,
+    headers: {
+      'Content-Type': response.headers.get('Content-Type') ?? 'application/json',
+    },
+  })
+}
+
 export default {
   async fetch(request: Request, env: PipelineEnv, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url)
@@ -66,6 +95,7 @@ export default {
         service: 'ff-pipeline',
         version: '0.1.0',
         environment: env.ENVIRONMENT,
+        workerVersion: env.CF_VERSION_METADATA ?? null,
         timestamp: new Date().toISOString(),
       })
     }
@@ -133,6 +163,19 @@ export default {
           timestamp: new Date().toISOString(),
         }, 502)
       }
+    }
+
+    // ── Diagnostic: Pi singleton Container rollout/readiness state ──
+    if (url.pathname === '/debug/pi-container/status' && request.method === 'GET') {
+      return fetchPiContainerDiagnostic(env, '/__pi-container/status', 'GET')
+    }
+
+    if (url.pathname === '/debug/pi-container/health' && request.method === 'GET') {
+      return fetchPiContainerDiagnostic(env, '/health', 'GET')
+    }
+
+    if (url.pathname === '/debug/pi-container/restart' && request.method === 'POST') {
+      return fetchPiContainerDiagnostic(env, '/__pi-container/restart', 'POST')
     }
 
     // ── Synthesis trigger: external route that bridges Workflow <-> DO ──
