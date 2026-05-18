@@ -36,13 +36,12 @@ const PI_BIN = join(dirname(fileURLToPath(import.meta.url)), 'node_modules', '.b
 const EXECUTE_TIMEOUT_MS = 300_000
 // Delay after spawning pi before sending the first command (pi has no startup signal)
 const PI_INIT_DELAY_MS = 200
-const PI_MODEL = process.env.PI_MODEL ?? 'anthropic/claude-sonnet-4.5'
+const PI_MODEL = process.env.PI_MODEL ?? 'openrouter/moonshotai/kimi-k2'
 const MAX_OBSERVATION_EVENTS = 256
 const MAX_STDERR_TAIL_BYTES = 16_384
 const MAX_OBSERVATION_BYTES = 32_768
 const ALLOWED_MODELS = new Set([
-  'anthropic/claude-sonnet-4.5',
-  'anthropic/claude-sonnet-4.6',
+  'openrouter/moonshotai/kimi-k2',
 ])
 
 // ── Logging ───────────────────────────────────────────────────────────────────
@@ -386,11 +385,14 @@ async function handleExecute(req, res) {
     } else if (type === 'response') {
       log('info', 'pi.response', { stageName, command: msg.command, success: msg.success, error: msg.error })
       pushObservationEvent(observation, { type, command: msg.command, success: msg.success, error: msg.error ? redact(msg.error) : undefined })
-    } else if (type === 'tool_call') {
-      log('info', 'pi.tool_call', { stageName, toolName: msg.toolName })
+    } else if (type === 'tool_execution_start') {
+      log('info', 'pi.tool_execution_start', { stageName, toolName: msg.toolName })
       pushObservationEvent(observation, { type, toolName: msg.toolName })
-    } else if (type === 'tool_result') {
-      log('info', 'pi.tool_result', { stageName, toolName: msg.toolName, isError: msg.isError })
+    } else if (type === 'tool_execution_update') {
+      log('info', 'pi.tool_execution_update', { stageName, toolName: msg.toolName })
+      pushObservationEvent(observation, { type, toolName: msg.toolName })
+    } else if (type === 'tool_execution_end') {
+      log('info', 'pi.tool_execution_end', { stageName, toolName: msg.toolName, isError: msg.isError })
       pushObservationEvent(observation, { type, toolName: msg.toolName, isError: Boolean(msg.isError) })
     } else if (type === 'message_end') {
       const role = msg.message?.role
@@ -424,7 +426,7 @@ async function handleExecute(req, res) {
       log('warn', 'pi.extension_error', { stageName, ...msg })
       pushObservationEvent(observation, { type, error: msg.error ? redact(msg.error) : undefined })
     }
-    // tool_call, message_start etc. not logged to avoid noise
+    // message_start etc. not logged to avoid noise
   })
 
   pi.on('exit', (code, signal) => {

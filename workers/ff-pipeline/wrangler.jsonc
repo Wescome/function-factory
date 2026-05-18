@@ -83,7 +83,7 @@
 
   "vars": {
     "ENVIRONMENT": "production",
-    "PI_MODEL": "anthropic/claude-sonnet-4.5"
+    "PI_MODEL": "openrouter/moonshotai/kimi-k2"
   }
 
   // Secrets (set via `wrangler secret put`):

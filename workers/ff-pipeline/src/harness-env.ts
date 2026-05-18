@@ -159,6 +159,6 @@ export interface HarnessBridgeEnv {
   /** ofox.ai API key — passed into the pi Container as OPENROUTER_API_KEY at start(). */
   OFOX_API_KEY: string
 
-  /** Model identifier passed to pi via --model flag. Defaults to anthropic/claude-sonnet-4. */
+  /** Model identifier passed to pi via --model flag. Defaults to openrouter/moonshotai/kimi-k2. */
   PI_MODEL?: string
 }
