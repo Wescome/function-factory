@@ -1,6 +1,8 @@
 # Current Workspace
 
 ## Status
+2026-05-18T15:42:00Z: Implemented the full runtime observability pipeline from `specs/reference/observability-pipeline-spec.md` for the harness path. Added R2 append-only run events, rolling run summaries, active-run index, per-attempt logs with final `===STAGE_RESULT===`, `/run-status/:runId`, watchdog force-complete scan, container stderr tail route/drain, container lifecycle events, verification-specific event projection, and model-failover counterfactual recording. Verification passed: `node --check workers/ff-pipeline/pi-container/server.mjs`, `pnpm --filter @factory/ff-pipeline typecheck`, focused observability/harness/coordinator/queue/diagnostic/cf-worker tests, stable full suite `77 files / 1022 tests`, `git diff --check`, and `pnpm exec wrangler deploy --dry-run`.
+
 2026-05-18T15:09:30Z: FN-SYNTH-MIGRATE stuck-workflow recovery patch implemented, tested, committed, pushed, and deployed. Context-building exceptions are captured as worker failures, terminal harness-complete sendEvent failures retry via DO alarm, and harness-dlq messages force-complete the run through RunCoordinator. Production Worker version `4af8970e-1465-4ca4-b6bc-9a4fb376f423`; Pi singleton desired/started build IDs match that Worker version.
 
 ## Current branch

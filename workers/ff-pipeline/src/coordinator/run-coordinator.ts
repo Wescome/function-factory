@@ -42,6 +42,7 @@ import type {
   RunCoordinatorInitPayload,
   StageCompletePayload,
 } from "../harness-env"
+import { emitRunEvent } from "../observability/run-event-log"
 
 // DO storage keys. Disjoint from any legacy coordinator DO keys (ADR-009 §8).
 const KEY_COMPILED = "harness:compiled"
@@ -139,6 +140,15 @@ export class RunCoordinator extends DurableObject<HarnessBridgeEnv> {
     await this.env.HARNESS_QUEUE.send({
       runId: payload.initialState.runId,
       stageName: payload.initialState.currentStage,
+    })
+    await emitRunEvent(this.env, {
+      runId: payload.initialState.runId,
+      workflowId: payload.workflowId,
+      stageName: payload.initialState.currentStage,
+      attemptNumber: 1,
+      type: "stage_dispatched",
+      emitter: "run-coordinator",
+      data: { action: "init" },
     })
 
     await this.ctx.storage.put(KEY_DISPATCHED, "1")
@@ -249,6 +259,14 @@ export class RunCoordinator extends DurableObject<HarnessBridgeEnv> {
           runId: advance.newState.runId,
           stageName: advance.stage,
         })
+        await emitRunEvent(this.env, {
+          runId: advance.newState.runId,
+          stageName: advance.stage,
+          attemptNumber: inferAttemptNumber(advance.newState, advance.stage),
+          type: "stage_dispatched",
+          emitter: "run-coordinator",
+          data: { action: advance.action, fromExecutionNode: payload.stageName },
+        })
         return new Response(
           JSON.stringify({ ok: true, action: advance.action, nextStage: advance.stage }),
           { status: 200, headers: { "Content-Type": "application/json" } },
@@ -257,6 +275,18 @@ export class RunCoordinator extends DurableObject<HarnessBridgeEnv> {
       case "complete":
       case "fail": {
         await this.ctx.storage.put(KEY_RESULT, advance.result)
+        await emitRunEvent(this.env, {
+          runId: advance.newState.runId,
+          stageName: advance.result.finalStage,
+          type: "harness_complete",
+          emitter: "run-coordinator",
+          data: {
+            overall: advance.result.overall,
+            finalExecutionNode: advance.result.finalStage,
+            reason: advance.result.reason,
+            failureClass: advance.result.failureClass,
+          },
+        })
         await this.notifyWorkflowComplete(advance.newState.runId, advance.result)
         return new Response(
           JSON.stringify({ ok: true, action: advance.action, result: advance.result }),
@@ -308,6 +338,20 @@ export class RunCoordinator extends DurableObject<HarnessBridgeEnv> {
         status: "failed",
       } satisfies HarnessState)
     }
+    await emitRunEvent(this.env, {
+      runId: payload.runId ?? state?.runId ?? "unknown",
+      stageName: payload.result.finalStage,
+      type: "harness_complete",
+      emitter: "run-coordinator",
+      data: {
+        overall: payload.result.overall,
+        finalExecutionNode: payload.result.finalStage,
+        reason: payload.result.reason,
+        failureClass: payload.result.failureClass,
+        forced: true,
+        forceReason: payload.reason,
+      },
+    })
     await this.notifyWorkflowComplete(payload.runId ?? state?.runId ?? "unknown", payload.result)
     return new Response(
       JSON.stringify({ ok: true, action: "force-complete", result: payload.result }),
@@ -343,6 +387,13 @@ export class RunCoordinator extends DurableObject<HarnessBridgeEnv> {
         type: "harness-complete",
         payload: result,
       })
+      await emitRunEvent(this.env, {
+        runId,
+        stageName: result.finalStage,
+        type: "workflow_notified",
+        emitter: "run-coordinator",
+        data: { workflowId, overall: result.overall },
+      })
       await this.ctx.storage.delete(KEY_NOTIFY_ATTEMPTS)
       await this.ctx.storage.deleteAlarm()
     } catch (err) {
@@ -350,6 +401,14 @@ export class RunCoordinator extends DurableObject<HarnessBridgeEnv> {
       const attempts = (await this.ctx.storage.get<number>(KEY_NOTIFY_ATTEMPTS)) ?? 0
       await this.ctx.storage.put(KEY_NOTIFY_ATTEMPTS, attempts + 1)
       await this.ctx.storage.setAlarm(Date.now() + NOTIFY_RETRY_DELAY_MS)
+      await emitRunEvent(this.env, {
+        runId,
+        stageName: result.finalStage,
+        type: "workflow_notify_failed",
+        emitter: "run-coordinator",
+        data: { workflowId, attempts: attempts + 1, failureClass: "infrastructure_error" },
+        error: { message },
+      })
       // Tier-1 signal: workflow sendEvent failed. Result is persisted at
       // KEY_RESULT; a future HARNESS_RESULTS relay queue or a poll endpoint
       // can drain it. This matches the console-only signal pattern in
@@ -365,4 +424,10 @@ export class RunCoordinator extends DurableObject<HarnessBridgeEnv> {
       // Result already persisted at KEY_RESULT; recovery path can read it.
     }
   }
+}
+
+function inferAttemptNumber(state: HarnessState, stageName: string): number {
+  const attempts = state.stageAttempts as Record<string, number> | undefined
+  const value = attempts?.[stageName]
+  return typeof value === "number" && Number.isFinite(value) ? Math.max(1, value) : 1
 }

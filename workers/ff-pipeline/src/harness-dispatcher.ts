@@ -63,6 +63,7 @@ import { CfArtifactManager } from "./cf-artifact-manager"
 import { buildCfWorkerRegistry, buildStageContextFromJob } from "./cf-workers"
 import { buildCfGateRegistry } from "./cf-gates"
 import { compileOutputContracts } from "./contract-compiler"
+import { emitRunEvent, classifyRunErrorClass } from "./observability/run-event-log"
 
 const MAX_RETRIES = 3
 
@@ -297,6 +298,7 @@ export async function dispatchOne(
   env: HarnessBridgeEnv,
   deps: HarnessDispatcherDeps,
 ): Promise<void> {
+  const attemptNumber = inferAttemptNumber(message)
   // ── 1. Fetch CompiledHarness + HarnessState + taskText from the DO ────
   const doId = env.RUN_COORDINATOR.idFromName(message.runId)
   const stub = env.RUN_COORDINATOR.get(doId)
@@ -318,6 +320,19 @@ export async function dispatchOne(
   if (!stage) {
     throw new Error(`unknown stage in compiled harness: ${message.stageName}`)
   }
+  await emitRunEvent(env, {
+    runId: message.runId,
+    stageName: message.stageName,
+    attemptNumber,
+    type: "stage_started",
+    emitter: "harness-dispatcher",
+    data: {
+      worker: stage.worker,
+      role: stage.role,
+      declaredInputs: stage.inputs,
+      declaredOutputs: stage.outputs,
+    },
+  })
 
   // ── 2. Build artifact manager ──────────────────────────────────────────
   const artifacts = deps.buildArtifactManager(message.runId, compiled, env)
@@ -372,6 +387,28 @@ export async function dispatchOne(
       message: raw.slice(0, MAX_WORKER_ERROR_MESSAGE_BYTES),
     }
   }
+  await emitRunEvent(env, {
+    runId: message.runId,
+    stageName: message.stageName,
+    attemptNumber,
+    type: "worker_executed",
+    emitter: "harness-dispatcher",
+    data: workerThrew
+      ? {
+          status: "fail",
+          failureClass: "step_error",
+          reason: workerThrew.message,
+          artifacts: [],
+          elapsedMs: Date.now() - t0,
+        }
+      : {
+          status: "pass",
+          artifacts: workerOutput?.createdArtifacts ?? [],
+          message: workerOutput?.message,
+          elapsedMs: Date.now() - t0,
+        },
+    ...(workerThrew ? { error: { message: workerThrew.message } } : {}),
+  })
 
   // ── 4. Evaluate verification checks against produced artifacts ─────────
   // Verification checks run only when the worker did not throw. If the worker
@@ -491,6 +528,27 @@ export async function dispatchOne(
   // ── 5. POST /stage-complete back to the RunCoordinator DO ──────────────
   const gatesSummary = gateResults.map((g) => `${g.gateName}:${g.passed ? 'pass' : 'fail'}`).join(',')
   console.log(`[harness-dispatcher] gates.results run=${message.runId} stage=${message.stageName} gates=[${gatesSummary}] workerThrew=${!!workerThrew}`)
+  await emitRunEvent(env, {
+    runId: message.runId,
+    stageName: message.stageName,
+    attemptNumber,
+    type: "gate_evaluated",
+    emitter: "harness-dispatcher",
+    data: {
+      allPassed: !workerThrew && gateResults.every((gate) => gate.passed),
+      results: gateResults,
+    },
+  })
+  for (const verificationEvent of verificationEventsForGateResults(gateResults)) {
+    await emitRunEvent(env, {
+      runId: message.runId,
+      stageName: message.stageName,
+      attemptNumber,
+      type: verificationEvent.type,
+      emitter: "harness-dispatcher",
+      data: verificationEvent.data,
+    })
+  }
 
   const completePayload: StageCompletePayload = {
     stageName: message.stageName,
@@ -512,6 +570,26 @@ export async function dispatchOne(
     )
   }
   const completeBody = await completeResp.json().catch(() => ({})) as Record<string, unknown>
+  const failedGate = gateResults.find((gate) => !gate.passed)
+  const failed = Boolean(workerThrew || failedGate || completeBody.action === "fail")
+  await emitRunEvent(env, {
+    runId: message.runId,
+    stageName: message.stageName,
+    attemptNumber,
+    type: failed ? "stage_failed" : "stage_completed",
+    emitter: "harness-dispatcher",
+    data: {
+      action: completeBody.action,
+      status: failed ? "fail" : "pass",
+      nextExecutionNode: completeBody.nextStage,
+      artifacts: workerOutput?.createdArtifacts ?? [],
+      failureClass: workerThrew
+        ? "step_error"
+        : classifyRunErrorClass(failedGate?.failureClass) ?? (failedGate ? "gate_abort" : undefined),
+      reason: workerThrew?.message ?? failedGate?.detail,
+    },
+    ...(workerThrew ? { error: { message: workerThrew.message } } : {}),
+  })
   console.log(`[harness-dispatcher] stage-complete.ok run=${message.runId} stage=${message.stageName} action=${completeBody.action} nextStage=${completeBody.nextStage ?? '(terminal)'}`)
 }
 
@@ -615,4 +693,44 @@ function extractGateName(expr: unknown): string | null {
     if (keys.length === 1 && typeof keys[0] === "string") return keys[0]
   }
   return null
+}
+
+function inferAttemptNumber(message: HarnessQueueMessage & { attemptNumber?: number }): number {
+  return typeof message.attemptNumber === "number" && Number.isFinite(message.attemptNumber)
+    ? Math.max(1, Math.floor(message.attemptNumber))
+    : 1
+}
+
+function verificationEventsForGateResults(
+  gateResults: StageCompletePayload["gateResults"],
+): Array<{
+  type: "coherence_verified" | "fidelity_verified" | "persistence_verified"
+  data: Record<string, unknown>
+}> {
+  const out: Array<{
+    type: "coherence_verified" | "fidelity_verified" | "persistence_verified"
+    data: Record<string, unknown>
+  }> = []
+  const seen = new Set<string>()
+  for (const gate of gateResults) {
+    const lower = gate.gateName.toLowerCase()
+    const kind = lower.includes("coherence")
+      ? "coherence"
+      : lower.includes("fidelity")
+        ? "fidelity"
+        : lower.includes("persistence")
+          ? "persistence"
+          : null
+    if (!kind || seen.has(kind)) continue
+    seen.add(kind)
+    out.push({
+      type: `${kind}_verified` as "coherence_verified" | "fidelity_verified" | "persistence_verified",
+      data: {
+        status: gate.passed ? "pass" : "blocked",
+        gateName: gate.gateName,
+        detail: gate.detail,
+      },
+    })
+  }
+  return out
 }

@@ -41,6 +41,7 @@ export type {
 export type { ExtractionConfidence } from '@factory/file-context'
 
 import type { PipelineEnv } from './types'
+import { RunEventLog } from './observability/run-event-log'
 
 function isHarnessQueueMessage(body: unknown): body is import('./harness-env').HarnessQueueMessage {
   if (!body || typeof body !== 'object') return false
@@ -176,6 +177,35 @@ export default {
 
     if (url.pathname === '/debug/pi-container/restart' && request.method === 'POST') {
       return fetchPiContainerDiagnostic(env, '/__pi-container/restart', 'POST')
+    }
+
+    if (url.pathname.startsWith('/run-status/') && request.method === 'GET') {
+      if (!env.WORKSPACE_BUCKET) {
+        return json({ error: 'WORKSPACE_BUCKET binding unavailable' }, 503)
+      }
+      const runId = decodeURIComponent(url.pathname.slice('/run-status/'.length))
+      if (!runId) return json({ error: 'missing runId' }, 400)
+      const log = new RunEventLog(env.WORKSPACE_BUCKET as R2Bucket)
+      if (url.searchParams.has('logs')) {
+        const stageName = url.searchParams.get('logs') ?? ''
+        if (!stageName) return json({ error: 'missing logs stage name' }, 400)
+        const latest = await log.getLatestAttemptLog(runId, stageName)
+        if (!latest) return json({ error: 'attempt log not found', runId, stageName }, 404)
+        return new Response(latest.text, {
+          status: 200,
+          headers: {
+            'Content-Type': 'text/plain; charset=utf-8',
+            'X-Run-Log-Key': latest.key,
+          },
+        })
+      }
+      const summary = await log.getSummary(runId)
+      if (!summary) return json({ error: 'run summary not found', runId }, 404)
+      if (url.searchParams.get('events') === 'true') {
+        const events = await log.getRecentEvents(runId, 20)
+        return json({ summary, events })
+      }
+      return json(summary)
     }
 
     // ── Synthesis trigger: external route that bridges Workflow <-> DO ──
@@ -1456,6 +1486,10 @@ export default {
   async scheduled(event: ScheduledEvent, env: PipelineEnv, ctx: ExecutionContext): Promise<void> {
     const { runGovernanceCycle } = await import('./agents/governor-agent.js')
     ctx.waitUntil(runGovernanceCycle(env, 'cron'))
+    if (env.WORKSPACE_BUCKET && env.RUN_COORDINATOR) {
+      const { scanForStuckRuns } = await import('./observability/watchdog.js')
+      ctx.waitUntil(scanForStuckRuns(env as unknown as import('./harness-env').HarnessBridgeEnv))
+    }
   },
 
   async queue(batch: MessageBatch, env: PipelineEnv, _ctx: ExecutionContext): Promise<void> {

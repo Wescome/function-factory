@@ -37,6 +37,7 @@ import {
 } from "@factory/nlah"
 import type { ContainerBinding, HarnessBridgeEnv } from "./harness-env"
 import type { OutputContract } from "./contract-compiler"
+import { emitRunEvent } from "./observability/run-event-log"
 
 /**
  * The wire shape the Container returns from `POST /execute`.
@@ -184,6 +185,7 @@ abstract class ContainerWorkerAdapter implements WorkerAdapter {
     protected readonly container: ContainerBinding,
     // CF Containers require HTTP for internal connections — HTTPS not supported.
     protected readonly endpoint: string = "http://pi-worker/execute",
+    protected readonly envForObservability?: HarnessBridgeEnv,
   ) {}
 
   async execute(input: WorkerInput, artifacts: ArtifactManager): Promise<WorkerOutput> {
@@ -230,6 +232,7 @@ abstract class ContainerWorkerAdapter implements WorkerAdapter {
       // Throwing surfaces this through the dispatcher's try/catch as
       // `workerThrew` on the StageCompletePayload (see harness-dispatcher.ts).
       const parsed = await parseContainerResponse(response)
+      await this.emitObservationCounterfactuals(parsed?.observation, input.stageName)
       const observationKey = await persistObservation(input.stageName, parsed?.observation, artifacts)
       const contractEvaluationKey = await persistContractEvaluation(input.stageName, parsed?.observation, artifacts)
       const text = parsed
@@ -258,6 +261,7 @@ abstract class ContainerWorkerAdapter implements WorkerAdapter {
     }
 
     console.log(`[${this.name}] dispatch.complete stage=${input.stageName} artifacts=${JSON.stringify(parsed.artifacts)} elapsedMs=${Date.now() - t0}`)
+    await this.emitObservationCounterfactuals(parsed.observation, input.stageName)
 
     const observationKey = await persistObservation(input.stageName, parsed.observation, artifacts)
     await persistContractEvaluation(input.stageName, parsed.observation, artifacts)
@@ -284,6 +288,30 @@ abstract class ContainerWorkerAdapter implements WorkerAdapter {
       ...(parsed.message || observationKey
         ? { message: [parsed.message, observationKey ? `observation=${observationKey}` : undefined].filter(Boolean).join(" ") }
         : {}),
+    }
+  }
+
+  private async emitObservationCounterfactuals(
+    observation: ContainerExecutionObservation | undefined,
+    stageName: string,
+  ): Promise<void> {
+    if (!this.envForObservability || !observation?.runId || !Array.isArray(observation.events)) return
+    for (const event of observation.events) {
+      if (event.type !== "model.failover") continue
+      await emitRunEvent(this.envForObservability, {
+        runId: observation.runId,
+        stageName: observation.stageName ?? stageName,
+        type: "counterfactual_recorded",
+        emitter: "harness-dispatcher",
+        data: {
+          counterfactual: {
+            class: "model_candidate_skipped",
+            what: typeof event.from === "string" ? `model ${event.from}` : "model candidate",
+            why: typeof event.reason === "string" ? event.reason : "tool capability probe failed",
+            at: typeof event.ts === "string" ? event.ts : new Date().toISOString(),
+          },
+        },
+      })
     }
   }
 }
@@ -377,15 +405,15 @@ export function buildCfWorkerRegistry(
     // rather than spawning a new process per stage. The DO's fetch() forwards
     // to the container's HTTP server via getTcpPort(8080).fetch().
     const piStub = env.PI_CONTAINER.get(env.PI_CONTAINER.idFromName("pi"))
-    registry.register("pi", new PiContainerAdapter(piStub as unknown as ContainerBinding))
+    registry.register("pi", new PiContainerAdapter(piStub as unknown as ContainerBinding, "http://pi-worker/execute", env))
   }
   if (env.AIDER_CONTAINER) {
-    registry.register("aider", new AiderContainerAdapter(env.AIDER_CONTAINER))
+    registry.register("aider", new AiderContainerAdapter(env.AIDER_CONTAINER, "http://pi-worker/execute", env))
   }
   if (env.CLAUDE_CODE_CONTAINER) {
     registry.register(
       "claude-code",
-      new ClaudeCodeContainerAdapter(env.CLAUDE_CODE_CONTAINER),
+      new ClaudeCodeContainerAdapter(env.CLAUDE_CODE_CONTAINER, "http://pi-worker/execute", env),
     )
   }
   return registry

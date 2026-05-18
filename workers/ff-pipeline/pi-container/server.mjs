@@ -56,12 +56,22 @@ const MAX_OBSERVATION_EVENTS = 256
 const MAX_STDERR_TAIL_BYTES = 16_384
 const MAX_OBSERVATION_BYTES = 32_768
 const VALID_EXECUTION_SURFACES = new Set(['rpc'])
+let stderrRingBuffer = ''
 
 // ── Logging ───────────────────────────────────────────────────────────────────
 
 function log(level, msg, data) {
   const entry = { ts: new Date().toISOString(), level, msg, ...(data ?? {}) }
-  process.stderr.write(JSON.stringify(entry) + '\n')
+  const line = JSON.stringify(entry) + '\n'
+  appendStderrRing(line)
+  process.stderr.write(line)
+}
+
+function appendStderrRing(value) {
+  stderrRingBuffer += redact(value)
+  if (Buffer.byteLength(stderrRingBuffer, 'utf8') > MAX_STDERR_TAIL_BYTES) {
+    stderrRingBuffer = stderrRingBuffer.slice(Math.max(0, stderrRingBuffer.length - MAX_STDERR_TAIL_BYTES))
+  }
 }
 
 function redact(value) {
@@ -597,7 +607,10 @@ async function handleExecute(req, res) {
     pushObservationEvent(observation, { type: 'pi.spawned', pid: pi.pid ?? null, model: model.id, modelIndex })
 
     reader = new JsonlReader(pi.stdout)
-    pi.stderr.on('data', (c) => stderrChunks.push(c))
+    pi.stderr.on('data', (c) => {
+      stderrChunks.push(c)
+      appendStderrRing(c.toString('utf8'))
+    })
 
     // Log every pi stdout event for observability
     reader.on((msg) => {
@@ -831,6 +844,9 @@ const server = createServer(async (req, res) => {
         ts: new Date().toISOString(),
         runtime: containerRuntimeIdentity(),
       }))
+    } else if (req.method === 'GET' && req.url === '/logs/tail') {
+      res.writeHead(200, { 'Content-Type': 'application/jsonl; charset=utf-8' })
+      res.end(stderrRingBuffer)
     } else {
       res.writeHead(404)
       res.end('not found')

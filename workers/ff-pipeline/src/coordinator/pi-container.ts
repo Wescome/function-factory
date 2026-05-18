@@ -14,6 +14,7 @@
 
 import { DurableObject } from "cloudflare:workers"
 import type { HarnessBridgeEnv } from "../harness-env.js"
+import { emitRunEvent } from "../observability/run-event-log.js"
 import {
   resolveDesiredPiContainerBuildId,
   shouldRestartPiContainerForBuild,
@@ -54,13 +55,18 @@ export class PiContainer extends DurableObject<HarnessBridgeEnv> {
     }
 
     await this.ensureContainerReady()
+    const requestMeta = request.method === "POST" && url.pathname === "/execute"
+      ? await readRunRequestMeta(request)
+      : null
 
     // Retry with backoff on cold start: the container needs a moment to boot
     // before server.mjs is listening on port 8080. Clone the request each
     // attempt so the body stream is not consumed on a failed try.
     for (let attempt = 0; attempt < STARTUP_RETRY_COUNT; attempt++) {
       try {
-        return await this.ctx.container.getTcpPort(CONTAINER_PORT).fetch(request.clone())
+        const response = await this.ctx.container.getTcpPort(CONTAINER_PORT).fetch(request.clone())
+        if (requestMeta) this.ctx.waitUntil(this.drainLogs(requestMeta.runId, requestMeta.stageName))
+        return response
       } catch (err) {
         const isNotListening =
           err instanceof Error && err.message.includes("not listening")
@@ -73,7 +79,9 @@ export class PiContainer extends DurableObject<HarnessBridgeEnv> {
 
     // Final attempt without clone (body hasn't been consumed if all prior
     // clones threw before reading)
-    return this.ctx.container.getTcpPort(CONTAINER_PORT).fetch(request)
+    const response = await this.ctx.container.getTcpPort(CONTAINER_PORT).fetch(request)
+    if (requestMeta) this.ctx.waitUntil(this.drainLogs(requestMeta.runId, requestMeta.stageName))
+    return response
   }
 
   private async ensureContainerReady(): Promise<void> {
@@ -141,6 +149,12 @@ export class PiContainer extends DurableObject<HarnessBridgeEnv> {
     })
     await this.ctx.storage.put(STARTED_BUILD_ID_KEY, desiredBuildId)
     await this.ctx.storage.put(STARTED_AT_KEY, startedAt)
+    await emitRunEvent(this.env, {
+      runId: "pi-container",
+      type: "container_started",
+      emitter: "pi-container",
+      data: { buildId: desiredBuildId, startedAt },
+    })
     this.monitorContainer(desiredBuildId)
   }
 
@@ -164,6 +178,40 @@ export class PiContainer extends DurableObject<HarnessBridgeEnv> {
       ...event,
       ts: new Date().toISOString(),
     })
+    if (event.level === "error") {
+      await emitRunEvent(this.env, {
+        runId: "pi-container",
+        type: "container_crashed",
+        emitter: "pi-container",
+        data: { buildId: event.buildId },
+        error: { message: event.message ?? event.event },
+      })
+    }
+  }
+
+  private async drainLogs(runId: string, stageName: string): Promise<void> {
+    if (!this.ctx.container) return
+    try {
+      const response = await this.ctx.container.getTcpPort(CONTAINER_PORT).fetch(
+        new Request("http://pi-worker/logs/tail"),
+      )
+      const tail = await response.text()
+      await this.env.WORKSPACE_BUCKET.put(
+        `runs/${runId}/artifacts/__observability/${stageName}.pi-stderr.jsonl`,
+        tail,
+        { httpMetadata: { contentType: "application/jsonl; charset=utf-8" } },
+      )
+      await emitRunEvent(this.env, {
+        runId,
+        stageName,
+        type: "container_stderr_flush",
+        emitter: "pi-container",
+        data: { bytes: tail.length },
+      })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      console.error("pi.container.stderr_drain_failed", { runId, stageName, message })
+    }
   }
 
   private async statusResponse(): Promise<Response> {
@@ -183,5 +231,15 @@ export class PiContainer extends DurableObject<HarnessBridgeEnv> {
       }),
       { status: 200, headers: { "Content-Type": "application/json" } },
     )
+  }
+}
+
+async function readRunRequestMeta(request: Request): Promise<{ runId: string; stageName: string } | null> {
+  try {
+    const parsed = await request.clone().json() as { runId?: unknown; stageName?: unknown }
+    if (typeof parsed.runId !== "string" || typeof parsed.stageName !== "string") return null
+    return { runId: parsed.runId, stageName: parsed.stageName }
+  } catch {
+    return null
   }
 }

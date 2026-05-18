@@ -1,5 +1,6 @@
 import type { HarnessRunResult } from "@factory/nlah"
 import type { HarnessBridgeEnv, HarnessQueueMessage } from "./harness-env"
+import { emitRunEvent } from "./observability/run-event-log"
 
 export async function consumeHarnessDlq(
   batch: MessageBatch<HarnessQueueMessage>,
@@ -24,6 +25,17 @@ export async function consumeHarnessDlq(
       if (!response.ok) {
         throw new Error(`RunCoordinator /force-complete failed (${response.status}) for ${runId}/${executionNodeName}`)
       }
+      await emitRunEvent(env, {
+        runId,
+        stageName: executionNodeName,
+        type: "dlq_recovered",
+        emitter: "dlq-consumer",
+        data: {
+          finalExecutionNode: executionNodeName,
+          failureClass: "dlq_exhausted",
+          reason: result.reason,
+        },
+      })
       console.error(
         `[INFRA SIGNAL] infra:harness-dlq-recovered: runId=${runId} executionNode=${executionNodeName} sent force-complete`,
       )

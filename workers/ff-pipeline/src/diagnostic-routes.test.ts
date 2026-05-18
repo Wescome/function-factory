@@ -107,6 +107,34 @@ async function jsonBody(response: Response): Promise<Record<string, unknown>> {
   return await response.json() as Record<string, unknown>
 }
 
+class MemoryR2Object {
+  constructor(private readonly value: string) {}
+  async text() { return this.value }
+  async json<T>() { return JSON.parse(this.value) as T }
+}
+
+class MemoryR2Bucket {
+  readonly objects = new Map<string, string>()
+  async get(key: string) {
+    const value = this.objects.get(key)
+    return value === undefined ? null : new MemoryR2Object(value)
+  }
+  async put(key: string, value: string | ArrayBuffer | ArrayBufferView | ReadableStream, _options?: unknown) {
+    this.objects.set(key, typeof value === 'string' ? value : String(value))
+    return null
+  }
+  async list(options?: { prefix?: string }) {
+    const prefix = options?.prefix ?? ''
+    return {
+      objects: [...this.objects.keys()]
+        .filter((key) => key.startsWith(prefix))
+        .sort()
+        .map((key) => ({ key })),
+      truncated: false,
+    }
+  }
+}
+
 describe('ff-pipeline diagnostic routes', () => {
   beforeEach(() => {
     mockQuery.mockReset()
@@ -145,6 +173,55 @@ describe('ff-pipeline diagnostic routes', () => {
       version: '0.1.0',
       environment: 'test',
     })
+  })
+
+  it('GET /run-status/:runId returns the R2 run summary', async () => {
+    const { default: worker } = await import('./index')
+    const bucket = new MemoryR2Bucket()
+    await bucket.put('runs/run-status-001/events/_summary.json', JSON.stringify({
+      schemaVersion: '1.0',
+      runId: 'run-status-001',
+      slug: 'run-status-001',
+      status: 'running',
+      currentPhase: 'execution',
+      currentStage: 'VERIFY',
+      lastEventType: 'stage_started',
+      lastEventAt: '2026-05-18T15:00:00.000Z',
+      stageHistory: [],
+      startedAt: '2026-05-18T15:00:00.000Z',
+      eventCount: 1,
+    }))
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/run-status/run-status-001'),
+      createEnv({ WORKSPACE_BUCKET: bucket }) as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(200)
+    expect(await jsonBody(response)).toMatchObject({
+      runId: 'run-status-001',
+      status: 'running',
+      currentStage: 'VERIFY',
+    })
+  })
+
+  it('GET /run-status/:runId?logs=VERIFY returns the latest attempt log', async () => {
+    const { default: worker } = await import('./index')
+    const bucket = new MemoryR2Bucket()
+    await bucket.put('runs/run-status-001/events/_summary.json', '{}')
+    await bucket.put('runs/run-status-001/logs/VERIFY/attempt-1.log', 'old')
+    await bucket.put('runs/run-status-001/logs/VERIFY/attempt-2.log', 'latest\n===STAGE_RESULT===\n{"status":"pass"}\n')
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/run-status/run-status-001?logs=VERIFY'),
+      createEnv({ WORKSPACE_BUCKET: bucket }) as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('X-Run-Log-Key')).toBe('runs/run-status-001/logs/VERIFY/attempt-2.log')
+    expect(await response.text()).toContain('===STAGE_RESULT===')
   })
 
   it('GET /debug/health reports Arango and AI binding status', async () => {

@@ -36,6 +36,7 @@ import {
 import { runHarnessCompletenessVerification } from "@factory/verification"
 import { buildCfWorkerRegistry } from "./cf-workers"
 import type { HarnessBridgeEnv, HarnessJob } from "./harness-env"
+import { emitRunEvent } from "./observability/run-event-log"
 
 export interface StartHarnessRunResult {
   runId: string
@@ -71,6 +72,13 @@ export async function startHarnessRun(
     throw new Error(`Harness YAML not found in R2: ${harnessKey}`)
   }
   const yamlText = await obj.text()
+  await emitRunEvent(env, {
+    runId: job.functionRunId,
+    workflowId: job.workflowInstanceId ?? job.functionRunId,
+    type: "run_started",
+    emitter: "harness-bridge",
+    data: { harnessKey, objectiveBytes: job.objective.length },
+  })
 
   // ── 2. Parse + compile ──────────────────────────────────────────────────
   // NLAH's loadHarness accepts a `{ yaml: string }` source (contribution #1d)
@@ -97,6 +105,19 @@ export async function startHarnessRun(
       `Harness completeness check failed: ${failureCode}: ${detail}`,
     )
   }
+  await emitRunEvent(env, {
+    runId: job.functionRunId,
+    workflowId: job.workflowInstanceId ?? job.functionRunId,
+    type: "harness_loaded",
+    emitter: "harness-bridge",
+    data: {
+      harnessKey,
+      harnessName: compiled.spec.harness.name,
+      executionNodes: Object.keys(compiled.spec.stages),
+      workerNames,
+      watchdogThresholdsMs: watchdogThresholdsMs(compiled),
+    },
+  })
 
   // ── 4. Initialise HarnessState (pure) ───────────────────────────────────
   const initialState: HarnessState = initHarness(compiled, {
@@ -135,8 +156,28 @@ export async function startHarnessRun(
       `RunCoordinator /init failed (${initResponse.status}): ${body}`,
     )
   }
+  await emitRunEvent(env, {
+    runId: job.functionRunId,
+    workflowId,
+    type: "run_coordinator_initialized",
+    emitter: "harness-bridge",
+    data: { firstExecutionNode: initialState.currentStage },
+  })
 
   return { runId: job.functionRunId }
+}
+
+function watchdogThresholdsMs(compiled: CompiledHarness): Record<string, number> {
+  const runtime = compiled.spec.runtime as Record<string, unknown> | undefined
+  const raw = runtime?.stage_watchdog_minutes
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {}
+  const out: Record<string, number> = {}
+  for (const [name, minutes] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof minutes === "number" && Number.isFinite(minutes) && minutes > 0) {
+      out[name] = minutes * 60 * 1000
+    }
+  }
+  return out
 }
 
 async function seedInitialArtifacts(
@@ -152,10 +193,28 @@ async function seedInitialArtifacts(
     if (typeof content !== "string") {
       throw new Error(`seed artifact content must be a string: ${name}`)
     }
-    await env.WORKSPACE_BUCKET.put(
-      `runs/${runId}/artifacts/${name}`,
-      content,
-      { httpMetadata: { contentType: "text/plain; charset=utf-8" } },
-    )
+    try {
+      await env.WORKSPACE_BUCKET.put(
+        `runs/${runId}/artifacts/${name}`,
+        content,
+        { httpMetadata: { contentType: "text/plain; charset=utf-8" } },
+      )
+      await emitRunEvent(env, {
+        runId,
+        type: "seed_written",
+        emitter: "harness-bridge",
+        data: { artifact: name, bytes: content.length },
+      })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      await emitRunEvent(env, {
+        runId,
+        type: "seed_failed",
+        emitter: "harness-bridge",
+        data: { artifact: name, bytes: content.length },
+        error: { message },
+      })
+      throw err
+    }
   }
 }
