@@ -19,7 +19,7 @@
 
 import { createServer } from 'node:http'
 import { spawn } from 'node:child_process'
-import { mkdtemp, readFile, writeFile, stat, readdir } from 'node:fs/promises'
+import { mkdtemp, readFile, writeFile, stat, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -45,7 +45,13 @@ const PI_BIN = join(dirname(fileURLToPath(import.meta.url)), 'node_modules', '.b
 const EXECUTE_TIMEOUT_MS = 300_000
 // Delay after spawning pi before sending the first command (pi has no startup signal)
 const PI_INIT_DELAY_MS = 200
-const PI_MODEL = process.env.PI_MODEL ?? 'openrouter/moonshotai/kimi-k2'
+const PI_MODEL = process.env.PI_MODEL ?? 'openrouter/openai/gpt-5.4'
+const DEFAULT_FILESYSTEM_MODEL_CANDIDATES = [
+  'openrouter/openai/gpt-5.4',
+  'openrouter/anthropic/claude-sonnet-4.6',
+  'openrouter/google/gemini-3.1-pro-preview',
+  'openrouter/x-ai/grok-4.20',
+]
 const MAX_OBSERVATION_EVENTS = 256
 const MAX_STDERR_TAIL_BYTES = 16_384
 const MAX_OBSERVATION_BYTES = 32_768
@@ -74,7 +80,36 @@ function parseModelId(id) {
   return { id: `${provider}/${model}`, provider, model }
 }
 
-function resolveDispatchModel(input) {
+function parseModelList(value) {
+  return String(value ?? '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+}
+
+function dedupeModels(models) {
+  const seen = new Set()
+  const out = []
+  for (const model of models) {
+    if (!model?.id || seen.has(model.id)) continue
+    seen.add(model.id)
+    out.push(model)
+  }
+  return out
+}
+
+function normalizeCandidateModel(candidate, fallbackRouteKind = 'fallback') {
+  const id = typeof candidate === 'string' ? candidate : candidate?.id
+  const parsed = parseModelId(id)
+  if (!parsed) return null
+  return {
+    ...parsed,
+    routeKind: typeof candidate?.routeKind === 'string' ? candidate.routeKind : fallbackRouteKind,
+    resolvedVia: typeof candidate?.resolvedVia === 'string' ? candidate.resolvedVia : 'dispatch-candidate',
+  }
+}
+
+function resolveDispatchModels(input) {
   const explicit = input.model?.id
   const candidate = explicit ?? PI_MODEL
   const parsed = parseModelId(candidate)
@@ -88,13 +123,31 @@ function resolveDispatchModel(input) {
       },
     }
   }
-  return {
-    model: {
+  const routeKind = input.model?.routeKind ?? 'fallback'
+  const dispatchCandidates = Array.isArray(input.model?.candidates)
+    ? input.model.candidates
+      .map((entry) => normalizeCandidateModel(entry, routeKind))
+      .filter(Boolean)
+    : []
+  const envCandidates = parseModelList(process.env.PI_FILESYSTEM_MODEL_CANDIDATES ?? process.env.PI_MODEL_CANDIDATES)
+    .map((id) => normalizeCandidateModel({ id, resolvedVia: 'container-env-candidate' }, routeKind))
+    .filter(Boolean)
+  const defaultCandidates = DEFAULT_FILESYSTEM_MODEL_CANDIDATES
+    .map((id) => normalizeCandidateModel({ id, resolvedVia: 'container-default-candidate' }, routeKind))
+    .filter(Boolean)
+  const models = dedupeModels([
+    {
       ...parsed,
-      routeKind: input.model?.routeKind ?? 'fallback',
+      routeKind,
       resolvedVia: explicit ? (input.model?.resolvedVia ?? 'dispatch') : 'env-default',
       ...(input.model?.fallback ? { fallback: input.model.fallback } : {}),
     },
+    ...dispatchCandidates,
+    ...envCandidates,
+    ...defaultCandidates,
+  ])
+  return {
+    models,
   }
 }
 
@@ -235,6 +288,7 @@ async function runToolCapabilityProbe({ pi, reader, workDir, observation, getToo
   const beforeCount = getToolExecutionEventCount()
   const beforeToolCallEventCount = observation.toolCallEventCount ?? 0
   const beforeAssistantToolCallCount = observation.assistantToolCallCount ?? 0
+  await rm(join(workDir, TOOL_PROBE_FILE), { force: true })
   pushObservationEvent(observation, { type: 'tool_capability.probe_start', file: TOOL_PROBE_FILE })
   const endPromise = waitForAgentEnd(reader, EXECUTE_TIMEOUT_MS)
   pi.stdin.write(JSON.stringify({ type: 'prompt', message: buildToolCapabilityProbePrompt() }) + '\n')
@@ -436,14 +490,22 @@ async function handleExecute(req, res) {
 
   const { stageName = 'stage', runId = 'unknown', roleName = 'Agent' } = input
   const t0 = Date.now()
-  const resolved = resolveDispatchModel(input)
-  const selectedModel = resolved.model
+  const resolved = resolveDispatchModels(input)
+  const modelCandidates = resolved.models ?? []
+  let selectedModel = modelCandidates[0]
+  let selectedModelIndex = 0
   const executionSurface = resolveExecutionSurface(input)
   const observation = {
     runId,
     stageName,
     roleName,
     model: selectedModel ?? null,
+    modelCandidates: modelCandidates.map((model) => ({
+      id: model.id,
+      provider: model.provider,
+      model: model.model,
+      resolvedVia: model.resolvedVia,
+    })),
     executionSurface,
     events: [],
     artifacts: [],
@@ -492,49 +554,72 @@ async function handleExecute(req, res) {
     })
   }
 
-  const pi = spawn(PI_BIN, ['--mode', 'rpc', '--model', selectedModel.id], {
-    cwd: workDir,
-    env: process.env,
-    stdio: ['pipe', 'pipe', 'pipe'],
-  })
-
-  observation.pid = pi.pid ?? null
-  log('info', 'pi.spawned', { stageName, pid: pi.pid, model: selectedModel.id, resolvedVia: selectedModel.resolvedVia })
-  pushObservationEvent(observation, { type: 'pi.spawned', pid: pi.pid ?? null, model: selectedModel.id })
-
-  const reader = new JsonlReader(pi.stdout)
   const stderrChunks = []
   let toolExecutionEventCount = 0
-  pi.stderr.on('data', (c) => stderrChunks.push(c))
+  let pi = null
+  let reader = null
 
-  // Log every pi stdout event for observability
-  reader.on((msg) => {
-    recordPiEvent({
-      msg,
-      observation,
-      stageName,
-      log,
-      incrementToolExecutionEventCount: () => {
-        toolExecutionEventCount++
-        observation.toolExecutionEventCount = toolExecutionEventCount
-      },
+  const stopPi = () => {
+    if (pi && pi.exitCode === null) {
+      pi.kill('SIGTERM')
+    }
+  }
+
+  const startPi = async (model, modelIndex, reason = 'initial') => {
+    selectedModel = model
+    selectedModelIndex = modelIndex
+    observation.model = model
+    pushObservationEvent(observation, {
+      type: 'model.attempt_start',
+      model: model.id,
+      modelIndex,
+      resolvedVia: model.resolvedVia,
+      reason,
     })
-  })
+    pi = spawn(PI_BIN, ['--mode', 'rpc', '--model', model.id], {
+      cwd: workDir,
+      env: process.env,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
 
-  pi.on('exit', (code, signal) => {
-    log('info', 'pi.exit', { stageName, code, signal })
-    observation.exit = { code, signal }
-    pushObservationEvent(observation, { type: 'pi.exit', code, signal })
-  })
+    observation.pid = pi.pid ?? null
+    log('info', 'pi.spawned', { stageName, pid: pi.pid, model: model.id, modelIndex, resolvedVia: model.resolvedVia })
+    pushObservationEvent(observation, { type: 'pi.spawned', pid: pi.pid ?? null, model: model.id, modelIndex })
 
-  try {
+    reader = new JsonlReader(pi.stdout)
+    pi.stderr.on('data', (c) => stderrChunks.push(c))
+
+    // Log every pi stdout event for observability
+    reader.on((msg) => {
+      recordPiEvent({
+        msg,
+        observation,
+        stageName,
+        log,
+        incrementToolExecutionEventCount: () => {
+          toolExecutionEventCount++
+          observation.toolExecutionEventCount = toolExecutionEventCount
+        },
+      })
+    })
+
+    pi.on('exit', (code, signal) => {
+      log('info', 'pi.exit', { stageName, code, signal, model: model.id, modelIndex })
+      observation.exit = { code, signal, model: model.id, modelIndex }
+      pushObservationEvent(observation, { type: 'pi.exit', code, signal, model: model.id, modelIndex })
+    })
+
     // pi emits no startup signal — wait a brief delay for the process to initialize
     await new Promise((resolve) => setTimeout(resolve, PI_INIT_DELAY_MS))
 
     if (pi.exitCode !== null) {
-      const stderr = Buffer.concat(stderrChunks).toString('utf8').slice(0, 4000)
-      throw new Error(`pi exited immediately (code ${pi.exitCode}): ${stderr}`)
+      const stderr = redact(Buffer.concat(stderrChunks).toString('utf8').slice(0, 4000))
+      throw new Error(`pi exited immediately (code ${pi.exitCode}) for ${model.id}: ${stderr}`)
     }
+  }
+
+  try {
+    await startPi(selectedModel, selectedModelIndex)
 
     const declaredOutputs = input.declaredOutputs ?? []
     const maxRepairRounds = Number.isFinite(input.maxRepairRounds) ? Math.max(0, input.maxRepairRounds) : 1
@@ -592,10 +677,58 @@ async function handleExecute(req, res) {
           getToolExecutionEventCount: () => toolExecutionEventCount,
         })
         if (!probe.passed) {
-          throw new PiExecutionError(
-            'PI_TOOL_CAPABILITY_UNAVAILABLE',
-            `pi tool capability probe failed before ${stageName}: ${probe.reason}`
-          )
+          let activeProbe = probe
+          while (!activeProbe.passed && selectedModelIndex + 1 < modelCandidates.length) {
+            const failedModel = selectedModel
+            const nextIndex = selectedModelIndex + 1
+            const nextModel = modelCandidates[nextIndex]
+            pushObservationEvent(observation, {
+              type: 'model.failover',
+              from: failedModel.id,
+              to: nextModel.id,
+              reason: activeProbe.reason,
+            })
+            log('warn', 'pi.model_failover', { stageName, from: failedModel.id, to: nextModel.id, reason: activeProbe.reason })
+            stopPi()
+            try {
+              await startPi(nextModel, nextIndex, 'tool-capability-probe-failed')
+            } catch (err) {
+              const error = err instanceof Error ? err.message : String(err)
+              activeProbe = { passed: false, reason: `model route failed to start: ${error}` }
+              pushObservationEvent(observation, {
+                type: 'model.attempt_start_failed',
+                model: nextModel.id,
+                modelIndex: nextIndex,
+                error: redact(error),
+              })
+              continue
+            }
+            activeProbe = await runToolCapabilityProbe({
+              pi,
+              reader,
+              workDir,
+              observation,
+              getToolExecutionEventCount: () => toolExecutionEventCount,
+            })
+          }
+          if (activeProbe.passed) {
+            pushObservationEvent(observation, {
+              type: 'model.capability_route_selected',
+              model: selectedModel.id,
+              modelIndex: selectedModelIndex,
+            })
+          } else {
+            throw new PiExecutionError(
+              'PI_TOOL_CAPABILITY_UNAVAILABLE',
+              `pi tool capability probe failed before ${stageName}: ${activeProbe.reason}`
+            )
+          }
+        } else {
+          pushObservationEvent(observation, {
+            type: 'model.capability_route_selected',
+            model: selectedModel.id,
+            modelIndex: selectedModelIndex,
+          })
         }
       }
       const prompt = buildPrompt(promptInput)
@@ -650,7 +783,7 @@ async function handleExecute(req, res) {
       log('warn', 'execute.session_archive_failed', { stageName, error: String(archiveErr) })
     }
 
-    pi.kill('SIGTERM')
+    stopPi()
 
     const elapsedMs = Date.now() - t0
     log('info', 'execute.complete', { stageName, artifacts: artifactNames, missing: evaluation.missing, elapsedMs })
@@ -662,7 +795,7 @@ async function handleExecute(req, res) {
       ...(sessionArchive ? { sessionArchive } : {}),
     })
   } catch (err) {
-    pi.kill('SIGTERM')
+    stopPi()
     const elapsedMs = Date.now() - t0
     const message = err instanceof Error ? err.message : String(err)
     const code = err instanceof PiExecutionError ? err.code : 'PI_EXECUTION_FAILED'

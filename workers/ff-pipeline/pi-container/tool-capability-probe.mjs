@@ -40,6 +40,7 @@ export function summarizeAssistantMessage(message) {
     }))
   return {
     stopReason: typeof message.stopReason === 'string' ? message.stopReason : undefined,
+    errorMessage: typeof message.errorMessage === 'string' ? message.errorMessage.slice(0, 500) : undefined,
     responseModel: typeof message.responseModel === 'string' ? message.responseModel : undefined,
     contentTypes: content.map((part) => part?.type).filter((type) => typeof type === 'string'),
     toolCallCount: toolCalls.length,

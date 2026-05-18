@@ -159,6 +159,17 @@ export interface HarnessBridgeEnv {
   /** ofox.ai API key — passed into the pi Container as OPENROUTER_API_KEY at start(). */
   OFOX_API_KEY: string
 
-  /** Model identifier passed to pi via --model flag. Defaults to openrouter/moonshotai/kimi-k2. */
+  /** Primary model identifier passed to pi via --model flag. */
   PI_MODEL?: string
+
+  /**
+   * Ordered comma-separated model candidates for Pi filesystem-authoring
+   * Agent Calls. This is execution-contract route metadata: the dispatcher
+   * sends the ordered plan to the worker, and the worker records which route
+   * satisfied or failed the tool-capability probe.
+   */
+  PI_FILESYSTEM_MODEL_CANDIDATES?: string
+
+  /** Generic ordered comma-separated Pi fallback candidates. */
+  PI_MODEL_CANDIDATES?: string
 }

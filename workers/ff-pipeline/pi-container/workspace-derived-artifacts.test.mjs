@@ -71,6 +71,37 @@ describe('workspace-derived artifacts', () => {
     expect(command.command).toContain('CandidatePatch')
   })
 
+  it('builds a VerifierReport that satisfies the smoke harness contract', async () => {
+    const command = workspaceDerivedArtifactCommand(
+      { artifact: 'VerifierReport', body: { kind: 'markdown' } },
+      { context: { inputArtifacts: { SeedWorkspace: seed } } },
+    )
+    expect(command).toBeDefined()
+
+    const workDir = await mkdtemp(join(tmpdir(), 'workspace-derived-'))
+    const { execFile } = await import('node:child_process')
+    const { promisify } = await import('node:util')
+    await promisify(execFile)('sh', ['-c', command.command], { cwd: workDir })
+
+    const result = await evaluateContracts({
+      workDir,
+      contracts: [{
+        artifact: 'VerifierReport',
+        required: true,
+        body: {
+          kind: 'markdown',
+          requiredSections: ['Verdict', 'Tests', 'Evidence'],
+          requiredPatterns: [
+            '^Verdict:\\s+(PASS|FAIL)\\s*$',
+            'Tests run',
+          ],
+        },
+      }],
+    })
+
+    expect(result.missing).toEqual([])
+  })
+
   it('does not handle unrelated artifacts', () => {
     expect(workspaceDerivedArtifactCommand(
       { artifact: 'IssueContract', body: { kind: 'text' } },

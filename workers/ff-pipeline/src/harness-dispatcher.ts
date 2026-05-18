@@ -74,7 +74,13 @@ const MAX_RETRIES = 3
  * DO storage value cap on the persisted state.
  */
 const MAX_WORKER_ERROR_MESSAGE_BYTES = 4096
-const DEFAULT_PI_MODEL_ID = "openrouter/moonshotai/kimi-k2"
+const DEFAULT_PI_MODEL_ID = "openrouter/openai/gpt-5.4"
+const DEFAULT_FILESYSTEM_MODEL_CANDIDATES = [
+  "openrouter/openai/gpt-5.4",
+  "openrouter/anthropic/claude-sonnet-4.6",
+  "openrouter/google/gemini-3.1-pro-preview",
+  "openrouter/x-ai/grok-4.20",
+]
 
 type RoutedPiModel = {
   id: string
@@ -87,6 +93,12 @@ type RoutedPiModel = {
     provider: string
     model: string
   }
+  candidates?: Array<{
+    id: string
+    provider: string
+    model: string
+    resolvedVia: string
+  }>
 }
 
 type PiExecutionRoute = {
@@ -112,6 +124,24 @@ function parseModelId(id: string): Pick<RoutedPiModel, "id" | "provider" | "mode
   return { id, provider, model }
 }
 
+function parseModelList(value: string | undefined): string[] {
+  return (value ?? "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+}
+
+function dedupeModelIds(ids: string[]): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const id of ids) {
+    if (seen.has(id)) continue
+    seen.add(id)
+    out.push(id)
+  }
+  return out
+}
+
 function routeKindForRole(role: string): string {
   const lower = role.toLowerCase()
   if (lower.includes("plan")) return "planner"
@@ -123,12 +153,37 @@ function routeKindForRole(role: string): string {
 }
 
 function resolvePiModelRoute(stage: StageSpec, env: HarnessBridgeEnv): RoutedPiModel {
-  const selected = parseModelId(env.PI_MODEL ?? DEFAULT_PI_MODEL_ID)
+  const selectedId = env.PI_MODEL ?? DEFAULT_PI_MODEL_ID
+  const filesystemCandidateIds = dedupeModelIds([
+    selectedId,
+    ...(
+      env.PI_FILESYSTEM_MODEL_CANDIDATES
+        ? parseModelList(env.PI_FILESYSTEM_MODEL_CANDIDATES)
+        : parseModelList(env.PI_MODEL_CANDIDATES).length > 0
+          ? parseModelList(env.PI_MODEL_CANDIDATES)
+          : DEFAULT_FILESYSTEM_MODEL_CANDIDATES
+    ),
+  ])
+  const selected = parseModelId(selectedId)
   return {
     ...selected,
     routeKind: routeKindForRole(stage.role),
     resolvedVia: env.PI_MODEL ? "config-default" : "env-default",
     fallback: parseModelId(DEFAULT_PI_MODEL_ID),
+    ...(requiresAutonomousFilesystemTools(stage)
+      ? {
+          candidates: filesystemCandidateIds.map((id, index) => ({
+            ...parseModelId(id),
+            resolvedVia: index === 0
+              ? (env.PI_MODEL ? "config-default" : "env-default")
+              : env.PI_FILESYSTEM_MODEL_CANDIDATES
+                ? "filesystem-candidates-env"
+                : env.PI_MODEL_CANDIDATES
+                  ? "model-candidates-env"
+                  : "runtime-default-candidate",
+          })),
+        }
+      : {}),
   }
 }
 

@@ -117,6 +117,14 @@ describe('PiContainerAdapter', () => {
           model: 'claude-sonnet-4.5',
           routeKind: 'planner',
           resolvedVia: 'config-default',
+          candidates: [
+            {
+              id: 'openrouter/openai/gpt-5.4',
+              provider: 'openrouter',
+              model: 'openai/gpt-5.4',
+              resolvedVia: 'filesystem-candidates-env',
+            },
+          ],
         },
         execution: {
           surface: 'rpc',
@@ -133,6 +141,9 @@ describe('PiContainerAdapter', () => {
     expect(payload.model).toMatchObject({
       id: 'anthropic/claude-sonnet-4.5',
       routeKind: 'planner',
+      candidates: [
+        expect.objectContaining({ id: 'openrouter/openai/gpt-5.4' }),
+      ],
     })
     expect(payload.execution).toMatchObject({
       surface: 'rpc',

@@ -118,7 +118,7 @@ function makeEnv(stub: { fetch: ReturnType<typeof vi.fn> }) {
     WORKSPACE_BUCKET: {} as R2Bucket,
     HARNESS_QUEUE: { send: vi.fn() },
     FACTORY_PIPELINE: { get: vi.fn(), create: vi.fn() },
-    PI_MODEL: 'openrouter/moonshotai/kimi-k2',
+    PI_MODEL: 'openrouter/openai/gpt-5.4',
   }
 }
 
@@ -187,7 +187,7 @@ describe('dispatchOne', () => {
     }
     expect(workerInput.runId).toBe('run-dispatch-001')
     expect(workerInput.model).toMatchObject({
-      id: 'openrouter/moonshotai/kimi-k2',
+      id: 'openrouter/openai/gpt-5.4',
       routeKind: 'planner',
       resolvedVia: 'config-default',
     })
@@ -258,9 +258,15 @@ describe('dispatchOne', () => {
     const adapter = (deps.resolveWorkerAdapter as ReturnType<typeof vi.fn>).mock.results[0]!.value as { execute: ReturnType<typeof vi.fn> }
     const workerInput = adapter.execute.mock.calls[0]?.[0] as {
       execution?: { surface: string; requiredCapabilities: string[]; resolvedVia: string }
-      model?: { routeKind: string }
+      model?: { routeKind: string; candidates?: Array<{ id: string; resolvedVia: string }> }
     }
     expect(workerInput.model).toMatchObject({ routeKind: 'coder' })
+    expect(workerInput.model?.candidates?.map((candidate) => candidate.id)).toEqual([
+      'openrouter/openai/gpt-5.4',
+      'openrouter/anthropic/claude-sonnet-4.6',
+      'openrouter/google/gemini-3.1-pro-preview',
+      'openrouter/x-ai/grok-4.20',
+    ])
     expect(workerInput.execution).toMatchObject({
       surface: 'rpc',
       requiredCapabilities: ['filesystem_tools'],

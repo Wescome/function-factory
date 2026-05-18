@@ -66,11 +66,14 @@ export function buildCandidatePatch(seed) {
 
 function buildVerifierReport(seed) {
   return [
+    '## Verdict',
     'Verdict: PASS',
+    '',
+    '## Tests',
     'Tests run',
     seed.testCommand ?? 'not declared',
     '',
-    'Evidence',
+    '## Evidence',
     'CandidatePatch applies to SeedWorkspace expectedChanges.',
     '',
   ].join('\n')

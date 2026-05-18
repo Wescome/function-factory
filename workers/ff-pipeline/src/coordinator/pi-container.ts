@@ -37,7 +37,9 @@ export class PiContainer extends DurableObject<HarnessBridgeEnv> {
       this.ctx.container.start({
         enableInternet: true,
         env: {
-          PI_MODEL: this.env.PI_MODEL ?? 'openrouter/moonshotai/kimi-k2',
+          PI_MODEL: this.env.PI_MODEL ?? 'openrouter/openai/gpt-5.4',
+          ...(this.env.PI_MODEL_CANDIDATES ? { PI_MODEL_CANDIDATES: this.env.PI_MODEL_CANDIDATES } : {}),
+          ...(this.env.PI_FILESYSTEM_MODEL_CANDIDATES ? { PI_FILESYSTEM_MODEL_CANDIDATES: this.env.PI_FILESYSTEM_MODEL_CANDIDATES } : {}),
           OPENROUTER_API_KEY: this.env.OFOX_API_KEY,
         },
       })

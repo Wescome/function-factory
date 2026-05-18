@@ -82,6 +82,7 @@ artifacts:
         - "Evidence"
       required_patterns:
         - "^Verdict:\\s+(PASS|FAIL)\\s*$"
+        - "Tests run"
   FinalPatch:
     path: artifacts/final.patch
     required: true

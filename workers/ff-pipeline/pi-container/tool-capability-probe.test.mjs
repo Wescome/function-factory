@@ -28,6 +28,7 @@ describe('tool capability probe', () => {
     expect(summarizeAssistantMessage({
       role: 'assistant',
       stopReason: 'toolUse',
+      errorMessage: 'not persisted as args',
       responseModel: 'moonshotai/kimi-k2',
       content: [
         { type: 'text', text: 'ok' },
@@ -35,6 +36,7 @@ describe('tool capability probe', () => {
       ],
     })).toEqual({
       stopReason: 'toolUse',
+      errorMessage: 'not persisted as args',
       responseModel: 'moonshotai/kimi-k2',
       contentTypes: ['text', 'toolCall'],
       toolCallCount: 1,
