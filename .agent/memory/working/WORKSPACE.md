@@ -1,7 +1,7 @@
 # Current Workspace
 
 ## Status
-2026-05-18T16:31:53Z: Implemented FN-SYNTH-MIGRATE observability gap closure request on branch `factory/fp-motdwvr2-w7un`.
+2026-05-18T16:36:46Z: Implemented, verified, committed, and pushed FN-SYNTH-MIGRATE observability gap closure on branch `factory/fp-motdwvr2-w7un`.
 
 ## Changes in progress
 - Added 5-retry read-modify-write loop for `run_started` active index creation/update so R2 ETag race losses are retried before the outer emit boundary logs failure.
@@ -16,8 +16,9 @@
 - `bash -n scripts/ops/configure-r2-lifecycle.sh` passed and script is executable.
 - `pnpm exec wrangler r2 bucket lifecycle add --help` confirmed current Wrangler syntax uses positional `name`/`prefix` and `--expire-days`.
 
-## Pending
-- Commit and push with prefix `FN-SYNTH-MIGRATE:` if final verification stays clean.
+## Commit
+- `3ddd774 FN-SYNTH-MIGRATE: close observability gaps`
+- Pushed to `factory/fp-motdwvr2-w7un`.
 
 ## Notes
 - Existing unrelated untracked files remain out of scope.
