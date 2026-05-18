@@ -1,7 +1,7 @@
 # Current Workspace
 
 ## Status
-2026-05-18T17:10:58Z: Investigated reported default ff-pipeline test failures after observability gap closure. The four suspect files pass when run together; failures reproduce only under default file-level parallelism. Updated `workers/ff-pipeline/package.json` so `pnpm --filter @factory/ff-pipeline test` uses `--no-file-parallelism`, matching the stable verification mode for this Worker test suite.
+2026-05-18T17:19:02Z: Completed production ops closeout for deployed Worker version `acf4a7b2-57ba-4718-8d33-edd792bcff95`.
 
 ## Changes in progress
 - Added 5-retry read-modify-write loop for `run_started` active index creation/update so R2 ETag race losses are retried before the outer emit boundary logs failure.
@@ -10,6 +10,10 @@
 - Added attempt-count invariant comment and corrected `buildStageResultBlock` fallback to `gate_abort` when no step error exists.
 
 ## Verification
+- Applied R2 lifecycle rule `attempt-logs-30d` to bucket `ff-workspaces`; verified prefix `runs/_attempt-logs/` expires after 30 days.
+- Production smoke `observability-preseed-1779124676` completed with `stepAccounting.ok=["SMOKE"]`, `currentPhase="report"`, and `eventCount=11`.
+- `/run-status/observability-preseed-1779124676?logs=SMOKE` returned `X-Run-Log-Key: runs/_attempt-logs/observability-preseed-1779124676/SMOKE/attempt-1.log`.
+- Direct R2 read confirmed `runs/_active-index.json` has `"runs": []` after terminal completion.
 - `pnpm --filter @factory/ff-pipeline typecheck` passed.
 - `pnpm --filter @factory/ff-pipeline test src/atoms-complete-wiring.test.ts src/queue-bridge.test.ts src/stage6-handoff.test.ts src/diagnostic-routes.test.ts` passed: 4 files / 90 tests before the script change.
 - Default `pnpm --filter @factory/ff-pipeline test` reproduced 5 failures under file-level parallelism: atoms-complete-wiring, queue-bridge, stage6-handoff, diagnostic-routes.
@@ -22,7 +26,9 @@
 ## Commit
 - `3ddd774 FN-SYNTH-MIGRATE: close observability gaps`
 - Pushed to `factory/fp-motdwvr2-w7un`.
+- `99679e3 FN-SYNTH-MIGRATE: stabilize ff-pipeline tests`
+- Pushed to `factory/fp-motdwvr2-w7un`.
 
 ## Notes
-- This entry documents verification before committing the test-runner stabilization.
+- This entry documents production ops closeout after deploy.
 - Existing unrelated untracked files remain out of scope.
