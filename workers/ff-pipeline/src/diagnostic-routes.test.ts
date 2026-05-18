@@ -419,6 +419,273 @@ describe('ff-pipeline diagnostic routes', () => {
     }))
   })
 
+  it('POST /run-interventions/:runId/note persists an operator note and surfaces it in monitor', async () => {
+    const { default: worker } = await import('./index')
+    const bucket = new MemoryR2Bucket()
+    await bucket.put('runs/run-intervention-001/events/2026-05-18T20:00:00.000Z-a.json', JSON.stringify({
+      schemaVersion: '1.0',
+      eventId: 'a',
+      runId: 'run-intervention-001',
+      type: 'run_started',
+      timestamp: '2026-05-18T20:00:00.000Z',
+      emitter: 'harness-bridge',
+      data: {},
+    }))
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/run-interventions/run-intervention-001/note', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ operator: 'ops', note: 'Verifier is taking longer than expected.' }),
+      }),
+      createEnv({ WORKSPACE_BUCKET: bucket }) as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(202)
+    expect(await jsonBody(response)).toMatchObject({
+      ok: true,
+      action: 'operator_note_added',
+      runId: 'run-intervention-001',
+    })
+
+    const monitor = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/run-monitor/run-intervention-001?limit=10'),
+      createEnv({ WORKSPACE_BUCKET: bucket }) as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+    const body = await jsonBody(monitor)
+    expect(body.interventions).toContainEqual(expect.objectContaining({
+      type: 'operator_note_added',
+      operator: 'ops',
+      message: 'Verifier is taking longer than expected.',
+    }))
+    expect(body.timeline).toContainEqual(expect.objectContaining({
+      type: 'operator_note_added',
+      message: 'Verifier is taking longer than expected.',
+    }))
+  })
+
+  it('POST /run-interventions/:runId/cancel records intent and force-completes through RunCoordinator', async () => {
+    const { default: worker } = await import('./index')
+    const bucket = new MemoryR2Bucket()
+    await bucket.put('runs/run-cancel-001/events/2026-05-18T20:00:00.000Z-a.json', JSON.stringify({
+      schemaVersion: '1.0',
+      eventId: 'a',
+      runId: 'run-cancel-001',
+      type: 'stage_started',
+      timestamp: '2026-05-18T20:00:00.000Z',
+      emitter: 'harness-dispatcher',
+      stageName: 'VERIFY',
+      attemptNumber: 1,
+      data: {},
+    }))
+    const fetch = vi.fn(async (request: Request) => {
+      expect(new URL(request.url).pathname).toBe('/force-complete')
+      const payload = await request.json() as { result: { finalStage?: string; failureClass?: string; reason?: string } }
+      expect(payload.result).toMatchObject({
+        finalStage: 'VERIFY',
+        failureClass: 'operator_cancelled',
+        reason: 'operator cancel requested: stop bad run',
+      })
+      return new Response(JSON.stringify({ ok: true, action: 'force-complete' }), {
+        headers: { 'Content-Type': 'application/json' },
+      })
+    })
+    const runCoordinator = {
+      idFromName: vi.fn((name: string) => name),
+      get: vi.fn(() => ({ fetch })),
+    }
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/run-interventions/run-cancel-001/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ operator: 'ops', reason: 'stop bad run' }),
+      }),
+      createEnv({ WORKSPACE_BUCKET: bucket, RUN_COORDINATOR: runCoordinator }) as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(202)
+    expect(fetch).toHaveBeenCalledOnce()
+    expect(await jsonBody(response)).toMatchObject({
+      ok: true,
+      action: 'run_cancel_requested',
+      effect: { attempted: true, ok: true },
+    })
+
+    const monitor = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/run-monitor/run-cancel-001?limit=10'),
+      createEnv({ WORKSPACE_BUCKET: bucket }) as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+    const body = await jsonBody(monitor)
+    expect(body.interventions).toContainEqual(expect.objectContaining({
+      type: 'run_cancel_requested',
+      stageName: 'VERIFY',
+      operator: 'ops',
+      message: 'stop bad run',
+    }))
+  })
+
+  it('POST /run-interventions/:runId/cancel refuses already-terminal runs', async () => {
+    const { default: worker } = await import('./index')
+    const bucket = new MemoryR2Bucket()
+    await bucket.put('runs/run-cancel-terminal-001/events/2026-05-18T20:00:00.000Z-a.json', JSON.stringify({
+      schemaVersion: '1.0',
+      eventId: 'a',
+      runId: 'run-cancel-terminal-001',
+      type: 'run_started',
+      timestamp: '2026-05-18T20:00:00.000Z',
+      emitter: 'harness-bridge',
+      data: {},
+    }))
+    await bucket.put('runs/run-cancel-terminal-001/events/2026-05-18T20:00:01.000Z-b.json', JSON.stringify({
+      schemaVersion: '1.0',
+      eventId: 'b',
+      runId: 'run-cancel-terminal-001',
+      type: 'harness_complete',
+      timestamp: '2026-05-18T20:00:01.000Z',
+      emitter: 'run-coordinator',
+      stageName: 'VERIFY',
+      data: { overall: 'pass' },
+    }))
+    const fetch = vi.fn()
+    const runCoordinator = {
+      idFromName: vi.fn((name: string) => name),
+      get: vi.fn(() => ({ fetch })),
+    }
+
+    const response = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/run-interventions/run-cancel-terminal-001/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ operator: 'ops', reason: 'too late' }),
+      }),
+      createEnv({ WORKSPACE_BUCKET: bucket, RUN_COORDINATOR: runCoordinator }) as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+
+    expect(response.status).toBe(409)
+    expect(fetch).not.toHaveBeenCalled()
+    expect(await jsonBody(response)).toMatchObject({
+      error: 'run is already terminal',
+      runId: 'run-cancel-terminal-001',
+      status: 'completed',
+    })
+
+    const monitor = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/run-monitor/run-cancel-terminal-001?limit=10'),
+      createEnv({ WORKSPACE_BUCKET: bucket }) as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+    const body = await jsonBody(monitor)
+    expect(body.interventions).toEqual([])
+  })
+
+  it('POST /run-interventions/:runId/retry-stage and redispatch-stage record visible operator intents', async () => {
+    const { default: worker } = await import('./index')
+    const bucket = new MemoryR2Bucket()
+    await bucket.put('runs/run-control-001/events/2026-05-18T20:00:00.000Z-a.json', JSON.stringify({
+      schemaVersion: '1.0',
+      eventId: 'a',
+      runId: 'run-control-001',
+      type: 'run_started',
+      timestamp: '2026-05-18T20:00:00.000Z',
+      emitter: 'harness-bridge',
+      data: {},
+    }))
+
+    for (const [action, path] of [
+      ['stage_retry_requested', 'retry-stage'],
+      ['stage_redispatch_requested', 'redispatch-stage'],
+    ] as const) {
+      const response = await worker.fetch(
+        new Request(`https://ff-pipeline.example.com/run-interventions/run-control-001/${path}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ operator: 'ops', stageName: 'PATCH', reason: `${path} please` }),
+        }),
+        createEnv({ WORKSPACE_BUCKET: bucket }) as never,
+        { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+      )
+
+      expect(response.status).toBe(202)
+      expect(await jsonBody(response)).toMatchObject({
+        ok: true,
+        action,
+        effect: { attempted: false },
+      })
+    }
+
+    const monitor = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/run-monitor/run-control-001?limit=10'),
+      createEnv({ WORKSPACE_BUCKET: bucket }) as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+    const body = await jsonBody(monitor)
+    expect(body.interventions).toEqual([
+      expect.objectContaining({ type: 'stage_retry_requested', stageName: 'PATCH' }),
+      expect.objectContaining({ type: 'stage_redispatch_requested', stageName: 'PATCH' }),
+    ])
+  })
+
+  it('POST /run-interventions/:runId/:action refuses unknown runs and terminal control intents', async () => {
+    const { default: worker } = await import('./index')
+    const bucket = new MemoryR2Bucket()
+
+    const unknown = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/run-interventions/missing-run/note', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ operator: 'ops', note: 'wrong run' }),
+      }),
+      createEnv({ WORKSPACE_BUCKET: bucket }) as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+    expect(unknown.status).toBe(404)
+    expect(await jsonBody(unknown)).toMatchObject({
+      error: 'run summary not found',
+      runId: 'missing-run',
+    })
+
+    await bucket.put('runs/run-control-terminal-001/events/2026-05-18T20:00:00.000Z-a.json', JSON.stringify({
+      schemaVersion: '1.0',
+      eventId: 'a',
+      runId: 'run-control-terminal-001',
+      type: 'run_started',
+      timestamp: '2026-05-18T20:00:00.000Z',
+      emitter: 'harness-bridge',
+      data: {},
+    }))
+    await bucket.put('runs/run-control-terminal-001/events/2026-05-18T20:00:01.000Z-b.json', JSON.stringify({
+      schemaVersion: '1.0',
+      eventId: 'b',
+      runId: 'run-control-terminal-001',
+      type: 'harness_complete',
+      timestamp: '2026-05-18T20:00:01.000Z',
+      emitter: 'run-coordinator',
+      data: { overall: 'pass' },
+    }))
+
+    const terminal = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/run-interventions/run-control-terminal-001/retry-stage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ operator: 'ops', stageName: 'PATCH', reason: 'too late' }),
+      }),
+      createEnv({ WORKSPACE_BUCKET: bucket }) as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+    expect(terminal.status).toBe(409)
+    expect(await jsonBody(terminal)).toMatchObject({
+      error: 'run is already terminal',
+      runId: 'run-control-terminal-001',
+      status: 'completed',
+    })
+  })
+
   it('GET /debug/health reports Arango and AI binding status', async () => {
     const { default: worker } = await import('./index')
 

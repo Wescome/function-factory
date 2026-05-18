@@ -126,6 +126,16 @@ export class RunEventLog {
         ...(typeof event.data.message === "string" ? { message: event.data.message } : {}),
         ...(event.error?.message ? { error: event.error.message } : {}),
       })),
+      interventions: events
+        .filter(isInterventionEvent)
+        .map((event) => ({
+          at: event.timestamp,
+          type: event.type,
+          ...(typeof event.data.operator === "string" ? { operator: event.data.operator } : {}),
+          ...(event.stageName ? { stageName: event.stageName } : {}),
+          ...(typeof event.data.message === "string" ? { message: event.data.message } : {}),
+          ...(typeof event.data.effect === "string" ? { effect: event.data.effect } : {}),
+        })),
       diagnostics: {
         observations: manifest?.diagnostics.observations ?? [],
         contractEvaluations: manifest?.diagnostics.contractEvaluations ?? [],
@@ -473,7 +483,7 @@ export async function emitRunEvent(
 }
 
 export function classifyRunErrorClass(value: unknown): RunErrorClass | undefined {
-  if (value === "infrastructure_error" || value === "step_error" || value === "gate_abort" || value === "dlq_exhausted" || value === "watchdog_stuck") {
+  if (value === "infrastructure_error" || value === "step_error" || value === "gate_abort" || value === "dlq_exhausted" || value === "watchdog_stuck" || value === "operator_cancelled") {
     return value
   }
   return undefined
@@ -857,7 +867,7 @@ function phaseForEvent(event: RunEvent): RunStage {
   if (event.type === "run_started") return "intent"
   if (event.type === "harness_loaded" || event.type === "run_coordinator_initialized") return "plan"
   if (event.type === "coherence_verified" || event.type === "fidelity_verified" || event.type === "persistence_verified" || event.type === "gate_evaluated") return "eval"
-  if (event.type === "counterfactual_recorded" || event.type === "harness_complete" || event.type === "workflow_notified" || event.type === "workflow_notify_failed") return "report"
+  if (event.type === "counterfactual_recorded" || event.type === "harness_complete" || event.type === "workflow_notified" || event.type === "workflow_notify_failed" || isInterventionEvent(event)) return "report"
   return "execution"
 }
 
@@ -996,6 +1006,7 @@ function updateWatchdogThresholds(
 function errorClassForEvent(event: RunEvent): RunErrorClass | undefined {
   if (event.type === "dlq_recovered") return "dlq_exhausted"
   if (event.type === "stuck_detected") return "watchdog_stuck"
+  if (event.type === "run_cancel_requested") return "operator_cancelled"
   const explicit = classifyRunErrorClass(event.data.failureClass)
   if (explicit) return explicit
   if (event.type === "stage_failed") return event.error ? "step_error" : "gate_abort"
@@ -1005,6 +1016,15 @@ function errorClassForEvent(event: RunEvent): RunErrorClass | undefined {
 
 function isTerminalEvent(type: RunEventType): boolean {
   return type === "harness_complete" || type === "dlq_recovered" || type === "stuck_detected"
+}
+
+function isInterventionEvent(event: RunEvent): event is RunEvent & {
+  type: "operator_note_added" | "run_cancel_requested" | "stage_retry_requested" | "stage_redispatch_requested"
+} {
+  return event.type === "operator_note_added"
+    || event.type === "run_cancel_requested"
+    || event.type === "stage_retry_requested"
+    || event.type === "stage_redispatch_requested"
 }
 
 function slugFromRunId(runId: string): string {

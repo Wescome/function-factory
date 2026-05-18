@@ -222,6 +222,10 @@ export default {
       return json(snapshot)
     }
 
+    if (url.pathname.startsWith('/run-interventions/') && request.method === 'POST') {
+      return handleRunIntervention(request, env, url)
+    }
+
     if (url.pathname.startsWith('/run-artifacts/') && request.method === 'GET') {
       if (!env.WORKSPACE_BUCKET) {
         return json({ error: 'WORKSPACE_BUCKET binding unavailable' }, 503)
@@ -2132,6 +2136,172 @@ export default {
       }
     }
   },
+}
+
+async function handleRunIntervention(request: Request, env: PipelineEnv, url: URL): Promise<Response> {
+  if (!env.WORKSPACE_BUCKET) {
+    return json({ error: 'WORKSPACE_BUCKET binding unavailable' }, 503)
+  }
+  const rest = url.pathname.slice('/run-interventions/'.length)
+  const [encodedRunId, action] = rest.split('/')
+  const runId = decodeURIComponent(encodedRunId ?? '')
+  if (!runId || !action) return json({ error: 'missing runId or intervention action' }, 400)
+
+  const log = new RunEventLog(env.WORKSPACE_BUCKET as R2Bucket)
+  const body = await readJsonRecord(request)
+  const operator = cleanString(body.operator, 'operator')
+  const reason = cleanString(body.reason, '')
+  const note = cleanString(body.note, '')
+  const explicitStageName = cleanString(body.stageName, '')
+  const summary = await log.getSummary(runId)
+  if (!summary) {
+    return json({ error: 'run summary not found', runId }, 404)
+  }
+  const stageName = explicitStageName || summary.currentStage || undefined
+
+  if (action === 'note') {
+    if (!note) return json({ error: 'missing note' }, 400)
+    await emitIntervention(log, {
+      runId,
+      type: 'operator_note_added',
+      operator,
+      message: note,
+    })
+    return json({ ok: true, runId, action: 'operator_note_added' }, 202)
+  }
+
+  if (action === 'retry-stage' || action === 'redispatch-stage') {
+    if (isTerminalRunStatus(summary.status)) {
+      return json({
+        error: 'run is already terminal',
+        runId,
+        status: summary.status,
+      }, 409)
+    }
+    if (!explicitStageName) return json({ error: 'missing stageName' }, 400)
+    const type = action === 'retry-stage' ? 'stage_retry_requested' : 'stage_redispatch_requested'
+    await emitIntervention(log, {
+      runId,
+      stageName: explicitStageName,
+      type,
+      operator,
+      message: reason || `${action} requested`,
+      effect: 'recorded_only',
+    })
+    return json({
+      ok: true,
+      runId,
+      action: type,
+      stageName: explicitStageName,
+      effect: { attempted: false, reason: 'recorded_only' },
+    }, 202)
+  }
+
+  if (action === 'cancel') {
+    const currentStatus = summary.status
+    if (isTerminalRunStatus(currentStatus)) {
+      return json({
+        error: 'run is already terminal',
+        runId,
+        status: currentStatus,
+      }, 409)
+    }
+    const finalStage = stageName || 'unknown'
+    const message = reason || 'operator cancel requested'
+    await emitIntervention(log, {
+      runId,
+      stageName: finalStage,
+      type: 'run_cancel_requested',
+      operator,
+      message,
+      effect: env.RUN_COORDINATOR ? 'force_complete_requested' : 'recorded_only',
+    })
+    const effect = await forceCompleteCancelledRun(env, runId, finalStage, message)
+    return json({
+      ok: true,
+      runId,
+      action: 'run_cancel_requested',
+      stageName: finalStage,
+      effect,
+    }, 202)
+  }
+
+  return json({ error: `unknown intervention action: ${action}` }, 404)
+}
+
+async function emitIntervention(
+  log: RunEventLog,
+  input: {
+    runId: string
+    stageName?: string
+    type: 'operator_note_added' | 'run_cancel_requested' | 'stage_retry_requested' | 'stage_redispatch_requested'
+    operator: string
+    message: string
+    effect?: string
+  },
+): Promise<void> {
+  await log.emit({
+    runId: input.runId,
+    ...(input.stageName ? { stageName: input.stageName } : {}),
+    type: input.type,
+    emitter: 'operator',
+    data: {
+      operator: input.operator,
+      message: input.message,
+      ...(input.effect ? { effect: input.effect } : {}),
+    },
+  })
+}
+
+async function forceCompleteCancelledRun(
+  env: PipelineEnv,
+  runId: string,
+  finalStage: string,
+  reason: string,
+): Promise<{ attempted: boolean; ok?: boolean; status?: number; error?: string; reason?: string }> {
+  if (!env.RUN_COORDINATOR) return { attempted: false, reason: 'RUN_COORDINATOR binding unavailable' }
+  try {
+    const stub = env.RUN_COORDINATOR.get(env.RUN_COORDINATOR.idFromName(runId))
+    const response = await stub.fetch(new Request('https://run-coordinator/force-complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        runId,
+        reason: 'operator_cancelled',
+        result: {
+          overall: 'fail',
+          finalStage,
+          reason: `operator cancel requested: ${reason}`,
+          failureClass: 'operator_cancelled',
+        },
+      }),
+    }))
+    if (!response.ok) {
+      return { attempted: true, ok: false, status: response.status, error: (await response.text()).slice(0, 400) }
+    }
+    return { attempted: true, ok: true, status: response.status }
+  } catch (err) {
+    return { attempted: true, ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+async function readJsonRecord(request: Request): Promise<Record<string, unknown>> {
+  try {
+    const parsed = await request.json()
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : {}
+  } catch {
+    return {}
+  }
+}
+
+function cleanString(value: unknown, fallback: string): string {
+  return typeof value === 'string' ? value.trim().slice(0, 4096) : fallback
+}
+
+function isTerminalRunStatus(status: unknown): boolean {
+  return status === 'completed' || status === 'failed' || status === 'stuck' || status === 'dlq_recovered'
 }
 
 function json(data: unknown, status = 200): Response {

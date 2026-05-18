@@ -19,6 +19,10 @@ export type RunEventType =
   | "harness_complete"
   | "workflow_notified"
   | "workflow_notify_failed"
+  | "operator_note_added"
+  | "run_cancel_requested"
+  | "stage_retry_requested"
+  | "stage_redispatch_requested"
   | "dlq_recovered"
   | "stuck_detected"
   | "container_started"
@@ -34,6 +38,7 @@ export type RunEventEmitter =
   | "pi-container"
   | "dlq-consumer"
   | "watchdog"
+  | "operator"
 
 export interface RunEvent {
   schemaVersion: "1.0"
@@ -83,6 +88,7 @@ export type RunErrorClass =
   | "gate_abort"
   | "dlq_exhausted"
   | "watchdog_stuck"
+  | "operator_cancelled"
 
 export interface RunSummary {
   schemaVersion: "1.0"
@@ -212,6 +218,14 @@ export interface RunMonitorSnapshot {
     attemptNumber?: number
     message?: string
     error?: string
+  }>
+  interventions: Array<{
+    at: string
+    type: Extract<RunEventType, "operator_note_added" | "run_cancel_requested" | "stage_retry_requested" | "stage_redispatch_requested">
+    operator?: string
+    stageName?: string
+    message?: string
+    effect?: string
   }>
   diagnostics: {
     observations: string[]

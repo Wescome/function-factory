@@ -33,6 +33,14 @@ const snapshot = {
   artifacts: [
     { name: 'SeedWorkspace', stage: 'SEED', key: 'runs/run-001/artifacts/SeedWorkspace' },
   ],
+  interventions: [
+    {
+      at: '2026-05-18T20:00:30.000Z',
+      type: 'operator_note_added',
+      operator: 'ops',
+      message: 'watch this run',
+    },
+  ],
 }
 
 describe('watch-run CLI helpers', () => {
@@ -63,6 +71,8 @@ describe('watch-run CLI helpers', () => {
     expect(text).toContain('runId: run-001')
     expect(text).toContain('PATCH')
     expect(text).toContain('pi-author')
+    expect(text).toContain('Interventions')
+    expect(text).toContain('watch this run')
     expect(text).toContain('Attempt Log: PATCH')
     expect(text).toContain('===STAGE_RESULT===')
   })

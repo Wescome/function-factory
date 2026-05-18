@@ -127,6 +127,9 @@ export function formatSnapshot(snapshot, attemptLog, now = new Date()) {
   lines.push('')
   lines.push('Diagnostics')
   lines.push(formatDiagnostics(snapshot.diagnostics || {}))
+  lines.push('')
+  lines.push('Interventions')
+  lines.push(formatInterventions(Array.isArray(snapshot.interventions) ? snapshot.interventions : []))
   if (attemptLog) {
     lines.push('')
     lines.push(`Attempt Log: ${attemptLog.stageName}${attemptLog.key ? `  ${attemptLog.key}` : ''}`)
@@ -190,6 +193,17 @@ export function formatDiagnostics(diagnostics) {
     `  contractEvaluations: ${contractEvaluations.length}`,
     ...(diagnostics.attemptLogsPrefix ? [`  attemptLogsPrefix: ${diagnostics.attemptLogsPrefix}`] : []),
   ].join('\n')
+}
+
+export function formatInterventions(interventions) {
+  if (interventions.length === 0) return '  none'
+  return interventions.map((entry) => {
+    const stage = entry.stageName ? ` ${entry.stageName}` : ''
+    const operator = entry.operator ? ` operator=${entry.operator}` : ''
+    const effect = entry.effect ? ` effect=${entry.effect}` : ''
+    const message = entry.message ? `  ${entry.message}` : ''
+    return `  ${entry.at || ''}  ${entry.type || ''}${stage}${operator}${effect}${message}`
+  }).join('\n')
 }
 
 export function tailLines(text, maxLines) {
