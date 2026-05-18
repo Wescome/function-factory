@@ -394,7 +394,7 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
       expect(body.result).toMatchObject({
         overall: 'fail',
         finalStage: 'PATCH',
-        failureClass: 'DLQ_EXHAUSTED',
+        failureClass: 'dlq_exhausted',
       })
       expect(msg.ack).toHaveBeenCalledOnce()
       expect(msg.retry).not.toHaveBeenCalled()

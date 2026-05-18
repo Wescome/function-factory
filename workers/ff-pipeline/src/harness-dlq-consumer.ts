@@ -12,7 +12,7 @@ export async function consumeHarnessDlq(
         overall: "fail",
         finalStage: executionNodeName,
         reason: `Execution node ${executionNodeName} dead-lettered after queue retries exhausted.`,
-        failureClass: "DLQ_EXHAUSTED",
+        failureClass: "dlq_exhausted",
       }
       const doId = env.RUN_COORDINATOR.idFromName(runId)
       const stub = env.RUN_COORDINATOR.get(doId)
