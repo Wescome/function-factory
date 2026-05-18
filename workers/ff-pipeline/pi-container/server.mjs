@@ -19,7 +19,7 @@
 
 import { createServer } from 'node:http'
 import { spawn } from 'node:child_process'
-import { mkdtemp, writeFile, stat, readdir } from 'node:fs/promises'
+import { mkdtemp, readFile, writeFile, stat, readdir } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -28,6 +28,13 @@ import { evaluateContracts, defaultContract, buildContractRepairPrompt } from '.
 import { contractMaterializeCommand } from './contract-materializer.mjs'
 import { hasSeedWorkspace, prepareSeedWorkspace, workspacePromptSection } from './workspace-seed.mjs'
 import { workspaceDerivedArtifactCommand } from './workspace-derived-artifacts.mjs'
+import {
+  TOOL_PROBE_FILE,
+  assessToolCapabilityProbe,
+  buildToolCapabilityProbePrompt,
+  isToolExecutionEvent,
+  requiresFilesystemAuthoring,
+} from './tool-capability-probe.mjs'
 
 const PORT = Number(process.env.PORT ?? 8080)
 const PI_BIN = join(dirname(fileURLToPath(import.meta.url)), 'node_modules', '.bin', 'pi')
@@ -123,6 +130,14 @@ function writeJson(res, status, body) {
   res.end(JSON.stringify(body))
 }
 
+class PiExecutionError extends Error {
+  constructor(code, message) {
+    super(message)
+    this.name = 'PiExecutionError'
+    this.code = code
+  }
+}
+
 function assistantMessagePreview(message) {
   if (!message || typeof message !== 'object') return undefined
   const content = message.content
@@ -206,6 +221,33 @@ function sendRpcCommand(pi, reader, command, timeoutMs) {
     })
     pi.stdin.write(JSON.stringify({ ...command, id }) + '\n')
   })
+}
+
+async function runToolCapabilityProbe({ pi, reader, workDir, observation, getToolExecutionEventCount }) {
+  const beforeCount = getToolExecutionEventCount()
+  pushObservationEvent(observation, { type: 'tool_capability.probe_start', file: TOOL_PROBE_FILE })
+  const endPromise = waitForAgentEnd(reader, EXECUTE_TIMEOUT_MS)
+  pi.stdin.write(JSON.stringify({ type: 'prompt', message: buildToolCapabilityProbePrompt() }) + '\n')
+  await endPromise
+
+  const toolExecutionEventCount = getToolExecutionEventCount() - beforeCount
+  let fileContent
+  let fileError
+  try {
+    fileContent = await readFile(join(workDir, TOOL_PROBE_FILE), 'utf8')
+  } catch (err) {
+    fileError = err instanceof Error ? err.message : String(err)
+  }
+
+  const result = assessToolCapabilityProbe({ toolExecutionEventCount, fileContent, fileError })
+  pushObservationEvent(observation, {
+    type: 'tool_capability.probe_result',
+    passed: result.passed,
+    reason: result.reason,
+    toolExecutionEventCount,
+    fileReadable: fileError === undefined,
+  })
+  return result
 }
 
 // ── Session archive (tar pi's session dir) ────────────────────────────────────
@@ -363,11 +405,16 @@ async function handleExecute(req, res) {
 
   const reader = new JsonlReader(pi.stdout)
   const stderrChunks = []
+  let toolExecutionEventCount = 0
   pi.stderr.on('data', (c) => stderrChunks.push(c))
 
   // Log every pi stdout event for observability
   reader.on((msg) => {
     const type = msg.type
+    if (isToolExecutionEvent(msg)) {
+      toolExecutionEventCount++
+      observation.toolExecutionEventCount = toolExecutionEventCount
+    }
     if (type === 'agent_end' || type === 'agent_start' || type === 'turn_start' || type === 'turn_end') {
       log('info', `pi.event.${type}`, { stageName })
       pushObservationEvent(observation, { type })
@@ -480,6 +527,21 @@ async function handleExecute(req, res) {
     const deterministicCommandCount = workspaceDerivedCommands.length + materializeCommands.length
     const skipPrompt = deterministicCommandCount === contracts.length && evaluation.missing.length === 0
     if (!skipPrompt) {
+      if (requiresFilesystemAuthoring(evaluation, declaredOutputs)) {
+        const probe = await runToolCapabilityProbe({
+          pi,
+          reader,
+          workDir,
+          observation,
+          getToolExecutionEventCount: () => toolExecutionEventCount,
+        })
+        if (!probe.passed) {
+          throw new PiExecutionError(
+            'PI_TOOL_CAPABILITY_UNAVAILABLE',
+            `pi tool capability probe failed before ${stageName}: ${probe.reason}`
+          )
+        }
+      }
       const prompt = buildPrompt(promptInput)
       const agentEndPromise = waitForAgentEnd(reader, EXECUTE_TIMEOUT_MS)
       pi.stdin.write(JSON.stringify({ type: 'prompt', message: prompt }) + '\n')
@@ -547,10 +609,11 @@ async function handleExecute(req, res) {
     pi.kill('SIGTERM')
     const elapsedMs = Date.now() - t0
     const message = err instanceof Error ? err.message : String(err)
+    const code = err instanceof PiExecutionError ? err.code : 'PI_EXECUTION_FAILED'
     const observationOut = observationPayload(observation, stderrChunks, { elapsedMs })
     log('error', 'execute.failed', { stageName, error: redact(message), stderrTail: observationOut.stderrTail, elapsedMs })
     writeJson(res, 500, {
-      error: { code: 'PI_EXECUTION_FAILED', message: redact(message), stderrTail: observationOut.stderrTail },
+      error: { code, message: redact(message), stderrTail: observationOut.stderrTail },
       observation: observationOut,
     })
   }

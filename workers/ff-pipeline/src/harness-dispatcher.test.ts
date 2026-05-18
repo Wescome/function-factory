@@ -107,7 +107,7 @@ function makeEnv(stub: { fetch: ReturnType<typeof vi.fn> }) {
     WORKSPACE_BUCKET: {} as R2Bucket,
     HARNESS_QUEUE: { send: vi.fn() },
     FACTORY_PIPELINE: { get: vi.fn(), create: vi.fn() },
-    PI_MODEL: 'anthropic/claude-sonnet-4.5',
+    PI_MODEL: 'openrouter/moonshotai/kimi-k2',
   }
 }
 
@@ -172,7 +172,7 @@ describe('dispatchOne', () => {
     const workerInput = adapter.execute.mock.calls[0]?.[0] as { runId?: string; model?: { id: string; routeKind: string; resolvedVia: string } }
     expect(workerInput.runId).toBe('run-dispatch-001')
     expect(workerInput.model).toMatchObject({
-      id: 'anthropic/claude-sonnet-4.5',
+      id: 'openrouter/moonshotai/kimi-k2',
       routeKind: 'planner',
       resolvedVia: 'config-default',
     })

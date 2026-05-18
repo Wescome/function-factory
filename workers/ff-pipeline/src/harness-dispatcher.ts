@@ -74,7 +74,7 @@ const MAX_RETRIES = 3
  * DO storage value cap on the persisted state.
  */
 const MAX_WORKER_ERROR_MESSAGE_BYTES = 4096
-const DEFAULT_PI_MODEL_ID = "anthropic/claude-sonnet-4.5"
+const DEFAULT_PI_MODEL_ID = "openrouter/moonshotai/kimi-k2"
 
 type RoutedPiModel = {
   id: string

@@ -77,4 +77,23 @@ describe('workspace-derived artifacts', () => {
       { context: { inputArtifacts: { SeedWorkspace: seed } } },
     )).toBeUndefined()
   })
+
+  it('does not derive CandidatePatch from an oracle-free SeedWorkspace', () => {
+    const autonomousSeed = JSON.stringify({
+      schemaVersion: '1.0',
+      issue: 'Update the smoke message.',
+      testCommand: 'node test/coding-adapter-smoke.test.js',
+      files: [
+        {
+          path: 'src/coding-adapter-smoke.ts',
+          content: 'export const message = "before"\n',
+        },
+      ],
+    })
+
+    expect(workspaceDerivedArtifactCommand(
+      { artifact: 'CandidatePatch', body: { kind: 'text' } },
+      { context: { inputArtifacts: { SeedWorkspace: autonomousSeed } } },
+    )).toBeUndefined()
+  })
 })
