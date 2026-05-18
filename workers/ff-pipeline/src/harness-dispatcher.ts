@@ -89,9 +89,16 @@ type RoutedPiModel = {
   }
 }
 
+type PiExecutionRoute = {
+  surface: "rpc" | "sdk"
+  requiredCapabilities: string[]
+  resolvedVia: string
+}
+
 type RoutedWorkerInput = WorkerInput & {
   runId?: string
   model?: RoutedPiModel
+  execution?: PiExecutionRoute
   outputContracts?: import("./contract-compiler").OutputContract[]
   maxRepairRounds?: number
 }
@@ -122,6 +129,30 @@ function resolvePiModelRoute(stage: StageSpec, env: HarnessBridgeEnv): RoutedPiM
     routeKind: routeKindForRole(stage.role),
     resolvedVia: env.PI_MODEL ? "config-default" : "env-default",
     fallback: parseModelId(DEFAULT_PI_MODEL_ID),
+  }
+}
+
+function requiresAutonomousFilesystemTools(stage: StageSpec): boolean {
+  return stage.outputs.some((name) =>
+    name === "CandidatePatch"
+    || name === "VerifierReport"
+    || name === "FinalPatch"
+    || name === "PRSummary"
+  )
+}
+
+function resolvePiExecutionRoute(stage: StageSpec): PiExecutionRoute {
+  if (!requiresAutonomousFilesystemTools(stage)) {
+    return {
+      surface: "rpc",
+      requiredCapabilities: [],
+      resolvedVia: "stage-contract",
+    }
+  }
+  return {
+    surface: "sdk",
+    requiredCapabilities: ["filesystem_tools"],
+    resolvedVia: "stage-contract",
   }
 }
 
@@ -270,7 +301,10 @@ export async function dispatchOne(
       declaredOutputs: stage.outputs,
       outputContracts,
       maxRepairRounds,
-      ...(stage.worker === "pi" ? { model: resolvePiModelRoute(stage, env) } : {}),
+      ...(stage.worker === "pi" ? {
+        model: resolvePiModelRoute(stage, env),
+        execution: resolvePiExecutionRoute(stage),
+      } : {}),
     }
     workerOutput = await adapter.execute(workerInput, artifacts)
     console.log(`[harness-dispatcher] worker.complete run=${message.runId} stage=${message.stageName} artifacts=${JSON.stringify(workerOutput.createdArtifacts)} elapsedMs=${Date.now() - t0}`)

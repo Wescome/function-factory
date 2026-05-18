@@ -118,6 +118,11 @@ describe('PiContainerAdapter', () => {
           routeKind: 'planner',
           resolvedVia: 'config-default',
         },
+        execution: {
+          surface: 'sdk',
+          requiredCapabilities: ['filesystem_tools'],
+          resolvedVia: 'stage-contract',
+        },
       }) as never,
       makeArtifacts() as never,
     )
@@ -128,6 +133,11 @@ describe('PiContainerAdapter', () => {
     expect(payload.model).toMatchObject({
       id: 'anthropic/claude-sonnet-4.5',
       routeKind: 'planner',
+    })
+    expect(payload.execution).toMatchObject({
+      surface: 'sdk',
+      requiredCapabilities: ['filesystem_tools'],
+      resolvedVia: 'stage-contract',
     })
     expect(JSON.stringify(payload)).not.toContain('OFOX_API_KEY')
     expect(JSON.stringify(payload)).not.toContain('OPENROUTER_API_KEY')

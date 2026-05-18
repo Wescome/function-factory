@@ -38,7 +38,18 @@ vi.mock('./cf-workers.js', () => ({
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function makeCompiledHarness(stages?: Record<string, unknown>) {
+type TestCompiledHarness = {
+  spec: {
+    harness: { name: string }
+    stages: Record<string, unknown>
+    runtime: Record<string, unknown>
+    artifacts: Record<string, { required: boolean; path: string }>
+  }
+  stageOrder: string[]
+  artifactPaths: Record<string, string>
+}
+
+function makeCompiledHarness(stages?: Record<string, unknown>): TestCompiledHarness {
   return {
     spec: {
       harness: { name: 'TEST' },
@@ -169,12 +180,21 @@ describe('dispatchOne', () => {
     expect((deps.resolveWorkerAdapter as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith('pi', env)
     const adapter = (deps.resolveWorkerAdapter as ReturnType<typeof vi.fn>).mock.results[0]!.value as { execute: ReturnType<typeof vi.fn> }
     expect(adapter.execute).toHaveBeenCalledOnce()
-    const workerInput = adapter.execute.mock.calls[0]?.[0] as { runId?: string; model?: { id: string; routeKind: string; resolvedVia: string } }
+    const workerInput = adapter.execute.mock.calls[0]?.[0] as {
+      runId?: string
+      model?: { id: string; routeKind: string; resolvedVia: string }
+      execution?: { surface: string; requiredCapabilities: string[]; resolvedVia: string }
+    }
     expect(workerInput.runId).toBe('run-dispatch-001')
     expect(workerInput.model).toMatchObject({
       id: 'openrouter/moonshotai/kimi-k2',
       routeKind: 'planner',
       resolvedVia: 'config-default',
+    })
+    expect(workerInput.execution).toMatchObject({
+      surface: 'rpc',
+      requiredCapabilities: [],
+      resolvedVia: 'stage-contract',
     })
 
     // POST /stage-complete was called
@@ -205,6 +225,47 @@ describe('dispatchOne', () => {
     expect((payload.workerThrew as { message: string }).message).toContain('container exploded')
     // Gates are skipped when worker threw
     expect((payload.gateResults as unknown[]).length).toBe(0)
+  })
+
+  it('routes autonomous filesystem-authoring stages through SDK execution surface', async () => {
+    const { dispatchOne } = await import('./harness-dispatcher.js')
+    const compiled = makeCompiledHarness({
+      PATCH: {
+        from: 'RepoMapped',
+        to: 'PatchCandidate',
+        role: 'PatchWorker',
+        worker: 'pi',
+        inputs: ['SeedWorkspace', 'RepoMap'],
+        outputs: ['CandidatePatch'],
+        gate: { all: [{ exists: 'CandidatePatch' }] },
+      },
+    })
+    compiled.stageOrder = ['PATCH']
+    compiled.artifactPaths = { CandidatePatch: 'artifacts/candidate.patch' }
+    compiled.spec.artifacts = {
+      CandidatePatch: {
+        required: true,
+        path: 'artifacts/candidate.patch',
+      },
+    }
+    const state = { ...makeHarnessState(), currentStage: 'PATCH' }
+    const stub = makeDoStub(makeGetCompiledResponse(compiled, state), makeStageCompleteOkResponse())
+    const env = makeEnv(stub)
+    const deps = makeDeps({ buildStageContextForRun: vi.fn(async () => ({ taskText: 'Patch it' })) })
+
+    await dispatchOne({ runId: 'run-dispatch-001', stageName: 'PATCH' }, env as never, deps)
+
+    const adapter = (deps.resolveWorkerAdapter as ReturnType<typeof vi.fn>).mock.results[0]!.value as { execute: ReturnType<typeof vi.fn> }
+    const workerInput = adapter.execute.mock.calls[0]?.[0] as {
+      execution?: { surface: string; requiredCapabilities: string[]; resolvedVia: string }
+      model?: { routeKind: string }
+    }
+    expect(workerInput.model).toMatchObject({ routeKind: 'coder' })
+    expect(workerInput.execution).toMatchObject({
+      surface: 'sdk',
+      requiredCapabilities: ['filesystem_tools'],
+      resolvedVia: 'stage-contract',
+    })
   })
 
   it('throws when stage not found in compiled harness', async () => {

@@ -28,6 +28,7 @@ import { evaluateContracts, defaultContract, buildContractRepairPrompt } from '.
 import { contractMaterializeCommand } from './contract-materializer.mjs'
 import { hasSeedWorkspace, prepareSeedWorkspace, workspacePromptSection } from './workspace-seed.mjs'
 import { workspaceDerivedArtifactCommand } from './workspace-derived-artifacts.mjs'
+import { runSdkPrompt } from './sdk-executor.mjs'
 import {
   TOOL_PROBE_FILE,
   assessToolCapabilityProbe,
@@ -47,6 +48,7 @@ const PI_MODEL = process.env.PI_MODEL ?? 'openrouter/moonshotai/kimi-k2'
 const MAX_OBSERVATION_EVENTS = 256
 const MAX_STDERR_TAIL_BYTES = 16_384
 const MAX_OBSERVATION_BYTES = 32_768
+const VALID_EXECUTION_SURFACES = new Set(['rpc', 'sdk'])
 
 // ── Logging ───────────────────────────────────────────────────────────────────
 
@@ -155,6 +157,11 @@ function assistantMessagePreview(message) {
   return redact(text).replace(/\s+/g, ' ').trim().slice(0, 500)
 }
 
+function resolveExecutionSurface(input) {
+  const surface = input.execution?.surface ?? process.env.PI_EXECUTION_SURFACE ?? 'rpc'
+  return VALID_EXECUTION_SURFACES.has(surface) ? surface : 'rpc'
+}
+
 // ── JSONL byte-buffer reader ──────────────────────────────────────────────────
 
 class JsonlReader {
@@ -250,6 +257,133 @@ async function runToolCapabilityProbe({ pi, reader, workDir, observation, getToo
   return result
 }
 
+async function runSdkToolCapabilityProbe({ workDir, selectedModel, observation, getToolExecutionEventCount, onEvent }) {
+  const beforeCount = getToolExecutionEventCount()
+  pushObservationEvent(observation, { type: 'tool_capability.probe_start', file: TOOL_PROBE_FILE, surface: 'sdk' })
+  await runSdkPrompt({
+    workDir,
+    selectedModel,
+    prompt: buildToolCapabilityProbePrompt(),
+    observation,
+    onEvent,
+  })
+
+  const toolExecutionEventCount = getToolExecutionEventCount() - beforeCount
+  let fileContent
+  let fileError
+  try {
+    fileContent = await readFile(join(workDir, TOOL_PROBE_FILE), 'utf8')
+  } catch (err) {
+    fileError = err instanceof Error ? err.message : String(err)
+  }
+
+  const result = assessToolCapabilityProbe({ toolExecutionEventCount, fileContent, fileError })
+  pushObservationEvent(observation, {
+    type: 'tool_capability.probe_result',
+    passed: result.passed,
+    reason: result.reason,
+    toolExecutionEventCount,
+    fileReadable: fileError === undefined,
+    surface: 'sdk',
+  })
+  return result
+}
+
+async function runShellCommand(command, workDir, timeoutMs) {
+  const { spawn } = await import('node:child_process')
+  return new Promise((resolve, reject) => {
+    const child = spawn('/bin/sh', ['-lc', command], {
+      cwd: workDir,
+      env: process.env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    const stdoutChunks = []
+    const stderrChunks = []
+    const timer = setTimeout(() => {
+      child.kill('SIGTERM')
+      reject(new Error(`shell command timed out after ${timeoutMs}ms`))
+    }, timeoutMs)
+    child.stdout.on('data', (chunk) => stdoutChunks.push(chunk))
+    child.stderr.on('data', (chunk) => stderrChunks.push(chunk))
+    child.on('error', (err) => {
+      clearTimeout(timer)
+      reject(err)
+    })
+    child.on('exit', (code, signal) => {
+      clearTimeout(timer)
+      const stdout = Buffer.concat(stdoutChunks).toString('utf8')
+      const stderr = Buffer.concat(stderrChunks).toString('utf8')
+      if (code === 0) {
+        resolve({ success: true, stdout, stderr })
+      } else {
+        reject(new Error(`shell command failed code=${code} signal=${signal ?? ''}: ${stderr}`))
+      }
+    })
+  })
+}
+
+async function runMaterializeCommand({ pi, reader, workDir, executionSurface, command }) {
+  if (executionSurface === 'sdk') {
+    await runShellCommand(command, workDir, 30_000)
+    return { success: true }
+  }
+  return sendRpcCommand(pi, reader, { type: 'bash', command }, 30_000)
+}
+
+function recordPiEvent({ msg, observation, stageName, log, incrementToolExecutionEventCount }) {
+  const type = msg.type
+  if (isToolExecutionEvent(msg)) {
+    incrementToolExecutionEventCount()
+  }
+  if (type === 'agent_end' || type === 'agent_start' || type === 'turn_start' || type === 'turn_end') {
+    log('info', `pi.event.${type}`, { stageName })
+    pushObservationEvent(observation, { type })
+  } else if (type === 'response') {
+    log('info', 'pi.response', { stageName, command: msg.command, success: msg.success, error: msg.error })
+    pushObservationEvent(observation, { type, command: msg.command, success: msg.success, error: msg.error ? redact(msg.error) : undefined })
+  } else if (type === 'tool_execution_start') {
+    log('info', 'pi.tool_execution_start', { stageName, toolName: msg.toolName })
+    pushObservationEvent(observation, { type, toolName: msg.toolName })
+  } else if (type === 'tool_execution_update') {
+    log('info', 'pi.tool_execution_update', { stageName, toolName: msg.toolName })
+    pushObservationEvent(observation, { type, toolName: msg.toolName })
+  } else if (type === 'tool_execution_end') {
+    log('info', 'pi.tool_execution_end', { stageName, toolName: msg.toolName, isError: msg.isError })
+    pushObservationEvent(observation, { type, toolName: msg.toolName, isError: Boolean(msg.isError) })
+  } else if (type === 'message_end') {
+    const role = msg.message?.role
+    log('info', 'pi.message_end', { stageName, role })
+    pushObservationEvent(observation, {
+      type,
+      role,
+      ...(role === 'assistant' ? { preview: assistantMessagePreview(msg.message) } : {}),
+    })
+    if (msg.usage && typeof msg.usage === 'object') {
+      const {
+        inputTokens,
+        outputTokens,
+        cacheReadTokens,
+        cacheWriteTokens,
+      } = msg.usage
+      pushObservationEvent(observation, {
+        type: 'pi.usage',
+        inputTokens,
+        outputTokens,
+        cacheReadTokens,
+        cacheWriteTokens,
+      })
+      const prev = observation.totalUsage ?? { inputTokens: 0, outputTokens: 0 }
+      observation.totalUsage = {
+        inputTokens: (prev.inputTokens ?? 0) + (Number(inputTokens) || 0),
+        outputTokens: (prev.outputTokens ?? 0) + (Number(outputTokens) || 0),
+      }
+    }
+  } else if (type === 'extension_error') {
+    log('warn', 'pi.extension_error', { stageName, ...msg })
+    pushObservationEvent(observation, { type, error: msg.error ? redact(msg.error) : undefined })
+  }
+}
+
 // ── Session archive (tar pi's session dir) ────────────────────────────────────
 
 const MAX_SESSION_ARCHIVE_BYTES = 1_048_576 // 1 MB
@@ -341,11 +475,13 @@ async function handleExecute(req, res) {
   const t0 = Date.now()
   const resolved = resolveDispatchModel(input)
   const selectedModel = resolved.model
+  const executionSurface = resolveExecutionSurface(input)
   const observation = {
     runId,
     stageName,
     roleName,
     model: selectedModel ?? null,
+    executionSurface,
     events: [],
     artifacts: [],
     truncated: false,
@@ -361,7 +497,7 @@ async function handleExecute(req, res) {
     return
   }
 
-  log('info', 'execute.start', { stageName, runId, roleName, model: selectedModel.id, declaredOutputs: input.declaredOutputs ?? [] })
+  log('info', 'execute.start', { stageName, runId, roleName, model: selectedModel.id, executionSurface, declaredOutputs: input.declaredOutputs ?? [] })
 
   const workDir = await mkdtemp(join(tmpdir(), `pi-${stageName}-`))
   log('info', 'execute.workdir', { stageName, workDir })
@@ -410,59 +546,27 @@ async function handleExecute(req, res) {
 
   // Log every pi stdout event for observability
   reader.on((msg) => {
-    const type = msg.type
-    if (isToolExecutionEvent(msg)) {
+    recordPiEvent({
+      msg,
+      observation,
+      stageName,
+      log,
+      incrementToolExecutionEventCount: () => {
+        toolExecutionEventCount++
+        observation.toolExecutionEventCount = toolExecutionEventCount
+      },
+    })
+  })
+
+  const onSdkEvent = (msg) => recordPiEvent({
+    msg,
+    observation,
+    stageName,
+    log,
+    incrementToolExecutionEventCount: () => {
       toolExecutionEventCount++
       observation.toolExecutionEventCount = toolExecutionEventCount
-    }
-    if (type === 'agent_end' || type === 'agent_start' || type === 'turn_start' || type === 'turn_end') {
-      log('info', `pi.event.${type}`, { stageName })
-      pushObservationEvent(observation, { type })
-    } else if (type === 'response') {
-      log('info', 'pi.response', { stageName, command: msg.command, success: msg.success, error: msg.error })
-      pushObservationEvent(observation, { type, command: msg.command, success: msg.success, error: msg.error ? redact(msg.error) : undefined })
-    } else if (type === 'tool_execution_start') {
-      log('info', 'pi.tool_execution_start', { stageName, toolName: msg.toolName })
-      pushObservationEvent(observation, { type, toolName: msg.toolName })
-    } else if (type === 'tool_execution_update') {
-      log('info', 'pi.tool_execution_update', { stageName, toolName: msg.toolName })
-      pushObservationEvent(observation, { type, toolName: msg.toolName })
-    } else if (type === 'tool_execution_end') {
-      log('info', 'pi.tool_execution_end', { stageName, toolName: msg.toolName, isError: msg.isError })
-      pushObservationEvent(observation, { type, toolName: msg.toolName, isError: Boolean(msg.isError) })
-    } else if (type === 'message_end') {
-      const role = msg.message?.role
-      log('info', 'pi.message_end', { stageName, role })
-      pushObservationEvent(observation, {
-        type,
-        role,
-        ...(role === 'assistant' ? { preview: assistantMessagePreview(msg.message) } : {}),
-      })
-      if (msg.usage && typeof msg.usage === 'object') {
-        const {
-          inputTokens,
-          outputTokens,
-          cacheReadTokens,
-          cacheWriteTokens,
-        } = msg.usage
-        pushObservationEvent(observation, {
-          type: 'pi.usage',
-          inputTokens,
-          outputTokens,
-          cacheReadTokens,
-          cacheWriteTokens,
-        })
-        const prev = observation.totalUsage ?? { inputTokens: 0, outputTokens: 0 }
-        observation.totalUsage = {
-          inputTokens: (prev.inputTokens ?? 0) + (Number(inputTokens) || 0),
-          outputTokens: (prev.outputTokens ?? 0) + (Number(outputTokens) || 0),
-        }
-      }
-    } else if (type === 'extension_error') {
-      log('warn', 'pi.extension_error', { stageName, ...msg })
-      pushObservationEvent(observation, { type, error: msg.error ? redact(msg.error) : undefined })
-    }
-    // message_start etc. not logged to avoid noise
+    },
   })
 
   pi.on('exit', (code, signal) => {
@@ -499,7 +603,7 @@ async function handleExecute(req, res) {
     for (const item of workspaceDerivedCommands) {
       pushObservationEvent(observation, { type: 'workspace.derived_command', artifact: item.artifact, kind: item.kind })
       try {
-        const rsp = await sendRpcCommand(pi, reader, { type: 'bash', command: item.command }, 30_000)
+        const rsp = await runMaterializeCommand({ pi, reader, workDir, executionSurface, command: item.command })
         pushObservationEvent(observation, { type: 'workspace.derived_response', artifact: item.artifact, kind: item.kind, success: rsp.success })
       } catch (err) {
         pushObservationEvent(observation, { type: 'workspace.derived_error', artifact: item.artifact, kind: item.kind, error: err.message })
@@ -514,7 +618,7 @@ async function handleExecute(req, res) {
     for (const item of materializeCommands) {
       pushObservationEvent(observation, { type: 'contract.materialize_command', artifact: item.artifact, kind: item.kind })
       try {
-        const rsp = await sendRpcCommand(pi, reader, { type: 'bash', command: item.command }, 30_000)
+        const rsp = await runMaterializeCommand({ pi, reader, workDir, executionSurface, command: item.command })
         pushObservationEvent(observation, { type: 'contract.materialize_response', artifact: item.artifact, kind: item.kind, success: rsp.success })
       } catch (err) {
         pushObservationEvent(observation, { type: 'contract.materialize_error', artifact: item.artifact, kind: item.kind, error: err.message })
@@ -528,13 +632,21 @@ async function handleExecute(req, res) {
     const skipPrompt = deterministicCommandCount === contracts.length && evaluation.missing.length === 0
     if (!skipPrompt) {
       if (requiresFilesystemAuthoring(evaluation, declaredOutputs)) {
-        const probe = await runToolCapabilityProbe({
-          pi,
-          reader,
-          workDir,
-          observation,
-          getToolExecutionEventCount: () => toolExecutionEventCount,
-        })
+        const probe = executionSurface === 'sdk'
+          ? await runSdkToolCapabilityProbe({
+              workDir,
+              selectedModel,
+              observation,
+              getToolExecutionEventCount: () => toolExecutionEventCount,
+              onEvent: onSdkEvent,
+            })
+          : await runToolCapabilityProbe({
+              pi,
+              reader,
+              workDir,
+              observation,
+              getToolExecutionEventCount: () => toolExecutionEventCount,
+            })
         if (!probe.passed) {
           throw new PiExecutionError(
             'PI_TOOL_CAPABILITY_UNAVAILABLE',
@@ -543,9 +655,13 @@ async function handleExecute(req, res) {
         }
       }
       const prompt = buildPrompt(promptInput)
-      const agentEndPromise = waitForAgentEnd(reader, EXECUTE_TIMEOUT_MS)
-      pi.stdin.write(JSON.stringify({ type: 'prompt', message: prompt }) + '\n')
-      await agentEndPromise
+      if (executionSurface === 'sdk') {
+        await runSdkPrompt({ workDir, selectedModel, prompt, observation, onEvent: onSdkEvent })
+      } else {
+        const agentEndPromise = waitForAgentEnd(reader, EXECUTE_TIMEOUT_MS)
+        pi.stdin.write(JSON.stringify({ type: 'prompt', message: prompt }) + '\n')
+        await agentEndPromise
+      }
       evaluation = await evaluateContracts({ workDir, contracts })
       pushObservationEvent(observation, { type: 'contract.evaluation', attempt: 'initial', findings: evaluation.findings })
     }
@@ -555,9 +671,13 @@ async function handleExecute(req, res) {
       repairsUsed++
       const repairPrompt = buildContractRepairPrompt(evaluation.findings)
       pushObservationEvent(observation, { type: 'contract.repair_requested', round: repairsUsed })
-      const endPromise = waitForAgentEnd(reader, EXECUTE_TIMEOUT_MS)
-      pi.stdin.write(JSON.stringify({ type: 'prompt', message: repairPrompt }) + '\n')
-      await endPromise
+      if (executionSurface === 'sdk') {
+        await runSdkPrompt({ workDir, selectedModel, prompt: repairPrompt, observation, onEvent: onSdkEvent })
+      } else {
+        const endPromise = waitForAgentEnd(reader, EXECUTE_TIMEOUT_MS)
+        pi.stdin.write(JSON.stringify({ type: 'prompt', message: repairPrompt }) + '\n')
+        await endPromise
+      }
       evaluation = await evaluateContracts({ workDir, contracts })
       pushObservationEvent(observation, { type: 'contract.evaluation', attempt: `repair-${repairsUsed}`, findings: evaluation.findings })
     }

@@ -68,6 +68,11 @@ interface RoutedPiModel {
 interface RoutedWorkerInput extends WorkerInput {
   runId?: string
   model?: RoutedPiModel
+  execution?: {
+    surface: "rpc" | "sdk"
+    requiredCapabilities: string[]
+    resolvedVia: string
+  }
   outputContracts?: OutputContract[]
   maxRepairRounds?: number
 }
@@ -196,6 +201,7 @@ abstract class ContainerWorkerAdapter implements WorkerAdapter {
       roleName: input.roleName,
       ...(input.rolePrompt === undefined ? {} : { rolePrompt: input.rolePrompt }),
       ...(routedInput.model === undefined ? {} : { model: routedInput.model }),
+      ...(routedInput.execution === undefined ? {} : { execution: routedInput.execution }),
       context: input.context,
       declaredInputs: input.declaredInputs,
       declaredOutputs: input.declaredOutputs,

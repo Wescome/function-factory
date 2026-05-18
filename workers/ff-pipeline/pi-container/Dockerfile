@@ -6,7 +6,7 @@ WORKDIR /app
 COPY package.json ./
 RUN npm install --omit=dev
 
-COPY server.mjs execution-contract.mjs contract-evaluator.mjs contract-types.mjs contract-materializer.mjs workspace-seed.mjs workspace-derived-artifacts.mjs tool-capability-probe.mjs ./
+COPY server.mjs execution-contract.mjs contract-evaluator.mjs contract-types.mjs contract-materializer.mjs workspace-seed.mjs workspace-derived-artifacts.mjs tool-capability-probe.mjs sdk-executor.mjs ./
 
 RUN mkdir -p /root/.pi/agent && \
     printf '{"providers":{"openrouter":{"baseUrl":"https://api.ofox.ai/v1"}}}\n' \
