@@ -49,3 +49,16 @@ q  quit
 
 Use `pnpm watch:run <runId> --once --limit 20` or `/run-monitor/:runId` to
 confirm the intervention event, stage projection, and terminal status.
+
+## Production Verification
+
+Run the production control smoke after deploys that affect live monitoring,
+run interventions, queue dispatch, or terminal projection:
+
+```bash
+pnpm prod:smoke:controls
+```
+
+The smoke uses the interactive monitor control path programmatically and writes
+a `VR-FN-SYNTH-MIGRATE-PROD-LIVE-CONTROL-*.yaml` report under
+`specs/verification-reports/`.
