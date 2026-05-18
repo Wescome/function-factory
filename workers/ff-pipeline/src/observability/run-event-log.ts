@@ -222,6 +222,9 @@ export class RunEventLog {
     summary: RunSummary,
     manifest: RunArtifactManifest,
   ): Promise<void> {
+    const postTerminalExecutionEvent = terminalStatus(summary.status)
+      && summary.terminalAt !== event.timestamp
+      && isExecutionProjectionEvent(event)
     const writes: Array<{ key: string; value: unknown }> = [
       {
         key: phaseKey(event.runId, "traces"),
@@ -272,7 +275,7 @@ export class RunEventLog {
       event.type === "worker_executed" ||
       event.type === "stage_completed" ||
       event.type === "stage_failed"
-    )) {
+    ) && !postTerminalExecutionEvent) {
       const stage = manifest.stages.find((entry) => entry.name === event.stageName)
       writes.push({
         key: phaseKey(event.runId, "execution"),
@@ -287,7 +290,7 @@ export class RunEventLog {
       })
     }
 
-    if (event.type === "gate_evaluated" || event.type === "coherence_verified" || event.type === "fidelity_verified" || event.type === "persistence_verified") {
+    if ((event.type === "gate_evaluated" || event.type === "coherence_verified" || event.type === "fidelity_verified" || event.type === "persistence_verified") && !postTerminalExecutionEvent) {
       writes.push({
         key: phaseKey(event.runId, "eval"),
         value: {
@@ -303,7 +306,7 @@ export class RunEventLog {
       })
     }
 
-    if (terminalStatus(summary.status)) {
+    if (terminalStatus(summary.status) && !postTerminalExecutionEvent) {
       writes.push({
         key: phaseKey(event.runId, "report"),
         value: {
@@ -568,6 +571,9 @@ function buildNextManifest(
   summary: RunSummary,
 ): RunArtifactManifest {
   const base = existing ?? emptyManifest(event, summary)
+  if (terminalStatus(base.status ?? "running") && isExecutionProjectionEvent(event)) {
+    return base
+  }
   const workflowId = event.workflowId ?? summary.workflowId ?? base.workflowId
   const harness = updateManifestHarness(base.harness, event)
   const manifest: RunArtifactManifest = {
@@ -669,15 +675,23 @@ function updateManifestStages(
   existing: RunArtifactManifest["stages"],
   event: RunEvent,
 ): RunArtifactManifest["stages"] {
-  if (!event.stageName) return existing
+  const stageName = event.stageName ?? (
+    event.type === "harness_complete" && typeof event.data.finalExecutionNode === "string"
+      ? event.data.finalExecutionNode
+      : undefined
+  )
+  if (!stageName) return existing
   if (!stageManifestEventTypes.has(event.type)) return existing
-  const current = existing.find((stage) => stage.name === event.stageName) ?? {
-    name: event.stageName,
+  const current = existing.find((stage) => stage.name === stageName) ?? {
+    name: stageName,
     attempts: 0,
   }
   const next: RunArtifactManifest["stages"][number] = { ...current }
   if (event.attemptNumber) next.attempts = Math.max(next.attempts, event.attemptNumber)
   if (event.type === "stage_started") {
+    if ((current.status === "pass" || current.status === "fail") && (event.attemptNumber ?? 1) <= current.attempts) {
+      return existing
+    }
     next.status = "running"
     next.startedAt = next.startedAt ?? event.timestamp
     if (typeof event.data.worker === "string") next.worker = event.data.worker
@@ -717,8 +731,13 @@ function updateManifestStages(
     next.artifacts = unique([...(next.artifacts ?? []), ...stringArray(event.data.artifacts)])
     if (typeof event.data.reason === "string") next.reason = event.data.reason
   }
+  if (event.type === "harness_complete") {
+    next.status = event.data.overall === "pass" ? "pass" : "fail"
+    next.completedAt = event.timestamp
+    if (typeof event.data.reason === "string") next.reason = event.data.reason
+  }
 
-  return [...existing.filter((stage) => stage.name !== event.stageName), next]
+  return [...existing.filter((stage) => stage.name !== stageName), next]
 }
 
 const stageManifestEventTypes = new Set<RunEventType>([
@@ -729,6 +748,7 @@ const stageManifestEventTypes = new Set<RunEventType>([
   "gate_evaluated",
   "stage_completed",
   "stage_failed",
+  "harness_complete",
 ])
 
 function mergeManifestArtifacts(
@@ -828,6 +848,13 @@ function buildNextSummary(existing: RunSummary | null, event: RunEvent): RunSumm
     eventCount: 0,
   }
 
+  if (previousTerminal && isExecutionProjectionEvent(event)) {
+    return {
+      ...base,
+      eventCount: base.eventCount + 1,
+    }
+  }
+
   const status = statusForEvent(event, base.status)
   const stageHistory = updateStageHistory(base.stageHistory, event, currentPhase)
   const stepAccounting = updateStepAccounting(base.stepAccounting, event)
@@ -892,21 +919,30 @@ function updateStageHistory(
   event: RunEvent,
   phase: RunStage,
 ): RunSummary["stageHistory"] {
-  if (!event.stageName) return existing
-  if (event.type !== "stage_started" && event.type !== "stage_completed" && event.type !== "stage_failed") return existing
+  const stageName = event.stageName ?? (
+    event.type === "harness_complete" && typeof event.data.finalExecutionNode === "string"
+      ? event.data.finalExecutionNode
+      : undefined
+  )
+  if (!stageName) return existing
+  if (event.type !== "stage_started" && event.type !== "stage_completed" && event.type !== "stage_failed" && event.type !== "harness_complete") return existing
 
   const verdict = event.type === "stage_started"
     ? "in_progress"
-    : event.type === "stage_completed"
+    : event.type === "stage_completed" || (event.type === "harness_complete" && event.data.overall === "pass")
       ? "pass"
       : "fail"
+  const current = existing.find((entry) => entry.stage === stageName)
+  if (event.type === "stage_started" && current && current.verdict !== "in_progress" && (event.attemptNumber ?? 1) <= current.attempts) {
+    return existing
+  }
   // attempts = max(attemptNumber) seen for this stage — monotonically increases through retries
-  const attempts = event.attemptNumber ?? 1
-  const without = existing.filter((entry) => entry.stage !== event.stageName)
+  const attempts = Math.max(current?.attempts ?? 0, event.attemptNumber ?? current?.attempts ?? 1)
+  const without = existing.filter((entry) => entry.stage !== stageName)
   return [
     ...without,
     {
-      stage: event.stageName,
+      stage: stageName,
       phase,
       verdict,
       attempts,
@@ -1016,6 +1052,20 @@ function errorClassForEvent(event: RunEvent): RunErrorClass | undefined {
 
 function isTerminalEvent(type: RunEventType): boolean {
   return type === "harness_complete" || type === "dlq_recovered" || type === "stuck_detected"
+}
+
+function isExecutionProjectionEvent(event: RunEvent): boolean {
+  return event.type === "stage_dispatched"
+    || event.type === "stage_started"
+    || event.type === "worker_executed"
+    || event.type === "gate_evaluated"
+    || event.type === "stage_completed"
+    || event.type === "stage_failed"
+    || event.type === "harness_complete"
+    || event.type === "container_dispatch_retried"
+    || event.type === "container_dispatch_recovered"
+    || event.type === "container_stderr_flush"
+    || event.type === "container_crashed"
 }
 
 function isInterventionEvent(event: RunEvent): event is RunEvent & {

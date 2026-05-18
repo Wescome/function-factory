@@ -466,6 +466,63 @@ describe('ff-pipeline diagnostic routes', () => {
     }))
   })
 
+  it('POST /run-interventions/:runId/:action enforces operator authorization when configured', async () => {
+    const { default: worker } = await import('./index')
+    const bucket = new MemoryR2Bucket()
+    await bucket.put('runs/run-auth-001/events/2026-05-18T20:00:00.000Z-a.json', JSON.stringify({
+      schemaVersion: '1.0',
+      eventId: 'a',
+      runId: 'run-auth-001',
+      type: 'run_started',
+      timestamp: '2026-05-18T20:00:00.000Z',
+      emitter: 'harness-bridge',
+      data: {},
+    }))
+
+    const unauthorized = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/run-interventions/run-auth-001/note', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ operator: 'ops', note: 'blocked' }),
+      }),
+      createEnv({ WORKSPACE_BUCKET: bucket, OPERATOR_CONTROL_TOKEN: 'secret-token' }) as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+    expect(unauthorized.status).toBe(401)
+
+    const rejected = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/run-interventions/run-auth-001/note', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer wrong-token' },
+        body: JSON.stringify({ operator: 'ops', note: 'blocked' }),
+      }),
+      createEnv({ WORKSPACE_BUCKET: bucket, OPERATOR_CONTROL_TOKEN: 'secret-token' }) as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+    expect(rejected.status).toBe(403)
+
+    const accepted = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/run-interventions/run-auth-001/note', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer secret-token' },
+        body: JSON.stringify({ operator: 'ops', note: 'allowed' }),
+      }),
+      createEnv({ WORKSPACE_BUCKET: bucket, OPERATOR_CONTROL_TOKEN: 'secret-token' }) as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+    expect(accepted.status).toBe(202)
+
+    const monitor = await worker.fetch(
+      new Request('https://ff-pipeline.example.com/run-monitor/run-auth-001?limit=10'),
+      createEnv({ WORKSPACE_BUCKET: bucket }) as never,
+      { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
+    )
+    const body = await jsonBody(monitor)
+    expect(body.interventions).toEqual([
+      expect.objectContaining({ type: 'operator_note_added', message: 'allowed' }),
+    ])
+  })
+
   it('POST /run-interventions/:runId/cancel records intent and force-completes through RunCoordinator', async () => {
     const { default: worker } = await import('./index')
     const bucket = new MemoryR2Bucket()
@@ -587,6 +644,24 @@ describe('ff-pipeline diagnostic routes', () => {
   it('POST /run-interventions/:runId/retry-stage and redispatch-stage record visible operator intents', async () => {
     const { default: worker } = await import('./index')
     const bucket = new MemoryR2Bucket()
+    const fetch = vi.fn(async (request: Request) => {
+      expect(new URL(request.url).pathname).toBe('/operator-dispatch')
+      const payload = await request.json() as { stageName?: string; action?: string; idempotencyKey?: string }
+      expect(payload.stageName).toBe('PATCH')
+      expect(payload.idempotencyKey).toBeTruthy()
+      return new Response(JSON.stringify({
+        ok: true,
+        action: payload.action,
+        runId: 'run-control-001',
+        stageName: payload.stageName,
+        attemptNumber: payload.action === 'retry-stage' ? 2 : 1,
+        effect: { attempted: true, ok: true, enqueued: true, deduped: false },
+      }), { status: 202, headers: { 'Content-Type': 'application/json' } })
+    })
+    const runCoordinator = {
+      idFromName: vi.fn((name: string) => name),
+      get: vi.fn(() => ({ fetch })),
+    }
     await bucket.put('runs/run-control-001/events/2026-05-18T20:00:00.000Z-a.json', JSON.stringify({
       schemaVersion: '1.0',
       eventId: 'a',
@@ -607,7 +682,7 @@ describe('ff-pipeline diagnostic routes', () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ operator: 'ops', stageName: 'PATCH', reason: `${path} please` }),
         }),
-        createEnv({ WORKSPACE_BUCKET: bucket }) as never,
+        createEnv({ WORKSPACE_BUCKET: bucket, RUN_COORDINATOR: runCoordinator }) as never,
         { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never,
       )
 
@@ -615,9 +690,10 @@ describe('ff-pipeline diagnostic routes', () => {
       expect(await jsonBody(response)).toMatchObject({
         ok: true,
         action,
-        effect: { attempted: false },
+        effect: { attempted: true, ok: true, enqueued: true },
       })
     }
+    expect(fetch).toHaveBeenCalledTimes(2)
 
     const monitor = await worker.fetch(
       new Request('https://ff-pipeline.example.com/run-monitor/run-control-001?limit=10'),
@@ -626,8 +702,8 @@ describe('ff-pipeline diagnostic routes', () => {
     )
     const body = await jsonBody(monitor)
     expect(body.interventions).toEqual([
-      expect.objectContaining({ type: 'stage_retry_requested', stageName: 'PATCH' }),
-      expect.objectContaining({ type: 'stage_redispatch_requested', stageName: 'PATCH' }),
+      expect.objectContaining({ type: 'stage_retry_requested', stageName: 'PATCH', effect: 'enqueued' }),
+      expect.objectContaining({ type: 'stage_redispatch_requested', stageName: 'PATCH', effect: 'enqueued' }),
     ])
   })
 

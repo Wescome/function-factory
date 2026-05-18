@@ -104,6 +104,15 @@ describe("RunEventLog", () => {
       timestamp: "2026-05-18T15:04:01.000Z",
       data: { action: "complete", status: "pass" },
     })
+    await log.emit({
+      runId: "run-obs-001",
+      stageName: "CONTRACT",
+      attemptNumber: 2,
+      type: "stage_started",
+      emitter: "harness-dispatcher",
+      timestamp: "2026-05-18T15:04:02.000Z",
+      data: { worker: "pi" },
+    })
 
     const summary = await log.getSummary("run-obs-001")
     expect(summary).toMatchObject({
@@ -111,14 +120,22 @@ describe("RunEventLog", () => {
       workflowId: "wf-001",
       status: "completed",
       currentPhase: "report",
-      lastEventType: "stage_completed",
+      lastEventType: "harness_complete",
       terminalAt: "2026-05-18T15:04:00.000Z",
-      eventCount: 6,
+      eventCount: 7,
     })
     expect(summary?.stageHistory).toContainEqual(expect.objectContaining({
       stage: "CONTRACT",
       verdict: "pass",
       attempts: 1,
+    }))
+
+    const manifest = await log.getManifest("run-obs-001")
+    expect(manifest?.stages).toContainEqual(expect.objectContaining({
+      name: "CONTRACT",
+      status: "pass",
+      attempts: 1,
+      completedAt: "2026-05-18T15:04:00.000Z",
     }))
 
     const activeIndex = JSON.parse(bucket.objects.get("runs/_active-index.json") ?? "{}")
@@ -316,6 +333,93 @@ describe("RunEventLog", () => {
     expect(bucket.objects.has("runs/run-artifacts-001/03_traces/trace-index.json")).toBe(true)
     expect(bucket.objects.has("runs/run-artifacts-001/04_eval/eval.json")).toBe(true)
     expect(bucket.objects.has("runs/run-artifacts-001/05_report/report.json")).toBe(true)
+  })
+
+  it("uses harness_complete to seal the final stage when stage_completed arrives late", async () => {
+    const bucket = new MemoryR2Bucket()
+    const log = new RunEventLog(bucket as unknown as R2Bucket)
+
+    await log.emit({
+      runId: "run-terminal-race",
+      type: "run_started",
+      emitter: "harness-bridge",
+      timestamp: "2026-05-18T19:00:00.000Z",
+      data: {},
+    })
+    await log.emit({
+      runId: "run-terminal-race",
+      stageName: "SEED",
+      attemptNumber: 1,
+      type: "stage_started",
+      emitter: "harness-dispatcher",
+      timestamp: "2026-05-18T19:00:01.000Z",
+      data: { worker: "preseed" },
+    })
+    await log.emit({
+      runId: "run-terminal-race",
+      stageName: "SEED",
+      attemptNumber: 1,
+      type: "stage_failed",
+      emitter: "harness-dispatcher",
+      timestamp: "2026-05-18T19:00:02.000Z",
+      data: { action: "retry_stage", reason: "preseed missing" },
+    })
+    await log.emit({
+      runId: "run-terminal-race",
+      stageName: "SEED",
+      attemptNumber: 1,
+      type: "stage_started",
+      emitter: "harness-dispatcher",
+      timestamp: "2026-05-18T19:00:03.000Z",
+      data: { worker: "preseed" },
+    })
+    await log.emit({
+      runId: "run-terminal-race",
+      stageName: "SEED",
+      attemptNumber: 1,
+      type: "gate_evaluated",
+      emitter: "harness-dispatcher",
+      timestamp: "2026-05-18T19:00:04.000Z",
+      data: { allPassed: true, results: [{ gateName: "exists", passed: true }] },
+    })
+    await log.emit({
+      runId: "run-terminal-race",
+      stageName: "SEED",
+      type: "harness_complete",
+      emitter: "run-coordinator",
+      timestamp: "2026-05-18T19:00:05.000Z",
+      data: { overall: "pass", finalExecutionNode: "SEED" },
+    })
+    await log.emit({
+      runId: "run-terminal-race",
+      stageName: "SEED",
+      attemptNumber: 1,
+      type: "stage_completed",
+      emitter: "harness-dispatcher",
+      timestamp: "2026-05-18T19:00:06.000Z",
+      data: { action: "complete", status: "pass", artifacts: ["SeedWorkspace"] },
+    })
+
+    const summary = await log.getSummary("run-terminal-race")
+    expect(summary).toMatchObject({
+      status: "completed",
+      lastEventType: "harness_complete",
+      terminalAt: "2026-05-18T19:00:05.000Z",
+    })
+    expect(summary?.stageHistory).toContainEqual(expect.objectContaining({
+      stage: "SEED",
+      verdict: "pass",
+      attempts: 1,
+      at: "2026-05-18T19:00:05.000Z",
+    }))
+
+    const manifest = await log.getManifest("run-terminal-race")
+    expect(manifest?.stages).toContainEqual(expect.objectContaining({
+      name: "SEED",
+      status: "pass",
+      attempts: 1,
+      completedAt: "2026-05-18T19:00:05.000Z",
+    }))
   })
 
   it("does not throw upstream when R2 writes fail", async () => {

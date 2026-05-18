@@ -39,6 +39,7 @@ import {
 import { DurableObject } from "cloudflare:workers"
 import type {
   HarnessBridgeEnv,
+  OperatorDispatchPayload,
   RunCoordinatorInitPayload,
   StageCompletePayload,
 } from "../harness-env"
@@ -53,6 +54,7 @@ const KEY_RESULT = "harness:result"
 const KEY_DISPATCHED = "harness:dispatched"
 const KEY_NOTIFY_ATTEMPTS = "harness:notifyAttempts"
 const KEY_NOTIFY_ABANDONED = "harness:notifyAbandoned"
+const OPERATOR_DISPATCH_PREFIX = "harness:operatorDispatch:"
 const NOTIFY_RETRY_DELAY_MS = 30_000
 const MAX_NOTIFY_ATTEMPTS = 100
 
@@ -69,6 +71,9 @@ export class RunCoordinator extends DurableObject<HarnessBridgeEnv> {
       }
       if (request.method === "POST" && url.pathname === "/force-complete") {
         return await this.handleForceComplete(request)
+      }
+      if (request.method === "POST" && url.pathname === "/operator-dispatch") {
+        return await this.handleOperatorDispatch(request)
       }
       if (request.method === "GET" && url.pathname === "/get-compiled") {
         return await this.handleGetCompiled()
@@ -217,8 +222,17 @@ export class RunCoordinator extends DurableObject<HarnessBridgeEnv> {
       )
     }
 
-    const state = await this.ctx.storage.get<HarnessState>(KEY_STATE)
-    const compiled = await this.ctx.storage.get<CompiledHarness>(KEY_COMPILED)
+    const [state, compiled, existingResult] = await Promise.all([
+      this.ctx.storage.get<HarnessState>(KEY_STATE),
+      this.ctx.storage.get<CompiledHarness>(KEY_COMPILED),
+      this.ctx.storage.get<HarnessRunResult>(KEY_RESULT),
+    ])
+    if (existingResult) {
+      return new Response(
+        JSON.stringify({ ok: true, action: "already-complete", result: existingResult }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      )
+    }
     if (!state || !compiled) {
       return new Response(
         JSON.stringify({ error: "run state missing — was /init called?" }),
@@ -376,6 +390,127 @@ export class RunCoordinator extends DurableObject<HarnessBridgeEnv> {
     return new Response(
       JSON.stringify({ ok: true, action: "force-complete", result: payload.result }),
       { status: 200, headers: { "Content-Type": "application/json" } },
+    )
+  }
+
+  // ── /operator-dispatch ─────────────────────────────────────────────────
+  private async handleOperatorDispatch(request: Request): Promise<Response> {
+    const payload = (await request.json()) as OperatorDispatchPayload
+    if (
+      !payload?.runId ||
+      !payload.stageName ||
+      (payload.action !== "retry-stage" && payload.action !== "redispatch-stage") ||
+      !payload.idempotencyKey
+    ) {
+      return new Response(
+        JSON.stringify({ error: "missing runId, stageName, action, or idempotencyKey" }),
+        { status: 400, headers: { "Content-Type": "application/json" } },
+      )
+    }
+
+    const [compiled, state, existingResult] = await Promise.all([
+      this.ctx.storage.get<CompiledHarness>(KEY_COMPILED),
+      this.ctx.storage.get<HarnessState>(KEY_STATE),
+      this.ctx.storage.get<HarnessRunResult>(KEY_RESULT),
+    ])
+    if (!compiled || !state) {
+      return new Response(
+        JSON.stringify({ error: "run state missing — was /init called?" }),
+        { status: 409, headers: { "Content-Type": "application/json" } },
+      )
+    }
+    if (payload.runId !== state.runId) {
+      return new Response(
+        JSON.stringify({ error: "runId does not match coordinator state", runId: state.runId }),
+        { status: 409, headers: { "Content-Type": "application/json" } },
+      )
+    }
+    if (existingResult || state.status !== "running") {
+      return new Response(
+        JSON.stringify({ error: "run is already terminal", runId: state.runId, status: state.status }),
+        { status: 409, headers: { "Content-Type": "application/json" } },
+      )
+    }
+    if (!compiled.spec.stages[payload.stageName]) {
+      return new Response(
+        JSON.stringify({ error: `unknown stage in compiled harness: ${payload.stageName}` }),
+        { status: 404, headers: { "Content-Type": "application/json" } },
+      )
+    }
+    if (payload.stageName !== state.currentStage) {
+      return new Response(
+        JSON.stringify({
+          error: "stage is not current",
+          runId: state.runId,
+          requestedStage: payload.stageName,
+          currentStage: state.currentStage,
+        }),
+        { status: 409, headers: { "Content-Type": "application/json" } },
+      )
+    }
+
+    const key = `${OPERATOR_DISPATCH_PREFIX}${payload.idempotencyKey}`
+    const existing = await this.ctx.storage.get<{
+      runId: string
+      stageName: string
+      action: string
+      attemptNumber: number
+      enqueuedAt: string
+    }>(key)
+    if (existing) {
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          action: "already-dispatched",
+          runId: existing.runId,
+          stageName: existing.stageName,
+          attemptNumber: existing.attemptNumber,
+          effect: { attempted: true, ok: true, deduped: true },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      )
+    }
+
+    const completedAttempts = state.stageAttempts?.[payload.stageName] ?? 0
+    const attemptNumber = payload.action === "retry-stage"
+      ? Math.max(1, completedAttempts + 1)
+      : Math.max(1, completedAttempts)
+    await this.env.HARNESS_QUEUE.send({
+      runId: state.runId,
+      stageName: payload.stageName,
+      attemptNumber,
+    })
+    const record = {
+      runId: state.runId,
+      stageName: payload.stageName,
+      action: payload.action,
+      attemptNumber,
+      enqueuedAt: new Date().toISOString(),
+    }
+    await this.ctx.storage.put(key, record)
+    await emitRunEvent(this.env, {
+      runId: state.runId,
+      stageName: payload.stageName,
+      attemptNumber,
+      type: "stage_dispatched",
+      emitter: "run-coordinator",
+      data: {
+        action: payload.action === "retry-stage" ? "operator_retry" : "operator_redispatch",
+        operator: payload.operator,
+        reason: payload.reason,
+        idempotencyKey: payload.idempotencyKey,
+      },
+    })
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        action: payload.action,
+        runId: state.runId,
+        stageName: payload.stageName,
+        attemptNumber,
+        effect: { attempted: true, ok: true, enqueued: true, deduped: false },
+      }),
+      { status: 202, headers: { "Content-Type": "application/json" } },
     )
   }
 

@@ -2142,6 +2142,9 @@ async function handleRunIntervention(request: Request, env: PipelineEnv, url: UR
   if (!env.WORKSPACE_BUCKET) {
     return json({ error: 'WORKSPACE_BUCKET binding unavailable' }, 503)
   }
+  const auth = authorizeOperatorControl(request, env)
+  if (!auth.ok) return json({ error: auth.error }, auth.status)
+
   const rest = url.pathname.slice('/run-interventions/'.length)
   const [encodedRunId, action] = rest.split('/')
   const runId = decodeURIComponent(encodedRunId ?? '')
@@ -2153,6 +2156,7 @@ async function handleRunIntervention(request: Request, env: PipelineEnv, url: UR
   const reason = cleanString(body.reason, '')
   const note = cleanString(body.note, '')
   const explicitStageName = cleanString(body.stageName, '')
+  const idempotencyKey = cleanString(body.idempotencyKey, '')
   const summary = await log.getSummary(runId)
   if (!summary) {
     return json({ error: 'run summary not found', runId }, 404)
@@ -2180,20 +2184,47 @@ async function handleRunIntervention(request: Request, env: PipelineEnv, url: UR
     }
     if (!explicitStageName) return json({ error: 'missing stageName' }, 400)
     const type = action === 'retry-stage' ? 'stage_retry_requested' : 'stage_redispatch_requested'
+    const message = reason || `${action} requested`
+    const effect = await dispatchOperatorStage(env, {
+      runId,
+      stageName: explicitStageName,
+      action,
+      operator,
+      reason: message,
+      idempotencyKey: idempotencyKey || defaultInterventionIdempotencyKey(action, runId, explicitStageName, operator, message),
+    })
+    if (!effect.ok) {
+      return json({
+        error: effect.error ?? 'operator dispatch failed',
+        runId,
+        action: type,
+        stageName: explicitStageName,
+        effect,
+      }, effect.status && effect.status >= 400 && effect.status < 600 ? effect.status : 502)
+    }
+    if (effect.deduped) {
+      return json({
+        ok: true,
+        runId,
+        action: type,
+        stageName: explicitStageName,
+        effect,
+      }, 200)
+    }
     await emitIntervention(log, {
       runId,
       stageName: explicitStageName,
       type,
       operator,
-      message: reason || `${action} requested`,
-      effect: 'recorded_only',
+      message,
+      effect: 'enqueued',
     })
     return json({
       ok: true,
       runId,
       action: type,
       stageName: explicitStageName,
-      effect: { attempted: false, reason: 'recorded_only' },
+      effect,
     }, 202)
   }
 
@@ -2227,6 +2258,49 @@ async function handleRunIntervention(request: Request, env: PipelineEnv, url: UR
   }
 
   return json({ error: `unknown intervention action: ${action}` }, 404)
+}
+
+type OperatorAuthorizationResult =
+  | { ok: true }
+  | { ok: false; status: number; error: string }
+
+function authorizeOperatorControl(request: Request, env: PipelineEnv): OperatorAuthorizationResult {
+  const expected = env.OPERATOR_CONTROL_TOKEN || env.CF_API_TOKEN
+  if (!expected) {
+    return env.ENVIRONMENT === 'production'
+      ? { ok: false, status: 503, error: 'operator control auth is not configured' }
+      : { ok: true }
+  }
+  const supplied = bearerToken(request.headers.get('Authorization')) || request.headers.get('X-FF-Operator-Token') || ''
+  if (!supplied) return { ok: false, status: 401, error: 'operator authorization required' }
+  if (!constantTimeEqual(supplied, expected)) return { ok: false, status: 403, error: 'operator authorization rejected' }
+  return { ok: true }
+}
+
+function bearerToken(value: string | null): string {
+  const match = value?.match(/^Bearer\s+(.+)$/i)
+  return match?.[1]?.trim() ?? ''
+}
+
+function constantTimeEqual(a: string, b: string): boolean {
+  const left = new TextEncoder().encode(a)
+  const right = new TextEncoder().encode(b)
+  let diff = left.length ^ right.length
+  const max = Math.max(left.length, right.length)
+  for (let i = 0; i < max; i += 1) {
+    diff |= (left[i] ?? 0) ^ (right[i] ?? 0)
+  }
+  return diff === 0
+}
+
+function defaultInterventionIdempotencyKey(
+  action: string,
+  runId: string,
+  stageName: string,
+  operator: string,
+  message: string,
+): string {
+  return `${action}:${runId}:${stageName}:${operator}:${message}`
 }
 
 async function emitIntervention(
@@ -2282,6 +2356,62 @@ async function forceCompleteCancelledRun(
     return { attempted: true, ok: true, status: response.status }
   } catch (err) {
     return { attempted: true, ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+async function dispatchOperatorStage(
+  env: PipelineEnv,
+  input: {
+    runId: string
+    stageName: string
+    action: 'retry-stage' | 'redispatch-stage'
+    operator: string
+    reason: string
+    idempotencyKey: string
+  },
+): Promise<{ attempted: boolean; ok?: boolean; status?: number; error?: string; reason?: string; enqueued?: boolean; deduped?: boolean; attemptNumber?: number }> {
+  if (!env.RUN_COORDINATOR) return { attempted: false, ok: false, reason: 'RUN_COORDINATOR binding unavailable' }
+  try {
+    const stub = env.RUN_COORDINATOR.get(env.RUN_COORDINATOR.idFromName(input.runId))
+    const response = await stub.fetch(new Request('https://run-coordinator/operator-dispatch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    }))
+    const text = await response.text()
+    const parsed = parseJsonRecord(text)
+    if (!response.ok) {
+      return {
+        attempted: true,
+        ok: false,
+        status: response.status,
+        error: typeof parsed.error === 'string' ? parsed.error : text.slice(0, 400),
+      }
+    }
+    const effect = parsed.effect && typeof parsed.effect === 'object' && !Array.isArray(parsed.effect)
+      ? parsed.effect as Record<string, unknown>
+      : {}
+    return {
+      attempted: true,
+      ok: true,
+      status: response.status,
+      enqueued: effect.enqueued === true,
+      deduped: effect.deduped === true,
+      ...(typeof parsed.attemptNumber === 'number' ? { attemptNumber: parsed.attemptNumber } : {}),
+    }
+  } catch (err) {
+    return { attempted: true, ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+function parseJsonRecord(text: string): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(text)
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : {}
+  } catch {
+    return {}
   }
 }
 

@@ -595,6 +595,30 @@ describe('RunCoordinator DO', () => {
       const resp = await rc.fetch(req)
       expect(resp.status).toBe(409)
     })
+
+    it('ignores stage-complete after a terminal result is already persisted', async () => {
+      const { rc, ctx, env } = await initRc()
+      const result = makeHarnessRunResult('pass')
+      ctx.storage._data.set('harness:result', result)
+
+      const resp = await rc.fetch(new Request('https://do/stage-complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(makeStageCompletePayload()),
+      }))
+
+      expect(resp.status).toBe(200)
+      expect(await resp.json()).toMatchObject({
+        ok: true,
+        action: 'already-complete',
+        result: {
+          overall: result.overall,
+          finalStage: result.finalStage,
+        },
+      })
+      expect(mockAdvanceHarness).not.toHaveBeenCalled()
+      expect((env.FACTORY_PIPELINE.get as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled()
+    })
   })
 
   describe('POST /force-complete', () => {
@@ -622,6 +646,113 @@ describe('RunCoordinator DO', () => {
       expect(resp.status).toBe(200)
       expect(ctx.storage._data.get('harness:result')).toEqual(result)
       expect(sendEvent).toHaveBeenCalledWith({ type: 'harness-complete', payload: result })
+    })
+  })
+
+  describe('POST /operator-dispatch', () => {
+    async function initRc(overrides: Record<string, unknown> = {}) {
+      const { RunCoordinator } = await import('./run-coordinator.js')
+      const ctx = makeMockCtx()
+      const env = makeMockEnv()
+      const rc = new RunCoordinator(ctx as never, env as never)
+      ctx.storage._data.set('harness:compiled', makeCompiledHarness())
+      ctx.storage._data.set('harness:state', makeHarnessState(overrides))
+      ctx.storage._data.set('harness:workflowId', 'wf-001')
+      return { rc, ctx, env }
+    }
+
+    it('validates current state and enqueues an operator retry with idempotency', async () => {
+      const { rc, env } = await initRc({ stageAttempts: { PLAN: 1 } })
+      const body = {
+        runId: 'run-test-001',
+        stageName: 'PLAN',
+        action: 'retry-stage',
+        operator: 'ops',
+        reason: 'recover transient failure',
+        idempotencyKey: 'retry-001',
+      }
+
+      const first = await rc.fetch(new Request('https://do/operator-dispatch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }))
+
+      expect(first.status).toBe(202)
+      expect(await first.json()).toMatchObject({
+        ok: true,
+        action: 'retry-stage',
+        runId: 'run-test-001',
+        stageName: 'PLAN',
+        attemptNumber: 2,
+        effect: { attempted: true, ok: true, enqueued: true, deduped: false },
+      })
+      expect((env.HARNESS_QUEUE.send as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1)
+      expect((env.HARNESS_QUEUE.send as ReturnType<typeof vi.fn>).mock.calls[0]![0]).toMatchObject({
+        runId: 'run-test-001',
+        stageName: 'PLAN',
+        attemptNumber: 2,
+      })
+
+      const duplicate = await rc.fetch(new Request('https://do/operator-dispatch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }))
+
+      expect(duplicate.status).toBe(200)
+      expect(await duplicate.json()).toMatchObject({
+        action: 'already-dispatched',
+        attemptNumber: 2,
+        effect: { deduped: true },
+      })
+      expect((env.HARNESS_QUEUE.send as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1)
+    })
+
+    it('refuses operator dispatch for non-current, unknown, or terminal stages', async () => {
+      const { rc, ctx } = await initRc({ currentStage: 'PLAN' })
+
+      const nonCurrent = await rc.fetch(new Request('https://do/operator-dispatch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          runId: 'run-test-001',
+          stageName: 'CODE',
+          action: 'redispatch-stage',
+          idempotencyKey: 'wrong-stage',
+        }),
+      }))
+      expect(nonCurrent.status).toBe(409)
+      expect(await nonCurrent.json()).toMatchObject({
+        error: 'stage is not current',
+        currentStage: 'PLAN',
+      })
+
+      const unknown = await rc.fetch(new Request('https://do/operator-dispatch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          runId: 'run-test-001',
+          stageName: 'NOPE',
+          action: 'redispatch-stage',
+          idempotencyKey: 'unknown',
+        }),
+      }))
+      expect(unknown.status).toBe(404)
+
+      ctx.storage._data.set('harness:result', makeHarnessRunResult('fail'))
+      const terminal = await rc.fetch(new Request('https://do/operator-dispatch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          runId: 'run-test-001',
+          stageName: 'PLAN',
+          action: 'retry-stage',
+          idempotencyKey: 'terminal',
+        }),
+      }))
+      expect(terminal.status).toBe(409)
+      expect(await terminal.json()).toMatchObject({ error: 'run is already terminal' })
     })
   })
 })

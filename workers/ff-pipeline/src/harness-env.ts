@@ -120,6 +120,21 @@ export interface StageCompletePayload {
 }
 
 /**
+ * Operator-requested stage dispatch. Public HTTP routes authenticate and
+ * record the operator intent; the RunCoordinator validates current harness
+ * state and performs the actual queue enqueue so state ownership stays in
+ * the DO.
+ */
+export interface OperatorDispatchPayload {
+  runId: string
+  stageName: string
+  action: "retry-stage" | "redispatch-stage"
+  operator?: string
+  reason?: string
+  idempotencyKey: string
+}
+
+/**
  * Container worker fetcher binding. CF service bindings expose a
  * `fetch(req: Request): Promise<Response>` interface. Marked optional so
  * the harness-completeness gate at startHarnessRun time can detect missing

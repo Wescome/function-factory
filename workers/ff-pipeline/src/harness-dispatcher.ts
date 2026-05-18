@@ -586,6 +586,10 @@ export async function dispatchOne(
     )
   }
   const completeBody = await completeResp.json().catch(() => ({})) as Record<string, unknown>
+  if (completeBody.action === "already-complete") {
+    console.warn(`[harness-dispatcher] stage-complete.ignored-terminal run=${message.runId} stage=${message.stageName}`)
+    return
+  }
   const failedGate = gateResults.find((gate) => !gate.passed)
   const failed = Boolean(workerThrew || failedGate || completeBody.action === "fail")
   await emitRunEvent(env, {

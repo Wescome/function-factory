@@ -52,6 +52,10 @@
     "audit:docs": "node scripts/audit-docs.mjs",
     "audit:ontology": "node scripts/audit-ontology-hard-cut.mjs",
     "watch:run": "node scripts/ops/watch-run.mjs",
+    "run:note": "node scripts/ops/control-run.mjs note",
+    "run:cancel": "node scripts/ops/control-run.mjs cancel",
+    "run:retry": "node scripts/ops/control-run.mjs retry-stage",
+    "run:redispatch": "node scripts/ops/control-run.mjs redispatch-stage",
     "dream": "tsx .agent/tools/dream.ts",
     "bootstrap": "tsx scripts/bootstrap.ts"
   },

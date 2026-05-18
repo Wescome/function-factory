@@ -36,6 +36,7 @@ export interface PipelineEnv {
 
   OFOX_API_KEY?: string
   CF_API_TOKEN?: string
+  OPERATOR_CONTROL_TOKEN?: string
 
   AI?: {
     run(model: string, input: Record<string, unknown>): Promise<{ response: string }>
