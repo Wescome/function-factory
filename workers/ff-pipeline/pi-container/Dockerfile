@@ -10,7 +10,7 @@ RUN apt-get update && \
 COPY package.json ./
 RUN npm install --omit=dev
 
-COPY server.mjs execution-contract.mjs contract-evaluator.mjs contract-types.mjs contract-materializer.mjs execution-policy.mjs workspace-seed.mjs workspace-derived-artifacts.mjs tool-capability-probe.mjs stage-runtime.mjs ./
+COPY server.mjs execution-contract.mjs contract-evaluator.mjs contract-types.mjs contract-materializer.mjs execution-policy.mjs workspace-seed.mjs workspace-derived-artifacts.mjs tool-capability-probe.mjs stage-runtime.mjs prompt-diagnostics.mjs ./
 
 RUN mkdir -p /root/.pi/agent && \
     printf '{"providers":{"openrouter":{"baseUrl":"https://api.ofox.ai/v1","api":"openai-completions","apiKey":"OFOX_API_KEY","authHeader":true}}}\n' \
