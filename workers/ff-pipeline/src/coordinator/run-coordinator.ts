@@ -267,6 +267,7 @@ export class RunCoordinator extends DurableObject<HarnessBridgeEnv> {
         gateName: "worker_executed",
         passed: false,
         detail: `worker threw: ${payload.workerThrew.message}`,
+        ...(payload.workerThrew.failureClass ? { failureClass: payload.workerThrew.failureClass } : {}),
       })
     }
 

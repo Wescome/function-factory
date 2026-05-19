@@ -581,6 +581,35 @@ describe('RunCoordinator DO', () => {
       })
     })
 
+    it('workerThrew: preserves dispatcher failureClass on synthetic worker_executed gate', async () => {
+      const { rc } = await initRc()
+      const nextState = makeHarnessState({ currentStage: 'PLAN' })
+      mockAdvanceHarness.mockReturnValue({ action: 'fail', newState: nextState, result: {
+        overall: 'fail',
+        finalStage: 'PLAN',
+        reason: 'worker threw',
+        failureClass: 'step_error',
+      } })
+
+      const req = new Request('https://do/stage-complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          stageName: 'PLAN',
+          workerOutput: { createdArtifacts: [] },
+          gateResults: [],
+          workerThrew: { message: 'pi tool capability probe failed', failureClass: 'step_error' },
+        }),
+      })
+      await rc.fetch(req)
+
+      const stageResult = mockAdvanceHarness.mock.calls[0]![2] as { gateResults: Array<{ gateName: string; failureClass?: string }> }
+      expect(stageResult.gateResults[0]).toMatchObject({
+        gateName: 'worker_executed',
+        failureClass: 'step_error',
+      })
+    })
+
     it('returns 409 when stage-complete arrives before /init', async () => {
       const { RunCoordinator } = await import('./run-coordinator.js')
       const ctx = makeMockCtx()

@@ -518,6 +518,49 @@ describe("RunEventLog", () => {
     expect(attemptLog).toContain('"failureClass":"infrastructure_error"')
   })
 
+  it("extracts diagnostic artifact keys from failure reasons and errors", async () => {
+    const bucket = new MemoryR2Bucket()
+    const log = new RunEventLog(bucket as unknown as R2Bucket)
+
+    await log.emit({
+      runId: "run-diagnostic-reason",
+      type: "run_started",
+      emitter: "harness-bridge",
+      timestamp: "2026-05-18T21:00:00.000Z",
+      data: {},
+    })
+    await log.emit({
+      runId: "run-diagnostic-reason",
+      stageName: "CONTRACT",
+      attemptNumber: 1,
+      type: "stage_failed",
+      emitter: "harness-dispatcher",
+      timestamp: "2026-05-18T21:00:01.000Z",
+      data: {
+        action: "fail",
+        status: "fail",
+        failureClass: "step_error",
+        reason: "worker threw observation=runs/run-diagnostic-reason/artifacts/__observability/CONTRACT.container-observation.json contractEvaluation=runs/run-diagnostic-reason/artifacts/__observability/CONTRACT.contract-evaluation.json",
+      },
+      error: {
+        message: "worker threw observation=runs/run-diagnostic-reason/artifacts/__observability/CONTRACT.container-observation.json",
+      },
+    })
+
+    const manifest = await log.getManifest("run-diagnostic-reason")
+    expect(manifest?.diagnostics.observations).toEqual([
+      "runs/run-diagnostic-reason/artifacts/__observability/CONTRACT.container-observation.json",
+    ])
+    expect(manifest?.diagnostics.contractEvaluations).toEqual([
+      "runs/run-diagnostic-reason/artifacts/__observability/CONTRACT.contract-evaluation.json",
+    ])
+    expect(manifest?.stages).toContainEqual(expect.objectContaining({
+      name: "CONTRACT",
+      observationKeys: ["runs/run-diagnostic-reason/artifacts/__observability/CONTRACT.container-observation.json"],
+      contractEvaluationKeys: ["runs/run-diagnostic-reason/artifacts/__observability/CONTRACT.contract-evaluation.json"],
+    }))
+  })
+
   it("does not throw upstream when R2 writes fail", async () => {
     const log = new RunEventLog({
       get: vi.fn(async () => null),

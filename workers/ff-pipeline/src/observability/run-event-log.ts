@@ -754,11 +754,17 @@ function updateManifestStages(
     next.status = event.type === "stage_completed" ? "pass" : "fail"
     next.completedAt = event.timestamp
     next.artifacts = unique([...(next.artifacts ?? []), ...stringArray(event.data.artifacts)])
+    const extracted = extractDiagnosticKeys(event)
+    next.observationKeys = unique([...(next.observationKeys ?? []), ...extracted.observations])
+    next.contractEvaluationKeys = unique([...(next.contractEvaluationKeys ?? []), ...extracted.contractEvaluations])
     if (typeof event.data.reason === "string") next.reason = event.data.reason
   }
   if (event.type === "container_execute_timed_out" || event.type === "container_crashed") {
     next.status = "fail"
     next.completedAt = event.timestamp
+    const extracted = extractDiagnosticKeys(event)
+    next.observationKeys = unique([...(next.observationKeys ?? []), ...extracted.observations])
+    next.contractEvaluationKeys = unique([...(next.contractEvaluationKeys ?? []), ...extracted.contractEvaluations])
     next.reason = event.error?.message
       ?? (typeof event.data.message === "string" ? event.data.message : undefined)
       ?? (event.type === "container_execute_timed_out" ? "pi container execute timed out" : "pi container crashed")
@@ -824,13 +830,21 @@ function extractDiagnosticKeys(event: RunEvent): { observations: string[]; contr
       if (key === "contractEvaluationKey") out.contractEvaluations.push(value)
     }
   }
-  if (typeof event.data.message === "string") {
-    const observation = event.data.message.match(/\bobservation=(runs\/\S+)/)?.[1]
-    const contractEvaluation = event.data.message.match(/\bcontractEvaluation=(runs\/\S+)/)?.[1]
+  for (const text of diagnosticReferenceTexts(event)) {
+    const observation = text.match(/\bobservation=(runs\/\S+)/)?.[1]
+    const contractEvaluation = text.match(/\bcontractEvaluation=(runs\/\S+)/)?.[1]
     if (observation) out.observations.push(observation)
     if (contractEvaluation) out.contractEvaluations.push(contractEvaluation)
   }
   return out
+}
+
+function diagnosticReferenceTexts(event: RunEvent): string[] {
+  return [
+    event.data.message,
+    event.data.reason,
+    event.error?.message,
+  ].filter((value): value is string => typeof value === "string")
 }
 
 function stringArray(value: unknown): string[] {

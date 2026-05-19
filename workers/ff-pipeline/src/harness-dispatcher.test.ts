@@ -223,7 +223,8 @@ describe('dispatchOne', () => {
     const completeOpts = completeCall![1] as RequestInit
     const payload = JSON.parse(completeOpts.body as string) as Record<string, unknown>
     expect(payload.workerThrew).toBeDefined()
-    expect((payload.workerThrew as { message: string }).message).toContain('container exploded')
+    expect((payload.workerThrew as { message: string; failureClass?: string }).message).toContain('container exploded')
+    expect((payload.workerThrew as { message: string; failureClass?: string }).failureClass).toBe('step_error')
     // Gates are skipped when worker threw
     expect((payload.gateResults as unknown[]).length).toBe(0)
   })

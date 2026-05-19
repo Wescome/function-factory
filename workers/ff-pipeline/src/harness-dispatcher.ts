@@ -570,7 +570,9 @@ export async function dispatchOne(
     stageName: message.stageName,
     workerOutput: workerOutput ?? { createdArtifacts: [] },
     gateResults,
-    ...(workerThrew ? { workerThrew } : {}),
+    ...(workerThrew
+      ? { workerThrew: { ...workerThrew, failureClass: classifyWorkerFailureClass(workerThrew.message) } }
+      : {}),
   }
 
   const completeResp = await stub.fetch("https://run-coordinator/stage-complete", {

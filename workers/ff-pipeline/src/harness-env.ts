@@ -116,7 +116,7 @@ export interface StageCompletePayload {
     failureClass?: string
     detail?: string
   }>
-  workerThrew?: { message: string }
+  workerThrew?: { message: string; failureClass?: "infrastructure_error" | "step_error" }
 }
 
 /**
