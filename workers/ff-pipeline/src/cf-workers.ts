@@ -55,6 +55,7 @@ export function setContainerDispatchRetryDelayForTest(delayMs: number | undefine
 interface ContainerExecuteResponse {
   artifacts: string[]
   artifactContents: Record<string, string>
+  diagnosticContents?: Record<string, string>
   message?: string
   observation?: ContainerExecutionObservation
   error?: ContainerExecutionError
@@ -168,6 +169,18 @@ async function persistContractEvaluation(
   }
 }
 
+async function persistDiagnosticContents(
+  diagnosticContents: Record<string, string> | undefined,
+  artifacts: ArtifactManager,
+  workerName: string,
+): Promise<void> {
+  if (!diagnosticContents) return
+  for (const [key, content] of Object.entries(diagnosticContents)) {
+    const storageKey = await artifacts.writeText(key, content)
+    console.log(`[${workerName}] diagnostic.written key=${storageKey} bytes=${content.length}`)
+  }
+}
+
 async function parseContainerResponse(response: Response): Promise<ContainerExecuteResponse | null> {
   try {
     return (await response.clone().json()) as ContainerExecuteResponse
@@ -232,6 +245,7 @@ abstract class ContainerWorkerAdapter implements WorkerAdapter {
       await this.emitObservationCounterfactuals(parsed?.observation, input.stageName)
       const observationKey = await persistObservation(input.stageName, parsed?.observation, artifacts)
       const contractEvaluationKey = await persistContractEvaluation(input.stageName, parsed?.observation, artifacts)
+      await persistDiagnosticContents(parsed?.diagnosticContents, artifacts, this.name)
       const text = parsed
         ? JSON.stringify({
             error: parsed.error ?? { message: "container dispatch failed" },
@@ -262,6 +276,7 @@ abstract class ContainerWorkerAdapter implements WorkerAdapter {
 
     const observationKey = await persistObservation(input.stageName, parsed.observation, artifacts)
     await persistContractEvaluation(input.stageName, parsed.observation, artifacts)
+    await persistDiagnosticContents(parsed.diagnosticContents, artifacts, this.name)
 
     // Write pi session archive to R2 if the container captured one.
     // Stored as base64 text — ArtifactManager.writeText is the only binary-safe

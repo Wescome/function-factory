@@ -29,6 +29,7 @@ import { contractMaterializeCommand } from './contract-materializer.mjs'
 import { executionPolicyObservation, shouldMaterializeContracts } from './execution-policy.mjs'
 import { hasSeedWorkspace, prepareSeedWorkspace, workspacePromptSection } from './workspace-seed.mjs'
 import { workspaceDerivedArtifactCommand } from './workspace-derived-artifacts.mjs'
+import { createPromptDiagnostic } from './prompt-diagnostics.mjs'
 import {
   TOOL_PROBE_FILE,
   assessToolCapabilityProbe,
@@ -193,6 +194,12 @@ function containerRuntimeIdentity() {
 function writeJson(res, status, body) {
   res.writeHead(status, { 'Content-Type': 'application/json' })
   res.end(JSON.stringify(body))
+}
+
+function capturePromptDiagnostic(diagnosticContents, observation, stageName, attempt, prompt) {
+  const diagnostic = createPromptDiagnostic(stageName, attempt, prompt)
+  diagnosticContents[diagnostic.key] = diagnostic.content
+  pushObservationEvent(observation, diagnostic.event)
 }
 
 class PiExecutionError extends Error {
@@ -533,6 +540,7 @@ async function handleExecute(req, res) {
   }
 
   stageLogFn('info', 'execute.start', { stageName, runId, roleName, model: selectedModel.id, executionSurface, declaredOutputs: input.declaredOutputs ?? [] })
+  const diagnosticContents = {}
 
   const workDir = await mkdtemp(join(tmpdir(), `pi-${stageName}-`))
   const sessionDir = resolvePiSessionDir(workDir)
@@ -764,6 +772,7 @@ async function handleExecute(req, res) {
         }
       }
       const prompt = buildPrompt(promptInput)
+      capturePromptDiagnostic(diagnosticContents, observation, stageName, 'initial', prompt)
       const agentEndPromise = waitForAgentEnd(reader, EXECUTE_TIMEOUT_MS)
       pi.stdin.write(JSON.stringify({ type: 'prompt', message: prompt }) + '\n')
       await agentEndPromise
@@ -775,6 +784,7 @@ async function handleExecute(req, res) {
     while (evaluation.missing.length > 0 && repairsUsed < maxRepairRounds) {
       repairsUsed++
       const repairPrompt = buildContractRepairPrompt(evaluation.findings)
+      capturePromptDiagnostic(diagnosticContents, observation, stageName, `repair-${repairsUsed}`, repairPrompt)
       pushObservationEvent(observation, { type: 'contract.repair_requested', round: repairsUsed })
       const endPromise = waitForAgentEnd(reader, EXECUTE_TIMEOUT_MS)
       pi.stdin.write(JSON.stringify({ type: 'prompt', message: repairPrompt }) + '\n')
@@ -826,6 +836,7 @@ async function handleExecute(req, res) {
     writeJson(res, 200, {
       artifacts: artifactNames,
       artifactContents,
+      diagnosticContents,
       message: `${stageName} complete`,
       observation: observationPayload(observation, stageLog, { elapsedMs }),
       ...(sessionArchive ? { sessionArchive } : {}),
@@ -844,6 +855,7 @@ async function handleExecute(req, res) {
     writeJson(res, 500, {
       error: { code, message: redact(message), stderrTail: observationOut.stderrTail },
       observation: observationOut,
+      diagnosticContents,
     })
   }
 }

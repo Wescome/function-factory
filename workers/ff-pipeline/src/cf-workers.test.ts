@@ -71,9 +71,16 @@ function makeOkResponse(
   artifactContents: Record<string, string>,
   message?: string,
   observation?: Record<string, unknown>,
+  diagnosticContents?: Record<string, string>,
 ): Response {
   return new Response(
-    JSON.stringify({ artifacts, artifactContents, ...(message ? { message } : {}), ...(observation ? { observation } : {}) }),
+    JSON.stringify({
+      artifacts,
+      artifactContents,
+      ...(message ? { message } : {}),
+      ...(observation ? { observation } : {}),
+      ...(diagnosticContents ? { diagnosticContents } : {}),
+    }),
     { status: 200, headers: { 'Content-Type': 'application/json' } },
   )
 }
@@ -266,6 +273,59 @@ describe('PiContainerAdapter', () => {
     expect((artifacts.writeText as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith(
       '__observability/CONTRACT.contract-evaluation.json',
       expect.stringContaining('"outcome": "fail"'),
+    )
+  })
+
+  it('persists container diagnostic contents on successful responses', async () => {
+    const { PiContainerAdapter } = await import('./cf-workers.js')
+    const artifacts = makeArtifacts()
+    const container = makeContainer(
+      makeOkResponse(
+        ['IssueContract'],
+        { IssueContract: '# Contract' },
+        'CONTRACT complete',
+        undefined,
+        { '__observability/CONTRACT.prompt.initial.txt': 'rendered prompt' },
+      ),
+    )
+    const adapter = new PiContainerAdapter(container as never)
+
+    await adapter.execute(makeInput() as never, artifacts as never)
+
+    expect((artifacts.writeText as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith(
+      '__observability/CONTRACT.prompt.initial.txt',
+      'rendered prompt',
+    )
+    expect((artifacts.writeText as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith(
+      'IssueContract',
+      '# Contract',
+    )
+  })
+
+  it('persists container diagnostic contents on non-2xx responses', async () => {
+    const { PiContainerAdapter } = await import('./cf-workers.js')
+    const artifacts = makeArtifacts()
+    const container = makeContainer(
+      new Response(
+        JSON.stringify({
+          error: { code: 'PI_EXECUTION_FAILED', message: 'contract failed' },
+          observation: { stageName: 'CONTRACT', stderrTail: 'redacted tail' },
+          diagnosticContents: {
+            '__observability/CONTRACT.prompt.initial.txt': 'rendered prompt before failure',
+          },
+        }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+    const adapter = new PiContainerAdapter(container as never)
+
+    await expect(
+      adapter.execute(makeInput() as never, artifacts as never),
+    ).rejects.toThrow('contract failed')
+
+    expect((artifacts.writeText as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith(
+      '__observability/CONTRACT.prompt.initial.txt',
+      'rendered prompt before failure',
     )
   })
 
