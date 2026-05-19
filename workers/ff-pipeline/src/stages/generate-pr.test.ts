@@ -21,9 +21,19 @@ import {
   type PRGenerationResult,
 } from './generate-pr'
 
+vi.mock('../github-app-auth', () => ({
+  getInstallationToken: vi.fn(async () => 'ghs_installation_token'),
+}))
+
 // ── Mock fetch ──────────────────────────────────────────────────────
 
 const originalFetch = globalThis.fetch
+
+const githubAppEnv = {
+  GITHUB_APP_ID: '12345',
+  GITHUB_APP_PRIVATE_KEY: 'test-private-key',
+  GITHUB_TARGET_REPO: 'Wescome/function-factory',
+}
 
 function mockFetchSuccess() {
   const calls: Array<{ url: string; method: string; body?: unknown }> = []
@@ -40,6 +50,14 @@ function mockFetchSuccess() {
       }), { status: 200 })
     }
 
+    // GET /repos/{owner}/{repo}/git/commits/{sha} — return base tree SHA
+    if (urlStr.includes('/git/commits/abc123mainsha') && method === 'GET') {
+      return new Response(JSON.stringify({
+        sha: 'basecommitsha',
+        tree: { sha: 'basetreesha' },
+      }), { status: 200 })
+    }
+
     // POST /repos/{owner}/{repo}/git/refs — create branch
     if (urlStr.includes('/git/refs') && method === 'POST') {
       return new Response(JSON.stringify({
@@ -47,18 +65,32 @@ function mockFetchSuccess() {
       }), { status: 201 })
     }
 
-    // PUT /repos/{owner}/{repo}/contents/{path} — create/update file
-    if (urlStr.includes('/contents/') && method === 'PUT') {
+    // GET /repos/{owner}/{repo}/git/trees/{sha}?recursive=1 — return base tree
+    if (urlStr.includes('/git/trees/basetreesha?recursive=1') && method === 'GET') {
       return new Response(JSON.stringify({
-        content: { sha: 'file-sha-123' },
-      }), { status: 201 })
+        tree: [],
+        truncated: false,
+      }), { status: 200 })
     }
 
-    // DELETE /repos/{owner}/{repo}/contents/{path} — delete file
-    if (urlStr.includes('/contents/') && method === 'DELETE') {
-      return new Response(JSON.stringify({
-        content: null,
-      }), { status: 200 })
+    // POST /repos/{owner}/{repo}/git/blobs — create blob
+    if (urlStr.includes('/git/blobs') && method === 'POST') {
+      return new Response(JSON.stringify({ sha: 'blobsha123' }), { status: 201 })
+    }
+
+    // POST /repos/{owner}/{repo}/git/trees — create tree
+    if (urlStr.endsWith('/git/trees') && method === 'POST') {
+      return new Response(JSON.stringify({ sha: 'newtreesha' }), { status: 201 })
+    }
+
+    // POST /repos/{owner}/{repo}/git/commits — create commit
+    if (urlStr.endsWith('/git/commits') && method === 'POST') {
+      return new Response(JSON.stringify({ sha: 'newcommitsha' }), { status: 201 })
+    }
+
+    // PATCH /repos/{owner}/{repo}/git/refs/heads/{branch} — update branch
+    if (urlStr.includes('/git/refs/heads/') && method === 'PATCH') {
+      return new Response(JSON.stringify({ object: { sha: 'newcommitsha' } }), { status: 200 })
     }
 
     // POST /repos/{owner}/{repo}/pulls — create PR
@@ -67,6 +99,11 @@ function mockFetchSuccess() {
         html_url: 'https://github.com/Wescome/function-factory/pull/42',
         number: 42,
       }), { status: 201 })
+    }
+
+    // POST /labels and POST /issues/{n}/labels — best-effort labels
+    if (urlStr.includes('/labels') && method === 'POST') {
+      return new Response(JSON.stringify({}), { status: 201 })
     }
 
     return new Response('Not Found', { status: 404 })
@@ -92,6 +129,14 @@ function mockFetchBranchExists() {
     if (urlStr.includes('/git/ref/heads/main')) {
       return new Response(JSON.stringify({
         object: { sha: 'abc123mainsha' },
+      }), { status: 200 })
+    }
+
+    // GET commit still works before branch creation is attempted
+    if (urlStr.includes('/git/commits/abc123mainsha') && method === 'GET') {
+      return new Response(JSON.stringify({
+        sha: 'basecommitsha',
+        tree: { sha: 'basetreesha' },
       }), { status: 200 })
     }
 
@@ -150,22 +195,22 @@ function makeInput(overrides?: Partial<PRGenerationInput>): PRGenerationInput {
 
 describe('buildBranchName', () => {
   it('generates correct branch name from proposalId', () => {
-    expect(buildBranchName('FP-001')).toBe('factory/fp-001')
+    expect(buildBranchName('FP-001', 'abcdef12')).toBe('factory/fn-fp-001-abcdef12')
   })
 
   it('lowercases the proposalId', () => {
-    expect(buildBranchName('FP-MY-PROPOSAL')).toBe('factory/fp-my-proposal')
+    expect(buildBranchName('FP-MY-PROPOSAL')).toBe('factory/fn-fp-my-proposal-00000000')
   })
 
   it('truncates long proposalIds to keep branch under 50 chars', () => {
     const longId = 'FP-this-is-a-very-long-proposal-id-that-exceeds-fifty-characters'
     const branch = buildBranchName(longId)
     expect(branch.length).toBeLessThanOrEqual(50)
-    expect(branch.startsWith('factory/')).toBe(true)
+    expect(branch.startsWith('factory/fn-')).toBe(true)
   })
 
   it('replaces spaces with hyphens', () => {
-    expect(buildBranchName('FP some proposal')).toBe('factory/fp-some-proposal')
+    expect(buildBranchName('FP some proposal')).toBe('factory/fn-fp-some-proposal-00000000')
   })
 })
 
@@ -209,11 +254,11 @@ describe('generatePR', () => {
     const { mockFn, calls } = mockFetchSuccess()
     const input = makeInput()
 
-    const result = await generatePR(input, 'ghp_test_token', 'Wescome', 'function-factory')
+    const result = await generatePR(input, githubAppEnv)
 
     expect(result.success).toBe(true)
     expect(result.prUrl).toBe('https://github.com/Wescome/function-factory/pull/42')
-    expect(result.branchName).toBe('factory/fp-001')
+    expect(result.branchName).toMatch(/^factory\/fn-/)
     expect(result.filesWritten).toBe(2)
 
     // Verify API call sequence
@@ -222,9 +267,9 @@ describe('generatePR', () => {
 
     const createBranch = calls.find(c => c.url.includes('/git/refs') && c.method === 'POST')
     expect(createBranch).toBeDefined()
-    expect((createBranch!.body as Record<string, unknown>).ref).toBe('refs/heads/factory/fp-001')
+    expect((createBranch!.body as Record<string, unknown>).ref).toMatch(/^refs\/heads\/factory\/fn-/)
 
-    const fileWrites = calls.filter(c => c.url.includes('/contents/') && c.method === 'PUT')
+    const fileWrites = calls.filter(c => c.url.includes('/git/blobs') && c.method === 'POST')
     expect(fileWrites.length).toBe(2)
 
     const createPR = calls.find(c => c.url.includes('/pulls') && c.method === 'POST')
@@ -256,15 +301,14 @@ describe('generatePR', () => {
       },
     })
 
-    const result = await generatePR(input, 'ghp_test', 'Wescome', 'function-factory')
+    const result = await generatePR(input, githubAppEnv)
 
     expect(result.success).toBe(true)
     expect(result.filesWritten).toBe(1)
 
     // Only atom-pass file should be written
-    const fileWrites = calls.filter(c => c.url.includes('/contents/') && c.method === 'PUT')
+    const fileWrites = calls.filter(c => c.url.includes('/git/blobs') && c.method === 'POST')
     expect(fileWrites.length).toBe(1)
-    expect(fileWrites[0]!.url).toContain('src/a.ts')
   })
 
   it('handles missing codeArtifact gracefully', async () => {
@@ -287,7 +331,7 @@ describe('generatePR', () => {
       },
     })
 
-    const result = await generatePR(input, 'ghp_test', 'Wescome', 'function-factory')
+    const result = await generatePR(input, githubAppEnv)
 
     expect(result.success).toBe(true)
     expect(result.filesWritten).toBe(1)
@@ -299,10 +343,10 @@ describe('generatePR', () => {
       atomResults: {},
     })
 
-    const result = await generatePR(input, 'ghp_test', 'Wescome', 'function-factory')
+    const result = await generatePR(input, githubAppEnv)
 
-    // No files to write — should still succeed but with 0 files
-    expect(result.success).toBe(true)
+    // No files to write — should fail closed before opening a phantom PR
+    expect(result.success).toBe(false)
     expect(result.filesWritten).toBe(0)
   })
 
@@ -321,11 +365,11 @@ describe('generatePR', () => {
       },
     })
 
-    const result = await generatePR(input, 'ghp_test', 'Wescome', 'function-factory')
+    const result = await generatePR(input, githubAppEnv)
 
-    // Delete is BLOCKED — no DELETE call made
-    const deleteCall = calls.find(c => c.url.includes('/contents/') && c.method === 'DELETE')
-    expect(deleteCall).toBeUndefined()
+    // Delete is BLOCKED — no blob is created for this file
+    const blobWrites = calls.filter(c => c.url.includes('/git/blobs') && c.method === 'POST')
+    expect(blobWrites).toHaveLength(0)
     expect(result.warnings).toBeDefined()
     expect(result.warnings!.some(w => w.includes('BLOCKED') && w.includes('delete'))).toBe(true)
   })
@@ -334,7 +378,7 @@ describe('generatePR', () => {
     mockFetchApiError()
     const input = makeInput()
 
-    const result = await generatePR(input, 'bad_token', 'Wescome', 'function-factory')
+    const result = await generatePR(input, githubAppEnv)
 
     expect(result.success).toBe(false)
     expect(result.error).toBeDefined()
@@ -345,7 +389,7 @@ describe('generatePR', () => {
     mockFetchNetworkError()
     const input = makeInput()
 
-    const result = await generatePR(input, 'ghp_test', 'Wescome', 'function-factory')
+    const result = await generatePR(input, githubAppEnv)
 
     expect(result.success).toBe(false)
     expect(result.error).toContain('Network connection refused')
@@ -356,7 +400,7 @@ describe('generatePR', () => {
     mockFetchBranchExists()
     const input = makeInput()
 
-    const result = await generatePR(input, 'ghp_test', 'Wescome', 'function-factory')
+    const result = await generatePR(input, githubAppEnv)
 
     expect(result.success).toBe(false)
     expect(result.error).toContain('already exists')
@@ -367,13 +411,13 @@ describe('generatePR', () => {
     const { mockFn } = mockFetchSuccess()
     const input = makeInput()
 
-    await generatePR(input, 'ghp_my_token_123', 'Wescome', 'function-factory')
+    await generatePR(input, githubAppEnv)
 
     for (const call of mockFn.mock.calls) {
       const init = call[1] as RequestInit | undefined
       const headers = init?.headers as Record<string, string> | undefined
       if (headers) {
-        expect(headers['Authorization']).toBe('Bearer ghp_my_token_123')
+        expect(headers['Authorization']).toBe('Bearer ghs_installation_token')
       }
     }
   })

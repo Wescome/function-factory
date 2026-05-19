@@ -30,9 +30,19 @@ import {
   CODE_ARTIFACT_SCHEMA,
 } from '../agents/output-reliability'
 
+vi.mock('../github-app-auth', () => ({
+  getInstallationToken: vi.fn(async () => 'ghs_installation_token'),
+}))
+
 // ── Mock fetch ──────────────────────────────────────────────────────
 
 const originalFetch = globalThis.fetch
+
+const githubAppEnv = {
+  GITHUB_APP_ID: '12345',
+  GITHUB_APP_PRIVATE_KEY: 'test-private-key',
+  GITHUB_TARGET_REPO: 'Wescome/function-factory',
+}
 
 /**
  * Mock fetch that returns 200 (file exists with content and SHA) for
@@ -54,6 +64,14 @@ function mockFetchWithExistingFiles() {
       }), { status: 200 })
     }
 
+    // GET main commit
+    if (urlStr.includes('/git/commits/abc123mainsha') && method === 'GET') {
+      return new Response(JSON.stringify({
+        sha: 'abc123mainsha',
+        tree: { sha: 'basetreesha' },
+      }), { status: 200 })
+    }
+
     // POST create branch
     if (urlStr.includes('/git/refs') && method === 'POST') {
       return new Response(JSON.stringify({
@@ -61,20 +79,43 @@ function mockFetchWithExistingFiles() {
       }), { status: 201 })
     }
 
-    // GET /contents/{path} — file EXISTS on branch (returns SHA + content)
-    if (urlStr.includes('/contents/') && method === 'GET') {
+    // GET recursive tree — file EXISTS on base tree
+    if (urlStr.includes('/git/trees/basetreesha?recursive=1') && method === 'GET') {
       return new Response(JSON.stringify({
-        sha: 'existing-file-sha-999',
+        tree: [
+          { path: 'src/existing-module.ts', mode: '100644', type: 'blob', sha: 'existing-file-sha-999' },
+        ],
+        truncated: false,
+      }), { status: 200 })
+    }
+
+    // GET /git/blobs/{sha} — existing content
+    if (urlStr.includes('/git/blobs/existing-file-sha-999') && method === 'GET') {
+      return new Response(JSON.stringify({
         content: btoa('// existing file content\nexport const x = 1;\n'),
         encoding: 'base64',
       }), { status: 200 })
     }
 
-    // PUT /contents/{path} — create/update file
-    if (urlStr.includes('/contents/') && method === 'PUT') {
-      return new Response(JSON.stringify({
-        content: { sha: 'new-sha-456' },
-      }), { status: 201 })
+    // POST /git/blobs — create blob
+    if (urlStr.includes('/git/blobs') && method === 'POST') {
+      return new Response(JSON.stringify({ sha: 'new-sha-456' }), { status: 201 })
+    }
+
+    if (urlStr.endsWith('/git/trees') && method === 'POST') {
+      return new Response(JSON.stringify({ sha: 'new-tree-sha' }), { status: 201 })
+    }
+
+    if (urlStr.endsWith('/git/commits') && method === 'POST') {
+      return new Response(JSON.stringify({ sha: 'new-commit-sha' }), { status: 201 })
+    }
+
+    if (urlStr.includes('/git/refs/heads/') && method === 'PATCH') {
+      return new Response(JSON.stringify({ object: { sha: 'new-commit-sha' } }), { status: 200 })
+    }
+
+    if (urlStr.includes('/git/refs/heads/') && method === 'DELETE') {
+      return new Response('', { status: 204 })
     }
 
     // POST create PR
@@ -140,7 +181,7 @@ describe('generate-pr: guard against create on existing files (discrepancy #3)',
       },
     })
 
-    const result = await generatePR(input, 'ghp_test', 'Wescome', 'function-factory')
+    const result = await generatePR(input, githubAppEnv)
 
     // The pipeline MUST detect this conflict. It should either:
     // (a) include a warning in the result, OR
@@ -177,11 +218,11 @@ describe('generate-pr: guard against create on existing files (discrepancy #3)',
       },
     })
 
-    const result = await generatePR(input, 'ghp_test', 'Wescome', 'function-factory')
+    const result = await generatePR(input, githubAppEnv)
 
-    // File write is BLOCKED — no PUT call for this file
-    const putCalls = calls.filter(c => c.url.includes('/contents/') && c.method === 'PUT')
-    expect(putCalls).toHaveLength(0)
+    // File write is BLOCKED — no blob is created for this file
+    const blobCalls = calls.filter(c => c.url.includes('/git/blobs') && c.method === 'POST')
+    expect(blobCalls).toHaveLength(0)
 
     // Warnings should include BLOCKED message
     expect(result.warnings).toBeDefined()
@@ -200,15 +241,27 @@ describe('generate-pr: guard against create on existing files (discrepancy #3)',
       if (urlStr.includes('/git/ref/heads/main') && method === 'GET') {
         return new Response(JSON.stringify({ object: { sha: 'mainsha' } }), { status: 200 })
       }
+      if (urlStr.includes('/git/commits/mainsha') && method === 'GET') {
+        return new Response(JSON.stringify({ sha: 'mainsha', tree: { sha: 'basetreesha' } }), { status: 200 })
+      }
       if (urlStr.includes('/git/refs') && method === 'POST') {
         return new Response(JSON.stringify({ ref: 'refs/heads/factory/fp-guard' }), { status: 201 })
       }
-      // GET /contents/ returns 404 — file does NOT exist
-      if (urlStr.includes('/contents/') && method === 'GET') {
-        return new Response('Not Found', { status: 404 })
+      // recursive tree does not include the target file
+      if (urlStr.includes('/git/trees/basetreesha?recursive=1') && method === 'GET') {
+        return new Response(JSON.stringify({ tree: [], truncated: false }), { status: 200 })
       }
-      if (urlStr.includes('/contents/') && method === 'PUT') {
-        return new Response(JSON.stringify({ content: { sha: 'new-sha' } }), { status: 201 })
+      if (urlStr.includes('/git/blobs') && method === 'POST') {
+        return new Response(JSON.stringify({ sha: 'new-sha' }), { status: 201 })
+      }
+      if (urlStr.endsWith('/git/trees') && method === 'POST') {
+        return new Response(JSON.stringify({ sha: 'new-tree-sha' }), { status: 201 })
+      }
+      if (urlStr.endsWith('/git/commits') && method === 'POST') {
+        return new Response(JSON.stringify({ sha: 'new-commit-sha' }), { status: 201 })
+      }
+      if (urlStr.includes('/git/refs/heads/') && method === 'PATCH') {
+        return new Response(JSON.stringify({ object: { sha: 'new-commit-sha' } }), { status: 200 })
       }
       if (urlStr.includes('/pulls') && method === 'POST') {
         return new Response(JSON.stringify({ html_url: 'https://github.com/x/y/pull/1', number: 1 }), { status: 201 })
@@ -238,7 +291,7 @@ describe('generate-pr: guard against create on existing files (discrepancy #3)',
       },
     })
 
-    const result = await generatePR(input, 'ghp_test', 'Wescome', 'function-factory')
+    const result = await generatePR(input, githubAppEnv)
 
     expect(result.success).toBe(true)
     expect(result.filesWritten).toBe(1)

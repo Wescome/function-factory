@@ -425,8 +425,8 @@ export default {
     if (url.pathname === '/debug/generate-pr' && request.method === 'POST') {
       try {
         const body = await request.json() as { pipelineId: string }
-        if (!body.pipelineId || !env.GITHUB_TOKEN) {
-          return new Response(JSON.stringify({ error: 'Need pipelineId and GITHUB_TOKEN' }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+        if (!body.pipelineId || !env.GITHUB_APP_ID || !env.GITHUB_APP_PRIVATE_KEY) {
+          return new Response(JSON.stringify({ error: 'Need pipelineId, GITHUB_APP_ID, and GITHUB_APP_PRIVATE_KEY' }), { status: 400, headers: { 'Content-Type': 'application/json' } })
         }
         const workflow = await env.FACTORY_PIPELINE.get(body.pipelineId)
         const status = await workflow.status()
@@ -437,16 +437,16 @@ export default {
         const { generatePR } = await import('./stages/generate-pr.js')
         const result = await generatePR(
           {
+            runId: body.pipelineId,
             signalTitle: `PR from pipeline ${body.pipelineId}`,
             proposalId: output.proposalId as string ?? 'unknown',
             executableSpecificationId: output.executableSpecificationId as string ?? 'unknown',
             atomResults: (output.atomResults ?? {}) as any,
             sourceRefs: [],
             confidence: (output.synthesisResult as any)?.verdict?.confidence ?? 0,
+            ...(output.issueContract || output.issueContractArtifact ? { issueContract: (output.issueContract ?? output.issueContractArtifact) as { targetRepo?: string } } : {}),
           },
-          env.GITHUB_TOKEN,
-          'Wescome',
-          'function-factory',
+          env,
         )
         return new Response(JSON.stringify(result), { headers: { 'Content-Type': 'application/json' } })
       } catch (err) {
@@ -1911,19 +1911,20 @@ export default {
               coercions: [],
               timestamp: new Date().toISOString(),
               feedbackSignalCount: feedbackSignals.length,
-              hasGithubToken: !!env.GITHUB_TOKEN,
+              hasGithubApp: !!env.GITHUB_APP_ID && !!env.GITHUB_APP_PRIVATE_KEY,
               subtypes: feedbackSignals.map(fs => fs.signal.subtype),
               hasAtomResults: !!ctx.result?.atomResults,
               atomResultKeys: ctx.result?.atomResults ? Object.keys(ctx.result.atomResults as object) : [],
             }).catch(() => {})
           } catch { /* audit is best-effort */ }
-          console.log(`[Feedback] Checking ${feedbackSignals.length} signals for pr-candidate (GITHUB_TOKEN: ${!!env.GITHUB_TOKEN})`)
-          if (!env.GITHUB_TOKEN) {
-            console.error(`[INFRA SIGNAL] infra:missing-github-token: PR generation skipped — GITHUB_TOKEN not set`)
+          const hasGithubApp = !!env.GITHUB_APP_ID && !!env.GITHUB_APP_PRIVATE_KEY
+          console.log(`[Feedback] Checking ${feedbackSignals.length} signals for pr-candidate (GITHUB_APP: ${hasGithubApp})`)
+          if (!hasGithubApp) {
+            console.error(`[INFRA SIGNAL] infra:missing-github-app-secret: PR generation skipped — GITHUB_APP_ID or GITHUB_APP_PRIVATE_KEY not set`)
           }
           for (const fs of feedbackSignals) {
             console.log(`[Feedback] Signal: ${fs.signal.subtype}, autoApprove: ${fs.autoApprove}`)
-            if (fs.signal.subtype === 'synthesis:pr-candidate' && !fs.autoApprove && env.GITHUB_TOKEN) {
+            if (fs.signal.subtype === 'synthesis:pr-candidate' && !fs.autoApprove && hasGithubApp) {
               const feedbackBody = ctx as {
                 result: Record<string, unknown>
               }
@@ -1934,6 +1935,7 @@ export default {
                 const { generatePR } = await import('./stages/generate-pr.js')
                 const result = await generatePR(
                   {
+                    runId: (feedbackBody.result.runId ?? feedbackBody.result.workflowId ?? feedbackBody.result.workGraphId ?? feedbackBody.result.proposalId ?? 'unknown') as string,
                     signalTitle: fs.signal.title,
                     proposalId: feedbackBody.result.proposalId as string,
                     executableSpecificationId: feedbackBody.result.executableSpecificationId as string,
@@ -1949,10 +1951,9 @@ export default {
                     confidence: (feedbackBody.result.synthesisResult as Record<string, unknown> | undefined)?.verdict
                       ? ((feedbackBody.result.synthesisResult as Record<string, unknown>).verdict as { confidence: number }).confidence
                       : 0,
+                    ...(feedbackBody.result.issueContract || feedbackBody.result.issueContractArtifact || fs.signal.raw?.issueContract ? { issueContract: (feedbackBody.result.issueContract ?? feedbackBody.result.issueContractArtifact ?? fs.signal.raw?.issueContract) as { targetRepo?: string } } : {}),
                   },
-                  env.GITHUB_TOKEN,
-                  'Wescome',
-                  'function-factory',
+                  env,
                 )
                 if (result.success) {
                   console.log(`[Feedback] PR created: ${result.prUrl} (${result.filesWritten} files)`)

@@ -49,6 +49,12 @@ export interface PipelineEnv {
 
   /** GitHub personal access token for PR creation */
   GITHUB_TOKEN?: string
+  /** GitHub App ID for installation-token PR creation */
+  GITHUB_APP_ID: string
+  /** GitHub App private key PEM for installation-token PR creation */
+  GITHUB_APP_PRIVATE_KEY: string
+  /** Fallback target repository for generated PRs, format owner/repo */
+  GITHUB_TARGET_REPO?: string
 
   // ── Harness path bindings (IS-HARNESS-DSL-v1 §2–§3, ADR-009 Phase 3) ─────
   // Optional here because not every Worker invocation touches the harness
