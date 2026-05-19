@@ -64,6 +64,7 @@ import { buildCfWorkerRegistry, buildStageContextFromJob } from "./cf-workers"
 import { buildCfGateRegistry } from "./cf-gates"
 import { compileOutputContracts } from "./contract-compiler"
 import { emitRunEvent, classifyRunErrorClass } from "./observability/run-event-log"
+import { validatePatchPaths } from './patch-forensics.js'
 
 const MAX_RETRIES = 3
 
@@ -116,6 +117,19 @@ type RoutedWorkerInput = WorkerInput & {
   execution?: PiExecutionRoute
   outputContracts?: import("./contract-compiler").OutputContract[]
   maxRepairRounds?: number
+}
+
+function parseSeedFiles(raw: string): Record<string, string> {
+  try {
+    const parsed = JSON.parse(raw) as { files?: Array<{ path: string; content: string }> | Record<string, string> }
+    if (Array.isArray(parsed?.files)) {
+      return Object.fromEntries(parsed.files.map(f => [f.path, f.content]))
+    }
+    if (parsed?.files && typeof parsed.files === 'object') {
+      return parsed.files as Record<string, string>
+    }
+  } catch { /* ignore */ }
+  return {}
 }
 
 function parseModelId(id: string): Pick<RoutedPiModel, "id" | "provider" | "model"> {
@@ -434,6 +448,22 @@ export async function dispatchOne(
         },
     ...(workerThrew ? { error: { message: workerThrew.message } } : {}),
   })
+
+  // Forensic path validation — strips undeclared paths from CandidatePatch (Q12)
+  if (workerOutput && stage.outputs.includes('CandidatePatch')) {
+    const candidatePatch = await artifacts.readText('CandidatePatch').catch(() => null)
+    const seedWorkspaceRaw = await artifacts.readText('SeedWorkspace').catch(() => null)
+    if (candidatePatch && seedWorkspaceRaw) {
+      const seedFiles = parseSeedFiles(seedWorkspaceRaw)
+      const forensic = validatePatchPaths(candidatePatch, seedFiles)
+      if (forensic.droppedPaths.length > 0 && !forensic.isEmpty) {
+        await artifacts.writeText('CandidatePatch', forensic.patchStr)
+      }
+      if (forensic.isEmpty) {
+        console.warn(`[harness-dispatcher] forensic: all patch paths undeclared runId=${message.runId} stage=${message.stageName}`)
+      }
+    }
+  }
 
   // ── 4. Evaluate verification checks against produced artifacts ─────────
   // Verification checks run only when the worker did not throw. If the worker

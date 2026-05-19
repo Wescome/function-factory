@@ -30,6 +30,7 @@ import { executionPolicyObservation, shouldMaterializeContracts } from './execut
 import { hasSeedWorkspace, prepareSeedWorkspace, workspacePromptSection } from './workspace-seed.mjs'
 import { workspaceDerivedArtifactCommand } from './workspace-derived-artifacts.mjs'
 import { createPromptDiagnostic } from './prompt-diagnostics.mjs'
+import { createPathGuard } from './path-guard.mjs'
 import {
   TOOL_PROBE_FILE,
   assessToolCapabilityProbe,
@@ -495,6 +496,27 @@ async function captureSessionArchive(workDir, sessionDir) {
   })
 }
 
+function enforceSeedWorkspacePatchGuard(seed, artifactNames, artifactContents, log) {
+  if (!seed) return
+  const guard = createPathGuard(seed.files.map((file) => file.path))
+  const blockedPaths = []
+  for (const artifact of artifactNames.filter((name) => name.endsWith('Patch'))) {
+    const patch = artifactContents[artifact]
+    if (typeof patch !== 'string') continue
+    const result = guard.checkPatch(patch)
+    for (const path of result.blocked) {
+      log('warn', `[PATH-GUARD] blocked path: ${path}`, { artifact, path })
+      blockedPaths.push(path)
+    }
+  }
+  if (blockedPaths.length > 0) {
+    throw new PiExecutionError(
+      'PI_PATH_GUARD_BLOCKED',
+      `patch writes outside declared SeedWorkspace files: ${[...new Set(blockedPaths)].join(', ')}`
+    )
+  }
+}
+
 // ── /execute handler ──────────────────────────────────────────────────────────
 
 async function handleExecute(req, res) {
@@ -561,8 +583,10 @@ async function handleExecute(req, res) {
   }
 
   let promptInput = input
+  let seedWorkspace = null
   if (hasSeedWorkspace(input)) {
     const prepared = await prepareSeedWorkspace(workDir, inputArtifacts.SeedWorkspace)
+    seedWorkspace = prepared.seed
     const workspaceSection = workspacePromptSection(prepared)
     promptInput = {
       ...input,
@@ -811,6 +835,7 @@ async function handleExecute(req, res) {
 
     const artifactNames = evaluation.findings.filter((f) => f.status === 'pass').map((f) => f.artifact)
     const artifactContents = evaluation.contents
+    enforceSeedWorkspacePatchGuard(seedWorkspace, declaredOutputs, artifactContents, stageLogFn)
 
     let sessionArchive = null
     try {
