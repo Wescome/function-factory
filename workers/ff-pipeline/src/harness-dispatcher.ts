@@ -161,20 +161,27 @@ function isPiWorker(worker: string | undefined): boolean {
 
 function resolvePiModelRoute(stage: StageSpec, env: HarnessBridgeEnv): RoutedPiModel {
   const selectedId = env.PI_MODEL ?? DEFAULT_PI_MODEL_ID
+  const routeKind = routeKindForRole(stage.role)
+  const modelCandidateIds = parseModelList(env.PI_MODEL_CANDIDATES)
+  const filesystemCandidateIdsFromEnv = env.PI_FILESYSTEM_MODEL_CANDIDATES
+    ? parseModelList(env.PI_FILESYSTEM_MODEL_CANDIDATES)
+    : modelCandidateIds.length > 0
+      ? modelCandidateIds
+      : DEFAULT_FILESYSTEM_MODEL_CANDIDATES
+  const verifierCandidateIdsFromEnv = stage.role === "Verifier" || routeKind === "tester"
+    ? parseModelList(env.PI_VERIFIER_MODEL_CANDIDATES)
+    : []
+  const routedCandidateIds = verifierCandidateIdsFromEnv.length > 0
+    ? verifierCandidateIdsFromEnv
+    : filesystemCandidateIdsFromEnv
   const filesystemCandidateIds = dedupeModelIds([
     selectedId,
-    ...(
-      env.PI_FILESYSTEM_MODEL_CANDIDATES
-        ? parseModelList(env.PI_FILESYSTEM_MODEL_CANDIDATES)
-        : parseModelList(env.PI_MODEL_CANDIDATES).length > 0
-          ? parseModelList(env.PI_MODEL_CANDIDATES)
-          : DEFAULT_FILESYSTEM_MODEL_CANDIDATES
-    ),
+    ...routedCandidateIds,
   ])
   const selected = parseModelId(selectedId)
   return {
     ...selected,
-    routeKind: routeKindForRole(stage.role),
+    routeKind,
     resolvedVia: env.PI_MODEL ? "config-default" : "env-default",
     fallback: parseModelId(DEFAULT_PI_MODEL_ID),
     ...(requiresAutonomousFilesystemTools(stage)
@@ -183,7 +190,9 @@ function resolvePiModelRoute(stage: StageSpec, env: HarnessBridgeEnv): RoutedPiM
             ...parseModelId(id),
             resolvedVia: index === 0
               ? (env.PI_MODEL ? "config-default" : "env-default")
-              : env.PI_FILESYSTEM_MODEL_CANDIDATES
+              : verifierCandidateIdsFromEnv.length > 0
+                ? "verifier-candidates-env"
+                : env.PI_FILESYSTEM_MODEL_CANDIDATES
                 ? "filesystem-candidates-env"
                 : env.PI_MODEL_CANDIDATES
                   ? "model-candidates-env"

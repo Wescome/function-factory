@@ -27,6 +27,9 @@ roles:
       ./workspace. Produce a unified diff as ./CandidatePatch that, when applied
       to the seeded workspace files, satisfies the issue and passes the declared
       test command. The diff must cover only the files that need to change.
+      Emit each hunk with at least 3 lines of context above and below the change.
+      Count context lines from the SeedWorkspace file content exactly.
+      Do not truncate context lines.
   Verifier:
     responsibility: >
       Independently evaluate CandidatePatch against SeedWorkspace. Must not
@@ -34,8 +37,11 @@ roles:
       applying ./CandidatePatch with git apply from the temporary workspace
       root, then running the declared Node test command. Do not use python.
       If git apply and the declared test command pass, write VerifierReport
-      with exact line "Verdict: PASS" and a Tests run section. Otherwise write
-      "Verdict: FAIL" with the failed command evidence.
+      with exact line "Verdict: PASS". Include a section with the exact heading
+      "## Tests run" followed by the captured test command stdout and exit code.
+      Otherwise write "Verdict: FAIL" with the failed command evidence.
+      The VerifierReport must contain the heading "## Tests run" regardless
+      of pass or fail.
   ReleaseAgent:
     responsibility: >
       Copy the verified CandidatePatch to FinalPatch and produce a PR-ready
@@ -87,6 +93,7 @@ artifacts:
         - "Evidence"
       required_patterns:
         - "^Verdict:\\s+(PASS|FAIL)\\s*$"
+        - "^## Tests run"
         - "Tests run"
   FinalPatch:
     path: artifacts/final.patch

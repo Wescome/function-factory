@@ -188,6 +188,9 @@ export interface HarnessBridgeEnv {
    */
   PI_FILESYSTEM_MODEL_CANDIDATES?: string
 
+  /** Ordered comma-separated model candidates for Pi verifier/tester Agent Calls. */
+  PI_VERIFIER_MODEL_CANDIDATES?: string
+
   /** Generic ordered comma-separated Pi fallback candidates. */
   PI_MODEL_CANDIDATES?: string
 
