@@ -268,6 +268,7 @@ export class PiContainer extends DurableObject<HarnessBridgeEnv> {
           ...(this.env.CF_VERSION_METADATA?.timestamp ? { PI_WORKER_VERSION_TIMESTAMP: this.env.CF_VERSION_METADATA.timestamp } : {}),
           ...(this.env.PI_MODEL_CANDIDATES ? { PI_MODEL_CANDIDATES: this.env.PI_MODEL_CANDIDATES } : {}),
           ...(this.env.PI_FILESYSTEM_MODEL_CANDIDATES ? { PI_FILESYSTEM_MODEL_CANDIDATES: this.env.PI_FILESYSTEM_MODEL_CANDIDATES } : {}),
+          OFOX_API_KEY: this.env.OFOX_API_KEY,
           OPENROUTER_API_KEY: this.env.OFOX_API_KEY,
         },
       })

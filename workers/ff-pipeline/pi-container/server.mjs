@@ -46,6 +46,7 @@ import {
   resolvePiHomeDir,
   resolvePiSessionDir,
   sessionArchiveCandidates,
+  writePiAgentAuthConfig,
 } from './stage-runtime.mjs'
 
 const PORT = Number(process.env.PORT ?? 8080)
@@ -538,6 +539,7 @@ async function handleExecute(req, res) {
   const homeDir = resolvePiHomeDir(workDir)
   await mkdir(sessionDir, { recursive: true })
   await mkdir(homeDir, { recursive: true })
+  await writePiAgentAuthConfig(homeDir)
   stageLogFn('info', 'execute.workdir', { stageName, workDir, sessionDir, homeDir })
   pushObservationEvent(observation, { type: 'execute.workdir' })
 
@@ -594,6 +596,7 @@ async function handleExecute(req, res) {
         ...process.env,
         PI_SESSION_DIR: sessionDir,
         HOME: homeDir,
+        OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY ?? process.env.OFOX_API_KEY,
       },
       stdio: ['pipe', 'pipe', 'pipe'],
     })

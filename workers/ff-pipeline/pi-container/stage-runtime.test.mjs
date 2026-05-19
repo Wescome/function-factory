@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mkdtemp, stat, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
@@ -10,6 +10,7 @@ import {
   resolvePiHomeDir,
   resolvePiSessionDir,
   sessionArchiveCandidates,
+  writePiAgentAuthConfig,
 } from './stage-runtime.mjs'
 
 describe('stage runtime isolation helpers', () => {
@@ -42,6 +43,24 @@ describe('stage runtime isolation helpers', () => {
     expect(resolvePiHomeDir(workDir)).toBe('/tmp/pi-stage-abc/.pi-home')
     expect(sessionArchiveCandidates(workDir).map((candidate) => candidate.dir))
       .not.toContain('/root/.pi/sessions')
+  })
+
+  it('writes per-stage Pi OpenRouter auth config into isolated HOME', async () => {
+    const homeDir = await mkdtemp(join(tmpdir(), 'pi-home-config-test-'))
+
+    const written = await writePiAgentAuthConfig(homeDir)
+    const auth = JSON.parse(await readFile(written.authPath, 'utf8'))
+    const models = JSON.parse(await readFile(written.modelsPath, 'utf8'))
+
+    expect(auth.openrouter).toEqual({ type: 'api_key', key: 'OFOX_API_KEY' })
+    expect(models.providers.openrouter).toMatchObject({
+      baseUrl: 'https://api.ofox.ai/v1',
+      api: 'openai-completions',
+      apiKey: 'OFOX_API_KEY',
+      authHeader: true,
+    })
+
+    await cleanupWorkDir(homeDir)
   })
 
   it('removes the workdir after stage execution', async () => {

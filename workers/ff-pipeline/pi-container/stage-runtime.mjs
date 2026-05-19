@@ -1,4 +1,4 @@
-import { rm } from 'node:fs/promises'
+import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 export const MAX_STAGE_LOG_TAIL_BYTES = 16_384
@@ -66,6 +66,43 @@ export function resolvePiSessionDir(workDir) {
 
 export function resolvePiHomeDir(workDir) {
   return join(workDir, '.pi-home')
+}
+
+export async function writePiAgentAuthConfig(
+  homeDir,
+  {
+    baseUrl = 'https://api.ofox.ai/v1',
+    apiKeyEnv = 'OFOX_API_KEY',
+  } = {},
+) {
+  const agentDir = join(homeDir, '.pi', 'agent')
+  await mkdir(agentDir, { recursive: true, mode: 0o700 })
+  await writeFile(
+    join(agentDir, 'auth.json'),
+    JSON.stringify({
+      openrouter: { type: 'api_key', key: apiKeyEnv },
+    }, null, 2),
+    { encoding: 'utf8', mode: 0o600 },
+  )
+  await writeFile(
+    join(agentDir, 'models.json'),
+    JSON.stringify({
+      providers: {
+        openrouter: {
+          baseUrl,
+          api: 'openai-completions',
+          apiKey: apiKeyEnv,
+          authHeader: true,
+        },
+      },
+    }, null, 2),
+    { encoding: 'utf8', mode: 0o600 },
+  )
+  return {
+    agentDir,
+    authPath: join(agentDir, 'auth.json'),
+    modelsPath: join(agentDir, 'models.json'),
+  }
 }
 
 export function sessionArchiveCandidates(workDir, sessionDir = resolvePiSessionDir(workDir)) {

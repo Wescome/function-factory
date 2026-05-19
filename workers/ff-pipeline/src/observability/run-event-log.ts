@@ -911,7 +911,7 @@ function buildNextSummary(existing: RunSummary | null, event: RunEvent): RunSumm
   const verificationResults = updateVerificationResults(base.verificationResults, event)
   const counterfactuals = updateCounterfactuals(base.counterfactuals, event)
   const watchdogThresholdsMs = updateWatchdogThresholds(base.watchdogThresholdsMs, event)
-  const errorClass = errorClassForEvent(event) ?? base.errorClass
+  const errorClass = mergeRunErrorClass(base.errorClass, errorClassForEvent(event))
   const lastError = event.error
     ? { ...(event.error.code ? { code: event.error.code } : {}), message: event.error.message }
     : base.lastError
@@ -1113,6 +1113,23 @@ function errorClassForEvent(event: RunEvent): RunErrorClass | undefined {
   if (event.type === "stage_failed") return event.error ? "step_error" : "gate_abort"
   if (event.type === "workflow_notify_failed" || event.type === "container_crashed" || event.type === "container_execute_timed_out") return "infrastructure_error"
   return undefined
+}
+
+function mergeRunErrorClass(existing: RunErrorClass | undefined, next: RunErrorClass | undefined): RunErrorClass | undefined {
+  if (!next) return existing
+  if (!existing) return next
+  return errorClassRank(next) >= errorClassRank(existing) ? next : existing
+}
+
+function errorClassRank(errorClass: RunErrorClass): number {
+  switch (errorClass) {
+    case "operator_cancelled": return 6
+    case "watchdog_stuck": return 5
+    case "dlq_exhausted": return 4
+    case "infrastructure_error": return 3
+    case "step_error": return 2
+    case "gate_abort": return 1
+  }
 }
 
 function isTerminalEvent(type: RunEventType): boolean {

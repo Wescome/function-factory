@@ -561,6 +561,50 @@ describe("RunEventLog", () => {
     }))
   })
 
+  it("does not downgrade worker failure classification to gate_abort at terminal projection", async () => {
+    const bucket = new MemoryR2Bucket()
+    const log = new RunEventLog(bucket as unknown as R2Bucket)
+
+    await log.emit({
+      runId: "run-error-class-precedence",
+      type: "run_started",
+      emitter: "harness-bridge",
+      timestamp: "2026-05-18T22:00:00.000Z",
+      data: {},
+    })
+    await log.emit({
+      runId: "run-error-class-precedence",
+      stageName: "CONTRACT",
+      attemptNumber: 1,
+      type: "worker_executed",
+      emitter: "harness-dispatcher",
+      timestamp: "2026-05-18T22:00:01.000Z",
+      data: {
+        status: "fail",
+        failureClass: "step_error",
+        reason: "pi tool capability probe failed",
+      },
+      error: { message: "pi tool capability probe failed" },
+    })
+    await log.emit({
+      runId: "run-error-class-precedence",
+      stageName: "CONTRACT",
+      type: "harness_complete",
+      emitter: "run-coordinator",
+      timestamp: "2026-05-18T22:00:02.000Z",
+      data: {
+        overall: "fail",
+        finalExecutionNode: "CONTRACT",
+        failureClass: "gate_abort",
+        reason: "gate failed",
+      },
+    })
+
+    const summary = await log.getSummary("run-error-class-precedence")
+    expect(summary?.status).toBe("failed")
+    expect(summary?.errorClass).toBe("step_error")
+  })
+
   it("does not throw upstream when R2 writes fail", async () => {
     const log = new RunEventLog({
       get: vi.fn(async () => null),
