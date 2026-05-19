@@ -199,6 +199,8 @@ function writeJson(res, status, body) {
 function capturePromptDiagnostic(diagnosticContents, observation, stageName, attempt, prompt) {
   const diagnostic = createPromptDiagnostic(stageName, attempt, prompt)
   diagnosticContents[diagnostic.key] = diagnostic.content
+  observation.promptDiagnostics ??= []
+  observation.promptDiagnostics.push(diagnostic.event)
   pushObservationEvent(observation, diagnostic.event)
 }
 

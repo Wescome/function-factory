@@ -105,6 +105,7 @@ interface ContainerExecutionObservation {
   model?: RoutedPiModel | null
   pid?: number | null
   elapsedMs?: number
+  promptDiagnostics?: Array<Record<string, unknown>>
   events?: Array<Record<string, unknown>>
   artifacts?: Array<Record<string, unknown>>
   stderrTail?: string
