@@ -229,6 +229,8 @@ export class PiContainer extends DurableObject<HarnessBridgeEnv> {
     if (this.ctx.container.running) {
       await this.ctx.container.destroy(reason)
     }
+    this.executeQueue = new BoundedSerialQueue(MAX_EXECUTE_QUEUE_DEPTH)
+    await this.ctx.storage.delete(ACTIVE_EXECUTION_KEY)
     await this.ctx.storage.delete(STARTED_BUILD_ID_KEY)
     await this.ctx.storage.delete(STARTED_AT_KEY)
     await this.startContainer(desiredBuildId)
