@@ -17,6 +17,35 @@ export type BoundedSerialQueueResult<T> =
   | BoundedSerialQueueAccepted<T>
   | BoundedSerialQueueRejected
 
+export class BoundedQueueTaskTimeoutError extends Error {
+  readonly code = "BOUNDED_QUEUE_TASK_TIMEOUT"
+
+  constructor(message: string) {
+    super(message)
+    this.name = "BoundedQueueTaskTimeoutError"
+  }
+}
+
+export async function withTaskTimeout<T>(
+  task: Promise<T>,
+  timeoutMs: number,
+  message: string,
+): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      task,
+      new Promise<T>((_, reject) => {
+        timeout = setTimeout(() => {
+          reject(new BoundedQueueTaskTimeoutError(message))
+        }, timeoutMs)
+      }),
+    ])
+  } finally {
+    if (timeout) clearTimeout(timeout)
+  }
+}
+
 export class BoundedSerialQueue {
   private active = false
   private waiting = 0

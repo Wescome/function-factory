@@ -30,6 +30,7 @@ export type RunEventType =
   | "container_dispatch_recovered"
   | "container_backpressure_rejected"
   | "container_backpressure_waited"
+  | "container_execute_timed_out"
   | "container_stderr_flush"
   | "container_crashed"
 

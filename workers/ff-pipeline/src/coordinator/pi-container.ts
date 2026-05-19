@@ -19,7 +19,11 @@ import {
   resolveDesiredPiContainerBuildId,
   shouldRestartPiContainerForBuild,
 } from "./pi-container-version.js"
-import { BoundedSerialQueue } from "./pi-container-backpressure.js"
+import {
+  BoundedQueueTaskTimeoutError,
+  BoundedSerialQueue,
+  withTaskTimeout,
+} from "./pi-container-backpressure.js"
 
 const CONTAINER_PORT = 8080
 // Retry parameters for container cold-start: up to 15 attempts × 500ms = 7.5s
@@ -29,6 +33,7 @@ const STARTED_BUILD_ID_KEY = "pi:container:started-build-id"
 const STARTED_AT_KEY = "pi:container:started-at"
 const LAST_MONITOR_EVENT_KEY = "pi:container:last-monitor-event"
 const MAX_EXECUTE_QUEUE_DEPTH = 4
+const CONTAINER_EXECUTE_TIMEOUT_MS = 12 * 60_000
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -64,7 +69,35 @@ export class PiContainer extends DurableObject<HarnessBridgeEnv> {
 
     if (requestMeta) {
       const queued = await this.executeQueue.run(async () => {
-        return this.forwardToContainer(request, requestMeta)
+        try {
+          return await withTaskTimeout(
+            this.forwardToContainer(request, requestMeta),
+            CONTAINER_EXECUTE_TIMEOUT_MS,
+            `pi container execution exceeded ${CONTAINER_EXECUTE_TIMEOUT_MS}ms`,
+          )
+        } catch (err) {
+          if (!(err instanceof BoundedQueueTaskTimeoutError)) throw err
+          await emitRunEvent(this.env, {
+            runId: requestMeta.runId,
+            stageName: requestMeta.stageName,
+            type: "container_execute_timed_out",
+            emitter: "pi-container",
+            data: { timeoutMs: CONTAINER_EXECUTE_TIMEOUT_MS },
+            error: { code: "PI_CONTAINER_EXECUTE_TIMEOUT", message: err.message },
+          })
+          return new Response(
+            JSON.stringify({
+              error: {
+                code: "PI_CONTAINER_EXECUTE_TIMEOUT",
+                message: err.message,
+              },
+            }),
+            {
+              status: 504,
+              headers: { "Content-Type": "application/json" },
+            },
+          )
+        }
       })
       if (!queued.accepted) {
         await emitRunEvent(this.env, {

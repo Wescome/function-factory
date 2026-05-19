@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { BoundedSerialQueue } from "./pi-container-backpressure.js"
+import {
+  BoundedQueueTaskTimeoutError,
+  BoundedSerialQueue,
+  withTaskTimeout,
+} from "./pi-container-backpressure.js"
 
 function deferred(): { promise: Promise<void>; resolve: () => void } {
   let resolve: () => void = () => {}
@@ -57,5 +61,13 @@ describe("BoundedSerialQueue", () => {
     first.resolve()
     await firstRun
     await secondRun
+  })
+
+  it("times out a hung task so callers can release singleton backpressure", async () => {
+    await expect(withTaskTimeout(
+      new Promise(() => {}),
+      1,
+      "hung task",
+    )).rejects.toBeInstanceOf(BoundedQueueTaskTimeoutError)
   })
 })
