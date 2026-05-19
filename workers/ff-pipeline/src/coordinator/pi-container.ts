@@ -16,6 +16,7 @@ import { DurableObject } from "cloudflare:workers"
 import type { HarnessBridgeEnv } from "../harness-env.js"
 import { emitRunEvent } from "../observability/run-event-log.js"
 import {
+  isContainerAlreadyRunningError,
   resolveDesiredPiContainerBuildId,
   shouldRestartPiContainerForBuild,
 } from "./pi-container-version.js"
@@ -233,20 +234,37 @@ export class PiContainer extends DurableObject<HarnessBridgeEnv> {
     if (!this.ctx.container) return
 
     const startedAt = new Date().toISOString()
+    if (this.ctx.container.running) {
+      console.log("pi.container.start_already_running", { desiredBuildId, startedAt })
+      await this.recordContainerStarted(desiredBuildId, startedAt)
+      this.monitorContainer(desiredBuildId)
+      return
+    }
+
     console.log("pi.container.start", { desiredBuildId, startedAt })
-    this.ctx.container.start({
-      enableInternet: true,
-      env: {
-        PI_MODEL: this.env.PI_MODEL ?? 'openrouter/openai/gpt-5.4',
-        PI_WORKER_VERSION_ID: desiredBuildId,
-        PI_CONTAINER_STARTED_AT: startedAt,
-        ...(this.env.CF_VERSION_METADATA?.tag ? { PI_WORKER_VERSION_TAG: this.env.CF_VERSION_METADATA.tag } : {}),
-        ...(this.env.CF_VERSION_METADATA?.timestamp ? { PI_WORKER_VERSION_TIMESTAMP: this.env.CF_VERSION_METADATA.timestamp } : {}),
-        ...(this.env.PI_MODEL_CANDIDATES ? { PI_MODEL_CANDIDATES: this.env.PI_MODEL_CANDIDATES } : {}),
-        ...(this.env.PI_FILESYSTEM_MODEL_CANDIDATES ? { PI_FILESYSTEM_MODEL_CANDIDATES: this.env.PI_FILESYSTEM_MODEL_CANDIDATES } : {}),
-        OPENROUTER_API_KEY: this.env.OFOX_API_KEY,
-      },
-    })
+    try {
+      this.ctx.container.start({
+        enableInternet: true,
+        env: {
+          PI_MODEL: this.env.PI_MODEL ?? 'openrouter/openai/gpt-5.4',
+          PI_WORKER_VERSION_ID: desiredBuildId,
+          PI_CONTAINER_STARTED_AT: startedAt,
+          ...(this.env.CF_VERSION_METADATA?.tag ? { PI_WORKER_VERSION_TAG: this.env.CF_VERSION_METADATA.tag } : {}),
+          ...(this.env.CF_VERSION_METADATA?.timestamp ? { PI_WORKER_VERSION_TIMESTAMP: this.env.CF_VERSION_METADATA.timestamp } : {}),
+          ...(this.env.PI_MODEL_CANDIDATES ? { PI_MODEL_CANDIDATES: this.env.PI_MODEL_CANDIDATES } : {}),
+          ...(this.env.PI_FILESYSTEM_MODEL_CANDIDATES ? { PI_FILESYSTEM_MODEL_CANDIDATES: this.env.PI_FILESYSTEM_MODEL_CANDIDATES } : {}),
+          OPENROUTER_API_KEY: this.env.OFOX_API_KEY,
+        },
+      })
+    } catch (err) {
+      if (!isContainerAlreadyRunningError(err)) throw err
+      console.warn("pi.container.start_race_already_running", { desiredBuildId, startedAt })
+    }
+    await this.recordContainerStarted(desiredBuildId, startedAt)
+    this.monitorContainer(desiredBuildId)
+  }
+
+  private async recordContainerStarted(desiredBuildId: string, startedAt: string): Promise<void> {
     await this.ctx.storage.put(STARTED_BUILD_ID_KEY, desiredBuildId)
     await this.ctx.storage.put(STARTED_AT_KEY, startedAt)
     await emitRunEvent(this.env, {
@@ -255,7 +273,6 @@ export class PiContainer extends DurableObject<HarnessBridgeEnv> {
       emitter: "pi-container",
       data: { buildId: desiredBuildId, startedAt },
     })
-    this.monitorContainer(desiredBuildId)
   }
 
   private monitorContainer(buildId: string): void {

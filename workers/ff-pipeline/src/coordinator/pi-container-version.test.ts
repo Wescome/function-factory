@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   UNKNOWN_PI_CONTAINER_BUILD_ID,
+  isContainerAlreadyRunningError,
   resolveDesiredPiContainerBuildId,
   shouldRestartPiContainerForBuild,
 } from './pi-container-version.js'
@@ -50,5 +51,12 @@ describe('pi container version coordination', () => {
       startedBuildId: 'old-worker-version',
       desiredBuildId: UNKNOWN_PI_CONTAINER_BUILD_ID,
     })).toBe(false)
+  })
+
+  it('recognizes Cloudflare container already-running start races', () => {
+    expect(isContainerAlreadyRunningError(
+      new Error('start() cannot be called on a container that is already running.'),
+    )).toBe(true)
+    expect(isContainerAlreadyRunningError(new Error('container not listening'))).toBe(false)
   })
 })

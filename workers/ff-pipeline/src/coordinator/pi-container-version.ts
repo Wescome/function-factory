@@ -30,3 +30,7 @@ export function shouldRestartPiContainerForBuild(args: {
   if (args.desiredBuildId === UNKNOWN_PI_CONTAINER_BUILD_ID) return false
   return args.startedBuildId !== args.desiredBuildId
 }
+
+export function isContainerAlreadyRunningError(err: unknown): boolean {
+  return err instanceof Error && err.message.includes("already running")
+}
