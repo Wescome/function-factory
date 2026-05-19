@@ -422,6 +422,102 @@ describe("RunEventLog", () => {
     }))
   })
 
+  it("projects active pi container crashes as run-scoped infrastructure failures", async () => {
+    const bucket = new MemoryR2Bucket()
+    const log = new RunEventLog(bucket as unknown as R2Bucket)
+
+    await log.emit({
+      runId: "run-container-rollout",
+      workflowId: "wf-container-rollout",
+      type: "run_started",
+      emitter: "harness-bridge",
+      timestamp: "2026-05-18T20:00:00.000Z",
+      data: {},
+    })
+    await log.emit({
+      runId: "run-container-rollout",
+      stageName: "CONTRACT",
+      attemptNumber: 1,
+      type: "stage_started",
+      emitter: "harness-dispatcher",
+      timestamp: "2026-05-18T20:00:01.000Z",
+      data: { worker: "pi-author" },
+    })
+    await log.emit({
+      runId: "run-container-rollout",
+      stageName: "CONTRACT",
+      attemptNumber: 1,
+      type: "container_crashed",
+      emitter: "pi-container",
+      timestamp: "2026-05-18T20:00:02.000Z",
+      data: {
+        buildId: "worker-version-2",
+        failureClass: "infrastructure_error",
+        message: "Runtime signalled the container to exit due to a new version rollout: 0",
+      },
+      error: {
+        code: "PI_CONTAINER_CRASHED",
+        message: "Runtime signalled the container to exit due to a new version rollout: 0",
+      },
+    })
+
+    const summary = await log.getSummary("run-container-rollout")
+    expect(summary).toMatchObject({
+      status: "failed",
+      currentStage: "CONTRACT",
+      lastEventType: "container_crashed",
+      errorClass: "infrastructure_error",
+      terminalAt: "2026-05-18T20:00:02.000Z",
+      lastError: {
+        code: "PI_CONTAINER_CRASHED",
+        message: "Runtime signalled the container to exit due to a new version rollout: 0",
+      },
+    })
+    expect(summary?.stageHistory).toContainEqual(expect.objectContaining({
+      stage: "CONTRACT",
+      verdict: "fail",
+      attempts: 1,
+      at: "2026-05-18T20:00:02.000Z",
+    }))
+    expect(summary?.stepAccounting?.failed).toContain("CONTRACT")
+
+    const manifest = await log.getManifest("run-container-rollout")
+    expect(manifest?.status).toBe("failed")
+    expect(manifest?.phases.execution).toMatchObject({
+      key: "runs/run-container-rollout/02_execution/execution.json",
+      updatedAt: "2026-05-18T20:00:02.000Z",
+    })
+    expect(manifest?.phases.report).toMatchObject({
+      key: "runs/run-container-rollout/05_report/report.json",
+      updatedAt: "2026-05-18T20:00:02.000Z",
+    })
+    expect(manifest?.stages).toContainEqual(expect.objectContaining({
+      name: "CONTRACT",
+      status: "fail",
+      attempts: 1,
+      completedAt: "2026-05-18T20:00:02.000Z",
+      reason: "Runtime signalled the container to exit due to a new version rollout: 0",
+    }))
+
+    const monitor = await log.getMonitorSnapshot("run-container-rollout")
+    expect(monitor?.diagnostics.infrastructureFailures).toEqual([
+      {
+        at: "2026-05-18T20:00:02.000Z",
+        type: "container_crashed",
+        stageName: "CONTRACT",
+        attemptNumber: 1,
+        message: "Runtime signalled the container to exit due to a new version rollout: 0",
+      },
+    ])
+
+    const activeIndex = await log.getActiveIndex()
+    expect(activeIndex.runs).toEqual([])
+
+    const attemptLog = bucket.objects.get("runs/_attempt-logs/run-container-rollout/CONTRACT/attempt-1.log")
+    expect(attemptLog).toContain('"type":"container_crashed"')
+    expect(attemptLog).toContain('"failureClass":"infrastructure_error"')
+  })
+
   it("does not throw upstream when R2 writes fail", async () => {
     const log = new RunEventLog({
       get: vi.fn(async () => null),

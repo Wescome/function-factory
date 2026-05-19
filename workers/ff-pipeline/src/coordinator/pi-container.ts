@@ -33,8 +33,19 @@ const STARTUP_RETRY_DELAY_MS = 500
 const STARTED_BUILD_ID_KEY = "pi:container:started-build-id"
 const STARTED_AT_KEY = "pi:container:started-at"
 const LAST_MONITOR_EVENT_KEY = "pi:container:last-monitor-event"
+const ACTIVE_EXECUTION_KEY = "pi:container:active-execution"
 const MAX_EXECUTE_QUEUE_DEPTH = 4
 const CONTAINER_EXECUTE_TIMEOUT_MS = 12 * 60_000
+
+interface RunRequestMeta {
+  runId: string
+  stageName: string
+  attemptNumber?: number
+}
+
+interface ActiveExecution extends RunRequestMeta {
+  startedAt: string
+}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -70,6 +81,7 @@ export class PiContainer extends DurableObject<HarnessBridgeEnv> {
 
     if (requestMeta) {
       const queued = await this.executeQueue.run(async () => {
+        const activeExecution = await this.recordActiveExecution(requestMeta)
         try {
           return await withTaskTimeout(
             this.forwardToContainer(request, requestMeta),
@@ -81,9 +93,10 @@ export class PiContainer extends DurableObject<HarnessBridgeEnv> {
           await emitRunEvent(this.env, {
             runId: requestMeta.runId,
             stageName: requestMeta.stageName,
+            ...(requestMeta.attemptNumber ? { attemptNumber: requestMeta.attemptNumber } : {}),
             type: "container_execute_timed_out",
             emitter: "pi-container",
-            data: { timeoutMs: CONTAINER_EXECUTE_TIMEOUT_MS },
+            data: { timeoutMs: CONTAINER_EXECUTE_TIMEOUT_MS, failureClass: "infrastructure_error" },
             error: { code: "PI_CONTAINER_EXECUTE_TIMEOUT", message: err.message },
           })
           return new Response(
@@ -98,6 +111,8 @@ export class PiContainer extends DurableObject<HarnessBridgeEnv> {
               headers: { "Content-Type": "application/json" },
             },
           )
+        } finally {
+          await this.clearActiveExecution(activeExecution)
         }
       })
       if (!queued.accepted) {
@@ -151,7 +166,7 @@ export class PiContainer extends DurableObject<HarnessBridgeEnv> {
 
   private async forwardToContainer(
     request: Request,
-    requestMeta: { runId: string; stageName: string } | null,
+    requestMeta: RunRequestMeta | null,
   ): Promise<Response> {
     if (!this.ctx.container) {
       return new Response(
@@ -296,6 +311,27 @@ export class PiContainer extends DurableObject<HarnessBridgeEnv> {
       ts: new Date().toISOString(),
     })
     if (event.level === "error") {
+      const activeExecution = await this.ctx.storage.get<ActiveExecution>(ACTIVE_EXECUTION_KEY)
+      if (activeExecution) {
+        await emitRunEvent(this.env, {
+          runId: activeExecution.runId,
+          stageName: activeExecution.stageName,
+          ...(activeExecution.attemptNumber ? { attemptNumber: activeExecution.attemptNumber } : {}),
+          type: "container_crashed",
+          emitter: "pi-container",
+          data: {
+            buildId: event.buildId,
+            monitorEvent: event.event,
+            activeExecutionStartedAt: activeExecution.startedAt,
+            failureClass: "infrastructure_error",
+            message: event.message ?? event.event,
+          },
+          error: {
+            code: "PI_CONTAINER_CRASHED",
+            message: event.message ?? event.event,
+          },
+        })
+      }
       await emitRunEvent(this.env, {
         runId: "pi-container",
         type: "container_crashed",
@@ -303,6 +339,28 @@ export class PiContainer extends DurableObject<HarnessBridgeEnv> {
         data: { buildId: event.buildId },
         error: { message: event.message ?? event.event },
       })
+    }
+  }
+
+  private async recordActiveExecution(requestMeta: RunRequestMeta): Promise<ActiveExecution> {
+    const activeExecution: ActiveExecution = {
+      ...requestMeta,
+      startedAt: new Date().toISOString(),
+    }
+    await this.ctx.storage.put(ACTIVE_EXECUTION_KEY, activeExecution)
+    return activeExecution
+  }
+
+  private async clearActiveExecution(activeExecution: ActiveExecution): Promise<void> {
+    const current = await this.ctx.storage.get<ActiveExecution>(ACTIVE_EXECUTION_KEY)
+    if (!current) return
+    if (
+      current.runId === activeExecution.runId &&
+      current.stageName === activeExecution.stageName &&
+      current.attemptNumber === activeExecution.attemptNumber &&
+      current.startedAt === activeExecution.startedAt
+    ) {
+      await this.ctx.storage.delete(ACTIVE_EXECUTION_KEY)
     }
   }
 
@@ -332,10 +390,11 @@ export class PiContainer extends DurableObject<HarnessBridgeEnv> {
   }
 
   private async statusResponse(): Promise<Response> {
-    const [startedBuildId, startedAt, lastMonitorEvent] = await Promise.all([
+    const [startedBuildId, startedAt, lastMonitorEvent, activeExecution] = await Promise.all([
       this.ctx.storage.get<string>(STARTED_BUILD_ID_KEY),
       this.ctx.storage.get<string>(STARTED_AT_KEY),
       this.ctx.storage.get<unknown>(LAST_MONITOR_EVENT_KEY),
+      this.ctx.storage.get<ActiveExecution>(ACTIVE_EXECUTION_KEY),
     ])
     return new Response(
       JSON.stringify({
@@ -345,17 +404,24 @@ export class PiContainer extends DurableObject<HarnessBridgeEnv> {
         startedBuildId: startedBuildId ?? null,
         startedAt: startedAt ?? null,
         lastMonitorEvent: lastMonitorEvent ?? null,
+        activeExecution: activeExecution ?? null,
       }),
       { status: 200, headers: { "Content-Type": "application/json" } },
     )
   }
 }
 
-async function readRunRequestMeta(request: Request): Promise<{ runId: string; stageName: string } | null> {
+async function readRunRequestMeta(request: Request): Promise<RunRequestMeta | null> {
   try {
-    const parsed = await request.clone().json() as { runId?: unknown; stageName?: unknown }
+    const parsed = await request.clone().json() as { runId?: unknown; stageName?: unknown; attemptNumber?: unknown }
     if (typeof parsed.runId !== "string" || typeof parsed.stageName !== "string") return null
-    return { runId: parsed.runId, stageName: parsed.stageName }
+    return {
+      runId: parsed.runId,
+      stageName: parsed.stageName,
+      ...(typeof parsed.attemptNumber === "number" && Number.isFinite(parsed.attemptNumber)
+        ? { attemptNumber: parsed.attemptNumber }
+        : {}),
+    }
   } catch {
     return null
   }

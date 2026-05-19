@@ -140,6 +140,7 @@ export class RunEventLog {
         observations: manifest?.diagnostics.observations ?? [],
         contractEvaluations: manifest?.diagnostics.contractEvaluations ?? [],
         ...(manifest?.diagnostics.attemptLogsPrefix ? { attemptLogsPrefix: manifest.diagnostics.attemptLogsPrefix } : {}),
+        ...monitorInfrastructureFailures(events),
       },
       artifacts: manifest?.artifacts ?? [],
       updatedAt: manifest?.updatedAt ?? summary.lastEventAt,
@@ -188,7 +189,12 @@ export class RunEventLog {
     const existing = await this.bucket.get(key)
     let text = existing ? await existing.text() : attemptLogHeader(event)
     text += attemptLogLine(event)
-    if (event.type === "stage_completed" || event.type === "stage_failed") {
+    if (
+      event.type === "stage_completed" ||
+      event.type === "stage_failed" ||
+      event.type === "container_execute_timed_out" ||
+      event.type === "container_crashed"
+    ) {
       text += "===STAGE_RESULT===\n"
       text += JSON.stringify(buildStageResultBlock(event)) + "\n"
     }
@@ -273,6 +279,8 @@ export class RunEventLog {
       event.type === "container_dispatch_retried" ||
       event.type === "container_dispatch_recovered" ||
       event.type === "worker_executed" ||
+      event.type === "container_execute_timed_out" ||
+      event.type === "container_crashed" ||
       event.type === "stage_completed" ||
       event.type === "stage_failed"
     ) && !postTerminalExecutionEvent) {
@@ -554,6 +562,21 @@ function attemptLogLine(event: RunEvent): string {
   }) + "\n"
 }
 
+function monitorInfrastructureFailures(events: RunEvent[]): Pick<RunMonitorSnapshot["diagnostics"], "infrastructureFailures"> {
+  const infrastructureFailures = events
+    .filter((event): event is RunEvent & { type: "container_crashed" | "container_execute_timed_out" } =>
+      event.type === "container_crashed" || event.type === "container_execute_timed_out",
+    )
+    .map((event) => ({
+      at: event.timestamp,
+      type: event.type,
+      ...(event.stageName ? { stageName: event.stageName } : {}),
+      ...(event.attemptNumber ? { attemptNumber: event.attemptNumber } : {}),
+      message: event.error?.message ?? (typeof event.data.message === "string" ? event.data.message : event.type),
+    }))
+  return infrastructureFailures.length > 0 ? { infrastructureFailures } : {}
+}
+
 function buildStageResultBlock(event: RunEvent): Record<string, unknown> {
   const status = event.data.status === "pass" ? "pass" : "fail"
   return {
@@ -657,6 +680,8 @@ function updateManifestPhases(
     event.type === "container_dispatch_retried" ||
     event.type === "container_dispatch_recovered" ||
     event.type === "worker_executed" ||
+    event.type === "container_execute_timed_out" ||
+    event.type === "container_crashed" ||
     event.type === "stage_completed" ||
     event.type === "stage_failed"
   )) {
@@ -731,6 +756,13 @@ function updateManifestStages(
     next.artifacts = unique([...(next.artifacts ?? []), ...stringArray(event.data.artifacts)])
     if (typeof event.data.reason === "string") next.reason = event.data.reason
   }
+  if (event.type === "container_execute_timed_out" || event.type === "container_crashed") {
+    next.status = "fail"
+    next.completedAt = event.timestamp
+    next.reason = event.error?.message
+      ?? (typeof event.data.message === "string" ? event.data.message : undefined)
+      ?? (event.type === "container_execute_timed_out" ? "pi container execute timed out" : "pi container crashed")
+  }
   if (event.type === "harness_complete") {
     next.status = event.data.overall === "pass" ? "pass" : "fail"
     next.completedAt = event.timestamp
@@ -746,6 +778,8 @@ const stageManifestEventTypes = new Set<RunEventType>([
   "container_dispatch_recovered",
   "worker_executed",
   "gate_evaluated",
+  "container_execute_timed_out",
+  "container_crashed",
   "stage_completed",
   "stage_failed",
   "harness_complete",
@@ -827,6 +861,8 @@ const attemptLogEventTypes = new Set<RunEventType>([
   "container_dispatch_recovered",
   "worker_executed",
   "gate_evaluated",
+  "container_execute_timed_out",
+  "container_crashed",
   "stage_completed",
   "stage_failed",
 ])
@@ -906,6 +942,7 @@ function statusForEvent(event: RunEvent, previous: RunStatus): RunStatus {
   if (event.type === "fidelity_verified" && event.data.status === "blocked") return "fidelity_blocked"
   if (event.type === "persistence_verified" && event.data.status === "blocked") return "persistence_blocked"
   if (event.type === "stage_failed" && event.data.action === "fail") return "failed"
+  if ((event.type === "container_execute_timed_out" || event.type === "container_crashed") && event.stageName) return "failed"
   if (terminalStatus(previous)) return previous
   return "running"
 }
@@ -925,7 +962,14 @@ function updateStageHistory(
       : undefined
   )
   if (!stageName) return existing
-  if (event.type !== "stage_started" && event.type !== "stage_completed" && event.type !== "stage_failed" && event.type !== "harness_complete") return existing
+  if (
+    event.type !== "stage_started" &&
+    event.type !== "stage_completed" &&
+    event.type !== "stage_failed" &&
+    event.type !== "container_execute_timed_out" &&
+    event.type !== "container_crashed" &&
+    event.type !== "harness_complete"
+  ) return existing
 
   const verdict = event.type === "stage_started"
     ? "in_progress"
@@ -974,6 +1018,13 @@ function updateStepAccounting(
     }
   }
   if (event.type === "stage_failed") {
+    return {
+      ok: next.ok.filter((name) => name !== event.stageName),
+      failed: unique([...next.failed, event.stageName]),
+      neverDispatched: next.neverDispatched.filter((name) => name !== event.stageName),
+    }
+  }
+  if (event.type === "container_execute_timed_out" || event.type === "container_crashed") {
     return {
       ok: next.ok.filter((name) => name !== event.stageName),
       failed: unique([...next.failed, event.stageName]),
@@ -1046,12 +1097,12 @@ function errorClassForEvent(event: RunEvent): RunErrorClass | undefined {
   const explicit = classifyRunErrorClass(event.data.failureClass)
   if (explicit) return explicit
   if (event.type === "stage_failed") return event.error ? "step_error" : "gate_abort"
-  if (event.type === "workflow_notify_failed" || event.type === "container_crashed") return "infrastructure_error"
+  if (event.type === "workflow_notify_failed" || event.type === "container_crashed" || event.type === "container_execute_timed_out") return "infrastructure_error"
   return undefined
 }
 
 function isTerminalEvent(type: RunEventType): boolean {
-  return type === "harness_complete" || type === "dlq_recovered" || type === "stuck_detected"
+  return type === "harness_complete" || type === "dlq_recovered" || type === "stuck_detected" || type === "container_crashed" || type === "container_execute_timed_out"
 }
 
 function isExecutionProjectionEvent(event: RunEvent): boolean {
@@ -1064,6 +1115,7 @@ function isExecutionProjectionEvent(event: RunEvent): boolean {
     || event.type === "harness_complete"
     || event.type === "container_dispatch_retried"
     || event.type === "container_dispatch_recovered"
+    || event.type === "container_execute_timed_out"
     || event.type === "container_stderr_flush"
     || event.type === "container_crashed"
 }

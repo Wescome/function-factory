@@ -234,6 +234,13 @@ export interface RunMonitorSnapshot {
     observations: string[]
     contractEvaluations: string[]
     attemptLogsPrefix?: string
+    infrastructureFailures?: Array<{
+      at: string
+      type: Extract<RunEventType, "container_crashed" | "container_execute_timed_out">
+      stageName?: string
+      attemptNumber?: number
+      message: string
+    }>
   }
   artifacts: RunArtifactManifest["artifacts"]
   updatedAt: string
