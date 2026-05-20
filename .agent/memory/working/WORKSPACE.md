@@ -1,51 +1,39 @@
 # Current Workspace
 
 ## Status
-2026-05-18T23:03:00Z: Drafted production readiness milestone document.
+Session ended at 2026-05-20T21:37:14.731Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
 
-## Completed
-- Protected `POST /run-interventions/:runId/*` with operator token auth in production.
-- Added executable `retry-stage` and `redispatch-stage` controls through `RunCoordinator /operator-dispatch` with idempotency, current-stage validation, queue enqueue, and `stage_dispatched` observability.
-- Added `scripts/ops/control-run.mjs` plus package scripts `run:note`, `run:cancel`, `run:retry`, and `run:redispatch`.
-- Added `harnesses/operator-recovery-smoke.harness.yaml` and uploaded it to remote `ff-workspaces`.
-- Hardened terminal handling so late post-terminal execution events cannot mutate summary/manifest stage projections.
-- Added terminal sealing so `harness_complete` can mark the final stage pass/fail when `stage_completed` arrives late.
-- Added coordinator protection against duplicate `/stage-complete` after a terminal result is already persisted.
-- Ran fresh production smokes for retry, redispatch/idempotency, and cancel on the current Worker.
-- Removed `CF_API_TOKEN`/`CLOUDFLARE_API_TOKEN` fallback from operator control CLI and Worker authorization.
-- Added `docs/how-to/OPERATOR_RUN_CONTROLS.md` runbook.
-- Added `pnpm watch:run <runId> --interactive` operator loop with note, retry, redispatch, cancel confirmation, refresh, and quit actions.
-- Added `pnpm prod:smoke:controls` to run production live-control verification through the interactive monitor control path and emit a `VR-*` YAML report.
-- Added `docs/PRODUCTION_READINESS_MILESTONES.md` covering remaining production milestones, exit criteria, and evidence requirements.
-- Added compatibility stub `docs/OPERATOR_RUN_CONTROLS.md` for the moved operator runbook.
-- Corrected production live-control smoke report source refs from commit prefix `FN-SYNTH-MIGRATE` to materialized Function artifact `FN-MOTDWVR2-W7UN`.
+## Last update
+2026-05-20T21:37:14.731Z
 
-## Verification
-- `pnpm --filter @factory/ff-pipeline test src/observability/run-event-log.test.ts src/diagnostic-routes.test.ts src/coordinator/run-coordinator.test.ts src/harness-dispatcher.test.ts` passed (86 tests).
-- `pnpm --filter @factory/ff-pipeline test src/diagnostic-routes.test.ts` passed (53 tests).
-- `pnpm --filter @factory/ff-pipeline typecheck` passed.
-- `pnpm --filter @factory/ff-pipeline test` passed (79 files / 1056 tests).
-- `pnpm exec vitest run scripts/ops/watch-run.test.mjs scripts/ops/control-run.test.mjs` passed (8 tests).
-- `pnpm exec vitest run scripts/ops/watch-run.test.mjs scripts/ops/control-run.test.mjs` passed after interactive monitor changes (13 tests).
-- `pnpm exec vitest run scripts/ops/watch-run.test.mjs scripts/ops/control-run.test.mjs scripts/ops/prod-live-control-smoke.test.mjs` passed (17 tests).
-- `git diff --check` passed.
-- `node scripts/ops/watch-run.mjs --help` prints the interactive options.
-- `node scripts/ops/prod-live-control-smoke.mjs --help` prints the production smoke options.
-- `pnpm audit:docs` passed after the milestone doc and lineage/stub fixes.
-- `pnpm exec vitest run scripts/ops/prod-live-control-smoke.test.mjs` passed (4 tests).
-- Deployed production Worker version `8d03426f-b52b-4d1d-9c1f-8094517e7bf3`.
-- Production operator recovery smoke `operator-recovery-1779140553` completed with an authenticated `run:retry`; replay now shows status `completed`, stage `SEED` as `pass`, exactly one `harness_complete`, and operator retry evidence present.
-- Fresh production retry smoke `prod-retry-mpbr9o2s` completed/pass with operator retry attempt 2.
-- Fresh production redispatch smoke `prod-redispatch-mpbr9o2s` completed/pass; duplicate idempotency request deduped.
-- Fresh production cancel smoke `prod-cancel-mpbr9o2s` ended failed with `errorClass: operator_cancelled`, workflow notified, and active index cleaned.
-- Unauthenticated production control request returns 401 after final deploy.
-- Production smoke report `VR-FN-SYNTH-MIGRATE-PROD-LIVE-CONTROL-2026-05-18T22-37-36-823Z` passed on Worker `2ec8630f-2334-4eef-93b5-76977bdcb82a`.
-- Report runs: retry `prod-live-control-retry-mpbsbdtn-7e23be51`, redispatch `prod-live-control-redispatch-mpbsbdtn-7e23be51`, cancel `prod-live-control-cancel-mpbsbdtn-7e23be51`.
+## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
+
+- [21:33:02] Edit: /Users/wes/Developer/function-factory/specs/reference/ARCHITECTURE-ROADMAP-GAS-CITY-FACTORY.md
+- [21:33:07] Edit: /Users/wes/Developer/function-factory/specs/reference/ARCHITECTURE-ROADMAP-GAS-CITY-FACTORY.md
+- [21:33:49] Edit: /Users/wes/Developer/function-factory/specs/reference/ARCHITECTURE-ROADMAP-GAS-CITY-FACTORY.md
+- [21:33:54] Bash: grep -rn "Trellis\|TEP-\|trellis" /Users/wes/Developer/function-factory/specs/ --include="*.md" --include="*.yaml" --inc
+- [21:33:54] Bash: ls /Users/wes/Developer/function-factory/specs/reference/ | grep -i trellis
+- [21:34:33] Bash: grep -n "Trellis\|TEP-\|trellis" /Users/wes/Developer/function-factory/specs/reference/ARCHITECTURE-ROADMAP-GAS-CITY-FAC
+- [21:34:33] Bash: grep -n "Trellis\|TEP-\|trellis" /Users/wes/Developer/function-factory/specs/reference/SE-DECOMPOSITION-GAS-CITY-FACTORY
+- [21:34:41] Edit: /Users/wes/Developer/function-factory/specs/reference/ARCHITECTURE-ROADMAP-GAS-CITY-FACTORY.md
+- [21:34:43] Edit: /Users/wes/Developer/function-factory/specs/reference/ARCHITECTURE-ROADMAP-GAS-CITY-FACTORY.md
+- [21:34:48] Bash: sed -i '' 's/Trellis Execution Packet/Execution Packet/g; s/TrellisRoleInstruction/RoleInstruction/g; s/TEP-ID/EP-ID/g; 
+- [21:34:56] Bash: grep -n "TEP\|TRELLIS-EXECUTION-PACKET\|TRELLIS-IMPLEMENTATION" /Users/wes/Developer/function-factory/specs/governance-d
+- [21:35:11] Edit: /Users/wes/Developer/function-factory/specs/governance-decisions/GOVD-GAS-CITY-PHASE1-INTEGRATION.yaml
+- [21:35:14] Edit: /Users/wes/Developer/function-factory/specs/governance-decisions/GOVD-GAS-CITY-PHASE1-INTEGRATION.yaml
+- [21:35:18] Edit: /Users/wes/Developer/function-factory/specs/governance-decisions/GOVD-GAS-CITY-PHASE1-INTEGRATION.yaml
+- [21:35:23] Edit: /Users/wes/Developer/function-factory/specs/governance-decisions/GOVD-GAS-CITY-PHASE1-INTEGRATION.yaml
+- [21:35:29] Bash: grep -n "Inline TEP\|in TEP\|Embedding Formula in TEP\|Inline Execution\|Embedding Formula in the\|source_refs: \[es-id\
+- [21:35:35] Edit: /Users/wes/Developer/function-factory/specs/governance-decisions/GOVD-GAS-CITY-PHASE1-INTEGRATION.yaml
+- [21:36:49] Bash: cd /Users/wes/Developer/function-factory && git status
+- [21:36:54] Bash: git add \
+  specs/governance-decisions/GOVD-GAS-CITY-PHASE1-INTEGRATION.yaml \
+  specs/intent-specifications/IS-HARNESS-
+- [21:37:07] Bash: git commit -m "$(cat <<'EOF'
+META: fix three wrong mental models + kill Trellis nomenclature
+
+Wrong mental model 1 — For
 
 ## Notes
-- A generated `OPERATOR_CONTROL_TOKEN` is installed in production and was rotated before the latest smoke. Set local `FF_OPERATOR_TOKEN` to the current value for future operator control commands; rotate with `wrangler secret put OPERATOR_CONTROL_TOKEN` when needed.
-- `.agent/memory/semantic/DECISIONS.md` has a pre-existing unstaged edit not made by this turn; leave it untouched.
-- Existing unrelated untracked files remain out of scope.
-
-## Commit
-- Pending scoped commit for production readiness milestone draft.
+This file is auto-updated on session end. Manual edits will be overwritten.
+Archive to `.agent/memory/episodic/snapshots/` if you need to preserve a specific state.

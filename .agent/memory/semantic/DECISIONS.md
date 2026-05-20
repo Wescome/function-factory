@@ -3,6 +3,50 @@
 Past architectural choices that would be costly to revisit. Do not
 re-litigate without explicit architect approval.
 
+## 2026-05-19: Gas City replaces NLAH as Factory execution substrate
+
+**Decision:** Gas City (`github.com/gastownhall/gascity` v1.0.0) is the
+Factory's execution layer. ADR-009 (NLAH as harness runtime) is superseded.
+The 9 pending NLAH upstream contributions are abandoned. No NLAH code lands
+in the Factory.
+
+The two-layer split: **Factory** (CF Workers + ArangoDB) = governance layer
+(Signal → IS → ES → VR → FN lifecycle, Crystallizer, Verification). **Gas
+City** (external: VPS Phase 0 → k8s production) = execution layer (Sessions,
+Beads, Formulas, Convergence, Event Bus, Health Patrol, GUPP).
+
+Six integration points connect them: (1) ES → Formula Compiler (deterministic
+new compiler pass, Factory POSTs TOML to Gas City HTTP API); (2) Beads as
+lineage carriers (every Bead labeled fn-id/is-id/es-id); (3) Convergence gate
+→ Factory `/verify/coherence/{es-id}` (Crystallizer probes embedded in Gas
+City's convergence loop); (4) Gas City Event Bus → Factory Signal Collector
+(`POST /webhooks/gascity`; molecule.completed → Fidelity VR, health.stall →
+INC-*, session.crash → observation only, GUPP handles restart); (5) Full
+amendment loop (Fidelity VR fail → new ES → new Formula → new Bead → GUPP);
+(6) Health Patrol → Factory Incidents → Pressures.
+
+**Rationale:** Gas City is NLAH at production scale: Formula + Convergence =
+HarnessSpec + runHarness, but with GUPP (work survives crashes), NDI
+(convergence through durable Beads), multi-agent routing, health patrol, and
+Event Bus. NLAH was v0.1.0 with 9 upstream contributions pending — none
+landed. Gas City is v1.0.0 running 20–30 agents in production. ADR-009 was
+never Architect-approved, providing a clean supersession window before any
+NLAH code landed. Core principles inherited: ZFC (zero judgment in Go),
+Bitter Lesson (primitives improve with model capability), GUPP, NDI, ZERO
+hardcoded roles.
+
+**Consequences:** IS-HARNESS-DSL-v1 archived. `harness-bridge.ts` NLAH path
+replaced by Gas City webhook bridge. `harness-dispatcher.ts` NLAH dispatch
+replaced by ES → Formula compiler dispatch. StateGraph retirement gates
+(originally ADR-009 §8) re-scoped: Gas City convergence replaces NLAH as
+migration target; five gate conditions unchanged. Runtime: VPS Phase 0
+validation, k8s production.
+
+**Status:** Active. See `specs/reference/ADR-010-gas-city-supersedes-nlah.md`.
+Supersedes the 2026-05-16 NLAH entry below and ADR-009.
+
+---
+
 ## 2026-05-18: Pi singleton Containers are coordinated by Worker version
 
 **Decision:** The Pi Cloudflare Container remains a singleton Durable Object
@@ -79,7 +123,7 @@ reviews migrated synthesis harness. Not an accomplished fact — gated.
 **Gate:** ADR-009 (`specs/reference/ADR-009-nlah-runtime-replaces-state-graph.md`)
 must be Architect-approved before IS-HARNESS-DSL-v1 is revised and before any code lands.
 
-**Status:** Active. ADR-009 authored, pending Architect approval.
+**Status:** ~~Active~~ **Superseded by 2026-05-19 Gas City entry and ADR-010.** NLAH abandoned. No code lands.
 
 ---
 
@@ -1130,7 +1174,7 @@ The event-driven pattern already exists in the pipeline (`step.waitForEvent('arc
 
 **What the Factory USES from GDK:**
 
-1. **`@weops/gdk-ai`** (forked pi-ai) — Unified LLM API with 22 providers. Replaces ofox.ai and `@factory/task-routing`. Providers include: Anthropic, OpenAI, Google, DeepSeek, GLM/ZAI, Kimi, Mistral, Bedrock, Groq, xAI. Push-based EventStream streaming. Faux provider for testing.
+1. **`@weops/gdk-ai`** (forked pi-ai) — Unified LLM API with 22 providers. Replaces `@factory/task-routing` for Factory Worker-side model calls. **Does NOT replace ofox.ai for pi-container** — ofox.ai is retained for pi container model routing on cost grounds (2026-05-18 correction). Providers include: Anthropic, OpenAI, Google, DeepSeek, GLM/ZAI, Kimi, Mistral, Bedrock, Groq, xAI. Push-based EventStream streaming. Faux provider for testing.
 
 2. **`@weops/gdk-agent`** (forked pi-agent) — Agent loop with `agentLoop()` returning `EventStream<AgentEvent>`. Parallel + sequential tool execution, abort, steering, `beforeToolCall`/`afterToolCall` hooks. Runtime-agnostic core — runs in CF Sandbox Containers.
 
