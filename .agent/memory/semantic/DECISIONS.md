@@ -3,6 +3,45 @@
 Past architectural choices that would be costly to revisit. Do not
 re-litigate without explicit architect approval.
 
+## 2026-05-21: Factory→Gas City dispatch uses parametric template model (D-Q1C)
+
+**Decision:** Factory dispatches to Gas City using a **parametric template per
+domain adapter**, not per-ES compiled TOML. One canonical template
+(`factory-coding-v1.toml`) is operator-deployed to Gas City's `formulas/`
+directory at city-init. Per-dispatch variation flows through the sling call's
+`vars` map only.
+
+**Dispatch sequence (3 HTTP calls, Factory → Gas City):**
+1. `GET /v0/city/{cityName}/formulas/factory-coding-v1` — version probe, SHA verify
+2. `POST /v0/city/{cityName}/beads` — create root Bead with 5 lineage labels
+   (`fn-id:`, `is-id:`, `es-id:`, `form-id:`, `factory-attempt:`) + dispatch metadata;
+   `Idempotency-Key: sha256(es_id|version_hash|attempt)`
+3. `POST /v0/city/{cityName}/sling` — `formula: "factory-coding-v1"`,
+   `attached_bead_id: <from step 2>`, `vars: { fn_id, is_id, es_id, form_id,
+   factory_attempt, ff_webhook_url, ep_id, rig_root, max_iterations,
+   role_{planner,coder,verifier}_{prompt,inputs,outputs}, parameters_json }`
+
+**FORM-* artifact** captures `(template_name, version_hash, vars, prompts_resolved)`
+— the parametric specification. NOT raw TOML substrate. TOML substrate is
+operator-managed config.
+
+**D-NEW-2 ontology amendment required:** FormulaCompilation produces
+parametric spec (template + vars + resolved prompts), not raw TOML.
+Tier: procedural→procedural. Lineage edge: compiled_from EP-*.
+
+**GC→Factory notification:** RELEASE `[[step]]` in template HTTP POSTs
+`molecule.completed` to Factory `POST /webhooks/gascity` with HMAC signature.
+Factory never calls Gas City during execution.
+
+**Rejected alternatives:** SSH/SCP (CF Workers can't SSH), pack import (no POST
+endpoint in Gas City), TOML-in-vars (vars inject into loaded formula, not replace
+it), Gas City contribution (zero-contribution constraint in Phase 1), R2 SEED pull
+(formula must be on disk before sling resolves it).
+
+**Recorded in:** GOVD-GAS-CITY-PHASE1-INTEGRATION.yaml D-Q1C. Approved by Wes 2026-05-21.
+
+---
+
 ## 2026-05-19: Gas City replaces NLAH as Factory execution substrate
 
 **Decision:** Gas City (`github.com/gastownhall/gascity` v1.0.0) is the

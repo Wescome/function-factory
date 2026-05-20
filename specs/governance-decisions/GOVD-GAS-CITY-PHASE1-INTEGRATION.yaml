@@ -1,5 +1,5 @@
 id: GOVD-GAS-CITY-PHASE1-INTEGRATION
-status: DECIDED  # All 14 items resolved 2026-05-20.
+status: DECIDED  # 15 items resolved. D1–DL2 on 2026-05-20; D-Q1C on 2026-05-21.
 explicitness: explicit
 rationale: >
   Architecture decisions required before Phase 1 of Gas City + Factory integration.
@@ -476,3 +476,182 @@ decisions:
           Coherence VR cannot check principle application — only structure.
     selected_option: ArangoDB primary + DECISIONS.md projection
     recommendation: A+ # APPROVED 2026-05-20
+
+  - id: D-Q1C
+    question: "How does Factory dispatch a compiled Formula to Gas City? (Gas City dispatch HTTP interface shape)"
+    phase_gate: Phase 1 blocker
+    evidence_base: >
+      Gas City source confirmed 2026-05-21:
+        - supervisor_city_routes.go: all registered routes
+        - huma_types_sling.go: SlingInput struct
+        - huma_handlers_formulas.go: only GET handlers; no POST /formulas
+        - huma_handlers_beads.go: BeadCreateInput with Labels []string + Idempotency-Key header
+        - internal/formula/expand.go: vars substitute into step bodies at sling time
+      Confirmed constraint: Gas City has NO HTTP endpoint to upload Formula TOML.
+      Formulas are filesystem-resident in Gas City's formulas/ directory only.
+      Gas City reads the formula at sling time before any step runs.
+    candidate_set:
+      - option: A
+        label: Parametric template per domain adapter (operator-deployed at city-init)
+        description: >
+          One canonical template formula per domain (e.g. factory-coding-v1.toml) is
+          operator-deployed to Gas City's formulas/ directory at city-init time.
+          Per-dispatch variation flows entirely through the sling call's vars map:
+          fn_id, is_id, es_id, form_id, factory_attempt, ff_webhook_url, rig_root,
+          max_iterations, role prompts (inlined), and parameters_json.
+          FORM-* artifact captures (template_name, version_hash, vars, prompts_resolved)
+          — the parametric specification — not raw TOML substrate.
+          Dispatch = 3 HTTP calls: (1) GET formula version probe, (2) POST /beads create
+          with 5 lineage labels, (3) POST /sling with formula + attached_bead_id + vars.
+        score: HIGH
+        recommendation: true
+      - option: B
+        label: SSH/SCP TOML push from CF Worker
+        description: >
+          Factory (CF Worker) pushes compiled TOML to Gas City VPS filesystem
+          via SSH before each dispatch.
+        score: LOW
+        rejection_class: platform_impossible
+        rejection_predicate: >
+          CF Workers have no SSH client. Even with a proxy, this introduces a
+          non-HTTP transport that violates the roadmap §1.2 "HTTP only — no shared
+          storage" invariant.
+      - option: C
+        label: Gas City pack-import HTTP endpoint
+        description: >
+          Use Gas City's pack API to bundle and import Formula TOMLs dynamically.
+        score: LOW
+        rejection_class: endpoint_does_not_exist
+        rejection_predicate: >
+          supervisor_city_routes.go registers only GET /v0/packs and GET /v0/packs/{name}.
+          No POST pack endpoint exists. Requires Gas City contribution — violates
+          "zero Gas City contributions in Phase 1."
+      - option: D
+        label: Full TOML base64-encoded in sling vars
+        description: >
+          Encode the entire Formula TOML as a base64 string in the vars map;
+          Gas City materializes it before execution.
+        score: LOW
+        rejection_class: not_how_gas_city_works
+        rejection_predicate: >
+          Gas City resolves the formula from disk at sling time before any step runs
+          (confirmed: internal/formula/resolve.go, handler_sling.go LaunchFormula).
+          Vars substitute into already-loaded formula content; they cannot replace the
+          formula source. Requires Gas City contribution.
+      - option: E
+        label: POST /formulas Gas City contribution
+        description: >
+          Factory contributes a new endpoint to Gas City that accepts Formula TOML
+          content and writes it to the formulas/ directory.
+        score: MEDIUM
+        rejection_class: phase_constraint_violation
+        rejection_predicate: >
+          "Zero Gas City contributions in Phase 1" is a hard constraint (ADR-010 §5).
+          Revisit at Phase 5 if per-ES TOML variation becomes necessary.
+      - option: F
+        label: R2 or shared object store pulled by Gas City SEED step
+        description: >
+          Factory writes compiled TOML to R2; Gas City SEED step fetches and writes
+          it to the formulas/ directory before execution.
+        score: LOW
+        rejection_class: bootstrapping_paradox
+        rejection_predicate: >
+          The SEED step is inside a formula that must already be loaded from disk before
+          the SEED step can run. There is no pre-step hook in Gas City that could load
+          a formula from a URL before sling resolution. Gas City does not rescan formulas/
+          per-dispatch.
+    selected_option: Parametric template per domain adapter (operator-deployed at city-init)
+    recommendation: A+ # APPROVED 2026-05-21
+    dispatch_flow: >
+      Pre-condition (one-time, operator-driven):
+        factory-coding-v1.toml deployed to Gas City formulas/ directory at city-init.
+        Template lives at function-factory/harnesses/gascity-templates/factory-coding-v1.toml
+        and is rsynced to Gas City VPS at deploy time. Content SHA pinned in wrangler env.
+
+      Per-dispatch HTTP sequence (3 calls, sequential, Factory → Gas City):
+
+        CALL 1: GET /v0/city/{cityName}/formulas/factory-coding-v1
+          Authorization: Bearer ${GAS_CITY_BEARER_TOKEN}
+          Purpose: verify formula present and version hash matches pinned SHA.
+          On mismatch: abort dispatch, emit UncertaintyEntry, do not proceed.
+
+        CALL 2: POST /v0/city/{cityName}/beads
+          Authorization: Bearer ${GAS_CITY_BEARER_TOKEN}
+          Idempotency-Key: sha256(es_id + "|" + es_version_hash + "|" + factory_attempt)
+          Body: {
+            title: "FN-XXX attempt N — <ES title>",
+            rig: "factory-work",
+            labels: ["fn-id:FN-XXX", "is-id:IS-XXX", "es-id:ES-XXX",
+                     "form-id:FORM-XXX", "factory-attempt:N"],
+            metadata: { ff.dispatch_id, ff.formula_name, ff.formula_version_hash,
+                        ff.dispatched_at, ff.webhook_url, ff.ep_id }
+          }
+          On 201: capture gc_bead_id. On 5xx: retry with same Idempotency-Key.
+
+        CALL 3: POST /v0/city/{cityName}/sling
+          Authorization: Bearer ${GAS_CITY_BEARER_TOKEN}
+          Body: {
+            rig: "factory-work",
+            target: "factory-coding-agent",
+            formula: "factory-coding-v1",
+            attached_bead_id: <gc_bead_id from CALL 2>,
+            scope_kind: "rig", scope_ref: "factory-work",
+            force: false,
+            vars: {
+              fn_id, is_id, es_id, form_id, factory_attempt (string),
+              ff_webhook_url, ff_webhook_hmac_keyid: "v1",
+              ep_id, rig_root, max_iterations,
+              role_planner_prompt, role_planner_inputs, role_planner_outputs,
+              role_coder_prompt, role_coder_inputs, role_coder_outputs,
+              role_verifier_prompt, role_verifier_inputs, role_verifier_outputs,
+              parameters_json
+            }
+          }
+          On 200 + status=="slung": capture workflow_id. 409 with matching workflow = replay success.
+
+      GC → Factory (inverted, in template not in dispatch call):
+        RELEASE [[step]] in factory-coding-v1.toml HTTP POSTs molecule.completed
+        to Factory POST /webhooks/gascity with HMAC signature.
+        Factory never calls Gas City during execution.
+
+      FORM-* artifact (persisted in ArangoDB before CALL 1):
+        kind: FormulaArtifact, tier: procedural
+        formula_name: "factory-coding-v1"
+        formula_version_hash: <sha256 of on-disk template>
+        vars: <the full var map sent in CALL 3>
+        prompts_resolved: { planner, coder, verifier }
+        source_refs: [ES-XXX]
+
+    open_questions:
+      - id: UE-Q1C-1
+        question: >
+          Does GET /v0/city/{cityName}/formulas/{name} return raw TOML or structured
+          fields only? If structured-only, SHA verification of the on-disk template
+          must be done differently (e.g. gc formula show at deploy CI time instead).
+        blocking_for: [CALL-1 version probe]
+        resolution: read huma_handlers_formulas.go formulaDetail response shape
+      - id: UE-Q1C-2
+        question: >
+          Does attached_bead_id propagate lineage labels to molecule-internal child
+          beads, or only to the workflow root bead?
+        blocking_for: [Phase 1 gate "Bead labels confirmed via bd list"]
+        resolution: inspect sling AttachFormula + molecule emission code paths
+      - id: UE-Q1C-3
+        question: >
+          Phase 0 used gc formula cook (CLI), not POST /sling (HTTP). Are the formula
+          loading/compile code paths identical? If HTTP path uses a different parser,
+          Phase 0 obs #1/#3 may re-surface.
+        blocking_for: [CALL-3 sling correctness]
+        resolution: code-trace humaHandleSling → LaunchFormula → formula.Parser vs CLI cook path
+      - id: UE-Q1C-4
+        question: >
+          Does POST /sling support an Idempotency-Key header, or only POST /beads?
+          If not, sling retry idempotency relies solely on 409 conflict detection.
+        blocking_for: [idempotency proof — Phase 1 gate]
+        resolution: read huma_handlers_sling.go for idempotency middleware
+    ontology_amendment_required: >
+      D-NEW-2 (FormulaCompilation approved) must be amended: the FORM-* artifact
+      captures parametric specification (template_name + version_hash + vars +
+      prompts_resolved), NOT raw TOML substrate. The TOML substrate is operator-managed
+      config. Tier conversion remains procedural→procedural. Lineage edge: compiled_from EP-*.
+      File this amendment as an EL-* Elucidation Artifact per DL-1 (ArangoDB main graph).
