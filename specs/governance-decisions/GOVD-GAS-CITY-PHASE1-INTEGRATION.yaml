@@ -1,5 +1,5 @@
 id: GOVD-GAS-CITY-PHASE1-INTEGRATION
-status: PENDING_PRINCIPAL_DECISION
+status: PARTIALLY_DECIDED  # 13 of 14 approved 2026-05-20. Role prompt location pending further elucidation.
 explicitness: explicit
 rationale: >
   Architecture decisions required before Phase 1 of Gas City + Factory integration.
@@ -14,7 +14,7 @@ source_refs:
   - SE-Onto-Draft-1.1
   - FF-ONTOLOGY-v0_2
 authored: 2026-05-20
-decidedBy: PENDING
+decidedBy: Wes (2026-05-20)
 
 decisions:
 
@@ -42,8 +42,8 @@ decisions:
           The TEP is the established runtime boundary; reading the Executable Specification
           directly would require the Formula compiler to re-implement TEP's normalization
           logic, duplicating work already done by the existing compiler passes.
-    selected_option: PENDING
-    recommendation: A
+    selected_option: Trellis Execution Packet only
+    recommendation: A+ # APPROVED 2026-05-20
 
   - id: D2
     question: "What is the FORM-* (FormulaArtifact) lifecycle?"
@@ -73,8 +73,8 @@ decisions:
         rejection_predicate: >
           Cannot replay dispatch, cannot diff Formula versions, cannot detect
           TOML schema drift between versions. Violates Factory lineage principle.
-    selected_option: PENDING
-    recommendation: A
+    selected_option: Persisted FORM-* artifact
+    recommendation: A+ # APPROVED 2026-05-20
 
   - id: D3
     question: "What artifact does Factory create when molecule.completed arrives?"
@@ -112,8 +112,8 @@ decisions:
         rejection_predicate: >
           Verification verdicts must be queryable artifacts (VR-* is verdict-bearing,
           evidence-bearing, timestamped, immutable). Edge properties cannot carry evidence.
-    selected_option: PENDING
-    recommendation: A
+    selected_option: VR-* with kind=fidelity
+    recommendation: A+ # APPROVED 2026-05-20
 
   - id: D4
     question: "What is the scope of Coherence VR?"
@@ -153,8 +153,8 @@ decisions:
           one superseded and one active — is undefined behavior in the ontology.
           Versioning through FN identity conflates the Function (what) with the
           Specification (how to build it).
-    selected_option: PENDING
-    recommendation: A
+    selected_option: New FN-X-V2 (successor Function)
+    recommendation: A+ # APPROVED 2026-05-20
 
   - id: D6
     question: "Where does the amendment-proposing capability live?"
@@ -185,8 +185,8 @@ decisions:
           The system specifies how to amend itself. Recursive self-application.
         score: HIGH
         recommendation: true
-    selected_option: PENDING
-    recommendation: C
+    selected_option: Gas-City-executed Factory Function
+    recommendation: C+ # APPROVED 2026-05-20
 
   - id: D7
     question: "Gas City hosting for Phase 1 development?"
@@ -213,8 +213,8 @@ decisions:
           Docker image pins GAS_CITY_VERSION. CI VPS is the authoritative gate runner.
         score: HIGH
         recommendation: true
-    selected_option: PENDING
-    recommendation: C
+    selected_option: Per-dev Docker + shared CI VPS
+    recommendation: C+ # APPROVED 2026-05-20
 
   - id: D8
     question: "Webhook authentication (Gas City → Factory)?"
@@ -243,8 +243,8 @@ decisions:
         rejection_predicate: >
           CF Access is a Cloudflare identity dependency on the Gas City side.
           Gas City is not a CF-native service. Adds integration complexity.
-    selected_option: PENDING
-    recommendation: A (Phase 1-4); revisit mTLS for Phase 5
+    selected_option: HMAC shared secret
+    recommendation: A+ # APPROVED 2026-05-20 — revisit mTLS at Phase 5
 
   - id: D9
     question: "MaxAmendmentDepth — how many amendment attempts before halt?"
@@ -269,8 +269,8 @@ decisions:
           Default 3. Can be tuned per Function or per domain adapter.
         score: HIGH
         recommendation: true
-    selected_option: PENDING
-    recommendation: C
+    selected_option: Configurable, default 3
+    recommendation: C+ # APPROVED 2026-05-20
 
   - id: D10
     question: "Where do role prompts (agent instruction templates) live?"
@@ -302,8 +302,8 @@ decisions:
           Large prompt text in every Formula TOML bloats the dispatch payload.
           Prompt updates require re-compiling all affected Formulas. Gas City can
           load prompts by reference at runtime.
-    selected_option: PENDING
-    recommendation: A
+    selected_option: PENDING — needs further elucidation
+    recommendation: A- # PENDING — needs further elucidation
 
   - id: D-NEW-1
     question: "Who runs Fidelity Verification — Gas City or Factory?"
@@ -337,8 +337,8 @@ decisions:
           Factory's, not Gas City's.
         score: HIGH
         recommendation: true
-    selected_option: PENDING
-    recommendation: B
+    selected_option: Gas City executes, Factory judges semantics
+    recommendation: B+ # APPROVED 2026-05-20
 
   - id: D-NEW-2
     question: "Does the Formula compiler (Trellis Execution Packet → Gas City Formula TOML) need to be registered as a new Compilation Transformation in the FF Ontology?"
@@ -372,8 +372,8 @@ decisions:
           a pipeline artifact. Treating it as an implementation detail severs the
           lineage chain at the dispatch boundary — the exact point where governance
           hands off to execution.
-    selected_option: PENDING
-    recommendation: A
+    selected_option: Register as FormulaCompilation
+    recommendation: A+ # APPROVED 2026-05-20
 
   - id: DL-1
     question: "Decision Ledger implementation — where do Elucidation Artifacts live?"
@@ -406,8 +406,8 @@ decisions:
           cannot reach elucidation artifacts. When divergence is detected and
           the Architect agent needs to interrogate a decision, it must cross
           collection boundaries rather than graph-traverse.
-    selected_option: PENDING
-    recommendation: A
+    selected_option: EL-* artifacts in main ArangoDB graph
+    recommendation: A+ # APPROVED 2026-05-20
 
   - id: DL-2
     question: "Where does the Factory principle library live?"
@@ -438,5 +438,5 @@ decisions:
           Gate enforcement requires structured principle records with trigger
           conditions and required claims. Prose-only principle library means
           Coherence VR cannot check principle application — only structure.
-    selected_option: PENDING
-    recommendation: A
+    selected_option: ArangoDB primary + DECISIONS.md projection
+    recommendation: A+ # APPROVED 2026-05-20
