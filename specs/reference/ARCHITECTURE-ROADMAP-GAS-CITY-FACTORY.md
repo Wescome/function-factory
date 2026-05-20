@@ -50,7 +50,8 @@ From these conditions, the ownership split follows directly:
 │  Owns:                                                                 │
 │    Signal → Pressure → IS → ES (Specification cycle)                   │
 │    Coherence VR: verifies specification is coherent BEFORE dispatch    │
-│    ES → Formula compilation (Pass 9, deterministic, no LLM)            │
+│    Trellis Execution Packet → Gas City Formula TOML compilation         │
+│      (deterministic, no LLM)                                            │
 │    Lineage graph (ArangoDB)                                            │
 │    Amendment generation: failed verdict → new IS → ES                  │
 │    Lifecycle governance: verified → monitored → superseded             │
@@ -110,7 +111,7 @@ From SE Ontology §7: fidelity-verification belongs to the execution layer. The 
 
 ### IP-1 — ES → Formula Compiler (Factory → Gas City)
 
-**What it is:** A new deterministic compiler pass — **Pass 9** — transforms an ES (or TEP) into a Gas City Formula TOML. Pure: no LLM, no I/O, no judgment. Preceded by **Coherence VR**: Factory verifies the specification is internally coherent before compiling to Formula. A spec that fails Coherence VR is not dispatched.
+**What it is:** A new deterministic compiler transformation — **Trellis Execution Packet → Gas City Formula TOML** — converting the existing compiler's output into the TOML schema Gas City's `gc formula cook` expects. Pure: no LLM, no I/O, no judgment. Preceded by **Coherence Verification (CV)**: Factory verifies the Trellis Execution Packet is internally coherent before compiling to Formula. A specification that fails Coherence Verification is not dispatched.
 
 **Mapping rules (canonical):**
 
@@ -123,7 +124,7 @@ From SE Ontology §7: fidelity-verification belongs to the execution layer. The 
 | `ES.inputs[]` | `[vars]` entries |
 | Domain adapter binding | `[vars] domain = "coding"` |
 
-**Pass 9 also emits** (not just the TOML):
+**The Formula compiler also emits** (not just the TOML):
 - `prompts/convergence/evaluate.md` — required by Gas City converge subsystem; contains `bd meta set` and `convergence.agent_verdict` substrings (Phase 0 obs #2)
 - Role prompt stubs referencing `agents/` directory (see IP-1 open question D10)
 
@@ -196,7 +197,7 @@ amendment-of:ES-OLD-ID
 - PASS: creates OPR-*, updates lineage, may promote function lifecycle
 - FAIL (after Gas City exhausted convergence iterations): creates OPR-* (status=failed), triggers Amendment loop (IP-5)
 
-**What Coherence VR is NOT:** Coherence VR is not a runtime gate. It is a pre-dispatch check that the specification is internally consistent. It runs at compile time (Pass 9 precondition), not during Gas City execution. Factory does not expose a `/verify/coherence` endpoint for Gas City to call.
+**What Coherence Verification is NOT:** Coherence Verification is not a runtime gate. It is a pre-dispatch check that the specification is internally consistent. It runs before the Formula compiler produces output, not during Gas City execution. Factory does not expose a `/verify/coherence` endpoint for Gas City to call.
 
 **Risk.** Working directory binding: agent writes to city root instead of rig. Mitigation: role prompt includes explicit `cd $RIG_ROOT` (Phase 0 obs #7).
 
@@ -235,7 +236,7 @@ amendment-of:ES-OLD-ID
 1. Gas City emits molecule.completed{verdict: FAIL, iterations_exhausted: true}
 2. Factory creates OPR-* (status=failed); creates SIG-* Signal (divergence observation)
 3. Factory's pipeline: SIG → PRS → IS-V2 → ES-V2  (Amendment as successor specification)
-4. Pass 9 + Coherence VR on ES-V2 → FORM-V2
+4. Coherence Verification on ES-V2 → Formula compiler → FORM-V2
 5. Factory dispatches FORM-V2 to Gas City with:
    fn-id:FN-X, es-id:ES-V2, amendment-of:ES-V1, factory-attempt:2
 6. Gas City executes ES-V2 → validates → emits molecule.completed
@@ -356,7 +357,7 @@ D4 is no longer a decision — it is settled by the SE Ontology. Coherence VR is
 ### Non-Negotiables (from README)
 
 1. **Lineage on every artifact.** Formula, OPR-*, INC-* all carry `source_refs`.
-2. **Narrow-pass discipline.** Pass 9 does one thing: deterministic transformation. No LLM.
+2. **Narrow-pass discipline.** The Formula compiler does one thing: deterministic transformation. No LLM.
 3. **ArangoDB ↔ Dolt isolation.** No cross-writes. Factory → ArangoDB. Gas City → Dolt. Hard invariant. CI detector enforces.
 4. **Fail-closed.** Coherence VR failure blocks dispatch. MaxAmendmentDepth exhaustion halts loop and creates Incident. No silent pass.
 5. **Every amendment Function gets birth Trajectory and birth VR.** FN-V2 is not a continuation of FN-V1.
@@ -367,9 +368,9 @@ D4 is no longer a decision — it is settled by the SE Ontology. Coherence VR is
 
 | # | Observation | Class | Response |
 |---|---|---|---|
-| 1 | Formula TOML rejects `convergence = true`; `version = 1` required | Spec gap | ADR-010 §4.1 amendment; Pass 9 never emits `[convergence]`; convergence set at dispatch time via Gas City API |
-| 2 | `prompts/convergence/evaluate.md` required with literal substrings | Gas City convention | Pass 9 emits companion file bundle (TOML + evaluate.md) |
-| 3 | V2 pack schema (no `[[agent]]` blocks) | Gas City convention | Factory provisions `agents/` at city-init; no agent blocks in Pass 9 output |
+| 1 | Formula TOML rejects `convergence = true`; `version = 1` required | Spec gap | ADR-010 §4.1 amendment; Formula compiler never emits `[convergence]`; convergence set at dispatch time via Gas City API |
+| 2 | `prompts/convergence/evaluate.md` required with literal substrings | Gas City convention | Formula compiler emits companion file bundle (TOML + evaluate.md) |
+| 3 | V2 pack schema (no `[[agent]]` blocks) | Gas City convention | Factory provisions `agents/` at city-init; no agent blocks in Formula compiler output |
 | 4 | Named tmux socket | Operational quirk | Documentation only |
 | 5 | `~/.claude/settings.json` validity required | Environment coupling | Disappears at k8s; Phase 1 city runs as service user |
 | 6 | `gc session nudge` is system-reminder, not auto-respond | Gas City API quirk | Factory never nudges; all Factory→Gas City signal is via dispatch only |

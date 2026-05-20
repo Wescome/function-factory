@@ -19,27 +19,29 @@ decidedBy: PENDING
 decisions:
 
   - id: D1
-    question: "What is the compiler input for Pass 9 (ES→Formula)?"
+    question: "What is the input to the Formula compiler (Trellis Execution Packet → Gas City Formula TOML)?"
     phase_gate: Phase 1 blocker
     candidate_set:
       - option: A
-        label: TEP-only
+        label: Trellis Execution Packet (TEP) only
         description: >
-          Pass 9 takes the Trellis Execution Packet (TEP) as input. The TEP is the current
-          codebase's instantiation of the Executable Specification — the canonical runtime
-          boundary per TRELLIS-EXECUTION-PACKET.md and TRELLIS-IMPLEMENTATION-PLAN.md.
+          The Formula compiler takes the Trellis Execution Packet as input. The TEP is the
+          codebase's current instantiation of the Executable Specification — the canonical
+          runtime boundary per TRELLIS-EXECUTION-PACKET.md and TRELLIS-IMPLEMENTATION-PLAN.md.
         score: HIGH
         recommendation: true
       - option: B
-        label: ES directly
+        label: Raw Executable Specification YAML directly
         description: >
-          Pass 9 reads the raw ES YAML artifact without going through TEP.
-          Simpler chain but bypasses TEP abstraction layer.
+          The Formula compiler reads the raw Executable Specification YAML artifact without
+          going through the Trellis Execution Packet. Simpler chain but bypasses the TEP
+          abstraction layer.
         score: MEDIUM
         rejection_class: bypasses_canonical_boundary
         rejection_predicate: >
-          TEP is the established runtime boundary; reading ES directly would require
-          Pass 9 to re-implement TEP's normalization logic.
+          The TEP is the established runtime boundary; reading the Executable Specification
+          directly would require the Formula compiler to re-implement TEP's normalization
+          logic, duplicating work already done by the existing compiler passes.
     selected_option: PENDING
     recommendation: A
 
@@ -339,25 +341,26 @@ decisions:
     recommendation: B
 
   - id: D-NEW-2
-    question: "Is Pass 9 (ES→Formula) a new Compilation Transformation in the FF Ontology?"
+    question: "Does the Formula compiler (Trellis Execution Packet → Gas City Formula TOML) need to be registered as a new Compilation Transformation in the FF Ontology?"
     phase_gate: Phase 1 (ontology registration)
     ontology_grounding: >
       FF-ONTOLOGY Slot Map: new compiler transformation kind → Compilation Transformation,
       must satisfy Tier Descent axiom and emit lineage edge per transformation.
-      Current five passes: Decomposition, Binding, Obligation Extraction,
+      Current five transformations: Decomposition, Binding, Obligation Extraction,
       Structural Assembly, Completeness Certification.
-      Pass 9 is a sixth kind: procedural→procedural (ES YAML → Formula TOML).
+      The Formula compiler is a sixth kind: procedural→procedural
+      (Executable Specification YAML → Gas City Formula TOML, same tier).
     candidate_set:
       - option: A
-        label: Register Pass 9 as new Compilation Transformation in ontology
+        label: Register as new Compilation Transformation (FormulaCompilation)
         description: >
-          Add Pass 9 (FormulaCompilation) to FF-ONTOLOGY as a Compilation Transformation.
+          Add FormulaCompilation to FF-ONTOLOGY as a Compilation Transformation.
           Tier conversion: procedural → procedural (same tier, Gas City substrate format).
-          Emits FORM-* artifact + lineage edge (compiled_from: ES-ID).
+          Emits Formula artifact (FORM-*) + lineage edge (compiled_from: TEP-ID).
         score: HIGH
         recommendation: true
       - option: B
-        label: Treat Formula TOML as an implementation detail, not an ontological artifact
+        label: Treat Gas City Formula TOML as an implementation detail, not an ontological artifact
         description: >
           Formula TOML is an ephemeral dispatch format, not a pipeline artifact.
           No ontology registration needed.
@@ -365,9 +368,10 @@ decisions:
         rejection_class: lineage_gap
         rejection_predicate: >
           Lineage Completeness axiom: every artifact must have at least one lineage edge.
-          If Formula TOML is dispatched to Gas City and Gas City executes it, it IS
+          If the Formula TOML is dispatched to Gas City and Gas City executes it, it IS
           a pipeline artifact. Treating it as an implementation detail severs the
-          lineage chain at the critical dispatch boundary.
+          lineage chain at the dispatch boundary — the exact point where governance
+          hands off to execution.
     selected_option: PENDING
     recommendation: A
 
