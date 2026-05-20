@@ -1,5 +1,5 @@
 id: GOVD-GAS-CITY-PHASE1-INTEGRATION
-status: PARTIALLY_DECIDED  # 13 of 14 approved 2026-05-20. Role prompt location pending further elucidation.
+status: DECIDED  # All 14 items resolved 2026-05-20.
 explicitness: explicit
 rationale: >
   Architecture decisions required before Phase 1 of Gas City + Factory integration.
@@ -302,8 +302,12 @@ decisions:
           Large prompt text in every Formula TOML bloats the dispatch payload.
           Prompt updates require re-compiling all affected Formulas. Gas City can
           load prompts by reference at runtime.
-    selected_option: PENDING — needs further elucidation
-    recommendation: A- # PENDING — needs further elucidation
+    selected_option: QUESTION_DISSOLVED
+    recommendation: >
+      RESOLVED 2026-05-20 — wrong framing. Role instructions ARE the Formula TOML [[steps]].
+      The Formula compiler produces them. agents/<name>/agent.toml is 6-line static infra
+      (provider, timeout, session count) — not role prompts. No separate prompt location
+      decision needed.
 
   - id: D-NEW-1
     question: "Who runs Fidelity Verification — Gas City or Factory?"
