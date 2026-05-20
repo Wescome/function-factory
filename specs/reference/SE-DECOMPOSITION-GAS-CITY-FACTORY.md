@@ -2,8 +2,11 @@
 
 **Author:** Systems Engineer Agent
 **Date:** 2026-05-20
-**Lineage:** ADR-010, PHASE0-GAS-CITY-VALIDATION.md, RESULTS.md (Phase 0 PASS), FF-CODING-ARCHITECTURE.md, DECISIONS.md
+**Revised:** GUV, 2026-05-20 — boundary redrawn from SE Ontology Draft 1.1 first principles (Wes)
+**Lineage:** ADR-010, PHASE0-GAS-CITY-VALIDATION.md, RESULTS.md (Phase 0 PASS), FF-CODING-ARCHITECTURE.md, DECISIONS.md, SE-Onto-Draft-1.1 §7
 **Purpose:** Provide SE methodology output (requirements, decomposition, risks, gates) for Wes to review alongside the Architect's design before Phase 1 commit.
+
+**Key revision from SE Ontology §7:** The original SE draft proposed a Factory HTTP endpoint (`POST /verify/coherence/{es-id}`) for Gas City's convergence gate to call during execution. This is wrong per first principles. Fidelity-verification belongs to the execution layer. The VERIFY stage IS the fidelity-verification-function — it runs internally in Gas City. The convergence gate reads Gas City-internal `verifier_report.md`; it does not call Factory. Factory's Coherence VR is a pre-dispatch check on the specification only. All requirements, risks, and gates have been revised accordingly.
 
 ---
 
@@ -49,14 +52,14 @@ This document treats the **Factory + Gas City integrated system** as a system-of
 | **Owner** | Boundary (Factory queries, Gas City stores) |
 | **Status** | **Missing** — no Bead query client in Factory; RESULTS.md item 7 shows label-to-working-directory binding not enforced |
 
-### FA-4: Convergence Coherence Gate (Gas City script → Factory endpoint)
+### FA-4: Fidelity Validation (Gas City VERIFY Stage + Factory Recording)
 | Field | Value |
 |---|---|
-| **Function** | At each Gas City convergence iteration, gate script calls POST /verify/coherence/{es-id} with artifact bundle; Crystallizer probes evaluate; verdict returned |
-| **Inputs** | es-id; current molecule artifact bundle; Factory base URL + auth |
-| **Outputs** | { verdict: pass\|warn\|fail\|escalate }; gate script exit 0/1; bd meta set convergence.agent_verdict |
-| **Owner** | Boundary (script in Gas City, endpoint in Factory) |
-| **Status** | **Missing** — no /verify/coherence endpoint; Crystallizer probes not exposed via HTTP |
+| **Function** | Gas City VERIFY stage runs the test suite against the patched rig, produces `artifacts/verifier_report.md` with `Verdict: PASS` or `Verdict: FAIL`; convergence gate reads this file from the rig root and exits 0/1; Factory records the verdict as OPR-* when `molecule.completed` arrives |
+| **Inputs** | Patched rig state (Gas City-internal); rig-root path; `molecule.completed` event (Factory intake) |
+| **Outputs** | `artifacts/verifier_report.md` (Gas City); gate exit 0/1 (Gas City-internal); OPR-* artifact (Factory ArangoDB) |
+| **Owner** | Gas City (validation + verdict); Factory (recording only — receives verdict via IP-4 event) |
+| **Status** | **Partial** — VERIFY stage exists in Phase 0 shape; convergence loop unvalidated (Phase 2); Factory Fidelity VR recording and OPR-* creation not yet built |
 
 ### FA-5: Event Bus Bridge (Gas City → Factory)
 | Field | Value |
@@ -109,8 +112,8 @@ Requirements are written in shall-language. Each is independently testable. Prio
 | REQ-F-003 | Functional | Every Formula emitted **shall** include var.es_id, var.is_id, and var.fn_id populated from the source ES | ADR-010 §4.1 | C | 1 |
 | REQ-F-004 | Functional | Every Bead created from a Factory Formula **shall** carry labels fn-id:FN-XXX, is-id:IS-XXX, es-id:ES-XXX | ADR-010 §4.2 | C | 1 |
 | REQ-F-005 | Functional | Amendment Beads **shall** additionally carry the label amendment-of:ES-OLD-ID | ADR-010 §4.5 | H | 4 |
-| REQ-F-006 | Functional | The Factory **shall** expose POST /verify/coherence/{es-id} returning { verdict: pass\|warn\|fail\|escalate } | ADR-010 §4.3 | C | 2 |
-| REQ-F-007 | Functional | The coherence gate script in Gas City **shall** map verdicts to gate exit codes: pass/warn → 0; fail → 1; escalate → bd meta set convergence.agent_verdict manual + exit 0 | ADR-010 §4.3 | C | 2 |
+| REQ-F-006 | Functional | The Factory **shall** run Coherence VR on the ES before compiling to Formula TOML; a specification that fails Coherence VR **shall** block dispatch and emit an UncertaintyEntry — dispatch is never attempted | SE Ontology §7 | C | 1 |
+| REQ-F-007 | Functional | The Gas City convergence gate script **shall** read `artifacts/verifier_report.md` from the rig root; `Verdict: PASS` → exit 0; `Verdict: FAIL` → exit 1; the gate **shall not** issue any HTTP call to the Factory during execution | SE Ontology §7 (fidelity-verification belongs to execution layer) | C | 2 |
 | REQ-F-008 | Functional | The Factory **shall** expose POST /webhooks/gascity accepting: molecule.completed, health.stall, session.crash, convergence.evaluate | ADR-010 §4.4 | C | 3 |
 | REQ-F-009 | Functional | The webhook receiver **shall** trigger Fidelity Verification on every molecule.completed event whose Bead carries an es-id label | ADR-010 §4.4 | C | 3 |
 | REQ-F-010 | Functional | The webhook receiver **shall** create an INC-* Incident artifact on every health.stall event whose Bead carries an fn-id label | ADR-010 §4.4, §4.6 | H | 3 |
@@ -125,12 +128,12 @@ Requirements are written in shall-language. Each is independently testable. Prio
 | REQ-ID | Type | Statement | Source | Pri | Phase |
 |---|---|---|---|---|---|
 | REQ-NF-001 | Performance | The ES→Formula compile pass **shall** complete in ≤ 500 ms for any ES ≤ 1 MB | Worker step budget | H | 1 |
-| REQ-NF-002 | Performance | POST /verify/coherence/{es-id} **shall** return a verdict within ≤ 60 s P99 | ADR-010 §4.3 | H | 2 |
+| REQ-NF-002 | Performance | The Gas City VERIFY stage **shall** complete within ≤ 300 s P99; the Factory webhook handler **shall** record the OPR-* from `molecule.completed` within ≤ 5 s of event receipt | Execution SLA | H | 2 |
 | REQ-NF-003 | Reliability | The Factory webhook receiver **shall** be idempotent: a replayed event with the same idempotency key **shall** produce zero duplicate Fidelity VR triggers and zero duplicate Incidents | ADR-010 §4.4 | C | 3 |
 | REQ-NF-004 | Security | Gas City → Factory webhooks **shall** be authenticated via HMAC signature using a shared secret distinct from the Factory→Gas City API key | New (gap from ADR-010) | C | 3 |
 | REQ-NF-005 | Security | Factory → Gas City API calls **shall** carry an authentication token bound to a single environment | New (gap from ADR-010) | C | 1 |
 | REQ-NF-006 | Auditability | Every dispatch **shall** persist a row to dispatch_log with: timestamp, ES-ID, Formula hash, Bead ID returned, HTTP response code | Factory lineage principle | H | 1 |
-| REQ-NF-007 | Auditability | Every coherence verdict issued **shall** be persisted to verification_status with full Crystallizer probe trace | ADR-010 §4.3 | C | 2 |
+| REQ-NF-007 | Auditability | Every Fidelity VR artifact created from a `molecule.completed` event **shall** be persisted to `verification_status` with: Bead ID, verdict, iteration count, and link to `verifier_report.md` R2 key | Factory lineage principle | C | 2 |
 | REQ-NF-008 | Resilience | The Factory **shall** continue to operate (read-only on dispatched work) if Gas City is unreachable; queued dispatches **shall** retry with exponential backoff | New | H | 1 |
 | REQ-NF-009 | Resilience | The Factory **shall not** create a duplicate Bead when retrying a dispatch; dispatch is keyed on ES-ID + ES-version-hash | NDI principle | C | 1 |
 | REQ-NF-010 | Observability | GET /trace/fn/{fn-id} **shall** return the full timeline of: ES versions, Formula dispatches, Bead lifecycle events, gate verdicts, and Fidelity VR outcomes | New | M | 3 |
@@ -142,7 +145,7 @@ Requirements are written in shall-language. Each is independently testable. Prio
 | REQ-NF-016 | Schema | The Factory **shall not** depend on the structural form of any Gas City TOML field; it **shall** only emit the published Formula schema for the pinned Gas City version | RESULTS.md obs #1 | C | 1 |
 | REQ-NF-017 | Operability | The pinned Gas City version **shall** be recorded as a Factory build artifact (GAS_CITY_VERSION env var) and any version mismatch detected at dispatch time **shall** abort dispatch | RESULTS.md obs #1 + #3 | H | 1 |
 | REQ-NF-018 | Operability | The Factory **shall** detect Gas City convergence loop divergence: more than MaxConvergenceIterations (default 5) without a verdict change **shall** generate an INC-CONVERGENCE-STUCK Incident | ADR-010 §4.6 | M | 4 |
-| REQ-NF-019 | Constraint | The convergence gate script **shall** treat Factory endpoint unavailability (network failure, 5xx) as a failure; it **shall not** silently exit 0 | New (avoid silent pass) | C | 2 |
+| REQ-NF-019 | Constraint | The convergence gate script **shall** treat a missing or malformed `verifier_report.md` as a failure (exit 1); it **shall not** silently exit 0 when the verdict file is absent or unparseable | Fail-closed principle (no silent pass on artifact absence) | C | 2 |
 | REQ-NF-020 | Privacy | Webhook payloads **shall not** include raw user prompts or model completions in cleartext; references (R2 keys, Bead IDs) only | Operational hygiene | M | 3 |
 
 **Total: 35 requirements** (15 functional, 20 non-functional). Each is independently testable.
@@ -162,7 +165,7 @@ Requirements are written in shall-language. Each is independently testable. Prio
 | RISK-007 | Webhook replay attack or accidental duplicate delivery causes duplicate Fidelity VR runs and duplicate Incidents | M | H | **MH** | HMAC signature (REQ-NF-004); idempotency key (REQ-NF-003); dedupe table in ArangoDB with TTL | Factory |
 | RISK-008 | ArangoDB schema evolution for new collections lands without migration; existing queries break | M | M | **MM** | Versioned migration in schemas/ with up/down; pre-deploy schema check in CF Worker startup | Factory |
 | RISK-009 | Working directory binding loss: agent writes artifacts to city root instead of rig, gate reads wrong path (Evidence: RESULTS.md obs #7) | H | M | **HM** | REQ-F-013 explicit; agent prompt includes `cd $RIG_ROOT`; gate script asserts $ARTIFACTS under rig | Integration |
-| RISK-010 | Coherence gate silent-pass on Factory outage (Phase 0 gate had `|| true` masking 5xx) | M | H | **MH** | REQ-NF-019 explicit; gate must distinguish "Factory said warn" from "Factory unreachable"; chaos test drops Factory, asserts gate does NOT exit 0 | Integration |
+| RISK-010 | Convergence gate silent-pass when `verifier_report.md` is absent or empty (Phase 0 gate had `|| true` masking failures) | M | H | **MH** | REQ-NF-019 explicit; gate must distinguish "Verdict: PASS" from "file missing / parse error"; test: delete report file, assert gate exits non-zero | Gas City |
 | RISK-011 | Cross-boundary auth secret rotation breaks integration silently | M | M | **MM** | Single source of truth (CF secret); Gas City reads from env; rotation runbook; both ends emit auth_version in headers | Integration |
 | RISK-012 | Bitter Lesson regression: integration optimization baked in becomes barrier when smarter model would do better | L | M | **LM** | Architect review on every optimization PR; prefer caching at outermost layer; ZFC audit each release | Factory |
 | RISK-013 | Phase 0 behaviors not all categorized; one becomes load-bearing assumption without being lifted into requirement | M | H | **MH** | §6 below classifies every observation; SE re-reviews before Phase 1 sign-off | SE |
@@ -177,7 +180,7 @@ Requirements are written in shall-language. Each is independently testable. Prio
 |---|---|
 | P0 — Gas City rig works | — (DONE) |
 | P1 — ES→Formula + Beads lineage | P0 |
-| P2 — Coherence gate live | P0, P1 |
+| P2 — Convergence loop validated + event bridge live | P0, P1 |
 | P3 — Event Bus webhook live | P0, P1, P2 |
 | P4 — Amendment loop | P0, P1, P2, P3 |
 | P5 — Production k8s | P4 + 30 days monitored |
@@ -185,7 +188,7 @@ Requirements are written in shall-language. Each is independently testable. Prio
 ### Load-bearing intra-phase dependencies
 
 - **P1:** REQ-F-001..004 + REQ-NF-016..017 + REQ-NF-005. Without compiler determinism and version pinning, every downstream phase is quicksand.
-- **P2:** depends on FA-1 (compiler producing gate-script reference) and FA-3 (Bead query for es-id context).
+- **P2:** depends on FA-1 (compiler producing `evaluate.md` companion), FA-3 (Bead query for es-id context), and Gas City webhook capability (Q4-A must be answered before Phase 2 begins).
 - **P3:** depends on P1's label discipline — webhook routing keys off `es-id`/`fn-id` labels.
 - **P4:** the closure of P1+P2+P3. It is also the test of all three.
 
@@ -230,17 +233,17 @@ Requirements are written in shall-language. Each is independently testable. Prio
 | G-P1.9 | Gas City unreachable → retry, no duplicate | Chaos test: kill GC 30s → exactly one Bead on recovery |
 | G-P1.10 | Working-directory binding correct | Agent operates from rig dir; gate reads artifacts from rig dir (closes obs #7) |
 
-### Phase 2 — Convergence Gate
+### Phase 2 — Convergence Loop Validation
 
 | Gate | Statement | Evidence |
 |---|---|---|
-| G-P2.1 | POST /verify/coherence/{es-id} returns all four verdicts | Endpoint smoke test; HTTP schema validated |
-| G-P2.2 | Gate script maps verdicts correctly | Unit test: pass→0, warn→0, fail→1, escalate→manual+0 |
-| G-P2.3 | Bad patch caught; Gas City iterates | Smoke: broken patch → fail → iteration → good patch → pass |
-| G-P2.4 | Verdict P99 ≤ 60 s | Load test 100 verdicts |
-| G-P2.5 | Factory outage does NOT silent-pass | Chaos test: take down endpoint → gate exits non-zero (closes RISK-010) |
-| G-P2.6 | prompts/convergence/evaluate.md exists with required substrings | Static check on emitted file (closes obs #2) |
-| G-P2.7 | Every verdict persisted to verification_status | Post-run query returns row per gate eval with full probe trace |
+| G-P2.1 | Gas City VERIFY stage produces `artifacts/verifier_report.md` with first line `Verdict: PASS` or `Verdict: FAIL` | Smoke run; assert file exists at rig root with correct first line |
+| G-P2.2 | Convergence gate reads `verifier_report.md` from rig root; `Verdict: PASS` → exit 0; `Verdict: FAIL` → exit 1; no HTTP call to Factory | Unit test gate script on both verdicts; code review: no Factory URL in gate |
+| G-P2.3 | Bad patch caught; Gas City iterates autonomously | Smoke: inject broken patch → VERIFY fails → Gas City re-runs PATCH → VERIFY passes → `molecule.completed{verdict:pass}` |
+| G-P2.4 | VERIFY stage completes ≤ 300 s P99; Factory OPR-* created ≤ 5 s of event receipt | Timing instrumentation on 20 smoke runs |
+| G-P2.5 | Missing or empty `verifier_report.md` does NOT silent-pass gate | Chaos test: delete report before gate runs → gate exits non-zero (closes RISK-010) |
+| G-P2.6 | `prompts/convergence/evaluate.md` exists with required substrings | Static check on emitted file (closes obs #2) |
+| G-P2.7 | Factory creates OPR-* in ArangoDB on `molecule.completed` event | Post-run ArangoDB query returns OPR-* with verdict, Bead ID, and ES-ID |
 
 ### Phase 3 — Event Bus Webhook
 
@@ -320,15 +323,15 @@ Requirements are written in shall-language. Each is independently testable. Prio
 
 10. **CF Containers ACP capability.** Are CF Containers today capable of exposing ACP for Phase 5 session routing? If not, what is the bridge component?
 
-11. **Crystallizer probe coupling to ES.** How does /verify/coherence/{es-id} know which probes apply — probe list in ES, looked up by FN-ID, or both?
+11. **Coherence VR probe selection.** When Factory runs pre-dispatch Coherence VR on an ES, how does it know which Crystallizer probes apply — probe list embedded in ES schema, looked up by domain adapter, looked up by FN-ID, or all probes applied?
 
-12. **Crystallizer failure isolation.** If a probe panics or returns malformed verdict → 5xx. REQ-NF-019 says don't silent-pass. Fail closed (hold molecule), retry, or escalate?
+12. **Coherence VR failure mode.** If a Crystallizer probe panics or returns malformed output during pre-dispatch check: (a) fail-closed and block dispatch; (b) retry up to N times then fail-closed; (c) emit UncertaintyEntry and escalate to architect. Gate is pre-dispatch — no running Gas City session is affected.
 
 ---
 
 ## 8. Summary for the Principal
 
-**Bottom line:** 8 functional areas, 35 testable requirements, 13 risks (7 high-impact), 4 phases with 37 explicit gate conditions.
+**Bottom line:** 8 functional areas, 35 testable requirements, 13 risks (7 high-impact), 4 phases with 37 explicit gate conditions. Boundary revised from SE Ontology §7: fidelity-validation is Gas City-internal; Factory Coherence VR is pre-dispatch only; no Factory endpoint is called during Gas City execution.
 
 **Phase 0 PASS is real but narrow.** It validated single-pass shape only. Convergence loop is unvalidated — re-proven in Phase 2.
 
