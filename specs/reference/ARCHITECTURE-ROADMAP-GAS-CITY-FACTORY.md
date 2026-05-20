@@ -31,7 +31,7 @@ The line that must hold: **ArangoDB is governance truth. Dolt/Beads is operation
                                │ (read queries from Factory + Gas City sessions)
                                │
 ┌──────────────────────────────▼─────────────────────────────────────────┐
-│  FACTORY (Trellis) — Governance Layer                                  │
+│  FACTORY — Governance Layer                                            │
 │  Cloudflare Workers + ArangoDB                                         │
 │                                                                        │
 │  Owns lifecycle:                                                       │
