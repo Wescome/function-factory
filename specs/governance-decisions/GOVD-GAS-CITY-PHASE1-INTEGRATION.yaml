@@ -25,9 +25,9 @@ decisions:
       - option: A
         label: TEP-only
         description: >
-          Pass 9 takes the Trajectory Execution Plan as input. TEP is the current
-          implementation of the Executable Specification — the canonical runtime boundary
-          per TRELLIS-IMPLEMENTATION-PLAN.md.
+          Pass 9 takes the Trellis Execution Packet (TEP) as input. The TEP is the current
+          codebase's instantiation of the Executable Specification — the canonical runtime
+          boundary per TRELLIS-EXECUTION-PACKET.md and TRELLIS-IMPLEMENTATION-PLAN.md.
         score: HIGH
         recommendation: true
       - option: B
