@@ -20,6 +20,7 @@ import {
   type PRGenerationInput,
   type PRGenerationResult,
 } from './generate-pr'
+import { getInstallationToken } from '../github-app-auth'
 
 vi.mock('../github-app-auth', () => ({
   getInstallationToken: vi.fn(async () => 'ghs_installation_token'),
@@ -246,6 +247,11 @@ describe('buildPRBody', () => {
 })
 
 describe('generatePR', () => {
+  beforeEach(() => {
+    vi.mocked(getInstallationToken).mockClear()
+    vi.mocked(getInstallationToken).mockResolvedValue('ghs_installation_token')
+  })
+
   afterEach(() => {
     globalThis.fetch = originalFetch
   })
@@ -276,6 +282,149 @@ describe('generatePR', () => {
     expect(createPR).toBeDefined()
     expect((createPR!.body as Record<string, unknown>).title).toContain('[Factory]')
     expect((createPR!.body as Record<string, unknown>).base).toBe('main')
+  })
+
+  it('retries with fresh token on 401 from GitHub API mid-operation', async () => {
+    let mainRefCalls = 0
+    globalThis.fetch = vi.fn(async (url: string | Request, init?: RequestInit) => {
+      const urlStr = typeof url === 'string' ? url : url.url
+      const method = init?.method ?? 'GET'
+
+      if (urlStr.includes('/git/ref/heads/main') && method === 'GET') {
+        mainRefCalls++
+        if (mainRefCalls === 1) {
+          return new Response(JSON.stringify({ message: 'Bad credentials' }), { status: 401 })
+        }
+        return new Response(JSON.stringify({
+          object: { sha: 'abc123mainsha' },
+        }), { status: 200 })
+      }
+
+      if (urlStr.includes('/git/commits/abc123mainsha') && method === 'GET') {
+        return new Response(JSON.stringify({
+          sha: 'basecommitsha',
+          tree: { sha: 'basetreesha' },
+        }), { status: 200 })
+      }
+
+      if (urlStr.includes('/git/refs') && method === 'POST') {
+        return new Response(JSON.stringify({ ref: 'refs/heads/factory/fn-test' }), { status: 201 })
+      }
+
+      if (urlStr.includes('/git/trees/basetreesha?recursive=1') && method === 'GET') {
+        return new Response(JSON.stringify({
+          tree: [],
+          truncated: false,
+        }), { status: 200 })
+      }
+
+      if (urlStr.includes('/git/blobs') && method === 'POST') {
+        return new Response(JSON.stringify({ sha: 'blobsha123' }), { status: 201 })
+      }
+
+      if (urlStr.endsWith('/git/trees') && method === 'POST') {
+        return new Response(JSON.stringify({ sha: 'newtreesha' }), { status: 201 })
+      }
+
+      if (urlStr.endsWith('/git/commits') && method === 'POST') {
+        return new Response(JSON.stringify({ sha: 'newcommitsha' }), { status: 201 })
+      }
+
+      if (urlStr.includes('/git/refs/heads/') && method === 'PATCH') {
+        return new Response(JSON.stringify({ object: { sha: 'newcommitsha' } }), { status: 200 })
+      }
+
+      if (urlStr.includes('/pulls') && method === 'POST') {
+        return new Response(JSON.stringify({
+          html_url: 'https://github.com/Wescome/function-factory/pull/42',
+          number: 42,
+        }), { status: 201 })
+      }
+
+      if (urlStr.includes('/labels') && method === 'POST') {
+        return new Response(JSON.stringify({}), { status: 201 })
+      }
+
+      return new Response('Not Found', { status: 404 })
+    }) as unknown as typeof fetch
+
+    const result = await generatePR(makeInput(), githubAppEnv)
+
+    expect(result.success).toBe(true)
+    expect(mainRefCalls).toBe(2)
+    expect(getInstallationToken).toHaveBeenCalledTimes(2)
+  })
+
+  it('retries branch creation with suffix on 422 collision', async () => {
+    let createBranchCalls = 0
+    globalThis.fetch = vi.fn(async (url: string | Request, init?: RequestInit) => {
+      const urlStr = typeof url === 'string' ? url : url.url
+      const method = init?.method ?? 'GET'
+
+      if (urlStr.includes('/git/ref/heads/main') && method === 'GET') {
+        return new Response(JSON.stringify({
+          object: { sha: 'abc123mainsha' },
+        }), { status: 200 })
+      }
+
+      if (urlStr.includes('/git/commits/abc123mainsha') && method === 'GET') {
+        return new Response(JSON.stringify({
+          sha: 'basecommitsha',
+          tree: { sha: 'basetreesha' },
+        }), { status: 200 })
+      }
+
+      if (urlStr.includes('/git/refs') && method === 'POST') {
+        createBranchCalls++
+        if (createBranchCalls === 1) {
+          return new Response(JSON.stringify({ message: 'Reference already exists' }), { status: 422 })
+        }
+        return new Response(JSON.stringify({ ref: 'refs/heads/factory/fn-test-2' }), { status: 201 })
+      }
+
+      if (urlStr.includes('/git/trees/basetreesha?recursive=1') && method === 'GET') {
+        return new Response(JSON.stringify({
+          tree: [],
+          truncated: false,
+        }), { status: 200 })
+      }
+
+      if (urlStr.includes('/git/blobs') && method === 'POST') {
+        return new Response(JSON.stringify({ sha: 'blobsha123' }), { status: 201 })
+      }
+
+      if (urlStr.endsWith('/git/trees') && method === 'POST') {
+        return new Response(JSON.stringify({ sha: 'newtreesha' }), { status: 201 })
+      }
+
+      if (urlStr.endsWith('/git/commits') && method === 'POST') {
+        return new Response(JSON.stringify({ sha: 'newcommitsha' }), { status: 201 })
+      }
+
+      if (urlStr.includes('/git/refs/heads/') && method === 'PATCH') {
+        return new Response(JSON.stringify({ object: { sha: 'newcommitsha' } }), { status: 200 })
+      }
+
+      if (urlStr.includes('/pulls') && method === 'POST') {
+        return new Response(JSON.stringify({
+          html_url: 'https://github.com/Wescome/function-factory/pull/42',
+          number: 42,
+        }), { status: 201 })
+      }
+
+      if (urlStr.includes('/labels') && method === 'POST') {
+        return new Response(JSON.stringify({}), { status: 201 })
+      }
+
+      return new Response('Not Found', { status: 404 })
+    }) as unknown as typeof fetch
+
+    const result = await generatePR(makeInput(), githubAppEnv)
+
+    expect(result.success).toBe(true)
+    expect(result.branchName).toMatch(/-2$/)
+    expect(result.filesWritten).toBeGreaterThan(0)
+    expect(createBranchCalls).toBe(2)
   })
 
   it('skips atoms with verdict != pass', async () => {

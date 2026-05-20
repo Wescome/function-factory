@@ -419,6 +419,9 @@ export async function generatePR(
           warnings.push(`BLOCKED: create action on existing file: ${filePath} (${existingContent?.length ?? 0} chars). Atom must use modify with edits.`)
           continue
         }
+      } else if (primaryAction === 'create' && baseTree.truncated) {
+        warnings.push(`BLOCKED: create action on ${filePath} — base tree was truncated, cannot confirm file does not exist. Use modify with edits.`)
+        continue
       } else if (primaryAction === 'modify') {
         filesNotFound.push(filePath)
         warnings.push(`Modify target not found on branch, treating as create: ${filePath}`)
