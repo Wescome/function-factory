@@ -56,7 +56,7 @@ Deliberately deferred:
 - Avoid Workflow-to-Durable-Object deadlock patterns.
 - Keep Dream optional; the pipeline must work if learning is disabled.
 - Use current ontology language: Intent Specification, Executable
-  Specification, Verification, Trellis Execution Packet, Evidence, Lifecycle.
+  Specification, Verification, Execution Packet, Evidence, Lifecycle.
 - Treat routing/model changes as proposals, never direct Dream mutations.
 - Defer LLM consolidation until deterministic evidence logic works.
 
@@ -229,8 +229,8 @@ happens when the source is unavailable.
 | `proposal_id` | Pipeline run state or persisted Function Proposal reference | Phase 4 | Nullable when proposal creation did not happen; include rationale |
 | `intent_specification_id` | Pipeline run state or persisted Intent Specification reference | Phase 4 | Nullable before Intent Specification creation; include rationale |
 | `executable_specification_id` | Compile result / persisted Executable Specification reference | Phase 4 | Nullable for compile-incomplete and earlier terminal states |
-| `trellis_execution_packet_id` | Instruction Tuning result / persisted packet reference | Phase 6+ | Nullable until packet emission exists for the terminal path |
-| `trellis_execution_packet_hash` | Certified packet hash | Phase 6+ | Nullable with packet ID absence rationale |
+| `execution_packet_id` | Instruction Tuning result / persisted packet reference | Phase 6+ | Nullable until packet emission exists for the terminal path |
+| `execution_packet_hash` | Certified packet hash | Phase 6+ | Nullable with packet ID absence rationale |
 | `verification_results` | Coherence Verification report and later normalized Verification adapters | Phase 4 | Empty only when no Verification executed; include terminal-state rationale |
 | `repair_count` | Synthesis result, coordinator summary, or atom result aggregation | Phase 4 | `0` for pre-synthesis terminal states with rationale |
 | `repair_log` | Coordinator state / atom result summaries / future output reliability ledger | Phase 5+ | Initially summary-only; absent before repair loop exists |

@@ -8,7 +8,7 @@
 
 This plan implements Trellis as the packet-driven harness layer below the
 Factory compiler. It deliberately avoids physical storage/path renames until
-the Trellis Execution Packet and Instruction Tuning path are implemented,
+the Execution Packet and Instruction Tuning path are implemented,
 verified, and audited.
 
 Implementation note, 2026-05-10: phases 1-9 are now materialized in active
@@ -20,16 +20,16 @@ storage/path/package refactor.
 ## Goal
 
 Move runtime execution from raw Executable Specification consumption to a
-Trellis Execution Packet contract:
+Execution Packet contract:
 
 ```
 Executable Specification
   -> selected ArchitectureCandidate
   -> Runtime admission
   -> Instruction Tuning
-  -> TEP-* Trellis Execution Packet
-  -> Trellis runtime execution
-  -> TrellisExecutionResult
+  -> EP-* Execution Packet
+  -> Factory execution layer
+  -> ExecutionResult
   -> Fidelity / Persistence Verification
   -> Lifecycle decision
 ```
@@ -39,7 +39,7 @@ Executable Specification
 - No `ES-*`, `specs/executable-specifications`, or `executable_specifications` storage migration.
 - No package rename.
 - No model fine-tuning.
-- No lifecycle promotion inside Instruction Tuning or Trellis execution.
+- No lifecycle promotion inside Instruction Tuning or Factory execution.
 - No coding substrate terms in Factory kernel fields.
 - No compatibility aliases for removed active runtime/compiler APIs.
 
@@ -69,7 +69,7 @@ Acceptance:
 
 ## Phase 1: Packet Schema Foundation
 
-Purpose: make the Trellis Execution Packet a first-class typed Factory artifact.
+Purpose: make the Execution Packet a first-class typed Factory artifact.
 
 Files likely affected:
 
@@ -86,7 +86,7 @@ Work:
 - Add Zod schemas for:
   - `TrellisExecutionPacket`
   - `InstructionTuningProvenance`
-  - `TrellisRuntimeProfile`
+  - `RuntimeProfile`
   - `DomainAdapterBinding`
   - `TrellisRoleInstruction`
   - `TrellisRoleGraph`
@@ -95,14 +95,14 @@ Work:
   - `EvidenceRequirement`
   - `TrellisRepairPolicy`
   - `LifecyclePathway`
-  - `TrellisExecutionResult`
+  - `ExecutionResult`
   - `TrellisPacketAudit`
 - Export the schema module.
 - Add parser tests for valid packet and required-field failures.
 
 Negative tests:
 
-- rejects missing `TEP-*` ID
+- rejects missing `EP-*` ID
 - rejects missing `source_refs`
 - rejects missing selected ArchitectureCandidate ID
 - rejects missing runtime admission ID
@@ -178,9 +178,9 @@ Work:
 - Add `InstructionTuningResult` union:
   - `{ status: "emitted"; packet; diagnostics }`
   - `{ status: "blocked"; diagnostics; uncertaintyEntries }`
-- Add deterministic `TEP-*` ID derivation.
+- Add deterministic `EP-*` ID derivation.
 - Map Executable Specification + ArchitectureCandidate + runtime admission +
-  Domain Adapter Contract + TrellisRuntimeProfile into a packet.
+  Domain Adapter Contract + RuntimeProfile into a packet.
 - Return blocking diagnostics for missing or unmappable inputs.
 - Do not integrate into `compile()` yet.
 
@@ -216,7 +216,7 @@ Files likely affected:
 
 Work:
 
-- Add a TrellisRuntimeProfile fixture for current coding execution.
+- Add a RuntimeProfile fixture for current coding execution.
 - Bind current role/tool/memory/policy catalogs as Trellis runtime capabilities.
 - Bind coding adapter effectors and evidence sources through
   `DomainAdapterContract`.
@@ -277,7 +277,7 @@ Acceptance:
 
 ## Phase 6: Packet Persistence Surface
 
-Purpose: persist `TEP-*` artifacts without changing deferred `ES-*` storage.
+Purpose: persist `EP-*` artifacts without changing deferred `ES-*` storage.
 
 Files likely affected:
 
@@ -350,7 +350,7 @@ Acceptance:
 
 ## Phase 8: Packet-Only Runtime Boundary
 
-Purpose: enforce Trellis execution through packets.
+Purpose: enforce Factory execution through packets.
 
 Files likely affected:
 
@@ -367,7 +367,7 @@ Work:
 - Make coordinator reject packet-less execution outside explicitly named
   transitional diagnostics.
 - Update diagnostics to expose packet ID/hash in execution reports.
-- Add ontology audit checks preventing packet-less Trellis execution in active
+- Add ontology audit checks preventing packet-less Factory execution in active
   source.
 
 Negative tests:
@@ -400,7 +400,7 @@ Files likely affected:
 
 Work:
 
-- Adapt TrellisExecutionResult into Fidelity Verification inputs.
+- Adapt ExecutionResult into Fidelity Verification inputs.
 - Preserve packet ID/hash in Verification reports.
 - Distinguish Fidelity evidence from Persistence observation inputs.
 - Ensure lifecycle transition checks can verify packet-derived report lineage.
@@ -439,7 +439,7 @@ Acceptance:
 - `pnpm audit:docs`
 - `pnpm audit:ontology`
 - `git diff --check`
-- active source search shows no packet-less Trellis execution path outside
+- active source search shows no packet-less Factory execution path outside
   named transitional diagnostics
 
 ## Commit Strategy
@@ -459,10 +459,10 @@ Every commit must include the relevant focused tests and audit update.
 
 Do not start physical storage/path/package renames until:
 
-- `TEP-*` schema and packet persistence are implemented.
+- `EP-*` schema and packet persistence are implemented.
 - Instruction Tuning emits deterministic packets.
 - Coordinator consumes packets as the runtime authority.
-- TrellisExecutionResult feeds Fidelity Verification.
+- ExecutionResult feeds Fidelity Verification.
 - Packet ID/hash appears in runtime evidence and Verification reports.
 - Ontology audit blocks packet-less active runtime execution.
 - Full tests and audits pass.

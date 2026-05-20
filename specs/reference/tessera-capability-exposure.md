@@ -1,9 +1,9 @@
 # Tessera Capability Exposure
 
-**Status:** Reference document for Trellis architecture integration
+**Status:** Reference document for Factory execution layer integration
 **Date:** 2026-05-10
 **Author:** Tessera session (GitNexus → Tessera genesis)
-**Purpose:** Expose what Tessera can do so Trellis can decide how to use it
+**Purpose:** Expose what Tessera can do so the Factory execution layer can decide how to use it
 
 ---
 

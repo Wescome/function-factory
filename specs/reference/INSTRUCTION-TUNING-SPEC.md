@@ -7,7 +7,7 @@
 `.agent/memory/semantic/DECISIONS.md`
 
 Instruction Tuning is the compiler transformation that projects a Coherence
-Verification-passed Executable Specification into a Trellis Execution Packet.
+Verification-passed Executable Specification into a Execution Packet.
 
 It is not model fine-tuning. It is deterministic instruction shaping: role
 projection, context selection, tool-policy binding, adapter binding, evidence
@@ -23,8 +23,8 @@ Intent Specification
   -> ArchitectureCandidate selection
   -> Runtime admission
   -> Instruction Tuning
-  -> Trellis Execution Packet
-  -> Trellis execution
+  -> Execution Packet
+  -> Factory execution layer
   -> Evidence
   -> Fidelity / Persistence Verification
 ```
@@ -42,7 +42,7 @@ Required inputs:
 - Selected ArchitectureCandidate.
 - Runtime admission artifact.
 - Domain Adapter Contract.
-- TrellisRuntimeProfile.
+- RuntimeProfile.
 - Verification obligations derived from invariants and validations.
 - Runtime policy constraints.
 
@@ -64,7 +64,7 @@ Instruction Tuning returns a typed result union.
 type InstructionTuningResult =
   | {
       status: 'emitted'
-      packet: TrellisExecutionPacket
+      packet: ExecutionPacket
       diagnostics: InstructionTuningDiagnostic[]
     }
   | {
@@ -108,7 +108,7 @@ Determine the execution attempt scope:
 
 Output:
 
-- `TEP-*` artifact identity inputs
+- `EP-*` artifact identity inputs
 - source refs
 - adapter binding seed
 - lifecycle pathway seed
@@ -136,7 +136,7 @@ Output:
 
 Rules:
 
-- One Executable Specification node may map to one or more Trellis roles.
+- One Executable Specification node may map to one or more execution roles.
 - Multiple nodes may map to one role only when their dependencies and tool
   authority are compatible.
 - Projection must preserve dependency ordering.
@@ -274,7 +274,7 @@ Fail-closed conditions:
 
 ### 7. Repair Policy Construction
 
-Construct bounded repair rules for Trellis execution.
+Construct bounded repair rules for Factory execution layer.
 
 Output:
 
@@ -302,7 +302,7 @@ Fail-closed conditions:
 
 ### 8. Completion Contract Construction
 
-Define the Trellis completion output contract.
+Define the execution completion output contract.
 
 Output:
 
@@ -310,7 +310,7 @@ Output:
 - failure statuses
 - required outputs
 - required evidence
-- TrellisExecutionResult schema ref
+- ExecutionResult schema ref
 - lifecycle pathway
 
 Rules:
@@ -334,7 +334,7 @@ Validate the packet before returning it.
 Certification checks:
 
 - all source refs resolve or are explicitly virtual compiler refs
-- packet ID uses `TEP-*`
+- packet ID uses `EP-*`
 - all role graph references resolve
 - all tools are policy-bound
 - all write/execute scopes are non-empty
@@ -389,14 +389,14 @@ verification evidence.
 
 Recommended implementation order:
 
-1. Add `TEP-*` artifact prefix support and a `TrellisExecutionPacket` Zod
+1. Add `EP-*` artifact prefix support and a `ExecutionPacket` Zod
    schema/parser.
 2. Add `InstructionTuningResult`, `InstructionTuningDiagnostic`, and blocked
    result tests.
 3. Add deterministic canonical serialization and packet hashing helpers.
 4. Add pure Instruction Tuning module that accepts an Executable Specification,
    selected ArchitectureCandidate, runtime admission artifact, Domain Adapter
-   Contract, and TrellisRuntimeProfile.
+   Contract, and RuntimeProfile.
 5. Add packet certification tests before runtime integration.
 6. Add compiler orchestration after Executable Specification Assembly.
 7. Thread packet into the existing coordinator.
@@ -405,7 +405,7 @@ Recommended implementation order:
 9. Add Fidelity Verification fixtures proving packet evidence flows into
    lifecycle acceptance.
 10. Update `pnpm audit:ontology` to prevent raw runtime execution bypass,
-    old active-name re-entry, and packet-less Trellis execution.
+    old active-name re-entry, and packet-less Factory execution layer.
 
 Required negative tests:
 

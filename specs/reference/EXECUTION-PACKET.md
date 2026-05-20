@@ -1,4 +1,4 @@
-# Trellis Execution Packet
+# Execution Packet
 
 **Status:** Active specification draft
 **Date:** 2026-05-10
@@ -6,13 +6,13 @@
 `TRELLIS-REFACTOR-FIRST-CUT.md`, `ONTOLOGY-CURRENT-MAPPING.md`,
 `.agent/memory/semantic/DECISIONS.md`
 
-The Trellis Execution Packet is the lineage-bearing, harness-facing artifact
-that bridges the Factory compiler and Trellis runtime execution.
+The Execution Packet is the lineage-bearing, harness-facing artifact
+that bridges the Factory compiler and Factory execution layer.
 
 The Factory produces an Executable Specification. Instruction Tuning projects
 that Executable Specification, a selected ArchitectureCandidate, runtime
 admission evidence, and a Domain Adapter Contract into a Trellis Execution
-Packet. Trellis consumes the packet, orchestrates role execution, invokes the
+Packet. Factory execution layer consumes the packet, orchestrates role execution, invokes the
 Domain Adapter through typed execution requests, captures evidence, and returns
 a typed execution result for Verification.
 
@@ -22,8 +22,8 @@ The packet is a persistent Factory artifact, not an anonymous runtime blob.
 
 Artifact family:
 
-- Prefix: `TEP-*`
-- Name: Trellis Execution Packet
+- Prefix: `EP-*`
+- Name: Execution Packet
 - Storage: implementation slice must choose the physical collection/path.
 - Required schema update: extend the artifact ID parser to accept `TEP`.
 
@@ -43,7 +43,7 @@ Factory owns:
 - Verification obligations.
 - Lifecycle decisions.
 
-Trellis owns:
+Execution layer owns:
 
 - Harness role scheduling.
 - Tool authority enforcement.
@@ -59,21 +59,21 @@ Domain Adapters own:
 - Substrate-specific evidence sources.
 - Substrate-specific handoff artifacts.
 
-Trellis must not read compiler intermediates directly. Trellis may execute only
-from a parsed Trellis Execution Packet. During migration, any raw Executable
+The execution layer must not read compiler intermediates directly. The execution layer may execute only
+from a parsed Execution Packet. During migration, any raw Executable
 Specification execution path must be explicitly marked transitional and must
 emit a violation diagnostic.
 
 ## Packet Contract
 
-A Trellis Execution Packet is immutable for a single execution attempt. Trellis
+A Execution Packet is immutable for a single execution attempt. Trellis
 may emit evidence, traces, and repair proposals, but it must not mutate the
 packet that authorized the attempt.
 
 Minimum shape:
 
 ```ts
-interface TrellisExecutionPacket {
+interface ExecutionPacket {
   id: string
   packetVersion: string
   functionId: string
@@ -85,9 +85,9 @@ interface TrellisExecutionPacket {
   explicitness: 'explicit' | 'inferred'
   rationale: string
   instructionTuning: InstructionTuningProvenance
-  runtimeProfile: TrellisRuntimeProfile
+  runtimeProfile: RuntimeProfile
   adapter: DomainAdapterBinding
-  roles: TrellisRoleInstruction[]
+  roles: RoleInstruction[]
   roleGraph: TrellisRoleGraph
   contextBundle: TrellisContextBundle
   toolPolicy: TrellisToolPolicy
@@ -101,7 +101,7 @@ interface TrellisExecutionPacket {
 
 Rules:
 
-- `id` must use the `TEP-*` artifact family.
+- `id` must use the `EP-*` artifact family.
 - `source_refs` must include the Intent Specification, Executable
   Specification, selected ArchitectureCandidate, runtime admission artifact,
   and Domain Adapter Contract reference.
@@ -157,7 +157,7 @@ Rules:
 ## Runtime Profile
 
 ```ts
-interface TrellisRuntimeProfile {
+interface RuntimeProfile {
   profileId: string
   roleCatalogRef: string
   toolCatalogRef: string
@@ -203,7 +203,7 @@ DomainExecutionEvidence.
 ## Role Instructions
 
 ```ts
-interface TrellisRoleInstruction {
+interface RoleInstruction {
   roleId: string
   roleKind: string
   objective: string
@@ -233,7 +233,7 @@ Rules:
 ## Role Graph
 
 ```ts
-interface TrellisRoleGraph {
+interface RoleGraph {
   nodes: Array<{
     roleId: string
     executableNodeRefs: string[]
@@ -257,7 +257,7 @@ functional obligations.
 ## Context Bundle
 
 ```ts
-interface TrellisContextBundle {
+interface ContextBundle {
   intentSummary: string
   executableSummary: string
   invariants: string[]
@@ -279,13 +279,13 @@ Rules:
 - Context must preserve source lineage back to the Intent Specification,
   Executable Specification, ArchitectureCandidate, runtime policy, or adapter
   contract.
-- Trellis must not fetch extra memory opportunistically unless the packet grants
+- The execution layer must not fetch extra memory opportunistically unless the packet grants
   a tool or memory capability for that role.
 
 ## Tool Policy
 
 ```ts
-interface TrellisToolPolicy {
+interface ToolPolicy {
   defaultPolicy: 'deny'
   bindings: ToolBinding[]
 }
@@ -319,7 +319,7 @@ Rules:
 ## Evidence Plan
 
 ```ts
-interface TrellisEvidencePlan {
+interface EvidencePlan {
   requiredEvidence: EvidenceRequirement[]
   verificationInputs: {
     fidelity: string[]
@@ -365,7 +365,7 @@ type FailureCode =
   | 'runtime-resource-exhausted'
   | 'human-escalation-required'
 
-interface TrellisRepairPolicy {
+interface RepairPolicy {
   maxRepairAttempts: number
   failureClasses: Array<{
     code: FailureCode
@@ -394,7 +394,7 @@ Rules:
 ## Completion Contract
 
 ```ts
-interface TrellisCompletionContract {
+interface CompletionContract {
   successStatus: string
   failureStatuses: string[]
   requiredOutputs: string[]
@@ -405,8 +405,8 @@ interface TrellisCompletionContract {
 
 Rules:
 
-- Trellis completion never promotes lifecycle state by itself.
-- Trellis completion returns evidence that Verification can consume.
+- Execution completion never promotes lifecycle state by itself.
+- Execution completion returns evidence that Verification can consume.
 - Lifecycle promotion remains a Factory decision after Verification.
 - Success requires all required outputs and all required evidence.
 
@@ -422,15 +422,15 @@ interface LifecyclePathway {
 
 Rules:
 
-- A normal Trellis execution packet may authorize work toward `produced`.
+- A normal Factory execution packet may authorize work toward `produced`.
 - `produced -> accepted` requires Fidelity Verification after execution.
 - `accepted -> monitored` requires active Persistence Verification and must not
-  be treated as a one-shot Trellis execution outcome.
+  be treated as a one-shot Factory execution outcome.
 
 ## Execution Result Contract
 
 ```ts
-interface TrellisExecutionResult {
+interface ExecutionResult {
   packetId: string
   packetHash: string
   runId: string
@@ -461,14 +461,14 @@ interface RepairAttemptEvidence {
 }
 ```
 
-The result contract is the bridge from Trellis execution into Verification.
+The result contract is the bridge from Factory execution into Verification.
 Every result must include `packetId` and `packetHash` so evidence can be joined
 to the exact authorization object.
 
 ## Packet Audit
 
 ```ts
-interface TrellisPacketAudit {
+interface PacketAudit {
   packetHash: string
   canonicalOrdering: string[]
   sourceVerification: Array<{
@@ -494,7 +494,7 @@ Rules:
 
 The packet is valid only if all invariants hold:
 
-1. `id` uses the `TEP-*` artifact family.
+1. `id` uses the `EP-*` artifact family.
 2. `source_refs` includes the Intent Specification, Executable Specification,
    selected ArchitectureCandidate, runtime admission artifact, and Domain
    Adapter Contract.

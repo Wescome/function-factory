@@ -19,31 +19,40 @@ decidedBy: Wes (2026-05-20)
 decisions:
 
   - id: D1
-    question: "What is the input to the Formula compiler (Trellis Execution Packet → Gas City Formula TOML)?"
+    question: "What is the input to the Formula compiler (Execution Packet → Gas City Formula TOML)?"
     phase_gate: Phase 1 blocker
     candidate_set:
       - option: A
-        label: Trellis Execution Packet (TEP) only
+        label: Execution Packet (EP) only
         description: >
-          The Formula compiler takes the Trellis Execution Packet as input. The TEP is the
+          The Formula compiler takes the Execution Packet as input. The EP is the
           codebase's current instantiation of the Executable Specification — the canonical
-          runtime boundary per TRELLIS-EXECUTION-PACKET.md and TRELLIS-IMPLEMENTATION-PLAN.md.
+          runtime boundary per EXECUTION-PACKET.md and EXECUTION-PACKET-IMPLEMENTATION-PLAN.md.
         score: HIGH
         recommendation: true
       - option: B
         label: Raw Executable Specification YAML directly
         description: >
           The Formula compiler reads the raw Executable Specification YAML artifact without
-          going through the Trellis Execution Packet. Simpler chain but bypasses the TEP
+          going through the Execution Packet. Simpler chain but bypasses the Execution Packet
           abstraction layer.
         score: MEDIUM
         rejection_class: bypasses_canonical_boundary
         rejection_predicate: >
-          The TEP is the established runtime boundary; reading the Executable Specification
-          directly would require the Formula compiler to re-implement TEP's normalization
+          The EP is the established runtime boundary; reading the Executable Specification
+          directly would require the Formula compiler to re-implement the Execution Packet's normalization
           logic, duplicating work already done by the existing compiler passes.
-    selected_option: Trellis Execution Packet only
+    selected_option: Execution Packet only
     recommendation: A+ # APPROVED 2026-05-20
+    data_flow_grounding: >
+      CORRECTION 2026-05-20 (from reading EXECUTION-PACKET.md in full):
+      The exact mapping from Execution Packet fields to Formula TOML:
+        DomainAdapterBinding.executionRequest.parameters (Record<string, unknown>)
+          → Formula TOML [vars] block
+        RoleInstruction[].instruction + .inputs + .outputs + .roleId
+          → Formula TOML [[steps]] blocks (one step per role instruction)
+      The mapping is deterministic 1:1. No LLM involved in compilation.
+      The Formula compiler is pure data transformation: Execution Packet fields → TOML syntax.
 
   - id: D2
     question: "What is the FORM-* (FormulaArtifact) lifecycle?"
@@ -58,12 +67,12 @@ decisions:
         score: HIGH
         recommendation: true
       - option: B
-        label: Inline TEP
-        description: Formula TOML embedded inside the TEP artifact, no separate artifact.
+        label: Inline in Execution Packet
+        description: Formula TOML embedded inside the Execution Packet artifact, no separate artifact.
         score: MEDIUM
         rejection_class: lineage_opacity
         rejection_predicate: >
-          Embedding Formula in TEP couples two transformation outputs; breaks
+          Embedding Formula in the Execution Packet couples two transformation outputs; breaks
           Lineage Completeness (each transformation must emit its own lineage edge).
       - option: C
         label: Ephemeral
@@ -245,6 +254,15 @@ decisions:
           Gas City is not a CF-native service. Adds integration complexity.
     selected_option: HMAC shared secret
     recommendation: A+ # APPROVED 2026-05-20 — revisit mTLS at Phase 5
+    mechanism_correction: >
+      CORRECTION 2026-05-20: Gas City v1.1 has NO native HTTP webhook emission.
+      gc event emit is an internal event log command only — it does not POST to
+      external HTTP endpoints. The "GC → Factory" notification mechanism is:
+      the Formula compiler outputs a RELEASE [[step]] in the Formula TOML that
+      HTTP POSTs the molecule completion payload to Factory's webhook endpoint.
+      Gas City agents execute steps and can make HTTP tool calls within steps.
+      The selected HMAC auth option remains correct; the emission mechanism is
+      RELEASE step HTTP POST, not a Gas City native webhook feature.
 
   - id: D9
     question: "MaxAmendmentDepth — how many amendment attempts before halt?"
@@ -343,9 +361,23 @@ decisions:
         recommendation: true
     selected_option: Gas City executes, Factory judges semantics
     recommendation: B+ # APPROVED 2026-05-20
+    llm_tension_resolution: >
+      CORRECTION 2026-05-20: The apparent LLM tension dissolves via the acceptance
+      criteria bridge. IS claims are natural language, but acceptance criteria are
+      formal machine-checkable predicates. Coherence Verification pre-dispatch
+      confirms that acceptance criteria faithfully represent IS (closing the semantic
+      gap before execution). Fidelity Verification post-execution therefore does NOT
+      need to re-evaluate IS claims from natural language. It performs:
+        (1) Evidence completeness check: did all required evidence items get produced?
+        (2) Acceptance criteria verdict bijection: does PASS/FAIL from
+            verifier_report.md correspond to every IS acceptance criterion?
+        (3) Execution coverage check: did all IS validation obligations get exercised?
+      All three are structural/deterministic checks. No LLM required at Fidelity
+      Verification time. The accepted option B remains correct; the implementation
+      is deterministic once Coherence Verification has done its pre-dispatch work.
 
   - id: D-NEW-2
-    question: "Does the Formula compiler (Trellis Execution Packet → Gas City Formula TOML) need to be registered as a new Compilation Transformation in the FF Ontology?"
+    question: "Does the Formula compiler (Execution Packet → Gas City Formula TOML) need to be registered as a new Compilation Transformation in the FF Ontology?"
     phase_gate: Phase 1 (ontology registration)
     ontology_grounding: >
       FF-ONTOLOGY Slot Map: new compiler transformation kind → Compilation Transformation,
@@ -360,7 +392,7 @@ decisions:
         description: >
           Add FormulaCompilation to FF-ONTOLOGY as a Compilation Transformation.
           Tier conversion: procedural → procedural (same tier, Gas City substrate format).
-          Emits Formula artifact (FORM-*) + lineage edge (compiled_from: TEP-ID).
+          Emits Formula artifact (FORM-*) + lineage edge (compiled_from: EP-ID).
         score: HIGH
         recommendation: true
       - option: B

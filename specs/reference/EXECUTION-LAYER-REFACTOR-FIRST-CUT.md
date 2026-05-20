@@ -1,11 +1,11 @@
-# Trellis Refactor First Cut
+# Execution Layer Refactor First Cut
 
 **Status:** First cut implemented; storage/path migration deferred
 **Date:** 2026-05-10
 **Source references:** `DOMAIN-FACTORY-KERNEL.md`,
 `ONTOLOGY-CURRENT-MAPPING.md`, `.agent/memory/semantic/DECISIONS.md`
 
-Trellis is the harness architecture target for the Function Factory refactor.
+Gas City is the execution architecture target for the Function Factory refactor.
 The Factory kernel stays domain-neutral; coding remains the bootstrap Domain
 Adapter.
 

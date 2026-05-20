@@ -50,7 +50,7 @@ From these conditions, the ownership split follows directly:
 │  Owns:                                                                 │
 │    Signal → Pressure → IS → ES (Specification cycle)                   │
 │    Coherence VR: verifies specification is coherent BEFORE dispatch    │
-│    Trellis Execution Packet → Gas City Formula TOML compilation         │
+│    Execution Packet → Gas City Formula TOML compilation         │
 │      (deterministic, no LLM)                                            │
 │    Lineage graph (ArangoDB)                                            │
 │    Amendment generation: failed verdict → new IS → ES                  │
@@ -111,22 +111,23 @@ From SE Ontology §7: fidelity-verification belongs to the execution layer. The 
 
 ### IP-1 — ES → Formula Compiler (Factory → Gas City)
 
-**What it is:** A new deterministic compiler transformation — **Trellis Execution Packet → Gas City Formula TOML** — converting the existing compiler's output into the TOML schema Gas City's `gc formula cook` expects. Pure: no LLM, no I/O, no judgment. Preceded by **Coherence Verification (CV)**: Factory verifies the Trellis Execution Packet is internally coherent before compiling to Formula. A specification that fails Coherence Verification is not dispatched.
+**What it is:** A new deterministic compiler transformation — **Execution Packet → Gas City Formula TOML** — converting the existing compiler's output into the TOML schema Gas City's `gc formula cook` expects. Pure: no LLM, no I/O, no judgment. Preceded by **Coherence Verification (CV)**: Factory verifies the Execution Packet is internally coherent before compiling to Formula. A specification that fails Coherence Verification is not dispatched.
 
-**Mapping rules (canonical):**
+**Mapping rules (canonical — sourced from TRELLIS-EXECUTION-PACKET.md 2026-05-20):**
 
-| ES / TEP field | Formula TOML field |
+| TEP field | Formula TOML field |
 |---|---|
-| `ES.id` | `[vars] es_id = "ES-XXX"` |
-| `ES.functionId` | `[vars] fn_id = "FN-XXX"` |
-| `ES.specId` | `[vars] is_id = "IS-XXX"` |
-| `ES.steps[]` | `[[steps]]` blocks |
-| `ES.inputs[]` | `[vars]` entries |
-| Domain adapter binding | `[vars] domain = "coding"` |
+| `DomainAdapterBinding.executionRequest.parameters` | `[vars]` block — all task-specific inputs |
+| `DomainAdapterBinding.executionRequest.executableSpecificationId` | `[vars] es_id = "ES-XXX"` |
+| `DomainAdapterBinding.executionRequest.functionId` | `[vars] fn_id = "FN-XXX"` |
+| `DomainAdapterBinding.executionRequest.intentSpecificationId` | `[vars] is_id = "IS-XXX"` |
+| `RoleInstruction[].roleId` | `[[steps]] name = "..."` |
+| `RoleInstruction[].instruction` | step prompt body |
+| `RoleInstruction[].inputs` + `.outputs` | step input/output annotations |
+| Domain adapter id | `[vars] domain = "coding"` (or adapter-specific) |
 
 **The Formula compiler also emits** (not just the TOML):
 - `prompts/convergence/evaluate.md` — required by Gas City converge subsystem; contains `bd meta set` and `convergence.agent_verdict` substrings (Phase 0 obs #2)
-- Role prompt stubs referencing `agents/` directory (see IP-1 open question D10)
 
 **Constraints from Phase 0:**
 - MUST emit `version = 1` (obs #1 — `convergence = true` in Formula is rejected by Gas City)
@@ -136,10 +137,9 @@ From SE Ontology §7: fidelity-verification belongs to the execution layer. The 
 **Pre-dispatch Coherence VR.** Before the compiled Formula is dispatched, Factory runs its existing Coherence Verification pipeline on the source ES. This is the `coherence-verification-function` that §7 requires before a specification can govern execution. If Coherence VR fails, dispatch is blocked and an UncertaintyEntry is emitted — not a failed Fidelity VR, because execution hasn't happened yet.
 
 **Open questions:**
-- **Q1-A.** Compiler input: TEP-only or ES directly? **Recommendation: TEP-only** (TEP is the canonical runtime boundary per TRELLIS-IMPLEMENTATION-PLAN.md).
-- **Q1-B.** FORM-* artifact: persisted `specs/formulas/` or ephemeral? **Recommendation: persisted FORM-*, full lineage.**
-- **Q1-C.** Gas City dispatch HTTP endpoint shape — confirm from Gas City source (Q-IP1-C).
-- **Q1-D.** Role prompt location: `harnesses/prompts/` in Factory repo, synced to Gas City `agents/` at city-init. **Recommendation: Factory repo canonical.**
+- **Q1-A.** SETTLED (D1 approved 2026-05-20): Compiler input = Execution Packet only. `DomainAdapterBinding.executionRequest.parameters` → `[vars]`; `RoleInstruction[]` → `[[steps]]`.
+- **Q1-B.** SETTLED (D2 approved 2026-05-20): FORM-* persisted artifact, full lineage.
+- **Q1-C.** Gas City dispatch HTTP endpoint shape — confirm from Gas City source before Phase 1.
 
 **Risk.** Gas City TOML schema drift between pinned versions. Mitigation: pin `GAS_CITY_VERSION`, validate emitted TOML against `gc formula show` before dispatch.
 
@@ -163,12 +163,12 @@ Amendment Beads additionally carry:
 amendment-of:ES-OLD-ID
 ```
 
-**OperationalRecord (`OPR-*`).** When Factory receives `molecule.completed` (IP-4), it creates an `OPR-*` artifact in ArangoDB capturing: Bead labels, verdict, duration, token usage. `source_refs: [es-id, form-id, bead-id]`. This is Factory's immutable projection of Gas City's execution reality.
+**Fidelity Verification Record.** When Factory receives `molecule.completed` (IP-4), it creates a `VR-*` artifact with `kind: fidelity` in ArangoDB capturing: Bead labels, verdict, duration, token usage, evidence completeness check, acceptance criteria verdict bijection. `source_refs: [es-id, form-id, bead-id, is-id]`. Factory judges semantics (evidence completeness + acceptance criteria coverage); Gas City judged execution (test results → Verdict: PASS/FAIL). No OPR-* prefix — D3 approved VR-* with kind=fidelity as the correct ontological home (FF-ONTOLOGY: Fidelity Verification produces Verification Report by definition).
 
-**No `BEAD-*` artifact.** Factory does not claim ownership of Beads. Bead ID lives inside OPR-* as a field.
+**No `BEAD-*` artifact.** Factory does not claim ownership of Beads. Bead ID lives inside VR-* as a field.
 
 **Open questions:**
-- **Q2-A.** Add `OPR-*` prefix? **Recommendation: yes — operational records are neither verdicts nor lineage edges.**
+- **Q2-A.** SETTLED (D3 approved 2026-05-20): VR-* with kind=fidelity. No OPR-* prefix.
 - **Q2-B.** Amendment Bead: label `amendment-of` + Gas City Bead parent field? **Recommendation: both — label for queryability, parent for Gas City native dependency tracking.** Confirm Gas City supports Bead parent.
 
 ---
@@ -194,8 +194,10 @@ amendment-of:ES-OLD-ID
 
 **Factory's role after molecule.completed:**
 - Receives the event with verdict and artifacts (see IP-4)
-- PASS: creates OPR-*, updates lineage, may promote function lifecycle
-- FAIL (after Gas City exhausted convergence iterations): creates OPR-* (status=failed), triggers Amendment loop (IP-5)
+- PASS: runs Fidelity Verification (evidence completeness + acceptance criteria bijection — deterministic, no LLM); creates VR-* (kind=fidelity, status=pass); updates lineage; may promote function lifecycle
+- FAIL (after Gas City exhausted convergence iterations): creates VR-* (kind=fidelity, status=failed); triggers Amendment loop (IP-5)
+
+**Fidelity Verification is deterministic.** Factory does not re-evaluate IS claims from natural language. Coherence Verification pre-dispatch confirmed that acceptance criteria faithfully represent the IS. Fidelity Verification post-execution checks: (1) evidence completeness — all required evidence items produced? (2) acceptance criteria verdict bijection — does PASS/FAIL from verifier_report.md cover every IS acceptance criterion? (3) execution coverage — all IS validation obligations exercised? All structural checks. No LLM required.
 
 **What Coherence Verification is NOT:** Coherence Verification is not a runtime gate. It is a pre-dispatch check that the specification is internally consistent. It runs before the Formula compiler produces output, not during Gas City execution. Factory does not expose a `/verify/coherence` endpoint for Gas City to call.
 
@@ -211,18 +213,21 @@ amendment-of:ES-OLD-ID
 
 | Gas City Event | Payload | Factory Action |
 |---|---|---|
-| `molecule.completed` (PASS) | verdict, artifacts, bead labels | Create OPR-* (status=pass); update Function lifecycle toward verified |
-| `molecule.completed` (FAIL, iterations exhausted) | verdict, failure trace | Create OPR-* (status=failed); trigger Amendment generation (IP-5) |
-| `molecule.failed` (Gas City execution error) | error kind | Create OPR-* (status=error); create SIG-* Signal |
+| `molecule.completed` (PASS) | verdict, artifacts, bead labels | Run Fidelity Verification; create VR-* (kind=fidelity, status=pass); update Function lifecycle |
+| `molecule.completed` (FAIL, iterations exhausted) | verdict, failure trace | Create VR-* (kind=fidelity, status=failed); trigger Amendment generation (IP-5) |
+| `molecule.failed` (Gas City execution error) | error kind | Create VR-* (kind=fidelity, status=error); create SIG-* Signal |
 | `health.stall` | stall duration, bead labels | Create INC-* Incident |
-| `session.crash` | session id, bead labels | Create OPR-* (status=crashed); observation only — GUPP handles restart |
+| `session.crash` | session id, bead labels | Create VR-* (kind=fidelity, status=crashed); observation only — GUPP handles restart |
 | `convergence.evaluate` | iteration count, stage | Store in drift-memory for learning substrate |
 
 **Critical:** Webhook handler is append-only and side-effect-free with respect to Gas City. Handler writes to ArangoDB only. Never calls back into Gas City.
 
+**Notification mechanism — RELEASE step HTTP POST:**
+Gas City v1.1 has NO native outbound webhook emission. `gc event emit` is internal-only (event log). Mechanism: the Formula compiler outputs a RELEASE `[[step]]` in the Formula TOML that HTTP POSTs the molecule completion payload to Factory's `POST /webhooks/gascity` endpoint. Gas City agents can make HTTP tool calls within step execution. Payload carries HMAC signature (D8). This is within existing Gas City capability — no Gas City contribution required.
+
 **Open questions:**
-- **Q4-A.** Does Gas City v1.1 publish webhooks natively, or does this require a Gas City contribution? **Gates Phase 3. Must confirm before Phase 3 design.**
-- **Q4-B.** Webhook delivery guarantees and retry behavior — Gas City API question.
+- **Q4-A.** ANSWERED 2026-05-20: No native Gas City webhook. RELEASE step is the mechanism. No Gas City contribution needed for Phase 1-3.
+- **Q4-B.** Delivery guarantee = step retry policy (Gas City converge retry). Factory handler is idempotent (HMAC + dedupe key).
 - **Q4-C.** Amendment trigger: synchronous in webhook handler or async via queue? **Recommendation: async via queue** (Worker time limits).
 
 ---
@@ -295,7 +300,7 @@ Phase 0 PASS is real but **narrow**: validated `gc formula cook` (linear single-
 
 **Complexity: M.** The hard part is validating the convergence loop shape (which Phase 0 did not prove) and confirming the webhook bridge works.
 
-**Forces:** Gas City webhook capability (Q4-A — must answer before Phase 2 begins), HMAC auth.
+**Forces:** HMAC auth for RELEASE step POST, FORM-* RELEASE step shape, Fidelity Verification deterministic checks implementation.
 
 ### Phase 3 — Full Event Bridge + Incident Lifecycle (M)
 **Goal:** All Gas City events received by Factory. INC-* and OPR-* both populated. Full lineage chain queryable. Stalls and crashes handled.
@@ -324,20 +329,24 @@ Phase 0 PASS is real but **narrow**: validated `gc formula cook` (linear single-
 
 ## 4. Architecture Decisions Required Before Phase 1
 
-| # | Decision | Options | Recommendation |
-|---|----------|---------|----------------|
-| D1 | Compiler input | (A) TEP-only; (B) ES directly | **A** |
-| D2 | FORM-* lifecycle | (A) Persisted `specs/formulas/`; (B) Inline TEP; (C) Ephemeral | **A** |
-| D3 | OPR-* prefix | (A) Add new; (B) Fold into VR-*; (C) Fold into lineage edges | **A** |
-| D4 | Coherence VR scope | Pre-dispatch spec check only (not runtime gate) | **Settled by SE Ontology — not a decision** |
-| D5 | Amendment identity | (A) New FN-X-V2; (B) Same FN, new ES | **A** |
-| D6 | Amendment-proposing capability | (A) New Stage; (B) Crystallizer extension; (C) Gas-City-executed Factory Function | **C** |
-| D7 | Gas City hosting Phase 1 | (A) Shared VPS; (B) Per-dev VPS; (C) Per-dev Docker + shared CI VPS | **C** |
-| D8 | Webhook auth | (A) HMAC; (B) mTLS; (C) CF Access | **A for P1–4** |
-| D9 | MaxAmendmentDepth | (A) 3; (B) 5; (C) Configurable default 3 | **C** |
-| D10 | Role prompt location | (A) `harnesses/prompts/` Factory repo; (B) Separate Gas City config repo; (C) Bundled in Formula | **A** |
+| Decision | Question | Approved Answer |
+|---|---|---|
+| Compiler input | What is the input to the Formula compiler? | Execution Packet only. `parameters` → `[vars]`; `RoleInstruction[]` → `[[steps]]`. |
+| Execution artifact persistence | What is the Formula artifact lifecycle? | Persisted FORM-* with full lineage. |
+| Fidelity record artifact | What does Factory create on molecule.completed? | VR-* with kind=fidelity. (OPR-* rejected — no ontological home.) |
+| Coherence VR scope | When does Coherence VR run? | Pre-dispatch only. Settled by SE Ontology §7. Not a decision. |
+| Amendment identity | What is the identity of an amended Function? | New FN-X-V2 (successor Function). |
+| Amendment-proposing capability | Where does amendment proposal live? | Gas-City-executed Factory Function. Recursive self-application. |
+| Gas City hosting | Dev/CI hosting for Phase 1? | Per-dev Docker + shared CI VPS. |
+| Webhook auth | Auth for RELEASE step → Factory POST? | HMAC shared secret. Revisit mTLS at Phase 5. |
+| MaxAmendmentDepth | How many amendments before halt? | Configurable, default 3. |
+| Role prompt location | Where do role instructions live? | DISSOLVED — role instructions ARE the `[[steps]]` in Formula TOML. agents/*.toml is 6-line infra config only. |
+| Fidelity Verification owner | Who judges fidelity? | Gas City executes; Factory judges structural completeness (deterministic — no LLM). |
+| Formula compiler ontology registration | New Compilation Transformation? | Yes — FormulaCompilation added to FF-ONTOLOGY. |
+| Decision Ledger | Where do Elucidation Artifacts live? | EL-* artifacts in ArangoDB main graph. |
+| Principle Library | Where do enforced principles live? | ArangoDB principles collection (primary) + DECISIONS.md (human-readable projection). |
 
-D4 is no longer a decision — it is settled by the SE Ontology. Coherence VR is pre-dispatch; it is not a runtime gate; no Factory HTTP endpoint is called during Gas City execution.
+All 14 decisions approved by Wes 2026-05-20. Recorded with full Candidate Sets and rejection predicates in GOVD-GAS-CITY-PHASE1-INTEGRATION.yaml.
 
 ---
 

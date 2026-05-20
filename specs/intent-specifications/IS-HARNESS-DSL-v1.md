@@ -65,7 +65,7 @@ synthesis topology as TypeScript node wiring. Two concrete violations follow:
 `/Users/wes/nlah` (TypeScript `"nlah"` v0.1.0) already implements the correct
 substrate: typed `HarnessSpec` Zod schema, `compileHarness()`, `runHarness()` state
 machine, gate registry, `WorkerRegistry`, and `LoomCliWorkerAdapter`. The problem is
-not that this substrate does not exist — it is that it is not integrated into Trellis
+not that this substrate does not exist — it is that it is not integrated into the execution layer
 and the synthesis DO has not been migrated to a harness YAML.
 
 ## Goal
@@ -297,7 +297,7 @@ interface HarnessCompletenessReport {
 Wraps `@wescome/nlah` (after contribution #0 — package scoping) for monorepo
 consumption. Exposes all types and functions consumed by ff-pipeline and
 packages/verification. This is the seam that allows future internalization if NLAH
-diverges from Trellis requirements.
+diverges from execution layer requirements.
 
 ```
 packages/nlah/
@@ -1106,7 +1106,7 @@ Deletion gate: `grep -r 'graph-runner' workers/ff-pipeline/src` returns zero res
 
 Contribution requests to `nlah` aligned with NLAH's own roadmap. IS delivery is gated
 on these landing. All are upstream contributions to `/Users/wes/nlah` — not internal
-to Trellis.
+to the Factory execution layer.
 
 | # | Contribution | NLAH ref | Gates |
 |---|---|---|---|
