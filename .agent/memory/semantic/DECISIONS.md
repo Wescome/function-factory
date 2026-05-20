@@ -15,15 +15,20 @@ The two-layer split: **Factory** (CF Workers + ArangoDB) = governance layer
 City** (external: VPS Phase 0 → k8s production) = execution layer (Sessions,
 Beads, Formulas, Convergence, Event Bus, Health Patrol, GUPP).
 
-Six integration points connect them: (1) ES → Formula Compiler (deterministic
-new compiler pass, Factory POSTs TOML to Gas City HTTP API); (2) Beads as
-lineage carriers (every Bead labeled fn-id/is-id/es-id); (3) Convergence gate
-→ Factory `/verify/coherence/{es-id}` (Crystallizer probes embedded in Gas
-City's convergence loop); (4) Gas City Event Bus → Factory Signal Collector
-(`POST /webhooks/gascity`; molecule.completed → Fidelity VR, health.stall →
-INC-*, session.crash → observation only, GUPP handles restart); (5) Full
-amendment loop (Fidelity VR fail → new ES → new Formula → new Bead → GUPP);
-(6) Health Patrol → Factory Incidents → Pressures.
+Five integration points connect them (revised 2026-05-20 per SE Ontology §7):
+(1) Execution Packet → Formula Compiler (deterministic, Factory compiles EP to
+Gas City Formula TOML; EP.DomainAdapterBinding.executionRequest.parameters →
+[vars]; EP.RoleInstruction[] → [[steps]]); (2) Beads as lineage carriers (every
+Bead labeled fn-id/is-id/es-id/form-id); (3) Molecule completion — VERIFY stage
+produces verifier_report.md (Verdict: PASS/FAIL), convergence gate reads it
+internally, RELEASE [[step]] HTTP POSTs molecule.completed to Factory (no Factory
+endpoint called during convergence); (4) Factory Fidelity Verification on
+molecule.completed (structural: evidence completeness + acceptance criteria
+verdict bijection — deterministic, no LLM; Factory creates VR-* kind=fidelity);
+(5) Full amendment loop (Fidelity VR fail → new IS-V2 → ES-V2 → Execution
+Packet → Formula → RELEASE step posts to Factory). IP-3 (Factory
+/verify/coherence endpoint during Gas City execution) is REMOVED — wrong per SE
+Ontology §7. Coherence VR is pre-dispatch only.
 
 **Rationale:** Gas City is NLAH at production scale: Formula + Convergence =
 HarnessSpec + runHarness, but with GUPP (work survives crashes), NDI
