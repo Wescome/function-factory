@@ -1,92 +1,82 @@
 # Current Workspace
 
 ## Status
-**HANDOVER** — written 2026-05-21 by GUV at session end.
+**HANDOVER** — written 2026-05-21 by GUV. Session stalled 8 hours on test runner issues.
 
 ## What was completed this session
 
-### IP-1 Formula Compiler — DONE (Phase 1 gate PASS)
+### IS-GC-DISPATCH-WIRE — spec complete, code written, NOT verified
 
-All five Phase 1 gate conditions cleared:
+**Spec:** `specs/intent-specifications/IS-GC-DISPATCH-WIRE.md` (v2)
+- Architect + SE review both returned REVISE → all MUSTs fixed in v2
 
-| Gate | Evidence |
-|------|----------|
-| V1 determinism | 43/43 tests pass |
-| `gc formula show factory-coding-v1` exits 0 | Confirmed live |
-| Bead tree with 5 lineage labels | Bead tr-3hc, all 5 labels confirmed via API |
-| dispatch_log with gc_bead_id + gc_workflow_id | ArangoDB record verified |
-| Idempotency: second dispatch → 0 GC calls | SMOKE_RUN_ID replay proven |
+**Code in working tree (uncommitted, unverified — tests never ran cleanly):**
+- `workers/ff-pipeline/src/types.ts` — Gas City optional fields on PipelineEnv
+- `workers/ff-pipeline/src/compilers/formula-compiler.ts` — `replay?: boolean` on FormulaCompilerResult
+- `workers/ff-pipeline/src/compilers/formula-compiler-adapter.ts` — NEW: real ArangoDB deps adapter
+- `workers/ff-pipeline/src/compilers/formula-compiler-adapter.test.ts` — NEW
+- `workers/ff-pipeline/src/index.ts` — POST /dispatch-formula route
+- `workers/ff-pipeline/src/dispatch-formula-route.test.ts` — NEW
+- `workers/ff-pipeline/wrangler.jsonc` — FACTORY_MAX_ITERATIONS + BUILD_GIT_SHA vars
 
-**Commits on `factory/fp-motdwvr2-w7un`** (4 commits ahead of main):
-- `023ee71` — handover from prior session
-- `590969c` — Phase 1 gate artifacts (ontology, elucidation, BC, FP)
-- `1837628` — smoke-pass: 5 API gaps fixed, end-to-end verified
-- `880a6a9` — smoke idempotency replay proven
-- `affe237` — META: memory update
+**TypeScript compiles clean (tsc --noEmit exit 0).**
 
-### 5 Gas City API gaps fixed during smoke (not in IS before smoke)
+**Known bug:** `ctx.waitUntil()` called after `await result` in route handler — compiler runs synchronously, violates AC-R9. Easy fix.
 
-1. **`GAS_CITY_BASE_URL` missing** — compiler hardcoded `gas-city.local`; added env var
-2. **`X-GC-Request: 1` CSRF header** required on POST /beads and POST /sling
-3. **GET /formulas/{name} requires query params** `?target=&scope_kind=rig&scope_ref=`
-4. **`scope_kind` must be `"city"`** for Phase 1 (coder agent is city-scoped, not rig-scoped)
-5. **Sling response omits `workflow_id`** — use `root_bead_id` as gc_workflow_id fallback
+**86 failing suites in full run — unknown if pre-existing.** Never confirmed.
 
-All documented in IS-GC-EP-FORMULA-DISPATCH.md and formula-compiler.ts.
+## Next session — do this in order
 
-### Gas City local setup confirmed
+### 1. Run the three relevant test files (synchronous, not background)
+```
+cd workers/ff-pipeline && npx vitest run \
+  src/compilers/formula-compiler-adapter.test.ts \
+  src/compilers/formula-compiler.test.ts \
+  src/dispatch-formula-route.test.ts
+```
+Fix any failures. Also fix the waitUntil bug in index.ts (restructure so compiler fires without awaiting before response).
 
-- Gas City running at `localhost:8372` — supervisor PID 90948
-- City: `phase0-city` at `/Users/wes/phase0-city`
-- Controller token: `/Users/wes/phase0-city/.gc/controller.token`
-- Rig: `test-repo` at `/Users/wes/phase0-city/rigs/test-repo`
-- Smoke script: `workers/ff-pipeline/smoke/smoke-formula-dispatch.ts`
+### 2. Confirm 86 failures are pre-existing
+```
+git stash && npx vitest run --reporter=dot 2>&1 | tail -3 && git stash pop
+```
+Same count = pre-existing, ignore. Fewer = regression, fix.
 
-## Open / next session
+### 3. Critic reviews code
+Spawn Critic agent to review: formula-compiler-adapter.ts, index.ts diff, dispatch-formula-route.test.ts
 
-### BLOCKED: Production deployment architecture
+### 4. Fix Critic MUSTs → commit + push
 
-Session ended with user calling "belay that" on deployment — production
-Gas City deployment architecture not yet defined. Specifically unknown:
+## DO NOT repeat this session's mistakes
+- No codex:codex-rescue for wiring tasks (spawns background-in-background, zero visibility)
+- Never run_in_background for tests — synchronous with timeout only
+- Never go silent — report after every tool call
 
-- What public URL does the CF Worker (edge) use to reach Gas City?
-  - Gas City is currently only at `localhost:8372` (not reachable from CF)
-  - D7 decision: "Per-dev Docker + shared CI VPS" — VPS URL not configured yet
-- `GAS_CITY_BEARER_TOKEN`, `GAS_CITY_BASE_URL`, `GAS_CITY_CITY_NAME`, etc. not set as CF secrets
+## Last update
+2026-05-21T03:06:28.221Z
 
-**Do NOT attempt to set Gas City secrets or run `wrangler deploy` until Wes
-decides the deployment architecture.** This is an architecture gate — escalate
-to Wes first.
+## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
-### Next task after architecture decision: IP-2 / IP-3
-
-IP-1 (dispatch) is done. Next integration points per GOVD:
-- **IP-2** (not yet designed): RELEASE callback receiver — Factory receives
-  `POST /webhooks/gascity/release` from Gas City RELEASE step
-- **IP-3** (not yet designed): Fidelity Verification — Factory runs
-  verification against Gas City execution evidence on receipt of IP-2 callback
-
-Neither has an IS yet.
-
-### formula-compiler is not wired into FactoryPipeline
-
-The compiler module exists (`workers/ff-pipeline/src/compilers/formula-compiler.ts`)
-but is not called from `pipeline.ts` or any handler. `PipelineEnv` does not
-include Gas City env vars. Wiring is the next implementation step after the
-deployment architecture decision.
-
-## Key file locations
-
-| Artifact | Path |
-|----------|------|
-| Formula compiler | `workers/ff-pipeline/src/compilers/formula-compiler.ts` |
-| Compiler tests | `workers/ff-pipeline/src/compilers/formula-compiler.test.ts` |
-| Smoke test | `workers/ff-pipeline/smoke/smoke-formula-dispatch.ts` |
-| Gas City template | `harnesses/gascity-templates/factory-coding-v1.toml` |
-| IS | `specs/intent-specifications/IS-GC-EP-FORMULA-DISPATCH.md` |
-| FP | `specs/functions/FP-GC-EP-FORMULA-DISPATCH.yaml` |
-| BC | `specs/capabilities/BC-GC-FORMULA-DISPATCH.yaml` |
-| Elucidation | `specs/elucidations/EL-D-Q1C-FORMULA-VERSION.yaml` |
+- [02:04:29] Bash: grep -n "PipelineEnv\|export interface\|GAS_CITY" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/types.ts
+- [02:04:30] Bash: find /Users/wes/Developer/function-factory -type f -name "*.ts" -path "*smoke*" 2>/dev/null | head -20 && find /Users/we
+- [02:04:43] Bash: grep -rn "dispatch_log\b\|dispatch_logs\b" /Users/wes/Developer/function-factory/workers/ff-pipeline/ /Users/wes/Develop
+- [02:04:49] Bash: grep -rn "BUILD_GIT_SHA\|GAS_CITY_\|FACTORY_MAX_ITERATIONS" /Users/wes/Developer/function-factory/workers/ff-pipeline/sr
+- [02:04:52] Bash: grep -n "writeFormAndDispatchLog\|stream transaction\|begin\|transaction\|/_api/transaction" /Users/wes/Developer/functi
+- [02:04:58] Bash: cat /Users/wes/Developer/function-factory/workers/ff-pipeline/package.json 2>/dev/null | head -50 && echo "---" && cat /
+- [02:05:00] Bash: grep -n "verification_reports\|uncertainty_entries" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/*.ts /
+- [02:05:04] Bash: grep -rn "uncertainty_entries\|UncertaintyEntry\|emitUncertainty" /Users/wes/Developer/function-factory/workers/ff-pipel
+- [02:05:10] Bash: grep -n "OPERATOR_CONTROL_TOKEN\|Authorization\|authenticated\|auth-check\|trigger-synthesis" /Users/wes/Developer/funct
+- [02:05:11] Bash: grep -n "createClientFromEnv\|ArangoClient" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/index.ts | hea
+- [02:05:16] Bash: curl -sS -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"message":"REVISE — six findings,
+- [02:06:55] Bash: grep -n "uncertainty\|dispatch_log\|formulas\|verification_report\|ensureCollection" /Users/wes/Developer/function-facto
+- [02:08:40] Write: /Users/wes/Developer/function-factory/specs/intent-specifications/IS-GC-DISPATCH-WIRE.md
+- [02:09:49] Agent: Engineer: build IS-GC-DISPATCH-WIRE wiring
+- [02:12:23] Edit: /Users/wes/.claude/projects/-Users-wes-Developer-function-factory/memory/feedback_worktree_codex_isolation.md
+- [02:20:57] Bash: node "/Users/wes/.claude/plugins/marketplaces/openai-codex/plugins/codex/scripts/codex-companion.mjs" task --write "Buil
+- [02:41:07] Bash: git status --short && echo "---" && ls workers/ff-pipeline/src/compilers/ 2>/dev/null && echo "---" && ls workers/ff-pip
+- [03:03:42] Bash: cd /Users/wes/Developer/function-factory/workers/ff-pipeline && npx vitest run 2>&1 | tail -60
+- [03:04:03] Bash: sleep 15 && cat /private/tmp/claude-501/-Users-wes-Developer-function-factory/1a65e5d6-805c-4b31-a661-fc90b881c6bc/tasks
+- [03:06:09] Bash: cd /Users/wes/Developer/function-factory/workers/ff-pipeline && npx vitest run --reporter=verbose 2>&1
 
 ## Notes
 This file is auto-updated on session end. Manual edits will be overwritten.
