@@ -34,6 +34,8 @@ import type { TrellisExecutionPacket } from "@factory/schemas"
  * outside this set.
  */
 export interface FormulaCompilerEnv {
+  /** Base URL of the Gas City HTTP API (no trailing slash). e.g. `http://localhost:8372` */
+  GAS_CITY_BASE_URL: string
   GAS_CITY_CITY_NAME: string
   GAS_CITY_BEARER_TOKEN: string
   GAS_CITY_AGENT_NAME: string
@@ -513,11 +515,13 @@ export async function compileAndDispatchFormula(
     pinnedVersionEnvVar
   ]
 
+  // CALL 1 URL includes required query params confirmed from Gas City source.
+  const call1Url = `${gasCityUrl(env, `/formulas/${templateName}`)}?target=${encodeURIComponent(env.GAS_CITY_AGENT_NAME)}&scope_kind=rig&scope_ref=${encodeURIComponent(env.GAS_CITY_RIG)}`
   let probeStatus = 0
   let probeBody: { version?: string } | null = null
   try {
     const probeRes = await deps.httpFetch(
-      gasCityUrl(env, `/formulas/${templateName}`),
+      call1Url,
       {
         method: "GET",
         headers: gasCityAuthHeaders(env),
@@ -824,8 +828,10 @@ async function dispatchCall3AndFinalize(args: {
     bead: "",
     target: env.GAS_CITY_AGENT_NAME,
     rig: env.GAS_CITY_RIG,
-    scope_kind: "rig",
-    scope_ref: env.GAS_CITY_RIG,
+    // Phase 1: agents are city-scoped; scope_kind=city, scope_ref=city name.
+    // scope_kind=rig requires a rig-scoped agent (not available in Phase 1).
+    scope_kind: "city",
+    scope_ref: env.GAS_CITY_CITY_NAME,
     force: false,
     vars: form.vars,
   }
@@ -860,7 +866,7 @@ async function dispatchCall3AndFinalize(args: {
         workflow_id?: string
         root_bead_id?: string
       } | null
-      if (!parsed || parsed.status !== "slung" || !parsed.workflow_id) {
+      if (!parsed || parsed.status !== "slung") {
         await deps.updateDispatchLog(dispatchLogKey, {
           outcome: "failed",
           error: `CALL 3 200 with invalid body: ${JSON.stringify(parsed)}`,
@@ -868,7 +874,9 @@ async function dispatchCall3AndFinalize(args: {
         })
         return { outcome: "failed", form_id: form._key, dispatch_log_key: dispatchLogKey }
       }
-      const workflowId = parsed.workflow_id
+      // Gas City sling response may omit workflow_id; fall back to root_bead_id
+      // (confirmed from Gas City API: root_bead_id is the durable molecule handle).
+      const workflowId = parsed.workflow_id ?? parsed.root_bead_id ?? beadId
       const rootBeadId = parsed.root_bead_id ?? beadId
       await safeUpdateDispatchLog(deps, dispatchLogKey, {
         outcome: "dispatched",
@@ -1009,11 +1017,13 @@ async function safeUpdateDispatchLog(
 function gasCityUrl(env: FormulaCompilerEnv, suffix: string): string {
   // Suffix examples: `/formulas/factory-coding-v1`, `/beads`, `/sling`.
   const norm = suffix.startsWith("/") ? suffix : `/${suffix}`
-  return `https://gas-city.local/v0/city/${env.GAS_CITY_CITY_NAME}${norm}`
+  const base = env.GAS_CITY_BASE_URL.replace(/\/$/, "")
+  return `${base}/v0/city/${env.GAS_CITY_CITY_NAME}${norm}`
 }
 
 function gasCityAuthHeaders(env: FormulaCompilerEnv): Record<string, string> {
-  return { Authorization: `Bearer ${env.GAS_CITY_BEARER_TOKEN}` }
+  // X-GC-Request is the Gas City CSRF guard required on all mutation endpoints.
+  return { Authorization: `Bearer ${env.GAS_CITY_BEARER_TOKEN}`, "X-GC-Request": "1" }
 }
 
 function formulaVersionEnvName(templateName: string): string {

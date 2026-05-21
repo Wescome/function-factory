@@ -214,7 +214,8 @@ All must be present in `wrangler.toml` (secrets via `wrangler secret put`):
 
 | Name | Kind | Description |
 |------|------|-------------|
-| `GAS_CITY_CITY_NAME` | var | Name of the Gas City city (e.g. `factory`) |
+| `GAS_CITY_BASE_URL` | var | Base URL of the Gas City HTTP API, no trailing slash (e.g. `http://localhost:8372` local, VPS URL in production) |
+| `GAS_CITY_CITY_NAME` | var | Name of the Gas City city (e.g. `phase0-city`) |
 | `GAS_CITY_BEARER_TOKEN` | secret | Bearer token for Factory→GC auth (D8) |
 | `GAS_CITY_AGENT_NAME` | var | Target agent name for sling |
 | `GAS_CITY_RIG` | var | Rig name for sling scope |
@@ -380,8 +381,9 @@ rows.
 **CALL 1 — Version probe**
 
 **AC-10** — The function issues
-`GET /v0/city/{GAS_CITY_CITY_NAME}/formulas/{template_name}` with
+`GET /v0/city/{GAS_CITY_CITY_NAME}/formulas/{template_name}?target={GAS_CITY_AGENT_NAME}&scope_kind=rig&scope_ref={GAS_CITY_RIG}` with
 `Authorization: Bearer ${GAS_CITY_BEARER_TOKEN}` and a 25-second timeout.
+(Query params `target`, `scope_kind`, `scope_ref` are required by the Gas City API; `scope_kind` is always `"rig"` for Phase 1.)
 The response body's `version` field (string) is compared against the
 `GAS_CITY_FORMULA_VERSION_{TEMPLATE}` env var (name derived per §Environment
 dependencies). On match, compilation proceeds. On mismatch, the function
@@ -399,6 +401,8 @@ sequence).
 
 **AC-12** — The function issues `POST /v0/city/{GAS_CITY_CITY_NAME}/beads`
 with a 25-second timeout and:
+- Header `Authorization: Bearer ${GAS_CITY_BEARER_TOKEN}`
+- Header `X-GC-Request: 1` (Gas City CSRF guard, required on all mutation endpoints)
 - Header `Idempotency-Key: sha256(es_id + "|" + EP.instructionTuning.inputExecutableSpecificationHash + "|" + factory_attempt)` (lowercase hex)
 - Body `labels: ["fn-id:{fn_id}", "is-id:{is_id}", "es-id:{es_id}", "form-id:{form_id}", "factory-attempt:{factory_attempt}"]`
 - Body `metadata: { "ff.dispatch_id": <dispatch_log._key>, "ff.formula_name": <template_name>, "ff.formula_version": <formula_version>, "ff.dispatched_at": <ISO8601 timestamp>, "ff.webhook_url": <GAS_CITY_WEBHOOK_URL>, "ff.ep_id": <ep_id> }`
@@ -422,19 +426,23 @@ as hard failure with `outcome: "rejected"`.
 
 **AC-15** — The function issues `POST /v0/city/{GAS_CITY_CITY_NAME}/sling`
 with a 25-second timeout and:
+- Header `Authorization: Bearer ${GAS_CITY_BEARER_TOKEN}`
+- Header `X-GC-Request: 1` (Gas City CSRF guard)
 - Body `formula: <template_name>`
 - Body `attached_bead_id: <gc_bead_id from CALL 2>`
 - Body `bead: ""` (empty string — SlingInput.Bead field; not used for
   attached-bead-id dispatch, set to empty to satisfy the struct)
 - Body `target: <GAS_CITY_AGENT_NAME>`
 - Body `rig: <GAS_CITY_RIG>`
-- Body `scope_kind: "rig"`, `scope_ref: <GAS_CITY_RIG>`
+- Body `scope_kind: "city"`, `scope_ref: <GAS_CITY_CITY_NAME>` (Phase 1: agents are city-scoped; `scope_kind=rig` requires a rig-scoped agent which Phase 1 does not have)
 - Body `force: false` (never force-override an existing workflow; idempotency
   via AC-17 instead)
 - Body `vars: <full var map from AC-2 and AC-3>`
 
-**AC-16** — On HTTP 200 with `status == "slung"`, capture `workflow_id` and
-`root_bead_id` and proceed to AC-9 update.
+**AC-16** — On HTTP 200 with `status == "slung"`, proceed to AC-9 update.
+Capture `workflow_id` if present; Gas City may return only `root_bead_id` (the
+durable molecule handle). If `workflow_id` is absent, use `root_bead_id` as
+the `gc_workflow_id` field in dispatch_log (confirmed from Gas City sling API).
 
 **AC-17** — On HTTP 409 from CALL 3: read the response body. If it contains
 a `workflow_id` matching the `gc_workflow_id` of an existing dispatch_log row

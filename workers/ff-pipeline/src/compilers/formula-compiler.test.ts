@@ -36,6 +36,7 @@ import {
 // ─── Test fixtures ────────────────────────────────────────────────────────
 
 const BASE_ENV: FormulaCompilerEnv = {
+  GAS_CITY_BASE_URL: "https://gas-city.test",
   GAS_CITY_CITY_NAME: "factory",
   GAS_CITY_BEARER_TOKEN: "test-bearer-token",
   GAS_CITY_AGENT_NAME: "coder-agent",
@@ -301,7 +302,8 @@ describe("formula-compiler: compileAndDispatchFormula (IP-1)", () => {
     })
 
     it("fires exactly three Gas City calls in order GET-POST-POST", () => {
-      expect(state.calls.map((c) => `${c.method} ${c.url.split("/").pop()}`)).toEqual([
+      // Strip query params from the CALL 1 URL before comparing.
+      expect(state.calls.map((c) => `${c.method} ${c.url.split("/").pop()!.split("?")[0]}`)).toEqual([
         "GET factory-coding-v1",
         "POST beads",
         "POST sling",
@@ -366,8 +368,8 @@ describe("formula-compiler: compileAndDispatchFormula (IP-1)", () => {
       expect(b.bead).toBe("")
       expect(b.target).toBe("coder-agent")
       expect(b.rig).toBe("factory-rig")
-      expect(b.scope_kind).toBe("rig")
-      expect(b.scope_ref).toBe("factory-rig")
+      expect(b.scope_kind).toBe("city")
+      expect(b.scope_ref).toBe("factory") // BASE_ENV.GAS_CITY_CITY_NAME
       expect(b.force).toBe(false)
       const vars = b.vars as Record<string, string>
       expect(vars.fn_id).toBe("FN-EXAMPLE-001")
