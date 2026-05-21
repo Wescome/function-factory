@@ -54,7 +54,8 @@ const db = new ArangoClient({
 // The compiler reads this via `ep as unknown as {...}` so we pass only the
 // fields it actually accesses.
 
-const runId = Date.now().toString(36).toUpperCase()
+// SMOKE_RUN_ID env var: reuse a prior run to test idempotency.
+const runId = process.env.SMOKE_RUN_ID ?? Date.now().toString(36).toUpperCase()
 const testEp = {
   id: `TEP-SMOKE-${runId}`,
   functionId: `FN-SMOKE-${runId}`,
@@ -106,6 +107,8 @@ const env: FormulaCompilerEnv = {
 }
 
 // ── Real deps ──────────────────────────────────────────────────────────────
+
+let gcCallCount = 0
 
 const deps: FormulaCompilerDeps = {
   async fetchCoherenceVR(esId: string): Promise<CoherenceVRRow | null> {
@@ -161,6 +164,8 @@ const deps: FormulaCompilerDeps = {
   },
 
   async httpFetch(url: string, init?: RequestInit): Promise<Response> {
+    gcCallCount++
+    console.log(`  GC call #${gcCallCount}: ${init?.method ?? "GET"} ${url.split("/v0")[1]?.split("?")[0] ?? url}`)
     return fetch(url, init)
   },
 
@@ -289,8 +294,28 @@ async function main(): Promise<void> {
   }
 
   if (result.gc_bead_id) {
-    console.log(`\nGas City bead: bd show ${result.gc_bead_id}`)
-    console.log(`  Run: cd /Users/wes/phase0-city && bd show ${result.gc_bead_id}`)
+    console.log(`\nGas City bead: ${result.gc_bead_id}`)
+  }
+
+  // Idempotency check: if this was a replay of a prior run, zero Gas City calls expected.
+  const isReplay = !!process.env.SMOKE_RUN_ID
+  if (isReplay) {
+    console.log("")
+    if (gcCallCount === 0) {
+      console.log("PASS (idempotency): zero Gas City HTTP calls — returned from durable barrier")
+    } else {
+      console.error(`FAIL (idempotency): expected 0 GC calls on replay, got ${gcCallCount}`)
+      pass = false
+    }
+  } else {
+    console.log(`\nGC calls made: ${gcCallCount} (expected 3 for fresh dispatch)`)
+    if (gcCallCount !== 3) {
+      console.error(`FAIL: expected 3 GC calls, got ${gcCallCount}`)
+      pass = false
+    } else {
+      console.log("PASS: exactly 3 Gas City calls (CALL1+CALL2+CALL3)")
+    }
+    console.log(`\nTo test idempotency, re-run with: SMOKE_RUN_ID=${runId}`)
   }
 
   console.log("")
