@@ -823,6 +823,88 @@ ff:dependencyGraph a ff:ArangoGraph ; rdfs:label "dependency_graph" .
 # PERSISTENCE MAPPINGS — What lives where
 # ═══════════════════════════════════════════════════════════════════
 
+# ═══════════════════════════════════════════════════════════════════
+# DOMAIN 9: GAS CITY EXECUTION LAYER (D-NEW-2, 2026-05-21)
+# Artifacts at the Factory→Gas City dispatch boundary
+# ═══════════════════════════════════════════════════════════════════
+
+ff:GasCityArtifact a owl:Class ;
+    rdfs:label "Gas City Artifact" ;
+    rdfs:comment "Base class for artifacts produced or consumed at the Factory→Gas City dispatch boundary." .
+
+ff:FormulaArtifact a owl:Class ;
+    rdfs:subClassOf ff:GasCityArtifact ;
+    rdfs:label "FormulaArtifact (FORM-*)" ;
+    rdfs:comment """Parametric specification produced by the FormulaCompilation transformation (D-NEW-2).
+    NOT raw TOML substrate. Captures (template_name, formula_version, vars, parameters_json)
+    as a parametric spec persisted in ArangoDB before dispatch.
+    Tier: procedural. Lineage edge: compiled_from EP-*.
+    The TOML substrate is operator-managed config on the Gas City host, never stored in Factory.
+    Amendment 2026-05-21: field is formula_version (string returned by GC GET /formulas/{name}),
+    NOT formula_version_hash (EL-D-Q1C-FORMULA-VERSION).""" .
+
+ff:DispatchLog a owl:Class ;
+    rdfs:subClassOf ff:GasCityArtifact ;
+    rdfs:label "DispatchLog" ;
+    rdfs:comment """ArangoDB record written before CALL 1 and updated after CALL 3.
+    Tracks outcome (pending / dispatched / failed / version_mismatch / rejected /
+    in_flight / timeout_call_N) and carries gc_bead_id, gc_workflow_id, gc_workflow_root_bead_id,
+    labels_sent, sling_request_hash for Fidelity Verification audit.""" .
+
+ff:ElucidationArtifact a owl:Class ;
+    rdfs:label "Elucidation Artifact (EL-*)" ;
+    rdfs:comment """Disposition Event record per SE-Onto Appendix C and DL-1 (GOVD-GAS-CITY-PHASE1-INTEGRATION).
+    Records evaluated Candidate Set, rejection predicates, and justification predicate for every
+    architectural decision. Lives in ArangoDB main artifact graph for lineage traversal.""" .
+
+ff:CompilationTransformation a owl:Class ;
+    rdfs:label "Compilation Transformation" ;
+    rdfs:comment """A registered deterministic transformation in the Factory compiler pipeline.
+    Each transformation takes an input artifact and emits an output artifact with a lineage edge.
+    Transformations are LLM-free unless explicitly noted.""" .
+
+ff:CompilationTransformationKind a owl:Class ;
+    owl:oneOf (
+        ff:Decomposition
+        ff:Binding
+        ff:ObligationExtraction
+        ff:StructuralAssembly
+        ff:CompletenessCertification
+        ff:InstructionTuning
+        ff:FormulaCompilation
+    ) .
+
+ff:Decomposition a ff:CompilationTransformationKind ;
+    rdfs:label "Decomposition (Pass 1)" .
+ff:Binding a ff:CompilationTransformationKind ;
+    rdfs:label "Binding (Pass 2)" .
+ff:ObligationExtraction a ff:CompilationTransformationKind ;
+    rdfs:label "ObligationExtraction (Pass 3)" .
+ff:StructuralAssembly a ff:CompilationTransformationKind ;
+    rdfs:label "StructuralAssembly (Pass 8)" .
+ff:CompletenessCertification a ff:CompilationTransformationKind ;
+    rdfs:label "CompletenessCertification (CoherenceVR)" .
+ff:InstructionTuning a ff:CompilationTransformationKind ;
+    rdfs:label "InstructionTuning (ES → EP)" .
+ff:FormulaCompilation a ff:CompilationTransformationKind ;
+    rdfs:label "FormulaCompilation (EP → FORM-*)" ;
+    rdfs:comment """Registered 2026-05-21 per D-NEW-2 (GOVD-GAS-CITY-PHASE1-INTEGRATION).
+    Tier conversion: procedural → procedural (same tier, Gas City substrate format).
+    Input: Execution Packet (EP-*). Output: FormulaArtifact (FORM-*).
+    Lineage edge emitted: compiled_from EP-*.
+    Deterministic. LLM-free. No-LLM invariant enforced by Critic static import check.""" .
+
+ff:compiledFrom a owl:ObjectProperty ;
+    rdfs:label "compiledFrom" ;
+    rdfs:domain ff:FormulaArtifact ;
+    rdfs:comment "Links a FormulaArtifact to the Execution Packet it was compiled from." .
+
+ff:dispatched_to a owl:ObjectProperty ;
+    rdfs:label "dispatched_to" ;
+    rdfs:domain ff:DispatchLog ;
+    rdfs:comment "Links a DispatchLog to the Gas City city/rig it was dispatched to." .
+
+
 ff:Signal ff:persistedIn ff:col_signals .
 ff:Pressure ff:persistedIn ff:col_pressures .
 ff:BusinessCapability ff:persistedIn ff:col_capabilities .
@@ -844,3 +926,6 @@ ff:Verdict ff:persistedIn ff:col_execution_artifacts .
 ff:SynthesisSession ff:persistedIn ff:col_execution_artifacts .
 ff:Trajectory ff:persistedIn ff:col_memory_episodic .
 ff:TrustComposite ff:persistedIn ff:col_trust_scores .
+ff:FormulaArtifact ff:persistedIn ff:col_formulas .
+ff:DispatchLog ff:persistedIn ff:col_dispatch_log .
+ff:ElucidationArtifact ff:persistedIn ff:col_elucidations .
