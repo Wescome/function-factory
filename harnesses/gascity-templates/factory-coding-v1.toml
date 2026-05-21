@@ -1,0 +1,313 @@
+description = """
+Factory-managed coding workflow. Dispatched by the Function Factory Formula
+Compiler (IP-1) via the three-call HTTP sequence (version probe → bead create
+→ sling attach).
+
+This formula is parametric: per-dispatch variation is expressed entirely via
+the sling vars map. The template TOML is operator-deployed at city-init and
+never modified per-dispatch.
+
+## Roles
+
+Three roles execute sequentially:
+
+1. **Planner** — reads the Executable Specification and produces a coding plan
+   (approach, file list, acceptance check list).
+2. **Coder** — implements the plan in the rig's working directory.
+3. **Verifier** — reviews the implementation against the ES acceptance criteria
+   and either approves or files a REVISE finding.
+
+After Verifier approves, the RELEASE step signals Factory via HTTP POST.
+
+## Working directory
+
+All role steps operate from `{{rig_root}}`. `gc prime` is called at the start
+of each step to anchor the session.
+
+## Lineage labels
+
+Every step declares the five Factory lineage labels so that molecule-internal
+beads carry the same lineage as the root bead. Labels do NOT propagate from
+the root bead to child beads automatically — they must be declared on each
+`[[steps]]` block. This is a Gas City architecture invariant (UE-Q1C-2).
+
+## Convergence
+
+`max_iterations = {{max_iterations}}`. After Verifier returns REVISE, the
+molecule re-enters at the Coder step (not Planner). Convergence is tracked by
+the Factory via the RELEASE callback; Gas City handles execution continuity.
+
+## RELEASE step
+
+The final step POSTs to `{{ff_webhook_url}}` with an HMAC-SHA256 signature
+computed from `GAS_CITY_HMAC_SECRET` (env var on the Gas City host). The
+keyid is `{{ff_webhook_hmac_keyid}}`. Factory uses the signature to verify
+authenticity before triggering Fidelity Verification (IP-3).
+
+Read each step's description before acting. Config values in vars override
+this header text."""
+formula = "factory-coding-v1"
+version = 1
+
+[vars]
+
+[vars.fn_id]
+description = "Factory Function ID (FN-*)"
+required = true
+
+[vars.is_id]
+description = "Factory Intent Specification ID (IS-*)"
+required = true
+
+[vars.es_id]
+description = "Factory Executable Specification ID (ES-*)"
+required = true
+
+[vars.ep_id]
+description = "Factory Execution Packet ID (EP-* or TEP-* during prefix transition)"
+required = true
+
+[vars.form_id]
+description = "Factory Formula Instance ID (FORM-*)"
+required = true
+
+[vars.factory_attempt]
+description = "Dispatch attempt counter (stringified decimal, 1-indexed)"
+required = true
+
+[vars.ff_webhook_url]
+description = "Factory webhook URL for the RELEASE step POST (IP-4 handler)"
+required = true
+
+[vars.ff_webhook_hmac_keyid]
+description = "HMAC key ID used to sign the RELEASE step POST body"
+default = "v1"
+
+[vars.rig_root]
+description = "Working directory root path for all role steps"
+required = true
+
+[vars.max_iterations]
+description = "Maximum Coder/Verifier convergence cycles before hard failure"
+default = "5"
+
+[vars.parameters_json]
+description = "JSON-encoded EP adapter executionRequest.parameters blob"
+required = true
+
+[vars.planner_prompt]
+description = "Planner role instruction (from EP.roles[roleId=planner].instruction)"
+required = true
+
+[vars.planner_inputs]
+description = "Planner role inputs as JSON array (EP.roles[roleId=planner].inputs)"
+default = "[]"
+
+[vars.planner_outputs]
+description = "Planner role outputs as JSON array (EP.roles[roleId=planner].outputs)"
+default = "[]"
+
+[vars.coder_prompt]
+description = "Coder role instruction (from EP.roles[roleId=coder].instruction)"
+required = true
+
+[vars.coder_inputs]
+description = "Coder role inputs as JSON array (EP.roles[roleId=coder].inputs)"
+default = "[]"
+
+[vars.coder_outputs]
+description = "Coder role outputs as JSON array (EP.roles[roleId=coder].outputs)"
+default = "[]"
+
+[vars.verifier_prompt]
+description = "Verifier role instruction (from EP.roles[roleId=verifier].instruction)"
+required = true
+
+[vars.verifier_inputs]
+description = "Verifier role inputs as JSON array (EP.roles[roleId=verifier].inputs)"
+default = "[]"
+
+[vars.verifier_outputs]
+description = "Verifier role outputs as JSON array (EP.roles[roleId=verifier].outputs)"
+default = "[]"
+
+
+[[steps]]
+id = "plan"
+title = "Plan — {{fn_id}} attempt {{factory_attempt}}"
+labels = [
+  "fn-id:{{fn_id}}",
+  "is-id:{{is_id}}",
+  "es-id:{{es_id}}",
+  "form-id:{{form_id}}",
+  "factory-attempt:{{factory_attempt}}",
+]
+description = """
+**Factory lineage:** fn={{fn_id}} is={{is_id}} es={{es_id}} ep={{ep_id}} form={{form_id}} attempt={{factory_attempt}}
+
+**Working directory:** `{{rig_root}}`
+
+**Execution parameters:**
+```json
+{{parameters_json}}
+```
+
+**Expected inputs:** {{planner_inputs}}
+**Expected outputs:** {{planner_outputs}}
+
+---
+
+{{planner_prompt}}
+
+---
+
+**Exit criteria:**
+- Written a concrete coding plan to a file in `{{rig_root}}` (e.g. `PLAN.md`).
+- The plan names every file to be created or modified and the acceptance
+  criterion each change addresses.
+- Close this step when the plan file is written and committed (if applicable).
+"""
+
+[[steps]]
+id = "code"
+title = "Code — {{fn_id}} attempt {{factory_attempt}}"
+needs = ["plan"]
+labels = [
+  "fn-id:{{fn_id}}",
+  "is-id:{{is_id}}",
+  "es-id:{{es_id}}",
+  "form-id:{{form_id}}",
+  "factory-attempt:{{factory_attempt}}",
+]
+description = """
+**Factory lineage:** fn={{fn_id}} is={{is_id}} es={{es_id}} ep={{ep_id}} form={{form_id}} attempt={{factory_attempt}}
+
+**Working directory:** `{{rig_root}}`
+
+**Expected inputs:** {{coder_inputs}}
+**Expected outputs:** {{coder_outputs}}
+
+---
+
+{{coder_prompt}}
+
+---
+
+**Exit criteria:**
+- All acceptance criteria in the Executable Specification are implemented.
+- Tests pass (if applicable to this domain).
+- Implementation artifacts are committed/saved in `{{rig_root}}`.
+- Close this step when the implementation is complete and ready for verification.
+"""
+
+[[steps]]
+id = "verify"
+title = "Verify — {{fn_id}} attempt {{factory_attempt}}"
+needs = ["code"]
+labels = [
+  "fn-id:{{fn_id}}",
+  "is-id:{{is_id}}",
+  "es-id:{{es_id}}",
+  "form-id:{{form_id}}",
+  "factory-attempt:{{factory_attempt}}",
+]
+description = """
+**Factory lineage:** fn={{fn_id}} is={{is_id}} es={{es_id}} ep={{ep_id}} form={{form_id}} attempt={{factory_attempt}}
+
+**Working directory:** `{{rig_root}}`
+
+**Expected inputs:** {{verifier_inputs}}
+**Expected outputs:** {{verifier_outputs}}
+
+---
+
+{{verifier_prompt}}
+
+---
+
+**Exit criteria — choose ONE:**
+
+**If APPROVED:** Every acceptance criterion passes. Evidence is complete.
+Close this step and proceed to RELEASE.
+
+**If REVISE (up to {{max_iterations}} total attempts):** One or more criteria
+fail. Write a REVISE finding to `{{rig_root}}/REVISE-{{factory_attempt}}.md`
+with the failing criteria and specific defects. Do NOT close this step yet —
+signal the finding in a bead note, then close. The next attempt will
+re-enter at the Code step.
+"""
+
+[[steps]]
+id = "release"
+title = "Release — signal Factory completion for {{fn_id}}"
+needs = ["verify"]
+labels = [
+  "fn-id:{{fn_id}}",
+  "is-id:{{is_id}}",
+  "es-id:{{es_id}}",
+  "form-id:{{form_id}}",
+  "factory-attempt:{{factory_attempt}}",
+]
+description = """
+**Factory lineage:** fn={{fn_id}} is={{is_id}} es={{es_id}} ep={{ep_id}} form={{form_id}} attempt={{factory_attempt}}
+
+Signal Factory that this execution is complete. Factory will run Fidelity
+Verification (IP-3) on receipt.
+
+**1. Collect the outcome:**
+
+Read `{{rig_root}}/REVISE-{{factory_attempt}}.md` if it exists — if present,
+outcome is `revise`; otherwise outcome is `approved`.
+
+```bash
+OUTCOME="approved"
+if [ -f "{{rig_root}}/REVISE-{{factory_attempt}}.md" ]; then
+  OUTCOME="revise"
+fi
+```
+
+**2. Build the payload:**
+
+```bash
+PAYLOAD=$(cat <<EOF
+{
+  "fn_id": "{{fn_id}}",
+  "is_id": "{{is_id}}",
+  "es_id": "{{es_id}}",
+  "ep_id": "{{ep_id}}",
+  "form_id": "{{form_id}}",
+  "factory_attempt": "{{factory_attempt}}",
+  "bead_id": "$GC_BEAD_ID",
+  "outcome": "$OUTCOME"
+}
+EOF
+)
+```
+
+**3. Sign and POST to Factory:**
+
+```bash
+SIGNATURE=$(printf '%s' "$PAYLOAD" | openssl dgst -sha256 -hmac "$GAS_CITY_HMAC_SECRET" | awk '{print $2}')
+
+curl -s -o /dev/null -w "%{http_code}" \
+  -X POST "{{ff_webhook_url}}" \
+  -H "Content-Type: application/json" \
+  -H "X-GC-Signature: sha256=$SIGNATURE" \
+  -H "X-GC-Key-ID: {{ff_webhook_hmac_keyid}}" \
+  -d "$PAYLOAD"
+```
+
+Expect HTTP 200 or 202. On any other status, log the response body and retry
+once after 5 seconds. If retry also fails, write the error to bead notes
+(`gc bd note <this-bead> "RELEASE failed: <status> <body>"`) and close with
+`--status=blocked`. Factory's operational sweeper will detect the stale
+dispatch_log row and alert.
+
+**4. Close this step:**
+
+```bash
+gc bd close "$GC_BEAD_ID"
+```
+
+**Exit criteria:** HTTP 200/202 received and logged. Step closed.
+"""
