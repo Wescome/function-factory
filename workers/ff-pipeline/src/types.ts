@@ -81,6 +81,18 @@ export interface PipelineEnv {
 
   /** Cloudflare Worker version metadata binding. */
   CF_VERSION_METADATA?: PiWorkerVersionMetadata
+
+  GAS_CITY_BASE_URL?: string
+  GAS_CITY_CITY_NAME?: string
+  GAS_CITY_BEARER_TOKEN?: string
+  GAS_CITY_AGENT_NAME?: string
+  GAS_CITY_RIG?: string
+  GAS_CITY_RIG_ROOT?: string
+  GAS_CITY_WEBHOOK_URL?: string
+  FACTORY_MAX_ITERATIONS?: string
+  GAS_CITY_FORMULA_VERSION_FACTORY_CODING_V1?: string
+  [k: `GAS_CITY_FORMULA_VERSION_${string}`]: string | undefined
+  BUILD_GIT_SHA?: string
 }
 
 export interface PipelineParams {

@@ -117,6 +117,7 @@ export interface FormulaCompilerResult {
   gc_bead_id?: string
   gc_workflow_id?: string
   gc_workflow_root_bead_id?: string
+  replay?: boolean
   error?: string
 }
 
@@ -319,6 +320,7 @@ export async function compileAndDispatchFormula(
       outcome: "dispatched",
       form_id: prior.form_id,
       dispatch_log_key: prior._key,
+      replay: true,
     }
     if (prior.gc_bead_id) r.gc_bead_id = prior.gc_bead_id
     if (prior.gc_workflow_id) r.gc_workflow_id = prior.gc_workflow_id

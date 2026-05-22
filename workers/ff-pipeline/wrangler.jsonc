@@ -90,10 +90,15 @@
   "vars": {
     "ENVIRONMENT": "production",
     "PI_MODEL": "openrouter/openai/gpt-5.4",
-    "PI_FILESYSTEM_MODEL_CANDIDATES": "openrouter/openai/gpt-5.4,openrouter/anthropic/claude-sonnet-4.6,openrouter/google/gemini-3.1-pro-preview,openrouter/x-ai/grok-4.20"
+    "PI_FILESYSTEM_MODEL_CANDIDATES": "openrouter/openai/gpt-5.4,openrouter/anthropic/claude-sonnet-4.6,openrouter/google/gemini-3.1-pro-preview,openrouter/x-ai/grok-4.20",
+    "FACTORY_MAX_ITERATIONS": "5",
+    "BUILD_GIT_SHA": ""
   }
 
   // Secrets (set via `wrangler secret put`):
   //   ARANGO_URL, ARANGO_DATABASE, ARANGO_JWT
   //   OFOX_API_KEY, CF_API_TOKEN, GITHUB_TOKEN, OPERATOR_CONTROL_TOKEN
+  //   GAS_CITY_BASE_URL, GAS_CITY_CITY_NAME, GAS_CITY_BEARER_TOKEN
+  //   GAS_CITY_AGENT_NAME, GAS_CITY_RIG, GAS_CITY_RIG_ROOT
+  //   GAS_CITY_WEBHOOK_URL, GAS_CITY_FORMULA_VERSION_FACTORY_CODING_V1
 }

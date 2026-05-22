@@ -1510,7 +1510,11 @@ export default {
       }
     }
 
-    return new Response('ff-pipeline: POST /trigger-synthesis, POST /synthesis-callback, POST /trigger-harness, GET /run-status/:runId, GET /run-monitor/:runId, GET /run-artifacts/:runId, or use Queue consumer', { status: 404 })
+    if (url.pathname === '/dispatch-formula' && request.method === 'POST') {
+      return handleDispatchFormula(request, env, ctx)
+    }
+
+    return new Response('ff-pipeline: POST /trigger-synthesis, POST /synthesis-callback, POST /trigger-harness, POST /dispatch-formula, GET /run-status/:runId, GET /run-monitor/:runId, GET /run-artifacts/:runId, or use Queue consumer', { status: 404 })
   },
 
   async scheduled(event: ScheduledEvent, env: PipelineEnv, ctx: ExecutionContext): Promise<void> {
@@ -2137,6 +2141,83 @@ export default {
       }
     }
   },
+}
+
+async function handleDispatchFormula(
+  request: Request,
+  env: PipelineEnv,
+  ctx: ExecutionContext,
+): Promise<Response> {
+  try {
+    const auth = authorizeOperatorControl(request, env)
+    if (!auth.ok) return json({ error: auth.error }, auth.status === 403 ? 401 : auth.status)
+
+    const body = await readJsonRecord(request)
+    const epId = cleanString(body.epId, '')
+    if (!epId) return json({ error: 'epId required' }, 400)
+
+    const missing = missingGasCityEnvVars(env)
+    if (missing.length > 0) {
+      return json({ error: 'Gas City env vars not configured', missing }, 500)
+    }
+
+    const { createClientFromEnv } = await import('@factory/arango-client')
+    const { buildFormulaCompilerDeps } = await import('./compilers/formula-compiler-adapter.js')
+    const { compileAndDispatchFormula } = await import('./compilers/formula-compiler.js')
+    const db = createClientFromEnv(env)
+    const ep = await db.get<Record<string, unknown>>('execution_packets', epId)
+    if (!ep) return json({ error: 'EP not found', epId }, 404)
+
+    const factoryAttempt = Number.isInteger(body.factoryAttempt) && (body.factoryAttempt as number) > 0
+      ? body.factoryAttempt as number
+      : 1
+    const priorEsId = cleanString(body.priorEsId, '')
+    const formulaEnv = env as PipelineEnv & import('./compilers/formula-compiler.js').FormulaCompilerEnv
+    const deps = buildFormulaCompilerDeps(db, formulaEnv)
+    const result = await compileAndDispatchFormula({
+      ep: ep as unknown as import('@factory/schemas').TrellisExecutionPacket,
+      factoryAttempt,
+      ...(priorEsId ? { priorEsId } : {}),
+      env: formulaEnv,
+      deps,
+    })
+    ctx.waitUntil(Promise.resolve())
+
+    if (isFormulaCompilerHalt(result)) return json(result, 422)
+    if (result.replay === true) return json({ accepted: true, ...result }, 200)
+    return json({ accepted: true, ...result }, 202)
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : String(err) }, 500)
+  }
+}
+
+const REQUIRED_GAS_CITY_ENV_VARS = [
+  'GAS_CITY_BASE_URL',
+  'GAS_CITY_CITY_NAME',
+  'GAS_CITY_BEARER_TOKEN',
+  'GAS_CITY_AGENT_NAME',
+  'GAS_CITY_RIG',
+  'GAS_CITY_RIG_ROOT',
+  'GAS_CITY_WEBHOOK_URL',
+] as const
+
+function missingGasCityEnvVars(env: PipelineEnv): string[] {
+  return REQUIRED_GAS_CITY_ENV_VARS.filter((key) => {
+    const value = env[key]
+    return typeof value !== 'string' || value.trim().length === 0
+  })
+}
+
+function isFormulaCompilerHalt(
+  result: import('./compilers/formula-compiler.js').FormulaCompilerResult,
+): boolean {
+  if (result.outcome !== 'failed') return false
+  return result.error === 'missing_coherence_vr'
+    || result.error === 'unregistered_adapter'
+    || result.error === 'reserved_key_collision'
+    || result.error === 'resume_missing_form'
+    || result.error === 'form_key_collision'
+    || result.error === 'form_determinism_violation'
 }
 
 async function handleRunIntervention(request: Request, env: PipelineEnv, url: URL): Promise<Response> {
