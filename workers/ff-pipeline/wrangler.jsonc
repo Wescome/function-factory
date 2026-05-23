@@ -87,6 +87,13 @@
     "crons": ["*/5 * * * *"]
   },
 
+  // execa cannot run in CF Workers (child_process). @factory/nlah barrel-exports
+  // adapters.ts which imports execa, but no CF Worker code path calls those adapters.
+  // Alias redirects the esbuild bundle to the CF-safe stub (src/cf-stubs/execa.js).
+  "alias": {
+    "execa": "./src/cf-stubs/execa.js"
+  },
+
   "vars": {
     "ENVIRONMENT": "production",
     "PI_MODEL": "openrouter/openai/gpt-5.4",
