@@ -1,0 +1,3 @@
+FROM arangodb/arangodb:3.12
+ENV ARANGO_NO_AUTH=1
+EXPOSE 8529

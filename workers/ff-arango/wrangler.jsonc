@@ -1,0 +1,26 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ff-arango",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-01-01",
+
+  "containers": [
+    {
+      "class_name": "ArangoStore",
+      "image": "./Dockerfile",
+      "instance_type": "standard-1",
+      "max_instances": 1
+    }
+  ],
+
+  "durable_objects": {
+    "bindings": [{ "name": "ARANGO_STORE", "class_name": "ArangoStore" }]
+  },
+
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ArangoStore"] }]
+
+  // Secrets (wrangler secret put):
+  //   ARANGO_ROOT_PASSWORD — root password; Worker validates Basic Auth against this.
+  //                          ArangoDB itself runs with ARANGO_NO_AUTH=1 (no DB-level auth).
+  //                          Set the same value as ARANGO_PASSWORD on ff-pipeline.
+}
