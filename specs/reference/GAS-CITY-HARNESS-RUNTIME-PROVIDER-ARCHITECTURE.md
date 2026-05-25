@@ -27,29 +27,35 @@ ADR-010 supersedes the NLAH path and moves execution ownership to Gas City. Ther
 ## Architecture
 
 ```text
-Factory
+Factory (CF Worker: ff-pipeline.koales.workers.dev)
   owns specification, coherence, amendment, persistence monitoring
   exposes dispatch and webhook boundaries
         |
-        v
-Gas City Supervisor / City
+        v (3-call HTTP: version probe → bead create → sling)
+Gas City Supervisor (gc daemon, local)
   owns sessions, beads, formulas, molecules, convergence, fidelity validation
+  formulas/ reside on local host filesystem (city pack)
+        |
+        v (GC_SESSION=cloudflare → internal/runtime/cloudflare provider)
+Hermes (CF Worker + Durable Object + Container: hermes-sandbox)
+  implements Gas City cloudflare runtime provider API
+  manages Cloudflare Sandbox container lifecycle per session
         |
         v
-Runtime Provider Registry
-  selects a provider from formula, policy, city config, and capacity
-        |
-        v
-Harness Runtime Provider
-  pi-rpc | openshell | cloudflare-sandbox | codex | claude-code
-  aider | opencode | browser | docker | k8s-job | future providers
-        |
-        v
-Live Runtime
-  container, process, sandbox, remote session, or orchestrated job
+Cloudflare Sandbox Container
+  runs the AI agent (Claude Code / Hermes agent) for each session
 ```
 
-Factory and Gas City communicate over HTTP events. They do not share provider storage. Provider internals are below the Gas City boundary.
+Factory and Gas City communicate over HTTP. Gas City and Hermes communicate
+over the Gas City cloudflare runtime provider API. Agent sessions execute
+entirely inside Cloudflare Sandbox containers managed by Hermes.
+Provider internals (Hermes, Sandbox) are below the Gas City boundary.
+
+Current live deployment:
+- Gas City city: phase0-city (local, gc daemon)
+- Session provider: cloudflare (Hermes, GC_SESSION=cloudflare)
+- Formula template: factory-coding-v1.toml in phase0-city core pack
+- Coder agent: agents/coder/agent.toml, provider=cloudflare
 
 ## Harness Tuple
 
@@ -149,7 +155,7 @@ The provider verdict is not the molecule verdict. The provider can report that e
 : Browser automation provider. Useful for UI verification, screenshots, web workflows, and live external interaction under a scoped policy.
 
 `docker`
-: Local or VPS Docker provider. Useful for development, deterministic replay, and simple non-Cloudflare deployment.
+: Local Docker provider. Useful for development, deterministic replay, and non-Cloudflare environments. The VPS model is not the Phase 1 deployment; Gas City supervisor runs locally with Hermes (CF) as the session runtime.
 
 `k8s-job`
 : Production-scale provider for the ADR-010 future target. Useful when Gas City moves from VPS/simple containers to orchestrated city execution.
@@ -193,6 +199,11 @@ The provider architecture must preserve these rules from the harness/evaluator o
 6. Add OpenShell as a provider or provider sublayer where its policy and shell mediation are stronger than the current Pi/Sandbox path.
 7. Move canonical evidence ownership to Gas City. Cloudflare R2 may remain an implementation store, but Gas City owns the evidence envelope and Factory only receives Gas City events.
 8. Retire NLAH/harness dispatch paths only after Formula execution, provider evidence, fidelity validation, and Factory webhook intake are proven end to end.
+
+Note: "city-init via rsync to VPS" in earlier drafts was incorrect. Gas City
+supervisor runs locally (gc daemon). Hermes is the Cloudflare session runtime.
+formula deployment = ensuring factory-coding-v1.toml is present in the live
+city pack (already satisfied in phase0-city).
 
 ## Gaps To Close
 

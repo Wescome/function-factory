@@ -220,10 +220,27 @@ decisions:
         description: >
           Local Docker for development iteration; shared VPS for gate validation.
           Docker image pins GAS_CITY_VERSION. CI VPS is the authoritative gate runner.
+        score: LOW
+        rejection_class: wrong_model
+        rejection_predicate: >
+          CORRECTION 2026-05-25: Gas City supervisor runs locally (gc daemon).
+          Agent sessions do NOT run on a VPS — they run in Cloudflare via Hermes
+          (a CF Worker + DO + Container that implements the Gas City cloudflare
+          runtime provider API). No VPS is involved in the session execution path.
+          Per-dev Docker for the supervisor is still valid but the shared CI VPS
+          model does not match the actual deployment.
+      - option: D
+        label: Local gc daemon + Cloudflare session runtime (Hermes)
+        description: >
+          Gas City supervisor (gc daemon) runs locally. Agent sessions execute
+          in Cloudflare via Hermes (hermes-sandbox CF Worker + Durable Object +
+          Container). GC_SESSION=cloudflare routes sessions to Hermes.
+          formulas/ directory lives on the local Gas City host filesystem.
+          factory-coding-v1.toml is present in the live phase0-city pack.
         score: HIGH
         recommendation: true
-    selected_option: Per-dev Docker + shared CI VPS
-    recommendation: C+ # APPROVED 2026-05-20
+    selected_option: Local gc daemon + Cloudflare session runtime (Hermes)
+    recommendation: D+ # CORRECTED 2026-05-25 — D replaces C (C was based on wrong VPS assumption)
 
   - id: D8
     question: "Webhook authentication (Gas City → Factory)?"
@@ -564,9 +581,13 @@ decisions:
     recommendation: A+ # APPROVED 2026-05-21
     dispatch_flow: >
       Pre-condition (one-time, operator-driven):
-        factory-coding-v1.toml deployed to Gas City formulas/ directory at city-init.
-        Template lives at function-factory/harnesses/gascity-templates/factory-coding-v1.toml
-        and is rsynced to Gas City VPS at deploy time. Content SHA pinned in wrangler env.
+        factory-coding-v1.toml is present in the live city pack at:
+          phase0-city/.gc/system/packs/core/formulas/factory-coding-v1.toml
+        No rsync or VPS deployment required. Gas City supervisor (gc daemon) runs
+        locally; formula is resolved from the city pack filesystem at sling time.
+        Content SHA pinned in wrangler env (GAS_CITY_FORMULA_VERSION_HASH).
+        CORRECTION 2026-05-25: "rsynced to Gas City VPS" was wrong — Gas City
+        runs locally with Cloudflare (Hermes) as the session runtime provider.
 
       Per-dispatch HTTP sequence (3 calls, sequential, Factory → Gas City):
 
