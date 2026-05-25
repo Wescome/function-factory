@@ -649,33 +649,48 @@ decisions:
         prompts_resolved: { planner, coder, verifier }
         source_refs: [ES-GC-EP-FORMULA-DISPATCH]
 
-    open_questions:
+    open_questions: []  # All resolved 2026-05-25 — see resolutions below
+    resolved_questions:
       - id: UE-Q1C-1
         question: >
           Does GET /v0/city/{cityName}/formulas/{name} return raw TOML or structured
-          fields only? If structured-only, SHA verification of the on-disk template
-          must be done differently (e.g. gc formula show at deploy CI time instead).
-        blocking_for: [CALL-1 version probe]
-        resolution: read huma_handlers_formulas.go formulaDetail response shape
+          fields only?
+        resolution: >
+          RESOLVED 2026-05-25: Structured fields only. humaHandleFormulaDetail calls
+          buildFormulaDetail which compiles the formula via formula.Parser and returns
+          a formulaDetailResponse (compiled recipe steps, variables, metadata) — not
+          raw TOML bytes. Factory CANNOT use CALL 1 for content SHA verification.
+          CORRECTION to dispatch_flow: CALL 1 becomes an existence check only
+          (formula present and named correctly). SHA pin is enforced at container
+          build time (GAS_CITY_FORMULA_VERSION_HASH in wrangler env matches the
+          hash of the TOML baked into the container image), not at runtime.
       - id: UE-Q1C-2
         question: >
-          Does attached_bead_id propagate lineage labels to molecule-internal child
-          beads, or only to the workflow root bead?
-        blocking_for: [Phase 1 gate "Bead labels confirmed via bd list"]
-        resolution: inspect sling AttachFormula + molecule emission code paths
+          Does attached_bead_id propagate lineage labels to molecule-internal child beads?
+        resolution: >
+          RESOLVED 2026-05-25: NO. attached_bead_id only stamps gc.root_bead_id on
+          child beads (molecule.go Attach function). Labels are NOT inherited from
+          the root bead. Each [[steps]] block in factory-coding-v1.toml must declare
+          the five Factory lineage labels explicitly — already implemented in the
+          template. This is a Gas City architecture invariant, not a bug.
       - id: UE-Q1C-3
         question: >
-          Phase 0 used gc formula cook (CLI), not POST /sling (HTTP). Are the formula
-          loading/compile code paths identical? If HTTP path uses a different parser,
-          Phase 0 obs #1/#3 may re-surface.
-        blocking_for: [CALL-3 sling correctness]
-        resolution: code-trace humaHandleSling → LaunchFormula → formula.Parser vs CLI cook path
+          Are HTTP sling and CLI gc formula cook code paths identical?
+        resolution: >
+          RESOLVED 2026-05-25: YES, identical. Both use formula.NewParser +
+          formula.CompileWithoutRuntimeVarValidation through the same 11-stage
+          pipeline. humaHandleSling → LaunchFormula → InstantiateSlingFormula
+          and cmd_sling.go → sling package both hit the same sling_core.go logic.
+          Phase 0 CLI observations carry over to HTTP dispatch entirely.
       - id: UE-Q1C-4
         question: >
-          Does POST /sling support an Idempotency-Key header, or only POST /beads?
-          If not, sling retry idempotency relies solely on 409 conflict detection.
-        blocking_for: [idempotency proof — Phase 1 gate]
-        resolution: read huma_handlers_sling.go for idempotency middleware
+          Does POST /sling support an Idempotency-Key header?
+        resolution: >
+          RESOLVED 2026-05-25: NO. SlingInput struct has no Idempotency-Key field.
+          The idempotency middleware is not integrated into the sling handler.
+          Retry idempotency relies solely on 409 conflict detection
+          (sourceworkflow.ConflictError). A 409 with a matching workflow = replay
+          success. Caller must detect 409 and treat it as idempotent success.
     ontology_amendment_required: >
       D-NEW-2 (FormulaCompilation approved) must be amended: the FORM-* artifact
       captures parametric specification (template_name + version_hash + vars +
