@@ -617,12 +617,12 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     const trellisExecutionPacket = instructionTuning.packet as Record<string, unknown>
 
     await step.do('persist-trellis-execution-packet', DB_STEP_CONFIG, async () => {
-      await db.save('trellis_execution_packets', {
+      await db.save('execution_packets', {
         ...trellisExecutionPacket,
         _key: trellisExecutionPacket.id,
         source_refs: trellisExecutionPacket.source_refs,
       })
-      await db.saveEdge('lineage_edges', `trellis_execution_packets/${trellisExecutionPacket.id as string}`, `executable_specifications/${executableSpecificationKey}`, {
+      await db.saveEdge('lineage_edges', `execution_packets/${trellisExecutionPacket.id as string}`, `executable_specifications/${executableSpecificationKey}`, {
         type: 'tuned-from', createdAt: new Date().toISOString(),
       })
       return { persisted: true }

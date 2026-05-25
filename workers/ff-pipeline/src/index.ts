@@ -1514,7 +1514,11 @@ export default {
       return handleDispatchFormula(request, env, ctx)
     }
 
-    return new Response('ff-pipeline: POST /trigger-synthesis, POST /synthesis-callback, POST /trigger-harness, POST /dispatch-formula, GET /run-status/:runId, GET /run-monitor/:runId, GET /run-artifacts/:runId, or use Queue consumer', { status: 404 })
+    if (url.pathname === '/seed-dispatch-ep' && request.method === 'POST') {
+      return handleSeedDispatchEp(request, env)
+    }
+
+    return new Response('ff-pipeline: POST /trigger-synthesis, POST /synthesis-callback, POST /trigger-harness, POST /dispatch-formula, POST /seed-dispatch-ep, GET /run-status/:runId, GET /run-monitor/:runId, GET /run-artifacts/:runId, or use Queue consumer', { status: 404 })
   },
 
   async scheduled(event: ScheduledEvent, env: PipelineEnv, ctx: ExecutionContext): Promise<void> {
@@ -2218,6 +2222,90 @@ function isFormulaCompilerHalt(
     || result.error === 'resume_missing_form'
     || result.error === 'form_key_collision'
     || result.error === 'form_determinism_violation'
+}
+
+/**
+ * POST /seed-dispatch-ep — bootstrap helper for first live dispatch.
+ *
+ * Creates a minimal execution_packets row and a synthetic coherence VR so
+ * /dispatch-formula has an EP to read. Requires OPERATOR_CONTROL_TOKEN.
+ * Only for development/bootstrap use; remove after real pipeline EPs exist.
+ */
+async function handleSeedDispatchEp(request: Request, env: PipelineEnv): Promise<Response> {
+  try {
+    const auth = authorizeOperatorControl(request, env)
+    if (!auth.ok) return json({ error: auth.error }, auth.status === 403 ? 401 : auth.status)
+
+    const body = await readJsonRecord(request)
+    const fnId = cleanString(body.fnId, '') || 'FN-GC-DISPATCH-WIRE'
+    const isId = cleanString(body.isId, '') || 'IS-GC-DISPATCH-WIRE'
+    const esId = cleanString(body.esId, '') || 'ES-GC-DISPATCH-WIRE'
+    const runId = cleanString(body.runId, '') || Date.now().toString(36).toUpperCase()
+    const epId = `TEP-${runId}`
+    const task = cleanString(body.task, '') || `Implement ${isId}: wire POST /dispatch-formula to Gas City 3-call HTTP sequence.`
+    const plannerPrompt = cleanString(body.plannerPrompt, '') || `Read ${esId} and produce a coding plan for: ${task}`
+    const coderPrompt = cleanString(body.coderPrompt, '') || `Implement the plan from ${esId}: ${task}`
+    const verifierPrompt = cleanString(body.verifierPrompt, '') || `Verify the implementation against ${esId} acceptance criteria. Approve if all pass.`
+
+    const { createClientFromEnv } = await import('@factory/arango-client')
+    const db = createClientFromEnv(env)
+
+    await db.ensureCollection('execution_packets')
+    await db.ensureCollection('verification_reports')
+
+    const ep = {
+      _key: epId,
+      id: epId,
+      functionId: fnId,
+      intentSpecificationId: isId,
+      executableSpecificationId: esId,
+      instructionTuning: {
+        inputExecutableSpecificationHash: `sha256-seed-${runId}`,
+      },
+      adapter: {
+        adapterId: 'adapter.coding',
+        executionRequest: {
+          parameters: { task, lang: 'typescript' },
+        },
+      },
+      roles: [
+        { roleId: 'planner', instruction: plannerPrompt, inputs: [], outputs: [`PLAN-${runId}.md`] },
+        { roleId: 'coder', instruction: coderPrompt, inputs: [`PLAN-${runId}.md`], outputs: [] },
+        { roleId: 'verifier', instruction: verifierPrompt, inputs: [], outputs: [] },
+      ],
+      seeded_at: new Date().toISOString(),
+      kind: 'SeedExecutionPacket',
+    }
+
+    const existingEp = await db.get<Record<string, unknown>>('execution_packets', epId)
+    if (!existingEp) {
+      await db.save('execution_packets', ep)
+    }
+
+    const vrKey = `VR-SEED-COHERENCE-${runId}`
+    const existingVr = await db.get<Record<string, unknown>>('verification_reports', vrKey)
+    if (!existingVr) {
+      await db.save('verification_reports', {
+        _key: vrKey,
+        kind: 'coherence',
+        status: 'passed',
+        source_refs: [esId],
+        created_at: new Date().toISOString(),
+        explicitness: 'explicit',
+        notes: `seeded by /seed-dispatch-ep for bootstrap dispatch of ${esId}`,
+      })
+    }
+
+    return json({
+      ok: true,
+      epId,
+      vrKey,
+      replay: !!existingEp,
+      next: `POST /dispatch-formula with { "epId": "${epId}", "factoryAttempt": 1 }`,
+    }, existingEp ? 200 : 201)
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : String(err) }, 500)
+  }
 }
 
 async function handleRunIntervention(request: Request, env: PipelineEnv, url: URL): Promise<Response> {
