@@ -6,10 +6,8 @@ sourceFunctionId: FP-GC-EP-FORMULA-DISPATCH
 title: "Gas City Formula Compiler and Dispatch (IP-1)"
 source_refs:
   - GOVD-GAS-CITY-PHASE1-INTEGRATION
-  - ADR-010-gas-city-supersedes-nlah
-  - ARCHITECTURE-ROADMAP-GAS-CITY-FACTORY
-  - EXECUTION-PACKET
-  - SE-Onto-Draft-1.1
+  - BC-GC-FORMULA-DISPATCH
+  - FP-GC-EP-FORMULA-DISPATCH
 explicitness: explicit
 rationale: >
   Specifies the FormulaCompilation transformation (D-NEW-2 approved 2026-05-20)
@@ -499,6 +497,22 @@ Forbidden imports: `providers.ts`, `callProvider`, `@anthropic-ai/sdk`,
 function adds a sixth label to CALL 2's bead: `"amendment-of:{prior_es_id}"`.
 The var map includes `factory_attempt: "N"` (stringified decimal). The FORM-*
 `_key` uses the same derivation with the updated `factory_attempt`.
+
+## Acceptance Criteria
+
+1. Given a valid Execution Packet with a passing Coherence Verification Report, the function produces a deterministic FORM-* artifact, persists it before any Gas City call, and preserves lineage to the source Execution Packet and Executable Specification.
+
+2. Given identical Execution Packet input and identical environment configuration, repeated compilation produces byte-identical FORM-* vars, `parameters_json`, and FORM-* key.
+
+3. Given a missing passing Coherence Verification Report, unregistered adapter, reserved parameter key, FORM-* collision, or missing persisted FORM-* on resume, the function emits an UncertaintyEntry and halts without dispatching to Gas City.
+
+4. Given successful dispatch preconditions, the function calls Gas City in the approved sequence: formula version probe, Bead creation with lineage labels, then sling attach.
+
+5. Given retry, replay, bead conflict, sling conflict, or partition recovery conditions, the function uses `dispatch_log` and Gas City conflict evidence to produce an idempotent outcome rather than duplicate work.
+
+6. Given an amendment dispatch attempt, the function includes the amendment label, stringified `factory_attempt`, and attempt-scoped FORM-* identity.
+
+7. The function performs no LLM calls and confines all side effects to injected ArangoDB, Gas City HTTP, clock, and sleep dependencies.
 
 ## Validation obligations
 

@@ -620,7 +620,7 @@ decisions:
         formula_version_hash: <sha256 of on-disk template>
         vars: <the full var map sent in CALL 3>
         prompts_resolved: { planner, coder, verifier }
-        source_refs: [ES-XXX]
+        source_refs: [ES-GC-EP-FORMULA-DISPATCH]
 
     open_questions:
       - id: UE-Q1C-1

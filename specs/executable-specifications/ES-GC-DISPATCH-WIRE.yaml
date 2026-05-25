@@ -1,0 +1,28 @@
+id: ES-GC-DISPATCH-WIRE
+source_refs:
+  - ATOM-GC-DISPATCH-WIRE-AC-01
+  - ATOM-GC-DISPATCH-WIRE-AC-02
+  - ATOM-GC-DISPATCH-WIRE-METRIC-01
+  - ATOM-GC-DISPATCH-WIRE-METRIC-02
+  - ATOM-GC-DISPATCH-WIRE-METRIC-03
+  - ATOM-GC-DISPATCH-WIRE-METRIC-04
+  - ATOM-GC-DISPATCH-WIRE-METRIC-05
+  - CONTRACT-GC-DISPATCH-WIRE-ACCEPTANCE
+  - CONTRACT-GC-DISPATCH-WIRE-NFR
+  - IS-GC-DISPATCH-WIRE
+  - VR-IS-GC-DISPATCH-WIRE-COHERENCE-2026-05-24T15-38-26-225Z
+explicitness: explicit
+rationale: ExecutableSpecification assembled from validated intermediates of
+  IS-GC-DISPATCH-WIRE; Coherence Verification verdict pass cited in source_refs
+functionId: FP-GC-EP-FORMULA-DISPATCH
+nodes:
+  - id: CONTRACT-GC-DISPATCH-WIRE-ACCEPTANCE
+    type: execution
+    title: Aggregate contract for acceptance-category requirements of
+      IS-GC-DISPATCH-WIRE
+    implements: CONTRACT-GC-DISPATCH-WIRE-ACCEPTANCE
+  - id: CONTRACT-GC-DISPATCH-WIRE-NFR
+    type: execution
+    title: Aggregate contract for nfr-category requirements of IS-GC-DISPATCH-WIRE
+    implements: CONTRACT-GC-DISPATCH-WIRE-NFR
+edges: []

@@ -1939,7 +1939,7 @@ export default {
                 const { generatePR } = await import('./stages/generate-pr.js')
                 const result = await generatePR(
                   {
-                    runId: (feedbackBody.result.runId ?? feedbackBody.result.workflowId ?? feedbackBody.result.workGraphId ?? feedbackBody.result.proposalId ?? 'unknown') as string,
+                    runId: (feedbackBody.result.runId ?? feedbackBody.result.workflowId ?? feedbackBody.result.proposalId ?? 'unknown') as string,
                     signalTitle: fs.signal.title,
                     proposalId: feedbackBody.result.proposalId as string,
                     executableSpecificationId: feedbackBody.result.executableSpecificationId as string,

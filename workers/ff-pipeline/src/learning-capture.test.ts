@@ -20,6 +20,8 @@ function env(overrides: Partial<PipelineEnv> = {}): PipelineEnv {
     SYNTHESIS_QUEUE: {} as PipelineEnv['SYNTHESIS_QUEUE'],
     SYNTHESIS_RESULTS: {} as PipelineEnv['SYNTHESIS_RESULTS'],
     ATOM_RESULTS: {} as PipelineEnv['ATOM_RESULTS'],
+    GITHUB_APP_ID: '12345',
+    GITHUB_APP_PRIVATE_KEY: '-----BEGIN PRIVATE KEY-----\\nAQIDBA==\\n-----END PRIVATE KEY-----',
     ...overrides,
   }
 }

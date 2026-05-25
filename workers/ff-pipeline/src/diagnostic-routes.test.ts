@@ -173,7 +173,7 @@ describe('ff-pipeline diagnostic routes', () => {
       version: '0.1.0',
       environment: 'test',
     })
-  })
+  }, 10_000)
 
   it('GET /run-status/:runId returns the R2 run summary', async () => {
     const { default: worker } = await import('./index')

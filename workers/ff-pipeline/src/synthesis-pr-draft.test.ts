@@ -48,7 +48,7 @@ describe('synthesis PR draft plan', () => {
 
     expect(draft).toMatchObject({
       title: '[Factory] Materialize ES-MOTE4M1R-G7I0 synthesis artifact',
-      branchName: 'factory/fp-motdwvr2-w7un',
+      branchName: 'factory/fn-fp-motdwvr2-w7un-00000000',
       baseBranch: 'main',
       executableSpecificationId: 'ES-MOTE4M1R-G7I0',
       proposalId: 'FP-MOTDWVR2-W7UN',

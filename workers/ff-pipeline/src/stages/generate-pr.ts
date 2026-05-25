@@ -27,7 +27,6 @@ export interface FileChangeV2 {
 
 export interface PRGenerationInput {
   runId?: string
-  workGraphId?: string
   signalTitle: string
   proposalId: string
   executableSpecificationId: string
@@ -258,7 +257,7 @@ export async function generatePR(
   env: PRGenerationEnv,
 ): Promise<PRGenerationResult> {
   const { owner: repoOwner, repo: repoName } = resolveTargetRepo(input, env)
-  const runId = input.runId ?? input.workGraphId ?? input.proposalId
+  const runId = input.runId ?? input.proposalId
   const shortHash = (await sha256Hex(patchFingerprint(input))).slice(0, 8)
   let branchName = buildBranchName(runId, shortHash)
   let filesWritten = 0

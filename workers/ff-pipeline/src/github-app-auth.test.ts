@@ -31,7 +31,7 @@ describe('getInstallationToken', () => {
 
   it('normalizes PEM with literal newline escapes when creating a JWT', async () => {
     mockSubtle()
-    const fetchMock = vi.fn(async (url: string | Request) => {
+    const fetchMock = vi.fn(async (url: string | Request, _init?: RequestInit) => {
       const urlStr = typeof url === 'string' ? url : url.url
       if (urlStr.endsWith('/repos/Wescome/function-factory/installation')) {
         return jsonResponse({ id: 42 })
@@ -50,8 +50,12 @@ describe('getInstallationToken', () => {
       'function-factory',
     )).resolves.toBe('ghs_test')
 
-    const firstHeaders = fetchMock.mock.calls[0]![1]!.headers as Record<string, string>
-    const jwt = firstHeaders.Authorization.replace('Bearer ', '')
+    const firstInit = fetchMock.mock.calls[0]?.[1]
+    if (!firstInit) throw new Error('expected first GitHub fetch call to include RequestInit')
+    const firstHeaders = firstInit.headers as Record<string, string>
+    const authorization = firstHeaders.Authorization
+    if (!authorization) throw new Error('expected first GitHub fetch call to include Authorization header')
+    const jwt = authorization.replace('Bearer ', '')
     expect(jwt.split('.')).toHaveLength(3)
   })
 

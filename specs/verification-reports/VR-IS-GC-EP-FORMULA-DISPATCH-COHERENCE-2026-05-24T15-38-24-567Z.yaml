@@ -1,0 +1,29 @@
+id: VR-IS-GC-EP-FORMULA-DISPATCH-COHERENCE-2026-05-24T15-38-24-567Z
+source_refs:
+  - IS-GC-EP-FORMULA-DISPATCH
+explicitness: explicit
+rationale: Coherence Verification evaluation for IS-GC-EP-FORMULA-DISPATCH in
+  steady_state mode
+verification: coherence
+intent_specification_id: IS-GC-EP-FORMULA-DISPATCH
+timestamp: 2026-05-24T15:38:24.567Z
+overall: pass
+checks:
+  atom_coverage:
+    status: pass
+    details: []
+    orphan_atoms: []
+  invariant_coverage:
+    status: pass
+    details: []
+    invariants_missing_validation: []
+    invariants_missing_detector: []
+  validation_coverage:
+    status: pass
+    details: []
+    validations_covering_nothing: []
+  dependency_closure:
+    status: pass
+    details: []
+    dangling_dependencies: []
+remediation: no remediation required

@@ -25,6 +25,7 @@
 - **GUV does not review his own work.** GUV proposes and orchestrates. Architect, SE, and Critic review. GUV fixes what they find. This is separation of concerns.
 - **Do not ask Wes for permission between steps.** The protocol IS the permission. Execute it. Only pause when: (a) a review returns REVISE, (b) an architecture decision is needed that GUV cannot make, or (c) there is a blocker.
 - **Do not combine review + build in one agent.** Each agent has one job. Architect reviews. SE reviews. Engineer builds. Critic reviews code. Mixing roles produces shallow work.
+- **Engineer = Claude Opus (subagent_type: Engineer). Never use codex:codex-rescue for implementation.** Codex spawns background-in-background agents with zero visibility and no synchronous feedback. The Engineer agent (Opus) builds inline, runs tests synchronously, and reports results in the same turn.
 
 ## What Each Agent Reviews
 

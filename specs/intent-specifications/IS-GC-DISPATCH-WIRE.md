@@ -7,7 +7,8 @@ sourceFunctionId: FP-GC-EP-FORMULA-DISPATCH
 source_refs:
   - IS-GC-EP-FORMULA-DISPATCH
   - GOVD-GAS-CITY-PHASE1-INTEGRATION
-  - ADR-010-gas-city-supersedes-nlah
+  - BC-GC-FORMULA-DISPATCH
+  - FP-GC-EP-FORMULA-DISPATCH
 explicitness: explicit
 rationale: >
   IS-GC-EP-FORMULA-DISPATCH specified and proved the formula compiler logic (IP-1,
@@ -305,6 +306,16 @@ mock `compileAndDispatchFormula` function (no live compiler). Covers:
 **AC-T3.** All existing tests continue to pass (`npx vitest run`).
 
 ## Collection names (smoke-confirmed)
+
+## Success Metrics
+
+The `POST /dispatch-formula` route is reachable in the Worker, rejects unauthorized or malformed requests before side effects, validates required Gas City environment configuration before constructing compiler dependencies, and returns status codes matching the closed outcome mapping in the acceptance criteria.
+
+The real ArangoDB adapter preserves the proven formula compiler behavior: FORM-* lookup, FORM-* write, `dispatch_log` write/update, Coherence Verification lookup, and best-effort UncertaintyEntry emission all use the documented collection names.
+
+The route wiring preserves IP-1 scope boundaries: no synthesis auto-triggering, no IP-2/IP-3 event bridge behavior, no LLM calls, and no changes to frozen formula compiler semantics beyond the additive replay marker required by this Intent Specification.
+
+All route, adapter, and existing ff-pipeline tests pass, and the deployed Worker exposes enough structured response data for an operator to confirm FORM-* identity, dispatch log identity, and Gas City Bead/workflow identity.
 
 | Purpose | Collection | Status |
 |---------|-----------|--------|

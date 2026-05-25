@@ -5,14 +5,15 @@
  * wrangler bindings, container declaration, queue bridge bindings, and the
  * installed @cloudflare/sandbox backup API shape.
  */
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 const wranglerConfig = readFileSync(new URL('../../wrangler.jsonc', import.meta.url), 'utf8')
-const sandboxTypes = readFileSync(
-  new URL('../../node_modules/@cloudflare/sandbox/dist/sandbox-Chr1Ebo-.d.ts', import.meta.url),
-  'utf8',
-)
+const sandboxDistUrl = new URL('../../node_modules/@cloudflare/sandbox/dist/', import.meta.url)
+const sandboxTypesFile = readdirSync(sandboxDistUrl)
+  .find((entry) => /^sandbox-.*\.d\.ts$/.test(entry))
+if (!sandboxTypesFile) throw new Error('expected @cloudflare/sandbox dist to include sandbox-*.d.ts')
+const sandboxTypes = readFileSync(new URL(sandboxTypesFile, sandboxDistUrl), 'utf8')
 
 describe('Phase 5 sandbox preflight', () => {
   it('declares the Sandbox durable object binding and migration', () => {

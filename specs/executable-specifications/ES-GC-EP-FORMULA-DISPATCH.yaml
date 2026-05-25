@@ -1,0 +1,110 @@
+id: ES-GC-EP-FORMULA-DISPATCH
+source_refs:
+  - ATOM-GC-EP-FORMULA-DISPATCH-AC-01
+  - ATOM-GC-EP-FORMULA-DISPATCH-AC-02
+  - ATOM-GC-EP-FORMULA-DISPATCH-AC-03
+  - ATOM-GC-EP-FORMULA-DISPATCH-AC-04
+  - ATOM-GC-EP-FORMULA-DISPATCH-AC-05
+  - ATOM-GC-EP-FORMULA-DISPATCH-AC-06
+  - ATOM-GC-EP-FORMULA-DISPATCH-AC-07
+  - ATOM-GC-EP-FORMULA-DISPATCH-CONSTRAINT-01
+  - ATOM-GC-EP-FORMULA-DISPATCH-CONSTRAINT-02
+  - ATOM-GC-EP-FORMULA-DISPATCH-CONSTRAINT-03
+  - ATOM-GC-EP-FORMULA-DISPATCH-CONSTRAINT-04
+  - ATOM-GC-EP-FORMULA-DISPATCH-CONSTRAINT-05
+  - ATOM-GC-EP-FORMULA-DISPATCH-CONSTRAINT-06
+  - ATOM-GC-EP-FORMULA-DISPATCH-CONSTRAINT-07
+  - ATOM-GC-EP-FORMULA-DISPATCH-CONSTRAINT-08
+  - ATOM-GC-EP-FORMULA-DISPATCH-CONSTRAINT-09
+  - ATOM-GC-EP-FORMULA-DISPATCH-CONSTRAINT-10
+  - ATOM-GC-EP-FORMULA-DISPATCH-CONSTRAINT-11
+  - ATOM-GC-EP-FORMULA-DISPATCH-CONSTRAINT-12
+  - ATOM-GC-EP-FORMULA-DISPATCH-CONSTRAINT-13
+  - ATOM-GC-EP-FORMULA-DISPATCH-CONSTRAINT-14
+  - ATOM-GC-EP-FORMULA-DISPATCH-CONSTRAINT-15
+  - ATOM-GC-EP-FORMULA-DISPATCH-CONSTRAINT-16
+  - ATOM-GC-EP-FORMULA-DISPATCH-CONSTRAINT-17
+  - ATOM-GC-EP-FORMULA-DISPATCH-CONSTRAINT-18
+  - ATOM-GC-EP-FORMULA-DISPATCH-CONSTRAINT-19
+  - ATOM-GC-EP-FORMULA-DISPATCH-CONSTRAINT-20
+  - ATOM-GC-EP-FORMULA-DISPATCH-CONSTRAINT-21
+  - ATOM-GC-EP-FORMULA-DISPATCH-METRIC-01
+  - ATOM-GC-EP-FORMULA-DISPATCH-METRIC-02
+  - CONTRACT-GC-EP-FORMULA-DISPATCH-ACCEPTANCE
+  - CONTRACT-GC-EP-FORMULA-DISPATCH-CONSTRAINT
+  - CONTRACT-GC-EP-FORMULA-DISPATCH-NFR
+  - INV-GC-EP-FORMULA-DISPATCH-DETERMINISM
+  - INV-GC-EP-FORMULA-DISPATCH-EMISSION
+  - INV-GC-EP-FORMULA-DISPATCH-LINEAGE
+  - IS-GC-EP-FORMULA-DISPATCH
+  - VAL-GC-EP-FORMULA-DISPATCH-VAL-01
+  - VAL-GC-EP-FORMULA-DISPATCH-VAL-02
+  - VAL-GC-EP-FORMULA-DISPATCH-VAL-03
+  - VR-IS-GC-EP-FORMULA-DISPATCH-COHERENCE-2026-05-24T15-38-24-567Z
+explicitness: explicit
+rationale: ExecutableSpecification assembled from validated intermediates of
+  IS-GC-EP-FORMULA-DISPATCH; Coherence Verification verdict pass cited in
+  source_refs
+functionId: FP-GC-EP-FORMULA-DISPATCH
+nodes:
+  - id: CONTRACT-GC-EP-FORMULA-DISPATCH-ACCEPTANCE
+    type: execution
+    title: Aggregate contract for acceptance-category requirements of
+      IS-GC-EP-FORMULA-DISPATCH
+    implements: CONTRACT-GC-EP-FORMULA-DISPATCH-ACCEPTANCE
+  - id: CONTRACT-GC-EP-FORMULA-DISPATCH-CONSTRAINT
+    type: control
+    title: Aggregate contract for constraint-category requirements of
+      IS-GC-EP-FORMULA-DISPATCH
+    implements: CONTRACT-GC-EP-FORMULA-DISPATCH-CONSTRAINT
+  - id: CONTRACT-GC-EP-FORMULA-DISPATCH-NFR
+    type: execution
+    title: Aggregate contract for nfr-category requirements of
+      IS-GC-EP-FORMULA-DISPATCH
+    implements: CONTRACT-GC-EP-FORMULA-DISPATCH-NFR
+  - id: INV-GC-EP-FORMULA-DISPATCH-DETERMINISM
+    type: control
+    title: Coherence Verification produces byte-identical
+      CoherenceVerificationReport contents for identical validated inputs modulo
+      id and timestamp
+    implements: INV-GC-EP-FORMULA-DISPATCH-DETERMINISM
+  - id: INV-GC-EP-FORMULA-DISPATCH-EMISSION
+    type: control
+    title: Coherence Verification writes a Verification Report to
+      specs/verification-reports/ on every invocation, pass or fail, before
+      returning control
+    implements: INV-GC-EP-FORMULA-DISPATCH-EMISSION
+  - id: INV-GC-EP-FORMULA-DISPATCH-LINEAGE
+    type: control
+    title: Every CoherenceVerificationReport's source_refs cites the Intent
+      Specification ID and every artifact ID referenced in failing check detail
+      arrays
+    implements: INV-GC-EP-FORMULA-DISPATCH-LINEAGE
+  - id: VAL-GC-EP-FORMULA-DISPATCH-VAL-01
+    type: evidence
+    title: Assert invariant- Coherence Verification produces byte-identical
+      CoherenceVerificationReport contents for identical validated inputs modulo
+      id and timestamp
+    implements: VAL-GC-EP-FORMULA-DISPATCH-VAL-01
+  - id: VAL-GC-EP-FORMULA-DISPATCH-VAL-02
+    type: evidence
+    title: Assert invariant- Coherence Verification writes a Verification Report to
+      specs/verification-reports/ on every invocation, pass or fail, before
+      returning control
+    implements: VAL-GC-EP-FORMULA-DISPATCH-VAL-02
+  - id: VAL-GC-EP-FORMULA-DISPATCH-VAL-03
+    type: evidence
+    title: Assert invariant- Every CoherenceVerificationReport's source_refs cites
+      the Intent Specification ID and every artifact ID referenced in failing
+      check detail arrays
+    implements: VAL-GC-EP-FORMULA-DISPATCH-VAL-03
+edges:
+  - from: VAL-GC-EP-FORMULA-DISPATCH-VAL-01
+    to: INV-GC-EP-FORMULA-DISPATCH-DETERMINISM
+    dependencyType: validates
+  - from: VAL-GC-EP-FORMULA-DISPATCH-VAL-02
+    to: INV-GC-EP-FORMULA-DISPATCH-EMISSION
+    dependencyType: validates
+  - from: VAL-GC-EP-FORMULA-DISPATCH-VAL-03
+    to: INV-GC-EP-FORMULA-DISPATCH-LINEAGE
+    dependencyType: validates
