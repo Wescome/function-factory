@@ -21,6 +21,8 @@ export interface ArangoConfig {
     username: string
     password: string
   }
+  /** Optional custom fetch implementation (e.g. CF service binding fetcher). */
+  fetcher?: typeof fetch | undefined
 }
 
 export interface ArangoQueryResult<T = unknown> {
@@ -37,6 +39,7 @@ export interface ArangoValidationResult {
 export class ArangoClient {
   private baseUrl: string
   private headers: Record<string, string>
+  private fetcher: typeof fetch
   private validator?: (collection: string, doc: Record<string, unknown>) => ArangoValidationResult
 
   constructor(private config: ArangoConfig) {
@@ -45,6 +48,7 @@ export class ArangoClient {
       'Content-Type': 'application/json',
       ...this.authHeader(),
     }
+    this.fetcher = config.fetcher ?? fetch
   }
 
   /**
@@ -70,7 +74,7 @@ export class ArangoClient {
   // ── Collection operations ──
 
   async ensureCollection(name: string): Promise<void> {
-    const res = await fetch(`${this.baseUrl}/_api/collection`, {
+    const res = await this.fetcher(`${this.baseUrl}/_api/collection`, {
       method: 'POST',
       headers: this.headers,
       body: JSON.stringify({ name }),
@@ -86,7 +90,7 @@ export class ArangoClient {
     collection: string,
     key: string,
   ): Promise<T | null> {
-    const res = await fetch(
+    const res = await this.fetcher(
       `${this.baseUrl}/_api/document/${collection}/${key}`,
       { headers: this.headers },
     )
@@ -114,7 +118,7 @@ export class ArangoClient {
         console.warn(`[artifact-validator] ${v.constraint}: ${v.message}`)
       }
     }
-    const res = await fetch(
+    const res = await this.fetcher(
       `${this.baseUrl}/_api/document/${collection}`,
       {
         method: 'POST',
@@ -131,7 +135,7 @@ export class ArangoClient {
     key: string,
     patch: Record<string, unknown>,
   ): Promise<T> {
-    const res = await fetch(
+    const res = await this.fetcher(
       `${this.baseUrl}/_api/document/${collection}/${key}`,
       {
         method: 'PATCH',
@@ -144,7 +148,7 @@ export class ArangoClient {
   }
 
   async remove(collection: string, key: string): Promise<void> {
-    const res = await fetch(
+    const res = await this.fetcher(
       `${this.baseUrl}/_api/document/${collection}/${key}`,
       { method: 'DELETE', headers: this.headers },
     )
@@ -159,7 +163,7 @@ export class ArangoClient {
     aql: string,
     bindVars: Record<string, unknown> = {},
   ): Promise<T[]> {
-    const res = await fetch(`${this.baseUrl}/_api/cursor`, {
+    const res = await this.fetcher(`${this.baseUrl}/_api/cursor`, {
       method: 'POST',
       headers: this.headers,
       body: JSON.stringify({ query: aql, bindVars }),
@@ -208,7 +212,7 @@ export class ArangoClient {
 
   async ping(): Promise<boolean> {
     try {
-      const res = await fetch(`${this.config.url}/_api/version`, {
+      const res = await this.fetcher(`${this.config.url}/_api/version`, {
         headers: this.headers,
       })
       return res.ok
@@ -248,6 +252,7 @@ export function createClientFromEnv(env: {
   ARANGO_JWT?: string
   ARANGO_USERNAME?: string
   ARANGO_PASSWORD?: string
+  FF_ARANGO?: { fetch: typeof fetch }
 }): ArangoClient {
   const auth = env.ARANGO_JWT
     ? { type: 'jwt' as const, token: env.ARANGO_JWT }
@@ -257,9 +262,14 @@ export function createClientFromEnv(env: {
         password: env.ARANGO_PASSWORD ?? '',
       }
 
+  const fetcher = env.FF_ARANGO
+    ? env.FF_ARANGO.fetch.bind(env.FF_ARANGO)
+    : undefined
+
   return new ArangoClient({
     url: env.ARANGO_URL,
     database: env.ARANGO_DATABASE,
     auth,
+    fetcher,
   })
 }

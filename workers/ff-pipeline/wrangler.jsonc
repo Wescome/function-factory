@@ -42,7 +42,9 @@
 
   // Service Bindings
   "services": [
-    { "binding": "GATES", "service": "ff-gates", "entrypoint": "GatesService" }
+    { "binding": "GATES", "service": "ff-gates", "entrypoint": "GatesService" },
+    { "binding": "FF_ARANGO", "service": "ff-arango" },
+    { "binding": "GAS_CITY", "service": "gascity-supervisor" }
   ],
 
   // Queue bindings (Agent Call execution synthesis bridge)

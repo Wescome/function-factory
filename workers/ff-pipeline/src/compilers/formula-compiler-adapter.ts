@@ -10,7 +10,7 @@ import type {
 
 export function buildFormulaCompilerDeps(
   db: ArangoClient,
-  _env: FormulaCompilerEnv,
+  env: FormulaCompilerEnv & { GAS_CITY?: Fetcher },
 ): FormulaCompilerDeps {
   let uncertaintyCollectionEnsured = false
   return {
@@ -79,7 +79,16 @@ export function buildFormulaCompilerDeps(
     },
 
     httpFetch: async (url: string, init?: RequestInit) => {
-      return await globalThis.fetch(url, init)
+      // CF error 1042 blocks Worker-to-Worker fetches via the public
+      // `*.workers.dev` URL. When the GAS_CITY service binding is present
+      // and the request targets the Gas City base URL, route through the
+      // binding's Fetcher instead of the public hop. gasCityUrl() still
+      // builds full GAS_CITY_BASE_URL-prefixed URLs; the binding accepts
+      // the absolute URL and resolves it Worker-internally.
+      if (env.GAS_CITY && env.GAS_CITY_BASE_URL && url.startsWith(env.GAS_CITY_BASE_URL)) {
+        return env.GAS_CITY.fetch(url, init as RequestInit)
+      }
+      return globalThis.fetch(url, init)
     },
 
     now: () => new Date().toISOString(),

@@ -517,22 +517,32 @@ export async function compileAndDispatchFormula(
     pinnedVersionEnvVar
   ]
 
-  // CALL 1 URL includes required query params confirmed from Gas City source.
-  const call1Url = `${gasCityUrl(env, `/formulas/${templateName}`)}?target=${encodeURIComponent(env.GAS_CITY_AGENT_NAME)}&scope_kind=rig&scope_ref=${encodeURIComponent(env.GAS_CITY_RIG)}`
+  // CALL 1 URL — Phase 1: city-scoped (rig scope requires a rig bead store; not available Phase 1).
+  const call1Url = `${gasCityUrl(env, `/formulas/${templateName}`)}?target=${encodeURIComponent(env.GAS_CITY_AGENT_NAME)}&scope_kind=city&scope_ref=${encodeURIComponent(env.GAS_CITY_CITY_NAME)}`
   let probeStatus = 0
   let probeBody: { version?: string } | null = null
+  // Retry on 503: Gas City container cold-starts and returns 503 until port 9443 binds.
+  // Retry within the 25s window with 3s back-off until we get a non-503 response.
+  const call1Deadline = Date.now() + PER_CALL_TIMEOUT_MS
   try {
-    const probeRes = await deps.httpFetch(
-      call1Url,
-      {
-        method: "GET",
-        headers: gasCityAuthHeaders(env),
-        signal: AbortSignal.timeout(PER_CALL_TIMEOUT_MS),
-      },
-    )
-    probeStatus = probeRes.status
-    if (probeRes.ok) {
-      probeBody = (await probeRes.json().catch(() => null)) as { version?: string } | null
+    while (true) {
+      const probeRes = await deps.httpFetch(
+        call1Url,
+        {
+          method: "GET",
+          headers: gasCityAuthHeaders(env),
+          signal: AbortSignal.timeout(Math.max(0, call1Deadline - Date.now())),
+        },
+      )
+      probeStatus = probeRes.status
+      if (probeStatus === 503 && Date.now() + 3000 < call1Deadline) {
+        await deps.sleep(3000)
+        continue
+      }
+      if (probeRes.ok) {
+        probeBody = (await probeRes.json().catch(() => null)) as { version?: string } | null
+      }
+      break
     }
   } catch (err) {
     await deps.updateDispatchLog(dispatchLogKey, {
@@ -592,7 +602,9 @@ export async function compileAndDispatchFormula(
       "ff.webhook_url": env.GAS_CITY_WEBHOOK_URL,
       "ff.ep_id": epAny.id,
     },
-    rig: env.GAS_CITY_RIG,
+    // Phase 1: city-scoped dispatch — no rig bead store; use city bead store.
+    // GC findStore("") → CityBeadStore() from [beads] provider = "file".
+    rig: "",
     title: `Factory dispatch ${formKey}`,
     description: `EP=${epAny.id} FN=${epAny.functionId} attempt=${factoryAttempt}`,
   }
@@ -829,9 +841,8 @@ async function dispatchCall3AndFinalize(args: {
     attached_bead_id: beadId,
     bead: "",
     target: env.GAS_CITY_AGENT_NAME,
-    rig: env.GAS_CITY_RIG,
-    // Phase 1: agents are city-scoped; scope_kind=city, scope_ref=city name.
-    // scope_kind=rig requires a rig-scoped agent (not available in Phase 1).
+    // Phase 1: city-scoped — rig omitted; findSlingStore falls through to CityBeadStore.
+    rig: "",
     scope_kind: "city",
     scope_ref: env.GAS_CITY_CITY_NAME,
     force: false,

@@ -9,6 +9,17 @@ export interface PipelineEnv {
   ARANGO_USERNAME?: string
   ARANGO_PASSWORD?: string
 
+  /** Service binding to ff-arango Container Worker (ArangoDB proxy) */
+  FF_ARANGO?: Fetcher
+
+  /**
+   * Service binding to the gascity-supervisor Worker. Worker-to-Worker
+   * fetches via the public `*.workers.dev` URL are blocked by CF error
+   * 1042; routing the formula dispatch HTTP calls through this binding
+   * avoids the public hop. See formula-compiler-adapter.httpFetch.
+   */
+  GAS_CITY?: Fetcher
+
   GATES: {
     evaluateCoherenceVerification(executableSpecification: unknown): Promise<CoherenceVerificationReport>
   }
