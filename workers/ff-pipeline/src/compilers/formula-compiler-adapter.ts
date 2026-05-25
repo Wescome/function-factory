@@ -86,7 +86,7 @@ export function buildFormulaCompilerDeps(
       // builds full GAS_CITY_BASE_URL-prefixed URLs; the binding accepts
       // the absolute URL and resolves it Worker-internally.
       if (env.GAS_CITY && env.GAS_CITY_BASE_URL && url.startsWith(env.GAS_CITY_BASE_URL)) {
-        return env.GAS_CITY.fetch(url, init as RequestInit)
+        return env.GAS_CITY.fetch(url, init)
       }
       return globalThis.fetch(url, init)
     },

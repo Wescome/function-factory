@@ -367,7 +367,7 @@ describe("formula-compiler: compileAndDispatchFormula (IP-1)", () => {
       expect(b.attached_bead_id).toBe("bead-XYZ-001")
       expect(b.bead).toBe("")
       expect(b.target).toBe("coder-agent")
-      expect(b.rig).toBe("factory-rig")
+      expect(b.rig).toBe("")  // Phase 1: city bead store; GC findSlingStore("") → CityBeadStore()
       expect(b.scope_kind).toBe("city")
       expect(b.scope_ref).toBe("factory") // BASE_ENV.GAS_CITY_CITY_NAME
       expect(b.force).toBe(false)

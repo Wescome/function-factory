@@ -379,9 +379,11 @@ rows.
 **CALL 1 — Version probe**
 
 **AC-10** — The function issues
-`GET /v0/city/{GAS_CITY_CITY_NAME}/formulas/{template_name}?target={GAS_CITY_AGENT_NAME}&scope_kind=rig&scope_ref={GAS_CITY_RIG}` with
+`GET /v0/city/{GAS_CITY_CITY_NAME}/formulas/{template_name}?target={GAS_CITY_AGENT_NAME}&scope_kind=city&scope_ref={GAS_CITY_CITY_NAME}` with
 `Authorization: Bearer ${GAS_CITY_BEARER_TOKEN}` and a 25-second timeout.
-(Query params `target`, `scope_kind`, `scope_ref` are required by the Gas City API; `scope_kind` is always `"rig"` for Phase 1.)
+(Query params `target`, `scope_kind`, `scope_ref` are required by the Gas City API; `scope_kind` is `"city"` and `scope_ref` is `{GAS_CITY_CITY_NAME}` for Phase 1 — rig-scoped formula lookup requires a rig bead store that Phase 1 does not provision.)
+On HTTP 503 (container cold-start), retry with 3-second back-off until a non-503 response is received or the 25-second timeout expires.
+On HTTP 4xx (including 401 or 404) or an absent/non-string `version` field in the response body, set `outcome: "timeout_call_1"` and halt. (A future IS amendment may add a distinct `rejected_call_1` outcome for 4xx responses to improve operator triage.)
 The response body's `version` field (string) is compared against the
 `GAS_CITY_FORMULA_VERSION_{TEMPLATE}` env var (name derived per §Environment
 dependencies). On match, compilation proceeds. On mismatch, the function
@@ -404,7 +406,8 @@ with a 25-second timeout and:
 - Header `Idempotency-Key: sha256(es_id + "|" + EP.instructionTuning.inputExecutableSpecificationHash + "|" + factory_attempt)` (lowercase hex)
 - Body `labels: ["fn-id:{fn_id}", "is-id:{is_id}", "es-id:{es_id}", "form-id:{form_id}", "factory-attempt:{factory_attempt}"]`
 - Body `metadata: { "ff.dispatch_id": <dispatch_log._key>, "ff.formula_name": <template_name>, "ff.formula_version": <formula_version>, "ff.dispatched_at": <ISO8601 timestamp>, "ff.webhook_url": <GAS_CITY_WEBHOOK_URL>, "ff.ep_id": <ep_id> }`
-- Body `rig: <GAS_CITY_RIG>`, `title`, `description` per dispatch contract.
+- Body `rig: ""` (empty string — Phase 1 uses the city bead store; Gas City `findStore("")` falls through to `CityBeadStore()` from `[beads] provider = "file"`. Rig-scoped bead stores are not provisioned in Phase 1.)
+- Body `title`, `description` per dispatch contract.
 
 **AC-13** — On HTTP 201, capture the returned `id` as `gc_bead_id`. On HTTP
 5xx, network error, or timeout (25s): set `outcome: "timeout_call_2"` or
@@ -431,7 +434,7 @@ with a 25-second timeout and:
 - Body `bead: ""` (empty string — SlingInput.Bead field; not used for
   attached-bead-id dispatch, set to empty to satisfy the struct)
 - Body `target: <GAS_CITY_AGENT_NAME>`
-- Body `rig: <GAS_CITY_RIG>`
+- Body `rig: ""` (empty string — Phase 1 city-scoped dispatch; `findSlingStore("")` falls through to `CityBeadStore()`)
 - Body `scope_kind: "city"`, `scope_ref: <GAS_CITY_CITY_NAME>` (Phase 1: agents are city-scoped; `scope_kind=rig` requires a rig-scoped agent which Phase 1 does not have)
 - Body `force: false` (never force-override an existing workflow; idempotency
   via AC-17 instead)
@@ -474,6 +477,17 @@ execute inside a single ArangoDB stream transaction. If the transaction
 aborts for any reason, neither artifact is persisted and the function halts
 without calling Gas City. There is no partial-write cleanup path — the
 transaction guarantees atomicity.
+
+**Known deviation (Phase 1):** The current `arango-client` package does not
+expose ArangoDB stream transaction primitives (`beginTransaction` /
+`commitTransaction` / `abortTransaction`). The adapter implementation uses
+two sequential `db.save()` calls. If `formulas` save succeeds and
+`dispatch_log` save fails, the FORM-* artifact is persisted without a
+corresponding dispatch_log row. On the next invocation, the FORM-* is found
+via idempotency pre-check, a new dispatch_log row is written, and dispatch
+proceeds correctly — the orphaned FORM-* does not block recovery.
+Adding stream transaction support to `arango-client` is a tracked gap;
+until then this deviation is accepted and documented here.
 
 **Partition recovery (CALL 2 success / CALL 3 failure)**
 

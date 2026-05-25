@@ -526,12 +526,14 @@ export async function compileAndDispatchFormula(
   const call1Deadline = Date.now() + PER_CALL_TIMEOUT_MS
   try {
     while (true) {
+      const remaining = call1Deadline - Date.now()
+      if (remaining <= 0) break  // deadline expired; probeStatus stays 0 → timeout_call_1
       const probeRes = await deps.httpFetch(
         call1Url,
         {
           method: "GET",
           headers: gasCityAuthHeaders(env),
-          signal: AbortSignal.timeout(Math.max(0, call1Deadline - Date.now())),
+          signal: AbortSignal.timeout(remaining),
         },
       )
       probeStatus = probeRes.status
