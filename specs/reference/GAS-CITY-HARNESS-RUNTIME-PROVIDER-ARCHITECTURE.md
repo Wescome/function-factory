@@ -32,30 +32,31 @@ Factory (CF Worker: ff-pipeline.koales.workers.dev)
   exposes dispatch and webhook boundaries
         |
         v (3-call HTTP: version probe → bead create → sling)
-Gas City Supervisor (gc daemon, local)
+GasCitySupervisor (CF Container Durable Object: gascity-supervisor worker)
+  gc daemon built from gascity eai/cloudflare branch
   owns sessions, beads, formulas, molecules, convergence, fidelity validation
-  formulas/ reside on local host filesystem (city pack)
+  formulas/ baked into container image (factory/city.toml, supervisor.toml)
+  beads provider: file (container-local)
         |
-        v (GC_SESSION=cloudflare → internal/runtime/cloudflare provider)
-Hermes (CF Worker + Durable Object + Container: hermes-sandbox)
+        v (session.cloudflare.url → internal/runtime/cloudflare provider)
+gascity-cloudflare-control-worker.koales.workers.dev (CF Worker)
   implements Gas City cloudflare runtime provider API
   manages Cloudflare Sandbox container lifecycle per session
         |
         v
 Cloudflare Sandbox Container
-  runs the AI agent (Claude Code / Hermes agent) for each session
+  runs the AI agent for each session
 ```
 
-Factory and Gas City communicate over HTTP. Gas City and Hermes communicate
-over the Gas City cloudflare runtime provider API. Agent sessions execute
-entirely inside Cloudflare Sandbox containers managed by Hermes.
-Provider internals (Hermes, Sandbox) are below the Gas City boundary.
+Everything runs on Cloudflare. Factory and the GasCitySupervisor communicate
+over HTTP. The supervisor selects sessions via the cloudflare provider pointing
+to the control worker. Agent sessions execute inside Cloudflare Sandbox
+containers. No VPS, no local machine involved.
 
-Current live deployment:
-- Gas City city: phase0-city (local, gc daemon)
-- Session provider: cloudflare (Hermes, GC_SESSION=cloudflare)
-- Formula template: factory-coding-v1.toml in phase0-city core pack
-- Coder agent: agents/coder/agent.toml, provider=cloudflare
+Supervisor deployment:
+  eai/examples/factory/weops-gascity/stage/supervisor/wrangler.jsonc
+  Image built from: gascity eai/cloudflare branch (cmd/gc binary)
+  City config baked in: factory/city.toml + supervisor.toml
 
 ## Harness Tuple
 
@@ -201,9 +202,9 @@ The provider architecture must preserve these rules from the harness/evaluator o
 8. Retire NLAH/harness dispatch paths only after Formula execution, provider evidence, fidelity validation, and Factory webhook intake are proven end to end.
 
 Note: "city-init via rsync to VPS" in earlier drafts was incorrect. Gas City
-supervisor runs locally (gc daemon). Hermes is the Cloudflare session runtime.
-formula deployment = ensuring factory-coding-v1.toml is present in the live
-city pack (already satisfied in phase0-city).
+supervisor runs as a CF Container DO (GasCitySupervisor). Formula deployment
+= baking factory-coding-v1.toml into the container image and redeploying.
+Session runtime = gascity-cloudflare-control-worker.koales.workers.dev.
 
 ## Gaps To Close
 

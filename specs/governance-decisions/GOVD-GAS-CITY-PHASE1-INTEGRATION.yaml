@@ -230,17 +230,22 @@ decisions:
           Per-dev Docker for the supervisor is still valid but the shared CI VPS
           model does not match the actual deployment.
       - option: D
-        label: Local gc daemon + Cloudflare session runtime (Hermes)
+        label: GasCitySupervisor CF Container + Cloudflare session runtime
         description: >
-          Gas City supervisor (gc daemon) runs locally. Agent sessions execute
-          in Cloudflare via Hermes (hermes-sandbox CF Worker + Durable Object +
-          Container). GC_SESSION=cloudflare routes sessions to Hermes.
-          formulas/ directory lives on the local Gas City host filesystem.
-          factory-coding-v1.toml is present in the live phase0-city pack.
+          Gas City supervisor (gc daemon) runs as a Cloudflare Container
+          Durable Object (GasCitySupervisor) deployed via
+          eai/examples/factory/weops-gascity/stage/supervisor/wrangler.jsonc.
+          Built from gascity eai/cloudflare branch. Agent sessions execute via
+          GC_SESSION=cloudflare pointing to
+          gascity-cloudflare-control-worker.koales.workers.dev.
+          formulas/ and city config are baked into the supervisor container image
+          (factory/city.toml, supervisor.toml). beads provider is "file" (local
+          to the container). Deployment is entirely on Cloudflare — no VPS, no
+          local machine.
         score: HIGH
         recommendation: true
-    selected_option: Local gc daemon + Cloudflare session runtime (Hermes)
-    recommendation: D+ # CORRECTED 2026-05-25 — D replaces C (C was based on wrong VPS assumption)
+    selected_option: GasCitySupervisor CF Container + Cloudflare session runtime
+    recommendation: D+ # CORRECTED 2026-05-25 — D replaces C (C was based on wrong VPS/local assumption)
 
   - id: D8
     question: "Webhook authentication (Gas City → Factory)?"
@@ -581,13 +586,14 @@ decisions:
     recommendation: A+ # APPROVED 2026-05-21
     dispatch_flow: >
       Pre-condition (one-time, operator-driven):
-        factory-coding-v1.toml is present in the live city pack at:
-          phase0-city/.gc/system/packs/core/formulas/factory-coding-v1.toml
-        No rsync or VPS deployment required. Gas City supervisor (gc daemon) runs
-        locally; formula is resolved from the city pack filesystem at sling time.
-        Content SHA pinned in wrangler env (GAS_CITY_FORMULA_VERSION_HASH).
-        CORRECTION 2026-05-25: "rsynced to Gas City VPS" was wrong — Gas City
-        runs locally with Cloudflare (Hermes) as the session runtime provider.
+        factory-coding-v1.toml is baked into the GasCitySupervisor container image
+        via the factory/ directory in
+        eai/examples/factory/weops-gascity/stage/supervisor/.
+        It is resolved from the container filesystem at sling time.
+        Deploying a formula template update = rebuild + redeploy the supervisor container.
+        Content SHA pinned in ff-pipeline wrangler env (GAS_CITY_FORMULA_VERSION_HASH).
+        CORRECTION 2026-05-25: supervisor is a CF Container DO, not a VPS or local process.
+        Session runtime: gascity-cloudflare-control-worker.koales.workers.dev.
 
       Per-dispatch HTTP sequence (3 calls, sequential, Factory → Gas City):
 
