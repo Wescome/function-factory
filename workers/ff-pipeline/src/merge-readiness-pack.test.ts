@@ -9,7 +9,7 @@ import {
   type CanonicalMRPEvidence,
   type PROutcomeSignalRecord,
 } from './merge-readiness-pack'
-import type { SynthesisMaterializationAudit } from './synthesis-pr-draft'
+import type { SynthesisMaterializationAudit } from './merge-readiness-pack'
 
 function makeAudit(overrides: Partial<SynthesisMaterializationAudit> = {}): SynthesisMaterializationAudit {
   return {

@@ -35,7 +35,6 @@ import {
   type WorkerInput,
   type WorkerOutput,
 } from "@factory/nlah"
-import type { ContainerBinding, HarnessBridgeEnv } from "./harness-env"
 import type { OutputContract } from "./contract-compiler"
 import { emitRunEvent } from "./observability/run-event-log"
 
@@ -87,6 +86,17 @@ interface RoutedWorkerInput extends WorkerInput {
   }
   outputContracts?: OutputContract[]
   maxRepairRounds?: number
+}
+
+interface ContainerBinding {
+  fetch(request: Request): Promise<Response>
+}
+
+interface CfWorkerRegistryEnv {
+  WORKSPACE_BUCKET?: R2Bucket | unknown
+  PI_CONTAINER?: DurableObjectNamespace
+  AIDER_CONTAINER?: ContainerBinding
+  CLAUDE_CODE_CONTAINER?: ContainerBinding
 }
 
 interface ContractFinding {
@@ -209,7 +219,7 @@ abstract class ContainerWorkerAdapter implements WorkerAdapter {
     protected readonly container: ContainerBinding,
     // CF Containers require HTTP for internal connections — HTTPS not supported.
     protected readonly endpoint: string = "http://pi-worker/execute",
-    protected readonly envForObservability?: HarnessBridgeEnv,
+    protected readonly envForObservability?: CfWorkerRegistryEnv,
   ) {}
 
   async execute(input: WorkerInput, artifacts: ArtifactManager): Promise<WorkerOutput> {
@@ -502,7 +512,7 @@ export class PreseedArtifactAdapter implements WorkerAdapter {
  * candidates) are added.
  */
 export function buildCfWorkerRegistry(
-  env: HarnessBridgeEnv,
+  env: CfWorkerRegistryEnv,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _artifacts?: ArtifactManager,
 ): WorkerRegistry {

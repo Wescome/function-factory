@@ -29,7 +29,7 @@ implementation:
   status: built  # 43/43 tests pass; Architect + SE + Critic approved 2026-05-21
 
 expectedInputs:
-  - Execution Packet (EP-* / TEP-* during prefix transition) with passing Coherence VR
+  - Execution Packet (EP-*) with passing Coherence VR
   - Environment: GAS_CITY_BASE_URL, GAS_CITY_CITY_NAME, GAS_CITY_BEARER_TOKEN, GAS_CITY_AGENT_NAME,
       GAS_CITY_RIG, GAS_CITY_RIG_ROOT, GAS_CITY_WEBHOOK_URL,
       GAS_CITY_FORMULA_VERSION_{TEMPLATE}, FACTORY_MAX_ITERATIONS,

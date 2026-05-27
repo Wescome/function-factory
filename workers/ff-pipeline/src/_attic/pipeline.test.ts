@@ -17,7 +17,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 function sampleTrellisExecutionPacket(executableSpecificationId = 'ES-TEST') {
   const subject = executableSpecificationId.replace(/^ES-/, '')
   return {
-    id: `TEP-${subject}`,
+    id: `EP-${subject}`,
     executableSpecificationId,
     audit: { packetHash: `hash-${subject}` },
   }

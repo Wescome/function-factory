@@ -69,7 +69,7 @@ function makeEP(overrides: {
   }>
 } = {}): Record<string, unknown> {
   return {
-    id: overrides.id ?? "TEP-EXAMPLE-001",
+    id: overrides.id ?? "EP-EXAMPLE-001",
     functionId: overrides.functionId ?? "FN-EXAMPLE-001",
     intentSpecificationId: overrides.intentSpecificationId ?? "IS-EXAMPLE-001",
     executableSpecificationId: overrides.executableSpecificationId ?? "ES-EXAMPLE-001",
@@ -321,7 +321,7 @@ describe("formula-compiler: compileAndDispatchFormula (IP-1)", () => {
     it("writes FORM-* with template_name factory-coding-v1 and source_refs=[EP id]", () => {
       expect(state.formArtifact).not.toBeNull()
       expect(state.formArtifact!.template_name).toBe("factory-coding-v1")
-      expect(state.formArtifact!.source_refs).toEqual(["TEP-EXAMPLE-001"])
+      expect(state.formArtifact!.source_refs).toEqual(["EP-EXAMPLE-001"])
       expect(state.formArtifact!.kind).toBe("FormulaArtifact")
       expect(state.formArtifact!.tier).toBe("procedural")
       expect(state.formArtifact!.explicitness).toBe("explicit")
@@ -721,7 +721,7 @@ describe("formula-compiler: compileAndDispatchFormula (IP-1)", () => {
       const priorRow: DispatchLogRow = {
         _key: "dl-PRIOR",
         es_id: "ES-EXAMPLE-001",
-        ep_id: "TEP-EXAMPLE-001",
+        ep_id: "EP-EXAMPLE-001",
         form_id: "FORM-PRIOR",
         fn_id: "FN-EXAMPLE-001",
         is_id: "IS-EXAMPLE-001",
@@ -851,7 +851,7 @@ describe("formula-compiler: compileAndDispatchFormula (IP-1)", () => {
       state.dispatchLogRow = {
         _key: "dl-existing",
         es_id: "ES-EXAMPLE-001",
-        ep_id: "TEP-EXAMPLE-001",
+        ep_id: "EP-EXAMPLE-001",
         form_id: "FORM-PRIOR",
         fn_id: "FN-EXAMPLE-001",
         is_id: "IS-EXAMPLE-001",
@@ -908,7 +908,7 @@ describe("formula-compiler: compileAndDispatchFormula (IP-1)", () => {
       const priorRow: DispatchLogRow = {
         _key: "dl-existing",
         es_id: "ES-EXAMPLE-001",
-        ep_id: "TEP-EXAMPLE-001",
+        ep_id: "EP-EXAMPLE-001",
         form_id: "FORM-PRIOR",
         fn_id: "FN-EXAMPLE-001",
         is_id: "IS-EXAMPLE-001",
@@ -1005,7 +1005,7 @@ describe("formula-compiler: compileAndDispatchFormula (IP-1)", () => {
       const priorRow: DispatchLogRow = {
         _key: "dl-existing",
         es_id: "ES-EXAMPLE-001",
-        ep_id: "TEP-EXAMPLE-001",
+        ep_id: "EP-EXAMPLE-001",
         form_id: "FORM-PRIOR",
         fn_id: "FN-EXAMPLE-001",
         is_id: "IS-EXAMPLE-001",
@@ -1170,7 +1170,7 @@ describe("formula-compiler: compileAndDispatchFormula (IP-1)", () => {
         formula_version: "1.0.0",
         vars: {},
         parameters_json: "{}",
-        source_refs: ["TEP-OTHER-EP"], // different source
+        source_refs: ["EP-OTHER-EP"], // different source
         explicitness: "explicit",
         compiled_at: state.nowIso,
         compiler: "old-compiler",
@@ -1198,7 +1198,7 @@ describe("formula-compiler: compileAndDispatchFormula (IP-1)", () => {
       state.dispatchLogRow = {
         _key: "dl-resume",
         es_id: "ES-EXAMPLE-001",
-        ep_id: "TEP-EXAMPLE-001",
+        ep_id: "EP-EXAMPLE-001",
         form_id: "FORM-RESUME",
         fn_id: "FN-EXAMPLE-001",
         is_id: "IS-EXAMPLE-001",
@@ -1223,7 +1223,7 @@ describe("formula-compiler: compileAndDispatchFormula (IP-1)", () => {
           fn_id: "FN-EXAMPLE-001",
           is_id: "IS-EXAMPLE-001",
           es_id: "ES-EXAMPLE-001",
-          ep_id: "TEP-EXAMPLE-001",
+          ep_id: "EP-EXAMPLE-001",
           form_id: "FORM-RESUME",
           factory_attempt: "1",
           ff_webhook_url: BASE_ENV.GAS_CITY_WEBHOOK_URL,
@@ -1233,7 +1233,7 @@ describe("formula-compiler: compileAndDispatchFormula (IP-1)", () => {
           parameters_json: "{}",
         },
         parameters_json: "{}",
-        source_refs: ["TEP-EXAMPLE-001"],
+        source_refs: ["EP-EXAMPLE-001"],
         explicitness: "explicit",
         compiled_at: state.nowIso,
         compiler: "test",
@@ -1539,7 +1539,7 @@ describe("formula-compiler: compileAndDispatchFormula (IP-1)", () => {
       state.dispatchLogRow = {
         _key: "dl-prior",
         es_id: "ES-EXAMPLE-001",
-        ep_id: "TEP-EXAMPLE-001",
+        ep_id: "EP-EXAMPLE-001",
         form_id: "FORM-OLD",
         fn_id: "FN-EXAMPLE-001",
         is_id: "IS-EXAMPLE-001",

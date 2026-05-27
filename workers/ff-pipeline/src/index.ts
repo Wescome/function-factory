@@ -6,11 +6,6 @@ export { RunCoordinator } from './coordinator/run-coordinator'
 export { PiContainer } from './coordinator/pi-container'
 export { Sandbox } from '@cloudflare/sandbox'
 
-// Harness path (IS-HARNESS-DSL-v1 §2–§3, ADR-009 §4 Phase 3)
-export { startHarnessRun } from './harness-bridge'
-export { dispatchOne as dispatchHarnessStage, buildDefaultDispatcherDeps } from './harness-dispatcher'
-export type { HarnessBridgeEnv, HarnessJob, HarnessQueueMessage } from './harness-env'
-
 export { ingestSignal } from './stages/ingest-signal'
 export { generateFeedbackSignals } from './stages/generate-feedback'
 export { generatePR } from './stages/generate-pr'
@@ -43,7 +38,7 @@ export type { ExtractionConfidence } from '@factory/file-context'
 import type { PipelineEnv } from './types'
 import { RunEventLog } from './observability/run-event-log'
 
-function isHarnessQueueMessage(body: unknown): body is import('./harness-env').HarnessQueueMessage {
+function isRemovedHarnessQueueMessage(body: unknown): boolean {
   if (!body || typeof body !== 'object') return false
   const candidate = body as Record<string, unknown>
   return (
@@ -672,276 +667,26 @@ export default {
 
     // ── Diagnostic: pure Fidelity Verification evaluator ──
     if (url.pathname === '/debug/fidelity-verification' && request.method === 'POST') {
-      try {
-        const body = await request.json() as Record<string, unknown>
-        const fidelityVerification = await import('./fidelity-verification.js')
-        let result: import('./fidelity-verification').FidelityVerificationResult
-        const fidelityVerificationInput = body.fidelityVerificationInput ?? body.fidelityVerificationInput
-        if (fidelityVerificationInput) {
-          const options: import('./fidelity-verification').AdaptFidelityVerificationInputOptions = {
-            intentSpecificationId: body.intentSpecificationId as string,
-            ...(body.timestamp ? { timestamp: body.timestamp as string } : {}),
-            ...(body.sourceRefs ? { sourceRefs: body.sourceRefs as string[] } : {}),
-          }
-          result = fidelityVerification.evaluateFidelityVerificationFromContractInput(
-            fidelityVerificationInput as import('./fidelity-verification').FidelityVerificationContractInput,
-            options,
-          )
-        } else {
-          result = fidelityVerification.evaluateFidelityVerification(body as unknown as import('./fidelity-verification').FidelityVerificationInput)
-        }
-
-        const lifecycleDryRunInput = body.lifecycleDryRun as Record<string, unknown> | undefined
-        const lifecycleDryRun = lifecycleDryRunInput
-          ? fidelityVerification.dryRunFidelityAcceptanceTransition({
-            currentState: lifecycleDryRunInput.currentState as import('./lifecycle').LifecycleState,
-            report: result.report,
-            verdict: result.verdict,
-          })
-          : undefined
-        const responseBody = lifecycleDryRun ? { ...result, lifecycleDryRun } : result
-
-        if (body.persist === true) {
-          const { createClientFromEnv } = await import('@factory/arango-client')
-          const db = createClientFromEnv(env)
-          await db.ensureCollection('verification_reports')
-          const record = {
-            _key: result.report.id,
-            id: result.report.id,
-            type: 'fidelity-verification',
-            passed: result.report.overall === 'pass',
-            report: result.report,
-            verdict: result.verdict,
-            source_refs: result.report.source_refs,
-            timestamp: result.report.timestamp,
-          }
-          await db.save('verification_reports', record)
-
-          return new Response(JSON.stringify({
-            persisted: true,
-            coverageReportKey: result.report.id,
-            fidelityVerificationReportKey: result.report.id,
-            ...responseBody,
-          }, null, 2), {
-            status: 201,
-            headers: { 'Content-Type': 'application/json' },
-          })
-        }
-
-        return new Response(JSON.stringify(responseBody, null, 2), {
-          headers: { 'Content-Type': 'application/json' },
-        })
-      } catch (err) {
-        return new Response(JSON.stringify({
-          error: err instanceof Error ? err.message : String(err),
-        }), { status: 400, headers: { 'Content-Type': 'application/json' } })
-      }
+      return json({
+        error: 'removed',
+        reason: 'Synthesis-era Fidelity Verification was removed; Gas City fidelity is handled by POST /webhooks/gascity.',
+      }, 410)
     }
 
     // ── Diagnostic: minimal Persistence Verification registration report ──
     if ((url.pathname === '/debug/persistence-verification' || url.pathname === '/debug/persistence-verification') && request.method === 'POST') {
-      try {
-        const body = await request.json() as Record<string, unknown>
-        const { evaluatePersistenceVerificationRegistration } = await import('./persistence-verification.js')
-        const report = evaluatePersistenceVerificationRegistration(
-          body as unknown as import('./persistence-verification').PersistenceVerificationRegistrationInput,
-        )
-
-        if (body.persist === true) {
-          const { createClientFromEnv } = await import('@factory/arango-client')
-          const db = createClientFromEnv(env)
-          await db.ensureCollection('verification_reports')
-          const record = {
-            _key: report.id,
-            id: report.id,
-            type: 'persistence-verification',
-            passed: report.overall === 'pass',
-            report,
-            source_refs: report.source_refs,
-            timestamp: report.timestamp,
-          }
-          await db.save('verification_reports', record)
-
-          return new Response(JSON.stringify({
-            persisted: true,
-            coverageReportKey: report.id,
-            persistenceVerificationReportKey: report.id,
-            report,
-          }, null, 2), {
-            status: 201,
-            headers: { 'Content-Type': 'application/json' },
-          })
-        }
-
-        return new Response(JSON.stringify({ report }, null, 2), {
-          headers: { 'Content-Type': 'application/json' },
-        })
-      } catch (err) {
-        return new Response(JSON.stringify({
-          error: err instanceof Error ? err.message : String(err),
-        }), { status: 400, headers: { 'Content-Type': 'application/json' } })
-      }
+      return json({
+        error: 'removed',
+        reason: 'Synthesis-era Persistence Verification registration is quarantined until a Gas City detector exists.',
+      }, 410)
     }
 
     // ── Diagnostic: guarded lifecycle acceptance from persisted Fidelity Verification evidence ──
     if (url.pathname === '/debug/lifecycle-acceptance' && request.method === 'POST') {
-      try {
-        const body = await request.json() as {
-          functionKey?: unknown
-          fidelityVerificationReportKey?: unknown
-          apply?: boolean
-          repairAcceptedTransitionEdge?: boolean
-        }
-        if (typeof body.functionKey !== 'string' || body.functionKey.trim().length === 0) {
-          return new Response(JSON.stringify({
-            error: 'Missing required field: functionKey',
-          }), { status: 400, headers: { 'Content-Type': 'application/json' } })
-        }
-        const fidelityVerificationReportKey =
-          typeof body.fidelityVerificationReportKey === 'string' && body.fidelityVerificationReportKey.trim().length > 0
-            ? body.fidelityVerificationReportKey.trim()
-            : undefined
-        if (!fidelityVerificationReportKey) {
-          return new Response(JSON.stringify({
-            error: 'Missing required field: fidelityVerificationReportKey',
-          }), { status: 400, headers: { 'Content-Type': 'application/json' } })
-        }
-
-        const functionKey = body.functionKey.trim()
-        const { createClientFromEnv } = await import('@factory/arango-client')
-        const { dryRunFidelityAcceptanceTransition } = await import('./fidelity-verification.js')
-        const { transitionLifecycle } = await import('./lifecycle.js')
-        const db = createClientFromEnv(env)
-        const fidelityVerificationReportRecord = await db.queryOne<Record<string, unknown>>(
-          `FOR report IN verification_reports
-             FILTER report._key == @key OR report.id == @key
-             LIMIT 1
-             RETURN report`,
-          { key: fidelityVerificationReportKey },
-        )
-        if (!fidelityVerificationReportRecord) {
-          return new Response(JSON.stringify({
-            error: `Fidelity Verification report not found: ${fidelityVerificationReportKey}`,
-          }), { status: 404, headers: { 'Content-Type': 'application/json' } })
-        }
-        if (fidelityVerificationReportRecord.type !== 'fidelity-verification' || fidelityVerificationReportRecord.passed !== true) {
-          return new Response(JSON.stringify({
-            error: `Fidelity Verification report has not passed: ${fidelityVerificationReportKey}`,
-          }), { status: 400, headers: { 'Content-Type': 'application/json' } })
-        }
-
-        const doc = await db.get<{ _key: string; lifecycleState?: string }>('specs_functions', functionKey)
-        if (!doc) {
-          return new Response(JSON.stringify({
-            error: `Function ${functionKey} not found in specs_functions`,
-          }), { status: 404, headers: { 'Content-Type': 'application/json' } })
-        }
-
-        const report = fidelityVerificationReportRecord.report as import('./fidelity-verification').FidelityVerificationResult['report']
-        const verdict = fidelityVerificationReportRecord.verdict as import('./fidelity-verification').FidelityVerificationResult['verdict']
-        const reportSourceRefs = [
-          ...(
-            Array.isArray(fidelityVerificationReportRecord.source_refs)
-              ? fidelityVerificationReportRecord.source_refs
-              : []
-          ),
-          ...(
-            Array.isArray((report as { source_refs?: unknown }).source_refs)
-              ? (report as { source_refs: unknown[] }).source_refs
-              : []
-          ),
-        ].filter((ref): ref is string => typeof ref === 'string')
-        const packetId = reportSourceRefs.find(ref => ref.startsWith('TEP-'))
-        if (!packetId) {
-          return new Response(JSON.stringify({
-            error: `Fidelity Verification report is missing Trellis packet lineage: ${fidelityVerificationReportKey}`,
-          }), { status: 400, headers: { 'Content-Type': 'application/json' } })
-        }
-        const lifecycleDryRun = dryRunFidelityAcceptanceTransition({
-          currentState: (doc.lifecycleState ?? 'proposed') as import('./lifecycle').LifecycleState,
-          report,
-          verdict,
-        })
-
-        if (body.repairAcceptedTransitionEdge === true) {
-          if ((doc.lifecycleState ?? 'proposed') !== 'accepted') {
-            return new Response(JSON.stringify({
-              error: `Function ${functionKey} is not accepted; transition edge repair is only valid after produced -> accepted has already applied.`,
-              applied: false,
-              functionKey,
-              fidelityVerificationReportKey,
-              lifecycleDryRun,
-            }, null, 2), { status: 400, headers: { 'Content-Type': 'application/json' } })
-          }
-
-          const repairedAt = new Date().toISOString()
-          const transition = {
-            from: 'produced',
-            to: 'accepted',
-            trigger: 'fidelity-verification-pass',
-            guard: 'fidelity-verification',
-            responsible_context: 'ff-pipeline:debug-lifecycle-acceptance-repair',
-            verificationReport: fidelityVerificationReportKey,
-            packetId,
-            timestamp: repairedAt,
-          }
-          await db.ensureCollection('lifecycle_transitions')
-          await db.saveEdge(
-            'lifecycle_transitions',
-            `specs_functions/${functionKey}`,
-            `specs_functions/${functionKey}`,
-            transition,
-          )
-
-          return new Response(JSON.stringify({
-            applied: true,
-            repaired: true,
-            functionKey,
-            from: 'produced',
-            to: 'accepted',
-            fidelityVerificationReportKey,
-            transition,
-          }, null, 2), { status: 200, headers: { 'Content-Type': 'application/json' } })
-        }
-
-        if (!lifecycleDryRun.wouldTransition) {
-          return new Response(JSON.stringify({
-            applied: false,
-            functionKey,
-            fidelityVerificationReportKey,
-            lifecycleDryRun,
-          }, null, 2), { status: 200, headers: { 'Content-Type': 'application/json' } })
-        }
-
-        if (body.apply === true) {
-          await transitionLifecycle(db as never, functionKey, 'accepted', {
-            trigger: 'fidelity-verification-pass',
-            guard: 'fidelity-verification',
-            responsible_context: 'ff-pipeline:debug-lifecycle-acceptance',
-            verificationReport: fidelityVerificationReportKey,
-            packetId,
-          })
-
-          return new Response(JSON.stringify({
-            applied: true,
-            functionKey,
-            from: lifecycleDryRun.from,
-            to: 'accepted',
-            fidelityVerificationReportKey,
-          }, null, 2), { status: 200, headers: { 'Content-Type': 'application/json' } })
-        }
-
-        return new Response(JSON.stringify({
-          applied: false,
-          functionKey,
-          fidelityVerificationReportKey,
-          lifecycleDryRun,
-        }, null, 2), { status: 200, headers: { 'Content-Type': 'application/json' } })
-      } catch (err) {
-        return new Response(JSON.stringify({
-          error: err instanceof Error ? err.message : String(err),
-        }), { status: 400, headers: { 'Content-Type': 'application/json' } })
-      }
+      return json({
+        error: 'removed',
+        reason: 'Synthesis-era lifecycle acceptance was removed; Gas City lifecycle transitions are driven by POST /webhooks/gascity.',
+      }, 410)
     }
 
     // ── Diagnostic: read-only FP -> FN identity split report ──
@@ -1145,7 +890,7 @@ export default {
           }), { status: 400, headers: { 'Content-Type': 'application/json' } })
         }
 
-        const audit = body.audit as import('./synthesis-pr-draft').SynthesisMaterializationAudit
+        const audit = body.audit as import('./merge-readiness-pack').SynthesisMaterializationAudit
         const executableSpecificationId = audit.executableSpecificationId
         if (typeof executableSpecificationId !== 'string' || executableSpecificationId.trim().length === 0) {
           return new Response(JSON.stringify({
@@ -1342,7 +1087,7 @@ export default {
         }
 
         const pack = buildMergeReadinessPack({
-          audit: body.audit as import('./synthesis-pr-draft').SynthesisMaterializationAudit,
+          audit: body.audit as import('./merge-readiness-pack').SynthesisMaterializationAudit,
           prOutcomeSignal: prOutcomeSignal as import('./merge-readiness-pack').PROutcomeSignalRecord,
           ...(body.createdAt ? { createdAt: body.createdAt } : {}),
         })
@@ -1514,6 +1259,11 @@ export default {
       return handleDispatchFormula(request, env, ctx)
     }
 
+    if (url.pathname === '/webhooks/gascity' && request.method === 'POST') {
+      const { handleGasCityWebhook } = await import('./gascity/webhook-receiver.js')
+      return handleGasCityWebhook(request, env)
+    }
+
     if (url.pathname === '/seed-dispatch-ep' && request.method === 'POST') {
       return handleSeedDispatchEp(request, env)
     }
@@ -1524,51 +1274,13 @@ export default {
   async scheduled(event: ScheduledEvent, env: PipelineEnv, ctx: ExecutionContext): Promise<void> {
     const { runGovernanceCycle } = await import('./agents/governor-agent.js')
     ctx.waitUntil(runGovernanceCycle(env, 'cron'))
-    if (env.WORKSPACE_BUCKET && env.RUN_COORDINATOR) {
-      const { scanForStuckRuns } = await import('./observability/watchdog.js')
-      ctx.waitUntil(scanForStuckRuns(env as unknown as import('./harness-env').HarnessBridgeEnv))
-    }
   },
 
   async queue(batch: MessageBatch, env: PipelineEnv, _ctx: ExecutionContext): Promise<void> {
     for (const msg of batch.messages) {
-      // ── harness-dlq: force-complete stuck harness Workflows ────────────────
-      if (batch.queue === 'harness-dlq') {
-        const { consumeHarnessDlq } = await import('./harness-dlq-consumer.js')
-        const harnessEnv = env as unknown as import('./harness-env').HarnessBridgeEnv
-        await consumeHarnessDlq(batch as MessageBatch<import('./harness-env').HarnessQueueMessage>, harnessEnv)
-        break
-      }
-
-      // ── harness-queue: NLAH-driven stage dispatch (IS-HARNESS-DSL-v1 §3.1) ──
-      // The dispatcher MUST NOT live on the RunCoordinator DO (self-fetch deadlock);
-      // routing it through the index.ts queue handler keeps it on a separate Worker
-      // module while reusing the established consumer wiring.
-      if (batch.queue === 'harness-queue' || isHarnessQueueMessage(msg.body)) {
-        try {
-          const { dispatchOne, buildDefaultDispatcherDeps } = await import('./harness-dispatcher.js')
-          const harnessEnv = env as unknown as import('./harness-env').HarnessBridgeEnv
-          const body = msg.body as import('./harness-env').HarnessQueueMessage
-          await dispatchOne(
-            {
-              ...body,
-              attemptNumber: body.attemptNumber ?? Math.max(1, msg.attempts),
-            },
-            harnessEnv,
-            buildDefaultDispatcherDeps(harnessEnv),
-          )
-          msg.ack()
-        } catch (err) {
-          const errorMessage = err instanceof Error ? err.message : String(err)
-          const body = msg.body as { runId?: string; stageName?: string }
-          console.error(`[harness-dispatcher] dispatch failed for run=${body.runId} stage=${body.stageName}: ${errorMessage}`)
-          if (msg.attempts >= 3) {
-            console.error(`[INFRA SIGNAL] infra:queue-retry-exhausted: harness-queue message for ${body.runId}/${body.stageName} exhausted ${msg.attempts} attempts`)
-            msg.ack()
-          } else {
-            msg.retry()
-          }
-        }
+      if (batch.queue === 'harness-dlq' || batch.queue === 'harness-queue' || isRemovedHarnessQueueMessage(msg.body)) {
+        console.warn(`[queue] ${batch.queue ?? 'harness-shaped-message'} is removed in the Gas City era; acknowledging stale message`)
+        msg.ack()
         continue
       }
 
@@ -2241,7 +1953,7 @@ async function handleSeedDispatchEp(request: Request, env: PipelineEnv): Promise
     const isId = cleanString(body.isId, '') || 'IS-GC-DISPATCH-WIRE'
     const esId = cleanString(body.esId, '') || 'ES-GC-DISPATCH-WIRE'
     const runId = cleanString(body.runId, '') || Date.now().toString(36).toUpperCase()
-    const epId = `TEP-${runId}`
+    const epId = `EP-${runId}`
     const task = cleanString(body.task, '') || `Implement ${isId}: wire POST /dispatch-formula to Gas City 3-call HTTP sequence.`
     const plannerPrompt = cleanString(body.plannerPrompt, '') || `Read ${esId} and produce a coding plan for: ${task}`
     const coderPrompt = cleanString(body.coderPrompt, '') || `Implement the plan from ${esId}: ${task}`

@@ -37,13 +37,55 @@ import {
   type WorkerOutput,
 } from "@factory/nlah"
 import { DurableObject } from "cloudflare:workers"
-import type {
-  HarnessBridgeEnv,
-  OperatorDispatchPayload,
-  RunCoordinatorInitPayload,
-  StageCompletePayload,
-} from "../harness-env"
 import { emitRunEvent } from "../observability/run-event-log"
+
+interface HarnessQueueMessage {
+  runId: string
+  stageName: string
+  attemptNumber?: number
+}
+
+interface RunCoordinatorEnv {
+  HARNESS_QUEUE: Queue<HarnessQueueMessage>
+  FACTORY_PIPELINE: {
+    get(id: string): Promise<WorkflowInstance>
+  }
+  WORKSPACE_BUCKET?: R2Bucket | unknown
+}
+
+interface RunCoordinatorInitPayload {
+  compiled: CompiledHarness
+  initialState: HarnessState
+  workflowId: string
+  taskText: string
+}
+
+interface StageCompletePayload {
+  stageName: string
+  workerOutput: {
+    createdArtifacts: string[]
+    message?: string
+  }
+  gateResults: Array<{
+    gateName: string
+    passed: boolean
+    failureClass?: string
+    detail?: string
+  }>
+  workerThrew?: {
+    message: string
+    failureClass?: string
+  }
+}
+
+interface OperatorDispatchPayload {
+  runId: string
+  stageName: string
+  action: "retry-stage" | "redispatch-stage"
+  idempotencyKey: string
+  operator?: string
+  reason?: string
+}
 
 // DO storage keys. Disjoint from any legacy coordinator DO keys (ADR-009 §8).
 const KEY_COMPILED = "harness:compiled"
@@ -58,7 +100,7 @@ const OPERATOR_DISPATCH_PREFIX = "harness:operatorDispatch:"
 const NOTIFY_RETRY_DELAY_MS = 30_000
 const MAX_NOTIFY_ATTEMPTS = 100
 
-export class RunCoordinator extends DurableObject<HarnessBridgeEnv> {
+export class RunCoordinator extends DurableObject<RunCoordinatorEnv> {
   override async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url)
 

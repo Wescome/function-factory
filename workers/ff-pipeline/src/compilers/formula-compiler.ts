@@ -2,7 +2,7 @@
  * formula-compiler.ts — Gas City Formula Compiler and Dispatch (IP-1)
  *
  * Implements IS-GC-EP-FORMULA-DISPATCH (v2). Turns an Execution Packet
- * (EP-* / TEP-* during the prefix transition) into a FormulaInstance
+ * (EP-*) into a FormulaInstance
  * (FORM-*) and dispatches it to Gas City via the documented 3-call HTTP
  * sequence (version probe → bead create → sling attach).
  *

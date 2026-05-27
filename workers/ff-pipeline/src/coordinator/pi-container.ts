@@ -13,12 +13,12 @@
  */
 
 import { DurableObject } from "cloudflare:workers"
-import type { HarnessBridgeEnv } from "../harness-env.js"
 import { emitRunEvent } from "../observability/run-event-log.js"
 import {
   isContainerAlreadyRunningError,
   resolveDesiredPiContainerBuildId,
   shouldRestartPiContainerForBuild,
+  type PiWorkerVersionMetadata,
 } from "./pi-container-version.js"
 import {
   BoundedQueueTaskTimeoutError,
@@ -47,11 +47,20 @@ interface ActiveExecution extends RunRequestMeta {
   startedAt: string
 }
 
+interface PiContainerEnv {
+  WORKSPACE_BUCKET: R2Bucket
+  CF_VERSION_METADATA?: PiWorkerVersionMetadata
+  PI_MODEL?: string
+  PI_MODEL_CANDIDATES?: string
+  PI_FILESYSTEM_MODEL_CANDIDATES?: string
+  OFOX_API_KEY?: string
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-export class PiContainer extends DurableObject<HarnessBridgeEnv> {
+export class PiContainer extends DurableObject<PiContainerEnv> {
   private startPromise: Promise<void> | null = null
   private executeQueue = new BoundedSerialQueue(MAX_EXECUTE_QUEUE_DEPTH)
 
@@ -270,8 +279,10 @@ export class PiContainer extends DurableObject<HarnessBridgeEnv> {
           ...(this.env.CF_VERSION_METADATA?.timestamp ? { PI_WORKER_VERSION_TIMESTAMP: this.env.CF_VERSION_METADATA.timestamp } : {}),
           ...(this.env.PI_MODEL_CANDIDATES ? { PI_MODEL_CANDIDATES: this.env.PI_MODEL_CANDIDATES } : {}),
           ...(this.env.PI_FILESYSTEM_MODEL_CANDIDATES ? { PI_FILESYSTEM_MODEL_CANDIDATES: this.env.PI_FILESYSTEM_MODEL_CANDIDATES } : {}),
-          OFOX_API_KEY: this.env.OFOX_API_KEY,
-          OPENROUTER_API_KEY: this.env.OFOX_API_KEY,
+          ...(this.env.OFOX_API_KEY ? {
+            OFOX_API_KEY: this.env.OFOX_API_KEY,
+            OPENROUTER_API_KEY: this.env.OFOX_API_KEY,
+          } : {}),
         },
       })
     } catch (err) {

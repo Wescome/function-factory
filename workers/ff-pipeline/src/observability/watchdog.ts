@@ -1,5 +1,4 @@
 import type { HarnessRunResult } from "@factory/nlah"
-import type { HarnessBridgeEnv } from "../harness-env"
 import { RunEventLog } from "./run-event-log"
 
 const DEFAULT_STUCK_THRESHOLD_MS = 30 * 60 * 1000
@@ -12,7 +11,12 @@ const DEFAULT_STAGE_THRESHOLDS_MS: Record<string, number> = {
   VERIFY: 60 * 60 * 1000,
 }
 
-export async function scanForStuckRuns(env: HarnessBridgeEnv, now = Date.now()): Promise<void> {
+interface WatchdogEnv {
+  WORKSPACE_BUCKET: R2Bucket
+  RUN_COORDINATOR: DurableObjectNamespace
+}
+
+export async function scanForStuckRuns(env: WatchdogEnv, now = Date.now()): Promise<void> {
   const log = new RunEventLog(env.WORKSPACE_BUCKET)
   const index = await log.getActiveIndex()
 

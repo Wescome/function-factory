@@ -1,5 +1,4 @@
 import type { FunctionJob } from "@factory/schemas"
-import type { HarnessQueueMessage } from "./harness-env"
 import type { PiWorkerVersionMetadata } from "./coordinator/pi-container-version"
 
 export interface PipelineEnv {
@@ -73,8 +72,8 @@ export interface PipelineEnv {
   // narrow these via the HarnessBridgeEnv interface where they are required.
   /** Durable Object namespace for the RunCoordinator (one DO per run) */
   RUN_COORDINATOR?: DurableObjectNamespace
-  /** Queue producer for stage dispatch — typed body for callsite safety. */
-  HARNESS_QUEUE?: Queue<HarnessQueueMessage>
+  /** Queue producer for stage dispatch. */
+  HARNESS_QUEUE?: Queue<unknown>
   /** Pi container service binding */
   PI_CONTAINER?: DurableObjectNamespace
   /** Aider container service binding */
@@ -100,6 +99,7 @@ export interface PipelineEnv {
   GAS_CITY_RIG?: string
   GAS_CITY_RIG_ROOT?: string
   GAS_CITY_WEBHOOK_URL?: string
+  GAS_CITY_HMAC_SECRET_V1?: string
   FACTORY_MAX_ITERATIONS?: string
   GAS_CITY_FORMULA_VERSION_FACTORY_CODING_V1?: string
   [k: `GAS_CITY_FORMULA_VERSION_${string}`]: string | undefined
@@ -111,10 +111,8 @@ export interface PipelineParams {
   signal?: SignalInput
   dryRun?: boolean
   /**
-   * Optional FunctionJob descriptor. When `job.harnessKey` is set, the
-   * pipeline routes through the harness runtime (IS-HARNESS-DSL-v1 §2)
-   * via `startHarnessRun` instead of the synthesis graph. When absent
-   * or when `harnessKey` is undefined, the legacy synthesis path runs.
+   * Optional FunctionJob descriptor. Harness execution was removed with the
+   * Gas City structural cleanup; current pipeline execution requires `signal`.
    */
   job?: FunctionJob
 }

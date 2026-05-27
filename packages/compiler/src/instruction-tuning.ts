@@ -383,7 +383,7 @@ function sourceRefsFor(input: InstructionTuningInput): ArtifactId[] {
 }
 
 function packetIdFor(functionId: ArtifactId, executableSpecificationId: ArtifactId, candidateId: ArtifactId, admissionId: ArtifactId): ArtifactId {
-  return ArtifactId.parse(`TEP-${subject(functionId)}-${subject(executableSpecificationId)}-${subject(candidateId)}-${subject(admissionId)}`)
+  return ArtifactId.parse(`EP-${subject(functionId)}-${subject(executableSpecificationId)}-${subject(candidateId)}-${subject(admissionId)}`)
 }
 
 function artifactIdOrDerived(prefix: "FN" | "IS" | "ES", candidate: string): ArtifactId {

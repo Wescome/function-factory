@@ -120,7 +120,7 @@ writes to Dolt.
 
 **EP artifact ID transition.** The canonical EP prefix is `EP-*` per
 EXECUTION-PACKET.md and AGENTS.md. The current codebase schema
-(`trellis-execution-packet.ts`) still uses `TEP-*`. Phase 1 build depends on
+legacy Trellis packet code used `TEP-*`. Phase 1 build depends on
 the EP-* rename landing in `@factory/schemas`. Until then, the Engineer must
 accept both prefixes during transition and treat them as equivalent.
 

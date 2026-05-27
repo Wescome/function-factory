@@ -15,8 +15,9 @@ const requiredFiles = [
   'specs/reference/ONTOLOGY-ADDENDUM-B-STAGE-EXTENSIONS.md',
   'packages/schemas/src/domain-adapter.ts',
   'packages/schemas/src/coding-domain-adapter.ts',
-  'packages/schemas/src/trellis-execution-packet.ts',
-  'packages/schemas/src/trellis-canonical-json.ts',
+  'packages/schemas/src/_attic/trellis-execution-packet.ts',
+  'packages/schemas/src/_attic/trellis-canonical-json.ts',
+  'packages/schemas/src/gascity-fidelity.ts',
   'packages/compiler/src/instruction-tuning.ts',
   'packages/schemas/src/core.ts',
   'packages/schemas/src/coverage.ts',
@@ -30,7 +31,8 @@ const requiredFiles = [
   '.agent/skills/fidelity-verification/SKILL.md',
   '.agent/skills/persistence-verification/SKILL.md',
   'workers/ff-pipeline/src/coordinator/state.ts',
-  'workers/ff-pipeline/src/trellis-instruction-tuning.ts',
+  'workers/ff-pipeline/src/gascity/function-lifecycle.ts',
+  'workers/ff-pipeline/src/gascity/webhook-receiver.ts',
 ]
 
 for (const file of requiredFiles) {
@@ -61,14 +63,19 @@ expectIncludes(
   'domainExecutionEvidence',
 )
 expectIncludes(
-  'Trellis packet schema is materialized',
-  'packages/schemas/src/trellis-execution-packet.ts',
+  'Trellis packet schema is quarantined while compatibility consumers remain',
+  'packages/schemas/src/_attic/trellis-execution-packet.ts',
   'TrellisExecutionPacket',
 )
 expectIncludes(
-  'Instruction Tuning emits Trellis packets',
-  'packages/compiler/src/instruction-tuning.ts',
-  'tuneInstructions',
+  'Gas City fidelity schema is materialized',
+  'packages/schemas/src/gascity-fidelity.ts',
+  'GasCityFidelityVerificationReport',
+)
+expectIncludes(
+  'Pipeline blocks synthesis-era instruction tuning handoff in Gas City era',
+  'workers/ff-pipeline/src/pipeline.ts',
+  'instruction-tuning-blocked',
 )
 expectIncludes(
   'Coordinator state carries TrellisExecutionPacket',
@@ -76,9 +83,19 @@ expectIncludes(
   'trellisExecutionPacket',
 )
 expectIncludes(
-  'Worker synthesis boundary requires packet payload',
+  'Worker synthesis boundary still rejects packet-less compatibility payloads',
   'workers/ff-pipeline/src/index.ts',
   'trellisExecutionPacket is required for synthesis queue dispatch',
+)
+expectIncludes(
+  'Gas City webhook route is wired',
+  'workers/ff-pipeline/src/index.ts',
+  '/webhooks/gascity',
+)
+expectIncludes(
+  'Gas City lifecycle transition helper is materialized',
+  'workers/ff-pipeline/src/gascity/function-lifecycle.ts',
+  'ALLOWED_FUNCTION_TRANSITIONS',
 )
 expectIncludes(
   'Coordinator rejects packet-less synthesis',
@@ -179,7 +196,12 @@ console.log('ontology hard-cut audit passed')
 
 function expectIncludes(label, file, needle) {
   checks += 1
-  const content = readFileSync(path.join(root, file), 'utf8')
+  const full = path.join(root, file)
+  if (!existsSync(full)) {
+    failures.push(`${label}: expected ${file} to exist`)
+    return
+  }
+  const content = readFileSync(full, 'utf8')
   if (!content.includes(needle)) {
     failures.push(`${label}: expected ${file} to include ${needle}`)
   }
@@ -196,7 +218,7 @@ function activeSourceFiles(roots) {
 function walk(dir, out) {
   if (!existsSync(dir)) return
   for (const entry of readdirSync(dir)) {
-    if (entry === 'dist' || entry === 'node_modules' || entry.startsWith('.')) {
+    if (entry === 'dist' || entry === 'node_modules' || entry === '_attic' || entry.startsWith('.')) {
       continue
     }
     const full = path.join(dir, entry)

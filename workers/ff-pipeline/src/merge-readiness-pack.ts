@@ -3,10 +3,37 @@ import {
   MergeReadinessPack as CanonicalMergeReadinessPackSchema,
   type MergeReadinessPack as CanonicalMergeReadinessPack,
 } from '@factory/schemas'
-import {
-  auditCoherenceVerificationPassed,
-  type SynthesisMaterializationAudit,
-} from './synthesis-pr-draft'
+
+export interface SynthesisMaterializationAudit {
+  type: 'synthesis_artifact_materialization'
+  timestamp: string
+  pipelineId: string
+  runtimeStatus: string
+  signalId: string
+  pressureId: string
+  capabilityId: string
+  proposalId: string
+  executableSpecificationId: string
+  coherenceVerificationPassed?: boolean
+  atomResults: Array<{
+    atomId: string
+    decision: string
+    confidence: number
+    tests: string
+  }>
+  materializedFiles: Array<{
+    atomId: string
+    path: string
+    action: string
+    sha256: string
+  }>
+  localVerification: string[]
+  notes?: string
+}
+
+function auditCoherenceVerificationPassed(audit: SynthesisMaterializationAudit): boolean {
+  return audit.coherenceVerificationPassed ?? false
+}
 
 export type ReadinessVerdict = 'ready' | 'blocked'
 export type ReadinessCriterionName =

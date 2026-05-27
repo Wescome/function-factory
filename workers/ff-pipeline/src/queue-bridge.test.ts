@@ -215,7 +215,7 @@ const SIGNAL_PAYLOAD = {
 function sampleTrellisExecutionPacket(executableSpecificationId = 'ES-TEST') {
   const subject = executableSpecificationId.replace(/^ES-/, '')
   return {
-    id: `TEP-${subject}`,
+    id: `EP-${subject}`,
     executableSpecificationId,
     audit: { packetHash: `hash-${subject}` },
   }
@@ -333,7 +333,7 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
       expect(fetchBody.callbackUrl).toBeUndefined()
     })
 
-    it('routes harness messages by body shape when batch.queue is unavailable', async () => {
+    it('does not route stale harness-shaped messages when batch.queue is unavailable', async () => {
       const { default: worker } = await import('./index')
 
       const env = createEnv()
@@ -351,17 +351,13 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       await worker.queue(batch as never, env as never, ctx as never)
 
-      expect(harnessDispatcherMocks.buildDefaultDispatcherDeps).toHaveBeenCalledOnce()
-      expect(harnessDispatcherMocks.dispatchOne).toHaveBeenCalledWith(
-        { runId: 'smoke-shape-route', stageName: 'SMOKE', attemptNumber: 1 },
-        expect.anything(),
-        { mocked: true },
-      )
+      expect(harnessDispatcherMocks.buildDefaultDispatcherDeps).not.toHaveBeenCalled()
+      expect(harnessDispatcherMocks.dispatchOne).not.toHaveBeenCalled()
       expect(msg.ack).toHaveBeenCalledOnce()
       expect(msg.retry).not.toHaveBeenCalled()
     })
 
-    it('routes harness-dlq messages to RunCoordinator /force-complete and acks', async () => {
+    it('acks removed harness-dlq messages without calling RunCoordinator', async () => {
       const { default: worker } = await import('./index')
       const mockRunFetch = vi.fn(async (_request: Request) => new Response(JSON.stringify({ ok: true }), {
         headers: { 'Content-Type': 'application/json' },
@@ -387,15 +383,7 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       await worker.queue(batch as never, env as never, ctx as never)
 
-      expect(mockRunFetch).toHaveBeenCalledOnce()
-      const req = mockRunFetch.mock.calls[0]![0] as Request
-      expect(new URL(req.url).pathname).toBe('/force-complete')
-      const body = await req.json() as { result: { failureClass?: string; finalStage?: string } }
-      expect(body.result).toMatchObject({
-        overall: 'fail',
-        finalStage: 'PATCH',
-        failureClass: 'dlq_exhausted',
-      })
+      expect(mockRunFetch).not.toHaveBeenCalled()
       expect(msg.ack).toHaveBeenCalledOnce()
       expect(msg.retry).not.toHaveBeenCalled()
     })
@@ -661,7 +649,7 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
   describe('pipeline enqueue-synthesis step', () => {
 
-    it('sends message to SYNTHESIS_QUEUE with workflowId, executableSpecificationId, executableSpecification, dryRun', async () => {
+    it('blocks before SYNTHESIS_QUEUE handoff in the Gas City era', async () => {
       const { FactoryPipeline } = await import('./pipeline')
 
       const mockQueueSend = vi.fn(async () => ({}))
@@ -690,7 +678,7 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
       const pipeline = Object.create(FactoryPipeline.prototype)
       pipeline.env = env
 
-      await pipeline.run(
+      const result = await pipeline.run(
         {
           instanceId: 'wf-enqueue-test',
           payload: SIGNAL_PAYLOAD,
@@ -698,22 +686,15 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
         step,
       )
 
-      // Verify enqueue-synthesis step was called (not fire-synthesis-trigger)
-      expect(stepDoNames).toContain('enqueue-synthesis')
+      expect(result.status).toBe('instruction-tuning-blocked')
+      expect(stepDoNames).toContain('instruction-tuning')
+      expect(stepDoNames).toContain('persist-instruction-tuning-blocked')
+      expect(stepDoNames).not.toContain('enqueue-synthesis')
       expect(stepDoNames).not.toContain('fire-synthesis-trigger')
-
-      // Verify SYNTHESIS_QUEUE.send was called with correct payload
-      expect(mockQueueSend).toHaveBeenCalledOnce()
-      const calls = mockQueueSend.mock.calls as unknown[][]
-      const sentMessage = calls[0]![0] as Record<string, unknown>
-      expect(sentMessage.workflowId).toBe('wf-enqueue-test')
-      expect(sentMessage.executableSpecificationId).toBe('ES-TEST')
-      expect(sentMessage.executableSpecification).toBeDefined()
-      expect((sentMessage.executableSpecification as Record<string, unknown>)._key).toBe('ES-TEST')
-      expect(sentMessage.dryRun).toBe(false)
+      expect(mockQueueSend).not.toHaveBeenCalled()
     })
 
-    it('passes dryRun: true when pipeline params specify dryRun', async () => {
+    it('does not enqueue synthesis when pipeline params specify dryRun', async () => {
       const { FactoryPipeline } = await import('./pipeline')
 
       const mockQueueSend = vi.fn(async () => ({}))
@@ -742,7 +723,7 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
       const pipeline = Object.create(FactoryPipeline.prototype)
       pipeline.env = env
 
-      await pipeline.run(
+      const result = await pipeline.run(
         {
           instanceId: 'wf-dry-test',
           payload: { ...SIGNAL_PAYLOAD, dryRun: true },
@@ -750,12 +731,11 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
         step,
       )
 
-      const calls = mockQueueSend.mock.calls as unknown[][]
-      const sentMessage = calls[0]![0] as Record<string, unknown>
-      expect(sentMessage.dryRun).toBe(true)
+      expect(result.status).toBe('instruction-tuning-blocked')
+      expect(mockQueueSend).not.toHaveBeenCalled()
     })
 
-    it('returns { enqueued: true } from the enqueue-synthesis step', async () => {
+    it('returns { persisted: true } from the instruction-tuning blocked persistence step', async () => {
       const { FactoryPipeline } = await import('./pipeline')
 
       const mockQueueSend = vi.fn(async () => ({}))
@@ -763,15 +743,15 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
         SYNTHESIS_QUEUE: { send: mockQueueSend },
       })
 
-      let enqueueResult: unknown
+      let blockedPersistResult: unknown
       const step = {
         do: vi.fn(async (name: string, optsOrFn: unknown, maybeFn?: unknown) => {
           const fn = typeof optsOrFn === 'function'
             ? optsOrFn as () => Promise<unknown>
             : maybeFn as () => Promise<unknown>
           const result = await fn()
-          if (name === 'enqueue-synthesis') {
-            enqueueResult = result
+          if (name === 'persist-instruction-tuning-blocked') {
+            blockedPersistResult = result
           }
           return result
         }),
@@ -803,7 +783,7 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
         step,
       )
 
-      expect(enqueueResult).toEqual({ enqueued: true })
+      expect(blockedPersistResult).toEqual({ persisted: true })
     })
 
     it('no longer writes to ArangoDB synthesis_queue collection', async () => {
@@ -852,7 +832,7 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
       expect(arangoQueueSave).toBeUndefined()
     })
 
-    it('enqueue-synthesis step runs after Coherence Verification and before waitForEvent(synthesis-complete)', async () => {
+    it('instruction-tuning block runs after Coherence Verification and does not wait for synthesis-complete', async () => {
       const { FactoryPipeline } = await import('./pipeline')
 
       const mockQueueSend = vi.fn(async () => ({}))
@@ -898,12 +878,14 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
         step,
       )
 
-      const enqueueIdx = stepOrder.indexOf('enqueue-synthesis')
+      const instructionTuningIdx = stepOrder.indexOf('instruction-tuning')
+      const blockedPersistIdx = stepOrder.indexOf('persist-instruction-tuning-blocked')
       const waitIdx = stepOrder.indexOf('waitForEvent:synthesis-complete')
 
-      expect(enqueueIdx).toBeGreaterThan(-1)
-      expect(waitIdx).toBeGreaterThan(-1)
-      expect(enqueueIdx).toBeLessThan(waitIdx)
+      expect(instructionTuningIdx).toBeGreaterThan(-1)
+      expect(blockedPersistIdx).toBeGreaterThan(-1)
+      expect(blockedPersistIdx).toBeGreaterThan(instructionTuningIdx)
+      expect(waitIdx).toBe(-1)
     })
   })
 

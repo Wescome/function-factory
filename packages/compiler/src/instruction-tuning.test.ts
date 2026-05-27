@@ -102,7 +102,7 @@ describe("tuneInstructions", () => {
 
     expect(result.status).toBe("emitted")
     if (result.status !== "emitted") return
-    expect(result.packet.id).toMatch(/^TEP-/)
+    expect(result.packet.id).toMatch(/^EP-/)
     expect(result.packet.roles.map((role) => role.roleId)).toEqual([
       "role-plan",
       "role-implement",

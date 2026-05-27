@@ -57,7 +57,7 @@ const db = new ArangoClient({
 // SMOKE_RUN_ID env var: reuse a prior run to test idempotency.
 const runId = process.env.SMOKE_RUN_ID ?? Date.now().toString(36).toUpperCase()
 const testEp = {
-  id: `TEP-SMOKE-${runId}`,
+  id: `EP-SMOKE-${runId}`,
   functionId: `FN-SMOKE-${runId}`,
   intentSpecificationId: `IS-SMOKE-${runId}`,
   executableSpecificationId: `ES-SMOKE-${runId}`,

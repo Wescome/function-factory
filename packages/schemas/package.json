@@ -13,13 +13,13 @@
     "./domain-adapter": "./src/domain-adapter.ts",
     "./coding-domain-adapter": "./src/coding-domain-adapter.ts",
     "./ontology-aliases": "./src/ontology-aliases.ts",
-    "./trellis-execution-packet": "./src/trellis-execution-packet.ts",
-    "./trellis-canonical-json": "./src/trellis-canonical-json.ts"
+    "./trellis-execution-packet": "./src/_attic/trellis-execution-packet.ts",
+    "./trellis-canonical-json": "./src/_attic/trellis-canonical-json.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --exclude \"src/_attic/**\"",
     "lint": "echo 'lint: TODO'"
   },
   "dependencies": {

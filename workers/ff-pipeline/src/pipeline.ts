@@ -5,9 +5,6 @@ import {
 } from 'cloudflare:workers'
 import { createClientFromEnv } from '@factory/arango-client'
 import { validateArtifact } from '@factory/artifact-validator'
-import type { HarnessRunResult } from '@factory/nlah'
-import { startHarnessRun } from './harness-bridge'
-import type { HarnessBridgeEnv, HarnessJob } from './harness-env'
 import { ingestSignal } from './stages/ingest-signal'
 import { synthesizePressure } from './stages/synthesize-pressure'
 import { mapCapability } from './stages/map-capability'
@@ -22,8 +19,6 @@ import { filterAnchorsForPass } from './stages/pass-specific-anchors'
 import { appendDriftEntry } from './stages/drift-ledger'
 import { loadCrystallizerEnabled } from './config/crystallizer-config'
 import { createCRP } from './crp'
-import { transitionLifecycle } from './lifecycle'
-import { buildTrellisPacketForSynthesis } from './trellis-instruction-tuning'
 import { captureLearningTranscript } from './learning-capture'
 import type {
   CoherenceVerificationReport,
@@ -61,26 +56,6 @@ function verificationStatusKey(family: string, artifactKey: string): string {
   return `verification-${safeFamily}-${safeArtifactKey}-${Date.now().toString(36)}`
 }
 
-async function writeHarnessResultRecord(
-  env: PipelineEnv,
-  runId: string,
-  record: Record<string, unknown>,
-): Promise<{ persisted: true; key: string; substrate: 'r2' }> {
-  const key = `runs/${runId}/artifacts/__observability/harness-result-record.json`
-  const bucket = (env as PipelineEnv & { WORKSPACE_BUCKET?: R2Bucket }).WORKSPACE_BUCKET
-  if (!bucket) {
-    throw new Error('harness result persistence requires WORKSPACE_BUCKET')
-  }
-  await bucket.put(key, JSON.stringify({
-    record,
-    substrate: 'r2',
-    timestamp: new Date().toISOString(),
-  }, null, 2), {
-    httpMetadata: { contentType: 'application/json; charset=utf-8' },
-  })
-  return { persisted: true, key, substrate: 'r2' }
-}
-
 /**
  * C2 resolution: extract only the fields added by the current pass.
  * The probe receives the delta, not the full accumulated state.
@@ -116,60 +91,11 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       ? (event as { instanceId: string }).instanceId
       : undefined
 
-    // ── Harness routing branch (IS-HARNESS-DSL-v1 §2, ADR-009 Phase 3) ──
-    // When the inbound FunctionJob declares a `harnessKey`, the harness
-    // runtime owns this run end-to-end. The legacy synthesis path below
-    // (ingest → synthesize → map → propose → review → compile → coherence
-    // → synthesis queue → atoms) is intentionally NOT touched in this
-    // mode. The Workflow suspends on `harness-complete`; the
-    // RunCoordinator DO sends that event from its terminal-state hook
-    // (see coordinator/run-coordinator.ts:notifyWorkflowComplete).
     const job = params.job
     if (job?.harnessKey) {
-      const harnessEnv = this.env as PipelineEnv & HarnessBridgeEnv
-
-      const { runId } = await step.do('init-harness', DB_STEP_CONFIG, async () => {
-        return startHarnessRun(job.harnessKey!, harnessEnv, job as HarnessJob)
-      })
-
-      const completion = await step.waitForEvent<HarnessRunResult>(
-        'harness-complete',
-        { type: 'harness-complete', timeout: '7 days' },
-      )
-
-      const result = completion.payload
-
-      // Harness production smoke records are R2-primary. Prod Arango does
-      // not currently have `verification_reports`, and harness evidence
-      // already lives under the run's R2 artifact namespace.
-      const recordResult = await step.do('record-harness-result', DB_STEP_CONFIG, async () => {
-        const record = {
-          _key: `VR-HARNESS-${runId}-${Date.now().toString(36)}`,
-          type: 'harness-run',
-          passed: result.overall === 'pass',
-          summary: result.reason ?? `Harness ${result.overall} at stage ${result.finalStage}`,
-          checks: [
-            {
-              name: 'harness-overall',
-              passed: result.overall === 'pass',
-              detail: `finalStage=${result.finalStage}${result.failureClass ? ` failureClass=${result.failureClass}` : ''}`,
-            },
-          ],
-          sourceRefs: [`FUNCTION_RUN:${runId}`],
-          source_refs: [runId],
-          timestamp: new Date().toISOString(),
-        }
-        return writeHarnessResultRecord(this.env, runId, record)
-      })
-
       return {
-        status: result.overall === 'pass'
-          ? 'harness-passed'
-          : `harness-${result.overall}`,
-        ...(result.reason ? { reason: result.reason } : {}),
-        ...(recordResult && typeof recordResult === 'object' && typeof (recordResult as { key?: unknown }).key === 'string'
-          ? { harnessResultKey: (recordResult as { key: string }).key }
-          : {}),
+        status: 'harness-removed',
+        reason: 'REMOVED: synthesis-era — see GAS-CITY-ERA-ARCHITECTURE.md',
       } as PipelineResult
     }
 
@@ -231,16 +157,6 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     await step.do('edge-proposal-capability', DB_STEP_CONFIG, async () => {
       await db.saveEdge('lineage_edges', `specs_functions/${proposalKey}`, `specs_capabilities/${capabilityKey}`, {
         type: 'derived-from', createdAt: new Date().toISOString(),
-      })
-      return { ok: true }
-    })
-
-    // ── Phase D: Lifecycle → proposed ──
-    await step.do('lifecycle-proposed', DB_STEP_CONFIG, async () => {
-      await transitionLifecycle(db, proposalKey, 'proposed', {
-        trigger: 'pipeline-propose-function',
-      }).catch((err: unknown) => {
-        console.warn(`[lifecycle] Failed to set proposed: ${err instanceof Error ? err.message : err}`)
       })
       return { ok: true }
     })
@@ -478,16 +394,6 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
 
     const executableSpecificationKey = (compState.executableSpecification as { _key?: string })?._key ?? 'unknown'
 
-    // ── Phase D: Lifecycle → designed (after compilation) ──
-    await step.do('lifecycle-designed', DB_STEP_CONFIG, async () => {
-      await transitionLifecycle(db, proposalKey, 'designed', {
-        trigger: 'pipeline-compile',
-      }).catch((err: unknown) => {
-        console.warn(`[lifecycle] Failed to set designed: ${err instanceof Error ? err.message : err}`)
-      })
-      return { ok: true }
-    })
-
     // Lineage: ExecutableSpecification → Proposal (written before Coherence Verification so lineage check passes)
     await step.do('edge-executableSpecification-proposal', DB_STEP_CONFIG, async () => {
       await db.saveEdge('lineage_edges', `executable_specifications/${executableSpecificationKey}`, `specs_functions/${proposalKey}`, {
@@ -582,12 +488,13 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
 
     const executableSpecification = compState.executableSpecification as { _key?: string; [k: string]: unknown }
     const instructionTuning = await step.do('instruction-tuning', DB_STEP_CONFIG, async () => {
-      return toStep(buildTrellisPacketForSynthesis({
-        executableSpecificationId: executableSpecificationKey,
-        executableSpecification: executableSpecification,
-        proposal: proposal as Record<string, unknown>,
-        generatedAt: new Date().toISOString(),
-      }) as unknown as Record<string, unknown>)
+      return toStep({
+        status: 'blocked',
+        diagnostics: [{
+          code: 'instruction-tuning:removed',
+          message: 'REMOVED: synthesis-era — see GAS-CITY-ERA-ARCHITECTURE.md',
+        }],
+      })
     })
 
     if (instructionTuning.status !== 'emitted') {
@@ -644,16 +551,6 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
         ...(specContent ? { specContent } : {}),
       })
       return { enqueued: true }
-    })
-
-    // ── Phase D: Lifecycle → in_progress (synthesis enqueued) ──
-    await step.do('lifecycle-in-progress', DB_STEP_CONFIG, async () => {
-      await transitionLifecycle(db, proposalKey, 'in_progress', {
-        trigger: 'pipeline-enqueue-synthesis',
-      }).catch((err: unknown) => {
-        console.warn(`[lifecycle] Failed to set in_progress: ${err instanceof Error ? err.message : err}`)
-      })
-      return { ok: true }
     })
 
     // Wait for external trigger to complete synthesis via DO and send event
@@ -723,18 +620,6 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       )
       return { ok: true }
     })
-
-    // ── Phase D: Lifecycle → produced (if synthesis passed) ──
-    if (finalVerdict.decision === 'pass') {
-      await step.do('lifecycle-produced', DB_STEP_CONFIG, async () => {
-        await transitionLifecycle(db, proposalKey, 'produced', {
-          trigger: 'pipeline-synthesis-pass',
-        }).catch((err: unknown) => {
-          console.warn(`[lifecycle] Failed to set produced: ${err instanceof Error ? err.message : err}`)
-        })
-        return { ok: true }
-      })
-    }
 
     // ── Feedback loop: synthesis result → new signal ──
     const finalResult: PipelineResult = {

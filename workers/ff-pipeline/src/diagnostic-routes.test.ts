@@ -1674,7 +1674,32 @@ describe('ff-pipeline diagnostic routes', () => {
     ])
   })
 
-  it('POST /debug/fidelity-verification returns a Fidelity Verification report and verdict', async () => {
+  it('removed synthesis-era diagnostic routes return 410', async () => {
+    const { default: worker } = await import('./index')
+    const env = createEnv() as never
+    const ctx = { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as never
+
+    for (const pathname of [
+      '/debug/fidelity-verification',
+      '/debug/persistence-verification',
+      '/debug/lifecycle-acceptance',
+    ]) {
+      const response = await worker.fetch(
+        new Request(`https://ff-pipeline.example.com${pathname}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        }),
+        env,
+        ctx,
+      )
+
+      expect(response.status).toBe(410)
+      expect(await jsonBody(response)).toMatchObject({ error: 'removed' })
+    }
+  })
+
+  it.skip('POST /debug/fidelity-verification returns a Fidelity Verification report and verdict', async () => {
     const { default: worker } = await import('./index')
 
     const response = await worker.fetch(
@@ -1702,7 +1727,7 @@ describe('ff-pipeline diagnostic routes', () => {
     })
   })
 
-  it('POST /debug/fidelity-verification accepts normalized FidelityVerificationInput evidence', async () => {
+  it.skip('POST /debug/fidelity-verification accepts normalized FidelityVerificationInput evidence', async () => {
     const { default: worker } = await import('./index')
 
     const response = await worker.fetch(
@@ -1742,7 +1767,7 @@ describe('ff-pipeline diagnostic routes', () => {
     })
   })
 
-  it('POST /debug/fidelity-verification accepts FidelityVerificationInput evidence', async () => {
+  it.skip('POST /debug/fidelity-verification accepts FidelityVerificationInput evidence', async () => {
     const { default: worker } = await import('./index')
 
     const response = await worker.fetch(
@@ -1773,7 +1798,7 @@ describe('ff-pipeline diagnostic routes', () => {
     })
   })
 
-  it('POST /debug/fidelity-verification can persist the emitted Fidelity Verification report', async () => {
+  it.skip('POST /debug/fidelity-verification can persist the emitted Fidelity Verification report', async () => {
     const { default: worker } = await import('./index')
 
     const response = await worker.fetch(
@@ -1824,7 +1849,7 @@ describe('ff-pipeline diagnostic routes', () => {
     )
   })
 
-  it('POST /debug/fidelity-verification can dry-run Fidelity Verification lifecycle acceptance without mutation', async () => {
+  it.skip('POST /debug/fidelity-verification can dry-run Fidelity Verification lifecycle acceptance without mutation', async () => {
     const { default: worker } = await import('./index')
 
     const response = await worker.fetch(
@@ -1858,7 +1883,7 @@ describe('ff-pipeline diagnostic routes', () => {
     expect(mockSave).not.toHaveBeenCalled()
   })
 
-  it('POST /debug/persistence-verification persists a minimal Persistence Verification blocker report', async () => {
+  it.skip('POST /debug/persistence-verification persists a minimal Persistence Verification blocker report', async () => {
     const { default: worker } = await import('./index')
 
     const response = await worker.fetch(
@@ -1899,7 +1924,7 @@ describe('ff-pipeline diagnostic routes', () => {
     )
   })
 
-  it('POST /debug/persistence-verification persists a minimal Persistence Verification blocker report', async () => {
+  it.skip('POST /debug/persistence-verification persists a minimal Persistence Verification blocker report', async () => {
     const { default: worker } = await import('./index')
 
     const response = await worker.fetch(
@@ -1927,7 +1952,7 @@ describe('ff-pipeline diagnostic routes', () => {
     })
   })
 
-  it('POST /debug/lifecycle-acceptance dry-runs produced to accepted from persisted Fidelity Verification evidence', async () => {
+  it.skip('POST /debug/lifecycle-acceptance dry-runs produced to accepted from persisted Fidelity Verification evidence', async () => {
     const { default: worker } = await import('./index')
     mockQueryOne.mockResolvedValueOnce(makeFidelityVerificationVerificationReportRecord())
     mockGet.mockResolvedValueOnce({
@@ -1964,11 +1989,11 @@ describe('ff-pipeline diagnostic routes', () => {
     expect(mockSaveEdge).not.toHaveBeenCalled()
   })
 
-  it('POST /debug/lifecycle-acceptance can apply produced to accepted from persisted Fidelity Verification evidence', async () => {
+  it.skip('POST /debug/lifecycle-acceptance can apply produced to accepted from persisted Fidelity Verification evidence', async () => {
     const { default: worker } = await import('./index')
     mockQueryOne
       .mockResolvedValueOnce(makeFidelityVerificationVerificationReportRecord())
-      .mockResolvedValueOnce({ passed: true, source_refs: ['TEP-META-FUNCTION-SYNTHESIS'] })
+      .mockResolvedValueOnce({ passed: true, source_refs: ['EP-META-FUNCTION-SYNTHESIS'] })
     mockGet
       .mockResolvedValueOnce({
         _key: 'FN-MOTDWVR2-W7UN',
@@ -2017,7 +2042,7 @@ describe('ff-pipeline diagnostic routes', () => {
     )
   })
 
-  it('POST /debug/lifecycle-acceptance can repair a missing produced to accepted transition edge', async () => {
+  it.skip('POST /debug/lifecycle-acceptance can repair a missing produced to accepted transition edge', async () => {
     const { default: worker } = await import('./index')
     mockQueryOne.mockResolvedValueOnce(makeFidelityVerificationVerificationReportRecord())
     mockGet.mockResolvedValueOnce({
@@ -2527,7 +2552,7 @@ function makeFidelityVerificationSimulationInput(): Record<string, unknown> {
     intentSpecificationId: 'IS-META-FUNCTION-SYNTHESIS',
     executableSpecificationId: 'ES-META-FUNCTION-SYNTHESIS',
     candidateId: 'AC-META-ARCHITECTURE-CANDIDATE-EXECUTION',
-    packetId: 'TEP-META-FUNCTION-SYNTHESIS',
+    packetId: 'EP-META-FUNCTION-SYNTHESIS',
     packetHash: 'sha256:packet-hash',
     timestamp: '2026-05-07T21:30:00.000Z',
     sourceRefs: ['MRP-MOTE4M1R-G7I0-71'],
@@ -2573,7 +2598,7 @@ function makeFidelityVerificationContractInput(): Record<string, unknown> {
     functionId: 'FN-MOTDWVR2-W7UN',
     executableSpecificationId: 'ES-META-FUNCTION-SYNTHESIS',
     architectureCandidateId: 'AC-META-ARCHITECTURE-CANDIDATE-EXECUTION',
-    packetId: 'TEP-META-FUNCTION-SYNTHESIS',
+    packetId: 'EP-META-FUNCTION-SYNTHESIS',
     packetHash: 'sha256:packet-hash',
     artifactPaths: ['workers/ff-pipeline/src/runtime-verification.ts'],
     validationOutcomes: [
@@ -2632,7 +2657,7 @@ function makeFidelityVerificationContractInput(): Record<string, unknown> {
 function makePersistenceVerificationRegistrationInput(): Record<string, unknown> {
   return {
     functionId: 'FN-MOTDWVR2-W7UN',
-    packetId: 'TEP-META-FUNCTION-SYNTHESIS',
+    packetId: 'EP-META-FUNCTION-SYNTHESIS',
     packetHash: 'sha256:packet-hash',
     timestamp: '2026-05-07T22:00:00.000Z',
     sourceRefs: [
@@ -2669,14 +2694,14 @@ function makeFidelityVerificationVerificationReportRecord(): Record<string, unkn
     id: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T22-34-30-000Z',
     type: 'fidelity-verification',
     passed: true,
-    source_refs: ['TEP-META-FUNCTION-SYNTHESIS', 'FN-MOTDWVR2-W7UN'],
+    source_refs: ['EP-META-FUNCTION-SYNTHESIS', 'FN-MOTDWVR2-W7UN'],
     report: {
       id: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T22-34-30-000Z',
       verification: "fidelity",
       function_id: 'FN-MOTDWVR2-W7UN',
       timestamp: '2026-05-07T22:34:30.000Z',
       overall: 'pass',
-      source_refs: ['TEP-META-FUNCTION-SYNTHESIS', 'FN-MOTDWVR2-W7UN'],
+      source_refs: ['EP-META-FUNCTION-SYNTHESIS', 'FN-MOTDWVR2-W7UN'],
     },
     verdict: {
       verdict: 'accepted',

@@ -1,5 +1,5 @@
 import { DomainAdapterContract } from "./domain-adapter.js"
-import { TrellisRuntimeProfile } from "./trellis-execution-packet.js"
+import { TrellisRuntimeProfile } from "./_attic/trellis-execution-packet.js"
 
 export const CodingDomainAdapterContract = DomainAdapterContract.parse({
   adapterId: "adapter.coding",

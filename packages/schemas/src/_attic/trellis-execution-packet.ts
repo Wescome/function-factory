@@ -1,14 +1,14 @@
 import { z } from "zod"
-import { ArtifactId, Explicitness } from "./lineage.js"
+import { ArtifactId, Explicitness } from "../lineage.js"
 import {
   DomainAdapterId,
   DomainExecutionEvidence,
   DomainExecutionMode,
   DomainExecutionRequest,
-} from "./domain-adapter.js"
+} from "../domain-adapter.js"
 import { trellisContentHash } from "./trellis-canonical-json.js"
 
-const TepId = ArtifactId.refine((id) => id.startsWith("TEP-"), "TrellisExecutionPacket IDs must start with TEP-")
+const TepId = ArtifactId.refine((id) => id.startsWith("EP-"), "TrellisExecutionPacket IDs must start with EP-")
 const NonEmptyStringArray = z.array(z.string().min(1)).min(1)
 
 export const InstructionTuningProvenance = z.object({
