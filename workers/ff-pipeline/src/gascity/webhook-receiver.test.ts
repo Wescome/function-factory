@@ -215,4 +215,37 @@ describe("handleGasCityWebhook", () => {
       }),
     }))
   })
+
+  it("halts amendment and writes an incident when revise exceeds max amendment depth", async () => {
+    const { handleGasCityWebhook } = await import("./webhook-receiver.js")
+    mocks.queryOne.mockResolvedValueOnce(dispatchLog({ factory_attempt: 4 }))
+    const response = await handleGasCityWebhook(await signedRequest({
+      ...basePayload,
+      factory_attempt: 4,
+      outcome: "revise",
+      remediation: "Repeated verifier failure.",
+    }), createEnv() as never)
+
+    expect(response.status).toBe(202)
+    expect(await response.json()).toMatchObject({
+      accepted: true,
+      lifecycle_state: "rejected",
+      outcome: "revise",
+      amendment_halted: true,
+      incident_id: expect.stringMatching(/^INC-GC-AMENDMENT-DEPTH-[A-F0-9]{12}$/),
+    })
+    expect(mocks.save).toHaveBeenCalledWith("specs_incidents", expect.objectContaining({
+      incidentType: "gascity_amendment_depth_exceeded",
+      functionIds: ["FN-GC-DISPATCH-WIRE"],
+      severity: "sev3",
+      status: "open",
+      max_amendment_depth: 3,
+      factory_attempt: 4,
+      raw: expect.objectContaining({
+        outcome: "revise",
+        remediation: "Repeated verifier failure.",
+      }),
+    }))
+    expect(mocks.save).not.toHaveBeenCalledWith("specs_signals", expect.anything())
+  })
 })

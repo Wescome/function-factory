@@ -1,10 +1,10 @@
 # Current Workspace
 
 ## Status
-Active continuation at 2026-05-27T23:49:11Z. Gas City roadmap cleanup is verification-green; latest slice adds Gas City collection/index provisioning.
+Active continuation at 2026-05-27T23:57:32Z. Gas City roadmap cleanup is verification-green; latest slice adds the amendment-depth halt guard.
 
 ## Last update
-2026-05-27T23:49:11Z
+2026-05-27T23:57:32Z
 
 ## Current focus
 Gas City era structural cleanup and webhook lifecycle slice:
@@ -22,6 +22,8 @@ Gas City era structural cleanup and webhook lifecycle slice:
 - Added Arango schema helpers for edge collections and named indexes.
 - Added Gas City collection provisioning for `completion_events`, `fidelity_verdicts`, `lifecycle_transitions` as an edge collection, and `webhook_rejections`, with the critical hash/skiplist indexes from the architecture reference.
 - Wired Gas City collection provisioning into `POST /webhooks/gascity` before intake writes.
+- Added `GAS_CITY_MAX_AMENDMENT_DEPTH` with default `3`.
+- Gas City `revise` callbacks whose `factory_attempt` exceeds the configured amendment depth now write `INC-GC-AMENDMENT-DEPTH-*` to `specs_incidents`, return the incident id, and do not emit another amendment `SIG-*`.
 
 ## Verification this continuation
 - `pnpm --filter @factory/schemas typecheck` passed.
@@ -40,6 +42,8 @@ Gas City era structural cleanup and webhook lifecycle slice:
 - `git diff --check` passed.
 - `pnpm --filter @factory/arango-client test` passed: 2 tests.
 - `pnpm --filter @factory/ff-pipeline test -- src/gascity/collection-schema.test.ts src/gascity/webhook-receiver.test.ts` passed: 7 tests.
+- `pnpm --filter @factory/ff-pipeline test -- src/gascity/webhook-receiver.test.ts` passed: 6 tests.
+- `pnpm --filter @factory/ff-pipeline test` passed: 992 passed, 10 skipped.
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 

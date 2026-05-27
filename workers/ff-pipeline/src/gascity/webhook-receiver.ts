@@ -1,5 +1,5 @@
 import { createClientFromEnv } from "@factory/arango-client"
-import { GasCityFidelityVerificationReport } from "@factory/schemas"
+import { GasCityFidelityVerificationReport, Incident } from "@factory/schemas"
 import type { PipelineEnv } from "../types.js"
 import { ensureGasCityCollections } from "./collection-schema.js"
 import { transitionFunctionState } from "./function-lifecycle.js"
@@ -194,6 +194,18 @@ export async function handleGasCityWebhook(request: Request, env: PipelineEnv): 
   })
 
   if (payload.outcome === "revise") {
+    const maxAmendmentDepth = configuredMaxAmendmentDepth(env)
+    if (payload.factory_attempt > maxAmendmentDepth) {
+      const incidentId = await writeAmendmentDepthIncident(db, payload, vrId, remediation, receivedAt, maxAmendmentDepth)
+      return json({
+        accepted: true,
+        vr_id: vrId,
+        lifecycle_state: lifecycleState,
+        outcome: payload.outcome,
+        amendment_halted: true,
+        incident_id: incidentId,
+      }, 202)
+    }
     await writeRevisionSignal(db, payload, vrId, remediation, receivedAt)
   }
 
@@ -339,6 +351,54 @@ async function writeRevisionSignal(
       fidelity_verdict_id: vrId,
     },
   })
+}
+
+async function writeAmendmentDepthIncident(
+  db: GasCityWebhookDb,
+  payload: GasCityCompletionPayload,
+  vrId: string,
+  remediation: string,
+  receivedAt: string,
+  maxAmendmentDepth: number,
+): Promise<string> {
+  const key = `INC-GC-AMENDMENT-DEPTH-${(await sha256Hex(`${payload.fn_id}|${payload.factory_attempt}|${vrId}`)).slice(0, 12).toUpperCase()}`
+  const incident = Incident.parse({
+    id: key,
+    invariantIds: [],
+    functionIds: [payload.fn_id],
+    severity: "sev3",
+    status: "open",
+    confidence: 1,
+    source_refs: [payload.fn_id, payload.is_id, payload.es_id, payload.ep_id, payload.form_id, vrId],
+    explicitness: "explicit",
+    rationale: "Gas City requested revision after the configured amendment depth was exceeded.",
+  })
+  await db.ensureCollection("specs_incidents")
+  await db.save("specs_incidents", {
+    _key: key,
+    ...incident,
+    incidentType: "gascity_amendment_depth_exceeded",
+    title: `Gas City amendment depth exceeded for ${payload.fn_id}`,
+    description: remediation,
+    openedAt: receivedAt,
+    max_amendment_depth: maxAmendmentDepth,
+    factory_attempt: payload.factory_attempt,
+    bead_id: payload.bead_id,
+    fidelity_verdict_id: vrId,
+    raw: {
+      bead_id: payload.bead_id,
+      outcome: payload.outcome,
+      remediation,
+      factory_attempt: payload.factory_attempt,
+      max_amendment_depth: maxAmendmentDepth,
+    },
+  })
+  return key
+}
+
+function configuredMaxAmendmentDepth(env: PipelineEnv): number {
+  const parsed = Number.parseInt(env.GAS_CITY_MAX_AMENDMENT_DEPTH ?? "", 10)
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : 3
 }
 
 async function hmacSha256Hex(secret: string, rawBytes: Uint8Array): Promise<string> {

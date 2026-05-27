@@ -100,6 +100,7 @@ export interface PipelineEnv {
   GAS_CITY_RIG_ROOT?: string
   GAS_CITY_WEBHOOK_URL?: string
   GAS_CITY_HMAC_SECRET_V1?: string
+  GAS_CITY_MAX_AMENDMENT_DEPTH?: string
   FACTORY_MAX_ITERATIONS?: string
   GAS_CITY_FORMULA_VERSION_FACTORY_CODING_V1?: string
   [k: `GAS_CITY_FORMULA_VERSION_${string}`]: string | undefined
