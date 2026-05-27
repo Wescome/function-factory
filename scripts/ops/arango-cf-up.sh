@@ -28,9 +28,11 @@ require_command jq
 require_command openssl
 require_command npx
 
+WRANGLER="$FF_PIPELINE_DIR/node_modules/.bin/wrangler"
+
 put_secret() {
   local dir="$1" key="$2" val="$3"
-  printf '%s' "$val" | (cd "$dir" && npx wrangler secret put "$key")
+  printf '%s' "$val" | (cd "$dir" && "$WRANGLER" secret put "$key")
 }
 
 ARANGO_PASS="factory-$(openssl rand -hex 16)"
@@ -38,8 +40,7 @@ AUTH_B64="$(printf 'root:%s' "$ARANGO_PASS" | base64 | tr -d '\n')"
 
 # ── 1. Deploy ff-arango ──────────────────────────────────────────────────────
 echo "=== [1/6] Deploying ff-arango Container ==="
-(cd "$FF_ARANGO_DIR" && npm install --silent 2>/dev/null || true)
-(cd "$FF_ARANGO_DIR" && npx wrangler deploy) 2>&1 | grep -E "Deployed|Current Version|ERROR|error" || true
+(cd "$FF_ARANGO_DIR" && "$WRANGLER" deploy) 2>&1 | grep -E "Deployed|Current Version|ERROR|error" || true
 put_secret "$FF_ARANGO_DIR" ARANGO_ROOT_PASSWORD "$ARANGO_PASS"
 echo "  ff-arango deployed. Password set."
 
