@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
   ensureCollection: vi.fn(async () => {}),
+  ensureIndex: vi.fn(async () => {}),
   get: vi.fn(async (): Promise<unknown | null> => null),
   queryOne: vi.fn(async (): Promise<unknown | null> => null),
   save: vi.fn(async () => ({})),
@@ -132,6 +133,11 @@ describe("handleGasCityWebhook", () => {
       "specs_functions/FN-GC-DISPATCH-WIRE",
       expect.objectContaining({ from: "dispatched", to: "accepted" }),
     )
+    expect(mocks.ensureCollection).toHaveBeenCalledWith("lifecycle_transitions", { type: "edge" })
+    expect(mocks.ensureIndex).toHaveBeenCalledWith("completion_events", expect.objectContaining({
+      fields: ["bead_id"],
+      unique: true,
+    }))
   })
 
   it("rejects invalid signatures before writing completion evidence", async () => {

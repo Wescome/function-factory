@@ -1,10 +1,10 @@
 # Current Workspace
 
 ## Status
-Active continuation at 2026-05-27T23:40:02Z. Gas City roadmap cleanup is verification-green and repo hygiene has been tightened.
+Active continuation at 2026-05-27T23:49:11Z. Gas City roadmap cleanup is verification-green; latest slice adds Gas City collection/index provisioning.
 
 ## Last update
-2026-05-27T23:40:02Z
+2026-05-27T23:49:11Z
 
 ## Current focus
 Gas City era structural cleanup and webhook lifecycle slice:
@@ -19,6 +19,9 @@ Gas City era structural cleanup and webhook lifecycle slice:
 - Updated workspace install state and lockfile so `workers/ff-arango` can resolve declared Cloudflare Worker types during recursive typecheck.
 - Ignored generated local agent/Wrangler/run artifacts and removed generated ff-pipeline local state from the worktree.
 - Updated ontology hard-cut audit for the Gas City era: Trellis packet schemas are quarantined under `_attic`, Gas City fidelity/lifecycle/webhook surfaces are now required audit anchors, and `_attic` is skipped for active-source forbidden-pattern scans.
+- Added Arango schema helpers for edge collections and named indexes.
+- Added Gas City collection provisioning for `completion_events`, `fidelity_verdicts`, `lifecycle_transitions` as an edge collection, and `webhook_rejections`, with the critical hash/skiplist indexes from the architecture reference.
+- Wired Gas City collection provisioning into `POST /webhooks/gascity` before intake writes.
 
 ## Verification this continuation
 - `pnpm --filter @factory/schemas typecheck` passed.
@@ -35,6 +38,8 @@ Gas City era structural cleanup and webhook lifecycle slice:
 - `pnpm audit:docs` passed.
 - `pnpm audit:ontology` passed.
 - `git diff --check` passed.
+- `pnpm --filter @factory/arango-client test` passed: 2 tests.
+- `pnpm --filter @factory/ff-pipeline test -- src/gascity/collection-schema.test.ts src/gascity/webhook-receiver.test.ts` passed: 7 tests.
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 

@@ -1,6 +1,7 @@
 import { createClientFromEnv } from "@factory/arango-client"
 import { GasCityFidelityVerificationReport } from "@factory/schemas"
 import type { PipelineEnv } from "../types.js"
+import { ensureGasCityCollections } from "./collection-schema.js"
 import { transitionFunctionState } from "./function-lifecycle.js"
 
 type GasCityWebhookOutcome = "approved" | "revise"
@@ -30,7 +31,17 @@ interface DispatchLogMatch {
 }
 
 interface GasCityWebhookDb {
-  ensureCollection(collection: string): Promise<void>
+  ensureCollection(collection: string, options?: { type?: "document" | "edge" }): Promise<void>
+  ensureIndex?(
+    collection: string,
+    options: {
+      type: "hash" | "persistent" | "skiplist"
+      fields: string[]
+      unique?: boolean
+      sparse?: boolean
+      name?: string
+    },
+  ): Promise<void>
   get<T = unknown>(collection: string, key: string): Promise<T | null>
   queryOne<T = unknown>(aql: string, vars?: Record<string, unknown>): Promise<T | null>
   save<T = unknown>(collection: string, doc: Record<string, unknown>): Promise<T>
@@ -42,6 +53,7 @@ export async function handleGasCityWebhook(request: Request, env: PipelineEnv): 
   const receivedAt = new Date().toISOString()
   const rawBytes = new Uint8Array(await request.arrayBuffer())
   const db = createClientFromEnv(env) as unknown as GasCityWebhookDb
+  await ensureGasCityCollections(db)
 
   const hmac = await verifyGasCityHmac(request, env, rawBytes)
   if (!hmac.ok) {
@@ -141,9 +153,6 @@ export async function handleGasCityWebhook(request: Request, env: PipelineEnv): 
     rationale: "Gas City RELEASE callback was HMAC-valid and matched a dispatched bead.",
   })
 
-  await db.ensureCollection("completion_events")
-  await db.ensureCollection("fidelity_verdicts")
-  await db.ensureCollection("lifecycle_transitions")
   if (payload.outcome === "revise") await db.ensureCollection("specs_signals")
 
   try {

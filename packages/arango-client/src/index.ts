@@ -36,6 +36,16 @@ export interface ArangoValidationResult {
   violations: { constraint: string; severity: string; message: string; field?: string }[]
 }
 
+export type ArangoCollectionType = 'document' | 'edge'
+
+export interface ArangoIndexOptions {
+  type: 'hash' | 'persistent' | 'skiplist'
+  fields: string[]
+  unique?: boolean
+  sparse?: boolean
+  name?: string
+}
+
 export class ArangoClient {
   private baseUrl: string
   private headers: Record<string, string>
@@ -73,15 +83,37 @@ export class ArangoClient {
 
   // ── Collection operations ──
 
-  async ensureCollection(name: string): Promise<void> {
+  async ensureCollection(name: string, options: { type?: ArangoCollectionType } = {}): Promise<void> {
     const res = await this.fetcher(`${this.baseUrl}/_api/collection`, {
       method: 'POST',
       headers: this.headers,
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({
+        name,
+        type: options.type === 'edge' ? 3 : 2,
+      }),
     })
     if (res.ok || res.status === 409) return // 409 = already exists
     // Non-critical — log and continue
     console.warn(`ArangoDB: failed to ensure collection ${name}: ${res.status}`)
+  }
+
+  async ensureIndex(collection: string, options: ArangoIndexOptions): Promise<void> {
+    const res = await this.fetcher(
+      `${this.baseUrl}/_api/index?collection=${encodeURIComponent(collection)}`,
+      {
+        method: 'POST',
+        headers: this.headers,
+        body: JSON.stringify({
+          type: options.type,
+          fields: options.fields,
+          unique: options.unique ?? false,
+          sparse: options.sparse ?? false,
+          ...(options.name ? { name: options.name } : {}),
+        }),
+      },
+    )
+    if (res.ok || res.status === 409) return
+    console.warn(`ArangoDB: failed to ensure index on ${collection}: ${res.status}`)
   }
 
   // ── Document operations ──
