@@ -57,6 +57,7 @@
     "run:retry": "node scripts/ops/control-run.mjs retry-stage",
     "run:redispatch": "node scripts/ops/control-run.mjs redispatch-stage",
     "prod:smoke:controls": "node scripts/ops/prod-live-control-smoke.mjs",
+    "slo:dashboard": "node scripts/ops/slo-dashboard.mjs",
     "dream": "tsx .agent/tools/dream.ts",
     "bootstrap": "tsx scripts/bootstrap.ts"
   },

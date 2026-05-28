@@ -21,7 +21,7 @@ require_command jq
 require_command openssl
 require_command npx
 
-CURL_RETRY=(curl --http1.1 --retry 5 --retry-delay 2 --retry-all-errors --connect-timeout 10 --max-time 60 -sf)
+CURL_RETRY=(curl --http1.1 --retry 5 --retry-delay 2 --retry-all-errors --connect-timeout 10 --max-time 120 -sf)
 
 # ── 1. Generate all tokens ───────────────────────────────────────────────────
 echo "=== [1/6] Generating tokens ==="
@@ -47,7 +47,15 @@ printf '%s' "$OPERATOR_TOKEN" | (cd "$FF_PIPELINE_DIR" && npx wrangler secret pu
 # ── 2. Deploy ff-pipeline ────────────────────────────────────────────────────
 echo ""
 echo "=== [2/6] Deploying ff-pipeline with Gas City vars ==="
-(cd "$FF_PIPELINE_DIR" && npx wrangler deploy) 2>&1 | grep -E "Deployed|Current Version|ERROR|error" || true
+DEPLOY_LOG="$(mktemp)"
+if ! (cd "$FF_PIPELINE_DIR" && npx wrangler deploy >"$DEPLOY_LOG" 2>&1); then
+  cat "$DEPLOY_LOG"
+  rm -f "$DEPLOY_LOG"
+  echo "Deploy failed."
+  exit 1
+fi
+grep -E "Deployed|Current Version|ERROR|error" "$DEPLOY_LOG" || cat "$DEPLOY_LOG"
+rm -f "$DEPLOY_LOG"
 
 # Brief pause for Worker propagation after version/secret changes.
 sleep 10
@@ -120,12 +128,20 @@ echo "$CALLBACK_RESP" | jq .
 # ── 6. Run Cloudflare autonomy monitor ──────────────────────────────────────
 echo ""
 echo "=== [6/6] Running Cloudflare autonomy monitor ==="
-AUTONOMY_RESP="$("${CURL_RETRY[@]}" -X POST "$FF_BASE/gascity/autonomy/run" \
+if AUTONOMY_RESP="$("${CURL_RETRY[@]}" -X POST "$FF_BASE/gascity/autonomy/run" \
   -H "Authorization: Bearer $OPERATOR_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"trigger":"smoke"}')"
-echo "$AUTONOMY_RESP" | jq .
+  -d '{"trigger":"smoke"}')"; then
+  echo "$AUTONOMY_RESP" | jq .
+else
+  echo "Autonomy run request timed out or failed; fetching status directly."
+fi
 
 echo ""
 echo "=== Autonomy status ==="
-"${CURL_RETRY[@]}" "$FF_BASE/gascity/autonomy/status" | jq .
+AUTONOMY_STATUS="$("${CURL_RETRY[@]}" "$FF_BASE/gascity/autonomy/status")"
+echo "$AUTONOMY_STATUS" | jq .
+if [[ "$(echo "$AUTONOMY_STATUS" | jq -r '.ok // "false"')" != "true" ]]; then
+  echo "Autonomy status did not report ok=true."
+  exit 1
+fi
