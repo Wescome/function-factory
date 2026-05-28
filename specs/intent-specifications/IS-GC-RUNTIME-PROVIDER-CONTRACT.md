@@ -178,7 +178,7 @@ Settled upstream; restated only so the implementer does not redraw the boundary:
 - **Provider capability declaration** — the machine-readable manifest a provider
   registers, stating which Harness Tuple slots it covers and which
   `runtime_requirements` keys it can satisfy (e.g. `ai_reasoning`,
-  `model_routing`, `path_guard`, `command_exec`, `file_materialize`, `git_clone`,
+  `model_routing`, `workspace_write_scope`, `command_exec`, `file_materialize`, `workspace_init`,
   `dependency_prep`, `session_archive`, `snapshot_restore`).
 - **`runtime_requirements`** — a Formula step field declaring required runtime
   capabilities WITHOUT naming Factory internals (architecture reference
@@ -233,16 +233,16 @@ that only exposes command execution is not a Gas City harness runtime provider."
 
 **AC-REG5.** The two day-one providers `pi-rpc` and `cloudflare-sandbox` are both
 registered. Their capability declarations are specified in the Harness Tuple
-mapping section. `pi-rpc` declares `ai_reasoning`, `model_routing`, `path_guard`,
+mapping section. `pi-rpc` declares `ai_reasoning`, `model_routing`, `workspace_write_scope`,
 `contract_evaluation`, `tool_capability_probe`, `session_archive`. `cloudflare-sandbox`
-declares `command_exec`, `file_materialize`, `git_clone`, `dependency_prep`,
+declares `command_exec`, `file_materialize`, `workspace_init`, `dependency_prep`,
 `backup_restore` and explicitly does NOT declare `ai_reasoning`. (Architecture
 reference §Non-Goals: do not make pi the only provider.)
 
 **AC-REG6.** When a Formula step declares `runtime_requirements` including
 `ai_reasoning`, the registry MUST NOT select `cloudflare-sandbox` (it does not
 declare that capability). When a step declares only setup/teardown capabilities
-(`command_exec`, `file_materialize`, `git_clone`, `dependency_prep`), the registry
+(`command_exec`, `file_materialize`, `workspace_init`, `dependency_prep`), the registry
 MAY select `cloudflare-sandbox`.
 
 ### Request envelope (AC-RQ\*)
@@ -607,13 +607,13 @@ max_active_sessions = 3
 
 [provider.pi-rpc]            # runtime config block for the pi-rpc provider
 # binds the PI runtime; model routing is kimi-k2 via ofox.ai (memory: ofox stays for cost)
-# capability declaration: ai_reasoning, model_routing, path_guard,
+# capability declaration: ai_reasoning, model_routing, workspace_write_scope,
 #   contract_evaluation, tool_capability_probe, session_archive
 
 [provider.cloudflare-sandbox]
 # the M0 control worker; setup/teardown only — NOT ai_reasoning
 url = "https://gascity-cloudflare-control-worker.koales.workers.dev"
-# capability declaration: command_exec, file_materialize, git_clone,
+# capability declaration: command_exec, file_materialize, workspace_init,
 #   dependency_prep, backup_restore
 ```
 
@@ -746,59 +746,33 @@ no execution.
   language (provider, capability, purpose, policy, verifier contract); it does not
   name LLM-provider-specific concepts in the schema.
 
-## Open questions requiring Wes's input before implementation begins
+## Open questions
 
-1. **Fidelity validation residence (the load-bearing gap).** AC-EV1 routes
-   provider evidence into "Gas City fidelity validation," and AC-EV3 says
-   `outcome` is the molecule verdict from that validation. The architecture
-   reference §Gaps explicitly notes "There is no implemented fidelity-validator
-   intake for provider evidence" and "no webhook proof from Gas City back into
-   Factory for provider-backed molecule completion." This IS specifies the
-   provider→evidence→verdict→webhook *contract*, but the fidelity validator that
-   computes `approved`/`revise` from provider evidence is not yet specified.
-   Decision needed: does Gas City fidelity validation run as (a) the city's
-   convergence `gate_condition` calling Factory `POST /verify/coherence/{es-id}`
-   (ADR-010 §4.3 — but that is *coherence*, not *fidelity*), (b) a Gas City-native
-   evaluator role, or (c) a new Factory endpoint Gas City calls? This determines
-   whether the molecule verdict is computed in Gas City or in Factory, and it
-   directly affects AC-EV1/AC-EV3. I recommend a separate IS
-   (`IS-GC-FIDELITY-VALIDATION`) before implementation, since this IS deliberately
-   scopes it out.
+1. **Fidelity validation residence.** *Resolved-by-artifact:* `IS-GC-FIDELITY-VALIDATION`
+   (committed 2026-05-28) fully specifies this. Gas City-native, deterministic,
+   no LLM, no Factory round-trip. AC-EV1/AC-EV3 are satisfied.
 
-2. **`pi-rpc` session model under Gas City.** Today PI_CONTAINER is a singleton
-   bounded DO ("pi"), warm across stages, with backpressure. Gas City's session
-   model is per-session (`createSession` → `session_handle`). Decision needed:
-   does `pi-rpc` keep the singleton-warm-container model and multiplex Gas City
-   sessions onto it (mapping `session_id` to the existing run/stage meta), or does
-   it move to one PI container per Gas City session? The former preserves the
-   proven warm-container behavior and backpressure; the latter is cleaner per the
-   `createSession` contract but loses warmth and costs more cold starts. I
-   recommend keeping the singleton/bounded model and mapping `session_id` →
-   `RunRequestMeta` (least change, preserves proven behavior), but this is a
-   runtime-placement-adjacent call.
+2. **`pi-rpc` session model under Gas City.** *Resolved-by-decision (2026-05-28):*
+   Keep singleton/bounded model. PI_CONTAINER remains a warm bounded DO; `pi-rpc`
+   maps Gas City `session_id` → `RunRequestMeta`. Preserves proven warm-container
+   behavior and backpressure. One PI container per Gas City session is not adopted.
 
-3. **Where the registry and selection live.** AC-REG and the selection algorithm
-   assume a Gas City-side registry. Gas City (gascity Go daemon) is ZFC — "no Go
-   code contains a judgment call" (ADR-010 §3). Provider selection is a
-   deterministic match (no judgment), so it is ZFC-compatible, but it is still new
-   Go (or new city configuration). Decision needed: is the registry expressed as
-   (a) city configuration (`city.toml` provider blocks + capability declarations
-   as config — most ZFC-faithful), or (b) a Gas City daemon feature? I recommend
-   (a) configuration-driven so the registry adds no judgment to Go; this also
-   matches "ZERO hardcoded roles" (ADR-010 §3).
+3. **Where the registry and selection live.** *Resolved-by-reasoning:* ADR-010 §3
+   (ZFC) + "ZERO hardcoded roles" settles this. Registry and capability declarations
+   live in city configuration (`city.toml` provider blocks), not Go code. Consistent
+   with IS-GC-FIDELITY-VALIDATION Q2 (gate-class table also in config). No judgment
+   enters Go.
 
-4. **`runtime_requirements` vocabulary.** I have proposed an initial capability
-   key set (`ai_reasoning`, `model_routing`, `path_guard`, `command_exec`,
-   `file_materialize`, `git_clone`, `dependency_prep`, `session_archive`,
-   `snapshot_restore`, `contract_evaluation`, `tool_capability_probe`,
-   `backup_restore`). This vocabulary needs a signoff because it becomes the
-   matching contract between Formula steps and providers (and it must stay
-   domain-neutral — no Factory internals, no LLM-provider names). Confirm or amend
-   the key set before the registry is built.
+4. **`runtime_requirements` vocabulary.** *Resolved-by-decision (2026-05-28):*
+   Approved with two domain-agnosticity amendments: `git_clone` → `workspace_init`
+   (provider initializes a work environment from any source reference, not just VCS)
+   and `path_guard` → `workspace_write_scope` (provider enforces write-scope
+   restrictions to a defined workspace boundary, not coding-specific). Final key set:
+   `ai_reasoning`, `model_routing`, `workspace_write_scope`, `command_exec`,
+   `file_materialize`, `workspace_init`, `dependency_prep`, `session_archive`,
+   `snapshot_restore`, `contract_evaluation`, `tool_capability_probe`, `backup_restore`.
 
-5. **ofox.ai vs AI Gateway for `model_usage`.** AC-RS6 sources `model_usage` from
-   "ofox.ai / AI Gateway." Memory `feedback_ofox_stays_for_cost` retains ofox.ai
-   for the pi container; Hermes (evidence only) uses AI Gateway. Confirm that
-   `pi-rpc` `model_usage` comes from the pi observation `totalUsage` + the
-   ofox.ai-routed model id, and that AI Gateway analytics are not required for the
-   day-one envelope (the M0 worker's `GET /session/:id/usage` is flagged/unwired).
+5. **ofox.ai vs AI Gateway for `model_usage`.** *Resolved-by-evidence:* ofox.ai
+   stays for the pi container (cost decision, retained from 2026-05-17). `pi-rpc`
+   `model_usage` comes from the pi observation `totalUsage` + ofox.ai-routed model
+   id. AI Gateway analytics are not required for the day-one envelope.
