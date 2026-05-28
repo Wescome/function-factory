@@ -1,33 +1,34 @@
 # Current Workspace
 
 ## Status
-Session ended at 2026-05-28T20:19:56.047Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
+Session ended at 2026-05-28T21:37:42.757Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
 
 ## Last update
-2026-05-28T20:19:56.047Z
+2026-05-28T21:37:42.757Z
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
-- [20:16:45] Bash: cd /Users/wes/eai/examples/factory/weops-gascity/stage/supervisor/factory/fidelity && echo "=== 1. Forbidden coding-stag
-- [20:16:56] Bash: cd /Users/wes/eai/examples/factory/weops-gascity/stage/supervisor && echo "=== TS TESTS ===" && bun test factory/fidelit
-- [20:17:02] Bash: cd /Users/wes/eai/examples/factory/weops-gascity/stage/supervisor && echo "=== tsconfig ===" && cat tsconfig.json && ech
-- [20:17:12] Bash: cd /Users/wes/eai/examples/factory/weops-gascity/stage/supervisor && echo "=== standalone tsc over fidelity (node+bun li
-- [20:17:17] Bash: cd /Users/wes/eai/examples/factory/weops-gascity/stage/supervisor && echo "=== bun build (transpile + resolve check) ove
-- [20:17:28] Bash: cd /Users/wes/eai/examples/factory/weops-gascity/stage/supervisor && ls node_modules/.bin/tsc 2>/dev/null && echo "local
-- [20:17:39] Bash: cd /Users/wes/eai/examples/factory/weops-gascity/stage/supervisor && bun add -d @types/bun >/dev/null 2>&1; cat > /tmp/t
-- [20:17:49] Bash: cd /Users/wes/eai/examples/factory/weops-gascity/stage/supervisor && ls node_modules/@types 2>/dev/null; echo "---"; ls 
-- [20:18:06] Bash: cd /Users/wes/eai/examples/factory/weops-gascity/stage/supervisor && cat node_modules/@types/bun/package.json 2>/dev/nul
-- [20:18:13] Bash: cd /Users/wes/eai/examples/factory/weops-gascity/stage/supervisor && git diff --stat package.json 2>/dev/null; echo "---
-- [20:18:23] Bash: cd /Users/wes/eai/examples/factory/weops-gascity/stage/supervisor && rm -f bun.lock && rm -rf node_modules/@types/bun no
-- [20:18:28] Bash: cd /Users/wes/eai/examples/factory/weops-gascity/stage/supervisor && git diff package.json 2>/dev/null; echo "=== if @ty
-- [20:18:36] Edit: /Users/wes/eai/examples/factory/weops-gascity/stage/supervisor/package.json
-- [20:18:40] Bash: cd /Users/wes/eai/examples/factory/weops-gascity/stage/supervisor && git diff --stat package.json 2>/dev/null && echo "=
-- [20:18:54] Bash: cd /Users/wes/eai/examples/factory/weops-gascity/stage/supervisor && echo "============ DONE-MEANS CRITERIA ============
-- [20:19:01] Bash: cd /Users/wes/eai/examples/factory/weops-gascity/stage/supervisor && echo "[5] Unknown-step → universal checks only, app
-- [20:19:32] Agent: Refactor fidelity validator to config-driven, domain-agnostic
-- [20:19:37] Bash: grep -rn '"PATCH"\|"VERIFY"\|"SEED"\|"CONTRACT"\|"MAP"\|cartographer\|patchworker\|patch_diff\|patch_applies' /Users/wes
-- [20:19:38] Bash: head -30 /Users/wes/eai/examples/factory/weops-gascity/stage/supervisor/factory/fidelity-checks.toml 2>/dev/null
-- [20:19:46] Bash: grep -n '"PATCH"\|"VERIFY"\|"SEED"\|"CONTRACT"\|"MAP"\|cartographer\|patchworker\|StepType\|patch_diff\|patch_applies' /
+- [21:22:16] Bash: cat /Users/wes/hermes/wrangler.jsonc 2>/dev/null || find /Users/wes/hermes -name "wrangler*" 2>/dev/null | head -5
+- [21:22:38] Bash: grep -n "scheduled\|cron\|BROWSER\|browser\|fetch.*browser\|browserSession\|puppeteer\|playwright" /Users/wes/hermes/src
+- [21:22:44] Bash: grep -n "handleScheduled\|backup\|BROWSER\|env\.BROWSER\|browser\.newPage\|fetch.*BROWSER" /Users/wes/hermes/src/index.t
+- [21:23:02] Edit: /Users/wes/hermes/wrangler.jsonc
+- [21:23:08] Bash: cd /Users/wes/hermes && git add wrangler.jsonc && git commit -m "$(cat <<'EOF'
+fix: cron * * * * * → 59 * * * * (hourly,
+- [21:26:09] Bash: cd /Users/wes/hermes && npx wrangler deploy 2>&1
+- [21:26:22] Bash: grep -n "cron\|trigger\|schedule" /Users/wes/hermes/dist/hermes_sandbox/wrangler.json 2>/dev/null
+- [21:26:30] Bash: cd /Users/wes/hermes && sed -i '' 's/"triggers":{"crons":\["\\* \\* \\* \\* \\*"\]}/"triggers":{"crons":["59 * * * *"]}/
+- [21:26:35] Bash: cat /Users/wes/hermes/package.json | grep -A5 '"build"'
+- [21:26:47] Bash: cd /Users/wes/hermes && npm run build 2>&1 | tail -5
+- [21:26:51] Bash: grep "crons" /Users/wes/hermes/dist/hermes_sandbox/wrangler.json
+- [21:27:28] Bash: cd /Users/wes/hermes && npx wrangler deploy 2>&1 | grep -E "schedule|Deployed|Uploaded|SUCCESS|ERROR|error|trigger|cron"
+- [21:29:44] Bash: cd /Users/wes/hermes && npx wrangler containers instances 2>&1 || npx wrangler containers list-instance-types 2>&1 || np
+- [21:29:49] Bash: grep -r "instance_type\|nano\|basic\|standard\|dev\b" /Users/wes/hermes/node_modules/wrangler/config-schema.json 2>/dev/
+- [21:31:02] Bash: cd /Users/wes/hermes && npx wrangler delete --name hermes-sandbox 2>&1
+- [21:32:08] Edit: /Users/wes/hermes/wrangler.jsonc
+- [21:32:13] Bash: cd /Users/wes/hermes && git add wrangler.jsonc && git commit -m "fix: remove scheduled cron — container wakes on demand 
+- [21:33:19] Bash: find /Users/wes/hermes -name "*.md" -o -name "CHANGELOG*" -o -name "README*" 2>/dev/null | head -5 | xargs grep -l "molt
+- [21:33:22] Bash: cd /Users/wes/hermes && git log --oneline | tail -20
+- [21:33:26] Bash: cd /Users/wes/hermes && git show 2f897f9 --stat | head -10 && git show 2f897f9 -- wrangler.jsonc 2>/dev/null | grep -A3 
 
 ## Notes
 This file is auto-updated on session end. Manual edits will be overwritten.
