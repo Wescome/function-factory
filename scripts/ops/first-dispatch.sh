@@ -21,6 +21,8 @@ require_command jq
 require_command openssl
 require_command npx
 
+CURL_RETRY=(curl --http1.1 --retry 5 --retry-delay 2 --retry-all-errors --connect-timeout 10 --max-time 60 -sf)
+
 # ── 1. Generate all tokens ───────────────────────────────────────────────────
 echo "=== [1/6] Generating tokens ==="
 GC_BEARER_TOKEN="$(openssl rand -hex 32)"
@@ -47,13 +49,13 @@ echo ""
 echo "=== [2/6] Deploying ff-pipeline with Gas City vars ==="
 (cd "$FF_PIPELINE_DIR" && npx wrangler deploy) 2>&1 | grep -E "Deployed|Current Version|ERROR|error" || true
 
-# Brief pause for worker propagation
-sleep 3
+# Brief pause for Worker propagation after version/secret changes.
+sleep 10
 
 # ── 3. Seed EP ───────────────────────────────────────────────────────────────
 echo ""
 echo "=== [3/6] Seeding dispatch EP ==="
-SEED_RESP="$(curl -sf -X POST "$FF_BASE/seed-dispatch-ep" \
+SEED_RESP="$("${CURL_RETRY[@]}" -X POST "$FF_BASE/seed-dispatch-ep" \
   -H "Authorization: Bearer $OPERATOR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -69,7 +71,7 @@ echo "  epId: $EP_ID"
 # ── 4. Dispatch ───────────────────────────────────────────────────────────────
 echo ""
 echo "=== [4/6] Dispatching to Gas City ==="
-DISPATCH_RESP="$(curl -sf -X POST "$FF_BASE/dispatch-formula" \
+DISPATCH_RESP="$("${CURL_RETRY[@]}" -X POST "$FF_BASE/dispatch-formula" \
   -H "Authorization: Bearer $OPERATOR_TOKEN" \
   -H "Content-Type: application/json" \
   -d "{\"epId\": \"$EP_ID\", \"factoryAttempt\": 1}")"
@@ -108,7 +110,7 @@ CALLBACK_PAYLOAD="$(jq -cn \
   --argjson factory_attempt 1 \
   '{fn_id:$fn_id,is_id:$is_id,es_id:$es_id,ep_id:$ep_id,form_id:$form_id,factory_attempt:$factory_attempt,bead_id:$bead_id,outcome:$outcome}')"
 CALLBACK_SIGNATURE="$(printf '%s' "$CALLBACK_PAYLOAD" | openssl dgst -sha256 -hmac "$GC_HMAC_SECRET" | awk '{print $2}')"
-CALLBACK_RESP="$(curl -sf -X POST "$FF_BASE/webhooks/gascity" \
+CALLBACK_RESP="$("${CURL_RETRY[@]}" -X POST "$FF_BASE/webhooks/gascity" \
   -H "Content-Type: application/json" \
   -H "X-GC-Key-ID: v1" \
   -H "X-GC-Signature: sha256=$CALLBACK_SIGNATURE" \
@@ -118,7 +120,7 @@ echo "$CALLBACK_RESP" | jq .
 # ── 6. Run Cloudflare autonomy monitor ──────────────────────────────────────
 echo ""
 echo "=== [6/6] Running Cloudflare autonomy monitor ==="
-AUTONOMY_RESP="$(curl -sf -X POST "$FF_BASE/gascity/autonomy/run" \
+AUTONOMY_RESP="$("${CURL_RETRY[@]}" -X POST "$FF_BASE/gascity/autonomy/run" \
   -H "Authorization: Bearer $OPERATOR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"trigger":"smoke"}')"
@@ -126,4 +128,4 @@ echo "$AUTONOMY_RESP" | jq .
 
 echo ""
 echo "=== Autonomy status ==="
-curl -sf "$FF_BASE/gascity/autonomy/status" | jq .
+"${CURL_RETRY[@]}" "$FF_BASE/gascity/autonomy/status" | jq .
