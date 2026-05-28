@@ -20,7 +20,9 @@ not as replacements for `PRS-*`, `BC-*`, `FP-*`, `IS-*`, `ES-*`, `INV-*`, or
 
 | Need | Read |
 | --- | --- |
+| Plain-English product intro | [`LAYMAN_PRODUCT_GUIDE.md`](LAYMAN_PRODUCT_GUIDE.md) |
 | Project overview | [`../README.md`](../README.md) |
+| Product documentation | [`PRODUCT_DOCUMENTATION.md`](PRODUCT_DOCUMENTATION.md) |
 | Current architecture map | [`../ARCHITECTURE.md`](../ARCHITECTURE.md) |
 | Factory artifact registry | [`../specs/README.md`](../specs/README.md) |
 | Architecture and specs index | [`../specs/reference/README.md`](../specs/reference/README.md) |
@@ -37,6 +39,9 @@ Task-oriented operator and developer guidance.
 | Document | Purpose |
 | --- | --- |
 | [`how-to/README.md`](how-to/README.md) | How-to guide index and migration boundary. |
+| [`how-to/OPERATOR_RUNBOOK_GAS_CITY_PRODUCTION.md`](how-to/OPERATOR_RUNBOOK_GAS_CITY_PRODUCTION.md) | Production operator runbook for Factory + Gas City on Cloudflare. |
+| [`how-to/INCIDENT_RUNBOOK_GAS_CITY.md`](how-to/INCIDENT_RUNBOOK_GAS_CITY.md) | Incident response runbook for dispatch/webhook/autonomy failures. |
+| [`how-to/SLO_DASHBOARD.md`](how-to/SLO_DASHBOARD.md) | SLO dashboard command and threshold reference. |
 | [`how-to/STRATEGY_RECIPES_DOGFOOD.md`](how-to/STRATEGY_RECIPES_DOGFOOD.md) | Run the Strategy.Recipes autonomous-scheduler dogfood flow. |
 
 ### Reference
@@ -45,6 +50,9 @@ Precise lookup material for architecture, artifacts, schemas, and decisions.
 
 | Document | Purpose |
 | --- | --- |
+| [`FACTORY_GAS_CITY_E2E.md`](FACTORY_GAS_CITY_E2E.md) | End-to-end production reference: architecture, endpoints, secrets, lifecycle, dispatch flow, webhook, autonomy monitor. |
+| [`LAYMAN_PRODUCT_GUIDE.md`](LAYMAN_PRODUCT_GUIDE.md) | Non-technical, plain-English overview of what the product does and how it helps teams. |
+| [`PRODUCT_DOCUMENTATION.md`](PRODUCT_DOCUMENTATION.md) | Product-level guide to what Function Factory does, how it works, and how to operate it. |
 | [`../specs/README.md`](../specs/README.md) | Directory-level map of Factory artifact buckets. |
 | [`../specs/reference/README.md`](../specs/reference/README.md) | Status-aware index of architecture, ADR, review, research, and handoff documents. |
 | [`adr/README.md`](adr/README.md) | Repository/process ADR index. |

@@ -9,6 +9,9 @@ also being the canonical architecture, contract, or backlog for that area.
 | Guide | Task |
 | --- | --- |
 | [`OPERATOR_RUN_CONTROLS.md`](OPERATOR_RUN_CONTROLS.md) | Use authenticated live run note, retry, redispatch, and cancel controls. |
+| [`OPERATOR_RUNBOOK_GAS_CITY_PRODUCTION.md`](OPERATOR_RUNBOOK_GAS_CITY_PRODUCTION.md) | Run day-to-day production operations for the Gas City integration path. |
+| [`INCIDENT_RUNBOOK_GAS_CITY.md`](INCIDENT_RUNBOOK_GAS_CITY.md) | Triage and recover dispatch/webhook/autonomy production incidents. |
+| [`SLO_DASHBOARD.md`](SLO_DASHBOARD.md) | Run and interpret the production SLO dashboard checks. |
 | [`STRATEGY_RECIPES_DOGFOOD.md`](STRATEGY_RECIPES_DOGFOOD.md) | Run the Strategy.Recipes autonomous-scheduler dogfood flow. |
 
 ## Current Boundary
