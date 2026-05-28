@@ -174,12 +174,13 @@ export async function runGasCityAutonomyMonitor(
     `FOR dl IN dispatch_log
        FILTER dl.outcome == "dispatched"
        FILTER dl.started_at < @cutoff
-       FILTER LENGTH(
+       LET completion = FIRST(
          FOR ce IN completion_events
-           FILTER ce.bead_id == dl.gc_bead_id
-           LIMIT 1
-           RETURN ce
-       ) == 0
+         FILTER ce.bead_id == dl.gc_bead_id
+         LIMIT 1
+         RETURN ce
+       )
+       FILTER completion == null
        LIMIT 100
        RETURN dl`,
     { cutoff: staleDispatchCutoff },

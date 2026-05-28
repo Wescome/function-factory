@@ -120,7 +120,15 @@ export default {
       const body: Record<string, unknown> = await readJsonRecord(request).catch(() => ({}))
       const trigger = cleanString(body.trigger, '') === 'smoke' ? 'smoke' : 'manual'
       const { runGasCityAutonomyMonitor } = await import('./gascity/autonomy-monitor.js')
-      return json(await runGasCityAutonomyMonitor(env, trigger), 202)
+      try {
+        return json(await runGasCityAutonomyMonitor(env, trigger), 202)
+      } catch (err) {
+        return json({
+          ok: false,
+          error: err instanceof Error ? err.message : String(err),
+          timestamp: new Date().toISOString(),
+        }, 500)
+      }
     }
 
     // ── Diagnostic: Arango connectivity without credential exposure ──
