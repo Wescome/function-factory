@@ -183,7 +183,13 @@ Settled upstream; restated only so the implementer does not redraw the boundary:
 - **`runtime_requirements`** — a Formula step field declaring required runtime
   capabilities WITHOUT naming Factory internals (architecture reference
   §Acceptance Criteria item 1). The registry matches these against capability
-  declarations.
+  declarations. The canonical capability-key set is the twelve keys settled in
+  Open Question 4 and is the single normative source; every `runtime_requirements`
+  value and every provider capability declaration in this IS draws ONLY from that
+  set: `ai_reasoning`, `model_routing`, `workspace_write_scope`, `command_exec`,
+  `file_materialize`, `workspace_init`, `dependency_prep`, `session_archive`,
+  `snapshot_restore`, `contract_evaluation`, `tool_capability_probe`,
+  `backup_restore`. No other key is valid.
 - **Provider verdict** — execution-outcome signal in the response envelope. One
   of `completed | failed | policy_violation | timeout | cancelled`. NOT the
   molecule verdict.
@@ -217,6 +223,14 @@ capacity, the registry returns exactly one `provider_id` whose capability
 declaration is a superset of `runtime_requirements`, or it fails closed. Selection
 inputs are (step `runtime_requirements`, city config provider allow-list, provider
 capacity from `status`). (Architecture reference §Acceptance item 2.)
+`runtime_requirements` is declared on `[[steps]]` blocks of the operator-deployed
+Formula template (e.g. `factory-coding-v1.toml`) and is read only inside Gas City
+during selection. The Factory dispatch path neither reads nor validates formula step
+fields: the Formula compiler dispatches the template opaquely by `template_name`
+plus a `{version}` probe and an opaque `vars` map (IS-GC-EP-FORMULA-DISPATCH
+§Parametric template model). Adding `runtime_requirements` to a formula step is
+therefore a Gas City configuration change inside the Gas City boundary; it does NOT
+touch the frozen Factory dispatch contract.
 
 **AC-REG3.** **Fail-closed on no match.** If no registered provider's capability
 declaration satisfies `runtime_requirements`, the registry returns a structured
@@ -224,20 +238,27 @@ selection error (`no_provider_for_requirements`) and the step does NOT execute.
 There is no default provider and no fallthrough. (Architecture reference
 §Acceptance item 4; §Non-Goals.)
 
-**AC-REG4.** **Tuple-completeness gate at registration.** A provider whose
-capability declaration covers only `E` (execution loop) — i.e. it does not also
-bind `T` tool registry, `S` state store, `V` evaluation interface, `G` governance
-interface, and `P` purpose binding — MUST be rejected at registration with
-`incomplete_harness_tuple`. (Architecture reference §Harness Tuple: "A provider
-that only exposes command execution is not a Gas City harness runtime provider.")
+**AC-REG4.** **Tuple-completeness gate at registration.** The gate reads the
+`harness_slots` list on the provider's `city.toml` block (registry lives in city
+config — Q3). A provider whose `harness_slots` does not contain all eight slots
+`E, T, C, S, L, V, G, P` MUST be rejected at registration with
+`incomplete_harness_tuple`. The gate is a config read, not a runtime probe: the
+live `runtime.Provider.Capabilities()` returns only `{CanReportAttachment,
+CanReportActivity}` and carries no slot information, so tuple-completeness is
+asserted from the declared `harness_slots` field. Example shape for a `city.toml`
+provider block: `harness_slots = ["E","T","C","S","L","V","G","P"]`.
+(Architecture reference §Harness Tuple: "A provider that only exposes command
+execution is not a Gas City harness runtime provider.")
 
 **AC-REG5.** The two day-one providers `pi-rpc` and `cloudflare-sandbox` are both
-registered. Their capability declarations are specified in the Harness Tuple
-mapping section. `pi-rpc` declares `ai_reasoning`, `model_routing`, `workspace_write_scope`,
-`contract_evaluation`, `tool_capability_probe`, `session_archive`. `cloudflare-sandbox`
-declares `command_exec`, `file_materialize`, `workspace_init`, `dependency_prep`,
-`backup_restore` and explicitly does NOT declare `ai_reasoning`. (Architecture
-reference §Non-Goals: do not make pi the only provider.)
+registered. Every key below is drawn from the canonical twelve-key set anchored in
+the `runtime_requirements` definition (Definitions) — no other key is valid.
+`pi-rpc` declares `ai_reasoning`, `model_routing`, `workspace_write_scope`,
+`contract_evaluation`, `tool_capability_probe`, `session_archive`.
+`cloudflare-sandbox` declares `command_exec`, `file_materialize`, `workspace_init`,
+`dependency_prep`, `backup_restore` and explicitly does NOT declare `ai_reasoning`.
+Their capability declarations are further specified in the Harness Tuple mapping
+section. (Architecture reference §Non-Goals: do not make pi the only provider.)
 
 **AC-REG6.** When a Formula step declares `runtime_requirements` including
 `ai_reasoning`, the registry MUST NOT select `cloudflare-sandbox` (it does not
@@ -292,7 +313,12 @@ stable across providers.
 (molecule, step, attempt). A provider receiving the same `idempotency_key` for an
 already-completed execution MUST return the prior response envelope (or a
 reference to it) rather than re-executing — mirroring the Factory dispatch
-idempotency discipline (IS-GC-EP-FORMULA-DISPATCH §Idempotency).
+idempotency discipline (IS-GC-EP-FORMULA-DISPATCH §Idempotency). The
+`idempotency_key` is derived as a stable function of `(molecule_id, step_name,
+attempt_index)`, where `attempt_index` advances by one on each convergence repair
+iteration (IS-GC-FIDELITY-VALIDATION FV-16/FV-17). A re-run therefore carries a
+distinct `idempotency_key` and is a fresh execution, never a replay of the prior
+failed attempt.
 
 ### Response envelope (AC-RS\*)
 
@@ -302,17 +328,27 @@ idempotency discipline (IS-GC-EP-FORMULA-DISPATCH §Idempotency).
 envelope"):
 
 ```
-status              enum  completed | failed | policy_violation | timeout | cancelled
-provider_verdict    object  execution outcome (NOT molecule verdict)
-artifacts           array   produced files: { path, size, checksum }
-artifact_manifest   object  declared outputs matched against produced
-logs                object  { stdout_ref, stderr_ref, trace_spans }
-policy_events       array   allow | deny | escalation | violation events
-model_usage         object  { tokens, cost, model_id } (from ofox.ai / AI Gateway) | null
-runtime_identity    object  { provider_id, version, image_digest }
-session_archive_ref string  R2 or Dolt reference to captured session state | null
-verifier_report_ref string  if provider ran internal verification | null
-error               object  structured error on non-completed status | null
+status                              enum     completed | failed | policy_violation | timeout | cancelled
+provider_verdict                    object   execution outcome (NOT molecule verdict)
+artifacts                           array    produced outputs: { path, size, checksum }
+artifact_manifest                   object   declared outputs matched against produced
+logs                                object   { stdout_ref, stderr_ref, trace_spans }
+policy_events                       array    allow | deny | escalation | violation events
+model_usage                         object   { tokens, cost, model_id } (from ofox.ai / AI Gateway) | null
+runtime_identity                    object   { provider_id, version, image_digest }
+session_archive_ref                 string   R2 or Dolt reference to captured session state | null
+verifier_report_ref                 string   if provider ran internal verification | null
+error                               object   structured error on non-completed status | null
+completion_claimed_without_manifest boolean  true iff completion was claimed by a provider end-of-turn
+                                             self-report rather than by a manifest-backed produced set;
+                                             the externally-verifiable stop-condition flag read by Gas
+                                             City fidelity validation (FV-09 check 4, IS-GC-FIDELITY-VALIDATION)
+step_outputs                        object   domain-adapter-normalized per-step evidence map (opaque to
+                                             the envelope kernel; dot-path addressable by the configured
+                                             fidelity checks in fidelity-checks.toml); the sole channel
+                                             for step-type-specific evidence — the validator never reads
+                                             any top-level envelope field for domain-specific checks,
+                                             keeping the contract kernel domain-neutral
 ```
 
 **AC-RS2.** **`provider_verdict` is not the molecule verdict.** The provider MUST
@@ -439,6 +475,38 @@ in `prepareWorkspace`. Called at session end. Fail-closed for credentials:
 already gone, so a leaked credential cannot outlive the session. For
 `cloudflare-sandbox` this maps to `POST /session/:id/stop` (registry delete).
 
+### Interface binding (AC-LC ↔ runtime.Provider)
+
+The eleven AC-LC obligations above are the Gas City provider-contract façade. They
+are NOT Go `runtime.Provider` method names. The live `runtime.Provider`
+(`stage/internal/runtime/cloudflare/provider.go`, ~20 PTY/session methods:
+`Start`/`Stop`/`Interrupt`/`IsRunning`/`IsAttached`/`Attach`/`ProcessAlive`/
+`Nudge`/`SetMeta`/`GetMeta`/`RemoveMeta`/`Peek`/`ListRunning`/`GetLastActivity`/
+`ClearScrollback`/`CopyTo`/`SendKeys`/`RunLive`/`Capabilities`) is a terminal-
+session orchestration surface. No new Go method is introduced by this IS. Gas City
+binds each AC-LC obligation to one or more real methods:
+
+| AC-LC obligation    | `runtime.Provider` method(s) |
+| ---                 | --- |
+| `createSession`     | `Start(ctx, name, Config)` — allocates the session; readiness via `IsRunning(name)` / `ProcessAlive(name, processNames)` |
+| `prepareWorkspace`  | `CopyTo(name, src, relDst)` for input materialization; `RunLive(name, Config)` for dependency/setup; `SetMeta` to record scoped state |
+| `executeStep`       | `Nudge(name, content)` (or `SendKeys`) delivers the step prompt; completion observed via `GetLastActivity`/`IsRunning`/`ProcessAlive`; scrollback via `Peek(name, lines)`. The response envelope (AC-RS1) is assembled by Gas City from these reads plus the artifact mirror — it is not returned by a single Go call. For an RPC-native provider (`pi-rpc`) the same obligation is satisfied by the pi JSONL RPC turn; the façade is identical across both providers. |
+| `collectArtifacts`  | produced-file set read from the session filesystem / R2 mirror; `CopyTo` is the inbound primitive; checksums and the declared-vs-produced manifest are computed by Gas City |
+| `collectLogs`       | `Peek(name, lines)` (scrollback / stderr tail); `GetLastActivity` for the activity anchor |
+| `collectPolicyEvents` | derived by Gas City from scrollback (`Peek`) and filesystem write-scope checks; the cloudflare transport has no native policy event stream so an empty array (never null) is contract-valid (AC-LC6) |
+| `snapshot`          | `ClearScrollback` is NOT a snapshot; cloudflare transport returns `{ unsupported: true }` (AC-LC7) |
+| `restore`           | `{ unsupported: true }` for the cloudflare transport (AC-LC8) |
+| `status`            | `IsRunning`, `ProcessAlive`, `GetLastActivity`, and `Capabilities()` together populate `{ healthy, ready, provider_version, capacity }` |
+| `restart`           | `Stop(name)` then `Start(ctx, name, Config)` |
+| `destroy`           | `Stop(name)` plus `RemoveMeta` for any scoped state; credential revocation (AC-LC11) is a Gas City obligation layered above the Go interface |
+
+**Binding limitation (surfaced, not hidden):** the live `runtime.Provider` has no
+single execute-and-return-evidence method. `executeStep` and `collectArtifacts` are
+therefore Gas City compositions over PTY/session primitives plus the artifact mirror,
+not 1:1 Go calls. A provider whose runtime is RPC-native (`pi-rpc`) satisfies the
+same façade through its RPC turn. The façade is the stable contract; the Go interface
+is one implementation substrate beneath it.
+
 ### Fail-closed rules (AC-FC\*)
 
 The six conditions from the architecture reference §Acceptance and the task fail-
@@ -473,6 +541,11 @@ NOT report `status=completed` unless `artifact_manifest` shows every
 `declared_output` as `produced`. An agent emitting an end-of-turn signal
 (pi `agent_end`) with one or more declared outputs still `missing` yields
 `status=failed` with `error.code=declared_outputs_missing`, never `completed`.
+When the provider's completion was established by a self-report end-of-turn signal
+rather than by a manifest-backed produced set, the provider MUST set
+`completion_claimed_without_manifest=true` on the response envelope (AC-RS1) so Gas
+City fidelity validation can fail the stop-condition check independently of the
+manifest (IS-GC-FIDELITY-VALIDATION FV-09 check 4).
 (Architecture reference §Ontology Constraints: "Stop conditions must be externally
 verifiable.")
 
