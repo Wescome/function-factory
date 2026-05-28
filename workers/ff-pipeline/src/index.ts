@@ -109,6 +109,20 @@ export default {
       }, arango ? 200 : 503)
     }
 
+    if (url.pathname === '/gascity/autonomy/status' && request.method === 'GET') {
+      const { getGasCityAutonomyStatus } = await import('./gascity/autonomy-monitor.js')
+      return json(await getGasCityAutonomyStatus(env))
+    }
+
+    if (url.pathname === '/gascity/autonomy/run' && request.method === 'POST') {
+      const auth = authorizeOperatorControl(request, env)
+      if (!auth.ok) return json({ error: auth.error }, auth.status === 403 ? 401 : auth.status)
+      const body: Record<string, unknown> = await readJsonRecord(request).catch(() => ({}))
+      const trigger = cleanString(body.trigger, '') === 'smoke' ? 'smoke' : 'manual'
+      const { runGasCityAutonomyMonitor } = await import('./gascity/autonomy-monitor.js')
+      return json(await runGasCityAutonomyMonitor(env, trigger), 202)
+    }
+
     // ── Diagnostic: Arango connectivity without credential exposure ──
     if (url.pathname === '/debug/arango' && request.method === 'GET') {
       const ok = await checkArango(env)
@@ -1274,6 +1288,8 @@ export default {
   async scheduled(event: ScheduledEvent, env: PipelineEnv, ctx: ExecutionContext): Promise<void> {
     const { runGovernanceCycle } = await import('./agents/governor-agent.js')
     ctx.waitUntil(runGovernanceCycle(env, 'cron'))
+    const { runGasCityAutonomyMonitor } = await import('./gascity/autonomy-monitor.js')
+    ctx.waitUntil(runGasCityAutonomyMonitor(env, 'cron'))
   },
 
   async queue(batch: MessageBatch, env: PipelineEnv, _ctx: ExecutionContext): Promise<void> {
@@ -1897,9 +1913,25 @@ async function handleDispatchFormula(
       env: formulaEnv,
       deps,
     })
-    ctx.waitUntil(Promise.resolve())
 
     if (isFormulaCompilerHalt(result)) return json(result, 422)
+    if (result.outcome === 'dispatched' || result.replay === true) {
+      const { markFunctionDispatched } = await import('./gascity/autonomy-monitor.js')
+      const epRecord = ep as Record<string, unknown>
+      const functionId = cleanString(epRecord.functionId, '')
+      if (functionId) {
+        await markFunctionDispatched(db as never, {
+          functionId,
+          isId: cleanString(epRecord.intentSpecificationId, ''),
+          esId: cleanString(epRecord.executableSpecificationId, ''),
+          epId,
+          formId: cleanString(result.form_id, ''),
+          dispatchLogKey: cleanString(result.dispatch_log_key, ''),
+          timestamp: new Date().toISOString(),
+        })
+      }
+    }
+    ctx.waitUntil(Promise.resolve())
     if (result.replay === true) return json({ accepted: true, ...result }, 200)
     return json({ accepted: true, ...result }, 202)
   } catch (err) {

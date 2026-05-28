@@ -4,14 +4,18 @@ export type FunctionState =
   | "dispatched"
   | "accepted"
   | "rejected"
+  | "monitored"
+  | "regressed"
   | "retired"
 
 export const ALLOWED_FUNCTION_TRANSITIONS: Record<FunctionState, FunctionState[]> = {
   proposed: ["specified", "retired"],
   specified: ["dispatched", "retired"],
   dispatched: ["accepted", "rejected", "retired"],
-  accepted: ["retired"],
+  accepted: ["monitored", "retired"],
   rejected: ["retired"],
+  monitored: ["regressed", "retired"],
+  regressed: ["monitored", "retired"],
   retired: [],
 }
 
@@ -68,4 +72,3 @@ export async function transitionFunctionState(
   )
   return { from: input.from, to: input.to, evidenceKey: input.evidenceKey }
 }
-

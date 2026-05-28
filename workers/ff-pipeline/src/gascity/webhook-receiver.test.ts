@@ -248,4 +248,56 @@ describe("handleGasCityWebhook", () => {
     }))
     expect(mocks.save).not.toHaveBeenCalledWith("specs_signals", expect.anything())
   })
+
+  it("accepts Gas City stall events and writes operational incidents", async () => {
+    const { handleGasCityWebhook } = await import("./webhook-receiver.js")
+
+    const response = await handleGasCityWebhook(await signedRequest({
+      event_type: "health.stall",
+      fn_id: "FN-GC-DISPATCH-WIRE",
+      is_id: "IS-GC-DISPATCH-WIRE",
+      es_id: "ES-GC-DISPATCH-WIRE",
+      bead_id: "gc-11",
+      message: "VERIFY stalled for 15m.",
+    }), createEnv() as never)
+
+    expect(response.status).toBe(202)
+    expect(await response.json()).toMatchObject({
+      accepted: true,
+      event_type: "health.stall",
+      incident_id: expect.stringMatching(/^INC-GC-EVENT-[A-F0-9]{12}$/),
+    })
+    expect(mocks.save).toHaveBeenCalledWith("specs_incidents", expect.objectContaining({
+      incidentType: "gascity_health_stall",
+      functionIds: ["FN-GC-DISPATCH-WIRE"],
+      bead_id: "gc-11",
+      raw: expect.objectContaining({ event_type: "health.stall" }),
+    }))
+  })
+
+  it("accepts convergence evaluate events into drift memory", async () => {
+    const { handleGasCityWebhook } = await import("./webhook-receiver.js")
+
+    const response = await handleGasCityWebhook(await signedRequest({
+      event_type: "convergence.evaluate",
+      fn_id: "FN-GC-DISPATCH-WIRE",
+      bead_id: "gc-11",
+      iteration: 2,
+      stage: "VERIFY",
+    }), createEnv() as never)
+
+    expect(response.status).toBe(202)
+    expect(await response.json()).toMatchObject({
+      accepted: true,
+      event_type: "convergence.evaluate",
+      event_id: expect.stringMatching(/^GCE-[A-F0-9]{16}$/),
+    })
+    expect(mocks.save).toHaveBeenCalledWith("gascity_drift_events", expect.objectContaining({
+      event_type: "convergence.evaluate",
+      fn_id: "FN-GC-DISPATCH-WIRE",
+      bead_id: "gc-11",
+      iteration: 2,
+      stage: "VERIFY",
+    }))
+  })
 })

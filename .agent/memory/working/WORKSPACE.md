@@ -1,10 +1,10 @@
 # Current Workspace
 
 ## Status
-Active continuation at 2026-05-28T02:54:40Z. Gas City roadmap cleanup is verification-green; latest slice moved the Gas City path through production deployment and live dispatch.
+Active continuation at 2026-05-28T03:18:45Z. Gas City roadmap cleanup is verification-green; latest slice adds Cloudflare-hosted Gas City autonomy monitoring through Phase 5 roadmap shape.
 
 ## Last update
-2026-05-28T02:54:40Z
+2026-05-28T03:18:45Z
 
 ## Current focus
 Gas City era structural cleanup and webhook lifecycle slice:
@@ -33,6 +33,15 @@ Gas City era structural cleanup and webhook lifecycle slice:
 - Full live bootstrap rotated matching Gas City/Factory bearer and HMAC secrets, rotated `OPERATOR_CONTROL_TOKEN`, redeployed `ff-pipeline`, seeded `EP-MPOWFZ17`, and dispatched `FORM-0E2B308B65D0ACE9` to Gas City.
 - Gas City accepted live bead/workflow `gc-11`; monitor URL: `https://gascity-supervisor.koales.workers.dev/v0/city/factory/beads/gc-11`.
 - Final production Worker version after live bootstrap: `28bb1d8d-1d16-42d8-88d9-bf93526ce32a` at `2026-05-28T02:53:27.044601Z`.
+- Added Cloudflare cron/operator Gas City autonomy monitor:
+  - `GET /gascity/autonomy/status` reports Function lifecycle counts, recent Persistence VRs, open Gas City incidents, and operational Pressures.
+  - `POST /gascity/autonomy/run` runs the monitor under operator auth.
+  - Scheduled cron now runs the Gas City monitor alongside the governance cycle.
+- Dispatch now materializes/updates `specs_functions/FN-*` into `dispatched` state after successful Gas City dispatch so RELEASE callbacks have a lifecycle target.
+- Function lifecycle now supports `accepted -> monitored`, `monitored -> regressed`, and `regressed -> monitored` transitions.
+- Gas City webhook intake now handles `health.stall`, `session.crash`, `molecule.failed`, and `convergence.evaluate` events in addition to completion callbacks.
+- Autonomy monitor emits Persistence Verification Reports, promotes accepted Functions to monitored only with fresh Fidelity/completion evidence, creates stale persistence/dispatch Incidents, and escalates recurring Gas City Incidents into `PRS-OPS-GC-*` operational Pressures.
+- Production bootstrap script now exercises dispatch, signed RELEASE webhook intake, and Cloudflare autonomy monitor in one run.
 
 ## Verification this continuation
 - `pnpm --filter @factory/schemas typecheck` passed.
@@ -61,6 +70,11 @@ Gas City era structural cleanup and webhook lifecycle slice:
 - Live `curl https://ff-pipeline.koales.workers.dev/debug/health` returned HTTP 200 with `status=healthy`, `arango=true`, and `aiBinding=true`.
 - Live invalid-signature POST to `/webhooks/gascity` returned HTTP 401 `invalid_signature`, proving the route is configured and fails closed.
 - `bash scripts/ops/first-dispatch.sh` passed and dispatched live Gas City bead `gc-11`.
+- `pnpm --filter @factory/ff-pipeline test -- src/gascity/autonomy-monitor.test.ts src/gascity/webhook-receiver.test.ts src/gascity/function-lifecycle.test.ts src/dispatch-formula-route.test.ts` passed: 29 tests.
+- `pnpm --filter @factory/ff-pipeline test` passed: 997 passed, 10 skipped.
+- `pnpm --filter @factory/ff-pipeline typecheck` passed.
+- `pnpm -r typecheck` passed.
+- `pnpm audit:ontology` passed.
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 

@@ -109,7 +109,10 @@
     "GAS_CITY_RIG_ROOT": "/workspace",
     "GAS_CITY_WEBHOOK_URL": "https://ff-pipeline.koales.workers.dev/webhooks/gascity",
     "GAS_CITY_FORMULA_VERSION_FACTORY_CODING_V1": "1",
-    "GAS_CITY_MAX_AMENDMENT_DEPTH": "3"
+    "GAS_CITY_MAX_AMENDMENT_DEPTH": "3",
+    "GAS_CITY_PERSISTENCE_FRESHNESS_HOURS": "24",
+    "GAS_CITY_DISPATCH_STALE_MINUTES": "60",
+    "GAS_CITY_RECURRING_INCIDENT_THRESHOLD": "3"
   }
 
   // Secrets (set via `wrangler secret put`):

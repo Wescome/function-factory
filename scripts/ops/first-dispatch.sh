@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# first-dispatch.sh — wire Gas City + fire first live dispatch
+# first-dispatch.sh — wire Gas City + fire first live dispatch and roadmap smoke
 #
 # Usage: ! bash scripts/ops/first-dispatch.sh
 #
-# Zero prompts. Generates all tokens, sets all secrets, deploys, dispatches.
+# Zero prompts. Generates all tokens, sets all secrets, deploys, dispatches,
+# exercises the RELEASE webhook bridge, and runs the Cloudflare autonomy monitor.
 
 set -euo pipefail
 
@@ -21,7 +22,7 @@ require_command openssl
 require_command npx
 
 # ── 1. Generate all tokens ───────────────────────────────────────────────────
-echo "=== [1/4] Generating tokens ==="
+echo "=== [1/6] Generating tokens ==="
 GC_BEARER_TOKEN="$(openssl rand -hex 32)"
 OPERATOR_TOKEN="$(openssl rand -hex 32)"
 GC_HMAC_SECRET="$(openssl rand -hex 32)"
@@ -43,7 +44,7 @@ printf '%s' "$OPERATOR_TOKEN" | (cd "$FF_PIPELINE_DIR" && npx wrangler secret pu
 
 # ── 2. Deploy ff-pipeline ────────────────────────────────────────────────────
 echo ""
-echo "=== [2/4] Deploying ff-pipeline with Gas City vars ==="
+echo "=== [2/6] Deploying ff-pipeline with Gas City vars ==="
 (cd "$FF_PIPELINE_DIR" && npx wrangler deploy) 2>&1 | grep -E "Deployed|Current Version|ERROR|error" || true
 
 # Brief pause for worker propagation
@@ -51,7 +52,7 @@ sleep 3
 
 # ── 3. Seed EP ───────────────────────────────────────────────────────────────
 echo ""
-echo "=== [3/4] Seeding dispatch EP ==="
+echo "=== [3/6] Seeding dispatch EP ==="
 SEED_RESP="$(curl -sf -X POST "$FF_BASE/seed-dispatch-ep" \
   -H "Authorization: Bearer $OPERATOR_TOKEN" \
   -H "Content-Type: application/json" \
@@ -67,7 +68,7 @@ echo "  epId: $EP_ID"
 
 # ── 4. Dispatch ───────────────────────────────────────────────────────────────
 echo ""
-echo "=== [4/4] Dispatching to Gas City ==="
+echo "=== [4/6] Dispatching to Gas City ==="
 DISPATCH_RESP="$(curl -sf -X POST "$FF_BASE/dispatch-formula" \
   -H "Authorization: Bearer $OPERATOR_TOKEN" \
   -H "Content-Type: application/json" \
@@ -91,3 +92,38 @@ else
   echo "Dispatch did not complete — check outcome above."
   exit 1
 fi
+
+# ── 5. Exercise RELEASE webhook bridge ──────────────────────────────────────
+echo ""
+echo "=== [5/6] Exercising Factory webhook RELEASE bridge ==="
+FORM_ID="$(echo "$DISPATCH_RESP" | jq -r '.form_id')"
+CALLBACK_PAYLOAD="$(jq -cn \
+  --arg fn_id "FN-GC-DISPATCH-WIRE" \
+  --arg is_id "IS-GC-DISPATCH-WIRE" \
+  --arg es_id "ES-GC-DISPATCH-WIRE" \
+  --arg ep_id "$EP_ID" \
+  --arg form_id "$FORM_ID" \
+  --arg bead_id "$GC_BEAD_ID" \
+  --arg outcome "approved" \
+  --argjson factory_attempt 1 \
+  '{fn_id:$fn_id,is_id:$is_id,es_id:$es_id,ep_id:$ep_id,form_id:$form_id,factory_attempt:$factory_attempt,bead_id:$bead_id,outcome:$outcome}')"
+CALLBACK_SIGNATURE="$(printf '%s' "$CALLBACK_PAYLOAD" | openssl dgst -sha256 -hmac "$GC_HMAC_SECRET" | awk '{print $2}')"
+CALLBACK_RESP="$(curl -sf -X POST "$FF_BASE/webhooks/gascity" \
+  -H "Content-Type: application/json" \
+  -H "X-GC-Key-ID: v1" \
+  -H "X-GC-Signature: sha256=$CALLBACK_SIGNATURE" \
+  -d "$CALLBACK_PAYLOAD")"
+echo "$CALLBACK_RESP" | jq .
+
+# ── 6. Run Cloudflare autonomy monitor ──────────────────────────────────────
+echo ""
+echo "=== [6/6] Running Cloudflare autonomy monitor ==="
+AUTONOMY_RESP="$(curl -sf -X POST "$FF_BASE/gascity/autonomy/run" \
+  -H "Authorization: Bearer $OPERATOR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"trigger":"smoke"}')"
+echo "$AUTONOMY_RESP" | jq .
+
+echo ""
+echo "=== Autonomy status ==="
+curl -sf "$FF_BASE/gascity/autonomy/status" | jq .

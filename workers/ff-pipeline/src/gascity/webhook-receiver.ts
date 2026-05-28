@@ -5,6 +5,7 @@ import { ensureGasCityCollections } from "./collection-schema.js"
 import { transitionFunctionState } from "./function-lifecycle.js"
 
 type GasCityWebhookOutcome = "approved" | "revise"
+type GasCityOperationalEventType = "health.stall" | "session.crash" | "convergence.evaluate" | "molecule.failed"
 
 interface GasCityCompletionPayload {
   fn_id: string
@@ -16,6 +17,20 @@ interface GasCityCompletionPayload {
   bead_id: string
   outcome: GasCityWebhookOutcome
   remediation?: string
+}
+
+interface GasCityOperationalEventPayload {
+  event_type: GasCityOperationalEventType
+  fn_id: string
+  is_id?: string
+  es_id?: string
+  ep_id?: string
+  form_id?: string
+  bead_id: string
+  severity?: "sev1" | "sev2" | "sev3" | "sev4"
+  message?: string
+  iteration?: number
+  stage?: string
 }
 
 interface DispatchLogMatch {
@@ -64,6 +79,11 @@ export async function handleGasCityWebhook(request: Request, env: PipelineEnv): 
       rawBytes,
     })
     return json({ error: hmac.reason }, hmac.status)
+  }
+
+  const operationalEvent = parseOperationalEvent(rawBytes)
+  if (operationalEvent.ok) {
+    return handleOperationalEvent(db, operationalEvent.payload, receivedAt, rawBytes)
   }
 
   const parsed = parsePayload(rawBytes)
@@ -217,6 +237,34 @@ export async function handleGasCityWebhook(request: Request, env: PipelineEnv): 
   }, 202)
 }
 
+async function handleOperationalEvent(
+  db: GasCityWebhookDb,
+  payload: GasCityOperationalEventPayload,
+  receivedAt: string,
+  rawBytes: Uint8Array,
+): Promise<Response> {
+  if (payload.event_type === "convergence.evaluate") {
+    await db.ensureCollection("gascity_drift_events")
+    const key = `GCE-${(await sha256Hex(`${payload.event_type}|${payload.bead_id}|${receivedAt}`)).slice(0, 16).toUpperCase()}`
+    await db.save("gascity_drift_events", {
+      _key: key,
+      id: key,
+      event_type: payload.event_type,
+      fn_id: payload.fn_id,
+      bead_id: payload.bead_id,
+      iteration: payload.iteration,
+      stage: payload.stage,
+      received_at: receivedAt,
+      raw_sha256: await sha256BytesHex(rawBytes),
+      raw_payload: payload as unknown as Record<string, unknown>,
+    })
+    return json({ accepted: true, event_type: payload.event_type, event_id: key }, 202)
+  }
+
+  const incidentId = await writeOperationalIncident(db, payload, receivedAt, rawBytes)
+  return json({ accepted: true, event_type: payload.event_type, incident_id: incidentId }, 202)
+}
+
 async function verifyGasCityHmac(
   request: Request,
   env: PipelineEnv,
@@ -288,6 +336,55 @@ function parsePayload(rawBytes: Uint8Array): { ok: true; payload: GasCityComplet
       outcome: payload.outcome,
       ...(payload.remediation ? { remediation: payload.remediation } : {}),
     },
+  }
+}
+
+function parseOperationalEvent(rawBytes: Uint8Array): { ok: true; payload: GasCityOperationalEventPayload } | { ok: false } {
+  let body: unknown
+  try {
+    body = JSON.parse(new TextDecoder().decode(rawBytes))
+  } catch {
+    return { ok: false }
+  }
+  if (!body || typeof body !== "object" || Array.isArray(body)) return { ok: false }
+  const record = body as Record<string, unknown>
+  const eventType = stringValue(record.event_type) ?? stringValue(record.type)
+  if (
+    eventType !== "health.stall" &&
+    eventType !== "session.crash" &&
+    eventType !== "convergence.evaluate" &&
+    eventType !== "molecule.failed"
+  ) {
+    return { ok: false }
+  }
+  const fnId = stringValue(record.fn_id)
+  const beadId = stringValue(record.bead_id)
+  if (!fnId || !beadId) return { ok: false }
+  const severity = stringValue(record.severity)
+  const payload: GasCityOperationalEventPayload = {
+    event_type: eventType,
+    fn_id: fnId,
+    bead_id: beadId,
+  }
+  const isId = stringValue(record.is_id)
+  if (isId) payload.is_id = isId
+  const esId = stringValue(record.es_id)
+  if (esId) payload.es_id = esId
+  const epId = stringValue(record.ep_id)
+  if (epId) payload.ep_id = epId
+  const formId = stringValue(record.form_id)
+  if (formId) payload.form_id = formId
+  if (severity === "sev1" || severity === "sev2" || severity === "sev3" || severity === "sev4") {
+    payload.severity = severity
+  }
+  const message = stringValue(record.message)
+  if (message) payload.message = message
+  if (Number.isInteger(record.iteration)) payload.iteration = record.iteration as number
+  const stage = stringValue(record.stage)
+  if (stage) payload.stage = stage
+  return {
+    ok: true,
+    payload,
   }
 }
 
@@ -392,6 +489,52 @@ async function writeAmendmentDepthIncident(
       factory_attempt: payload.factory_attempt,
       max_amendment_depth: maxAmendmentDepth,
     },
+  })
+  return key
+}
+
+async function writeOperationalIncident(
+  db: GasCityWebhookDb,
+  payload: GasCityOperationalEventPayload,
+  receivedAt: string,
+  rawBytes: Uint8Array,
+): Promise<string> {
+  const incidentTypeByEvent: Record<Exclude<GasCityOperationalEventType, "convergence.evaluate">, string> = {
+    "health.stall": "gascity_health_stall",
+    "session.crash": "gascity_session_crash",
+    "molecule.failed": "gascity_molecule_failed",
+  }
+  const incidentType = incidentTypeByEvent[payload.event_type as Exclude<GasCityOperationalEventType, "convergence.evaluate">]
+  const key = `INC-GC-EVENT-${(await sha256Hex(`${payload.event_type}|${payload.fn_id}|${payload.bead_id}|${receivedAt}`)).slice(0, 12).toUpperCase()}`
+  const sourceRefs = [
+    payload.fn_id,
+    payload.is_id,
+    payload.es_id,
+    payload.ep_id,
+    payload.form_id,
+  ].filter((value): value is string => typeof value === "string" && value.length > 0)
+  const incident = Incident.parse({
+    id: key,
+    invariantIds: [],
+    functionIds: [payload.fn_id],
+    severity: payload.severity ?? (payload.event_type === "session.crash" ? "sev2" : "sev3"),
+    status: "open",
+    confidence: 0.9,
+    source_refs: sourceRefs.length > 0 ? sourceRefs : [payload.fn_id],
+    explicitness: "explicit",
+    rationale: `Gas City emitted ${payload.event_type}.`,
+  })
+  await db.ensureCollection("specs_incidents")
+  await db.save("specs_incidents", {
+    _key: key,
+    ...incident,
+    incidentType,
+    title: `Gas City ${payload.event_type} for ${payload.fn_id}`,
+    description: payload.message ?? `Gas City emitted ${payload.event_type} for bead ${payload.bead_id}.`,
+    openedAt: receivedAt,
+    bead_id: payload.bead_id,
+    raw_sha256: await sha256BytesHex(rawBytes),
+    raw: payload as unknown as Record<string, unknown>,
   })
   return key
 }
