@@ -24,12 +24,19 @@ require_command npx
 echo "=== [1/4] Generating tokens ==="
 GC_BEARER_TOKEN="$(openssl rand -hex 32)"
 OPERATOR_TOKEN="$(openssl rand -hex 32)"
+GC_HMAC_SECRET="$(openssl rand -hex 32)"
 
 echo "  Setting GC_SUPERVISOR_TOKEN on gascity-supervisor..."
 printf '%s' "$GC_BEARER_TOKEN" | (cd "$SUPERVISOR_DIR" && npx wrangler secret put GC_SUPERVISOR_TOKEN)
 
 echo "  Setting GAS_CITY_BEARER_TOKEN on ff-pipeline..."
 printf '%s' "$GC_BEARER_TOKEN" | (cd "$FF_PIPELINE_DIR" && npx wrangler secret put GAS_CITY_BEARER_TOKEN)
+
+echo "  Setting GAS_CITY_HMAC_SECRET on gascity-supervisor..."
+printf '%s' "$GC_HMAC_SECRET" | (cd "$SUPERVISOR_DIR" && npx wrangler secret put GAS_CITY_HMAC_SECRET)
+
+echo "  Setting GAS_CITY_HMAC_SECRET_V1 on ff-pipeline..."
+printf '%s' "$GC_HMAC_SECRET" | (cd "$FF_PIPELINE_DIR" && npx wrangler secret put GAS_CITY_HMAC_SECRET_V1)
 
 echo "  Setting OPERATOR_CONTROL_TOKEN on ff-pipeline..."
 printf '%s' "$OPERATOR_TOKEN" | (cd "$FF_PIPELINE_DIR" && npx wrangler secret put OPERATOR_CONTROL_TOKEN)

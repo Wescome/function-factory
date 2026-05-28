@@ -1,10 +1,10 @@
 # Current Workspace
 
 ## Status
-Active continuation at 2026-05-27T23:57:32Z. Gas City roadmap cleanup is verification-green; latest slice adds the amendment-depth halt guard.
+Active continuation at 2026-05-28T02:36:40Z. Gas City roadmap cleanup is verification-green; latest slice moves the Gas City path toward production deployment.
 
 ## Last update
-2026-05-27T23:57:32Z
+2026-05-28T02:36:40Z
 
 ## Current focus
 Gas City era structural cleanup and webhook lifecycle slice:
@@ -24,6 +24,11 @@ Gas City era structural cleanup and webhook lifecycle slice:
 - Wired Gas City collection provisioning into `POST /webhooks/gascity` before intake writes.
 - Added `GAS_CITY_MAX_AMENDMENT_DEPTH` with default `3`.
 - Gas City `revise` callbacks whose `factory_attempt` exceeds the configured amendment depth now write `INC-GC-AMENDMENT-DEPTH-*` to `specs_incidents`, return the incident id, and do not emit another amendment `SIG-*`.
+- Made `GAS_CITY_MAX_AMENDMENT_DEPTH=3` explicit in the production Worker vars.
+- Documented the Factory-side `GAS_CITY_HMAC_SECRET_V1` secret in the Worker config.
+- Updated `scripts/ops/first-dispatch.sh` so the live bootstrap path provisions one generated HMAC secret to both Gas City (`GAS_CITY_HMAC_SECRET`) and Factory (`GAS_CITY_HMAC_SECRET_V1`), closing the release callback provisioning gap.
+- Live Cloudflare audit showed `ff-pipeline` reachable at `/version` and currently serving Worker version `a52a7d1d-8a9a-4aa3-b0a1-e29688b4b30d` from `2026-05-25T23:03:22.546207Z`.
+- Live Cloudflare secret audit showed `GAS_CITY_HMAC_SECRET_V1` is not yet set on `ff-pipeline`; production webhook callbacks remain blocked until the shared secret is installed.
 
 ## Verification this continuation
 - `pnpm --filter @factory/schemas typecheck` passed.
@@ -44,6 +49,10 @@ Gas City era structural cleanup and webhook lifecycle slice:
 - `pnpm --filter @factory/ff-pipeline test -- src/gascity/collection-schema.test.ts src/gascity/webhook-receiver.test.ts` passed: 7 tests.
 - `pnpm --filter @factory/ff-pipeline test -- src/gascity/webhook-receiver.test.ts` passed: 6 tests.
 - `pnpm --filter @factory/ff-pipeline test` passed: 992 passed, 10 skipped.
+- `pnpm --filter @factory/ff-pipeline typecheck` passed.
+- `bash -n scripts/ops/first-dispatch.sh` passed.
+- `pnpm --filter @factory/ff-pipeline test -- src/gascity/webhook-receiver.test.ts src/dispatch-formula-route.test.ts` passed: 21 tests.
+- `git diff --check` passed.
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 

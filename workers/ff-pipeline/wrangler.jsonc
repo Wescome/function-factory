@@ -108,11 +108,13 @@
     "GAS_CITY_RIG": "function-factory",
     "GAS_CITY_RIG_ROOT": "/workspace",
     "GAS_CITY_WEBHOOK_URL": "https://ff-pipeline.koales.workers.dev/webhooks/gascity",
-    "GAS_CITY_FORMULA_VERSION_FACTORY_CODING_V1": "1"
+    "GAS_CITY_FORMULA_VERSION_FACTORY_CODING_V1": "1",
+    "GAS_CITY_MAX_AMENDMENT_DEPTH": "3"
   }
 
   // Secrets (set via `wrangler secret put`):
   //   ARANGO_URL, ARANGO_DATABASE, ARANGO_JWT
   //   OFOX_API_KEY, CF_API_TOKEN, GITHUB_TOKEN, OPERATOR_CONTROL_TOKEN
   //   GAS_CITY_BEARER_TOKEN  (shared with GC_SUPERVISOR_TOKEN on gascity-supervisor)
+  //   GAS_CITY_HMAC_SECRET_V1 (shared with Gas City webhook signer)
 }
