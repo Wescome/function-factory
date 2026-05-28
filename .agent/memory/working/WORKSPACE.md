@@ -1,10 +1,10 @@
 # Current Workspace
 
 ## Status
-Active continuation at 2026-05-28T02:36:40Z. Gas City roadmap cleanup is verification-green; latest slice moves the Gas City path toward production deployment.
+Active continuation at 2026-05-28T02:54:40Z. Gas City roadmap cleanup is verification-green; latest slice moved the Gas City path through production deployment and live dispatch.
 
 ## Last update
-2026-05-28T02:36:40Z
+2026-05-28T02:54:40Z
 
 ## Current focus
 Gas City era structural cleanup and webhook lifecycle slice:
@@ -29,6 +29,10 @@ Gas City era structural cleanup and webhook lifecycle slice:
 - Updated `scripts/ops/first-dispatch.sh` so the live bootstrap path provisions one generated HMAC secret to both Gas City (`GAS_CITY_HMAC_SECRET`) and Factory (`GAS_CITY_HMAC_SECRET_V1`), closing the release callback provisioning gap.
 - Live Cloudflare audit showed `ff-pipeline` reachable at `/version` and currently serving Worker version `a52a7d1d-8a9a-4aa3-b0a1-e29688b4b30d` from `2026-05-25T23:03:22.546207Z`.
 - Live Cloudflare secret audit showed `GAS_CITY_HMAC_SECRET_V1` is not yet set on `ff-pipeline`; production webhook callbacks remain blocked until the shared secret is installed.
+- Production HMAC bridge secret was generated and installed on both `gascity-supervisor` (`GAS_CITY_HMAC_SECRET`) and `ff-pipeline` (`GAS_CITY_HMAC_SECRET_V1`).
+- Full live bootstrap rotated matching Gas City/Factory bearer and HMAC secrets, rotated `OPERATOR_CONTROL_TOKEN`, redeployed `ff-pipeline`, seeded `EP-MPOWFZ17`, and dispatched `FORM-0E2B308B65D0ACE9` to Gas City.
+- Gas City accepted live bead/workflow `gc-11`; monitor URL: `https://gascity-supervisor.koales.workers.dev/v0/city/factory/beads/gc-11`.
+- Final production Worker version after live bootstrap: `28bb1d8d-1d16-42d8-88d9-bf93526ce32a` at `2026-05-28T02:53:27.044601Z`.
 
 ## Verification this continuation
 - `pnpm --filter @factory/schemas typecheck` passed.
@@ -53,6 +57,10 @@ Gas City era structural cleanup and webhook lifecycle slice:
 - `bash -n scripts/ops/first-dispatch.sh` passed.
 - `pnpm --filter @factory/ff-pipeline test -- src/gascity/webhook-receiver.test.ts src/dispatch-formula-route.test.ts` passed: 21 tests.
 - `git diff --check` passed.
+- Live `curl https://ff-pipeline.koales.workers.dev/version` returned HTTP 200 with Worker version `28bb1d8d-1d16-42d8-88d9-bf93526ce32a`.
+- Live `curl https://ff-pipeline.koales.workers.dev/debug/health` returned HTTP 200 with `status=healthy`, `arango=true`, and `aiBinding=true`.
+- Live invalid-signature POST to `/webhooks/gascity` returned HTTP 401 `invalid_signature`, proving the route is configured and fails closed.
+- `bash scripts/ops/first-dispatch.sh` passed and dispatched live Gas City bead `gc-11`.
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
