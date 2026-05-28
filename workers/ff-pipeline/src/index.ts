@@ -81,6 +81,59 @@ async function fetchPiContainerDiagnostic(
   })
 }
 
+// handlePiContainerExecute bridges a Gas City pi-rpc execution request to the PI
+// container DO /execute endpoint (IS-GC-RUNTIME-PROVIDER-CONTRACT AC-PI1/AC-PI4).
+//
+// The body may already be a WorkerInput (the Gas City Go provider applies the
+// AC-PI1 field renames before posting) or an AC-RQ1 execution request envelope
+// (snake_case). Either shape is accepted; the route normalizes to WorkerInput so
+// the DO sees runId/stageName at the top level (readRunRequestMeta requires
+// them). The container response is returned verbatim for Gas City to decompose
+// into its response envelope (AC-PI2). No molecule verdict is produced here:
+// providers report execution status only (AC-RS2).
+async function handlePiContainerExecute(request: Request, env: PipelineEnv): Promise<Response> {
+  const auth = authorizeOperatorControl(request, env)
+  if (!auth.ok) {
+    return json({ error: auth.error }, auth.status === 403 ? 403 : auth.status)
+  }
+
+  const stub = piContainerStub(env)
+  if (!stub) {
+    return json({
+      error: { code: 'PI_CONTAINER_UNAVAILABLE', message: 'PI_CONTAINER binding unavailable' },
+      timestamp: new Date().toISOString(),
+    }, 503)
+  }
+
+  let body: Record<string, unknown>
+  try {
+    body = await readJsonRecord(request)
+  } catch {
+    return json({ error: { code: 'INVALID_REQUEST', message: 'request body must be JSON' } }, 400)
+  }
+
+  const { normalizePiContainerExecuteInput } = await import('./gascity/pi-container-execute.js')
+  const workerInput = normalizePiContainerExecuteInput(body)
+  if (!workerInput) {
+    return json({
+      error: { code: 'INVALID_REQUEST', message: 'execution request must carry a step/stage name and session/run id' },
+    }, 422)
+  }
+
+  const response = await stub.fetch(new Request('http://pi-container.local/execute', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(workerInput),
+  }))
+  const text = await response.text()
+  return new Response(text, {
+    status: response.status,
+    headers: {
+      'Content-Type': response.headers.get('Content-Type') ?? 'application/json',
+    },
+  })
+}
+
 export default {
   async fetch(request: Request, env: PipelineEnv, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url)
@@ -1290,7 +1343,27 @@ export default {
       return handleSeedDispatchEp(request, env)
     }
 
-    return new Response('ff-pipeline: POST /trigger-synthesis, POST /synthesis-callback, POST /trigger-harness, POST /dispatch-formula, POST /seed-dispatch-ep, GET /run-status/:runId, GET /run-monitor/:runId, GET /run-artifacts/:runId, or use Queue consumer', { status: 404 })
+    // ── Gas City pi-rpc provider → PI container execute bridge ──
+    // The Gas City pi-rpc HarnessProvider (IS-GC-RUNTIME-PROVIDER-CONTRACT)
+    // posts an execution request here; the route forwards it to the PI container
+    // DO /execute and returns the container response for Gas City to translate
+    // into its response envelope. Factory never calls the provider; Gas City
+    // owns selection and operation (ADR-010 §1).
+    if (url.pathname === '/__pi-container/execute' && request.method === 'POST') {
+      return handlePiContainerExecute(request, env)
+    }
+
+    if (url.pathname === '/__pi-container/status' && request.method === 'GET') {
+      return fetchPiContainerDiagnostic(env, '/__pi-container/status', 'GET')
+    }
+
+    if (url.pathname === '/__pi-container/restart' && request.method === 'POST') {
+      const auth = authorizeOperatorControl(request, env)
+      if (!auth.ok) return json({ error: auth.error }, auth.status === 403 ? 403 : auth.status)
+      return fetchPiContainerDiagnostic(env, '/__pi-container/restart', 'POST')
+    }
+
+    return new Response('ff-pipeline: POST /trigger-synthesis, POST /synthesis-callback, POST /trigger-harness, POST /dispatch-formula, POST /seed-dispatch-ep, POST /__pi-container/execute, GET /run-status/:runId, GET /run-monitor/:runId, GET /run-artifacts/:runId, or use Queue consumer', { status: 404 })
   },
 
   async scheduled(event: ScheduledEvent, env: PipelineEnv, ctx: ExecutionContext): Promise<void> {
