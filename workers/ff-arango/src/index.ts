@@ -24,6 +24,11 @@ export class ArangoStore extends Container {
   private initialized = false;
 
   async fetch(request: Request): Promise<Response> {
+    if (!this.initialized) {
+      await this.ensureDatabase();
+      this.initialized = true;
+    }
+
     const url = new URL(request.url);
     url.protocol = "http:";
     url.hostname = "localhost";
@@ -40,12 +45,6 @@ export class ArangoStore extends Container {
     });
 
     const res = await this.containerFetch(forwarded, 8529);
-
-    // Auto-init DB + collections on first successful response after a (re)start.
-    if (!this.initialized && res.ok) {
-      this.initialized = true;
-      this.ctx.waitUntil(this.ensureDatabase());
-    }
 
     return res;
   }
