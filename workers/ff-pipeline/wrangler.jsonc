@@ -108,7 +108,7 @@
     "GAS_CITY_RIG": "function-factory",
     "GAS_CITY_RIG_ROOT": "/workspace",
     "GAS_CITY_WEBHOOK_URL": "https://ff-pipeline.koales.workers.dev/webhooks/gascity",
-    "GAS_CITY_FORMULA_VERSION_FACTORY_CODING_V1": "2",
+    "GAS_CITY_FORMULA_VERSION_FACTORY_CODING_V1": "3",
     "GAS_CITY_MAX_AMENDMENT_DEPTH": "3",
     "GAS_CITY_PERSISTENCE_FRESHNESS_HOURS": "24",
     "GAS_CITY_DISPATCH_STALE_MINUTES": "60",

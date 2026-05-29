@@ -103,7 +103,7 @@ const env: FormulaCompilerEnv = {
   GAS_CITY_RIG_ROOT: GC_RIG_ROOT,
   GAS_CITY_WEBHOOK_URL: "http://localhost:9999/webhook/release", // placeholder — IP-4 not wired yet
   FACTORY_MAX_ITERATIONS: "3",
-  GAS_CITY_FORMULA_VERSION_FACTORY_CODING_V1: "2",
+  GAS_CITY_FORMULA_VERSION_FACTORY_CODING_V1: "3",
 }
 
 // ── Real deps ──────────────────────────────────────────────────────────────
