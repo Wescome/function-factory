@@ -103,7 +103,7 @@ const env: FormulaCompilerEnv = {
   GAS_CITY_RIG_ROOT: GC_RIG_ROOT,
   GAS_CITY_WEBHOOK_URL: "http://localhost:9999/webhook/release", // placeholder — IP-4 not wired yet
   FACTORY_MAX_ITERATIONS: "3",
-  GAS_CITY_FORMULA_VERSION_FACTORY_CODING_V1: "1",
+  GAS_CITY_FORMULA_VERSION_FACTORY_CODING_V1: "2",
 }
 
 // ── Real deps ──────────────────────────────────────────────────────────────
@@ -256,8 +256,8 @@ async function main(): Promise<void> {
       pass = false
     } else {
       console.log(`PASS: FORM-* persisted (${result.form_id})`)
-      if (form.formula_version !== "1") {
-        console.error(`FAIL: formula_version expected "1", got "${form.formula_version}"`)
+      if (form.formula_version !== "2") {
+        console.error(`FAIL: formula_version expected "2", got "${form.formula_version}"`)
         pass = false
       } else {
         console.log(`PASS: formula_version="${form.formula_version}"`)
