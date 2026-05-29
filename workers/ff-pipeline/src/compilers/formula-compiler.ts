@@ -902,6 +902,12 @@ async function dispatchCall3AndFinalize(args: {
         sling_request_hash: slingRequestHash,
         completed_at: deps.now(),
       })
+      // Best-effort keepalive start — never fails the dispatch
+      deps.httpFetch(gasCityUrl(env, "/v0/keepalive/start"), {
+        method: "POST",
+        headers: gasCityAuthHeaders(env),
+        signal: AbortSignal.timeout(5_000),
+      }).catch(() => {})
       return {
         outcome: "dispatched",
         form_id: form._key,

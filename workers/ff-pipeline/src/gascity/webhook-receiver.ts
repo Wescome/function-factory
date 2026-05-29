@@ -229,6 +229,13 @@ export async function handleGasCityWebhook(request: Request, env: PipelineEnv): 
     await writeRevisionSignal(db, payload, vrId, remediation, receivedAt)
   }
 
+  // Best-effort keepalive stop — fire and forget
+  fetch(`${env.GAS_CITY_BASE_URL}/v0/keepalive/stop`, {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${env.GAS_CITY_BEARER_TOKEN}` },
+    signal: AbortSignal.timeout(5_000),
+  }).catch(() => {})
+
   return json({
     accepted: true,
     vr_id: vrId,
