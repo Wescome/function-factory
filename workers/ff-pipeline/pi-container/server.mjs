@@ -235,6 +235,27 @@ function resolveExecutionSurface(input) {
   return VALID_EXECUTION_SURFACES.has(surface) ? surface : 'rpc'
 }
 
+function normalizeOutputContract(contract) {
+  if (!contract || typeof contract !== 'object') return null
+  if (contract.body && typeof contract.body === 'object') return contract
+  if (typeof contract.artifact !== 'string' || contract.artifact.length === 0) return null
+  if (typeof contract.kind === 'string') {
+    return {
+      artifact: contract.artifact,
+      required: contract.required !== false,
+      body: { kind: contract.kind },
+    }
+  }
+  return defaultContract(contract.artifact)
+}
+
+function normalizeOutputContracts(input, declaredOutputs) {
+  if (Array.isArray(input.outputContracts) && input.outputContracts.length > 0) {
+    return input.outputContracts.map(normalizeOutputContract).filter(Boolean)
+  }
+  return declaredOutputs.map(defaultContract)
+}
+
 // ── JSONL byte-buffer reader ──────────────────────────────────────────────────
 
 class JsonlReader {
@@ -679,9 +700,7 @@ async function handleExecute(req, res) {
     const declaredOutputs = input.declaredOutputs ?? []
     const maxRepairRounds = Number.isFinite(input.maxRepairRounds) ? Math.max(0, input.maxRepairRounds) : 1
 
-    const contracts = Array.isArray(input.outputContracts) && input.outputContracts.length > 0
-      ? input.outputContracts
-      : declaredOutputs.map(defaultContract)
+    const contracts = normalizeOutputContracts(input, declaredOutputs)
 
     // Deterministic shortcuts: materialize simple contracts via pi bash before prompt.
     // This covers smoke-grade exact_line, json.required_fields, text, and markdown contracts
