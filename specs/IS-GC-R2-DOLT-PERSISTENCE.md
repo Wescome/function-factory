@@ -24,7 +24,7 @@ Use Dolt's native `dolt push` / `dolt pull` to an S3-compatible endpoint.
 
 ```
 Container                          Cloudflare R2
-/data/dolt/beads.db  <--pull---  r2://gascity-dolt-data/factory-beads
+/data/dolt/beads.db  <--pull---  r2://dolt-data/factory-beads
                      ---push-->  (on every gc supervisor commit cycle)
 ```
 
@@ -37,7 +37,7 @@ For R2 (no DynamoDB needed — Dolt can skip the DynamoDB lock table with env va
 DOLT_REMOTE_PASSWORD=<R2-secret-key> \
 AWS_ACCESS_KEY_ID=<R2-access-key> \
 AWS_SECRET_ACCESS_KEY=<R2-secret-key> \
-dolt remote add origin aws://[/:gascity-dolt-data]/factory-beads \
+dolt remote add origin aws://[/:dolt-data]/factory-beads \
   --aws-region auto \
   --aws-creds-type env
 ```
@@ -49,12 +49,13 @@ Set via `DOLT_AWS_ENDPOINT` or the Dolt config `remotes.aws_endpoint`.
 
 ### 1. Create R2 bucket
 ```
-wrangler r2 bucket create gascity-dolt-data
+wrangler r2 bucket create dolt-data
 ```
+✅ Bucket `dolt-data` already created 2026-05-29.
 
 ### 2. Create R2 API token
 In Cloudflare dashboard → R2 → API tokens → Create token with:
-- Object Read & Write on bucket `gascity-dolt-data`
+- Object Read & Write on bucket `dolt-data`
 - Note the Access Key ID and Secret Access Key
 
 ### 3. Set secrets on gascity-supervisor Worker
@@ -88,7 +89,7 @@ On startup, after `mkdir -p /data/dolt`:
 if [ ! -d /data/dolt/factory-beads ]; then
   echo "[startup] Restoring bead store from R2..."
   cd /data/dolt
-  dolt clone aws://[/:gascity-dolt-data]/factory-beads \
+  dolt clone aws://[/:dolt-data]/factory-beads \
     --aws-region auto 2>/tmp/dolt-clone.log || echo "[startup] No R2 backup yet, starting fresh"
 fi
 ```
@@ -124,7 +125,7 @@ gc beads init --provider bd 2>/tmp/gc-beads-init.log || true
 ## Files to change
 
 - `/Users/wes/eai/examples/factory/weops-gascity/stage/supervisor/wrangler.jsonc`
-  - Uncomment the `r2_buckets` binding: `[{ "binding": "DOLT_DATA", "bucket_name": "gascity-dolt-data" }]`
+  - Uncomment the `r2_buckets` binding: `[{ "binding": "DOLT_DATA", "bucket_name": "dolt-data" }]`
   - Note: the R2 binding is for reference only — Dolt talks to R2 directly via S3 API, not via the Worker binding
 
 - `/Users/wes/eai/examples/factory/weops-gascity/stage/supervisor/src/index.ts`
@@ -142,7 +143,7 @@ gc beads init --provider bd 2>/tmp/gc-beads-init.log || true
 ## Pre-requisites
 - IS-GC-PID1-SUPERVISION must be shipped first. R2-backed persistence is only
   meaningful when the Container doesn't restart on every supervisor crash.
-- R2 bucket `gascity-dolt-data` must exist before deployment.
+- R2 bucket `dolt-data` must exist before deployment.
 - R2 API credentials must be set as Worker secrets.
 
 ## Commit message
