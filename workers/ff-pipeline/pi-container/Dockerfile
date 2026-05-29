@@ -11,7 +11,9 @@ COPY package.json ./
 RUN npm install --omit=dev
 
 COPY server.mjs execution-contract.mjs contract-evaluator.mjs contract-types.mjs contract-materializer.mjs execution-policy.mjs workspace-seed.mjs workspace-derived-artifacts.mjs path-guard.mjs tool-capability-probe.mjs stage-runtime.mjs prompt-diagnostics.mjs ./
+COPY ./server.mjs ./server.mjs
 RUN test -f /app/workspace-derived-artifacts.mjs && test -f /app/path-guard.mjs
+RUN grep -q normalizeOutputContracts /app/server.mjs
 
 RUN mkdir -p /root/.pi/agent && \
     printf '{"providers":{"openrouter":{"baseUrl":"https://api.ofox.ai/v1","api":"openai-completions","apiKey":"OFOX_API_KEY","authHeader":true}}}\n' \
