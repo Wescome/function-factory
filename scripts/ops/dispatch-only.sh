@@ -14,7 +14,7 @@ FF_BASE="https://ff-pipeline.koales.workers.dev"
 GC_BASE="https://gascity-supervisor.koales.workers.dev"
 CURL_RETRY=(curl --http1.1 --retry 3 --retry-delay 2 --retry-all-errors --connect-timeout 10 --max-time 120 -sf)
 
-# ── Token ────────────────────────────────────────────────────────────────────
+# ── Tokens ───────────────────────────────────────────────────────────────────
 if [[ -n "${GC_OPERATOR_TOKEN:-}" ]]; then
   OPERATOR_TOKEN="$GC_OPERATOR_TOKEN"
 elif [[ -f /tmp/gc_token.txt ]]; then
@@ -24,14 +24,23 @@ else
   exit 1
 fi
 
+if [[ -n "${GC_SUPERVISOR_TOKEN:-}" ]]; then
+  SUPERVISOR_TOKEN="$GC_SUPERVISOR_TOKEN"
+elif [[ -f /tmp/gc_supervisor_token.txt ]]; then
+  SUPERVISOR_TOKEN="$(cat /tmp/gc_supervisor_token.txt)"
+else
+  echo "ERROR: no supervisor token. Set GC_SUPERVISOR_TOKEN or run first-dispatch.sh first." >&2
+  exit 1
+fi
+
 # ── Pre-warm: wait for Container to be ready ─────────────────────────────────
 echo "=== Pre-warming Gas City Container (up to 90s) ==="
 WARM=0
 for i in $(seq 1 30); do
   HTTP=$(curl --http1.1 --connect-timeout 5 --max-time 10 -s -o /dev/null -w "%{http_code}" \
-    -H "Authorization: Bearer $OPERATOR_TOKEN" \
-    "$GC_BASE/v0/supervisor/status" 2>/dev/null || echo "000")
-  if [[ "$HTTP" == "200" ]]; then
+    -H "Authorization: Bearer $SUPERVISOR_TOKEN" \
+    "$GC_BASE/v0/cities" 2>/dev/null || echo "000")
+  if [[ "$HTTP" == "200" || "$HTTP" == "404" ]]; then
     echo "  Container ready (attempt $i, status $HTTP)"
     WARM=1
     break

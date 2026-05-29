@@ -1,34 +1,38 @@
 # Current Workspace
 
 ## Status
-Session ended at 2026-05-28T21:37:42.757Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
+Session ended at 2026-05-29T22:03:56.094Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
 
 ## Last update
-2026-05-28T21:37:42.757Z
+2026-05-29T22:03:56.094Z
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
-- [21:22:16] Bash: cat /Users/wes/hermes/wrangler.jsonc 2>/dev/null || find /Users/wes/hermes -name "wrangler*" 2>/dev/null | head -5
-- [21:22:38] Bash: grep -n "scheduled\|cron\|BROWSER\|browser\|fetch.*browser\|browserSession\|puppeteer\|playwright" /Users/wes/hermes/src
-- [21:22:44] Bash: grep -n "handleScheduled\|backup\|BROWSER\|env\.BROWSER\|browser\.newPage\|fetch.*BROWSER" /Users/wes/hermes/src/index.t
-- [21:23:02] Edit: /Users/wes/hermes/wrangler.jsonc
-- [21:23:08] Bash: cd /Users/wes/hermes && git add wrangler.jsonc && git commit -m "$(cat <<'EOF'
-fix: cron * * * * * → 59 * * * * (hourly,
-- [21:26:09] Bash: cd /Users/wes/hermes && npx wrangler deploy 2>&1
-- [21:26:22] Bash: grep -n "cron\|trigger\|schedule" /Users/wes/hermes/dist/hermes_sandbox/wrangler.json 2>/dev/null
-- [21:26:30] Bash: cd /Users/wes/hermes && sed -i '' 's/"triggers":{"crons":\["\\* \\* \\* \\* \\*"\]}/"triggers":{"crons":["59 * * * *"]}/
-- [21:26:35] Bash: cat /Users/wes/hermes/package.json | grep -A5 '"build"'
-- [21:26:47] Bash: cd /Users/wes/hermes && npm run build 2>&1 | tail -5
-- [21:26:51] Bash: grep "crons" /Users/wes/hermes/dist/hermes_sandbox/wrangler.json
-- [21:27:28] Bash: cd /Users/wes/hermes && npx wrangler deploy 2>&1 | grep -E "schedule|Deployed|Uploaded|SUCCESS|ERROR|error|trigger|cron"
-- [21:29:44] Bash: cd /Users/wes/hermes && npx wrangler containers instances 2>&1 || npx wrangler containers list-instance-types 2>&1 || np
-- [21:29:49] Bash: grep -r "instance_type\|nano\|basic\|standard\|dev\b" /Users/wes/hermes/node_modules/wrangler/config-schema.json 2>/dev/
-- [21:31:02] Bash: cd /Users/wes/hermes && npx wrangler delete --name hermes-sandbox 2>&1
-- [21:32:08] Edit: /Users/wes/hermes/wrangler.jsonc
-- [21:32:13] Bash: cd /Users/wes/hermes && git add wrangler.jsonc && git commit -m "fix: remove scheduled cron — container wakes on demand 
-- [21:33:19] Bash: find /Users/wes/hermes -name "*.md" -o -name "CHANGELOG*" -o -name "README*" 2>/dev/null | head -5 | xargs grep -l "molt
-- [21:33:22] Bash: cd /Users/wes/hermes && git log --oneline | tail -20
-- [21:33:26] Bash: cd /Users/wes/hermes && git show 2f897f9 --stat | head -10 && git show 2f897f9 -- wrangler.jsonc 2>/dev/null | grep -A3 
+- [21:47:23] Bash: grep -n "DecorateGraphWorkflowRecipe\|func.*ApplyGraphRouting\|CreateMolecule\|cook\|workflow_id\|WorkflowID\|gc.kind.*w
+- [21:47:25] Bash: grep -rn "func DoSling\b\|func.*slingGraphWorkflow\|expandGraphWorkflow\|InstantiateRecipe\|CreateWorkflow\|outcome.*dis
+- [21:47:31] Bash: grep -rn "graph.v2\|InstantiateSlingFormula\|workflowID\|WorkflowID\|gc.kind.*=.*\"workflow\"\|run_target\|routed_to\|co
+- [21:47:40] Bash: grep -rn "default_sling_formula\|EffectiveDefaultSlingFormula\|sling_query\|NoFormula\|no-formula\|noFormula\|scope_kind
+- [21:47:47] Bash: grep -rn "control-dispatcher\|ControlDispatcherAgentName\|formula\b" /Users/wes/eai/examples/factory/weops-gascity/stage
+- [21:47:54] Bash: grep -rln "\"/sling\"\|/sling\|attached_bead_id\|slung\|root_bead_id" /Users/wes/Developer/gascity/ 2>/dev/null | grep -
+- [21:47:58] Bash: grep -rln "attached_bead_id\|\"slung\"\|root_bead_id" /Users/wes/Developer/gascity/cmd/gc/api_state.go /Users/wes/Develo
+- [21:48:03] Bash: grep -n "runtime_requirements\|func maybeDispatchHarness\|Attempted\|gc.kind\|run_target\|Assignee\|routed_to\|control" 
+- [21:48:09] Bash: curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"message":"Root cause found. The m
+- [21:49:40] Edit: /Users/wes/eai/examples/factory/weops-gascity/stage/supervisor/factory/city.toml
+- [21:49:44] Bash: cd /Users/wes/eai && git add examples/factory/weops-gascity/stage/supervisor/factory/city.toml && git commit -m "fix: ad
+- [21:50:19] Bash: cd /Users/wes/eai/examples/factory/weops-gascity/stage/supervisor && npx wrangler deploy 2>&1 | grep -E "Uploaded|Buildi
+- [21:50:27] Bash: bash /Users/wes/Developer/function-factory/scripts/ops/dispatch-only.sh 2>&1
+- [21:50:44] Bash: sleep 10 && SUPERVISOR_TOKEN="$(cat /tmp/gc_supervisor_token.txt)" && \
+curl -s -H "Authorization: Bearer $SUPERVISOR_TO
+- [21:51:14] Bash: SUPERVISOR_TOKEN="$(cat /tmp/gc_supervisor_token.txt)" && \
+curl -s -H "Authorization: Bearer $SUPERVISOR_TOKEN" \
+  "ht
+- [21:51:17] Bash: SUPERVISOR_TOKEN="$(cat /tmp/gc_supervisor_token.txt)" && \
+curl -s -H "Authorization: Bearer $SUPERVISOR_TOKEN" \
+  "ht
+- [21:54:43] Bash: cat /Users/wes/eai/examples/factory/weops-gascity/stage/supervisor/wrangler.jsonc | grep -i "instance_type\|standard\|co
+- [22:00:00] Bash: find /Users/wes/eai/examples/factory/weops-gascity/stage/supervisor/node_modules/@cloudflare/containers -name "*.d.ts" -
+- [22:03:49] Write: /Users/wes/Developer/function-factory/.agent/specs/IS-GC-CONTAINER-KEEPALIVE.md
+- [22:03:53] Bash: git add .agent/specs/IS-GC-CONTAINER-KEEPALIVE.md && git commit -m "META: add IS-GC-CONTAINER-KEEPALIVE spec"
 
 ## Notes
 This file is auto-updated on session end. Manual edits will be overwritten.

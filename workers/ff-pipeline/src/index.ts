@@ -184,6 +184,13 @@ export default {
       }
     }
 
+    // ── Admin: create/repair database + collections ──
+    if (url.pathname === '/admin/init-db' && request.method === 'POST') {
+      const auth = authorizeOperatorControl(request, env)
+      if (!auth.ok) return json({ error: auth.error }, auth.status === 403 ? 401 : auth.status)
+      return handleInitDb(env)
+    }
+
     // ── Diagnostic: Arango connectivity without credential exposure ──
     if (url.pathname === '/debug/arango' && request.method === 'GET') {
       const ok = await checkArango(env)
@@ -2444,4 +2451,71 @@ async function checkArango(env: PipelineEnv): Promise<boolean> {
   } catch {
     return false
   }
+}
+
+async function handleInitDb(env: PipelineEnv): Promise<Response> {
+  try {
+    return await _initDb(env)
+  } catch (err) {
+    return json({ ok: false, error: err instanceof Error ? err.message : String(err) }, 500)
+  }
+}
+
+async function _initDb(env: PipelineEnv): Promise<Response> {
+  const results: string[] = []
+  const basicAuth = btoa(`${env.ARANGO_USERNAME ?? 'root'}:${env.ARANGO_PASSWORD ?? ''}`)
+  const rootHeaders = { Authorization: `Basic ${basicAuth}`, 'Content-Type': 'application/json' }
+
+  // 1. Create database (idempotent — error 1207 = already exists)
+  const dbRes = await fetch(`${env.ARANGO_URL}/_api/database`, {
+    method: 'POST',
+    headers: rootHeaders,
+    body: JSON.stringify({ name: env.ARANGO_DATABASE }),
+  })
+  const dbBody = await dbRes.json() as Record<string, unknown>
+  if (dbRes.ok) {
+    results.push(`db:${env.ARANGO_DATABASE} created`)
+  } else if ((dbBody.errorNum as number) === 1207) {
+    results.push(`db:${env.ARANGO_DATABASE} exists`)
+  } else {
+    return json({ ok: false, error: `database create failed: ${JSON.stringify(dbBody)}`, results }, 500)
+  }
+
+  // 2. Ensure all collections
+  const { createClientFromEnv } = await import('@factory/arango-client')
+  const db = createClientFromEnv(env)
+
+  const docCollections = [
+    'execution_packets', 'verification_reports',
+    'specs_signals', 'specs_pressures', 'specs_capabilities',
+    'specs_functions', 'intent_specifications', 'executable_specifications',
+    'specs_invariants', 'specs_critic_reviews',
+    'verification_status', 'trust_scores', 'invariant_health',
+    'memory_episodic', 'memory_semantic', 'memory_working', 'memory_personal',
+    'function_runs', 'execution_artifacts',
+    'mentorscript_rules', 'consultation_requests',
+    'version_controlled_resolutions', 'merge_readiness_packs',
+    'merge_readiness_evidence', 'trellis_execution_packets',
+    'lifecycle_transitions', 'hot_config',
+    'config_aliases', 'config_routing', 'config_model_capabilities',
+    'orl_telemetry', 'intent_anchors', 'compilation_drift_ledger',
+    'completion_ledgers', 'file_context_cache',
+    'learning_run_transcripts', 'learning_observations',
+    'learning_template_candidates', 'learning_template_usage',
+    'learning_routing_observations', 'learning_consolidation_reports',
+    'learning_mutation_journal', 'learning_routing_proposals',
+    'learning_template_promotion_requests',
+  ]
+  const edgeCollections = ['lineage_edges', 'assurance_edges', 'dependency_edges']
+
+  for (const name of docCollections) {
+    await db.ensureCollection(name)
+    results.push(`col:${name}`)
+  }
+  for (const name of edgeCollections) {
+    await db.ensureCollection(name, { type: 'edge' })
+    results.push(`edge:${name}`)
+  }
+
+  return json({ ok: true, results, timestamp: new Date().toISOString() })
 }
