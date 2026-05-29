@@ -586,6 +586,10 @@ importers:
         version: 1.6.1(@types/node@20.19.39)
 
   workers/ff-arango:
+    dependencies:
+      '@cloudflare/containers':
+        specifier: ^0.3.5
+        version: 0.3.5
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20260501.0
@@ -1032,6 +1036,9 @@ packages:
 
   '@cloudflare/containers@0.3.3':
     resolution: {integrity: sha512-ZSXmArCoo5bVTp8pGAJdl5WKmwtZDcffJqr4JcZEbSmMIFjU+AlBqgysuxXMgu03Rp239cOdqerbjK7H0K2krQ==}
+
+  '@cloudflare/containers@0.3.5':
+    resolution: {integrity: sha512-P6jYEDkw1Q9qWRr9iFBxe1fozI5HfGMY6XrNg/jROPGZykcYrrzOluUqXv+q4N8gIoRXPCqJJ1FGALbTqnYTkg==}
 
   '@cloudflare/kv-asset-handler@0.3.4':
     resolution: {integrity: sha512-YLPHc8yASwjNkmcDMQMY35yiWjoKAKnhUbPRszBRS0YgH+IXtsMp61j+yTcnCE3oO2DgP0U3iejLC8FTtKDC8Q==}
@@ -4941,6 +4948,8 @@ snapshots:
       zod: 3.25.76
 
   '@cloudflare/containers@0.3.3': {}
+
+  '@cloudflare/containers@0.3.5': {}
 
   '@cloudflare/kv-asset-handler@0.3.4':
     dependencies:
