@@ -44,6 +44,9 @@ printf '%s' "$GC_HMAC_SECRET" | (cd "$FF_PIPELINE_DIR" && npx wrangler secret pu
 echo "  Setting OPERATOR_CONTROL_TOKEN on ff-pipeline..."
 printf '%s' "$OPERATOR_TOKEN" | (cd "$FF_PIPELINE_DIR" && npx wrangler secret put OPERATOR_CONTROL_TOKEN)
 
+echo "  Setting OPERATOR_CONTROL_TOKEN on gascity-supervisor (pi-rpc bearer token)..."
+printf '%s' "$OPERATOR_TOKEN" | (cd "$SUPERVISOR_DIR" && npx wrangler secret put OPERATOR_CONTROL_TOKEN)
+
 # ── 2. Deploy ff-pipeline ────────────────────────────────────────────────────
 echo ""
 echo "=== [2/6] Deploying ff-pipeline with Gas City vars ==="
