@@ -1,6 +1,6 @@
 ---
 id: IS-WORKSPACE-SEEDING
-version: 1
+version: 2
 title: "Workspace Seeding for PI Container Execution"
 source_refs:
   - ADR-011-workspace-seeding
@@ -9,12 +9,15 @@ source_refs:
   - IS-GC-RUNTIME-PROVIDER-CONTRACT
 explicitness: explicit
 rationale: >
-  ADR-011 accepted Option B (2026-05-30, Wes +B): formula compiler assembles
-  a SeedWorkspace bundle (IS/ES content + rig files), writes it to R2 keyed
-  by form_id, and the PI container fetches and hydrates inputArtifacts at
-  execute time. Architect and SE reviews confirmed the receiver (server.mjs
-  599-623, workspace-seed.mjs) is fully implemented and dormant — nothing
-  upstream populates inputArtifacts. This IS specifies the producer side.
+  ADR-011 accepted Option B (2026-05-30, Wes +B). V2 resolves four MUST
+  blockers from Architect + SE review (2026-05-30):
+  MUST-1: delivery path — Gas City Go change approved (Wes 2026-05-30);
+  MUST-2: container reads inline, not R2-fetch; delivery is inline JSON in
+  bead metadata, R2 write is for audit only;
+  MUST-3: SeedWorkspace schema uses existing issue/acceptance fields, no
+  schema extension (Wes approved 2026-05-30);
+  MUST-4: lineage carried as a files[] entry, not a top-level field;
+  MUST-5: new outcomes use failed+error-string pattern, not new enum values.
 ---
 
 # Workspace Seeding for PI Container Execution
@@ -25,7 +28,7 @@ When Factory dispatches a formula to Gas City and the pi-rpc harness provider
 fires `POST /__pi-container/execute`, the PI container agent must receive the
 IS content, ES acceptance criteria, and relevant rig files so it can produce
 non-vacuous output. Currently `inputArtifacts: {}` on every step. This function
-produces the seed payload and makes it available to the container at execute time.
+produces the seed payload and delivers it to the container at execute time.
 
 ## Problem
 
@@ -35,151 +38,184 @@ Three kernel requirements are unmet on every dispatch:
 - **K2 (Acceptance):** ES acceptance criteria never fetched or passed.
 - **K3 (Source material):** Working directory is empty — no rig files present.
 
-The PI container receiver is complete: `server.mjs:599-623` reads
-`inputArtifacts`, writes each entry to disk, detects `inputArtifacts.SeedWorkspace`,
-materializes files via `prepareSeedWorkspace`, and injects all content into the
-agent's prompt. Nothing upstream produces a payload — the receiver is dormant.
+The PI container receiver is complete: `server.mjs:599-625` reads
+`inputArtifacts`, writes each entry to disk, detects
+`inputArtifacts.SeedWorkspace` as an inline JSON string, materializes files via
+`prepareSeedWorkspace`, and injects `issue` and `acceptance` into the agent's
+prompt. Nothing upstream produces a payload — the receiver is dormant.
 
-Without this function every dispatch is vacuous: steps complete in ~500ms with
-no artifacts and `stageHistory: []`.
+The delivery gap: `harness.ExecutionRequest.Inputs` (`types.go:84`) is read by
+pi-rpc `translateRequest` (`provider.go:336`) but written by zero production
+code paths in Gas City. `harnessExecutionRequestForBead`
+(`harness_dispatch.go:222-253`) builds the request from bead metadata only.
 
 ## Goal
 
 Implement a function that, as part of the formula dispatch flow:
 
-1. Fetches the IS document body from ArangoDB (`intent_specifications` collection)
+1. Fetches the IS document body from ArangoDB (`intent_specifications`)
    using `ep.intentSpecificationId`.
-2. Fetches the ES document body from ArangoDB (`executable_specifications`
-   collection) using `ep.executableSpecificationId`.
-3. Assembles a `SeedWorkspace` JSON bundle (schema: `coding-adapter-workspace.ts`)
-   containing IS/ES content as named entries and the curated rig file set.
-4. Writes the bundle to R2 (`ff-workspaces` bucket) at key
-   `seeds/<form_id>/seed.json` — deterministic, keyed by FORM-* ID.
-5. Makes the seed key available to the PI container via the execution request
-   so the container can fetch and hydrate `inputArtifacts` before running pi.
-6. Halts with an `UncertaintyEntry` if IS/ES fetch fails or R2 write fails.
-   Never dispatches with an empty or missing seed (INV-1).
-
-The function is LLM-free and deterministic: same EP + same `factory_attempt`
-always produces the same seed key and the same bundle content (INV-3).
+2. Fetches the ES document body from ArangoDB (`executable_specifications`)
+   using `ep.executableSpecificationId`.
+3. Assembles a `SeedWorkspace` JSON bundle using the existing schema
+   (`coding-adapter-workspace.ts`):
+   - `issue`: IS body text (K1)
+   - `acceptance`: ES acceptance criteria as a string array (K2)
+   - `testCommand`: from `EP.parameters.test_command` if present
+   - `files[]`: curated rig file set from `EP.parameters.rig_files` (K3)
+   - A `lineage.json` entry in `files[]` carrying `{form_id, ep_id, is_id,
+     es_id, factory_attempt}` as JSON text (lineage carrier)
+4. Writes the serialized bundle to R2 (`ff-workspaces` bucket) at key
+   `seeds/<form_id>/seed.json` for audit/durability.
+5. Includes the full SeedWorkspace JSON string as bead metadata label
+   `gc.seed_workspace` in the CALL 2 bead-create body so Gas City can read it.
+6. Gas City (`harnessExecutionRequestForBead`, `harness_dispatch.go:222`) reads
+   `bead.Metadata["gc.seed_workspace"]` and sets
+   `req.Inputs["SeedWorkspace"] = metadata["gc.seed_workspace"]`.
+   pi-rpc `translateRequest` then maps `req.Inputs` →
+   `context.inputArtifacts`, which the container reads inline.
+7. Halts with outcome `failed` + `error: "seed_resolution_failed"` if IS/ES
+   fetch fails. Halts with `failed` + `error: "seed_upload_failed"` if R2
+   write fails. Never dispatches without a complete seed (INV-1).
 
 ## Constraints
 
-**Injected deps pattern.** All new I/O (IS/ES fetch, R2 write) must be added
-to `FormulaCompilerDeps` (`formula-compiler.ts`) as injected functions, unit-
-testable with mocks before any live wiring. Follow the existing pattern of
-`writeFormAndDispatchLog`, `httpFetch`, etc.
+**Schema: no changes.** `SeedWorkspace` schema (`coding-adapter-workspace.ts`
+and `.mjs`) is not modified. IS content maps to `issue`; ES acceptance criteria
+map to `acceptance[]`. Lineage is carried as a `files[]` entry
+(`lineage.json`). Unknown keys would be silently dropped by the parser — so no
+new top-level fields are introduced.
 
-**Seed durability precedes dispatch (INV-2).** R2 write completes and is
-confirmed before CALL 3 (sling) fires. The seed key is never passed to Gas City
-until the payload is durably stored.
+**One targeted Gas City Go change (approved Wes 2026-05-30).** The only Go
+change is adding one read in `harnessExecutionRequestForBead`
+(`harness_dispatch.go:222`): if `bead.Metadata["gc.seed_workspace"] != ""`,
+set `req.Inputs["SeedWorkspace"] = bead.Metadata["gc.seed_workspace"]`. No
+other Gas City files are touched.
 
-**Determinism (INV-3, AC-4).** The seed bundle is a pure function of EP content
-and `factory_attempt`. File lists are sorted. Bundle is serialized with
-`stableStringify`. The R2 key is `seeds/<form_id>/seed.json` — `form_id`
-already satisfies AC-4.
+**Delivery is inline.** The container reads `inputArtifacts.SeedWorkspace` from
+the execute request body (server.mjs:608). The full JSON string travels through
+Gas City as a bead metadata value. R2 write is for audit only — it is not the
+delivery channel.
 
-**No Gas City changes.** Gas City is not touched. The seed key travels to the
-PI container as a field the container reads and resolves; Gas City transports
-it opaquely.
+**Seed write precedes CALL 2.** The R2 write and the bead metadata label are
+both set before CALL 2 (POST `/v0/city/{city}/beads`). This ensures the bead
+carries the seed reference at creation time and the R2 copy is durable before
+Gas City processes the bead.
 
-**Fail-closed on missing seed (INV-1).** If IS or ES cannot be fetched, or if
-the R2 write fails, the function returns an `UncertaintyEntry` outcome and does
-not fire CALL 3 (sling). A vacuous dispatch with an empty workspace is worse
-than no dispatch.
+**Injected deps pattern.** All new I/O (IS/ES fetch, R2 write, rig file fetch)
+are added to `FormulaCompilerDeps` as injected functions, unit-testable with
+mocks. Follow the `writeFormAndDispatchLog`, `httpFetch` pattern.
 
-**No silent truncation (INV-5).** If the assembled bundle exceeds R2 limits or
-a configurable size ceiling, the function emits an `UncertaintyEntry`
-("seed bundle too large — narrow the rig file selection") rather than truncating.
+**Fail-closed on missing or failed seed (INV-1).** Outcome `failed` +
+`error: "seed_resolution_failed"` when IS/ES fetch fails or rig file is
+missing. Outcome `failed` + `error: "seed_upload_failed"` when R2 write fails.
+These extend the existing `missing_coherence_vr` / `unregistered_adapter`
+pattern (`formula-compiler.ts:295-304`). No new enum values added.
 
-**Coding domain only for v1.** The `SeedWorkspace` encoding is coding-specific
-(`coding-adapter-workspace.ts` schema). Other domain adapters define their own
-K3 encodings in separate functions. The kernel mechanism (`inputArtifacts` map)
-is domain-neutral; the content producers are adapter-specific.
+**Determinism (INV-3, AC-4).** Bundle serialized with `stableStringify`
+(existing function in `formula-compiler.ts:1085`, to be exported or extracted
+to a shared module). R2 key is `seeds/<form_id>/seed.json` — deterministic by
+AC-4. Bundle content excludes timestamps or UUIDs.
 
-**Curated file list for v1.** Automated rig file selection (repo-map generation)
-is deferred. The v1 rig file set is specified in the EP's `parameters` field
-under a `rig_files` key: an array of repo-relative paths. The function reads
-this list and fetches file content from R2 (`ff-workspaces` workspace bucket,
-where the rig snapshot is pre-uploaded by the operator) or via the Git API.
+**No silent truncation (INV-5).** If the assembled bundle exceeds 512 KB
+(configurable via `SEED_MAX_BYTES` env var, default 524288), outcome is
+`failed` + `error: "seed_too_large"` naming the oversized rig paths.
+
+**Producer-side path safety.** Each path in `EP.parameters.rig_files` is
+validated with `assertSafeRelativePath` (`coding-adapter-workspace.ts:218`)
+before R2 fetch. Invalid paths halt with `failed` + `error: "seed_invalid_path"`.
+
+**Coding domain only for v1.** The `SeedWorkspace` encoding is coding-specific.
+Other domain adapters define their own K3 encodings separately.
+
+**Curated file list for v1.** `EP.parameters.rig_files` is an array of
+repo-relative paths. Rig file content is fetched from R2 at a pre-uploaded
+snapshot key `rigs/<form_id>/` (operator-managed, `ff-workspaces` bucket).
+Automated rig file selection is deferred.
 
 ## Acceptance Criteria
 
-**AC-1 — IS content in seed.** For every dispatch, the assembled
-`SeedWorkspace` contains an entry `IS` whose value is the full text of the
-IS document body fetched from ArangoDB.
+**AC-1 — IS content in seed.** The assembled bundle has a non-empty `issue`
+field containing the IS document body fetched from `intent_specifications`.
 
-**AC-2 — ES content in seed.** For every dispatch, the assembled
-`SeedWorkspace` contains an entry `ES` whose value is the full text of the
-ES document body fetched from ArangoDB.
+**AC-2 — ES acceptance criteria in seed.** The assembled bundle has a non-empty
+`acceptance` array containing the ES acceptance criteria strings fetched from
+`executable_specifications`.
 
-**AC-3 — Rig files in seed.** For every dispatch whose EP carries a
-`parameters.rig_files` list, each path in the list is present as a file entry
-in `SeedWorkspace.files[]` with the correct path and content.
+**AC-3 — Rig files in seed.** Each path in `EP.parameters.rig_files` appears
+as a `files[]` entry with correct relative path and content.
 
-**AC-4 — Seed written to R2 before sling.** The R2 PUT for `seeds/<form_id>/seed.json`
-completes with a 2xx response before CALL 3 (POST `/v0/city/{city}/sling`)
-fires.
+**AC-4 — Lineage entry in seed.** `files[]` contains an entry with
+`path: "lineage.json"` whose content is the JSON string
+`{"form_id":"…","ep_id":"…","is_id":"…","es_id":"…","factory_attempt":N}`.
 
-**AC-5 — Seed key in execution request.** The PI container receives the seed
-key (`seeds/<form_id>/seed.json`) in the execution request — either via
-`contextRefs.seed_ref` or a formula var passed through the step description —
-and fetches the bundle from R2 before calling `prepareSeedWorkspace`.
+**AC-5 — R2 write before CALL 2.** The R2 PUT to `seeds/<form_id>/seed.json`
+returns 2xx before the CALL 2 bead-create request fires.
 
-**AC-6 — Container materializes seed.** After hydration, the PI container's
-working directory contains the files declared in `SeedWorkspace.files[]`. The
+**AC-6 — Bead carries seed label.** The CALL 2 bead-create body includes
+metadata label `gc.seed_workspace` whose value is the full SeedWorkspace JSON
+string (same content as the R2 object).
+
+**AC-7 — Gas City populates req.Inputs.** When `bead.Metadata["gc.seed_workspace"]`
+is non-empty, `harnessExecutionRequestForBead` sets
+`req.Inputs["SeedWorkspace"] = bead.Metadata["gc.seed_workspace"]`.
+Verified by checking the pi-rpc WorkerInput sent to the container contains
+`context.inputArtifacts.SeedWorkspace`.
+
+**AC-8 — Container materializes seed.** After execute, the PI container
+working directory contains files matching `files[]` in the seed. The
 observation event log includes `execute.seed_workspace_prepared`.
 
-**AC-7 — Fail-closed on IS/ES fetch failure.** If `fetchIntentSpec` or
-`fetchExecutableSpec` returns null or throws, the dispatch outcome is
-`seed_resolution_failed` and no sling call fires. The dispatch_log records the
-failure reason.
+**AC-9 — Fail-closed on IS/ES fetch failure.** IS/ES fetch failure →
+outcome `failed`, `error: "seed_resolution_failed"`, no sling call fires.
 
-**AC-8 — Fail-closed on R2 write failure.** If the R2 PUT fails, the dispatch
-outcome is `seed_upload_failed` and no sling call fires. The dispatch_log
-records the failure reason.
+**AC-10 — Fail-closed on R2 write failure.** R2 PUT failure →
+outcome `failed`, `error: "seed_upload_failed"`, no sling call fires.
 
-**AC-9 — Determinism.** Running the seed assembly twice with the same EP
-and `factory_attempt` produces byte-identical bundles (same `stableStringify`
-output) and the same R2 key.
+**AC-11 — Fail-closed on missing rig file.** A `rig_files` entry not found in
+R2 → outcome `failed`, `error: "seed_resolution_failed"`, naming the missing
+path.
 
-**AC-10 — No silent truncation.** If the bundle exceeds the configured size
-ceiling, the dispatch outcome is `seed_too_large` with a human-readable
-`UncertaintyEntry` message naming the offending rig path(s).
+**AC-12 — Fail-closed on invalid rig path.** A `rig_files` entry that fails
+`assertSafeRelativePath` → outcome `failed`, `error: "seed_invalid_path"`.
 
-**AC-11 — Lineage.** The `SeedWorkspace` bundle carries a `lineage` field:
-`{form_id, ep_id, is_id, es_id, factory_attempt}`. This field is written to
-the bundle before the R2 PUT and is readable by the container after hydration.
+**AC-13 — Fail-closed on oversized bundle.** Bundle exceeds `SEED_MAX_BYTES` →
+outcome `failed`, `error: "seed_too_large"`, naming offending paths.
 
-**AC-12 — Existing dispatch path unchanged.** Steps AC-1 through AC-11 are
-additive. The three-call dispatch sequence (CALL 1 version probe → CALL 2
-bead create → CALL 3 sling) is otherwise unchanged. No existing acceptance
-criteria of IS-GC-EP-FORMULA-DISPATCH are weakened.
+**AC-14 — Determinism.** Same EP + same `factory_attempt` produces
+byte-identical SeedWorkspace JSON (via `stableStringify`, no timestamps in
+bundle). Same R2 key. Overwrite-safe (idempotent R2 PUT).
+
+**AC-15 — Existing dispatch tests pass.** All existing acceptance criteria of
+IS-GC-EP-FORMULA-DISPATCH are satisfied unchanged. The three-call sequence is
+otherwise unmodified.
 
 ## Validation
 
-- Unit tests: `seedAssembly.test.ts` — IS/ES fetch mocked, R2 write mocked,
-  asserts bundle shape and lineage fields. Covers AC-1, AC-2, AC-3, AC-9, AC-11.
-- Unit tests: fail-closed paths — covers AC-7, AC-8, AC-10.
-- Integration probe: hand-upload a `seed.json` to R2 at a known `form_id` key,
-  dispatch via `dispatch-only.sh`, observe `execute.seed_workspace_prepared`
-  event in PI container observation. Verifies AC-5, AC-6 end-to-end before
-  wiring the compiler.
-- Regression: existing dispatch tests in `formula-compiler.test.ts` pass
-  unchanged (AC-12).
+- Unit tests `seedAssembly.test.ts`: IS/ES fetch mocked, R2 write mocked,
+  rig file fetch mocked. Asserts bundle shape (AC-1–4), determinism (AC-14),
+  fail-closed paths (AC-9–13). Does not touch live ArangoDB or R2.
+- Integration probe: hand-upload a `SeedWorkspace` JSON to R2 at a known
+  `seeds/<form_id>/seed.json`, dispatch via `dispatch-only.sh` with a
+  matching `gc.seed_workspace` bead label (injected manually), observe
+  `execute.seed_workspace_prepared` in PI container observation. Verifies
+  AC-7 and AC-8 end-to-end before wiring the full compiler path.
+- Gas City Go change test: unit test in `harness_dispatch_test.go` asserting
+  that a bead with `gc.seed_workspace` metadata produces a WorkerInput with
+  `context.inputArtifacts.SeedWorkspace` set.
+- Regression: existing `formula-compiler.test.ts` dispatch tests pass
+  unchanged (AC-15).
 
-## Open Questions
+## Resolved Open Questions
 
-**OQ-1 — Seed key delivery to PI container.** Two options:
-  (a) Pass via `contextRefs.seed_ref` in the `harnessExecutionRequestForBead`;
-      requires confirming Gas City forwards `contextRefs` to the provider.
-  (b) Pass via a formula var (`{{seed_ref}}`), substituted into step description
-      text; container parses from its task context.
-  Architect to confirm which is less fragile given that `contextRefs` is
-  structurally dead in `buildPrompt` (Architect finding 2026-05-30).
+**OQ-1 (seed key delivery) — RESOLVED.** Delivery is **inline JSON in bead
+metadata**, not R2-key-fetch. The compiler writes the full SeedWorkspace JSON
+as `gc.seed_workspace` bead metadata at CALL 2. Gas City reads it into
+`req.Inputs`. Container reads inline from `inputArtifacts`. R2 write is for
+audit only. Container needs no R2 access.
 
-**OQ-2 — Rig file source.** For v1, where do rig file contents come from?
-  (a) Pre-uploaded snapshot in `ff-workspaces` R2 bucket, operator-managed.
-  (b) Fetched from GitHub API using `GITHUB_TOKEN` at dispatch time.
-  Operator-managed snapshot (a) is safer for bootstrap; GitHub API (b) always
-  fresh but adds a new network dependency and auth surface.
+**OQ-2 (rig file source) — RESOLVED.** Option (a): operator-managed R2
+snapshot at `rigs/<form_id>/` in `ff-workspaces` bucket. Missing rig file →
+`seed_resolution_failed` (loud halt). Staleness is not detected automatically
+— the operator manages snapshot freshness. A `lineage.json` entry in the seed
+records the snapshot key for downstream auditability.
