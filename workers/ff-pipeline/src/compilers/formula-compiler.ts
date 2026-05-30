@@ -25,6 +25,8 @@
  */
 
 import type { TrellisExecutionPacket } from "@factory/schemas"
+import { stableStringify } from "./stable-stringify.js"
+import type { SeedWorkspace } from "../coding-adapter-workspace.js"
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -43,6 +45,11 @@ export interface FormulaCompilerEnv {
   GAS_CITY_RIG_ROOT: string
   GAS_CITY_WEBHOOK_URL: string
   FACTORY_MAX_ITERATIONS?: string
+  /**
+   * IS-WORKSPACE-SEEDING AC-13: seed bundle ceiling in bytes (default
+   * 524288). Read as a string env var; parsed to a number at use.
+   */
+  SEED_MAX_BYTES?: string
   /**
    * Pinned formula version env vars. Lookup name is derived from the
    * template name: `template_name.toUpperCase().replace(/-/g, "_")`
@@ -190,6 +197,23 @@ export interface FormulaCompilerDeps {
   now(): string
   /** Sleep — used for CALL 2 / CALL 3 retry backoff. */
   sleep(ms: number): Promise<void>
+  /**
+   * IS-WORKSPACE-SEEDING AC-1: fetch the Intent Specification body +
+   * acceptance criteria from `intent_specifications`. Returns null if absent.
+   */
+  fetchIntentSpec: (id: string) => Promise<{ body: string; acceptanceCriteria: string[] } | null>
+  /**
+   * IS-WORKSPACE-SEEDING AC-2: fetch the Executable Specification body +
+   * acceptance criteria from `executable_specifications`. Returns null if absent.
+   */
+  fetchExecutableSpec: (id: string) => Promise<{ body: string; acceptanceCriteria: string[] } | null>
+  /** IS-WORKSPACE-SEEDING AC-5: R2 write of the serialized seed bundle. */
+  putSeed: (key: string, json: string) => Promise<void>
+  /**
+   * IS-WORKSPACE-SEEDING AC-3: read a curated rig file from the R2 snapshot
+   * (`rigs/<path>`). Returns null if absent.
+   */
+  getRigFile: (path: string) => Promise<string | null>
 }
 
 /** Caller input. */
@@ -249,6 +273,118 @@ const PER_CALL_TIMEOUT_MS = 25_000
 const CALL_2_RETRY_BACKOFF_MS = [1000, 2000, 4000] // AC-13: 3 retries
 const CALL_3_RETRY_BACKOFF_MS = [1000, 2000, 4000] // AC-18: 3 retries
 const COMPILER_MODULE_PATH = "workers/ff-pipeline/src/compilers/formula-compiler.ts"
+
+/**
+ * IS-WORKSPACE-SEEDING INV-5 / AC-13: default seed bundle ceiling (512 KB).
+ * Overridable via the `SEED_MAX_BYTES` env var.
+ */
+const SEED_MAX_BYTES_DEFAULT = 524288
+
+// ─── Seed assembly (IS-WORKSPACE-SEEDING) ───────────────────────────────────
+
+/** Minimal EP subset the seed assembler reads. */
+interface SeedEp {
+  intentSpecificationId: string
+  executableSpecificationId: string
+  id: string
+  parameters?: Record<string, unknown>
+}
+
+export type SeedAssemblyResult =
+  | { json: string; outcome: "ok" }
+  | {
+      outcome: "seed_resolution_failed" | "seed_too_large" | "seed_invalid_path"
+      detail: string
+    }
+
+/**
+ * Producer-side path safety, mirroring `assertSafeRelativePath`
+ * (coding-adapter-workspace.ts:218): no `..` segments, no leading `/`, no
+ * empty path, no null bytes. Returns true when the path is safe.
+ */
+function isSafeRelativePath(path: string): boolean {
+  if (path.length === 0) return false
+  if (path.startsWith("/")) return false
+  if (path.includes("\0")) return false
+  if (path.split("/").some((part) => part === "..")) return false
+  return true
+}
+
+/**
+ * Assemble the SeedWorkspace bundle for a dispatch (IS-WORKSPACE-SEEDING).
+ *
+ * Fetches the IS body (AC-1) and ES acceptance criteria (AC-2), reads the
+ * curated rig file set (AC-3), embeds a deterministic `lineage.json` entry
+ * (AC-4), and serializes the whole bundle with `stableStringify` (AC-14).
+ * Fails closed (INV-1) on any missing/invalid/oversized input — never returns
+ * a partial seed.
+ */
+export async function assembleSeed(
+  ep: SeedEp,
+  formKey: string,
+  factoryAttempt: number,
+  deps: FormulaCompilerDeps,
+  maxBytes: number = SEED_MAX_BYTES_DEFAULT,
+): Promise<SeedAssemblyResult> {
+  // 1. IS body (AC-1).
+  const isDoc = await deps.fetchIntentSpec(ep.intentSpecificationId)
+  if (!isDoc) {
+    return { outcome: "seed_resolution_failed", detail: `IS not found: ${ep.intentSpecificationId}` }
+  }
+  // 2. ES acceptance criteria (AC-2).
+  const esDoc = await deps.fetchExecutableSpec(ep.executableSpecificationId)
+  if (!esDoc) {
+    return { outcome: "seed_resolution_failed", detail: `ES not found: ${ep.executableSpecificationId}` }
+  }
+  // 3. Curated rig file paths.
+  const rigFiles = ((ep.parameters as Record<string, unknown> | undefined)?.rig_files ??
+    []) as string[]
+  // 4. Path safety (AC-12).
+  for (const path of rigFiles) {
+    if (!isSafeRelativePath(path)) {
+      return { outcome: "seed_invalid_path", detail: `unsafe path: ${path}` }
+    }
+  }
+  // 5. Fetch each rig file (AC-3 / AC-11).
+  const rigContents: string[] = []
+  for (const path of rigFiles) {
+    const content = await deps.getRigFile(path)
+    if (content === null) {
+      return { outcome: "seed_resolution_failed", detail: `rig file not found: ${path}` }
+    }
+    rigContents.push(content)
+  }
+  // 6. Assemble the SeedWorkspace (AC-1..4).
+  const seed: SeedWorkspace = {
+    schemaVersion: "1.0",
+    issue: isDoc.body,
+    acceptance: esDoc.acceptanceCriteria,
+    files: [
+      ...rigFiles.map((path, i) => ({ path, content: rigContents[i]! })),
+      {
+        path: "lineage.json",
+        content: stableStringify({
+          form_id: formKey,
+          ep_id: ep.id,
+          is_id: ep.intentSpecificationId,
+          es_id: ep.executableSpecificationId,
+          factory_attempt: factoryAttempt,
+        }),
+      },
+    ],
+  }
+  // 7. Serialize deterministically (AC-14).
+  const json = stableStringify(seed)
+  // 8. Size ceiling (AC-13 / INV-5).
+  if (json.length > maxBytes) {
+    return {
+      outcome: "seed_too_large",
+      detail: `bundle too large (${json.length} bytes); rig paths: ${rigFiles.join(", ")}`,
+    }
+  }
+  // 9. OK.
+  return { outcome: "ok", json }
+}
 
 // ─── Entry point ──────────────────────────────────────────────────────────
 
@@ -511,6 +647,53 @@ export async function compileAndDispatchFormula(
     }
   }
 
+  // ── IS-WORKSPACE-SEEDING: seed assembly — before CALL 1 ────────────────
+  // (spec AC-5: R2 write before CALL 2). Fail-closed (INV-1): if the seed
+  // cannot be assembled or uploaded, no Gas City call fires.
+  const seedResult = await assembleSeed(
+    {
+      intentSpecificationId: epAny.intentSpecificationId,
+      executableSpecificationId: epAny.executableSpecificationId,
+      id: epAny.id,
+      parameters: epAny.adapter.executionRequest.parameters,
+    },
+    formKey,
+    factoryAttempt,
+    deps,
+    seedMaxBytes(env),
+  )
+  if (seedResult.outcome !== "ok") {
+    await deps.updateDispatchLog(dispatchLogKey, {
+      outcome: "failed",
+      error: seedResult.outcome,
+      completed_at: deps.now(),
+    })
+    return {
+      outcome: "failed",
+      error: `${seedResult.outcome}: ${seedResult.detail}`,
+      form_id: formKey,
+      dispatch_log_key: dispatchLogKey,
+    }
+  }
+  const seedJson = seedResult.json
+  const seedKey = `seeds/${formKey}/seed.json`
+  try {
+    await deps.putSeed(seedKey, seedJson)
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err)
+    await deps.updateDispatchLog(dispatchLogKey, {
+      outcome: "failed",
+      error: "seed_upload_failed",
+      completed_at: deps.now(),
+    })
+    return {
+      outcome: "failed",
+      error: `seed_upload_failed: ${detail}`,
+      form_id: formKey,
+      dispatch_log_key: dispatchLogKey,
+    }
+  }
+
   // ── CALL 1: GET formula (version probe, AC-10) ─────────────────────────
   const pinnedVersionEnvVar = formulaVersionEnvName(templateName)
   const pinnedVersion = (env as unknown as Record<string, string | undefined>)[
@@ -603,6 +786,9 @@ export async function compileAndDispatchFormula(
       "ff.dispatched_at": deps.now(),
       "ff.webhook_url": env.GAS_CITY_WEBHOOK_URL,
       "ff.ep_id": epAny.id,
+      // IS-WORKSPACE-SEEDING AC-6: full SeedWorkspace JSON delivered inline as
+      // a bead metadata label. Gas City reads this into req.Inputs (AC-7).
+      "gc.seed_workspace": seedJson,
     },
     // Phase 1: city-scoped dispatch — no rig bead store; use city bead store.
     // GC findStore("") → CityBeadStore() from [beads] provider = "file".
@@ -1052,6 +1238,20 @@ function formulaVersionEnvName(templateName: string): string {
 }
 
 /**
+ * IS-WORKSPACE-SEEDING AC-13: resolve the seed size ceiling from the
+ * `SEED_MAX_BYTES` env var, falling back to the 512 KB default on absence or
+ * a non-positive/non-numeric value.
+ */
+function seedMaxBytes(env: FormulaCompilerEnv): number {
+  const raw = env.SEED_MAX_BYTES
+  if (typeof raw === "string" && raw.trim().length > 0) {
+    const n = Number(raw)
+    if (Number.isFinite(n) && n > 0) return n
+  }
+  return SEED_MAX_BYTES_DEFAULT
+}
+
+/**
  * AC-6 key derivation:
  *   `"FORM-" + sha256(ep_id + "|" + factory_attempt).substring(0,16).toUpperCase()`
  */
@@ -1076,38 +1276,9 @@ async function sha256Hex(input: string): Promise<string> {
   return hex
 }
 
-/**
- * Deterministic JSON.stringify. Sorts object keys alphabetically (top-
- * level only — values that are themselves objects are recursed). Arrays
- * preserve their order. NaN / Infinity → throw (we never want those in
- * compiled output).
- */
-function stableStringify(value: unknown): string {
-  if (value === null) return "null"
-  if (typeof value === "number") {
-    if (!Number.isFinite(value)) {
-      throw new Error(`stableStringify: non-finite number ${value}`)
-    }
-    return JSON.stringify(value)
-  }
-  if (typeof value === "string" || typeof value === "boolean") {
-    return JSON.stringify(value)
-  }
-  if (Array.isArray(value)) {
-    return `[${value.map((v) => stableStringify(v)).join(",")}]`
-  }
-  if (typeof value === "object") {
-    const obj = value as Record<string, unknown>
-    const keys = Object.keys(obj).sort()
-    const parts: string[] = []
-    for (const k of keys) {
-      parts.push(`${JSON.stringify(k)}:${stableStringify(obj[k])}`)
-    }
-    return `{${parts.join(",")}}`
-  }
-  // undefined / function / symbol — should never appear in EP parameters.
-  throw new Error(`stableStringify: unsupported value type ${typeof value}`)
-}
+// `stableStringify` now lives in ./stable-stringify.ts (shared with seed
+// assembly). Re-exported for any external consumer that imported it from here.
+export { stableStringify } from "./stable-stringify.js"
 
 /**
  * Merge reserved + role var maps into a key-sorted object. Sorting keys

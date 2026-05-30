@@ -10,9 +10,11 @@ import type {
 
 export function buildFormulaCompilerDeps(
   db: ArangoClient,
-  env: FormulaCompilerEnv & { GAS_CITY?: Fetcher },
+  env: FormulaCompilerEnv & { GAS_CITY?: Fetcher; WORKSPACE_BUCKET?: unknown },
 ): FormulaCompilerDeps {
   let uncertaintyCollectionEnsured = false
+  // The CF binding is typed `unknown` upstream (PipelineEnv); narrow it once.
+  const workspaceBucket = env.WORKSPACE_BUCKET as R2Bucket | undefined
   return {
     fetchCoherenceVR: async (esId: string) => {
       const rows = await db.query<CoherenceVRRow>(
@@ -95,6 +97,67 @@ export function buildFormulaCompilerDeps(
 
     sleep: async (ms: number) => {
       await new Promise<void>((resolve) => setTimeout(resolve, ms))
+    },
+
+    // ── IS-WORKSPACE-SEEDING deps ──────────────────────────────────────────
+    fetchIntentSpec: async (id: string) => {
+      const rows = await db.query<Record<string, unknown>>(
+        `FOR doc IN intent_specifications
+  FILTER doc._key == @id OR doc.id == @id
+  LIMIT 1
+  RETURN doc`,
+        { id },
+      )
+      const doc = rows[0]
+      if (!doc) return null
+      const body =
+        (typeof doc.body === "string" ? doc.body : undefined) ??
+        (typeof doc.content === "string" ? doc.content : undefined) ??
+        JSON.stringify(doc)
+      const acceptanceCriteria = Array.isArray(doc.acceptanceCriteria)
+        ? (doc.acceptanceCriteria as unknown[]).filter(
+            (x): x is string => typeof x === "string",
+          )
+        : []
+      return { body, acceptanceCriteria }
+    },
+
+    fetchExecutableSpec: async (id: string) => {
+      const rows = await db.query<Record<string, unknown>>(
+        `FOR doc IN executable_specifications
+  FILTER doc._key == @id OR doc.id == @id
+  LIMIT 1
+  RETURN doc`,
+        { id },
+      )
+      const doc = rows[0]
+      if (!doc) return null
+      const body =
+        (typeof doc.body === "string" ? doc.body : undefined) ??
+        (typeof doc.content === "string" ? doc.content : undefined) ??
+        JSON.stringify(doc)
+      const acceptanceCriteria = Array.isArray(doc.acceptanceCriteria)
+        ? (doc.acceptanceCriteria as unknown[]).filter(
+            (x): x is string => typeof x === "string",
+          )
+        : []
+      return { body, acceptanceCriteria }
+    },
+
+    putSeed: async (key: string, json: string) => {
+      if (!workspaceBucket) {
+        throw new Error("WORKSPACE_BUCKET binding is not configured")
+      }
+      await workspaceBucket.put(key, json)
+    },
+
+    getRigFile: async (path: string) => {
+      if (!workspaceBucket) {
+        throw new Error("WORKSPACE_BUCKET binding is not configured")
+      }
+      const obj = await workspaceBucket.get(`rigs/${path}`)
+      if (!obj) return null
+      return await obj.text()
     },
   }
 }

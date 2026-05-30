@@ -139,6 +139,13 @@ interface MockState {
   uniqueIndexViolation: boolean
   // Deterministic time
   nowIso: string
+  // IS-WORKSPACE-SEEDING state.
+  // `undefined` → default mock; `null` → fetch returns null (not found).
+  intentSpec?: { body: string; acceptanceCriteria: string[] } | null
+  executableSpec?: { body: string; acceptanceCriteria: string[] } | null
+  rigFiles: Record<string, string>
+  seedPuts: Array<{ key: string; json: string }>
+  putSeedThrows?: Error
 }
 
 function makeMocks(state: MockState): {
@@ -245,6 +252,24 @@ function makeMocks(state: MockState): {
     sleep: async (_ms: number) => {
       // Tests don't wait. Backoff is exercised via call counts.
     },
+    // IS-WORKSPACE-SEEDING deps. Default mocks succeed so existing dispatch
+    // tests are unaffected (AC-15). Individual tests override via state.
+    fetchIntentSpec: async (id: string) =>
+      state.intentSpec === null
+        ? null
+        : (state.intentSpec ?? { body: `IS body for ${id}`, acceptanceCriteria: [] }),
+    fetchExecutableSpec: async (id: string) =>
+      state.executableSpec === null
+        ? null
+        : (state.executableSpec ?? {
+            body: `ES body for ${id}`,
+            acceptanceCriteria: ["criterion-1"],
+          }),
+    putSeed: async (key: string, json: string) => {
+      if (state.putSeedThrows) throw state.putSeedThrows
+      state.seedPuts.push({ key, json })
+    },
+    getRigFile: async (path: string) => state.rigFiles[path] ?? null,
   }
   return { deps, state }
 }
@@ -271,6 +296,8 @@ function defaultState(): MockState {
     uncertaintyEntries: [],
     uniqueIndexViolation: false,
     nowIso: "2026-05-21T12:00:00.000Z",
+    rigFiles: {},
+    seedPuts: [],
   }
 }
 
