@@ -3,6 +3,100 @@
 Past architectural choices that would be costly to revisit. Do not
 re-litigate without explicit architect approval.
 
+## 2026-05-30: Release step routing — E2 supervisor-local no-op harness provider
+
+**Decision:** The Release step in `factory-coding-v1.toml` is routed to a new
+`supervisor-local` harness provider (E2) rather than to `cloudflare-sandbox` or
+`pi-rpc`. This is not a real remote runtime — it is a no-op at the harness
+level whose `ExecuteStep` returns the accumulated molecule envelope and allows
+`runFidelityValidator` (already supervisor-resident Go) to proceed with the
+full molecule evidence.
+
+**Root cause that triggered this decision (Architect finding, 2026-05-30):**
+
+The original `runtime_requirements = ["command_exec", "file_materialize"]` on
+the Release step was a category error. `fidelity-release.sh` does NOT run
+inside a provider's sandbox. Gas City's supervisor assembles `fidelity-job.json`
+in Go (`harness_fidelity.go`) from the provider response envelope it already
+holds in memory, writes it to disk, then runs the script as a local subprocess.
+The validator reads only that one JSON document — no PI container workspace,
+no file handoff across providers. Routing Release to `cloudflare-sandbox` made
+Gas City dispatch a throwaway sandbox that returned an empty envelope; the
+validator correctly `fail_closed` on empty evidence.
+
+The problem was never "cross-provider workspace handoff" — it was wrong
+capability-key routing.
+
+**E1 vs E2 rationale:**
+
+- **E1** (introduce `fidelity_finalize` capability key, supervisor owns the
+  terminator natively) requires amending the canonical 12-key capability set —
+  an architecture gate.
+- **E2** (new `supervisor-local` no-op harness provider) reuses the already-
+  blessed noop pattern from `phantom-session-provider.md` one layer up, at the
+  harness level. No capability-key-set amendment. Zero remote cost. E1 remains
+  the long-term clean form and is not foreclosed.
+
+**E1 gate:** Amending the 12-key set is an architecture decision, not an
+implementation choice. It requires a separate DECISIONS entry. Do not amend the
+canonical key set without explicit Architect approval.
+
+**The real load-bearing change (must ship alongside E2):**
+
+`buildFidelityJob` in `harness_fidelity.go` ships empty `DeclaredOutputs` and
+`PriorStepVerdicts`. The supervisor must accumulate per-step `ExecutionResponse`
+envelopes across the molecule and populate these fields before the Release step
+runs. Without this, the fidelity validator will `fail_closed` on empty prior
+verdicts regardless of routing.
+
+**Files to change:**
+
+- `factory-coding-v1.toml` line ~252: `runtime_requirements = ["command_exec",
+  "file_materialize"]` → a key that maps to `supervisor-local` provider
+- `city.toml` (`factory/city.toml`): add `[provider.supervisor-local]` block
+  with all 8 harness slots (AC-REG4), finalize capability key only
+- `Wescome/gascity eai/cloudflare`: `harness_dispatch.go` — skip
+  `provider.ExecuteStep` for terminator bead, pass accumulated molecule
+  envelope into `runFidelityValidator` directly (or via the no-op provider)
+- `Wescome/gascity eai/cloudflare`: `harness_fidelity.go` — populate
+  `DeclaredOutputs` and `PriorStepVerdicts` from retained per-step responses
+
+**Current state (2026-05-30):** Release still routes to `cloudflare-sandbox`
+and fails. E2 is decided; implementation is pending.
+
+**Status:** Active. E1 remains the architectural ideal; E2 unblocks execution.
+Supersedes the original `runtime_requirements` in `factory-coding-v1.toml`.
+
+---
+
+## 2026-05-30: bd bead store dependencies for Gas City Container
+
+**Decision:** The Gas City Container requires three binaries beyond the original
+image to use `beads.provider = "bd"`:
+
+1. **Dolt 2.0.3** (was 1.44.4) — the `gc` binary generates a `dolt-config.yaml`
+   with fields (`back_log`, `max_connections_timeout_millis`, `auto_gc_behavior`)
+   that only exist in Dolt 2.x. Dolt 1.x exits at startup with yaml parse error.
+2. **git** — `gc-beads-bd.sh` calls `git config --global beads.role` during bead
+   store init.
+3. **bd v1.0.4** (`gastownhall/beads`) — `gc-beads-bd.sh` calls `bd init` via the
+   bd CLI. Install from `beads_1.0.4_linux_amd64.tar.gz`.
+
+All three are now in the Dockerfile (`eai/examples/factory/weops-gascity/stage/
+supervisor/Dockerfile`, image `5cb1caae`).
+
+**Known remaining gap:** With all dependencies present, the city reaches
+`adopting_sessions` phase but then hangs. The adoption barrier
+(`runAdoptionBarrier`) does not panic and does not complete — suggesting
+`sp.ListRunning("")` (the subprocess session provider's session enumeration)
+is blocking. Root cause not yet identified. City reverted to
+`beads.provider = "file"` to restore dispatch while this is investigated.
+
+**Status:** Active (partial). `bd` works up to `adopting_sessions`. Blocking
+hang is a separate investigation item.
+
+---
+
 ## 2026-05-21: Factory→Gas City dispatch uses parametric template model (D-Q1C)
 
 **Decision:** Factory dispatches to Gas City using a **parametric template per

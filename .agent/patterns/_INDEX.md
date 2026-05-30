@@ -11,6 +11,7 @@ Read this before designing anything that touches Cloudflare Containers, Durable 
 | [token-rotation-kills-container](token-rotation-kills-container.md) | `wrangler secret put` restarts Worker and evicts running Container | Active |
 | [ephemeral-container-store](ephemeral-container-store.md) | Container filesystem wiped on restart; bead store / DB data lost | Active |
 | [phantom-session-provider](phantom-session-provider.md) | Gas City session lifecycle forces Sandbox cold boot per formula step | SOLVED — use `provider = "noop"` |
+| [harness-terminator-no-provider](harness-terminator-no-provider.md) | Release/terminator step routed to remote provider → fidelity `fail_closed` | Active — use `supervisor-local` no-op provider (E2) |
 
 ## How to use
 
