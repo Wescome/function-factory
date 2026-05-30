@@ -2128,10 +2128,44 @@ async function handleSeedDispatchEp(request: Request, env: PipelineEnv): Promise
       })
     }
 
+    // Seed IS document so dispatch-formula can resolve intentSpecificationId.
+    await db.ensureCollection('intent_specifications')
+    const isBody = cleanString(body.isBody, '') || task
+    const existingIs = await db.get<Record<string, unknown>>('intent_specifications', isId)
+    if (!existingIs) {
+      await db.save('intent_specifications', {
+        _key: isId,
+        id: isId,
+        body: isBody,
+        content: isBody,
+        acceptanceCriteria: [],
+        seeded_at: new Date().toISOString(),
+        kind: 'SeedIntentSpecification',
+      })
+    }
+
+    // Seed ES document so dispatch-formula can resolve executableSpecificationId.
+    await db.ensureCollection('executable_specifications')
+    const esBody = cleanString(body.esBody, '') || task
+    const existingEs = await db.get<Record<string, unknown>>('executable_specifications', esId)
+    if (!existingEs) {
+      await db.save('executable_specifications', {
+        _key: esId,
+        id: esId,
+        body: esBody,
+        content: esBody,
+        acceptanceCriteria: [],
+        seeded_at: new Date().toISOString(),
+        kind: 'SeedExecutableSpecification',
+      })
+    }
+
     return json({
       ok: true,
       epId,
       vrKey,
+      isId,
+      esId,
       replay: !!existingEp,
       next: `POST /dispatch-formula with { "epId": "${epId}", "factoryAttempt": 1 }`,
     }, existingEp ? 200 : 201)

@@ -1,38 +1,34 @@
 # Current Workspace
 
 ## Status
-Session ended at 2026-05-29T22:03:56.094Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
+Session ended at 2026-05-30T22:39:26.993Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
 
 ## Last update
-2026-05-29T22:03:56.094Z
+2026-05-30T22:39:26.993Z
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
-- [21:47:23] Bash: grep -n "DecorateGraphWorkflowRecipe\|func.*ApplyGraphRouting\|CreateMolecule\|cook\|workflow_id\|WorkflowID\|gc.kind.*w
-- [21:47:25] Bash: grep -rn "func DoSling\b\|func.*slingGraphWorkflow\|expandGraphWorkflow\|InstantiateRecipe\|CreateWorkflow\|outcome.*dis
-- [21:47:31] Bash: grep -rn "graph.v2\|InstantiateSlingFormula\|workflowID\|WorkflowID\|gc.kind.*=.*\"workflow\"\|run_target\|routed_to\|co
-- [21:47:40] Bash: grep -rn "default_sling_formula\|EffectiveDefaultSlingFormula\|sling_query\|NoFormula\|no-formula\|noFormula\|scope_kind
-- [21:47:47] Bash: grep -rn "control-dispatcher\|ControlDispatcherAgentName\|formula\b" /Users/wes/eai/examples/factory/weops-gascity/stage
-- [21:47:54] Bash: grep -rln "\"/sling\"\|/sling\|attached_bead_id\|slung\|root_bead_id" /Users/wes/Developer/gascity/ 2>/dev/null | grep -
-- [21:47:58] Bash: grep -rln "attached_bead_id\|\"slung\"\|root_bead_id" /Users/wes/Developer/gascity/cmd/gc/api_state.go /Users/wes/Develo
-- [21:48:03] Bash: grep -n "runtime_requirements\|func maybeDispatchHarness\|Attempted\|gc.kind\|run_target\|Assignee\|routed_to\|control" 
-- [21:48:09] Bash: curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"message":"Root cause found. The m
-- [21:49:40] Edit: /Users/wes/eai/examples/factory/weops-gascity/stage/supervisor/factory/city.toml
-- [21:49:44] Bash: cd /Users/wes/eai && git add examples/factory/weops-gascity/stage/supervisor/factory/city.toml && git commit -m "fix: ad
-- [21:50:19] Bash: cd /Users/wes/eai/examples/factory/weops-gascity/stage/supervisor && npx wrangler deploy 2>&1 | grep -E "Uploaded|Buildi
-- [21:50:27] Bash: bash /Users/wes/Developer/function-factory/scripts/ops/dispatch-only.sh 2>&1
-- [21:50:44] Bash: sleep 10 && SUPERVISOR_TOKEN="$(cat /tmp/gc_supervisor_token.txt)" && \
-curl -s -H "Authorization: Bearer $SUPERVISOR_TO
-- [21:51:14] Bash: SUPERVISOR_TOKEN="$(cat /tmp/gc_supervisor_token.txt)" && \
-curl -s -H "Authorization: Bearer $SUPERVISOR_TOKEN" \
-  "ht
-- [21:51:17] Bash: SUPERVISOR_TOKEN="$(cat /tmp/gc_supervisor_token.txt)" && \
-curl -s -H "Authorization: Bearer $SUPERVISOR_TOKEN" \
-  "ht
-- [21:54:43] Bash: cat /Users/wes/eai/examples/factory/weops-gascity/stage/supervisor/wrangler.jsonc | grep -i "instance_type\|standard\|co
-- [22:00:00] Bash: find /Users/wes/eai/examples/factory/weops-gascity/stage/supervisor/node_modules/@cloudflare/containers -name "*.d.ts" -
-- [22:03:49] Write: /Users/wes/Developer/function-factory/.agent/specs/IS-GC-CONTAINER-KEEPALIVE.md
-- [22:03:53] Bash: git add .agent/specs/IS-GC-CONTAINER-KEEPALIVE.md && git commit -m "META: add IS-GC-CONTAINER-KEEPALIVE spec"
+- [22:25:30] Edit: /Users/wes/Developer/gascity/cmd/gc/harness_fidelity.go
+- [22:25:34] Edit: /Users/wes/Developer/gascity/cmd/gc/harness_fidelity_test.go
+- [22:25:50] Bash: cd /Users/wes/Developer/gascity && go build ./cmd/gc/... 2>&1 | tail -30 && echo "---BUILD OK---"
+- [22:26:21] Bash: cd /Users/wes/Developer/gascity && go test ./cmd/gc/... -run TestFidelity -v 2>&1 | tail -40
+- [22:26:33] Bash: cd /Users/wes/Developer/gascity && git stash && go test ./cmd/gc/... -run TestFidelityValidatorMissingWebhookURLNoPanic 
+- [22:36:38] Bash: cd /Users/wes/Developer/gascity && go test ./cmd/gc/ 2>&1 | tail -20
+- [22:36:46] Bash: until [ -f /private/tmp/claude-501/-Users-wes-Developer-function-factory/c2d78412-99c8-48e3-b459-93f49b75e04f/tasks/bzao
+- [22:37:06] Bash: cd /Users/wes/Developer/gascity && go test ./cmd/gc/ -run 'TestFidelity|TestHarness|TestCloseHarness|TestMaybeDispatch|T
+- [22:37:23] Edit: /Users/wes/Developer/gascity/cmd/gc/harness_fidelity_test.go
+- [22:37:54] Bash: cd /Users/wes/Developer/gascity && go test ./cmd/gc/ -run 'TestFidelityPriorStepVerdicts' -count=1 -v 2>&1 | tail -15
+- [22:38:01] Bash: grep -n "Current state\|Status:" .agent/memory/semantic/DECISIONS.md | head -10
+- [22:38:10] Edit: /Users/wes/Developer/function-factory/.agent/memory/semantic/DECISIONS.md
+- [22:38:13] Bash: cd /Users/wes/Developer/gascity && git status --short && echo "---" && git diff --stat
+- [22:38:26] Bash: cd /Users/wes/Developer/gascity && go vet ./cmd/gc/ 2>&1 | grep -v "^#" | head -5; git add cmd/gc/harness_dispatch.go cm
+- [22:38:31] Bash: git add .agent/memory/semantic/DECISIONS.md && git commit -m "$(cat <<'EOF'
+META: mark E2 implemented — envelope accumul
+- [22:38:35] Bash: curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"message":"E2 envelope accumulatio
+- [22:38:58] Agent: Implement E2 envelope accumulation in gascity
+- [22:39:03] Bash: cd /Users/wes/Developer/gascity && git show 5f5e70a9 --stat && echo "===" && git show 5f5e70a9 --no-color | head -120
+- [22:39:07] Bash: git show HEAD --stat && echo "---" && grep -A5 "Current state\|Status:" .agent/memory/semantic/DECISIONS.md | head -20
+- [22:39:18] Bash: cd /Users/wes/Developer/gascity && go test ./cmd/gc/... -run TestFidelityPrior -v 2>&1 | tail -20
 
 ## Notes
 This file is auto-updated on session end. Manual edits will be overwritten.

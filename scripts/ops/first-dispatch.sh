@@ -29,6 +29,8 @@ GC_BEARER_TOKEN="$(openssl rand -hex 32)"
 OPERATOR_TOKEN="$(openssl rand -hex 32)"
 GC_HMAC_SECRET="$(openssl rand -hex 32)"
 
+echo "$GC_BEARER_TOKEN" > /tmp/gc_supervisor_token.txt
+echo "$OPERATOR_TOKEN" > /tmp/gc_token.txt
 echo "  Setting GC_SUPERVISOR_TOKEN on gascity-supervisor..."
 printf '%s' "$GC_BEARER_TOKEN" | (cd "$SUPERVISOR_DIR" && npx wrangler secret put GC_SUPERVISOR_TOKEN)
 
@@ -60,8 +62,32 @@ fi
 grep -E "Deployed|Current Version|ERROR|error" "$DEPLOY_LOG" || cat "$DEPLOY_LOG"
 rm -f "$DEPLOY_LOG"
 
-# Brief pause for Worker propagation after version/secret changes.
-sleep 10
+# ── 2b. Pre-warm Container ───────────────────────────────────────────────────
+echo ""
+echo "=== [2b/6] Pre-warming Gas City Container (up to 120s) ==="
+GC_BASE="https://gascity-supervisor.koales.workers.dev"
+WARM=0
+for i in $(seq 1 40); do
+  HTTP=$(curl --http1.1 --connect-timeout 5 --max-time 15 -s -o /dev/null -w "%{http_code}" \
+    -H "Authorization: Bearer $GC_BEARER_TOKEN" \
+    "$GC_BASE/v0/cities" 2>/dev/null || echo "000")
+  if [[ "$HTTP" == "200" || "$HTTP" == "404" ]]; then
+    echo "  Container ready (attempt $i, status $HTTP)"
+    WARM=1
+    break
+  fi
+  echo "  Waiting... attempt $i status=$HTTP"
+  sleep 3
+done
+[[ "$WARM" -eq 1 ]] || { echo "ERROR: Container did not become ready." >&2; exit 1; }
+
+# Probe formula endpoint — same URL ff-pipeline CALL 1 will hit
+echo "  Probing formula endpoint..."
+FORMULA_PROBE=$(curl --http1.1 -s -o /dev/stdout -w "\nHTTP_STATUS:%{http_code}" \
+  -H "Authorization: Bearer $GC_BEARER_TOKEN" \
+  -H "X-GC-Request: true" \
+  "$GC_BASE/v0/city/factory/formulas/factory-coding-v1?target=coder&scope_kind=city&scope_ref=factory" 2>/dev/null)
+echo "  Formula probe: $FORMULA_PROBE"
 
 # ── 3. Seed EP ───────────────────────────────────────────────────────────────
 echo ""
