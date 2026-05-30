@@ -10,7 +10,6 @@ part of the broader architecture/spec corpus.
 | ADR | Status | Scope |
 | --- | --- | --- |
 | [`ADR-0001-autonomous-scheduler-boundary.md`](ADR-0001-autonomous-scheduler-boundary.md) | Accepted | Defines the autonomous scheduler boundary: Function Factory emits `AgentRequest` records, Codex runners claim work, and completed work returns `AgentResult` evidence. |
-| [`ADR-0002-workspace-seeding-via-r2.md`](ADR-0002-workspace-seeding-via-r2.md) | Proposed | Formula compiler produces SeedWorkspace bundle, writes to R2, PI container fetches and hydrates at execute time. Gas City untouched. |
 
 ## Relationship To `specs/reference/ADR-*`
 

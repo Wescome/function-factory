@@ -67,6 +67,7 @@ Repository/process ADRs are indexed separately in
 | [`ADR-006-workers-ai-stream-adapter.md`](ADR-006-workers-ai-stream-adapter.md) | Proposed | Workers AI stream adapter proposal. |
 | [`ADR-007-output-reliability-layer.md`](ADR-007-output-reliability-layer.md) | Proposed | Output reliability layer proposal. |
 | [`ADR-008-self-healing-factory.md`](ADR-008-self-healing-factory.md) | Proposed | Self-healing Factory proposal. |
+| [`ADR-011-workspace-seeding.md`](ADR-011-workspace-seeding.md) | Proposed | Workspace seeding for PI container execution — options analysis, pending Wes +/-. |
 
 ## Design Notes
 
