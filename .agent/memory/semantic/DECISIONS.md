@@ -61,10 +61,12 @@ verdicts regardless of routing.
 - `Wescome/gascity eai/cloudflare`: `harness_fidelity.go` — populate
   `DeclaredOutputs` and `PriorStepVerdicts` from retained per-step responses
 
-**Current state (2026-05-30):** Release still routes to `cloudflare-sandbox`
-and fails. E2 is decided; implementation is pending.
+**Current state (2026-05-30):** Routing fixed in `cde4dc2e` (Release skips
+remote dispatch, calls `runFidelityValidator` locally). Envelope accumulation
+implemented — `DeclaredOutputs` and `PriorStepVerdicts` populated from sibling
+bead metadata.
 
-**Status:** Active. E1 remains the architectural ideal; E2 unblocks execution.
+**Status:** Implemented. E1 remains the architectural ideal; E2 unblocks execution.
 Supersedes the original `runtime_requirements` in `factory-coding-v1.toml`.
 
 ---
