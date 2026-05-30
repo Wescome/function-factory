@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed — pending Wes approval
+Accepted — 2026-05-30 (Wes +B)
 
 ## Date
 
@@ -63,7 +63,7 @@ Option A alone never satisfies K3 (no disk materialization).
 
 ## 3. Decision
 
-*[ Wes marks + or - above ]*
+**Option B accepted.** Wes +B 2026-05-30.
 
 ---
 
