@@ -98,5 +98,11 @@ Architect analysis 2026-05-30. Gas City source read:
 `fail_closed` via `cloudflare-sandbox` while gc-19/20/21 (Plan/Code/Verify)
 all `completed` via `pi-rpc`.
 
+## Status (SOLVED 2026-05-30)
+Terminator shortcut implemented in `Wescome/gascity eai/cloudflare`
+(`cmd/gc/harness_dispatch.go`, commit `cde4dc2e`). Container image `fdc17978`
+deployed. First full pipeline run returned `outcome: approved`,
+`VR-1E774EF7739D145A` created.
+
 See DECISIONS.md "2026-05-30: Release step routing — E2 supervisor-local no-op
 harness provider" for the approved decision.
