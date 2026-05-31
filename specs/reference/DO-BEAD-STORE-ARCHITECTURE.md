@@ -240,6 +240,18 @@ DO generates IDs sequentially using a SQLite counter: `SELECT COALESCE(MAX(CAST(
 
 The DO's `POST /tx` endpoint accepts a list of operations and executes them inside a SQLite `BEGIN TRANSACTION / COMMIT`. The Go `DoStore.Tx()` serializes the callback's writes into a batch request. Rollback on any operation failure.
 
+**Read-modify-write is NOT atomic across the read and the write.** The `/tx` endpoint executes operations atomically. Read operations inside a `Tx` callback are **NOT** batched — `DoStore` executes them immediately (a separate round-trip to the DO) before the batch is assembled. This means a read-modify-write sequence inside `Tx` (read a bead, modify it in Go, write it back via the batch) is **not atomic across the read and the write**: another writer could modify the row between the read round-trip and the `/tx` commit. This limitation must be documented explicitly for every `beads.Store` caller.
+
+**Incompatible callers must be refactored before cutover.** If any existing `beads.Store` caller performs read-modify-write inside `Tx`, `DoStore` is incompatible with that caller as written. Such callers must be refactored to use compare-and-swap semantics (conditional write predicated on the value last read) or optimistic locking (version/etag column checked at write time) before switching to `DoStore`.
+
+### 4.9 SQLite payload limits
+
+DO SQLite enforces per-row and per-query size limits. Large `payload`, `metadata`, or `description` blobs can hit them.
+
+- **Max row size:** SQLite's theoretical ceiling is ~1GB per row, but CF DO SQLite may enforce a lower limit. Assume **1MB max per column** as a safe working limit until CF documents otherwise.
+- **`payload` and `metadata` columns** that may exceed 1MB must be chunked, or stored in R2 with a reference key (the R2 object key) written into the DO row instead of the inline blob. The DO row then carries a pointer, not the payload.
+- **`description` text fields:** truncate at 64KB in the API layer before the write reaches SQLite. Truncation happens explicitly in the route handler, never silently inside SQLite.
+
 ---
 
 ## 5. Go Implementation (`DoStore`)
@@ -405,7 +417,7 @@ Only once the gate is passed does step 4 proceed.
 - `PRAGMA auto_vacuum = INCREMENTAL` set before first `CREATE TABLE` (verify CF DO SQLite support)
 - DO alarm registered for weekly `PRAGMA incremental_vacuum`
 
-**Acceptance:** FK violation on invalid `emission_bead_id` returns 409; CTE walk completes 10-hop chain in < 100ms; Tx is atomic across both planes; `PRAGMA auto_vacuum` setting confirmed at DB creation.
+**Acceptance:** FK violation on invalid `emission_bead_id` returns 409; CTE walk completes 10-hop chain in < 100ms; Tx is atomic across both planes; `PRAGMA auto_vacuum` setting confirmed at DB creation; `payload` column writes > 1MB return **413** from the DO route, not a silent truncation.
 
 ### WP-DO-2: DoStore Go client
 **File:** `internal/beads/dostore.go` in `Wescome/gascity`
@@ -414,7 +426,7 @@ Only once the gate is passed does step 4 proceed.
 - 10s default timeout per call
 - Retry once on 5xx (idempotent reads/writes)
 
-**Acceptance:** `go test ./internal/beads/...` passes with DoStore against a local DO emulator.
+**Acceptance:** `go test ./internal/beads/...` passes with DoStore against a local DO emulator. **Tx conformance test suite:** run the existing `beads.Store` test suite against `DoStore`. All callers that invoke `Tx` must be audited for read-modify-write patterns (per §4.8) before cutover; any read-modify-write caller is refactored to compare-and-swap / optimistic locking first.
 
 ### WP-DO-3: Config wiring
 **Files:** `internal/config/`, `cmd/gc/city_runtime.go`
@@ -439,7 +451,7 @@ Only once the gate is passed does step 4 proceed.
 - Set `factory/city.toml` to `provider = "do"`
 - Migrate existing ArangoDB documents → DO artifact routes (one-time backfill script)
 - Remove ArangoDB (`ff-arango` Worker + Container) — ff-pipeline no longer references it
-- Remove adoption barrier code (`cmd/gc/adoption_barrier.go` — gut to no-op)
+- Gut the Dolt cold-start waiting logic in `cmd/gc/adoption_barrier.go`. Retain any session consistency checks that are not Dolt-specific. Do **not** remove the adoption phase from the startup FSM — remove only the Dolt-dependent blocking operations within it.
 - Remove Dolt + bd from Dockerfile
 - Update `entrypoint.sh` (no Dolt identity setup needed)
 - Remove `@factory/arango-client` usages from ff-pipeline
@@ -450,14 +462,22 @@ Only once the gate is passed does step 4 proceed.
 
 ## 10. Cost
 
+CF DO SQLite bills **per row read and per row write**, not just storage bytes. Artifact-heavy workloads (lineage edges, verdicts, specs) generate significant row writes, so the earlier "$<1/month" figure understated cost. The table below accounts for row-level billing.
+
 | Resource | Rate | Factory estimate |
 |----------|------|-----------------|
 | DO requests | $0.15/million | ~10k-100k/day → < $0.50/mo |
+| DO SQLite row reads | $0.001/million rows read | ~1M reads/day (bead queries during active molecules) → ~$0.03/mo at bootstrap scale |
+| DO SQLite row writes | $1.00/million rows written | ~100k writes/day (beads + artifacts) → ~$3/mo at bootstrap scale |
 | DO storage (one SQLite DB) | $0.20/GB-month | < 50MB → $0.01/mo |
 | ff-arango Container | eliminated | $0 saved |
 | ArangoDB Oasis | eliminated | $0 saved |
 | DoltHub | never provisioned | $0 saved |
-| **Total** | | **< $1/month** |
+| **Total** | | **$3–10/month at bootstrap scale, revisit at 10x molecule volume** |
+
+**Storage ceiling.** CF DO has a **10GB per-DO storage ceiling on the paid plan**. At current artifact volume this is not a near-term risk, but it must be monitored — one DO per city means a single city's combined execution + knowledge plane cannot exceed 10GB without a sharding redesign (see G2 throughput watch in §13).
+
+**VACUUM affects billing.** The VACUUM strategy (§4.0) directly affects storage billing: without incremental vacuum, deleted bead rows keep consuming the $0.20/GB-month storage charge and count against the 10GB ceiling. The append-only knowledge plane already grows monotonically; reclaiming freed execution-plane pages is the only lever on storage growth.
 
 ---
 
