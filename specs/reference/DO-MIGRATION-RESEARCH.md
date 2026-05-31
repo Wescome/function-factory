@@ -164,4 +164,100 @@ Replacing `bd`/Dolt with DO SQLite loses:
 
 ## 8. Architect Assessment
 
-*Pending — to be added after Architect review.*
+Date: 2026-05-31
+Reviewer: Architect agent
+Method: Read §1–§7 in full, then verified each claimed loss against live source —
+`workers/gascity-supervisor/factory/city.toml`, `workers/ff-pipeline/src/**`,
+and `workers/ff-pipeline/src/gascity/**`. Findings below cite the evidence, not the
+research narrative.
+
+### Evidence base
+
+- `factory/city.toml`: `[beads] provider = "bd"`; one `coder` agent block with
+  `max_active_sessions = 3`; one `control-dispatcher` with `max_active_sessions = 1`.
+  **No `[[rig]]` blocks declared** (grep for `[[rig]]` / `rig` returned empty).
+- `bd doctor`, `bd history`, `bd vc diff/merge/commit`, `bd branch`, `bd dolt push/pull`:
+  **zero references** anywhere under `ff-pipeline/src/` (non-test). The single match for
+  "rollback" is `coordinator.ts:397` — a git-revert escape hatch for a Gate-6 commit,
+  entirely unrelated to Dolt/bead rollback.
+- `emission_bead_id` / `doctor`: **zero non-test references** in `ff-pipeline/src/`.
+  The FK lives in the webhook/knowledge-plane payload schema, threaded through
+  `source_refs[]` chains in `gascity/webhook-receiver.ts` (lines 171, 449, 476, 530)
+  and `gascity/autonomy-monitor.ts` (line 322), plus a hard `lineage_mismatch` 409
+  guard (webhook-receiver.ts:129–136). Factory lineage is reconstructed from
+  artifact `source_refs`, not from bead commit history.
+
+### Per-loss assessment
+
+**1. Audit trail (bead-level commit history) — ACCEPTABLE.**
+The Factory's audit truth lives in the knowledge plane: every emitted artifact carries
+`source_refs[]` and an `emission_bead_id` FK, and the webhook receiver hard-rejects any
+emission whose lineage does not resolve (409 `lineage_mismatch`). Dolt's per-write commit
+log records *bead state transitions*, which are mechanical work-queue events — not Factory
+provenance. The provenance the Factory actually reasons over is already captured, in a
+queryable form, independent of bead storage. Bead-level commit history adds an operator
+convenience (`dolt log`) the pipeline never consumes.
+
+**2. Rollback (via `dolt checkout`) — ACCEPTABLE.**
+No code path invokes Dolt rollback; the only rollback in the pipeline is git-based and
+operates on the workspace, not the bead store. Molecules are short-lived (seconds–minutes)
+and beads are work-queue state, not the system of record — the artifacts are. Corrupted bead
+state is recovered by re-dispatch, and DO single-writer serialization plus `PRAGMA
+foreign_keys = ON` makes partial/torn writes far less likely than the failure modes Dolt
+itself introduced (ENOSPC auto-recover cascade, cold-start/adoption hang). Re-dispatch is a
+strictly simpler and already-exercised recovery path.
+
+**3. Multi-agent merge safety — ACCEPTABLE.**
+Dolt's cell-level 3-way merge defends against *concurrent writers to the same store* with no
+serialization. DO SQLite removes the premise: a Durable Object is a single-threaded,
+single-writer actor — all writes from the 3 coders + 1 dispatcher are serialized by the DO
+event loop, so there is no concurrent-write window to merge. The contention Dolt merge solves
+cannot occur. Serialization is not merely sufficient; it is a stronger guarantee (no
+conflicts to resolve, no `bd vc conflicts`/`resolve` surface to operate) at this scale. The
+only caveat is throughput: 4 writers serialized through one DO is fine at
+`max_active_sessions = 3`; it would need revisiting at city scales an order of magnitude
+larger, which is out of scope here.
+
+**4. `bd doctor --agent` — ACCEPTABLE (loss is theoretical).**
+Zero references in `ff-pipeline/src/`. Gas City's own doctor checks may call it, but the
+Factory pipeline does not consume orphan-detection-via-Dolt-history. Orphan detection that
+the Factory cares about (artifacts whose lineage does not resolve) is enforced at emission
+time by the `lineage_mismatch` guard, not after the fact via bead history. The loss is
+theoretical for the Factory.
+
+**5. Rig stores — ACCEPTABLE (moot).**
+`factory/city.toml` declares **no `[[rig]]` blocks**. The §5 gap — "where does `DoStore`
+for a rig point?" — has no referent in the Factory's actual configuration. The DO spec's
+city-store-only scope fully covers the Factory as configured today. If a future formula
+introduces `[[rig]]` declarations, the rig-store routing question (rig-scoped routes within
+one DO vs. a DO keyed by rig name) reopens and must be answered before that formula ships —
+but it is not a blocker now.
+
+### Final verdict
+
+**DO migration is ACCEPTABLE for the Factory.**
+
+Every claimed loss is either (a) already compensated by the Factory's own lineage system
+(`source_refs` + `emission_bead_id` + emission-time `lineage_mismatch` enforcement), (b)
+structurally eliminated by the DO single-writer model (merge safety), or (c) unused by the
+pipeline today (audit log, `dolt checkout` rollback, `bd doctor --agent`, rig stores). The
+migration also removes two losses that were causing real production failures — the Dolt
+cold-start/adoption hang and the unbounded commit-graph growth — which the Factory's
+quality-over-speed and self-healing posture cannot tolerate. Trading version-control features
+the Factory never calls for the elimination of two confirmed production failure modes is a
+net architectural win.
+
+No compensations are *required* to proceed. Three conditions attach as guardrails, not
+blockers:
+
+1. **Rig-store gate.** Before any formula introduces a `[[rig]]` block, answer the
+   rig-store routing question (rig-scoped routes in one DO vs. DO-per-rig). Track as an
+   open architecture gate, not a migration blocker.
+2. **Throughput watch.** DO single-writer serialization is sufficient at
+   `max_active_sessions = 3`. If active sessions scale up by ~10x, re-evaluate whether one
+   DO per city remains adequate or whether sharding is needed. (Note: §4 records that
+   upstream `CachingStore` can wrap the DO-backed store to cut read round-trips — relevant
+   if read latency, not write throughput, becomes the constraint.)
+3. **Operator escape hatch.** Re-dispatch replaces `dolt checkout` as the recovery path.
+   Confirm the operator runbook documents re-dispatch as the sanctioned recovery for
+   corrupted bead state, since the Dolt time-travel escape hatch is going away.
