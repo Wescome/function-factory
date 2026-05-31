@@ -21,7 +21,7 @@ All migration phases, invariants, schemas, and acceptance criteria from the orig
 | `DoltClient` class | `ArtifactClient` HTTP wrapper for `/artifacts/*` DO routes |
 | `dolt sql < schema.sql` | knowledge plane tables in `FactoryStore.initSchema()` |
 | `DualWriteAdapter` (Arango + Dolt) | `DualWriteAdapter` (Arango + DO `/artifacts/*` routes) |
-| CTE benchmark against DoltHub | CTE benchmark against `GET /artifacts/lineage` DO route |
+| CTE benchmark against DoltHub | CTE benchmark against `GET /artifacts/lineage` DO route — measures read latency only; does not exercise storage-growth/compaction (the dimension Dolt was rejected for; Prolly Tree reads stay fast regardless of history depth) |
 | Separate schema, no cross-references | `emission_bead_id REFERENCES beads(id)` on every artifact table — real FK to execution plane |
 
 ## What carries over unchanged
@@ -42,6 +42,22 @@ Instead of provisioning DoltHub:
 4. Smoke-test: insert one synthetic Verdict row via `/artifacts/verdicts`, read back, assert round-trip
 
 **Verification-Process:** VP-DOLT-INFRA-001 → retargeted as VP-DO-ARTIFACTS-001. Same criterion.
+
+## OD-005 — Dolt commit graph compaction (architectural record, 2026-05-31)
+
+**Why this decision was closed before implementation:**
+
+Dolt's storage engine is built on a Git-style commit graph of Prolly Trees (a novel B-tree variant with version-control properties, via Noms). Its MySQL-compatible surface is provided by Vitess. The commit graph is the storage cost — not the rows. Every `INSERT`/`UPDATE`/`DELETE` generates a Dolt commit. A deleted row's originating commit still exists in history. `dolt gc` reclaims unreferenced chunks but the commit graph itself grows forever. Full compaction requires `DELETE + rebase + gc`, not just `DELETE + gc`.
+
+**Factory-specific risk:** Dolt commits are explicit (`dolt commit` / `dolt_commit()`); raw DML mutates the working set without minting a commit-graph node. The risk is the Factory's *commit cadence* — every Verification-Process step commits, every bead close commits, every lineage edge append commits. That per-step commit granularity grows the commit graph aggressively with no natural compaction boundary. At scale, `DELETE + rebase + gc` becomes a non-trivial operational pipeline that must be scheduled, monitored, and protected from mid-compaction reads.
+
+**Production bead store note:** The current `bd`/Dolt bead store in production is already accumulating this commit graph today — every bead create/update/close in the Gas City loop is a committed write. This likely compounds the cold-start contention documented in `GAS-CITY-STARTUP-CONTENTION-ARCHITECTURE.md` (larger chunk store → slower gc → slower cold start). The DO migration is more urgent than the adoption-hang framing alone suggests.
+
+**Resolution:** This risk, combined with the operational overhead of managing DoltHub or a self-hosted Dolt Container, was the deciding factor in superseding Dolt in favour of the `FactoryStore` DO SQLite. DO SQLite has no commit graph — storage cost is exactly the live row set. Deleting a row reclaims its storage immediately. No compaction strategy required.
+
+**Status:** Closed. DoltHub never provisioned. OD-005 is documented as a permanent architectural record explaining why Dolt was rejected for the Factory's write profile.
+
+---
 
 ## Implementation entry point
 

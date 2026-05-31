@@ -60,6 +60,10 @@ export class FactoryStore extends DurableObject {
 
 One `ctx.storage.sql`. Both `/beads/*` and `/artifacts/*` routes operate on `this.db`. Foreign keys across the boundary are real SQLite constraints enforced at write time.
 
+**VACUUM strategy — required, not optional.** SQLite `DELETE` frees pages to a freelist but never shrinks the file. The knowledge plane (artifacts) is append-only and permanent — it grows monotonically. Without vacuum, deleted bead rows keep consuming DO storage ($0.20/GB-month). `PRAGMA auto_vacuum = INCREMENTAL` must be set **before the first `CREATE TABLE`** (cannot be changed after). Periodic `PRAGMA incremental_vacuum` runs on a DO alarm (weekly or when `page_count * page_size > threshold`).
+
+**CF DO SQLite compatibility note:** Confirm `PRAGMA auto_vacuum = INCREMENTAL` is honored by the DO SQLite backend before writing it into WP-DO-1 acceptance criteria — CF may not expose all SQLite PRAGMA tuning. If unavailable, the alarm-driven `incremental_vacuum` pattern is the fallback.
+
 ### 4.1 SQLite schema — execution plane (beads)
 
 ```sql
@@ -357,8 +361,10 @@ export class FactoryStore extends DurableObject {
 - CTE lineage walk endpoint (`GET /artifacts/lineage`)
 - Single shared Tx endpoint (both planes, one SQLite transaction)
 - Sequential ID generation (one counter table, both planes share it)
+- `PRAGMA auto_vacuum = INCREMENTAL` set before first `CREATE TABLE` (verify CF DO SQLite support)
+- DO alarm registered for weekly `PRAGMA incremental_vacuum`
 
-**Acceptance:** FK violation on invalid `emission_bead_id` returns 409; CTE walk completes 10-hop chain in < 100ms; Tx is atomic across both planes.
+**Acceptance:** FK violation on invalid `emission_bead_id` returns 409; CTE walk completes 10-hop chain in < 100ms; Tx is atomic across both planes; `PRAGMA auto_vacuum` setting confirmed at DB creation.
 
 ### WP-DO-2: DoStore Go client
 **File:** `internal/beads/dostore.go` in `Wescome/gascity`
@@ -424,6 +430,7 @@ export class FactoryStore extends DurableObject {
 7. CTE lineage walk completes 10-hop chain in < 100ms against production DO
 8. ff-arango Worker and Container deleted from codebase and CF account
 9. Zero references to `@factory/arango-client` in Workers (excluding tombstone comments)
+10. `PRAGMA auto_vacuum = INCREMENTAL` confirmed set at DB creation; DO alarm for `incremental_vacuum` registered and firing
 
 ---
 
