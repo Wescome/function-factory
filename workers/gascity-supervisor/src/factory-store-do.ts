@@ -157,7 +157,7 @@ export class FactoryStore {
   private getBead(id: string): Response {
     const row = this.db.exec("SELECT * FROM beads WHERE id = ?1", id).one() as JsonRecord | null
     if (!row) return this.json({ error: "not_found" }, 404)
-    return this.json(row)
+    return this.json(this.mapBeadRow(row))
   }
 
   private patchBead(id: string, body: JsonRecord): Response {
@@ -236,15 +236,59 @@ export class FactoryStore {
 
   private queryBeads(url: URL): Response {
     const q = url.searchParams.get("query")
-    if (!q) return this.json(this.db.exec("SELECT * FROM beads").toArray())
+    if (!q) {
+      const rows = this.db.exec("SELECT * FROM beads").toArray() as JsonRecord[]
+      return this.json(rows.map((row) => this.mapBeadRow(row)))
+    }
     const query = JSON.parse(q) as JsonRecord
     const where: string[] = []
     const values: unknown[] = []
     if (query.status) { where.push(`status=?${values.length + 1}`); values.push(query.status) }
     if (query.assignee) { where.push(`assignee=?${values.length + 1}`); values.push(query.assignee) }
     if (query.parent) { where.push(`parent_id=?${values.length + 1}`); values.push(query.parent) }
-    const rows = this.db.exec(`SELECT * FROM beads${where.length > 0 ? ` WHERE ${where.join(" AND ")}` : ""}`, ...values).toArray()
-    return this.json(rows)
+    const rows = this.db.exec(`SELECT * FROM beads${where.length > 0 ? ` WHERE ${where.join(" AND ")}` : ""}`, ...values).toArray() as JsonRecord[]
+    return this.json(rows.map((row) => this.mapBeadRow(row)))
+  }
+
+  private mapBeadRow(row: JsonRecord): JsonRecord {
+    return {
+      id: row.id,
+      title: row.title,
+      status: row.status,
+      issue_type: row.issue_type,
+      priority: row.priority ?? null,
+      created_at: row.created_at,
+      assignee: row.assignee ?? "",
+      from: row.from_ ?? "",
+      parent: row.parent_id ?? "",
+      ref: row.ref ?? "",
+      needs: this.parseJSONArray(row.needs),
+      description: row.description ?? "",
+      labels: this.parseJSONArray(row.labels),
+      metadata: this.parseJSONObject(row.metadata),
+      ephemeral: Number(row.ephemeral ?? 0) === 1,
+    }
+  }
+
+  private parseJSONArray(v: unknown): unknown[] {
+    if (typeof v !== "string" || v.trim() === "") return []
+    try {
+      const parsed = JSON.parse(v)
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return []
+    }
+  }
+
+  private parseJSONObject(v: unknown): Record<string, string> {
+    if (typeof v !== "string" || v.trim() === "") return {}
+    try {
+      const parsed = JSON.parse(v)
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {}
+      return parsed as Record<string, string>
+    } catch {
+      return {}
+    }
   }
 
   private insertCollection(collection: string, doc: JsonRecord): Response {

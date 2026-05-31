@@ -13,6 +13,8 @@ export class GasCitySupervisor extends Container<Env> {
       // outbound calls to ff-pipeline /__pi-container/execute.
       // city.toml [provider.pi-rpc] token_env = "FF_OPERATOR_CONTROL_TOKEN"
       FF_OPERATOR_CONTROL_TOKEN: env.OPERATOR_CONTROL_TOKEN,
+      GC_SUPERVISOR_TOKEN: env.GC_SUPERVISOR_TOKEN,
+      GC_BEAD_STORE_URL: "https://gascity-supervisor.koales.workers.dev/internal/bead-store/factory",
       GAS_CITY_HMAC_SECRET: env.GAS_CITY_HMAC_SECRET,
       // R2-backed Dolt bead store — S3-compatible credentials for dolt push/pull
       AWS_ACCESS_KEY_ID: env.DOLT_R2_ACCESS_KEY_ID,
@@ -119,7 +121,7 @@ export default {
     // Singleton supervisor DO. The suffix intentionally rotates the container
     // instance after Gas City graph routing/session runtime fixes so Cloudflare
     // starts the newly deployed image instead of reusing a warm pre-fix container.
-    const id = env.SUPERVISOR.idFromName("singleton-v23");
+    const id = env.SUPERVISOR.idFromName("singleton-v24");
     const stub = env.SUPERVISOR.get(id);
     return stub.fetch(request);
   },

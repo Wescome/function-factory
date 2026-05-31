@@ -2,7 +2,11 @@
 name = "factory"
 
 [beads]
-provider = "bd"
+provider = "do"
+
+[beads.do]
+url_env = "GC_BEAD_STORE_URL"
+token_env = "GC_SUPERVISOR_TOKEN"
 
 [session]
 # The control-dispatcher must run inside the Gas City container because it
