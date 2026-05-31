@@ -87,6 +87,45 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url)
 
+    if (url.pathname === "/internal/telemetry" && request.method === "POST") {
+      const auth = request.headers.get("Authorization") ?? ""
+      if (auth !== `Bearer ${env.GC_SUPERVISOR_TOKEN}`) {
+        return new Response(JSON.stringify({ error: "unauthorized" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        })
+      }
+      let events: unknown[] = []
+      try {
+        const body = await request.json<unknown>()
+        if (!Array.isArray(body)) {
+          return new Response(JSON.stringify({ error: "events must be an array" }), {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        if (body.length > 50) {
+          return new Response(JSON.stringify({ error: "max 50 events per batch" }), {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        events = body
+      } catch {
+        return new Response(JSON.stringify({ error: "invalid json" }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        })
+      }
+      if (env.TELEMETRY_QUEUE) {
+        await env.TELEMETRY_QUEUE.send(events)
+      }
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
+    }
+
     if (url.pathname.startsWith("/internal/bead-store/")) {
       const auth = request.headers.get("Authorization") ?? ""
       if (auth !== `Bearer ${env.GC_SUPERVISOR_TOKEN}`) {
@@ -130,6 +169,7 @@ export default {
 interface Env {
   SUPERVISOR: DurableObjectNamespace;
   FACTORY_STORE: DurableObjectNamespace;
+  TELEMETRY_QUEUE?: Queue;
   GC_SUPERVISOR_TOKEN: string;
   OPERATOR_CONTROL_TOKEN: string;
   GAS_CITY_HMAC_SECRET: string;

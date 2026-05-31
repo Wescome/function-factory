@@ -105,6 +105,7 @@ export interface DispatchLogRow {
   is_id: string
   factory_attempt: number
   idempotency_key: string
+  trace_id?: string
   started_at: string
   outcome: DispatchOutcome
   gc_bead_id: string | null
@@ -230,6 +231,7 @@ export interface FormulaCompilerInput {
   priorEsId?: string
   env: FormulaCompilerEnv
   deps: FormulaCompilerDeps
+  traceId?: string
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────
@@ -403,6 +405,7 @@ export async function compileAndDispatchFormula(
 ): Promise<FormulaCompilerResult> {
   const { ep, factoryAttempt, env, deps } = input
   const priorEsId = input.priorEsId
+  const traceId = input.traceId ?? crypto.randomUUID()
 
   // Pull the minimal EP subset we use into local variables so the type-system
   // doesn't fight us on the deep-typed schema. The EP is treated as a
@@ -489,6 +492,7 @@ export async function compileAndDispatchFormula(
       deps,
       idempotencyKey,
       factoryAttempt,
+      traceId,
     })
   }
 
@@ -627,6 +631,7 @@ export async function compileAndDispatchFormula(
     is_id: epAny.intentSpecificationId,
     factory_attempt: factoryAttempt,
     idempotency_key: idempotencyKey,
+    trace_id: traceId,
     started_at: compiledAt,
     outcome: "pending",
     gc_bead_id: null,
@@ -715,7 +720,7 @@ export async function compileAndDispatchFormula(
         call1Url,
         {
           method: "GET",
-          headers: gasCityAuthHeaders(env),
+          headers: gasCityAuthHeaders(env, traceId),
           signal: AbortSignal.timeout(remaining),
         },
       )
@@ -805,6 +810,7 @@ export async function compileAndDispatchFormula(
     factoryAttempt,
     idempotencyKeyForLookup: idempotencyKey,
     currentDispatchLogKey: dispatchLogKey,
+    traceId,
   })
   if (beadCallResult.outcome !== "ok") {
     const r: FormulaCompilerResult = {
@@ -831,6 +837,7 @@ export async function compileAndDispatchFormula(
     labelsSent: labels,
     idempotencyKey,
     factoryAttempt,
+    traceId,
   })
 }
 
@@ -871,8 +878,9 @@ async function issueCall2WithRetry(args: {
    * match against the current invocation's own `pending` row.
    */
   currentDispatchLogKey: string
+  traceId: string
 }): Promise<Call2Result> {
-  const { env, deps, idempotencyKey, body, dispatchLogKey } = args
+  const { env, deps, idempotencyKey, body, dispatchLogKey, traceId } = args
   let networkLikeFailure: { error: string } | null = null
   let serverErrorAt: { status: number } | null = null
 
@@ -887,7 +895,7 @@ async function issueCall2WithRetry(args: {
       res = await deps.httpFetch(gasCityUrl(env, "/beads"), {
         method: "POST",
         headers: {
-          ...gasCityAuthHeaders(env),
+          ...gasCityAuthHeaders(env, traceId),
           "Content-Type": "application/json",
           "Idempotency-Key": idempotencyKey,
         },
@@ -1022,8 +1030,9 @@ async function dispatchCall3AndFinalize(args: {
    */
   idempotencyKey: string
   factoryAttempt: number
+  traceId: string
 }): Promise<FormulaCompilerResult> {
-  const { form, dispatchLogKey, beadId, env, deps } = args
+  const { form, dispatchLogKey, beadId, env, deps, traceId } = args
   const slingBody = {
     formula: form.template_name,
     attached_bead_id: beadId,
@@ -1050,7 +1059,7 @@ async function dispatchCall3AndFinalize(args: {
       res = await deps.httpFetch(gasCityUrl(env, "/sling"), {
         method: "POST",
         headers: {
-          ...gasCityAuthHeaders(env),
+          ...gasCityAuthHeaders(env, traceId),
           "Content-Type": "application/json",
         },
         body: JSON.stringify(slingBody),
@@ -1091,7 +1100,7 @@ async function dispatchCall3AndFinalize(args: {
       // Best-effort keepalive start — never fails the dispatch
       deps.httpFetch(gasCityUrl(env, "/v0/keepalive/start"), {
         method: "POST",
-        headers: gasCityAuthHeaders(env),
+        headers: gasCityAuthHeaders(env, args.traceId),
         signal: AbortSignal.timeout(5_000),
       }).catch(() => {})
       return {
@@ -1175,7 +1184,7 @@ async function dispatchCall3AndFinalize(args: {
       try {
         const beadRes = await deps.httpFetch(gasCityUrl(env, `/bead/${encodeURIComponent(beadId)}`), {
           method: "GET",
-          headers: gasCityAuthHeaders(env),
+          headers: gasCityAuthHeaders(env, args.traceId),
           signal: AbortSignal.timeout(PER_CALL_TIMEOUT_MS),
         })
         if (beadRes.status === 200) {
@@ -1289,9 +1298,13 @@ function gasCityUrl(env: FormulaCompilerEnv, suffix: string): string {
   return `${base}/v0/city/${env.GAS_CITY_CITY_NAME}${norm}`
 }
 
-function gasCityAuthHeaders(env: FormulaCompilerEnv): Record<string, string> {
+function gasCityAuthHeaders(env: FormulaCompilerEnv, traceId: string): Record<string, string> {
   // X-GC-Request is the Gas City CSRF guard required on all mutation endpoints.
-  return { Authorization: `Bearer ${env.GAS_CITY_BEARER_TOKEN}`, "X-GC-Request": "1" }
+  return {
+    Authorization: `Bearer ${env.GAS_CITY_BEARER_TOKEN}`,
+    "X-GC-Request": "1",
+    "X-Trace-ID": traceId,
+  }
 }
 
 function formulaVersionEnvName(templateName: string): string {
@@ -1366,6 +1379,10 @@ function mergeSortedVars(
     out[k] = merged[k]!
   }
   return out
+}
+
+export const formulaCompilerInternals = {
+  gasCityAuthHeaders,
 }
 
 /**

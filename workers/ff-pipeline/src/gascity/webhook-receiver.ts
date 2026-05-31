@@ -43,6 +43,7 @@ interface DispatchLogMatch {
   factory_attempt: number
   outcome: string
   gc_bead_id: string
+  trace_id?: string
 }
 
 interface GasCityWebhookDb {
@@ -188,6 +189,7 @@ export async function handleGasCityWebhook(request: Request, env: PipelineEnv): 
       outcome: payload.outcome,
       received_at: receivedAt,
       dispatch_log_key: dispatch._key,
+      trace_id: stringValue(dispatch.trace_id) ?? undefined,
       fidelity_verdict_id: vrId,
       raw_sha256: await sha256BytesHex(rawBytes),
       raw_payload: payload as unknown as Record<string, unknown>,
@@ -202,6 +204,7 @@ export async function handleGasCityWebhook(request: Request, env: PipelineEnv): 
   await db.save("fidelity_verdicts", {
     _key: vrId,
     ...report,
+    trace_id: stringValue(dispatch.trace_id) ?? null,
   })
 
   await transitionFunctionState(db, {
@@ -241,6 +244,7 @@ export async function handleGasCityWebhook(request: Request, env: PipelineEnv): 
     vr_id: vrId,
     lifecycle_state: lifecycleState,
     outcome: payload.outcome,
+    trace_id: stringValue(dispatch.trace_id) ?? null,
   }, 202)
 }
 

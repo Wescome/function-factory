@@ -43,6 +43,12 @@ export interface PipelineEnv {
 
   /** Feedback loop: synthesis results become new signals */
   FEEDBACK_QUEUE?: Queue
+  /** CF Queue consumer for telemetry events from Gas City */
+  TELEMETRY_QUEUE?: Queue
+  /** Workers Analytics Engine dataset for Factory metrics */
+  FACTORY_METRICS?: AnalyticsEngineDataset
+  /** Honeycomb API key for trace export */
+  HONEYCOMB_API_KEY?: string
 
   OFOX_API_KEY?: string
   CF_API_TOKEN?: string

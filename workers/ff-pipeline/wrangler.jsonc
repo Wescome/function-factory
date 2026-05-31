@@ -68,9 +68,15 @@
       // entry, NOT the RunCoordinator DO. The DO consuming its own queue would
       // self-fetch-deadlock — see MEMORY for Phase 3/4 and IS-HARNESS-DSL-v1 §3.1.
       { "queue": "harness-queue", "max_batch_size": 1, "max_retries": 3, "dead_letter_queue": "harness-dlq" },
-      { "queue": "harness-dlq", "max_batch_size": 10, "max_retries": 1 }
+      { "queue": "harness-dlq", "max_batch_size": 10, "max_retries": 1 },
+      { "queue": "telemetry-queue", "max_batch_size": 25, "max_retries": 3, "dead_letter_queue": "telemetry-dlq" },
+      { "queue": "telemetry-dlq", "max_batch_size": 10, "max_retries": 1 }
     ]
   },
+
+  "analytics_engine_datasets": [
+    { "binding": "FACTORY_METRICS", "dataset": "factory-metrics" }
+  ],
 
   // Workers AI binding (fallback provider for task-routing)
   "ai": { "binding": "AI" },
@@ -120,4 +126,5 @@
   //   OFOX_API_KEY, CF_API_TOKEN, GITHUB_TOKEN, OPERATOR_CONTROL_TOKEN
   //   GAS_CITY_BEARER_TOKEN  (shared with GC_SUPERVISOR_TOKEN on gascity-supervisor)
   //   GAS_CITY_HMAC_SECRET_V1 (shared with Gas City webhook signer)
+  //   HONEYCOMB_API_KEY
 }

@@ -1384,6 +1384,12 @@ export default {
   },
 
   async queue(batch: MessageBatch, env: PipelineEnv, _ctx: ExecutionContext): Promise<void> {
+    if (batch.queue === 'telemetry-queue' || batch.queue === 'telemetry-dlq') {
+      const { handleTelemetryBatch } = await import('./observability/telemetry-consumer.js')
+      await handleTelemetryBatch(batch, env, _ctx)
+      return
+    }
+
     for (const msg of batch.messages) {
       if (batch.queue === 'harness-dlq' || batch.queue === 'harness-queue' || isRemovedHarnessQueueMessage(msg.body)) {
         console.warn(`[queue] ${batch.queue ?? 'harness-shaped-message'} is removed in the Gas City era; acknowledging stale message`)
@@ -1994,6 +2000,7 @@ async function handleDispatchFormula(
     const factoryAttempt = Number.isInteger(body.factoryAttempt) && (body.factoryAttempt as number) > 0
       ? body.factoryAttempt as number
       : 1
+    const traceId = crypto.randomUUID()
     const priorEsId = cleanString(body.priorEsId, '')
     const formulaEnv = env as PipelineEnv & import('./compilers/formula-compiler.js').FormulaCompilerEnv
     const deps = buildFormulaCompilerDeps(db, formulaEnv)
@@ -2001,6 +2008,7 @@ async function handleDispatchFormula(
       ep: ep as unknown as import('@factory/schemas').TrellisExecutionPacket,
       factoryAttempt,
       ...(priorEsId ? { priorEsId } : {}),
+      traceId,
       env: formulaEnv,
       deps,
     })

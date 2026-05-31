@@ -20,6 +20,12 @@
     ]
   },
 
+  "queues": {
+    "producers": [
+      { "binding": "TELEMETRY_QUEUE", "queue": "telemetry-queue" }
+    ]
+  },
+
   // Cloudflare requires new_sqlite_classes for Container-backed DOs (error code 10074)
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["GasCitySupervisor"] },
