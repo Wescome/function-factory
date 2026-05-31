@@ -1,7 +1,7 @@
 # Factory Observability Architecture
 
 Date: 2026-05-31
-Status: Proposed
+Status: Approved — Architect + SE reviewed; transport and trace model revised
 Scope: End-to-end observability for the Function Factory pipeline
 Stack: Workers Analytics Engine (metrics) + Honeycomb (traces) — both free at current scale
 
@@ -30,19 +30,33 @@ The Factory has no structured observability. Failures surface as timeouts, silen
 
 ### 3.1 Trace boundary
 
-One trace per molecule. Root span: `dispatch.formula`. Trace ID propagated through every hop.
+One `trace_id` per molecule. **Two root spans**, not one nested tree. The dispatch Worker invocation
+and the molecule execution are temporally disjoint: CALL 1/2/3 completes synchronously (~175s),
+then the Worker dies. Molecule steps execute later inside Gas City and report back via a separate
+webhook invocation. A child span cannot outlive its parent, so parent-child across this boundary
+is impossible.
 
 ```
-dispatch.formula
-├── gascity.dispatch          (ff-pipeline → Gas City CALL 1/2/3)
-├── molecule.plan             (Gas City → pi-rpc)
-├── molecule.code             (Gas City → pi-rpc)
-├── molecule.verify           (Gas City → pi-rpc)
-├── molecule.release          (Gas City local — fidelity validator)
-│   └── fidelity.validate
-└── webhook.receive           (Gas City → ff-pipeline webhook)
-    └── lifecycle.transition
+── trace_id shared ────────────────────────────────────────────────────────
+  [ff-pipeline invocation]
+  dispatch.formula                          (root span, ends after CALL 3)
+  └── gascity.dispatch
+
+  [Gas City Container — separate process, later in time]
+  molecule.execute                          (second root span, linked by trace_id)
+  ├── molecule.plan
+  ├── molecule.code
+  ├── molecule.verify
+  └── molecule.release
+      └── fidelity.validate
+
+  [ff-pipeline webhook invocation — separate invocation]
+  webhook.receive                           (third root span, linked by trace_id)
+  └── lifecycle.transition
 ```
+
+In Honeycomb: all three root spans share `trace.trace_id`. Use trace linking (shared trace_id),
+not `trace.parent_id`, across the async boundaries.
 
 ### 3.2 Trace ID propagation
 
@@ -103,6 +117,7 @@ dispatch.formula
 | `step.start` | Step bead dispatched | `trace_id`, `step`, `bead_id`, `provider` |
 | `step.complete` | Step bead closed pass | `trace_id`, `step`, `bead_id`, `duration_ms`, `provider` |
 | `step.fail` | Step bead closed fail | `trace_id`, `step`, `bead_id`, `failure_reason` |
+| `step.timeout` | Step exceeds deadline | `trace_id`, `step`, `bead_id`, `elapsed_ms` |
 | `fidelity.run` | Release step fidelity validator invoked | `trace_id`, `bead_id`, `prior_step_count` |
 | `fidelity.verdict` | Fidelity validator exits | `trace_id`, `bead_id`, `verdict`, `duration_ms` |
 | `molecule.complete` | Molecule root bead closed | `trace_id`, `form_id`, `outcome`, `total_duration_ms`, `factory_attempt` |
@@ -165,38 +180,45 @@ dispatch.formula
 
 No Honeycomb dependency yet — just plumb the ID. Cost: zero.
 
-### WP-OBS-2: Structured event emission (ff-pipeline)
+### WP-OBS-2: Telemetry queue + consumer (ff-pipeline)
 
-Add a `telemetry.ts` module in `workers/ff-pipeline/src/`:
-- `emitEvent(event: FactoryEvent, env: PipelineEnv): void`
-- Non-blocking (`ctx.waitUntil`)
-- Dual-write: Workers Analytics Engine (metrics) + Honeycomb HTTP API (traces)
-- Honeycomb API key stored as Worker secret `HONEYCOMB_API_KEY`
-- Dataset: `function-factory`
+Add `TELEMETRY_QUEUE` consumer binding (batch size 25) and `FACTORY_METRICS` Analytics Engine
+binding to ff-pipeline `wrangler.jsonc`. Add `observability/telemetry-consumer.ts` — a queue
+consumer module routed by the existing `queue()` dispatcher (same pattern as `harness-dispatcher`).
+Consumer acks immediately, fans out to AE (binding) and Honeycomb (fetch) with independent failure
+isolation. `HONEYCOMB_API_KEY` as Worker secret. All bindings absent → no-op, never throws.
 
-Emit all §4.1 events from dispatch and webhook handlers.
+See `CODEX-HANDOFFS-WP-OBS.md` WP-OBS-2 for exact wrangler changes, type additions, and
+Honeycomb field name mapping.
 
-### WP-OBS-3: Gas City startup telemetry (gascity)
+### WP-OBS-3: Gas City startup telemetry (Wescome/gascity + gascity-supervisor ingress)
 
-Add structured log emission at every phase transition and adoption op timeout (§4.2 events). JSON to stderr — picked up by Container logs and optionally forwarded via Tail Worker.
+**Part A (function-factory):** Add `TELEMETRY_QUEUE` producer binding to gascity-supervisor
+`wrangler.jsonc`. Add `POST /internal/telemetry` route in the supervisor's top-level `default.fetch`
+— validates `GC_SUPERVISOR_TOKEN`, enqueues batch, returns 200. Never forwarded to Container DO.
 
-Emit `city.start.dispatch_ready` with `elapsed_ms` on every startup (the metric WP-1 of the startup contention spec requires).
+**Part B (Wescome/gascity):** Add `internal/telemetry/` package with `TelemetryEvent` struct and
+`Emitter` (Emit/Flush, 3s timeout, fire-and-forget). Emit §4.2 startup events at every phase
+transition using canonical phase names from `GAS-CITY-STARTUP-CONTENTION-ARCHITECTURE.md` §4.2.
+Flush after `city.start.dispatch_ready`. Requires gc binary rebuild.
 
-### WP-OBS-4: Molecule lifecycle telemetry (gascity)
+**Note:** Container stdout/stderr is NOT visible to Tail Workers. gc telemetry must flow over
+authenticated HTTP to the supervisor, which enqueues it. Tail Workers are not used for traces.
 
-Emit §4.3 events at molecule start/step start/step complete/fidelity/molecule complete. Carry `gc.trace_id` on every event. Write to stderr as structured JSON — same pattern as WP-OBS-3.
+### WP-OBS-4: Molecule lifecycle telemetry (Wescome/gascity)
 
-### WP-OBS-5: Tail Worker → Honeycomb bridge (function-factory)
+Reuse WP-OBS-3 Emitter. Read `X-Trace-ID` from dispatch request, stamp on root bead metadata.
+Emit §4.3 events at all molecule lifecycle call sites. Flush after `molecule.complete`.
+`molecule.execute` is a second root span correlated via shared `trace_id` — do NOT set
+`parent_span_id` pointing at the dispatch span (already closed). Requires gc binary rebuild.
 
-Add `workers/ff-tail/` — a Cloudflare Tail Worker that:
-- Receives all ff-pipeline + gascity Container logs
-- Filters for structured JSON events (lines starting with `{`)
-- Forwards to Honeycomb `/1/batch/function-factory`
-- Handles backpressure (drop on Honeycomb unavailable — never block the main Worker)
+### ~~WP-OBS-5~~ — DELETED
 
-This gives Gas City trace data in Honeycomb without modifying gc's transport.
+~~Tail Worker → Honeycomb bridge~~ is deleted. Cloudflare Tail Workers receive Worker invocation
+events only — they cannot see Container stdout/stderr. Gas City telemetry flows via the
+authenticated HTTP → TELEMETRY_QUEUE path established in WP-OBS-3.
 
-### WP-OBS-6: Honeycomb boards + alerts
+### WP-OBS-5: Honeycomb boards + alerts (renumbered from WP-OBS-6)
 
 Once data flows:
 - Board: molecule lifecycle (dispatch → approved p50/p95/p99)
@@ -210,12 +232,12 @@ Once data flows:
 
 ## 7. Rollout Order
 
-1. **WP-OBS-1** — trace ID plumbing (no external dependency, no cost, immediate value)
-2. **WP-OBS-2** — ff-pipeline event emission + Analytics Engine metrics
-3. **WP-OBS-3** — Gas City startup telemetry (JSON stderr)
-4. **WP-OBS-4** — Molecule lifecycle telemetry (JSON stderr)
-5. **WP-OBS-5** — Tail Worker → Honeycomb bridge
-6. **WP-OBS-6** — Boards + alerts (after data flows for 48h)
+Create `telemetry-queue` and `telemetry-dlq` in CF dashboard before any deploy that references them.
+
+1. **WP-OBS-1** + **WP-OBS-2** — can run in parallel. WP-OBS-1 is pure ff-pipeline plumbing; WP-OBS-2 is queue infrastructure. No gc dependency.
+2. **WP-OBS-3 Part A** — supervisor ingress. Deploy after `telemetry-queue` exists.
+3. **WP-OBS-3 Part B** + **WP-OBS-4** — gc changes, one binary rebuild. Deploy after Part A.
+4. **WP-OBS-5** — Boards + alerts (after data flows for 48h)
 
 ---
 
