@@ -92,15 +92,28 @@ echo "  Formula probe: $FORMULA_PROBE"
 # ── 3. Seed EP ───────────────────────────────────────────────────────────────
 echo ""
 echo "=== [3/6] Seeding dispatch EP ==="
+IS_PATH="$ROOT/specs/intent-specifications/IS-GC-DISPATCH-WIRE.md"
+ES_PATH="$ROOT/specs/executable-specifications/ES-GC-DISPATCH-WIRE.md"
+if [[ ! -f "$ES_PATH" ]]; then
+  ES_PATH="$ROOT/specs/executable-specifications/ES-GC-DISPATCH-WIRE.yaml"
+fi
+[[ -f "$IS_PATH" ]] || { echo "Missing required IS file: $IS_PATH" >&2; exit 1; }
+[[ -f "$ES_PATH" ]] || { echo "Missing required ES file: $ES_PATH" >&2; exit 1; }
+TASK="$(head -n 1 "$IS_PATH" | sed 's/^#\s*//')"
+IS_BODY="$(cat "$IS_PATH")"
+ES_BODY="$(cat "$ES_PATH")"
+SEED_PAYLOAD="$(jq -cn \
+  --arg fnId "FN-GC-DISPATCH-WIRE" \
+  --arg isId "IS-GC-DISPATCH-WIRE" \
+  --arg esId "ES-GC-DISPATCH-WIRE" \
+  --arg task "$TASK" \
+  --arg isBody "$IS_BODY" \
+  --arg esBody "$ES_BODY" \
+  '{fnId:$fnId,isId:$isId,esId:$esId,task:$task,isBody:$isBody,esBody:$esBody}')"
 SEED_RESP="$("${CURL_RETRY[@]}" -X POST "$FF_BASE/seed-dispatch-ep" \
   -H "Authorization: Bearer $OPERATOR_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{
-    "fnId": "FN-GC-DISPATCH-WIRE",
-    "isId": "IS-GC-DISPATCH-WIRE",
-    "esId": "ES-GC-DISPATCH-WIRE",
-    "task": "Wire POST /dispatch-formula to Gas City 3-call HTTP sequence per IS-GC-DISPATCH-WIRE."
-  }')"
+  -d "$SEED_PAYLOAD")"
 echo "$SEED_RESP" | jq .
 EP_ID="$(echo "$SEED_RESP" | jq -r '.epId')"
 echo "  epId: $EP_ID"

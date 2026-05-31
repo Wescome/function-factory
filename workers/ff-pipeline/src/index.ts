@@ -1349,6 +1349,9 @@ export default {
     if (url.pathname === '/seed-dispatch-ep' && request.method === 'POST') {
       return handleSeedDispatchEp(request, env)
     }
+    if (url.pathname === '/admin/seed-factory-artifacts' && request.method === 'POST') {
+      return handleSeedFactoryArtifacts(request, env)
+    }
 
     // ── Gas City pi-rpc provider → PI container execute bridge ──
     // The Gas City pi-rpc HarnessProvider (IS-GC-RUNTIME-PROVIDER-CONTRACT)
@@ -1370,7 +1373,7 @@ export default {
       return fetchPiContainerDiagnostic(env, '/__pi-container/restart', 'POST')
     }
 
-    return new Response('ff-pipeline: POST /trigger-synthesis, POST /synthesis-callback, POST /trigger-harness, POST /dispatch-formula, POST /seed-dispatch-ep, POST /__pi-container/execute, GET /run-status/:runId, GET /run-monitor/:runId, GET /run-artifacts/:runId, or use Queue consumer', { status: 404 })
+    return new Response('ff-pipeline: POST /trigger-synthesis, POST /synthesis-callback, POST /trigger-harness, POST /dispatch-formula, POST /seed-dispatch-ep, POST /admin/seed-factory-artifacts, POST /__pi-container/execute, GET /run-status/:runId, GET /run-monitor/:runId, GET /run-artifacts/:runId, or use Queue consumer', { status: 404 })
   },
 
   async scheduled(event: ScheduledEvent, env: PipelineEnv, ctx: ExecutionContext): Promise<void> {
@@ -2068,6 +2071,8 @@ async function handleSeedDispatchEp(request: Request, env: PipelineEnv): Promise
     const auth = authorizeOperatorControl(request, env)
     if (!auth.ok) return json({ error: auth.error }, auth.status === 403 ? 401 : auth.status)
 
+    const url = new URL(request.url)
+    const force = (url.searchParams.get('force') ?? '').toLowerCase() === 'true'
     const body = await readJsonRecord(request)
     const fnId = cleanString(body.fnId, '') || 'FN-GC-DISPATCH-WIRE'
     const isId = cleanString(body.isId, '') || 'IS-GC-DISPATCH-WIRE'
@@ -2132,7 +2137,12 @@ async function handleSeedDispatchEp(request: Request, env: PipelineEnv): Promise
     await db.ensureCollection('intent_specifications')
     const isBody = cleanString(body.isBody, '') || task
     const existingIs = await db.get<Record<string, unknown>>('intent_specifications', isId)
-    if (!existingIs) {
+    const existingIsKind = cleanString(existingIs?.kind, '')
+    const isStaleSeed = existingIsKind === 'SeedIntentSpecification'
+    if (!existingIs || (isStaleSeed && force)) {
+      if (isStaleSeed && force) {
+        await db.remove('intent_specifications', isId)
+      }
       await db.save('intent_specifications', {
         _key: isId,
         id: isId,
@@ -2294,6 +2304,97 @@ async function handleRunIntervention(request: Request, env: PipelineEnv, url: UR
   }
 
   return json({ error: `unknown intervention action: ${action}` }, 404)
+}
+
+async function handleSeedFactoryArtifacts(request: Request, env: PipelineEnv): Promise<Response> {
+  try {
+    const auth = authorizeOperatorControl(request, env)
+    if (!auth.ok) return json({ error: auth.error }, auth.status === 403 ? 401 : auth.status)
+
+    const body = await readJsonRecord(request)
+    const fnId = cleanString(body.fnId, '') || 'FN-GC-DISPATCH-WIRE'
+    const isId = cleanString(body.isId, '') || 'IS-GC-DISPATCH-WIRE'
+    const esId = cleanString(body.esId, '') || 'ES-GC-DISPATCH-WIRE'
+    const isBody = cleanString(body.isBody, '')
+    const esBody = cleanString(body.esBody, '')
+    if (!isBody) return json({ error: 'isBody is required' }, 400)
+    if (!esBody) return json({ error: 'esBody is required' }, 400)
+
+    const { createClientFromEnv } = await import('@factory/arango-client')
+    const db = createClientFromEnv(env)
+
+    await db.ensureCollection('intent_specifications')
+    await db.ensureCollection('executable_specifications')
+    await db.ensureCollection('specs_functions')
+
+    const seeded: string[] = []
+
+    const now = new Date().toISOString()
+    const isDoc = await db.get<Record<string, unknown>>('intent_specifications', isId)
+    if (!isDoc) {
+      await db.save('intent_specifications', {
+        _key: isId,
+        id: isId,
+        kind: 'IntentSpecification',
+        body: isBody,
+        content: isBody,
+        acceptanceCriteria: [],
+        seeded_at: now,
+      })
+    } else {
+      await db.update('intent_specifications', isId, {
+        kind: 'IntentSpecification',
+        body: isBody,
+        content: isBody,
+        seeded_at: now,
+      })
+    }
+    seeded.push(isId)
+
+    const esDoc = await db.get<Record<string, unknown>>('executable_specifications', esId)
+    if (!esDoc) {
+      await db.save('executable_specifications', {
+        _key: esId,
+        id: esId,
+        kind: 'ExecutableSpecification',
+        body: esBody,
+        content: esBody,
+        acceptanceCriteria: [],
+        seeded_at: now,
+      })
+    } else {
+      await db.update('executable_specifications', esId, {
+        kind: 'ExecutableSpecification',
+        body: esBody,
+        content: esBody,
+        seeded_at: now,
+      })
+    }
+    seeded.push(esId)
+
+    const fnDoc = await db.get<Record<string, unknown>>('specs_functions', fnId)
+    if (!fnDoc) {
+      await db.save('specs_functions', {
+        _key: fnId,
+        id: fnId,
+        kind: 'Function',
+        title: fnId,
+        source_refs: [isId, esId],
+        seeded_at: now,
+      })
+    } else {
+      await db.update('specs_functions', fnId, {
+        kind: 'Function',
+        source_refs: [isId, esId],
+        seeded_at: now,
+      })
+    }
+    seeded.push(fnId)
+
+    return json({ ok: true, seeded }, 200)
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : String(err) }, 500)
+  }
 }
 
 type OperatorAuthorizationResult =
