@@ -67,7 +67,8 @@ Rule: do NOT require gc to echo `trace_id` back in the webhook payload — read 
 
 ### Run before editing
 
-These symbols are on the hot dispatch path. Grep for callers before touching them:
+Tessera (`specs/reference/TESSERA-CF-DO-SPEC.md`) is not yet implemented. Until it is, use grep
+as the fallback impact analysis for these hot-path symbols:
 
 ```bash
 grep -rn "compileAndDispatchFormula" workers/ff-pipeline/src/ --include="*.ts"
@@ -76,6 +77,13 @@ grep -rn "DispatchLogRow" workers/ff-pipeline/src/ --include="*.ts"
 ```
 
 Report every call site found. If any caller is outside `formula-compiler.ts` and `index.ts`, stop and escalate before editing.
+
+Once Tessera is live, replace the above with:
+```
+tessera_impact({ target: "compileAndDispatchFormula", direction: "upstream" })
+tessera_impact({ target: "gasCityAuthHeaders", direction: "upstream" })
+tessera_impact({ target: "DispatchLogRow", direction: "upstream" })
+```
 
 ### Done when
 - `trace_id` field exists on `DispatchLogRow` type
