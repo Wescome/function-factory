@@ -66,12 +66,16 @@ Change: SELECT `trace_id` from the matched dispatch_log row. Carry it into any t
 Rule: do NOT require gc to echo `trace_id` back in the webhook payload — read it from dispatch_log by `gc_bead_id`.
 
 ### Run before editing
+
+These symbols are on the hot dispatch path. Grep for callers before touching them:
+
+```bash
+grep -rn "compileAndDispatchFormula" workers/ff-pipeline/src/ --include="*.ts"
+grep -rn "gasCityAuthHeaders" workers/ff-pipeline/src/ --include="*.ts"
+grep -rn "DispatchLogRow" workers/ff-pipeline/src/ --include="*.ts"
 ```
-tessera_impact({ target: "compileAndDispatchFormula", direction: "upstream" })
-tessera_impact({ target: "gasCityAuthHeaders", direction: "upstream" })
-tessera_impact({ target: "DispatchLogRow", direction: "upstream" })
-```
-Report blast radius before any edits. Stop and escalate if HIGH or CRITICAL.
+
+Report every call site found. If any caller is outside `formula-compiler.ts` and `index.ts`, stop and escalate before editing.
 
 ### Done when
 - `trace_id` field exists on `DispatchLogRow` type
