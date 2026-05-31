@@ -211,7 +211,94 @@ Rollback: disable degraded-mode gating flag, revert to legacy `running` gate whi
 Rollback:
 - disable degraded-mode gating flag and revert to legacy `running` gate while retaining telemetry.
 
-## 11. Non-Goals
+## 11. Implementation Instructions
+
+### WP-4 — Bounded adoption pool (ship first)
+
+**Repo:** `Wescome/gascity`, branch `factory`
+**File:** `cmd/gc/adoption_barrier.go`
+
+**Problem:** The per-session adoption loop is serial with no aggregate deadline. N sessions × per-op timeouts can still blow the startup budget.
+
+**Changes:**
+
+1. Add aggregate deadline constants near existing timeout constants (~line 42):
+```go
+var adoptionTotalTimeout = 30 * time.Second
+var adoptionWorkerPoolSize = 3
+```
+
+2. Replace the serial `for _, sessionName := range running` loop (~line 164) with a bounded worker pool:
+   - Create a context with `adoptionTotalTimeout` deadline wrapping the entire loop
+   - Run sessions concurrently with a semaphore of size `adoptionWorkerPoolSize`
+   - Each session still uses existing per-op wrappers (`sessionAliveWithTimeout`, `listSessionBeadsWithTimeout`, etc.)
+   - On deadline exceeded: log skipped sessions to stderr, break loop, return `passed=false` (not error) — startup must proceed
+
+3. Add a defer queue: sessions skipped due to timeout are recorded in a slice returned alongside the pass/fail result so the patrol tick can retry them.
+
+**Acceptance:** `adopting_sessions` completes within `adoptionTotalTimeout` regardless of N sessions or Dolt contention.
+
+---
+
+### WP-1 — FSM telemetry + phase dedup
+
+**Repo:** `Wescome/gascity`, branch `factory`
+**Files:**
+- `cmd/gc/city_registry.go` (~line 434)
+- `internal/api/supervisor.go` (~line 359)
+
+**Changes:**
+
+1. In `city_registry.go`, add `phase_start_ts`, `elapsed_ms`, `deadline_ms`, `last_blocking_op`, `last_error` to the phase tracking struct (or wherever phase state is held).
+
+2. In `internal/api/supervisor.go`, replace the `allStartupPhases()` literal slice with a reference to `startupPhaseOrder` from `city_registry.go` — export it if needed. No duplicate slice.
+
+3. Emit `dispatch_ready_ms` metric on transition to `running` or `running_degraded` — stderr structured log line: `city.start.dispatch_ready city=factory elapsed_ms=NNN`.
+
+4. Add terminal states `failed_<phase>` and `running_degraded` to the status surface in `internal/api/supervisor.go`.
+
+**Do not rename** existing phase strings (`loading_config`, `starting_bead_store`, `resolving_formulas`, `adopting_sessions`, `starting_agents`).
+
+**Acceptance:** No duplicated phase slice. `dispatch_ready_ms` appears in Container logs on every startup.
+
+---
+
+### WP-6 — Bundle repoint + phase-aware wait
+
+**Repo:** `function-factory`, branch `factory/fp-motdwvr2-w7un`
+**File:** `scripts/ops/first-dispatch.sh`
+
+**Changes:**
+
+1. Line 14 — change:
+```bash
+SUPERVISOR_DIR="/Users/wes/eai/examples/factory/weops-gascity/stage/supervisor"
+```
+to:
+```bash
+SUPERVISOR_DIR="$ROOT/workers/gascity-supervisor"
+```
+
+2. Replace the `running=true` poll loop (~lines 70-82) with a phase-aware wait:
+   - Poll `/v0/cities` for `dispatch_ready=true` OR `status=running_degraded` (both safe to dispatch)
+   - Detect terminal states `failed_*` — exit immediately with error and print `phase_meta`
+   - Expand to 100 attempts × 3s (300s ceiling, matches SLO)
+
+**Acceptance:** Script deploys from `workers/gascity-supervisor/`. Terminal failures surface immediately instead of timing out blind.
+
+---
+
+### WP-2, WP-5 — deferred
+
+WP-2 (critical-path split + degraded mode) and WP-5 (dispatch-ready gating in ff-pipeline) ship after WP-1 `dispatch_ready_ms` data exists. No implementation instructions until then.
+
+### WP-3 — dropped
+
+Do not implement. See §WP-3.
+
+---
+
+## 12. Non-Goals
 
 - Replacing `bd`/Dolt as bead store.
 - Reworking Factory ontology artifacts.
