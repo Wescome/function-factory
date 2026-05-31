@@ -21,7 +21,10 @@
   },
 
   // Cloudflare requires new_sqlite_classes for Container-backed DOs (error code 10074)
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["GasCitySupervisor"], "new_classes": ["FactoryStore"] }],
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["GasCitySupervisor"] },
+    { "tag": "v2", "new_sqlite_classes": ["FactoryStore"] }
+  ],
 
   // Secrets (wrangler secret put):
   //   GC_SUPERVISOR_TOKEN    — bearer token the Worker checks on inbound requests
