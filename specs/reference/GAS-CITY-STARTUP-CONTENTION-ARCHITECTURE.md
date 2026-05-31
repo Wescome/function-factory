@@ -208,9 +208,6 @@ Correctness SLO:
 
 Rollback: disable degraded-mode gating flag, revert to legacy `running` gate while retaining telemetry.
 
-Rollback:
-- disable degraded-mode gating flag and revert to legacy `running` gate while retaining telemetry.
-
 ## 11. Implementation Instructions
 
 ### WP-4 — Bounded adoption pool (ship first)
@@ -281,10 +278,11 @@ SUPERVISOR_DIR="$ROOT/workers/gascity-supervisor"
 
 2. Replace the `running=true` poll loop (~lines 70-82) with a phase-aware wait:
    - Poll `/v0/cities` for `dispatch_ready=true` OR `status=running_degraded` (both safe to dispatch)
+   - `running_degraded` is safe to dispatch only when the §4.6 predicate holds (bead store open + adoption complete + convergence complete + `onStarted` fired). The status endpoint must surface whether the predicate holds; script must not infer safety from status string alone.
    - Detect terminal states `failed_*` — exit immediately with error and print `phase_meta`
    - Expand to 100 attempts × 3s (300s ceiling, matches SLO)
 
-**Acceptance:** Script deploys from `workers/gascity-supervisor/`. Terminal failures surface immediately instead of timing out blind.
+**Acceptance:** Script deploys from `workers/gascity-supervisor/`. Terminal failures surface immediately instead of timing out blind. Script never gates on `running` alone — `dispatch_ready` is authoritative.
 
 ---
 
@@ -304,10 +302,12 @@ Do not implement. See §WP-3.
 - Reworking Factory ontology artifacts.
 - Changing fidelity verification semantics.
 
-## 12. Acceptance Criteria
+## 13. Acceptance Criteria
 
 Architecture is accepted when:
 1. `adopting_sessions` no longer stalls indefinitely.
 2. Dispatch automation succeeds/retries deterministically against explicit readiness contract.
 3. Cold starts under contention produce diagnosable phase/op timeout events, not ambiguous hangs.
 4. `function-factory/workers/gascity-supervisor/` is the only deployment bundle path used by operational scripts.
+
+**Readiness authority note:** `dispatch_ready` is the authoritative readiness signal. `running=true` is legacy compatibility only and must not be used as a dispatch gate in any script or client after WP-5 ships. Any regression to `running`-only gating is a spec violation.
