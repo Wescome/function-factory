@@ -1,4 +1,5 @@
 import { Container } from "@cloudflare/containers";
+import { FactoryStore } from "./factory-store-do";
 
 export class GasCitySupervisor extends Container<Env> {
   defaultPort = 9443;
@@ -82,6 +83,30 @@ export class GasCitySupervisor extends Container<Env> {
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    const url = new URL(request.url)
+
+    if (url.pathname.startsWith("/internal/bead-store/")) {
+      const auth = request.headers.get("Authorization") ?? ""
+      if (auth !== `Bearer ${env.GC_SUPERVISOR_TOKEN}`) {
+        return new Response(JSON.stringify({ error: "unauthorized" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        })
+      }
+      const rest = url.pathname.slice("/internal/bead-store/".length)
+      const slash = rest.indexOf("/")
+      if (slash <= 0) {
+        return new Response(JSON.stringify({ error: "invalid_path" }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        })
+      }
+      const city = rest.slice(0, slash)
+      const doPath = rest.slice(slash)
+      const stub = env.FACTORY_STORE.get(env.FACTORY_STORE.idFromName(city))
+      return stub.fetch(new Request(new URL(doPath + url.search, "https://do.internal"), request))
+    }
+
     // Auth gate — all requests require bearer token
     const auth = request.headers.get("Authorization") ?? "";
     if (auth !== `Bearer ${env.GC_SUPERVISOR_TOKEN}`) {
@@ -102,6 +127,7 @@ export default {
 
 interface Env {
   SUPERVISOR: DurableObjectNamespace;
+  FACTORY_STORE: DurableObjectNamespace;
   GC_SUPERVISOR_TOKEN: string;
   OPERATOR_CONTROL_TOKEN: string;
   GAS_CITY_HMAC_SECRET: string;
@@ -109,3 +135,5 @@ interface Env {
   DOLT_R2_SECRET_ACCESS_KEY: string;
   DOLT_R2_ENDPOINT: string;
 }
+
+export { FactoryStore };

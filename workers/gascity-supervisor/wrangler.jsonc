@@ -14,11 +14,14 @@
   ],
 
   "durable_objects": {
-    "bindings": [{ "name": "SUPERVISOR", "class_name": "GasCitySupervisor" }]
+    "bindings": [
+      { "name": "SUPERVISOR", "class_name": "GasCitySupervisor" },
+      { "name": "FACTORY_STORE", "class_name": "FactoryStore" }
+    ]
   },
 
   // Cloudflare requires new_sqlite_classes for Container-backed DOs (error code 10074)
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["GasCitySupervisor"] }],
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["GasCitySupervisor"], "new_classes": ["FactoryStore"] }],
 
   // Secrets (wrangler secret put):
   //   GC_SUPERVISOR_TOKEN    — bearer token the Worker checks on inbound requests
