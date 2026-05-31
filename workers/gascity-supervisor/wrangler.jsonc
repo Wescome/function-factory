@@ -1,0 +1,31 @@
+{
+  "name": "gascity-supervisor",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-05-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  "containers": [
+    {
+      "class_name": "GasCitySupervisor",
+      "image": "./Dockerfile",
+      "instance_type": "standard-1",
+      "max_instances": 1
+    }
+  ],
+
+  "durable_objects": {
+    "bindings": [{ "name": "SUPERVISOR", "class_name": "GasCitySupervisor" }]
+  },
+
+  // Cloudflare requires new_sqlite_classes for Container-backed DOs (error code 10074)
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["GasCitySupervisor"] }],
+
+  // Secrets (wrangler secret put):
+  //   GC_SUPERVISOR_TOKEN    — bearer token the Worker checks on inbound requests
+  //   ANTHROPIC_API_KEY      — for agents running inside sessions
+
+  // NOTE: Do NOT use R2 POSIX mount for Dolt. Dolt uses SQLite-style lock files
+  // and mmap that don't work over Cloudflare's object-storage FUSE layer.
+  // Dolt talks to R2 directly via S3 API using AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY.
+  "r2_buckets": [{ "binding": "DOLT_DATA", "bucket_name": "dolt-data" }]
+}

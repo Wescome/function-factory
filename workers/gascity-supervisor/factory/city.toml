@@ -1,0 +1,57 @@
+[workspace]
+name = "factory"
+
+[beads]
+provider = "bd"
+
+[session]
+# The control-dispatcher must run inside the Gas City container because it
+# drains the local bead store and invokes the harness provider registry. Coder
+# work is executed through [provider.pi-rpc], not through a remote session.
+provider = "subprocess"
+
+[session.cloudflare]
+url = "https://gascity-cloudflare-control-worker.koales.workers.dev"
+
+[daemon]
+formula_v2 = true
+
+[[agent]]
+# Explicit control-dispatcher required so sling's controlDispatcherBinding can
+# resolve the control route and create workflow-control beads. Without this,
+# injectControlDispatcherAgents injects it implicitly but the sling code path
+# reads the raw config before injection — molecule steps are never created.
+# start_command must be set explicitly because the implicit injection via
+# injectControlDispatcherAgents is skipped when an explicit block is present.
+name = "control-dispatcher"
+provider = "subprocess"
+min_active_sessions = 1
+max_active_sessions = 1
+start_command = "sh -c 'exec \"${GC_BIN:-gc}\" convoy control --serve --follow control-dispatcher'"
+
+[[agent]]
+# noop provider: session lifecycle satisfied locally (state file, no external
+# service). All step execution is handled by the harness registry via
+# gc.runtime_requirements → pi-rpc. No Cloudflare Sandbox is started per step.
+name = "coder"
+provider = "noop"
+min_active_sessions = 0
+max_active_sessions = 3
+
+# Harness runtime provider registry (IS-GC-RUNTIME-PROVIDER-CONTRACT, Open
+# Question 3: the registry lives in city configuration). Each [provider.<id>]
+# block declares the provider URL, its Harness Tuple coverage, and its capability
+# keys (drawn only from the canonical twelve-key set).
+[provider.pi-rpc]
+url = "https://ff-pipeline.koales.workers.dev"
+token_env = "FF_OPERATOR_CONTROL_TOKEN"
+harness_slots = ["E", "T", "C", "S", "L", "V", "G", "P"]
+capability_keys = ["ai_reasoning", "model_routing", "workspace_write_scope", "contract_evaluation", "tool_capability_probe", "session_archive"]
+
+# cloudflare-sandbox remains registered for setup/teardown steps only. It
+# explicitly does NOT declare ai_reasoning (AC-HT3): it must never be selected
+# for AI-reasoning steps (AC-REG6).
+[provider.cloudflare-sandbox]
+url = "https://gascity-cloudflare-control-worker.koales.workers.dev"
+harness_slots = ["E", "T", "C", "S", "L", "V", "G", "P"]
+capability_keys = ["command_exec", "file_materialize", "workspace_init", "dependency_prep", "backup_restore"]
