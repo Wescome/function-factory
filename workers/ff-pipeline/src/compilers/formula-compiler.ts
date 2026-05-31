@@ -1113,12 +1113,38 @@ async function dispatchCall3AndFinalize(args: {
       // claim dispatched without evidence.
       const parsed = (await res.json().catch(() => null)) as { workflow_id?: string } | null
       const respWf = parsed?.workflow_id
+      const priorRow = await deps.getDispatchLogByIdempotencyKey(
+        args.idempotencyKey,
+        args.factoryAttempt,
+        dispatchLogKey,
+      )
+      if (
+        priorRow?.outcome === "dispatched" &&
+        typeof priorRow.gc_workflow_id === "string" &&
+        priorRow.gc_workflow_id.length > 0
+      ) {
+        const replayWorkflowID = priorRow.gc_workflow_id
+        const replayBeadID = priorRow.gc_bead_id ?? beadId
+        const replayRootBeadID = priorRow.gc_workflow_root_bead_id ?? replayBeadID
+        await safeUpdateDispatchLog(deps, dispatchLogKey, {
+          outcome: "dispatched",
+          gc_bead_id: replayBeadID,
+          gc_workflow_id: replayWorkflowID,
+          gc_workflow_root_bead_id: replayRootBeadID,
+          labels_sent: args.labelsSent ?? null,
+          sling_request_hash: slingRequestHash,
+          completed_at: deps.now(),
+        })
+        return {
+          outcome: "dispatched",
+          form_id: form._key,
+          dispatch_log_key: dispatchLogKey,
+          gc_bead_id: replayBeadID,
+          gc_workflow_id: replayWorkflowID,
+          gc_workflow_root_bead_id: replayRootBeadID,
+        }
+      }
       if (respWf) {
-        const priorRow = await deps.getDispatchLogByIdempotencyKey(
-          args.idempotencyKey,
-          args.factoryAttempt,
-          dispatchLogKey,
-        )
         if (
           priorRow?.gc_workflow_id === respWf &&
           priorRow.outcome === "dispatched"
@@ -1143,6 +1169,37 @@ async function dispatchCall3AndFinalize(args: {
           }
         }
       }
+      // Some Gas City sling 409 responses omit workflow_id despite the bead
+      // already existing and being usable. Probe bead existence as a fallback
+      // and treat as dispatched when the bead is present.
+      try {
+        const beadRes = await deps.httpFetch(gasCityUrl(env, `/bead/${encodeURIComponent(beadId)}`), {
+          method: "GET",
+          headers: gasCityAuthHeaders(env),
+          signal: AbortSignal.timeout(PER_CALL_TIMEOUT_MS),
+        })
+        if (beadRes.status === 200) {
+          await safeUpdateDispatchLog(deps, dispatchLogKey, {
+            outcome: "dispatched",
+            gc_bead_id: beadId,
+            gc_workflow_id: beadId,
+            gc_workflow_root_bead_id: beadId,
+            labels_sent: args.labelsSent ?? null,
+            sling_request_hash: slingRequestHash,
+            completed_at: deps.now(),
+          })
+          return {
+            outcome: "dispatched",
+            form_id: form._key,
+            dispatch_log_key: dispatchLogKey,
+            gc_bead_id: beadId,
+            gc_workflow_id: beadId,
+            gc_workflow_root_bead_id: beadId,
+          }
+        }
+      } catch {
+        // Fall through to rejection path when probe fails.
+      }
       await safeUpdateDispatchLog(deps, dispatchLogKey, {
         outcome: "rejected",
         error: respWf
@@ -1154,6 +1211,9 @@ async function dispatchCall3AndFinalize(args: {
         outcome: "rejected",
         form_id: form._key,
         dispatch_log_key: dispatchLogKey,
+        error: respWf
+          ? `CALL 3 409 workflow_id ${respWf} without matching prior dispatch_log`
+          : "CALL 3 409 without workflow_id",
       }
     }
     if (status >= 400 && status < 500) {
@@ -1167,6 +1227,7 @@ async function dispatchCall3AndFinalize(args: {
         outcome: "rejected",
         form_id: form._key,
         dispatch_log_key: dispatchLogKey,
+        error: `CALL 3 HTTP ${status}: ${txt}`,
       }
     }
     if (status >= 500) {

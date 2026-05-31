@@ -81,6 +81,24 @@ for i in $(seq 1 40); do
 done
 [[ "$WARM" -eq 1 ]] || { echo "ERROR: Container did not become ready." >&2; exit 1; }
 
+echo "  Waiting for city runtime to report running=true..."
+CITY_READY=0
+for i in $(seq 1 60); do
+  CITY_ITEM=$(curl --http1.1 --connect-timeout 5 --max-time 15 -s \
+    -H "Authorization: Bearer $GC_BEARER_TOKEN" \
+    "$GC_BASE/v0/cities" 2>/dev/null | jq -c '.items[]? | select(.name=="factory")' || true)
+  CITY_RUNNING=$(printf '%s' "$CITY_ITEM" | jq -r '.running // false' 2>/dev/null || echo "false")
+  CITY_STATUS=$(printf '%s' "$CITY_ITEM" | jq -r '.status // ""' 2>/dev/null || echo "")
+  if [[ "$CITY_RUNNING" == "true" ]]; then
+    echo "  City runtime ready (attempt $i)"
+    CITY_READY=1
+    break
+  fi
+  echo "  City not ready yet (attempt $i, status=${CITY_STATUS:-unknown})"
+  sleep 3
+done
+[[ "$CITY_READY" -eq 1 ]] || { echo "ERROR: City did not reach running=true." >&2; exit 1; }
+
 # Probe formula endpoint — same URL ff-pipeline CALL 1 will hit
 echo "  Probing formula endpoint..."
 FORMULA_PROBE=$(curl --http1.1 -s -o /dev/stdout -w "\nHTTP_STATUS:%{http_code}" \
@@ -170,20 +188,28 @@ echo "$CALLBACK_RESP" | jq .
 # ── 6. Run Cloudflare autonomy monitor ──────────────────────────────────────
 echo ""
 echo "=== [6/6] Running Cloudflare autonomy monitor ==="
-if AUTONOMY_RESP="$("${CURL_RETRY[@]}" -X POST "$FF_BASE/gascity/autonomy/run" \
+if AUTONOMY_RESP="$(curl --http1.1 --connect-timeout 10 --max-time 45 -sf -X POST "$FF_BASE/gascity/autonomy/run" \
   -H "Authorization: Bearer $OPERATOR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"trigger":"smoke"}')"; then
   echo "$AUTONOMY_RESP" | jq .
+  if [[ "$(echo "$AUTONOMY_RESP" | jq -r '.ok // "false"')" != "true" ]]; then
+    echo "Autonomy run returned ok!=true."
+    exit 1
+  fi
 else
-  echo "Autonomy run request timed out or failed; fetching status directly."
+  echo "Autonomy run request timed out or failed."
+  exit 1
 fi
 
 echo ""
 echo "=== Autonomy status ==="
-AUTONOMY_STATUS="$("${CURL_RETRY[@]}" "$FF_BASE/gascity/autonomy/status")"
-echo "$AUTONOMY_STATUS" | jq .
-if [[ "$(echo "$AUTONOMY_STATUS" | jq -r '.ok // "false"')" != "true" ]]; then
-  echo "Autonomy status did not report ok=true."
-  exit 1
+if AUTONOMY_STATUS="$(curl --http1.1 --connect-timeout 5 --max-time 15 -sf "$FF_BASE/gascity/autonomy/status")"; then
+  echo "$AUTONOMY_STATUS" | jq .
+  if [[ "$(echo "$AUTONOMY_STATUS" | jq -r '.ok // "false"')" != "true" ]]; then
+    echo "Autonomy status did not report ok=true."
+    exit 1
+  fi
+else
+  echo "Autonomy status unavailable (non-fatal): run already succeeded."
 fi

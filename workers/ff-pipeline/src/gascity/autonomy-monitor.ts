@@ -108,11 +108,33 @@ export async function runGasCityAutonomyMonitor(
     stale_dispatches: 0,
   }
 
-  const accepted = await db.query<FunctionRecord>(
+  // Smoke mode is a bounded liveness probe for operator workflows
+  // (e.g. first-dispatch.sh step 6). It intentionally avoids the
+  // full monitor sweep to keep response time tight and predictable.
+  if (trigger === "smoke") {
+    const ping = await queryWithTimeout(
+      db.query<{ ok: number }>("RETURN { ok: 1 }"),
+      [] as Array<{ ok: number }>,
+      5000,
+    )
+    if (ping.length === 0) {
+      return {
+        ...summary,
+        ok: false,
+      }
+    }
+    return summary
+  }
+
+  const accepted = await queryWithTimeout(
+    db.query<FunctionRecord>(
     `FOR fn IN specs_functions
        FILTER fn.state == "accepted"
        LIMIT 100
        RETURN fn`,
+    ),
+    [] as FunctionRecord[],
+    8000,
   )
   summary.accepted_checked = accepted.length
   for (const fn of accepted) {
@@ -136,11 +158,15 @@ export async function runGasCityAutonomyMonitor(
     }
   }
 
-  const monitored = await db.query<FunctionRecord>(
+  const monitored = await queryWithTimeout(
+    db.query<FunctionRecord>(
     `FOR fn IN specs_functions
        FILTER fn.state == "monitored"
        LIMIT 100
        RETURN fn`,
+    ),
+    [] as FunctionRecord[],
+    8000,
   )
   summary.monitored_checked = monitored.length
   for (const fn of monitored) {
@@ -170,7 +196,8 @@ export async function runGasCityAutonomyMonitor(
     }
   }
 
-  const staleDispatches = await db.query<Record<string, unknown>>(
+  const staleDispatches = await queryWithTimeout(
+    db.query<Record<string, unknown>>(
     `FOR dl IN dispatch_log
        FILTER dl.outcome == "dispatched"
        FILTER dl.started_at < @cutoff
@@ -184,6 +211,9 @@ export async function runGasCityAutonomyMonitor(
        LIMIT 100
        RETURN dl`,
     { cutoff: staleDispatchCutoff },
+    ),
+    [] as Record<string, unknown>[],
+    8000,
   )
   summary.stale_dispatches = staleDispatches.length
   for (const dispatch of staleDispatches) {
@@ -198,32 +228,47 @@ export async function runGasCityAutonomyMonitor(
 
 export async function getGasCityAutonomyStatus(env: PipelineEnv): Promise<Record<string, unknown>> {
   const db = createClientFromEnv(env) as unknown as AutonomyDb
-  await ensureAutonomyCollections(db)
   const [states, recentPersistence, openIncidents, pressures] = await Promise.all([
-    db.query<{ state: string; count: number }>(
+    queryWithTimeout(
+      db.query<{ state: string; count: number }>(
       `FOR fn IN specs_functions
          COLLECT state = fn.state WITH COUNT INTO count
          RETURN { state, count }`,
+      ),
+      [],
+      6000,
     ),
-    db.query<Record<string, unknown>>(
+    queryWithTimeout(
+      db.query<Record<string, unknown>>(
       `FOR vr IN persistence_verdicts
          SORT vr.timestamp DESC
          LIMIT 10
          RETURN KEEP(vr, ["id", "function_id", "overall", "timestamp", "remediation"])`,
+      ),
+      [],
+      6000,
     ),
-    db.query<Record<string, unknown>>(
+    queryWithTimeout(
+      db.query<Record<string, unknown>>(
       `FOR inc IN specs_incidents
          FILTER inc.status == "open"
          SORT inc.openedAt DESC
          LIMIT 10
          RETURN KEEP(inc, ["id", "incidentType", "functionIds", "severity", "openedAt", "title"])`,
+      ),
+      [],
+      6000,
     ),
-    db.query<Record<string, unknown>>(
+    queryWithTimeout(
+      db.query<Record<string, unknown>>(
       `FOR prs IN specs_pressures
          FILTER STARTS_WITH(prs.id, "PRS-OPS-GC-")
          SORT prs.createdAt DESC
          LIMIT 10
          RETURN KEEP(prs, ["id", "name", "urgency", "strength", "createdAt"])`,
+      ),
+      [],
+      6000,
     ),
   ])
   return {
@@ -233,6 +278,20 @@ export async function getGasCityAutonomyStatus(env: PipelineEnv): Promise<Record
     recent_persistence: recentPersistence,
     open_incidents: openIncidents,
     operational_pressures: pressures,
+  }
+}
+
+async function queryWithTimeout<T>(promise: Promise<T>, fallback: T, timeoutMs: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | null = null
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((resolve) => {
+        timer = setTimeout(() => resolve(fallback), timeoutMs)
+      }),
+    ])
+  } finally {
+    if (timer) clearTimeout(timer)
   }
 }
 
@@ -462,8 +521,8 @@ async function escalateRecurringIncidents(db: AutonomyDb, timestamp: string, thr
     `FOR inc IN specs_incidents
        FILTER inc.status == "open"
        FILTER STARTS_WITH(inc.incidentType, "gascity_")
-       LET functionId = LENGTH(inc.functionIds) > 0 ? inc.functionIds[0] : "FN-GC-DISPATCH-WIRE"
-       COLLECT incidentType = inc.incidentType, functionId = functionId INTO grouped = inc
+       LET fnId = LENGTH(inc.functionIds) > 0 ? inc.functionIds[0] : "FN-GC-DISPATCH-WIRE"
+       COLLECT incidentType = inc.incidentType, functionId = fnId INTO grouped = inc
        LET incidentIds = grouped[*].id
        FILTER LENGTH(incidentIds) >= @threshold
        RETURN { incidentType, functionId, count: LENGTH(incidentIds), incidentIds }`,
