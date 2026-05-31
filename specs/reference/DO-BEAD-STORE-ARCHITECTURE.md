@@ -1,7 +1,7 @@
 # Durable Object Store Architecture
 
 Date: 2026-05-31
-Status: Proposed
+Status: Approved — Architect reviewed 2026-05-31
 Scope: Replace bd/Dolt bead store AND ArangoDB artifact store with a single Cloudflare Durable Object, one SQLite database, cross-boundary foreign keys between execution plane (beads) and knowledge plane (artifacts)
 Repos: `Wescome/gascity` (branch: `factory`) + `function-factory/workers/gascity-supervisor/`
 
@@ -70,7 +70,7 @@ One `ctx.storage.sql`. Both `/beads/*` and `/artifacts/*` routes operate on `thi
 CREATE TABLE beads (
   id          TEXT PRIMARY KEY,
   title       TEXT NOT NULL,
-  status      TEXT NOT NULL DEFAULT 'open',
+  status      TEXT NOT NULL DEFAULT 'open',  -- 'open' | 'closed' | 'deleted' (tombstone)
   issue_type  TEXT NOT NULL DEFAULT 'task',
   priority    INTEGER,
   created_at  TEXT NOT NULL,
@@ -101,6 +101,10 @@ CREATE INDEX idx_deps_up ON deps(depends_on_id);
 ```
 
 Labels and metadata stored as JSON columns — SQLite JSON functions (`json_each`, `json_extract`) handle filtering without external index maintenance.
+
+**Bead deletion policy — tombstone-only (recommended, decided now).** Knowledge plane tables carry `emission_bead_id REFERENCES beads(id)`. A hard SQL `DELETE` of a bead that still has artifact references would violate FK integrity (`PRAGMA foreign_keys = ON` rejects it) or, if FKs were off, would orphan lineage. Therefore **bead rows are tombstoned, never hard-deleted via the API**: deletion sets `status = 'deleted'` and `ephemeral = 0` (a tombstone is permanent record, not garbage) and leaves the row — and all artifact FKs pointing at it — intact. Queries (`ListOpen`, `Ready`, etc.) already exclude non-open statuses, so tombstoned beads disappear from operational views without breaking the knowledge plane.
+
+If a true hard delete is ever required (e.g. a privacy purge), it is NOT a routine API operation. It requires either (a) first nulling `emission_bead_id` on every referencing row, or (b) declaring the FKs `ON DELETE SET NULL` and accepting that purged beads sever their artifacts' provenance link. The standing decision is **tombstone-only**; hard delete is an explicit, out-of-band operator action, not a code path the API exposes.
 
 ### 4.2 SQLite schema — knowledge plane (artifacts)
 
@@ -176,7 +180,7 @@ All routes require `Authorization: Bearer <GC_SUPERVISOR_TOKEN>`.
 | `POST` | `/beads` | Create bead |
 | `GET` | `/beads/:id` | Get bead |
 | `PATCH` | `/beads/:id` | Update bead |
-| `DELETE` | `/beads/:id` | Delete bead |
+| `DELETE` | `/beads/:id` | Tombstone bead — sets `status = 'deleted'`, does NOT issue SQL `DELETE` (preserves artifact FKs) |
 | `POST` | `/beads/:id/close` | Close bead |
 | `POST` | `/beads/:id/reopen` | Reopen bead |
 | `POST` | `/beads/close-all` | CloseAll batch |
@@ -275,11 +279,35 @@ url_env = "GC_BEAD_STORE_URL"   # injected by Worker via Container env
 token_env = "GC_SUPERVISOR_TOKEN"
 ```
 
-`workers/gascity-supervisor/src/index.ts` — inject `GC_BEAD_STORE_URL` as the DO binding stub URL when starting the Container:
+**Container → DO requests are proxied through the supervisor Worker.** A Container cannot call a Durable Object directly — DO stubs are only reachable from a Worker that holds the binding. `idFromName(city).toString()` returns a DO *object ID* (an opaque hex string), not a fetch URL; injecting it as `GC_BEAD_STORE_URL` would give the Container an unroutable string. The correct pattern is an internal Worker route that resolves the stub and forwards the request.
+
+**Internal proxy route (gascity-supervisor Worker).** Add a route `GET/POST /internal/bead-store/:city/*` that resolves the DO stub and forwards:
 ```typescript
-GC_BEAD_STORE_URL: env.BEAD_STORE.idFromName(cityName).toString()
-// or the DO's fetch URL via env.BEAD_STORE.get(id)
+// workers/gascity-supervisor/src/index.ts (router)
+// matches: /internal/bead-store/:city/*  e.g. /internal/bead-store/factory/beads/do-42
+if (url.pathname.startsWith('/internal/bead-store/')) {
+  // auth: same bearer token the Worker already validates
+  if (request.headers.get('Authorization') !== `Bearer ${env.GC_SUPERVISOR_TOKEN}`) {
+    return new Response('unauthorized', { status: 401 })
+  }
+  const rest = url.pathname.slice('/internal/bead-store/'.length) // "factory/beads/do-42"
+  const slash = rest.indexOf('/')
+  const city = rest.slice(0, slash)                               // "factory"
+  const doPath = rest.slice(slash)                                // "/beads/do-42"
+  const stub = env.FACTORY_STORE.get(env.FACTORY_STORE.idFromName(city))
+  // forward to the DO with the original method, body, headers, and the rewritten path
+  return stub.fetch(new Request(new URL(doPath + url.search, 'https://do.internal'), request))
+}
 ```
+
+**Container env.** Inject the Worker's own public URL prefix (not a DO ID) when starting the Container:
+```typescript
+GC_BEAD_STORE_URL: `https://gascity-supervisor.koales.workers.dev/internal/bead-store/${cityName}`
+// e.g. https://gascity-supervisor.koales.workers.dev/internal/bead-store/factory
+```
+The Go `DoStore` then builds request paths against this prefix (`${GC_BEAD_STORE_URL}/beads/do-42`), and the Worker route strips the prefix, resolves the DO stub by city name, and forwards.
+
+**Auth.** The Container sends `Authorization: Bearer ${GC_SUPERVISOR_TOKEN}` — the same token the Worker already validates on `/internal/*` requests. No new credential is introduced.
 
 `workers/gascity-supervisor/wrangler.jsonc` — add DO binding:
 ```jsonc
@@ -345,7 +373,20 @@ export class FactoryStore extends DurableObject {
 5. Remove adoption barrier code (no longer needed) — separate cleanup commit
 6. Remove bd/Dolt from Dockerfile (no longer needed) — reduces image size by ~40MB
 
-**Rollback:** switch `city.toml` back to `provider = "bd"`. Both stores implement the same interface. No data migration needed — the DO store is authoritative from the moment it's switched to.
+### Cutover gate (between step 3 and step 4)
+
+Step 4 (switching `factory/city.toml` to `provider = "do"`) is a **one-way cutover gate**. Before crossing it:
+
+- **Confirm the DO has received at least one full molecule lifecycle** while running in staging (step 3) — a molecule dispatched, stepped through plan/code/verify, and released, with all beads and emitted artifacts persisted in the DO. This proves the DO store is functionally authoritative before any production traffic depends on it.
+- Confirm DO storage is readable after a Container restart (bead state survives, in-flight molecule resumes).
+
+Only once the gate is passed does step 4 proceed.
+
+### Rollback
+
+**Rollback is only valid BEFORE the cutover gate (step 4).** While `provider = "bd"` is still authoritative (steps 1–3), reverting is free: bd holds all live state, the DO is a parallel staging target, and switching the config back loses nothing. Both stores implement the same interface, so no code migration is needed for a pre-cutover rollback.
+
+**After the cutover gate, rollback is NOT a config flip.** Once `provider = "do"` is live and the DO has accepted writes, **bd is empty** — it received nothing after cutover. Switching `city.toml` back to `provider = "bd"` at that point is **state loss**: every bead and artifact created since cutover lives only in the DO. Post-cutover recovery requires restoring state from a **DO export** (export the DO's SQLite contents, replay/import into the target store), not a config toggle. Treat post-cutover rollback as a data-migration operation, never as "flip the provider back."
 
 ---
 
@@ -386,7 +427,8 @@ export class FactoryStore extends DurableObject {
 ### WP-DO-4: Worker binding + deploy
 **Files:** `workers/gascity-supervisor/src/index.ts`, `wrangler.jsonc`, `workers/ff-pipeline/wrangler.jsonc`
 - Add `FactoryStore` DO binding to gascity-supervisor
-- Inject `GC_BEAD_STORE_URL` into Container env
+- Add internal proxy route `GET/POST /internal/bead-store/:city/*` to gascity-supervisor — resolves the DO stub via `env.FACTORY_STORE.get(env.FACTORY_STORE.idFromName(city))`, validates the `GC_SUPERVISOR_TOKEN` bearer, and forwards the request to the DO (Container cannot call the DO directly)
+- Inject `GC_BEAD_STORE_URL = https://gascity-supervisor.koales.workers.dev/internal/bead-store/<city>` (the Worker URL prefix, NOT a DO object ID) into Container env
 - Add Service Binding from ff-pipeline → gascity-supervisor for `/artifacts/*` access
 - Add DO migration tag
 - Replace `createClientFromEnv(env)` (ArangoDB) in ff-pipeline with `FactoryStore` artifact client
@@ -441,3 +483,28 @@ export class FactoryStore extends DurableObject {
 - Replacing the DO with D1 (D1 adds network hop + eventual consistency; DO SQLite is synchronous and local)
 - DoltHub (never provisioned — DO is the target for both beads and artifacts)
 - Splitting into two SQLite instances (CF DO exposes one `ctx.storage.sql`; two instances would break cross-boundary FK enforcement)
+
+---
+
+## 13. Architectural Guardrails (Architect review 2026-05-31)
+
+Full Architect assessment: `specs/reference/DO-MIGRATION-RESEARCH.md §8`
+Decision record: `.agent/memory/semantic/DECISIONS.md §2026-05-31`
+
+
+Three conditions attach from the Architect review. These are guardrails, not migration blockers.
+
+**G1 — Rig-store gate.**
+Before any formula introduces a `[[rig]]` block, answer the rig-store routing question: does `DoStore` for a rig point to rig-scoped routes within one city DO, or a separate DO keyed by rig name? Track as an open architecture gate. Do not ship a formula with `[[rig]]` declarations until this is resolved. `factory/city.toml` currently has zero `[[rig]]` blocks — this gate is dormant today.
+
+**G2 — Throughput watch (single-DO hotspot).**
+DO single-writer serialization is sufficient at `max_active_sessions = 3`. If active sessions scale by ~10x, re-evaluate whether one DO per city remains adequate or whether sharding is needed. `CachingStore` (upstream Gas City, `d0f6ad0d`) can wrap `DoStore` to reduce read round-trips if read latency becomes the constraint before write throughput does.
+
+A subtler risk arrives **before** the ~10x session threshold: one DO per city means a single SQLite writer serializes **both** beads (execution plane) **and** artifacts (knowledge plane). Artifact-heavy molecules emit many lineage edges, verdicts, and specs per step — a write-heavy artifact workload can contend on the single writer and become a throughput bottleneck while session count is still well under the 10x mark.
+
+**Shard trigger (explicit):** *if p95 write latency exceeds 50ms under normal molecule load, evaluate splitting the single DO into separate execution-plane and knowledge-plane DOs.*
+
+**Escape hatch — DO split, and what it costs.** Splitting execution (beads/deps) and knowledge (specifications/verdicts/lineage_edges/...) into two DOs restores independent write serialization per plane. The price is that **cross-DO foreign keys are not enforceable** — SQLite FKs only hold within one DB. `emission_bead_id REFERENCES beads(id)` stops being a DB-level constraint the moment the planes live in different DOs. That integrity must then move to the application layer: **emit-time validation in `webhook-receiver.ts`** (and any artifact-write path) must confirm the referenced bead exists in the execution-plane DO before accepting the artifact write into the knowledge-plane DO, and reject (HTTP 409) on a dangling reference — exactly the guarantee the DB-level FK gives today. Do not split until this application-level integrity check is specified and built; the single-DO design's whole point (structurally linked execution and knowledge traces) depends on it.
+
+**G3 — Operator runbook: re-dispatch replaces `dolt checkout`.**
+`dolt checkout` rollback is gone. The sanctioned recovery for corrupted bead state is re-dispatch. The operator runbook must document this explicitly before WP-DO-5 cleanup ships. A molecule whose bead state is corrupt is recovered by closing the bead and dispatching a fresh molecule from the same IS/ES — not by time-traveling the bead store.
