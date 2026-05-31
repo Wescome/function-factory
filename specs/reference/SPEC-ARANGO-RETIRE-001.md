@@ -16,12 +16,13 @@ All migration phases, invariants, schemas, and acceptance criteria from the orig
 
 | Original | Replaced by |
 |----------|-------------|
-| DoltHub managed instance | `FactoryStore` DO, `artifacts.db` |
+| DoltHub managed instance | `FactoryStore` DO, one SQLite DB, knowledge plane tables |
 | `DOLT_HTTP_URL` env var | DO binding via Service Binding from ff-pipeline |
 | `DoltClient` class | `ArtifactClient` HTTP wrapper for `/artifacts/*` DO routes |
-| `dolt sql < schema.sql` | `initArtifactsSchema()` in `FactoryStore` constructor |
-| `DualWriteAdapter` (Arango + Dolt) | `DualWriteAdapter` (Arango + DO artifact routes) |
+| `dolt sql < schema.sql` | knowledge plane tables in `FactoryStore.initSchema()` |
+| `DualWriteAdapter` (Arango + Dolt) | `DualWriteAdapter` (Arango + DO `/artifacts/*` routes) |
 | CTE benchmark against DoltHub | CTE benchmark against `GET /artifacts/lineage` DO route |
+| Separate schema, no cross-references | `emission_bead_id REFERENCES beads(id)` on every artifact table — real FK to execution plane |
 
 ## What carries over unchanged
 

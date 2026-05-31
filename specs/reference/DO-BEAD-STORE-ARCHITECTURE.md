@@ -2,7 +2,7 @@
 
 Date: 2026-05-31
 Status: Proposed
-Scope: Replace bd/Dolt bead store AND ArangoDB artifact store with a single Cloudflare Durable Object hosting two SQLite databases
+Scope: Replace bd/Dolt bead store AND ArangoDB artifact store with a single Cloudflare Durable Object, one SQLite database, cross-boundary foreign keys between execution plane (beads) and knowledge plane (artifacts)
 Repos: `Wescome/gascity` (branch: `factory`) + `function-factory/workers/gascity-supervisor/`
 
 ---
@@ -18,12 +18,12 @@ These are symptoms of one root cause: stateful storage inside a stateless Contai
 
 ## 2. Solution
 
-One Cloudflare Durable Object, two SQLite databases:
+One Cloudflare Durable Object, one SQLite database, two table namespaces:
 
-- **`beads.db`** — Gas City operational state (molecules, steps, bead metadata)
-- **`artifacts.db`** — Factory artifact store (specs, verdicts, lineage, IS/ES/EP — replaces ArangoDB)
+- **Execution plane** (`beads`, `deps`) — Gas City operational state
+- **Knowledge plane** (`specifications`, `verdicts`, `lineage_edges`, etc.) — Factory artifact store, replaces ArangoDB
 
-One DO instance keyed by city name. Both databases are persistent, survive Container restarts and redeploys. Zero external services.
+One DO instance keyed by city name. One `ctx.storage.sql`. Real SQLite foreign keys cross the boundary — every Factory artifact references the bead that produced it. Zero external services. Zero `ctx.storage.sql2` (CF DO exposes one SQLite per DO instance).
 
 ## 3. Architecture
 
@@ -37,28 +37,30 @@ Gas City Container (stateless)          ff-pipeline Worker
                               │  DO binding
                               ▼
                      FactoryStore DO
-                     ├── beads.db      (Gas City operational state)
-                     └── artifacts.db  (Factory specs, verdicts, lineage)
+                     └── SQLite (one DB, two namespaces)
+                         ├── execution plane: beads, deps
+                         └── knowledge plane: specifications, verdicts,
+                                              lineage_edges, ...
+                                              (FKs → beads.id)
 ```
 
-The DO exposes two route namespaces — `/beads/*` and `/artifacts/*` — each backed by its own SQLite database. The Go `DoStore` calls `/beads/*`. The ff-pipeline Worker calls `/artifacts/*` directly via DO binding (no round-trip through the Container).
+The DO exposes two route namespaces — `/beads/*` and `/artifacts/*` — both backed by the same SQLite database. The Go `DoStore` calls `/beads/*`. The ff-pipeline Worker calls `/artifacts/*` directly via DO binding.
 
-**Key benefit:** a molecule step that reads an IS and writes a bead hits one DO in one PoP. No cross-service latency.
+**Key benefit:** cross-boundary foreign keys are real SQLite constraints — every verdict and lineage edge references the bead that produced it. Execution trace and knowledge trace are structurally linked, not logically inferred.
 
 ## 4. DO Design
 
-### 4.0 Two databases, one DO
+### 4.0 One database, two namespaces
 
 ```typescript
 export class FactoryStore extends DurableObject {
-  private beads: SqlStorage     // ctx.storage.sql  (beads.db)
-  private artifacts: SqlStorage // ctx.storage.sql2 (artifacts.db)
+  private db: SqlStorage  // ctx.storage.sql — one SQLite instance
 }
 ```
 
-All `/beads/*` routes operate on `beads`. All `/artifacts/*` routes operate on `artifacts`. The two databases never cross — no joins between them.
+One `ctx.storage.sql`. Both `/beads/*` and `/artifacts/*` routes operate on `this.db`. Foreign keys across the boundary are real SQLite constraints enforced at write time.
 
-### 4.1 SQLite schema — beads.db
+### 4.1 SQLite schema — execution plane (beads)
 
 ```sql
 CREATE TABLE beads (
@@ -96,62 +98,70 @@ CREATE INDEX idx_deps_up ON deps(depends_on_id);
 
 Labels and metadata stored as JSON columns — SQLite JSON functions (`json_each`, `json_extract`) handle filtering without external index maintenance.
 
-### 4.2 SQLite schema — artifacts.db
+### 4.2 SQLite schema — knowledge plane (artifacts)
 
-Mirrors SPEC-ARANGO-RETIRE-001 §4 exactly — same tables, same indexes, targeting this DO instead of DoltHub.
+Cross-boundary foreign keys on `emission_bead_id` tie every artifact to the bead that produced it. `PRAGMA foreign_keys = ON` enforced on every connection.
 
 ```sql
 CREATE TABLE specifications (
-  id         TEXT PRIMARY KEY,
-  kind       TEXT NOT NULL,
-  status     TEXT NOT NULL,
-  payload    TEXT NOT NULL,  -- JSON
-  agent_id   TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  id               TEXT PRIMARY KEY,
+  kind             TEXT NOT NULL,
+  status           TEXT NOT NULL,
+  payload          TEXT NOT NULL,   -- JSON
+  agent_id         TEXT NOT NULL,
+  emission_bead_id TEXT REFERENCES beads(id),  -- bead that produced this spec
+  created_at       TEXT NOT NULL,
+  updated_at       TEXT NOT NULL
 );
 
 CREATE TABLE verification_processes (
-  id           TEXT PRIMARY KEY,
-  spec_id      TEXT NOT NULL REFERENCES specifications(id),
-  kind         TEXT NOT NULL,
-  status       TEXT NOT NULL,
-  agent_id     TEXT NOT NULL,
-  started_at   TEXT NOT NULL,
-  completed_at TEXT,
-  payload      TEXT NOT NULL   -- JSON
+  id               TEXT PRIMARY KEY,
+  spec_id          TEXT NOT NULL REFERENCES specifications(id),
+  kind             TEXT NOT NULL,
+  status           TEXT NOT NULL,
+  agent_id         TEXT NOT NULL,
+  emission_bead_id TEXT REFERENCES beads(id),  -- bead that ran this VP
+  started_at       TEXT NOT NULL,
+  completed_at     TEXT,
+  payload          TEXT NOT NULL    -- JSON
 );
 
 CREATE TABLE verdicts (
-  id           TEXT PRIMARY KEY,
-  vp_id        TEXT NOT NULL REFERENCES verification_processes(id),
-  spec_id      TEXT NOT NULL REFERENCES specifications(id),
-  outcome      TEXT NOT NULL,  -- PASS | FAIL | ESCALATE
-  coverage_pct REAL,
-  agent_id     TEXT NOT NULL,
-  produced_at  TEXT NOT NULL,
-  payload      TEXT NOT NULL   -- JSON
+  id               TEXT PRIMARY KEY,
+  vp_id            TEXT NOT NULL REFERENCES verification_processes(id),
+  spec_id          TEXT NOT NULL REFERENCES specifications(id),
+  outcome          TEXT NOT NULL,   -- PASS | FAIL | ESCALATE
+  coverage_pct     REAL,
+  agent_id         TEXT NOT NULL,
+  emission_bead_id TEXT REFERENCES beads(id),  -- bead that produced this verdict
+  produced_at      TEXT NOT NULL,
+  payload          TEXT NOT NULL    -- JSON
 );
 
 CREATE TABLE lineage_edges (
-  id         TEXT PRIMARY KEY,
-  from_id    TEXT NOT NULL,
-  from_kind  TEXT NOT NULL,
-  to_id      TEXT NOT NULL,
-  to_kind    TEXT NOT NULL,
-  edge_kind  TEXT NOT NULL,
-  agent_id   TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  source_ref TEXT
+  id               TEXT PRIMARY KEY,
+  from_id          TEXT NOT NULL,
+  from_kind        TEXT NOT NULL,
+  to_id            TEXT NOT NULL,
+  to_kind          TEXT NOT NULL,
+  edge_kind        TEXT NOT NULL,
+  agent_id         TEXT NOT NULL,
+  emission_bead_id TEXT REFERENCES beads(id),  -- bead during which this edge was emitted
+  created_at       TEXT NOT NULL,
+  source_ref       TEXT
 );
 
-CREATE INDEX idx_le_from ON lineage_edges(from_id);
-CREATE INDEX idx_le_to   ON lineage_edges(to_id);
+CREATE INDEX idx_le_from          ON lineage_edges(from_id);
+CREATE INDEX idx_le_to            ON lineage_edges(to_id);
+CREATE INDEX idx_le_emission_bead ON lineage_edges(emission_bead_id);
+CREATE INDEX idx_verdicts_bead    ON verdicts(emission_bead_id);
 
 -- Remaining collections (function_proposals, pressures, capabilities,
--- invariants, run_envelopes, etc.) follow the same pattern:
--- id, kind, payload JSON, agent_id, created_at, updated_at
+-- invariants, run_envelopes, etc.) carry emission_bead_id REFERENCES beads(id)
+-- following the same pattern.
 ```
+
+**`emission_bead_id` semantics:** nullable (artifacts produced outside a molecule execution set it to NULL). When set, it is the exact bead ID at the moment the artifact was emitted — never inferred, never reconstructed.
 
 ### 4.3 DO HTTP API
 
@@ -285,26 +295,23 @@ ff-pipeline also binds to the same DO class via a Service Binding to gascity-sup
 
 ```typescript
 export class FactoryStore extends DurableObject {
-  private beads: SqlStorage      // beads.db — Gas City operational state
-  private artifacts: SqlStorage  // artifacts.db — Factory specs, verdicts, lineage
+  private db: SqlStorage  // one SQLite instance — both planes
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
-    this.beads = ctx.storage.sql
-    this.artifacts = ctx.storage.sql2  // second SQLite database
-    this.initBeadsSchema()
-    this.initArtifactsSchema()
+    this.db = ctx.storage.sql
+    this.db.exec('PRAGMA foreign_keys = ON')
+    this.initSchema()
   }
 
-  private initBeadsSchema(): void {
-    this.beads.exec(`CREATE TABLE IF NOT EXISTS beads ( ... )`)
-    this.beads.exec(`CREATE TABLE IF NOT EXISTS deps ( ... )`)
-  }
-
-  private initArtifactsSchema(): void {
-    this.artifacts.exec(`CREATE TABLE IF NOT EXISTS specifications ( ... )`)
-    this.artifacts.exec(`CREATE TABLE IF NOT EXISTS verdicts ( ... )`)
-    this.artifacts.exec(`CREATE TABLE IF NOT EXISTS lineage_edges ( ... )`)
+  private initSchema(): void {
+    // Execution plane first — knowledge plane FKs reference beads(id)
+    this.db.exec(`CREATE TABLE IF NOT EXISTS beads ( ... )`)
+    this.db.exec(`CREATE TABLE IF NOT EXISTS deps ( ... )`)
+    // Knowledge plane
+    this.db.exec(`CREATE TABLE IF NOT EXISTS specifications ( ... )`)
+    this.db.exec(`CREATE TABLE IF NOT EXISTS verdicts ( ... )`)
+    this.db.exec(`CREATE TABLE IF NOT EXISTS lineage_edges ( ... )`)
     // remaining collections
   }
 
@@ -321,7 +328,7 @@ export class FactoryStore extends DurableObject {
 }
 ```
 
-~500 lines TypeScript total. Bead routes and artifact routes are independent handlers sharing one DO instance.
+~500 lines TypeScript. Both handlers share `this.db`. `foreign_keys = ON` means an artifact write with an invalid `emission_bead_id` fails at the SQLite layer — no application-level enforcement needed. Execution plane tables must be created before knowledge plane tables in `initSchema()`.
 
 ---
 
@@ -342,15 +349,16 @@ export class FactoryStore extends DurableObject {
 
 ### WP-DO-1: FactoryStore DO (TypeScript)
 **File:** `workers/gascity-supervisor/src/factory-store-do.ts`
-- `FactoryStore` class with two SQLite databases (`beads.db`, `artifacts.db`)
-- `beads.db` schema + all 14 bead HTTP routes (`/beads/*`, `/deps/*`, `/tx`, `/ping`)
-- `artifacts.db` schema (all collections from SPEC-ARANGO-RETIRE-001 §4) + artifact HTTP routes (`/artifacts/*`)
+- `FactoryStore` class, one `ctx.storage.sql`, `PRAGMA foreign_keys = ON`
+- Execution plane schema (beads, deps) created first
+- Knowledge plane schema (all collections from SPEC-ARANGO-RETIRE-001 §4) with `emission_bead_id TEXT REFERENCES beads(id)` on every artifact table
+- All 14 bead HTTP routes (`/beads/*`, `/deps/*`, `/tx`, `/ping`)
+- Artifact HTTP routes (`/artifacts/*`) — insert/get/query/lineage-walk
 - CTE lineage walk endpoint (`GET /artifacts/lineage`)
-- JSON query decoding → SQL for both databases
-- Atomic Tx endpoints for both databases
-- ID generation (sequential counter per database)
+- Single shared Tx endpoint (both planes, one SQLite transaction)
+- Sequential ID generation (one counter table, both planes share it)
 
-**Acceptance:** all bead Store interface methods reachable via `/beads/*`; all artifact collections readable/writable via `/artifacts/*`; CTE walk completes 10-hop chain in < 100ms; both Tx endpoints are atomic.
+**Acceptance:** FK violation on invalid `emission_bead_id` returns 409; CTE walk completes 10-hop chain in < 100ms; Tx is atomic across both planes.
 
 ### WP-DO-2: DoStore Go client
 **File:** `internal/beads/dostore.go` in `Wescome/gascity`
@@ -397,7 +405,7 @@ export class FactoryStore extends DurableObject {
 | Resource | Rate | Factory estimate |
 |----------|------|-----------------|
 | DO requests | $0.15/million | ~10k-100k/day → < $0.50/mo |
-| DO storage (both SQLite DBs) | $0.20/GB-month | < 50MB → $0.01/mo |
+| DO storage (one SQLite DB) | $0.20/GB-month | < 50MB → $0.01/mo |
 | ff-arango Container | eliminated | $0 saved |
 | ArangoDB Oasis | eliminated | $0 saved |
 | DoltHub | never provisioned | $0 saved |
@@ -425,3 +433,4 @@ export class FactoryStore extends DurableObject {
 - Multi-city DO sharing (one DO per city, isolated)
 - Replacing the DO with D1 (D1 adds network hop + eventual consistency; DO SQLite is synchronous and local)
 - DoltHub (never provisioned — DO is the target for both beads and artifacts)
+- Splitting into two SQLite instances (CF DO exposes one `ctx.storage.sql`; two instances would break cross-boundary FK enforcement)
