@@ -101,6 +101,11 @@ export class FactoryStore {
     for (const table of generic) {
       this.db.exec(`CREATE TABLE IF NOT EXISTS ${table} (id TEXT PRIMARY KEY, kind TEXT NOT NULL, payload TEXT NOT NULL, agent_id TEXT NOT NULL, emission_bead_id TEXT REFERENCES beads(id), created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`)
     }
+
+    // One-shot backfill: legacy beads stored status='' before the createBead
+    // default fix. Normalize to 'open' so the OR status='' shim in queryBeads
+    // can be removed in a follow-up.
+    this.db.exec("UPDATE beads SET status='open' WHERE status='' OR status IS NULL")
   }
 
   private async handleBeads(request: Request): Promise<Response> {
@@ -148,7 +153,7 @@ export class FactoryStore {
     const id = this.nextID()
     this.db.exec(`INSERT INTO beads (id,title,status,issue_type,priority,created_at,assignee,from_,parent_id,ref,needs,description,labels,metadata,ephemeral)
       VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15)`,
-      id, String(bead.title ?? ""), String(bead.status ?? "open"), String(bead.issue_type ?? "task"), bead.priority ?? null, new Date().toISOString(),
+      id, String(bead.title ?? ""), String(bead.status || "open"), String(bead.issue_type ?? "task"), bead.priority ?? null, new Date().toISOString(),
       bead.assignee ?? null, bead.from ?? null, bead.parent ?? null, bead.ref ?? null,
       JSON.stringify(bead.needs ?? []), bead.description ?? null, JSON.stringify(bead.labels ?? []), JSON.stringify(bead.metadata ?? {}), bead.ephemeral ? 1 : 0)
     const row = this.db.exec("SELECT * FROM beads WHERE id = ?1", id).one() as JsonRecord | null
@@ -250,7 +255,17 @@ export class FactoryStore {
     const status = query.status ?? query.Status
     const assignee = query.assignee ?? query.Assignee
     const parent = query.parent ?? query.ParentID
-    if (status) { where.push(`status=?${values.length + 1}`); values.push(status) }
+    if (status) {
+      if (status === "open") {
+        // Legacy beads predate the createBead default fix and persist as status=''.
+        // status='' means "defaulted-open"; deleted beads use status='deleted'.
+        // Remove OR status='' after backfill UPDATE runs (see initSchema migration).
+        where.push(`(status=?${values.length + 1} OR status='')`)
+      } else {
+        where.push(`status=?${values.length + 1}`)
+      }
+      values.push(status)
+    }
     if (assignee) { where.push(`assignee=?${values.length + 1}`); values.push(assignee) }
     if (parent) { where.push(`parent_id=?${values.length + 1}`); values.push(parent) }
     const rows = this.db.exec(`SELECT * FROM beads${where.length > 0 ? ` WHERE ${where.join(" AND ")}` : ""}`, ...values).toArray() as JsonRecord[]
