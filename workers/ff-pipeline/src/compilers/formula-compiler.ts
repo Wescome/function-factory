@@ -183,6 +183,7 @@ export interface FormulaCompilerDeps {
    * unique-index violation (AC-21).
    */
   writeFormAndDispatchLog(form: FormArtifact, dispatchLog: DispatchLogRow): Promise<void>
+  writeDispatchLogOnly(dispatchLog: DispatchLogRow): Promise<void>
   /** AC-11: separate post-CALL-1 update of FORM-*.formula_version. */
   updateFormulaVersion(formKey: string, version: string): Promise<void>
   /** AC-9 / AC-9a: update the dispatch_log row with a final outcome. */
@@ -644,11 +645,27 @@ export async function compileAndDispatchFormula(
   try {
     await deps.writeFormAndDispatchLog(form, dispatchLog)
   } catch (err) {
-    // AC-7 / AC-21: transaction abort OR unique-index violation. Either way
-    // neither artifact persisted. No Gas City call fires.
-    return {
-      outcome: "failed",
-      error: err instanceof Error ? err.message : String(err),
+    const msg = err instanceof Error ? err.message : String(err)
+    // 409 on the formula key means FORM-* already exists. getFormulaByKey
+    // returned null due to a transient read failure, then the write raced the
+    // existing doc. Re-read and treat as replay if source_refs match.
+    if (msg.includes("409") && msg.includes(formKey)) {
+      const replay = await deps.getFormulaByKey(formKey)
+      if (!replay) {
+        return { outcome: "failed", error: `form_409_unresolvable (re-read failed): ${msg}` }
+      }
+      if (replay.source_refs[0] !== epAny.id) {
+        return { outcome: "failed", error: `form_key_collision_unresolvable: ${msg}` }
+      }
+      // Valid replay — write only the dispatch_log row using the existing form.
+      try {
+        await deps.writeDispatchLogOnly(dispatchLog)
+      } catch (dlErr) {
+        return { outcome: "failed", error: `dispatch_log write failed after 409 replay: ${dlErr instanceof Error ? dlErr.message : String(dlErr)}` }
+      }
+    } else {
+      // AC-7 / AC-21: transaction abort. Neither artifact persisted.
+      return { outcome: "failed", error: msg }
     }
   }
 

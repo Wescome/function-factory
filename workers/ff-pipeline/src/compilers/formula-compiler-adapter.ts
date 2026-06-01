@@ -60,6 +60,10 @@ export function buildFormulaCompilerDeps(
       await db.save("dispatch_log", dispatchLog as unknown as Record<string, unknown>)
     },
 
+    writeDispatchLogOnly: async (dispatchLog: DispatchLogRow) => {
+      await db.save("dispatch_log", dispatchLog as unknown as Record<string, unknown>)
+    },
+
     updateFormulaVersion: async (formKey: string, version: string) => {
       await db.update("formulas", formKey, { formula_version: version })
     },

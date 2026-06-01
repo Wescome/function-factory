@@ -186,6 +186,9 @@ function makeMocks(state: MockState): {
       state.formArtifact = form
       state.dispatchLogRow = dispatchLog
     },
+    writeDispatchLogOnly: async (dispatchLog) => {
+      state.dispatchLogRow = dispatchLog
+    },
     updateFormulaVersion: async (key, version) => {
       state.formArtifactUpdates.push({ key, patch: { formula_version: version } })
       if (state.formArtifact && state.formArtifact._key === key) {

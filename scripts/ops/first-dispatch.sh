@@ -10,7 +10,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 FF_PIPELINE_DIR="$ROOT/workers/ff-pipeline"
-SUPERVISOR_DIR="/Users/wes/eai/examples/factory/weops-gascity/stage/supervisor"
+SUPERVISOR_DIR="$ROOT/workers/gascity-supervisor"
 FF_BASE="https://ff-pipeline.koales.workers.dev"
 
 require_command() {
@@ -81,23 +81,38 @@ for i in $(seq 1 40); do
 done
 [[ "$WARM" -eq 1 ]] || { echo "ERROR: Container did not become ready." >&2; exit 1; }
 
-echo "  Waiting for city runtime to report running=true..."
+echo "  Waiting for city runtime to report dispatch readiness..."
 CITY_READY=0
-for i in $(seq 1 60); do
+LAST_CITY_ITEM=""
+for i in $(seq 1 100); do
   CITY_ITEM=$(curl --http1.1 --connect-timeout 5 --max-time 15 -s \
     -H "Authorization: Bearer $GC_BEARER_TOKEN" \
     "$GC_BASE/v0/cities" 2>/dev/null | jq -c '.items[]? | select(.name=="factory")' || true)
+  LAST_CITY_ITEM="$CITY_ITEM"
   CITY_RUNNING=$(printf '%s' "$CITY_ITEM" | jq -r '.running // false' 2>/dev/null || echo "false")
+  CITY_DISPATCH_READY=$(printf '%s' "$CITY_ITEM" | jq -r '.dispatch_ready // false' 2>/dev/null || echo "false")
   CITY_STATUS=$(printf '%s' "$CITY_ITEM" | jq -r '.status // ""' 2>/dev/null || echo "")
-  if [[ "$CITY_RUNNING" == "true" ]]; then
+  CITY_PHASE_META=$(printf '%s' "$CITY_ITEM" | jq -c '.phase_meta // null' 2>/dev/null || echo "null")
+  if [[ "$CITY_DISPATCH_READY" == "true" || "$CITY_STATUS" == "running_degraded" || "$CITY_RUNNING" == "true" ]]; then
     echo "  City runtime ready (attempt $i)"
     CITY_READY=1
     break
   fi
+  if [[ "$CITY_STATUS" == failed_* ]]; then
+    echo "ERROR: City entered terminal startup state: $CITY_STATUS" >&2
+    echo "  phase_meta: $CITY_PHASE_META" >&2
+    exit 1
+  fi
   echo "  City not ready yet (attempt $i, status=${CITY_STATUS:-unknown})"
   sleep 3
 done
-[[ "$CITY_READY" -eq 1 ]] || { echo "ERROR: City did not reach running=true." >&2; exit 1; }
+[[ "$CITY_READY" -eq 1 ]] || {
+  echo "ERROR: City did not reach dispatch readiness." >&2
+  if [[ -n "$LAST_CITY_ITEM" ]]; then
+    echo "  last city item: $LAST_CITY_ITEM" >&2
+  fi
+  exit 1
+}
 
 # Probe formula endpoint — same URL ff-pipeline CALL 1 will hit
 echo "  Probing formula endpoint..."
@@ -188,23 +203,34 @@ echo "$CALLBACK_RESP" | jq .
 # ── 6. Run Cloudflare autonomy monitor ──────────────────────────────────────
 echo ""
 echo "=== [6/6] Running Cloudflare autonomy monitor ==="
-if AUTONOMY_RESP="$(curl --http1.1 --connect-timeout 10 --max-time 45 -sf -X POST "$FF_BASE/gascity/autonomy/run" \
-  -H "Authorization: Bearer $OPERATOR_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"trigger":"smoke"}')"; then
-  echo "$AUTONOMY_RESP" | jq .
-  if [[ "$(echo "$AUTONOMY_RESP" | jq -r '.ok // "false"')" != "true" ]]; then
-    echo "Autonomy run returned ok!=true."
-    exit 1
+# Worker was redeployed in step 2 — give it a moment to warm up before
+# hitting the autonomy endpoint (which does 4 sequential probes at 6s each).
+echo "  Waiting 10s for Worker to warm after redeploy..."
+sleep 10
+
+AUTONOMY_OK=0
+for attempt in 1 2 3; do
+  echo "  Autonomy run attempt $attempt..."
+  if AUTONOMY_RESP="$(curl --http1.1 --connect-timeout 15 --max-time 120 -sf -X POST "$FF_BASE/gascity/autonomy/run" \
+    -H "Authorization: Bearer $OPERATOR_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"trigger":"smoke"}')"; then
+    echo "$AUTONOMY_RESP" | jq .
+    if [[ "$(echo "$AUTONOMY_RESP" | jq -r '.ok // "false"')" == "true" ]]; then
+      AUTONOMY_OK=1
+      break
+    fi
+    echo "  Autonomy run returned ok!=true (attempt $attempt)."
+  else
+    echo "  Autonomy run timed out or failed (attempt $attempt)."
   fi
-else
-  echo "Autonomy run request timed out or failed."
-  exit 1
-fi
+  [[ $attempt -lt 3 ]] && sleep 15
+done
+[[ "$AUTONOMY_OK" -eq 1 ]] || { echo "ERROR: Autonomy monitor failed after 3 attempts." >&2; exit 1; }
 
 echo ""
 echo "=== Autonomy status ==="
-if AUTONOMY_STATUS="$(curl --http1.1 --connect-timeout 5 --max-time 15 -sf "$FF_BASE/gascity/autonomy/status")"; then
+if AUTONOMY_STATUS="$(curl --http1.1 --connect-timeout 10 --max-time 30 -sf "$FF_BASE/gascity/autonomy/status")"; then
   echo "$AUTONOMY_STATUS" | jq .
   if [[ "$(echo "$AUTONOMY_STATUS" | jq -r '.ok // "false"')" != "true" ]]; then
     echo "Autonomy status did not report ok=true."
