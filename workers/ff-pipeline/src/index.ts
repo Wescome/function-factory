@@ -168,7 +168,7 @@ export default {
     }
 
     if (url.pathname === '/gascity/telemetry/status' && request.method === 'GET') {
-      const sinkConfigured = Boolean(env.FACTORY_METRICS || env.HONEYCOMB_API_KEY)
+      const sinkConfigured = Boolean(env.FACTORY_METRICS)
       const queueConfigured = Boolean(env.TELEMETRY_QUEUE)
       const ok = sinkConfigured && queueConfigured
       return json({
@@ -176,7 +176,6 @@ export default {
         queue: { telemetry_queue_bound: queueConfigured },
         sinks: {
           analytics_engine_bound: Boolean(env.FACTORY_METRICS),
-          honeycomb_key_set: Boolean(env.HONEYCOMB_API_KEY),
         },
         timestamp: new Date().toISOString(),
       }, ok ? 200 : 503)
@@ -1419,10 +1418,10 @@ export default {
     ctx.waitUntil(runGasCityAutonomyMonitor(env, 'cron'))
   },
 
-  async queue(batch: MessageBatch, env: PipelineEnv, _ctx: ExecutionContext): Promise<void> {
+  async queue(batch: MessageBatch, env: PipelineEnv, ctx: ExecutionContext): Promise<void> {
     if (batch.queue === 'telemetry-queue' || batch.queue === 'telemetry-dlq') {
       const { handleTelemetryBatch } = await import('./observability/telemetry-consumer.js')
-      await handleTelemetryBatch(batch, env, _ctx)
+      await handleTelemetryBatch(batch, env, ctx)
       return
     }
 

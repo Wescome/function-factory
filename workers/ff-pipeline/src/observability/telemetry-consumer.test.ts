@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
 import type { PipelineEnv } from "../types.js"
-import { handleTelemetryBatch, telemetryConsumerInternals, type TelemetryEvent } from "./telemetry-consumer.js"
+import { handleTelemetryBatch, type TelemetryEvent } from "./telemetry-consumer.js"
 
 function event(): TelemetryEvent {
   return {
@@ -25,14 +25,5 @@ describe("telemetry-consumer", () => {
     } as unknown as MessageBatch
     const ctx = { waitUntil: vi.fn() } as unknown as ExecutionContext
     await expect(handleTelemetryBatch(batch, {} as PipelineEnv, ctx)).rejects.toThrow("telemetry_sinks_unconfigured")
-  })
-
-  it("maps Honeycomb trace magic fields", () => {
-    const mapped = telemetryConsumerInternals.mapToHoneycomb(event())
-    expect(mapped["trace.trace_id"]).toBe("t-1")
-    expect(mapped["trace.span_id"]).toBe("s-1")
-    expect(mapped["trace.parent_id"]).toBe("p-1")
-    expect(mapped["service.name"]).toBe("gascity")
-    expect(mapped["name"]).toBe("molecule.start")
   })
 })
