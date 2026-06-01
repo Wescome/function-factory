@@ -1,3 +1,8 @@
+Status: CANCELLED — 2026-06-01
+Reason: ArangoDB for artifacts was never broken. Migration introduced schema
+mismatches and compatibility shims with no benefit. Bead store on DO (WP-DO-1/2/3)
+was the correct and sufficient fix. ArangoDB remains the artifact store.
+
 # Codex Handoff — WP-DO-4: ArtifactClient (ff-pipeline → FactoryStore DO)
 
 Date: 2026-05-31  
