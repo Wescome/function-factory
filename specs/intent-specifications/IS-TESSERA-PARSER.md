@@ -1,6 +1,6 @@
 ---
 id: IS-TESSERA-PARSER
-version: 1
+version: 2
 title: "Tessera Parser — tree-sitter-wasm symbol extraction for TypeScript and Go"
 sourceCapabilityId: BC-TESSERA-PARSER
 sourceFunctionId: FP-TESSERA-PARSER
@@ -21,6 +21,15 @@ rationale: >
   for the same file, modulo the source-body content column (G5: bodies live in
   R2, never on nodes). The indexer (IS-TESSERA-INDEXER) composes this function
   over every source file in a repo tarball.
+
+  v2 (2026-06-01): P0 TEST SEAM GAP identified. On 2026-06-01 a coding agent
+  changed the call path away from a Go package-level function variable
+  (`workflowServeList`) without knowing 12+ tests override it as a seam.
+  `tessera_impact("workflowServeList")` returned UNKNOWN because package-level
+  function variables are not indexed as graph nodes — only functions, methods,
+  structs, and interfaces are. The pre-edit gate (IS-TESSERA-PRE-EDIT-GATE)
+  has a blind spot on any Go test seam declared as `var f = someFunc`. This IS
+  v2 adds `FunctionVariable` extraction for Go to close that blind spot.
 ---
 
 # Tessera Parser (WP-T2 parse layer)
@@ -51,6 +60,25 @@ A second risk: parity. If the WASM grammars extract a different node/edge set
 than the native CLI for the same file, every downstream impact/context result is
 silently corrupted (G4). The parser must be a pure, deterministic function so the
 parity gate is a clean unit test.
+
+A third risk (v2): **Go test seam blind spot.** Go codebases routinely declare
+package-level function variables as test seams:
+
+```go
+var workflowServeList = nextWorkflowServeBeads  // overridden in tests
+var controlDispatcherServe = runControlDispatcherInStore
+```
+
+These are the most dangerous symbols to change — touching the call path away
+from them silently breaks every test that overrides them — yet the v1 parser
+ignores them entirely. A `var` assigned a function value is not a function
+declaration, so tree-sitter's Go grammar does not produce a `function_declaration`
+or `method_declaration` node for it. Without explicit extraction, every Go test
+seam is invisible to impact analysis and the pre-edit gate (IS-TESSERA-PRE-EDIT-GATE).
+
+This is what happened on 2026-06-01: `workflowServeList` was invisible to
+Tessera. `tessera_impact("workflowServeList")` returned UNKNOWN. The gate had
+no data. The agent proceeded blind and broke 12 tests.
 
 ## Goal
 
@@ -92,9 +120,12 @@ interface ParsedSymbol {
 **In scope:**
 - `workers/tessera-worker/src/parser.ts` — new file: `parse(...)`, the
   `ParsedSymbol` type, the grammar-loading startup helper, and the skip rules.
-- TypeScript extraction: Function, Class, Interface, Method (and their
-  `.ts`/`.tsx` coverage).
+- TypeScript extraction: Function, Class, Interface, Method (and their `.ts`/`.tsx` coverage).
 - Go extraction: Function, Struct, Interface, Method (and `.go` coverage).
+- **Go `FunctionVariable` extraction (v2, P0):** package-level `var` declarations
+  assigned function-typed values — `var f = someFunc` or `var f func(...) = ...`.
+  Extracted as `kind: "FunctionVariable"`, indexed as graph nodes, participates
+  in impact analysis.
 - Deterministic `uid` derivation per symbol.
 - Skip logic: binary, >512KB, `*.gen.ts`, `*.pb.go`.
 
@@ -138,7 +169,42 @@ returns a `Function` symbol named `Add`. A Go method with a receiver
 (`func (u *User) Name() string {}`) returns a `Method` symbol named `Name` whose
 `properties` records the receiver type `User`.
 
-**AC-P6.** Every returned `ParsedSymbol` has `filePath` equal to the `filePath`
+**AC-P6-GO-VAR (v2, P0 — test seam extraction).** A Go source file containing
+a package-level `var` assigned a function value is extracted as a
+`FunctionVariable` node:
+
+```go
+// input
+var workflowServeList = nextWorkflowServeBeads
+var providerLifecycleContext = func(parent context.Context, d time.Duration) (context.Context, context.CancelFunc) {
+    return context.WithTimeout(parent, d)
+}
+```
+
+`parse(content, 'go', 'dispatch_runtime.go')` returns:
+- `{ kind: 'FunctionVariable', name: 'workflowServeList', startLine: N, endLine: N }`
+- `{ kind: 'FunctionVariable', name: 'providerLifecycleContext', startLine: M, endLine: M+3 }`
+
+Both are indexed as graph nodes with the same `uid` derivation as functions.
+
+**AC-P6-GO-VAR-2.** `FunctionVariable` nodes participate in cross-file edge
+resolution (IS-TESSERA-INDEXER Phase 2). A call site that references
+`workflowServeList(...)` produces a `CALLS` edge to the `FunctionVariable` node,
+exactly as it would to a `Function` node. This is the property that makes
+`tessera_impact("workflowServeList")` return callers instead of UNKNOWN.
+
+**AC-P6-GO-VAR-3 (reference case).** After indexing gascity with v2 parser:
+`tessera_impact("workflowServeList", direction: "upstream", repo: "gascity")`
+returns at minimum `drainWorkflowServeWork` as a d=1 caller, and
+`runWorkflowServe` + `runWorkflowServeFollow` at d=2. The pre-edit gate returns
+STOP for this symbol. This is the 2026-06-01 incident acceptance fixture.
+
+**AC-P6-GO-VAR-SCOPE.** Only **package-level** `var` declarations with
+function-typed values are extracted. Local variables inside function bodies are
+NOT extracted (they are ephemeral, not test seams). The distinction: top-level
+`var` = package-level = test seam candidate; inner `var` = local = skip.
+
+**AC-P7.** Every returned `ParsedSymbol` has `filePath` equal to the `filePath`
 argument, unchanged.
 
 **AC-P7.** `startLine` and `endLine` are 1-based and inclusive;
@@ -248,3 +314,10 @@ Skip rules hold: a >512KB file, a binary file, and a generated file
 (`*.gen.ts` / `*.pb.go`) each return `[]` without throwing, so the indexer can
 walk an entire repo tarball without special-casing oversized or generated
 content.
+
+**v2 test seam closure:** Go package-level function variables (`FunctionVariable`
+kind) are extracted and indexed as graph nodes. `tessera_impact("workflowServeList")`
+on gascity returns `drainWorkflowServeWork` as a d=1 caller. The 2026-06-01
+incident — 45 minutes of regressions from a single missed blast-radius check —
+cannot recur once the v2 parser and pre-edit gate (IS-TESSERA-PRE-EDIT-GATE)
+are deployed together.
