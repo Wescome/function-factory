@@ -33,19 +33,26 @@ CURL_RETRY=(curl --http1.1 --retry 3 --retry-delay 3 --retry-all-errors --connec
 
 echo "=== [1/5] Checking city readiness ==="
 for i in $(seq 1 40); do
-  CITY_ITEM=$(curl --http1.1 --connect-timeout 5 --max-time 15 -s \
+  CITY_HEALTH=$(curl --http1.1 --connect-timeout 5 --max-time 15 -s \
     -H "Authorization: Bearer $GC_BEARER_TOKEN" \
-    "$GC_BASE/v0/cities" 2>/dev/null | jq -c '.items[]? | select(.name=="factory")' || true)
-  CITY_DISPATCH_READY=$(printf '%s' "$CITY_ITEM" | jq -r '.dispatch_ready // false' 2>/dev/null || echo "false")
-  CITY_STATUS=$(printf '%s' "$CITY_ITEM" | jq -r '.status // ""' 2>/dev/null || echo "")
-  if [[ "$CITY_DISPATCH_READY" == "true" || "$CITY_STATUS" == "running_degraded" ]]; then
-    echo "  City ready (attempt $i, status=$CITY_STATUS)"
+    "$GC_BASE/v0/city/factory/health" 2>/dev/null || true)
+  CITY_HEALTH_STATUS=$(printf '%s' "$CITY_HEALTH" | jq -r '.status // ""' 2>/dev/null || echo "")
+
+  CITY_STATUS_DOC=$(curl --http1.1 --connect-timeout 5 --max-time 15 -s \
+    -H "Authorization: Bearer $GC_BEARER_TOKEN" \
+    "$GC_BASE/v0/city/factory/status" 2>/dev/null || true)
+  CITY_RUNNING=$(printf '%s' "$CITY_STATUS_DOC" | jq -r '.running // ""' 2>/dev/null || echo "")
+
+  if [[ "$CITY_HEALTH_STATUS" == "ok" ]]; then
+    echo "  City ready (attempt $i, health=$CITY_HEALTH_STATUS, running=${CITY_RUNNING:-unknown})"
     break
   fi
-  if [[ "$CITY_STATUS" == failed_* ]]; then
-    echo "ERROR: City in terminal failed state: $CITY_STATUS" >&2; exit 1
+  if [[ "$CITY_HEALTH_STATUS" == "error" ]]; then
+    echo "ERROR: City health reports error." >&2
+    printf '%s\n' "$CITY_HEALTH" | jq . >&2 || true
+    exit 1
   fi
-  echo "  Waiting... attempt $i status=${CITY_STATUS:-unknown}"
+  echo "  Waiting... attempt $i health=${CITY_HEALTH_STATUS:-unknown} running=${CITY_RUNNING:-unknown}"
   sleep 3
 done
 

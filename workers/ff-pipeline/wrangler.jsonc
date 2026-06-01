@@ -57,7 +57,8 @@
       { "binding": "SYNTHESIS_RESULTS", "queue": "synthesis-results" },
       { "binding": "ATOM_RESULTS", "queue": "atom-results" },
       { "binding": "FEEDBACK_QUEUE", "queue": "feedback-signals" },
-      { "binding": "HARNESS_QUEUE", "queue": "harness-queue" }
+      { "binding": "HARNESS_QUEUE", "queue": "harness-queue" },
+      { "binding": "TELEMETRY_QUEUE", "queue": "telemetry-queue" }
     ],
     "consumers": [
       { "queue": "synthesis-queue", "max_batch_size": 1, "max_retries": 5 },
