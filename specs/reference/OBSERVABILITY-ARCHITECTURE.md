@@ -3,7 +3,7 @@
 Date: 2026-05-31
 Status: Approved — Architect + SE reviewed; transport and trace model revised
 Scope: End-to-end observability for the Function Factory pipeline
-Stack: Workers Analytics Engine (metrics) + Honeycomb (traces) — both free at current scale
+Stack: Workers Analytics Engine (primary — metrics + events + boards + alerts, CF-native)
 
 ---
 
@@ -19,10 +19,16 @@ The Factory has no structured observability. Failures surface as timeouts, silen
 
 | Pillar | Tool | Cost |
 |--------|------|------|
-| Metrics | Workers Analytics Engine | ~$0 (included in paid plan) |
-| Distributed traces | Honeycomb free tier | $0 (< 20M events/mo) |
+| Metrics + events | Workers Analytics Engine | ~$0 (included in paid plan) |
+| Boards + queries | AE GraphQL API + CF dashboard | $0 |
+| Alerting | Cloudflare Notifications | $0 |
 | Structured logs | Workers built-in + wrangler tail | $0 |
-| Alerting | Honeycomb triggers | $0 (free tier) |
+| Distributed traces (optional) | Honeycomb (secondary, opt-in) | $0 free tier — requires `HONEYCOMB_API_KEY` secret; no-op if absent |
+
+**Design decision:** Analytics Engine is the primary and only required sink. Honeycomb is
+an optional secondary — the consumer already supports it but `HONEYCOMB_API_KEY` is not set.
+Cloudflare does not have a native distributed tracing product; AE events carry `trace_id` and
+can be correlated by query. If waterfall trace views are needed in future, set the secret.
 
 ---
 
@@ -218,15 +224,27 @@ Emit §4.3 events at all molecule lifecycle call sites. Flush after `molecule.co
 events only — they cannot see Container stdout/stderr. Gas City telemetry flows via the
 authenticated HTTP → TELEMETRY_QUEUE path established in WP-OBS-3.
 
-### WP-OBS-5: Honeycomb boards + alerts (renumbered from WP-OBS-6)
+### WP-OBS-5: Analytics Engine boards + alerts (CF-native)
 
-Once data flows:
-- Board: molecule lifecycle (dispatch → approved p50/p95/p99)
-- Board: startup duration by build version
-- Board: fidelity verdict distribution over time
-- Alert: `fidelity.verdict = fail_closed` rate > 10% in 1h window
-- Alert: `city.startup.failed` fires
-- Alert: molecule p99 duration > 600s
+All boards and alerts are built against Workers Analytics Engine via the Cloudflare dashboard
+and Notifications. No external account required.
+
+**Boards (AE GraphQL queries in CF dashboard):**
+- Molecule lifecycle: `dispatch → approved` p50/p95/p99 — query `molecule.duration_ms` histogram by `outcome`
+- Startup regression: `city.startup.duration_ms` histogram by `build_version`
+- Fidelity distribution: `fidelity.verdict` counter by `verdict` (approved/revise/fail_closed) over time
+- Step failure rate: `molecule.step.duration_ms` by `step` + `outcome`
+
+**Alerts (Cloudflare Notifications → Workers Analytics Engine threshold alerts):**
+- `fidelity.verdict = fail_closed` rate > 10% in 1h rolling window
+- `city.startup.failed` fires (any occurrence)
+- Molecule p99 `duration_ms` > 600,000ms (600s)
+
+**Prerequisite:** AE dataset `factory-metrics` must have received at least 48h of events
+before building boards (need sufficient data for meaningful p99 calculation).
+
+**Honeycomb:** Optional secondary. Set `HONEYCOMB_API_KEY` secret on ff-pipeline to enable.
+No code changes needed — consumer already handles it. Not required for WP-OBS-5 completion.
 
 ---
 
