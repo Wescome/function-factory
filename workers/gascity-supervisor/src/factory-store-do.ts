@@ -151,7 +151,9 @@ export class FactoryStore {
       id, String(bead.title ?? ""), String(bead.status ?? "open"), String(bead.issue_type ?? "task"), bead.priority ?? null, new Date().toISOString(),
       bead.assignee ?? null, bead.from ?? null, bead.parent ?? null, bead.ref ?? null,
       JSON.stringify(bead.needs ?? []), bead.description ?? null, JSON.stringify(bead.labels ?? []), JSON.stringify(bead.metadata ?? {}), bead.ephemeral ? 1 : 0)
-    return this.getBead(id)
+    const row = this.db.exec("SELECT * FROM beads WHERE id = ?1", id).one() as JsonRecord | null
+    if (!row) return this.json({ error: "internal_error" }, 500)
+    return this.json(this.mapBeadRow(row), 201)
   }
 
   private getBead(id: string): Response {
