@@ -1,16 +1,22 @@
 #!/usr/bin/env bash
-# first-dispatch.sh — wire Gas City + fire first live dispatch and roadmap smoke
+# first-dispatch.sh — initial end-to-end wire-up + roadmap smoke
 #
 # Usage: ! bash scripts/ops/first-dispatch.sh
 #
-# Zero prompts. Generates all tokens, sets all secrets, deploys, dispatches,
-# exercises the RELEASE webhook bridge, and runs the Cloudflare autonomy monitor.
+# Thin wrapper that runs the three focused ops scripts in sequence for the
+# initial E2E wire-up:
+#   setup.sh    — rotate tokens, deploy, rotate singleton, pre-warm (rare)
+#   seed.sh     — IS + ES → epId (once per Function)
+#   dispatch.sh — POST /dispatch-formula (every job)
+#
+# Then exercises the RELEASE webhook bridge and runs the Cloudflare autonomy
+# monitor. Those last two steps are smoke-test scaffolding, NOT steady-state
+# dispatch — they live here and nowhere else.
 
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-FF_PIPELINE_DIR="$ROOT/workers/ff-pipeline"
-SUPERVISOR_DIR="$ROOT/workers/gascity-supervisor"
+DIR="$(dirname "$0")"
+ROOT="$(cd "$DIR/../.." && pwd)"
 FF_BASE="https://ff-pipeline.koales.workers.dev"
 
 require_command() {
@@ -19,195 +25,38 @@ require_command() {
 require_command curl
 require_command jq
 require_command openssl
-require_command npx
 
 CURL_RETRY=(curl --http1.1 --retry 5 --retry-delay 2 --retry-all-errors --connect-timeout 10 --max-time 120 -sf)
 
-# ── 1. Generate all tokens ───────────────────────────────────────────────────
-echo "=== [1/6] Generating tokens ==="
-GC_BEARER_TOKEN="$(openssl rand -hex 32)"
-OPERATOR_TOKEN="$(openssl rand -hex 32)"
-GC_HMAC_SECRET="$(openssl rand -hex 32)"
-
-echo "$GC_BEARER_TOKEN" > /tmp/gc_supervisor_token.txt
-echo "$OPERATOR_TOKEN" > /tmp/gc_token.txt
-echo "  Setting GC_SUPERVISOR_TOKEN on gascity-supervisor..."
-printf '%s' "$GC_BEARER_TOKEN" | (cd "$SUPERVISOR_DIR" && npx wrangler secret put GC_SUPERVISOR_TOKEN)
-
-echo "  Setting GAS_CITY_BEARER_TOKEN on ff-pipeline..."
-printf '%s' "$GC_BEARER_TOKEN" | (cd "$FF_PIPELINE_DIR" && npx wrangler secret put GAS_CITY_BEARER_TOKEN)
-
-echo "  Setting GAS_CITY_HMAC_SECRET on gascity-supervisor..."
-printf '%s' "$GC_HMAC_SECRET" | (cd "$SUPERVISOR_DIR" && npx wrangler secret put GAS_CITY_HMAC_SECRET)
-
-echo "  Setting GAS_CITY_HMAC_SECRET_V1 on ff-pipeline..."
-printf '%s' "$GC_HMAC_SECRET" | (cd "$FF_PIPELINE_DIR" && npx wrangler secret put GAS_CITY_HMAC_SECRET_V1)
-
-echo "  Setting OPERATOR_CONTROL_TOKEN on ff-pipeline..."
-printf '%s' "$OPERATOR_TOKEN" | (cd "$FF_PIPELINE_DIR" && npx wrangler secret put OPERATOR_CONTROL_TOKEN)
-
-echo "  Setting OPERATOR_CONTROL_TOKEN on gascity-supervisor (pi-rpc bearer token)..."
-printf '%s' "$OPERATOR_TOKEN" | (cd "$SUPERVISOR_DIR" && npx wrangler secret put OPERATOR_CONTROL_TOKEN)
-
-# ── 2. Deploy ff-pipeline ────────────────────────────────────────────────────
-echo ""
-echo "=== [2/6] Deploying ff-pipeline with Gas City vars ==="
-DEPLOY_LOG="$(mktemp)"
-if ! (cd "$FF_PIPELINE_DIR" && npx wrangler deploy >"$DEPLOY_LOG" 2>&1); then
-  cat "$DEPLOY_LOG"
-  rm -f "$DEPLOY_LOG"
-  echo "Deploy failed."
-  exit 1
-fi
-grep -E "Deployed|Current Version|ERROR|error" "$DEPLOY_LOG" || cat "$DEPLOY_LOG"
-rm -f "$DEPLOY_LOG"
-
-# ── 2a. Rotate supervisor singleton + deploy supervisor ──────────────────────
-echo ""
-echo "=== [2a/6] Rotating supervisor singleton + deploying supervisor ==="
-# The idFromName key change (not the deploy) is what evicts the old Container.
-# One rotation re-bakes all three injected secrets:
-#   GC_SUPERVISOR_TOKEN, FF_OPERATOR_CONTROL_TOKEN, GAS_CITY_HMAC_SECRET
-git -C "$ROOT" symbolic-ref -q HEAD >/dev/null \
-  || { echo "ERROR: detached HEAD — refusing to commit singleton bump." >&2; exit 1; }
-CURRENT_VER=$(grep -o 'singleton-v[0-9]*' "$SUPERVISOR_DIR/src/index.ts" | head -1 | grep -o '[0-9]*$')
-[[ "$CURRENT_VER" =~ ^[0-9]+$ ]] \
-  || { echo "ERROR: could not parse singleton version from index.ts" >&2; exit 1; }
-NEXT_VER=$((CURRENT_VER + 1))
-echo "  singleton-v${CURRENT_VER} → singleton-v${NEXT_VER}"
-perl -i -pe "s/idFromName\\(\"singleton-v${CURRENT_VER}\"\\)/idFromName(\"singleton-v${NEXT_VER}\")/g" \
-  "$SUPERVISOR_DIR/src/index.ts"
-if ! git -C "$ROOT" diff --quiet -- "$SUPERVISOR_DIR/src/index.ts"; then
-  git -C "$ROOT" add "$SUPERVISOR_DIR/src/index.ts"
-  git -C "$ROOT" commit -m "INFRA: rotate singleton v${CURRENT_VER}→v${NEXT_VER} — re-bake GC_SUPERVISOR_TOKEN + FF_OPERATOR_CONTROL_TOKEN + GAS_CITY_HMAC_SECRET into Container"
-fi
-DEPLOY_LOG="$(mktemp)"
-if ! (cd "$SUPERVISOR_DIR" && npx wrangler deploy >"$DEPLOY_LOG" 2>&1); then
-  cat "$DEPLOY_LOG"; rm -f "$DEPLOY_LOG"; echo "Supervisor deploy failed." >&2; exit 1
-fi
-grep -E "Deployed|Current Version|ERROR" "$DEPLOY_LOG" || cat "$DEPLOY_LOG"
-rm -f "$DEPLOY_LOG"
-
-# ── 2b. Pre-warm Container ───────────────────────────────────────────────────
-echo ""
-echo "=== [2b/6] Pre-warming Gas City Container (up to 120s) ==="
-GC_BASE="https://gascity-supervisor.koales.workers.dev"
-WARM=0
-for i in $(seq 1 40); do
-  HTTP=$(curl --http1.1 --connect-timeout 5 --max-time 15 -s -o /dev/null -w "%{http_code}" \
-    -H "Authorization: Bearer $GC_BEARER_TOKEN" \
-    "$GC_BASE/v0/cities" 2>/dev/null || echo "000")
-  if [[ "$HTTP" == "200" || "$HTTP" == "404" ]]; then
-    echo "  Container ready (attempt $i, status $HTTP)"
-    WARM=1
-    break
-  fi
-  echo "  Waiting... attempt $i status=$HTTP"
-  sleep 3
-done
-[[ "$WARM" -eq 1 ]] || { echo "ERROR: Container did not become ready." >&2; exit 1; }
-
-echo "  Waiting for city runtime to report dispatch readiness..."
-CITY_READY=0
-LAST_CITY_ITEM=""
-for i in $(seq 1 100); do
-  CITY_ITEM=$(curl --http1.1 --connect-timeout 5 --max-time 15 -s \
-    -H "Authorization: Bearer $GC_BEARER_TOKEN" \
-    "$GC_BASE/v0/cities" 2>/dev/null | jq -c '.items[]? | select(.name=="factory")' || true)
-  LAST_CITY_ITEM="$CITY_ITEM"
-  CITY_RUNNING=$(printf '%s' "$CITY_ITEM" | jq -r '.running // false' 2>/dev/null || echo "false")
-  CITY_DISPATCH_READY=$(printf '%s' "$CITY_ITEM" | jq -r '.dispatch_ready // false' 2>/dev/null || echo "false")
-  CITY_STATUS=$(printf '%s' "$CITY_ITEM" | jq -r '.status // ""' 2>/dev/null || echo "")
-  CITY_PHASE_META=$(printf '%s' "$CITY_ITEM" | jq -c '.phase_meta // null' 2>/dev/null || echo "null")
-  if [[ "$CITY_DISPATCH_READY" == "true" || "$CITY_STATUS" == "running_degraded" || "$CITY_RUNNING" == "true" ]]; then
-    echo "  City runtime ready (attempt $i)"
-    CITY_READY=1
-    break
-  fi
-  if [[ "$CITY_STATUS" == failed_* ]]; then
-    echo "ERROR: City entered terminal startup state: $CITY_STATUS" >&2
-    echo "  phase_meta: $CITY_PHASE_META" >&2
-    exit 1
-  fi
-  echo "  City not ready yet (attempt $i, status=${CITY_STATUS:-unknown})"
-  sleep 3
-done
-[[ "$CITY_READY" -eq 1 ]] || {
-  echo "ERROR: City did not reach dispatch readiness." >&2
-  if [[ -n "$LAST_CITY_ITEM" ]]; then
-    echo "  last city item: $LAST_CITY_ITEM" >&2
-  fi
-  exit 1
-}
-
-# Probe formula endpoint — same URL ff-pipeline CALL 1 will hit
-echo "  Probing formula endpoint..."
-FORMULA_PROBE=$(curl --http1.1 -s -o /dev/stdout -w "\nHTTP_STATUS:%{http_code}" \
-  -H "Authorization: Bearer $GC_BEARER_TOKEN" \
-  -H "X-GC-Request: true" \
-  "$GC_BASE/v0/city/factory/formulas/factory-coding-v1?target=coder&scope_kind=city&scope_ref=factory" 2>/dev/null)
-echo "  Formula probe: $FORMULA_PROBE"
-
-# ── 3. Seed EP ───────────────────────────────────────────────────────────────
-echo ""
-echo "=== [3/6] Seeding dispatch EP ==="
 IS_PATH="$ROOT/specs/intent-specifications/IS-GC-DISPATCH-WIRE.md"
 ES_PATH="$ROOT/specs/executable-specifications/ES-GC-DISPATCH-WIRE.md"
 if [[ ! -f "$ES_PATH" ]]; then
   ES_PATH="$ROOT/specs/executable-specifications/ES-GC-DISPATCH-WIRE.yaml"
 fi
-[[ -f "$IS_PATH" ]] || { echo "Missing required IS file: $IS_PATH" >&2; exit 1; }
-[[ -f "$ES_PATH" ]] || { echo "Missing required ES file: $ES_PATH" >&2; exit 1; }
-TASK="$(head -n 1 "$IS_PATH" | sed 's/^#\s*//')"
-IS_BODY="$(cat "$IS_PATH")"
-ES_BODY="$(cat "$ES_PATH")"
-SEED_PAYLOAD="$(jq -cn \
-  --arg fnId "FN-GC-DISPATCH-WIRE" \
-  --arg isId "IS-GC-DISPATCH-WIRE" \
-  --arg esId "ES-GC-DISPATCH-WIRE" \
-  --arg task "$TASK" \
-  --arg isBody "$IS_BODY" \
-  --arg esBody "$ES_BODY" \
-  '{fnId:$fnId,isId:$isId,esId:$esId,task:$task,isBody:$isBody,esBody:$esBody}')"
-SEED_RESP="$("${CURL_RETRY[@]}" -X POST "$FF_BASE/seed-dispatch-ep" \
-  -H "Authorization: Bearer $OPERATOR_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d "$SEED_PAYLOAD")"
-echo "$SEED_RESP" | jq .
-EP_ID="$(echo "$SEED_RESP" | jq -r '.epId')"
-echo "  epId: $EP_ID"
 
-# ── 4. Dispatch ───────────────────────────────────────────────────────────────
-echo ""
-echo "=== [4/6] Dispatching to Gas City ==="
+# ── 1–4. setup → seed → dispatch ─────────────────────────────────────────────
+bash "$DIR/setup.sh"
+bash "$DIR/seed.sh" "$IS_PATH" "$ES_PATH"
+
+EP_ID="$(cat /tmp/gc_ep_id.txt)"
+OPERATOR_TOKEN="$(cat /tmp/gc_token.txt)"
+GC_HMAC_SECRET="$(cat /tmp/gc_hmac_secret.txt)"
+
+bash "$DIR/dispatch.sh" "$EP_ID"
+
+# Re-issue the dispatch to capture the full response (form_id + bead id) the
+# webhook bridge below needs. dispatch.sh prints the human-facing result; this
+# call feeds the smoke scaffolding.
 DISPATCH_RESP="$("${CURL_RETRY[@]}" -X POST "$FF_BASE/dispatch-formula" \
   -H "Authorization: Bearer $OPERATOR_TOKEN" \
   -H "Content-Type: application/json" \
   -d "{\"epId\": \"$EP_ID\", \"factoryAttempt\": 1}")"
-echo "$DISPATCH_RESP" | jq .
-
 GC_BEAD_ID="$(echo "$DISPATCH_RESP" | jq -r '.gc_bead_id // empty')"
-OUTCOME="$(echo "$DISPATCH_RESP" | jq -r '.outcome // empty')"
-
-echo ""
-echo "=== Result ==="
-echo "  outcome:    $OUTCOME"
-echo "  gc_bead_id: ${GC_BEAD_ID:-<none>}"
-
-if [[ "$OUTCOME" == "dispatched" && -n "$GC_BEAD_ID" ]]; then
-  echo ""
-  echo "SUCCESS — bead is live in Gas City."
-  echo "Monitor: https://gascity-supervisor.koales.workers.dev/v0/city/factory/beads/$GC_BEAD_ID"
-else
-  echo ""
-  echo "Dispatch did not complete — check outcome above."
-  exit 1
-fi
+FORM_ID="$(echo "$DISPATCH_RESP" | jq -r '.form_id // empty')"
 
 # ── 5. Exercise RELEASE webhook bridge ──────────────────────────────────────
 echo ""
-echo "=== [5/6] Exercising Factory webhook RELEASE bridge ==="
-FORM_ID="$(echo "$DISPATCH_RESP" | jq -r '.form_id')"
+echo "=== [smoke 1/2] Exercising Factory webhook RELEASE bridge ==="
 CALLBACK_PAYLOAD="$(jq -cn \
   --arg fn_id "FN-GC-DISPATCH-WIRE" \
   --arg is_id "IS-GC-DISPATCH-WIRE" \
@@ -228,8 +77,8 @@ echo "$CALLBACK_RESP" | jq .
 
 # ── 6. Run Cloudflare autonomy monitor ──────────────────────────────────────
 echo ""
-echo "=== [6/6] Running Cloudflare autonomy monitor ==="
-# Worker was redeployed in step 2 — give it a moment to warm up before
+echo "=== [smoke 2/2] Running Cloudflare autonomy monitor ==="
+# Worker was redeployed in setup.sh — give it a moment to warm up before
 # hitting the autonomy endpoint (which does 4 sequential probes at 6s each).
 echo "  Waiting 10s for Worker to warm after redeploy..."
 sleep 10
