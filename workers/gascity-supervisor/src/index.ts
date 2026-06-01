@@ -26,8 +26,8 @@ export class GasCitySupervisor extends Container<Env> {
   }
 
   override async onActivityExpired(): Promise<void> {
-    const active = await this.ctx.storage.get<boolean>("keepalive_active");
-    if (active) {
+    const refcount = (await this.ctx.storage.get<number>("keepalive_refcount")) ?? 0;
+    if (refcount > 0) {
       this.renewActivityTimeout();
       return;
     }
@@ -35,22 +35,30 @@ export class GasCitySupervisor extends Container<Env> {
   }
 
   override onStop(): void {
-    this.ctx.storage.delete("keepalive_active").catch(() => {});
+    this.ctx.storage.delete("keepalive_refcount").catch(() => {});
   }
 
   override async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
 
     if (url.pathname === "/v0/keepalive/start" && request.method === "POST") {
-      await this.ctx.storage.put("keepalive_active", true);
+      const current = (await this.ctx.storage.get<number>("keepalive_refcount")) ?? 0;
+      const next = current + 1;
+      await this.ctx.storage.put("keepalive_refcount", next);
       this.renewActivityTimeout();
-      return new Response(JSON.stringify({ ok: true }), {
+      return new Response(JSON.stringify({ ok: true, refcount: next }), {
         headers: { "Content-Type": "application/json" },
       });
     }
     if (url.pathname === "/v0/keepalive/stop" && request.method === "POST") {
-      await this.ctx.storage.delete("keepalive_active");
-      return new Response(JSON.stringify({ ok: true }), {
+      const current = (await this.ctx.storage.get<number>("keepalive_refcount")) ?? 0;
+      const next = Math.max(0, current - 1);
+      await this.ctx.storage.put("keepalive_refcount", next);
+      // Other concurrent molecules still hold the Container pinned — keep it warm.
+      if (next > 0) {
+        this.renewActivityTimeout();
+      }
+      return new Response(JSON.stringify({ ok: true, refcount: next }), {
         headers: { "Content-Type": "application/json" },
       });
     }
