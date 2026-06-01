@@ -17,15 +17,14 @@ function event(): TelemetryEvent {
 }
 
 describe("telemetry-consumer", () => {
-  it("is a no-op without sinks and never throws", async () => {
+  it("fails fast when sinks are unconfigured", async () => {
     const ack = vi.fn()
     const batch = {
       queue: "telemetry-queue",
       messages: [{ body: event(), ack }],
     } as unknown as MessageBatch
     const ctx = { waitUntil: vi.fn() } as unknown as ExecutionContext
-    await expect(handleTelemetryBatch(batch, {} as PipelineEnv, ctx)).resolves.toBeUndefined()
-    expect(ack).toHaveBeenCalledTimes(1)
+    await expect(handleTelemetryBatch(batch, {} as PipelineEnv, ctx)).rejects.toThrow("telemetry_sinks_unconfigured")
   })
 
   it("maps Honeycomb trace magic fields", () => {

@@ -54,6 +54,7 @@ function makeDeps(over: DepOverrides = {}): FormulaCompilerDeps {
     getDispatchLogByIdempotencyKey: unused as never,
     getFormulaByKey: unused as never,
     writeFormAndDispatchLog: unused as never,
+    writeDispatchLogOnly: unused as never,
     updateFormulaVersion: unused as never,
     updateDispatchLog: unused as never,
     emitUncertaintyEntry: unused as never,

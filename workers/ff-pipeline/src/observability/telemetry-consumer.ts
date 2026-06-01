@@ -29,42 +29,37 @@ function mapToHoneycomb(event: TelemetryEvent): Record<string, unknown> {
 
 async function postToHoneycomb(events: TelemetryEvent[], env: PipelineEnv): Promise<void> {
   if (!env.HONEYCOMB_API_KEY || events.length === 0) return
-  try {
-    await fetch("https://api.honeycomb.io/1/batch/function-factory", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Honeycomb-Team": env.HONEYCOMB_API_KEY,
-      },
-      body: JSON.stringify(events.map(mapToHoneycomb)),
-      signal: AbortSignal.timeout(10_000),
-    })
-  } catch {
-    // Best effort: observability sink failures never fail queue consumption.
+  const response = await fetch("https://api.honeycomb.io/1/batch/function-factory", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Honeycomb-Team": env.HONEYCOMB_API_KEY,
+    },
+    body: JSON.stringify(events.map(mapToHoneycomb)),
+    signal: AbortSignal.timeout(10_000),
+  })
+  if (!response.ok) {
+    throw new Error(`honeycomb_sink_failed:${response.status}`)
   }
 }
 
 function writeAnalytics(event: TelemetryEvent, env: PipelineEnv): void {
   if (!env.FACTORY_METRICS) return
-  try {
-    const blobs = [
-      event.trace_id,
-      event.span_id,
-      event.parent_span_id ?? "",
-      event.name,
-      event.service,
-      event.outcome,
-      event.error ?? "",
-      JSON.stringify(event.attrs),
-    ]
-    env.FACTORY_METRICS.writeDataPoint({
-      blobs,
-      doubles: [event.start_time_ms, event.duration_ms],
-      indexes: [event.outcome],
-    })
-  } catch {
-    // Best effort: analytics write failure must not poison the queue.
-  }
+  const blobs = [
+    event.trace_id,
+    event.span_id,
+    event.parent_span_id ?? "",
+    event.name,
+    event.service,
+    event.outcome,
+    event.error ?? "",
+    JSON.stringify(event.attrs),
+  ]
+  env.FACTORY_METRICS.writeDataPoint({
+    blobs,
+    doubles: [event.start_time_ms, event.duration_ms],
+    indexes: [event.outcome],
+  })
 }
 
 function isTelemetryEvent(value: unknown): value is TelemetryEvent {
@@ -76,8 +71,11 @@ function isTelemetryEvent(value: unknown): value is TelemetryEvent {
 export async function handleTelemetryBatch(
   batch: MessageBatch,
   env: PipelineEnv,
-  ctx: ExecutionContext,
+  _ctx: ExecutionContext,
 ): Promise<void> {
+  if (!env.FACTORY_METRICS && !env.HONEYCOMB_API_KEY) {
+    throw new Error("telemetry_sinks_unconfigured")
+  }
   const events: TelemetryEvent[] = []
   for (const message of batch.messages) {
     const body = message.body
@@ -95,7 +93,8 @@ export async function handleTelemetryBatch(
     message.ack()
   }
 
-  ctx.waitUntil(postToHoneycomb(events, env))
+  if (events.length === 0) return
+  await postToHoneycomb(events, env)
 }
 
 export const telemetryConsumerInternals = {

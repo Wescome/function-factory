@@ -117,9 +117,13 @@ export default {
           headers: { "Content-Type": "application/json" },
         })
       }
-      if (env.TELEMETRY_QUEUE) {
-        await env.TELEMETRY_QUEUE.send(events)
+      if (!env.TELEMETRY_QUEUE) {
+        return new Response(JSON.stringify({ error: "telemetry_queue_unbound" }), {
+          status: 503,
+          headers: { "Content-Type": "application/json" },
+        })
       }
+      await env.TELEMETRY_QUEUE.send(events)
       return new Response(JSON.stringify({ ok: true }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
