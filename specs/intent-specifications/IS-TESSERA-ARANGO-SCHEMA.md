@@ -1,6 +1,6 @@
 ---
 id: IS-TESSERA-ARANGO-SCHEMA
-version: 1
+version: 2
 title: "Tessera ArangoDB Schema — collections, indexes, and ArangoSearch views per repo"
 sourceCapabilityId: BC-TESSERA-ARANGO-SCHEMA
 sourceFunctionId: FP-TESSERA-ARANGO-SCHEMA
@@ -188,13 +188,13 @@ exist and are queryable, just empty).
 
 ### Slug derivation (AC-S*)
 
-**AC-S1.** A pure `slugForRepo(fullName: string): string` helper implements the
-TESSERA-CF-SPEC §4.1 rule: lowercase the full `owner/name`, replace any
-character not in `[a-z0-9]` with `_`. Example: `Wescome/gascity` →
-`wescome_gascity` (or the documented short form `gascity` if the spec's
-name-only slugging is chosen — the implementer MUST pick one rule and apply it
-consistently; the chosen rule is recorded in the `tessera_meta` document so
-`list_repos` can map slug ↔ full name, AC-S3).
+**AC-S1.** A pure `slugForRepo(fullName: string): string` helper derives the
+slug using **name-only** (the repo name without owner): lowercase the `name`
+component of `owner/name`, replace any character not in `[a-z0-9_-]` with `_`.
+Example: `Wescome/gascity` → `gascity`, `Wescome/function-factory` →
+`function-factory`. The owner is discarded unless a collision occurs (AC-S2).
+The chosen rule is recorded in `tessera_meta` so `list_repos` can map slug ↔
+full name (AC-S3).
 
 **AC-S2.** Collision disambiguation: when two distinct full names sanitize to the
 same slug, the helper appends a short hash of the full name (TESSERA-CF-SPEC

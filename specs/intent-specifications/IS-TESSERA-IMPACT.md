@@ -1,6 +1,6 @@
 ---
 id: IS-TESSERA-IMPACT
-version: 1
+version: 2
 title: "Tessera Impact Analysis — AQL traversal blast radius with risk scoring"
 sourceCapabilityId: BC-TESSERA-IMPACT
 sourceFunctionId: FP-TESSERA-IMPACT
@@ -143,16 +143,18 @@ IMPLEMENTS`; member/field relations are included for the full impact surface per
 this IS.)
 
 **AC-CONF2.** Effective confidence per edge: use the **stored** `e.confidence`
-when it is `> 0`; otherwise apply the per-relation floor:
+when it is `> 0`; otherwise apply the per-relation floor (GT-CONF,
+`local-backend.ts:144-154`):
 | Relation | Floor | | Relation | Floor |
 |----------|-------|-|----------|-------|
-| CALLS | 0.90 | | HAS_METHOD | 0.85 |
-| IMPORTS | 0.90 | | ACCESSES | 0.70 |
-| EXTENDS | 0.85 | | METHOD_OVERRIDES | 0.80 |
-| IMPLEMENTS | 0.85 | | METHOD_IMPLEMENTS | 0.80 |
+| CALLS | 0.90 | | HAS_METHOD | 0.95 |
+| IMPORTS | 0.90 | | HAS_PROPERTY | 0.95 |
+| EXTENDS | 0.85 | | ACCESSES | 0.70 |
+| IMPLEMENTS | 0.85 | | METHOD_OVERRIDES | 0.85 |
+| METHOD_IMPLEMENTS | 0.85 | | CONTAINS | 0.95 |
+| fallback (any other type) | 0.50 | | | |
 
-(Floors per this IS's relation set; the stored value is preferred when present
-and positive — GT-CONF rule.)
+Stored value is preferred when present and positive — GT-CONF rule.
 
 **AC-CONF3.** Edges whose **effective** confidence is below **0.3** are filtered
 out of the result (the cutoff). An edge at or above 0.3 is retained.
@@ -160,15 +162,21 @@ out of the result (the cutoff). An edge at or above 0.3 is retained.
 ### Risk scoring (AC-RISK*) — GT-RISK
 
 **AC-RISK1.** Let `directCount` = depth-1 impacted count, `processCount` =
-affected processes. Risk is:
-- **CRITICAL** if `directCount > 10` OR `processCount > 5`
-- **HIGH** if `directCount > 5` OR any process is affected (`processCount >= 1`)
-- **MEDIUM** if `directCount` is 2–5
-- **LOW** if `directCount` is 0–1
+affected processes count, `moduleCount` = affected modules count, `total` =
+all impacted symbols. Risk is assigned by the first matching rule
+(GT-RISK, `local-backend.ts:2937-2948`):
 
-(This IS's thresholds per the task contract. V1 caveat: process detection is
-V2-deferred, so `processCount = 0`; risk is computed from `directCount` alone and
-never under-reports relative to that signal, §5.5.)
+| Risk | Condition |
+|------|-----------|
+| CRITICAL | `directCount >= 30` OR `processCount >= 5` OR `moduleCount >= 5` OR `total >= 200` |
+| HIGH | `directCount >= 15` OR `processCount >= 3` OR `moduleCount >= 3` OR `total >= 100` |
+| MEDIUM | `directCount >= 5` OR `total >= 30` |
+| LOW | everything else |
+
+V1 caveat: process detection and community/module detection are V2-deferred,
+so `processCount = 0` and `moduleCount = 0`. Risk is computed from
+`directCount` and `total` alone and never over-reports; the CRITICAL/HIGH
+process/module triggers are inert until V2 lands.
 
 **AC-RISK2.** The response includes the resolved target, `direction`, the risk
 level, `impactedCount` (total distinct impacted symbols), the depth-grouped
