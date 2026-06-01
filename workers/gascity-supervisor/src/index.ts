@@ -183,7 +183,7 @@ export default {
     // Singleton supervisor DO. The suffix intentionally rotates the container
     // instance after Gas City graph routing/session runtime fixes so Cloudflare
     // starts the newly deployed image instead of reusing a warm pre-fix container.
-    const id = env.SUPERVISOR.idFromName("singleton-v26");
+    const id = env.SUPERVISOR.idFromName("singleton-v27");
     const stub = env.SUPERVISOR.get(id);
     return stub.fetch(request);
   },
