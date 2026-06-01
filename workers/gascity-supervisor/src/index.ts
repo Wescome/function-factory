@@ -130,6 +130,25 @@ export default {
       })
     }
 
+    if (url.pathname === "/internal/telemetry/health" && request.method === "GET") {
+      const auth = request.headers.get("Authorization") ?? ""
+      if (auth !== `Bearer ${env.GC_SUPERVISOR_TOKEN}`) {
+        return new Response(JSON.stringify({ error: "unauthorized" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        })
+      }
+      const ok = Boolean(env.TELEMETRY_QUEUE)
+      return new Response(JSON.stringify({
+        ok,
+        telemetry_queue_bound: ok,
+        timestamp: new Date().toISOString(),
+      }), {
+        status: ok ? 200 : 503,
+        headers: { "Content-Type": "application/json" },
+      })
+    }
+
     if (url.pathname.startsWith("/internal/bead-store/")) {
       const auth = request.headers.get("Authorization") ?? ""
       if (auth !== `Bearer ${env.GC_SUPERVISOR_TOKEN}`) {

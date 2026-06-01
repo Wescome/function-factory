@@ -50,6 +50,16 @@ for i in $(seq 1 40); do
 done
 
 echo ""
+echo "=== [1.5/5] Checking telemetry health gates ==="
+SUP_TELE_HEALTH="$("${CURL_RETRY[@]}" -X GET "$GC_BASE/internal/telemetry/health" \
+  -H "Authorization: Bearer $GC_BEARER_TOKEN")"
+echo "$SUP_TELE_HEALTH" | jq .
+[[ "$(echo "$SUP_TELE_HEALTH" | jq -r '.ok // false')" == "true" ]] || { echo "ERROR: supervisor telemetry health failed"; exit 1; }
+FF_TELE_STATUS="$("${CURL_RETRY[@]}" -X GET "$FF_BASE/gascity/telemetry/status")"
+echo "$FF_TELE_STATUS" | jq .
+[[ "$(echo "$FF_TELE_STATUS" | jq -r '.ok // false')" == "true" ]] || { echo "ERROR: ff-pipeline telemetry status failed"; exit 1; }
+
+echo ""
 echo "=== [2/5] Seeding dispatch EP ==="
 IS_PATH="$ROOT/specs/intent-specifications/IS-GC-DISPATCH-WIRE.md"
 ES_PATH="$ROOT/specs/executable-specifications/ES-GC-DISPATCH-WIRE.yaml"
@@ -78,6 +88,7 @@ OUTCOME="$(echo "$DISPATCH_RESP" | jq -r '.outcome // empty')"
 TRACE_ID="$(echo "$DISPATCH_RESP" | jq -r '.trace_id // empty')"
 echo "  outcome: $OUTCOME  bead: ${GC_BEAD_ID:-<none>}  trace_id: ${TRACE_ID:-<none>}"
 [[ "$OUTCOME" == "dispatched" && -n "$GC_BEAD_ID" ]] || { echo "Dispatch failed."; exit 1; }
+[[ -n "$TRACE_ID" && "$TRACE_ID" != "<none>" ]] || { echo "ERROR: missing trace_id in dispatch response."; exit 1; }
 
 echo ""
 echo "=== [4/5] Webhook RELEASE bridge ==="

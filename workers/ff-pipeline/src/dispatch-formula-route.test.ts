@@ -246,6 +246,7 @@ describe("POST /dispatch-formula", () => {
       dispatch_log_key: "DL-1",
       gc_bead_id: "bead-1",
       gc_workflow_id: "workflow-1",
+      trace_id: expect.any(String),
     })
     expect(mocks.buildFormulaCompilerDeps).toHaveBeenCalledOnce()
     expect(mocks.compileAndDispatchFormula).toHaveBeenCalledWith(expect.objectContaining({
@@ -273,6 +274,7 @@ describe("POST /dispatch-formula", () => {
       form_id: "FORM-1",
       dispatch_log_key: "DL-1",
       replay: true,
+      trace_id: expect.any(String),
     })
     expect(mocks.compileAndDispatchFormula).toHaveBeenCalledWith(expect.objectContaining({
       factoryAttempt: 2,

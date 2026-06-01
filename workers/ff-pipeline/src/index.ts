@@ -167,6 +167,21 @@ export default {
       return json(await getGasCityAutonomyStatus(env))
     }
 
+    if (url.pathname === '/gascity/telemetry/status' && request.method === 'GET') {
+      const sinkConfigured = Boolean(env.FACTORY_METRICS || env.HONEYCOMB_API_KEY)
+      const queueConfigured = Boolean(env.TELEMETRY_QUEUE)
+      const ok = sinkConfigured && queueConfigured
+      return json({
+        ok,
+        queue: { telemetry_queue_bound: queueConfigured },
+        sinks: {
+          analytics_engine_bound: Boolean(env.FACTORY_METRICS),
+          honeycomb_key_set: Boolean(env.HONEYCOMB_API_KEY),
+        },
+        timestamp: new Date().toISOString(),
+      }, ok ? 200 : 503)
+    }
+
     if (url.pathname === '/gascity/autonomy/run' && request.method === 'POST') {
       const auth = authorizeOperatorControl(request, env)
       if (!auth.ok) return json({ error: auth.error }, auth.status === 403 ? 401 : auth.status)
@@ -2031,8 +2046,9 @@ async function handleDispatchFormula(
       }
     }
     ctx.waitUntil(Promise.resolve())
-    if (result.replay === true) return json({ accepted: true, ...result }, 200)
-    return json({ accepted: true, ...result }, 202)
+    const responseTraceId = cleanString((result as { trace_id?: string }).trace_id, '') || traceId
+    if (result.replay === true) return json({ accepted: true, trace_id: responseTraceId, ...result }, 200)
+    return json({ accepted: true, trace_id: responseTraceId, ...result }, 202)
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : String(err) }, 500)
   }
