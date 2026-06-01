@@ -1,231 +1,415 @@
-# Tessera Gate System — Concept of Operations
+# Tessera Gate System — Complete Concept of Operations
 
 **Document type:** CONOPS — Concept of Operations
+**Version:** 2 (complete)
 **Date:** 2026-06-01
 **Status:** Active
-**Scope:** All Tessera-enforced gates across the Factory and GasCity coding lifecycle
-**Related IS files:** IS-TESSERA-PRE-EDIT-GATE, IS-TESSERA-PRE-COMMIT-GATE, IS-TESSERA-PRE-MERGE-GATE, IS-TESSERA-SPEC-CHANGE-GATE, IS-TESSERA-GOVERNANCE-CHANGE-GATE
+**Scope:** All five Tessera-enforced gates across the coding and governance lifecycle
 
 ---
 
 ## 1. Situation
 
-### 1.1 The problem without gates
+### 1.1 The incident that built this system
 
 On 2026-06-01 a coding agent spent 45 minutes making iterative fixes to
-`dispatch_runtime.go` in gascity, each introducing new regressions, ending
-with a compile error and a full revert. The root cause: the agent changed the
-call path away from `workflowServeList` — a package-level function variable
-that 12 tests override as a test seam — without knowing those 12 tests existed.
+`dispatch_runtime.go` in gascity, each introducing new regressions, ending with
+a compile error and a full revert. Root cause: the agent changed the call path
+away from `workflowServeList` — a Go package-level function variable that 12
+tests override as a test seam — without knowing those 12 tests existed.
 
-One `tessera_impact` call before the first edit would have returned STOP. It
-was never called.
+One command before the first edit would have returned STOP:
+```
+tessera_pre_edit_check({ target: "workflowServeList", repo: "gascity" })
+→ STOP: 12 callers at d=1, risk HIGH
+```
 
-This is not an isolated incident. It is the failure mode of any autonomous
-coding agent operating without graph intelligence:
+It was never called.
 
-- **Silent test seam breakage** — function variables, global hooks, test
-  overrides invisible without graph traversal
-- **Cross-file cascade** — changing one function breaks 15 callers the agent
-  never read
-- **Spec drift** — editing a capability (BC-*) without knowing which IS files
-  depend on it
-- **Governance blind spots** — changing a PDP rule without knowing which skills
-  it governs
+### 1.2 The structural failure
 
-### 1.2 What Tessera enables
+This is not a bad-agent story. It is a missing-gate story. Tessera had the
+data. `tessera_impact` would have returned the right answer. The agent skipped
+it — not out of malice, but because skipping an advisory check is the path of
+least resistance under context pressure. Advisory checks get skipped. Mandatory
+gates do not.
 
-Tessera has indexed every symbol, relation, and dependency in the Factory's
-codebases. The graph knows what `workflowServeList` calls and what calls it.
-The graph knows which IS files reference `BC-GC-FORMULA-DISPATCH`. The graph
-knows which skills the `TREATMENT` classification rule governs.
+### 1.3 Three compound failures in one incident
 
-What was missing is not the data — it is **enforcement**. Without gates, the
-data is advisory. Agents skip advisory checks under pressure. The 2026-06-01
-incident was not a knowledge failure. It was an enforcement failure.
+The 2026-06-01 incident was three failures at once — each requiring a different gate:
 
-The Tessera Gate System converts Tessera from advisory to mandatory.
+**Failure 1:** Agent changed `workflowServeList` without knowing blast radius.
+→ Gate 1 (pre-edit) would have caught this.
+
+**Failure 2:** The diff accumulated unintended symbols beyond the stated fix target.
+→ Gate 2 (pre-commit) would have caught this.
+
+**Failure 3:** The PR had no automated impact analysis before reviewer saw it.
+→ Gate 3 (pre-merge / CI) would have caught this.
+
+Any one gate would have stopped the cascade. All three are now specified.
 
 ---
 
 ## 2. Mission
 
-The Tessera Gate System enforces graph intelligence at every decision point
-in the coding lifecycle where a wrong move produces regressions, spec drift,
-or governance violations.
+Convert Tessera from advisory to mandatory at five decision points in the
+coding and governance lifecycle. One principle:
 
-**Five gates, one principle:** no agent proceeds past a gate without a risk
-verdict from Tessera. STOP means the human operator decides. WARN means the
-agent documents rationale. PROCEED means safe to continue.
+> **No agent proceeds past a gate without a risk verdict from Tessera.
+> STOP means the human operator decides. WARN means the agent documents
+> rationale. PROCEED means safe to continue.**
 
 ---
 
-## 3. Gates — Operational Concept
+## 3. The Five Gates
 
-### Gate 1: Pre-Edit Gate (`tessera_pre_edit_check`)
-**IS:** IS-TESSERA-PRE-EDIT-GATE
-**Trigger:** Before editing any symbol in any indexed repo
+### Gate 1 — Pre-Edit (`tessera_pre_edit_check`)
+
+**When:** Before editing any symbol in any indexed repo — before the first
+keystroke, before any file is opened for writing.
+
 **Question:** What breaks if I change this symbol?
-**Tool:** `tessera_impact` (upstream blast radius)
 
-```
-Agent: "I need to change workflowServeList"
-Gate:  tessera_pre_edit_check({ target: "workflowServeList", repo: "gascity" })
-Result: STOP — 12 callers at d=1, risk HIGH
-Action: Surface to human operator. Wait for override approval.
+**Engine:** `tessera_impact` — upstream blast radius traversal.
+
+**Decision table:**
+
+| Risk | Decision | Action |
+|------|----------|--------|
+| CRITICAL | STOP | Surface to human. Wait for `override: true`. |
+| HIGH | STOP | Surface to human. Wait for `override: true`. |
+| MEDIUM | WARN | Proceed with documented rationale in commit message. |
+| LOW | PROCEED | Safe to edit. |
+| UNKNOWN | WARN | Symbol not in index or index stale. Re-index first. |
+
+**Request:**
+```json
+POST /repos/{slug}/pre-edit-check
+{
+  "target": "workflowServeList",
+  "kind": "FunctionVariable",
+  "direction": "upstream",
+  "override": false
+}
 ```
 
-**Audit:** Every check written to `tessera_pre_edit_gates` (immutable).
+**Response:**
+```json
+{
+  "decision": "STOP",
+  "risk": "HIGH",
+  "impactedCount": 14,
+  "directCallers": ["drainWorkflowServeWork", "runWorkflowServe", ...],
+  "message": "14 symbols impacted at d=1. Requires human review.",
+  "impact": { ... }
+}
+```
+
+**Override flow:**
+```
+Agent: gate returns STOP
+Agent: [surfaces impact to human — symbol, callers, risk, count]
+Human: "understood, the seam is being refactored, proceed"
+Human: override: true
+Gate:  PROCEED_WITH_OVERRIDE [logged, immutable]
+Agent: [makes edit]
+```
+
+**MCP tool:** `tessera_pre_edit_check` (14th tool)
+
+**Audit:** `tessera_pre_edit_gates` — append-only, no DELETE.
+
+**Critical note — Go test seams (IS-TESSERA-PARSER v2):**
+Go package-level function variables (`var f = someFunc`) are test seams —
+invisible to the v1 parser. IS-TESSERA-PARSER v2 extracts them as
+`FunctionVariable` nodes. Without v2, `tessera_pre_edit_check` on
+`workflowServeList` returns UNKNOWN. Gate 1 is only reliable after
+IS-TESSERA-PARSER v2 ships.
+
+**IS:** IS-TESSERA-PRE-EDIT-GATE
+**BC:** BC-TESSERA-PRE-EDIT-GATE
 
 ---
 
-### Gate 2: Pre-Commit Gate (`tessera_pre_commit_check`)
+### Gate 2 — Pre-Commit (`tessera_pre_commit_check`)
+
+**When:** Before `git commit` — after edits are written, before they are staged
+and committed.
+
+**Question:** What symbols actually landed in my diff, and are any of them
+outside what I intended to change?
+
+**Engine:** `tessera_detect_changes` — maps staged diff hunks to symbols and
+execution flows.
+
+**Why Gate 1 is not enough:** Gate 1 fires on a single declared symbol before
+the edit. It cannot see what the diff accumulated across a session: a refactored
+helper, an auto-formatted neighbor, a parameter threaded through three call
+sites. The diff is ground truth. Gate 2 reconciles the diff against intent.
+
+**Request:**
+```json
+POST /repos/{slug}/pre-commit-check
+{
+  "intent": ["workflowServeQueue", "drainWorkflowServeWork"]
+}
+```
+
+**Response:**
+```json
+{
+  "decision": "WARN",
+  "changedSymbols": ["workflowServeQueue", "drainWorkflowServeWork", "workflowServeList"],
+  "affectedProcesses": ["runWorkflowServe", "runConvoyControlServe"],
+  "unintended": ["workflowServeList"],
+  "message": "1 unintended symbol in diff. Confirm or revert before committing."
+}
+```
+
+**Decision table:**
+
+| Unintended symbols | Decision | Action |
+|--------------------|----------|--------|
+| 0 | PROCEED | Diff matches intent. Commit. |
+| 1–2 | WARN | Confirm each unintended symbol or revert. |
+| 3+ | STOP | Too much drift from intent. Revert and re-scope. |
+
+**MCP tool:** `tessera_pre_commit_check` (15th tool)
+
+**Audit:** `tessera_pre_commit_gates` — append-only, no DELETE.
+
 **IS:** IS-TESSERA-PRE-COMMIT-GATE
-**Trigger:** Before `git commit` — after edits are written, before they are
-committed
-**Question:** What did I actually change, and does it match what I intended?
-**Tool:** `tessera_detect_changes` (maps diff hunks to affected symbols +
-processes)
-
-```
-Agent: [has made edits, about to commit]
-Gate:  tessera_pre_commit_check({ repo: "gascity" })
-Result: {
-  changedSymbols: ["workflowServeQueue", "drainWorkflowServeWork"],
-  affectedProcesses: ["runWorkflowServe", "runConvoyControlServe"],
-  unintended: ["workflowServeList"]  ← symbol in diff but not in stated intent
-}
-Action: WARN — unintended symbol in diff. Agent must confirm or revert.
-```
-
-**Why this matters:** The pre-edit gate catches intent. The pre-commit gate
-catches *actual* impact — what landed in the diff versus what was planned.
-An agent that edits the right function but inadvertently touches a neighboring
-line is caught here.
+**BC:** BC-TESSERA-PRE-COMMIT-GATE
 
 ---
 
-### Gate 3: Pre-Merge Gate (`tessera_pre_merge_check`)
-**IS:** IS-TESSERA-PRE-MERGE-GATE
-**Trigger:** CI — on PR open / push to PR branch, before merge
+### Gate 3 — Pre-Merge / CI (`tessera_pre_merge_check`)
+
+**When:** CI — on `pull_request` event (opened, synchronize). Runs automatically,
+without agent cooperation.
+
 **Question:** What is the full blast radius of this PR across the codebase?
-**Tool:** `tessera_impact` across all changed symbols in the PR diff
 
-```
-PR #72: changes dispatch_runtime.go, cmd_convoy_dispatch_test.go
-Gate:   tessera_pre_merge_check({ repo: "gascity", base: "main", head: "factory/fix-timeout" })
-Result: {
-  changedSymbols: 4,
-  affectedSymbols: 18,
-  risk: "HIGH",
-  affectedProcesses: ["runConvoyControlServe"],
-  comment: "PR touches runWorkflowServe chain. Reviewer must verify test coverage."
+**Engine:** `tessera_impact` across all changed symbols in the PR diff (base → head).
+
+**Why Gates 1–2 are not enough:** They live inside the agent's session and depend
+on the agent calling them. Gate 3 is the CI-enforced safety net for everything
+that slipped through: multi-commit PRs, cross-session edits, human contributions
+that never touched a Tessera gate, and aggregate risk that no single commit looks
+dangerous but the PR is HIGH.
+
+**Request:**
+```json
+POST /repos/{slug}/pre-merge-check
+{
+  "base": "main",
+  "head": "factory/fix-timeout",
+  "pr_number": 73
 }
-Action: Post structured impact comment on PR. Block merge on CRITICAL; warn on HIGH.
 ```
 
-**Why this matters:** The pre-edit gate fires before edits. The pre-merge gate
-fires after all edits are assembled. It is the safety net for anything the
-pre-edit gate missed (multiple file edits, unintended side effects, agent
-working across a session).
+**Response:**
+```json
+{
+  "decision": "HIGH",
+  "changedSymbols": 4,
+  "affectedSymbols": 18,
+  "risk": "HIGH",
+  "affectedProcesses": ["runConvoyControlServe"],
+  "comment": "PR touches runWorkflowServe chain. Reviewer must verify test coverage.",
+  "commitStatus": "warning"
+}
+```
+
+**GitHub integration:**
+- CRITICAL → commit status `failure` (merge blocked)
+- HIGH → commit status `warning` (reviewer warned, merge allowed)
+- MEDIUM/LOW → commit status `success` with report
+- Structured impact comment posted on PR listing changed symbols, affected processes, risk
+
+**MCP tool:** No — Gate 3 is CI-triggered via the Tessera Worker's
+`/repos/:slug/pre-merge-check` route, called by a GitHub Actions workflow.
+
+**Audit:** `tessera_pre_merge_gates` — append-only, no DELETE.
+
+**IS:** IS-TESSERA-PRE-MERGE-GATE
+**BC:** BC-TESSERA-PRE-MERGE-GATE
 
 ---
 
-### Gate 4: Spec Change Gate (`tessera_spec_change_check`)
-**IS:** IS-TESSERA-SPEC-CHANGE-GATE
-**Trigger:** Before editing any spec artifact (BC-*, IS-*, ES-*, PRS-*)
-**Question:** What IS files, ES files, and FP files reference this spec?
-**Tool:** `tessera_impact` on the spec graph (IS-TESSERA-SPEC-ADAPTER)
+### Gate 4 — Spec Change (`tessera_spec_change_check`)
 
-```
-Agent: "I need to update BC-GC-FORMULA-DISPATCH to add a new constraint"
-Gate:  tessera_spec_change_check({ target: "BC-GC-FORMULA-DISPATCH", repo: "function-factory" })
-Result: STOP — 3 IS files reference this BC (IS-GC-DISPATCH-WIRE,
-        IS-GC-EP-FORMULA-DISPATCH, IS-GC-FIDELITY-VALIDATION).
-        All 3 must be reviewed for impact before the BC is changed.
-Action: Surface referencing IS files to human. Human approves scope of BC change.
-```
+**When:** Before editing any specification artifact (BC-*, IS-*, ES-*, PRS-*, FP-*).
 
-**Why this matters:** Spec artifacts are the Factory's source of truth.
+**Question:** Which other spec artifacts reference this one via `source_refs`?
+
+**Engine:** `tessera_impact` on the spec graph (IS-TESSERA-SPEC-ADAPTER —
+`REFERENCES` edges derived from `source_refs` arrays).
+
+**Why spec changes need a separate gate:** Spec artifacts are not code symbols.
 A BC-* change that silently invalidates 3 IS files is as dangerous as a code
-change that silently breaks 12 tests. The spec graph (IS-TESSERA-SPEC-ADAPTER)
-makes this visible.
+change that breaks 12 tests. Gate 1 operates on code graph nodes. Gate 4
+operates on the spec graph. They are siblings, not duplicates.
+
+**Request:**
+```json
+POST /repos/{slug}/spec-change-check
+{
+  "target": "BC-GC-FORMULA-DISPATCH"
+}
+```
+
+**Response:**
+```json
+{
+  "decision": "STOP",
+  "risk": "HIGH",
+  "referencingSpecs": [
+    { "id": "IS-GC-DISPATCH-WIRE", "kind": "IS", "depth": 1 },
+    { "id": "IS-GC-EP-FORMULA-DISPATCH", "kind": "IS", "depth": 1 },
+    { "id": "ES-GC-DISPATCH-WIRE", "kind": "ES", "depth": 2 }
+  ],
+  "message": "3 specs reference this capability. All must be reviewed before changing."
+}
+```
+
+**Decision table:**
+
+| Referencing spec count | Decision |
+|------------------------|----------|
+| 0 | PROCEED |
+| 1–2 | WARN |
+| ≥ 3 | STOP (HIGH) |
+| ≥ 10 | STOP (CRITICAL) |
+
+**Requires:** IS-TESSERA-SPEC-ADAPTER deployed and indexing `specs/` directory.
+
+**MCP tool:** `tessera_spec_change_check` (16th tool)
+
+**Audit:** `tessera_spec_change_gates` — append-only, no DELETE.
+
+**IS:** IS-TESSERA-SPEC-CHANGE-GATE
+**BC:** BC-TESSERA-SPEC-CHANGE-GATE
 
 ---
 
-### Gate 5: Governance Change Gate (`tessera_governance_change_check`)
-**IS:** IS-TESSERA-GOVERNANCE-CHANGE-GATE
-**Trigger:** Before editing any governance artifact (PDP rules, classification
-rules, taxonomy purposes, autonomy tiers)
-**Question:** What skills, purposes, and role bindings does this governance
+### Gate 5 — Governance Change (`tessera_governance_change_check`)
+
+**When:** Before editing any governance artifact (PDP rules, classification rules,
+autonomy tiers, taxonomy purposes).
+
+**Question:** Which skills, purposes, and role bindings does this governance
 change affect?
-**Tool:** `tessera_impact` on the governance graph (IS-TESSERA-GOVERNANCE-ADAPTER)
 
-```
-Agent: "I need to change the TREATMENT domain classification rules"
-Gate:  tessera_governance_change_check({ target: "ClassificationRule:TREATMENT:CARE_COORDINATION", repo: "weops-enterprise" })
-Result: STOP — affects 5 Purposes, governs 12 Skills.
-        937 of 1340 kdense harness assertions currently fail due to
-        a related T0/T1 tier issue. Do not change classification rules
-        without resolving the tier issue first.
-Action: STOP. Human reviews governance impact before any rule change.
+**Engine:** `tessera_impact` on the governance graph (IS-TESSERA-GOVERNANCE-ADAPTER
+— `GOVERNS` edges from ClassificationRule → Purpose → Skill).
+
+**The incident this prevents:** On 2026-04-16 the kdense harness run had
+938/1340 failures because TC-01, TC-02, and TC-10 fixtures used autonomy tier
+`T0` while the PDP correctly denies `T0 + tool.invoke`. No tool surfaced that
+changing the T0 tier rule affected every skill that invokes `tool.invoke`. The
+governance graph makes this visible.
+
+**Request:**
+```json
+POST /repos/{slug}/governance-change-check
+{
+  "target": "Tier:T0"
+}
 ```
 
-**Why this matters:** Governance changes are the hardest to debug — they
-manifest as silent DENY responses across unrelated skill invocations. The
-938-failure kdense harness run (2026-04-16) was a governance blast-radius
-problem. The governance gate surfaces this before it happens.
+**Response:**
+```json
+{
+  "decision": "STOP",
+  "risk": "CRITICAL",
+  "affectedPurposes": 12,
+  "affectedSkills": 134,
+  "message": "Tier T0 governs all 134 k-dense skills that invoke tool.invoke. Any change affects the full skill corpus."
+}
+```
+
+**Decision table:**
+
+| Target type | Rule | Decision |
+|-------------|------|----------|
+| Tier (T0/T1/T2/T3/T4) | Always STOP | Tier changes affect every skill under that tier |
+| ClassificationRule | < 10 skills | WARN |
+| ClassificationRule | ≥ 10 skills | STOP (HIGH) |
+| ClassificationRule | ≥ 50 skills | STOP (CRITICAL) |
+| Purpose | < 5 callers | WARN |
+| Purpose | ≥ 5 callers | STOP |
+
+**Tier changes always STOP** regardless of count. The 938-failure incident proved
+that a single tier change is categorically high blast radius.
+
+**Requires:** IS-TESSERA-GOVERNANCE-ADAPTER + IS-TESSERA-SKILLS-ADAPTER both
+deployed and indexing weops-enterprise.
+
+**MCP tool:** `tessera_governance_change_check` (17th tool)
+
+**Audit:** `tessera_governance_change_gates` — append-only, no DELETE.
+
+**IS:** IS-TESSERA-GOVERNANCE-CHANGE-GATE
+**BC:** BC-TESSERA-GOVERNANCE-CHANGE-GATE
 
 ---
 
 ## 4. Gate Topology
 
 ```
-Developer / Agent intent
-        │
-        ▼
-┌─────────────────────────────────────────┐
-│  Gate 1: PRE-EDIT                       │
-│  Before first file edit                 │
-│  tessera_pre_edit_check(symbol, repo)   │
-│  STOP → human approval required         │
-└──────────────────┬──────────────────────┘
-                   │ PROCEED / approved override
-                   ▼
-            [Agent makes edits]
-                   │
-                   ▼
-┌─────────────────────────────────────────┐
-│  Gate 2: PRE-COMMIT                     │
-│  Before git commit                      │
-│  tessera_pre_commit_check(repo)         │
-│  WARN → agent confirms unintended diff  │
-└──────────────────┬──────────────────────┘
-                   │ PROCEED / confirmed
-                   ▼
-            [git commit]
-                   │
-                   ▼
-┌─────────────────────────────────────────┐
-│  Gate 3: PRE-MERGE (CI)                 │
-│  On PR open / push                      │
-│  tessera_pre_merge_check(repo, PR)      │
-│  CRITICAL → merge blocked               │
-│  HIGH → reviewer warned, impact posted  │
-└──────────────────┬──────────────────────┘
-                   │ PROCEED
-                   ▼
-            [merge to main]
+ Intent declared
+       │
+       ▼
+┌──────────────────────────────────────────┐
+│  GATE 1: PRE-EDIT                        │
+│  Before first file edit                  │
+│  tessera_pre_edit_check(symbol, repo)    │
+│  STOP (HIGH/CRITICAL) → human approval  │
+└──────────────┬───────────────────────────┘
+               │ PROCEED / approved
+               ▼
+         [Agent edits]
+               │
+               ▼
+┌──────────────────────────────────────────┐
+│  GATE 2: PRE-COMMIT                      │
+│  Before git commit                       │
+│  tessera_pre_commit_check(intent, repo)  │
+│  WARN → confirm unintended diff          │
+│  STOP (3+ unintended) → revert + rescope│
+└──────────────┬───────────────────────────┘
+               │ PROCEED / confirmed
+               ▼
+         [git commit]
+               │
+               ▼
+┌──────────────────────────────────────────┐
+│  GATE 3: PRE-MERGE (CI, automatic)       │
+│  On PR open / push to PR branch          │
+│  tessera_pre_merge_check(base, head, pr) │
+│  CRITICAL → merge blocked (CI failure)   │
+│  HIGH → reviewer warned (CI warning)     │
+└──────────────┬───────────────────────────┘
+               │ PROCEED
+               ▼
+         [merge to main]
+
+
+ Spec artifact changes → GATE 4 (replaces Gate 1 for spec files)
+ Governance artifact changes → GATE 5 (replaces Gate 1 for PDP/rules)
 ```
 
-Spec and governance changes flow through Gate 4 or Gate 5 **instead of** Gate 1
-(spec artifacts are not code symbols; they flow through the spec graph adapter).
+Gates 4 and 5 are not additions to Gates 1–3 for spec/governance changes.
+They **replace** Gate 1 because spec artifacts and governance artifacts are not
+code symbols — they live in different graphs (spec graph, governance graph).
 
 ---
 
-## 5. Shared Contracts
+## 5. Shared Contracts (all gates)
 
-### Risk → Decision mapping (all gates)
+### Risk → Decision mapping
 
 | Risk | Decision | Agent action |
 |------|----------|-------------|
@@ -235,88 +419,113 @@ Spec and governance changes flow through Gate 4 or Gate 5 **instead of** Gate 1
 | LOW | PROCEED | Safe to continue. |
 | UNKNOWN | WARN | Symbol not found or index stale. Re-index before proceeding. |
 
-### Audit trail (all gates)
+### Override protocol
 
-Every gate check is written to the corresponding ArangoDB collection:
-- `tessera_pre_edit_gates`
-- `tessera_pre_commit_gates`
-- `tessera_pre_merge_gates`
-- `tessera_spec_change_gates`
-- `tessera_governance_change_gates`
+Only a human operator may pass `override: true`. An automated agent must
+never self-approve a STOP — it must surface the risk to the human and wait.
 
-All collections are **append-only, no DELETE route**. Override is logged, not
-hidden. An agent cannot erase a gate check from the audit trail.
+```
+Agent:  STOP received — 14 callers, risk HIGH
+Agent:  [presents impact to human]
+Human:  "confirmed, proceed — this seam is intentionally being removed"
+Human:  tessera_pre_edit_check({ ..., override: true })
+Gate:   PROCEED_WITH_OVERRIDE [audit log entry written]
+Agent:  [proceeds]
+```
 
-### AGENTS.md enforcement (all repos)
+### Audit trail
+
+Every gate check — including overrides — is written to the corresponding
+ArangoDB collection. All collections are **append-only, no DELETE route**.
+Immutable by design. An agent cannot erase a gate check.
+
+| Gate | Collection |
+|------|-----------|
+| Pre-Edit | `tessera_pre_edit_gates` |
+| Pre-Commit | `tessera_pre_commit_gates` |
+| Pre-Merge | `tessera_pre_merge_gates` |
+| Spec Change | `tessera_spec_change_gates` |
+| Governance Change | `tessera_governance_change_gates` |
+
+### Index freshness
+
+A stale index (repo commit ≠ `tessera_meta.commit`) must return WARN with an
+explicit message: "Index is stale — results may not reflect current code."
+Never PROCEED silently on stale data. Never STOP silently on a broken check.
+
+### AGENTS.md enforcement
 
 Every indexed repo's AGENTS.md `## Never Do` block must include:
 ```
-NEVER edit a symbol without first calling the appropriate Tessera gate.
-NEVER proceed past a STOP decision without human operator approval.
-NEVER delete or suppress gate audit log entries.
+- NEVER edit a symbol without first calling tessera_pre_edit_check.
+  A STOP requires human operator approval before proceeding.
+- NEVER edit a BC-*, IS-*, or ES-* spec without calling tessera_spec_change_check.
+- NEVER edit a PDP rule, classification rule, or autonomy tier without
+  calling tessera_governance_change_check.
+- NEVER commit without calling tessera_pre_commit_check.
+- NEVER suppress, delete, or bypass gate audit log entries.
 ```
 
 ---
 
-## 6. Operational Requirements
+## 6. MCP Tool Surface
 
-### Index freshness
+| # | Tool | Gate |
+|---|------|------|
+| 14 | `tessera_pre_edit_check` | Gate 1 |
+| 15 | `tessera_pre_commit_check` | Gate 2 |
+| — | (CI route, not MCP) | Gate 3 |
+| 16 | `tessera_spec_change_check` | Gate 4 |
+| 17 | `tessera_governance_change_check` | Gate 5 |
 
-All gates depend on a current index. A stale index (commit mismatch between
-the repo and `tessera_meta`) must return WARN for any gate check, with an
-explicit message: "Index is stale — re-index before this check is authoritative."
-
-Re-indexing is automatic via IS-TESSERA-INDEXER (GitHub push → webhook →
-INDEX_QUEUE). Manual re-index is available via `POST /repos/:slug/reindex`.
-
-### Availability
-
-Gates are in the critical path of every coding session. The Tessera Worker
-must maintain p99 latency < 500ms for gate checks. A gate that times out must
-return WARN (not PROCEED and not STOP) with an explicit timeout message.
-Never silently fail open.
-
-### Human-in-the-loop
-
-STOP is not an error — it is a collaboration request. The gate surfaces risk
-to the human operator who can approve the override with full context. The
-override is logged. The pattern is:
-
-```
-Agent: gate returns STOP
-Agent: [surfaces full impact to human: impacted symbols, processes, risk]
-Human: "understood, proceed — the test seam is being refactored"
-Human: tessera_pre_edit_check({ ..., override: true })
-Gate:  PROCEED_WITH_OVERRIDE [logged]
-Agent: [proceeds with edit]
-```
+Gate 3 is CI-triggered. It is not an MCP tool — it is a Worker HTTP route
+called by GitHub Actions, not by an agent.
 
 ---
 
 ## 7. Failure Mode Reference
 
-| Scenario | Gate that catches it | Result |
-|----------|---------------------|--------|
-| Agent changes function, breaks 12 test seams | Gate 1 | STOP on the symbol |
-| Agent changes function variable (Go test seam) | Gate 1 (with v2 parser) | STOP on FunctionVariable node |
-| Agent edits correct function but drifts into adjacent line | Gate 2 | WARN — unintended diff |
-| PR introduces HIGH-risk change, reviewer unaware | Gate 3 | HIGH posted as PR comment |
-| BC-* spec changed, 3 IS files silently invalidated | Gate 4 | STOP on spec node |
-| PDP rule changed, 12 skills affected | Gate 5 | STOP on governance node |
-| Index is stale (29-min local re-index scenario) | All gates | WARN + explicit stale message |
+| Scenario | Gate | Outcome without gate | Outcome with gate |
+|----------|------|----------------------|------------------|
+| Agent changes function, breaks 12 test seams (2026-06-01) | Gate 1 | 45 min regressions, full revert | STOP before line 1 |
+| Agent changes Go test seam variable | Gate 1 + Parser v2 | UNKNOWN, proceeds blind | STOP — FunctionVariable node indexed |
+| Diff accumulates unintended symbols | Gate 2 | Unintended symbols committed | WARN — confirm or revert |
+| PR aggregate HIGH risk, reviewer unaware | Gate 3 | Merges unreviewed | HIGH warning posted, reviewer notified |
+| BC-* changed, 3 IS files silently invalidated | Gate 4 | Spec drift | STOP — 3 referencing specs surfaced |
+| PDP tier rule changed, 134 skills affected | Gate 5 | 938 harness failures | STOP — CRITICAL, tier always stops |
+| Index 29 min stale (gascity re-index) | All gates | Silent wrong result | WARN — explicit stale message |
 
 ---
 
-## 8. Implementation Status
+## 8. Dependencies and Build Order
 
-| Gate | IS | BC | Status |
-|------|----|----|--------|
-| Pre-Edit | IS-TESSERA-PRE-EDIT-GATE v1 | BC-TESSERA-PRE-EDIT-GATE | Spec complete |
-| Pre-Commit | IS-TESSERA-PRE-COMMIT-GATE | BC-TESSERA-PRE-COMMIT-GATE | Spec pending |
-| Pre-Merge | IS-TESSERA-PRE-MERGE-GATE | BC-TESSERA-PRE-MERGE-GATE | Spec pending |
-| Spec Change | IS-TESSERA-SPEC-CHANGE-GATE | BC-TESSERA-SPEC-CHANGE-GATE | Spec pending |
-| Governance Change | IS-TESSERA-GOVERNANCE-CHANGE-GATE | BC-TESSERA-GOVERNANCE-CHANGE-GATE | Spec pending |
+```
+IS-TESSERA-PARSER v2 (FunctionVariable extraction)
+    └── IS-TESSERA-IMPACT (BFS traversal, Class/Interface seeding)
+         └── IS-TESSERA-PRE-EDIT-GATE (Gate 1)
+              └── IS-TESSERA-PRE-COMMIT-GATE (Gate 2)
+                   └── IS-TESSERA-PRE-MERGE-GATE (Gate 3)
 
-Gates 2–5 depend on Gate 1 being deployed and operational. Build order:
-IS-TESSERA-PRE-EDIT-GATE → IS-TESSERA-PRE-COMMIT-GATE → IS-TESSERA-PRE-MERGE-GATE
-→ (IS-TESSERA-SPEC-CHANGE-GATE + IS-TESSERA-GOVERNANCE-CHANGE-GATE in parallel).
+IS-TESSERA-SPEC-ADAPTER (spec graph indexing)
+    └── IS-TESSERA-SPEC-CHANGE-GATE (Gate 4)
+
+IS-TESSERA-GOVERNANCE-ADAPTER + IS-TESSERA-SKILLS-ADAPTER
+    └── IS-TESSERA-GOVERNANCE-CHANGE-GATE (Gate 5)
+```
+
+Gates 4 and 5 can be built in parallel with Gates 2–3. Gate 1 is the
+critical-path dependency for all downstream gates.
+
+## 9. Implementation Status
+
+| Gate | IS | Status |
+|------|-----|--------|
+| 1 — Pre-Edit | IS-TESSERA-PRE-EDIT-GATE v1 | Spec complete |
+| 2 — Pre-Commit | IS-TESSERA-PRE-COMMIT-GATE v1 | Spec complete |
+| 3 — Pre-Merge | IS-TESSERA-PRE-MERGE-GATE v1 | Spec complete |
+| 4 — Spec Change | IS-TESSERA-SPEC-CHANGE-GATE v1 | Spec complete |
+| 5 — Governance Change | IS-TESSERA-GOVERNANCE-CHANGE-GATE v1 | Spec complete |
+| Parser v2 (FunctionVariable) | IS-TESSERA-PARSER v2 | Spec complete |
+| Indexer v2 (stream-and-write) | IS-TESSERA-INDEXER v2 | Spec complete |
+
+All specs complete. Factory execution pending.
