@@ -185,27 +185,22 @@ export default {
     if (url.pathname === '/internal/do-health' && request.method === 'GET') {
       const auth = authorizeOperatorControl(request, env)
       if (!auth.ok) return json({ error: auth.error }, auth.status === 403 ? 401 : auth.status)
-      const { createArtifactClient } = await import('./artifact-client.js')
-      const client = createArtifactClient(env)
-      if (!client) return json({ ok: false, error: 'gascity_binding_unavailable' }, 503)
-      const id = `SMOKE-DO-HEALTH-${Date.now()}`
-      const probe = {
+      const { createClientFromEnv } = await import('@factory/arango-client')
+      const db = createClientFromEnv(env)
+      const id = `SMOKE-ARANGO-HEALTH-${Date.now()}`
+      await db.ensureCollection('memory_entries')
+      await db.save('memory_entries', {
+        _key: id,
         id,
-        kind: 'do-health-check',
-        payload: {
-          source_ref: 'internal',
-          reason: 'smoke',
-        },
+        kind: 'arango-health-check',
+        payload: { source_ref: 'internal', reason: 'smoke' },
         agent_id: 'ff-pipeline',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      }
-      await client.insert('memory_entries', probe)
-      const readBack = await client.get<Record<string, unknown>>('memory_entries', id)
-      if (!readBack || String(readBack.id ?? '') !== id) {
-        return json({ ok: false, round_trip: 'fail', id }, 500)
-      }
-      return json({ ok: true, round_trip: 'pass', id })
+      })
+      const readBack = await db.get<Record<string, unknown>>('memory_entries', id)
+      if (!readBack) return json({ ok: false, round_trip: 'fail', id }, 500)
+      return json({ ok: true, round_trip: 'pass', id, store: 'arango' })
     }
 
     if (url.pathname === '/gascity/autonomy/run' && request.method === 'POST') {
@@ -2044,8 +2039,7 @@ async function handleDispatchFormula(
     const traceId = crypto.randomUUID()
     const priorEsId = cleanString(body.priorEsId, '')
     const formulaEnv = env as PipelineEnv & import('./compilers/formula-compiler.js').FormulaCompilerEnv
-    const artifactDb = createArangoArtifactAdapter(arangoDb)
-    const deps = buildFormulaCompilerDeps(artifactDb, formulaEnv, arangoDb)
+    const deps = buildFormulaCompilerDeps(arangoDb, formulaEnv)
     const result = await compileAndDispatchFormula({
       ep: ep as unknown as import('@factory/schemas').TrellisExecutionPacket,
       factoryAttempt,
@@ -2079,68 +2073,6 @@ async function handleDispatchFormula(
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : String(err) }, 500)
   }
-}
-
-function createArangoArtifactAdapter(arangoDb: {
-  query<T = unknown>(aql: string, vars?: Record<string, unknown>): Promise<T[]>
-  get<T = unknown>(collection: string, key: string): Promise<T | null>
-  save(collection: string, doc: Record<string, unknown>): Promise<unknown>
-  update(collection: string, key: string, patch: Record<string, unknown>): Promise<unknown>
-}): import('./artifact-client.js').ArtifactClient {
-  return {
-    async insert(collection: string, doc: Record<string, unknown>): Promise<void> {
-      await arangoDb.save(collection, doc)
-    },
-    async save(collection: string, doc: Record<string, unknown>): Promise<void> {
-      await arangoDb.save(collection, doc)
-    },
-    async get<T>(collection: string, id: string): Promise<T | null> {
-      return await arangoDb.get<T>(collection, id)
-    },
-    async patch(collection: string, id: string, fields: Partial<Record<string, unknown>>): Promise<void> {
-      await arangoDb.update(collection, id, fields as Record<string, unknown>)
-    },
-    async update(collection: string, id: string, fields: Partial<Record<string, unknown>>): Promise<void> {
-      await arangoDb.update(collection, id, fields as Record<string, unknown>)
-    },
-    async query<T>(collection: string, params: Record<string, unknown>): Promise<T[]> {
-      if (collection === 'verification_reports') {
-        return await arangoDb.query<T>(
-          `FOR vr IN verification_reports
-  FILTER vr.kind == @kind AND vr.status == @status
-  SORT vr.created_at DESC
-  RETURN vr`,
-          params,
-        )
-      }
-      if (collection === 'dispatch_log') {
-        return await arangoDb.query<T>(
-          `FOR dl IN dispatch_log
-  FILTER dl.idempotency_key == @idempotency_key
-    AND dl.factory_attempt == @factory_attempt
-  SORT dl.started_at DESC
-  RETURN dl`,
-          params,
-        )
-      }
-      if (collection === 'intent_specifications' || collection === 'executable_specifications') {
-        return await arangoDb.query<T>(
-          `FOR doc IN ${collection}
-  FILTER doc._key == @id OR doc.id == @id
-  LIMIT 1
-  RETURN doc`,
-          params,
-        )
-      }
-      return await arangoDb.query<T>(`FOR doc IN ${collection} RETURN doc`)
-    },
-    async queryOne<T>(collection: string, params: Record<string, unknown>): Promise<T | null> {
-      const rows = await this.query<T>(collection, params)
-      return rows[0] ?? null
-    },
-    async addLineageEdge(_edge: Record<string, unknown>): Promise<void> {},
-    async walkLineage(_fromId: string, _maxDepth?: number): Promise<unknown[]> { return [] },
-  } as import('./artifact-client.js').ArtifactClient
 }
 
 const REQUIRED_GAS_CITY_ENV_VARS = [
