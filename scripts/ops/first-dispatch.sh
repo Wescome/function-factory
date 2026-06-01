@@ -62,6 +62,32 @@ fi
 grep -E "Deployed|Current Version|ERROR|error" "$DEPLOY_LOG" || cat "$DEPLOY_LOG"
 rm -f "$DEPLOY_LOG"
 
+# ── 2a. Rotate supervisor singleton + deploy supervisor ──────────────────────
+echo ""
+echo "=== [2a/6] Rotating supervisor singleton + deploying supervisor ==="
+# The idFromName key change (not the deploy) is what evicts the old Container.
+# One rotation re-bakes all three injected secrets:
+#   GC_SUPERVISOR_TOKEN, FF_OPERATOR_CONTROL_TOKEN, GAS_CITY_HMAC_SECRET
+git -C "$ROOT" symbolic-ref -q HEAD >/dev/null \
+  || { echo "ERROR: detached HEAD — refusing to commit singleton bump." >&2; exit 1; }
+CURRENT_VER=$(grep -o 'singleton-v[0-9]*' "$SUPERVISOR_DIR/src/index.ts" | head -1 | grep -o '[0-9]*$')
+[[ "$CURRENT_VER" =~ ^[0-9]+$ ]] \
+  || { echo "ERROR: could not parse singleton version from index.ts" >&2; exit 1; }
+NEXT_VER=$((CURRENT_VER + 1))
+echo "  singleton-v${CURRENT_VER} → singleton-v${NEXT_VER}"
+perl -i -pe "s/idFromName\\(\"singleton-v${CURRENT_VER}\"\\)/idFromName(\"singleton-v${NEXT_VER}\")/g" \
+  "$SUPERVISOR_DIR/src/index.ts"
+if ! git -C "$ROOT" diff --quiet -- "$SUPERVISOR_DIR/src/index.ts"; then
+  git -C "$ROOT" add "$SUPERVISOR_DIR/src/index.ts"
+  git -C "$ROOT" commit -m "INFRA: rotate singleton v${CURRENT_VER}→v${NEXT_VER} — re-bake GC_SUPERVISOR_TOKEN + FF_OPERATOR_CONTROL_TOKEN + GAS_CITY_HMAC_SECRET into Container"
+fi
+DEPLOY_LOG="$(mktemp)"
+if ! (cd "$SUPERVISOR_DIR" && npx wrangler deploy >"$DEPLOY_LOG" 2>&1); then
+  cat "$DEPLOY_LOG"; rm -f "$DEPLOY_LOG"; echo "Supervisor deploy failed." >&2; exit 1
+fi
+grep -E "Deployed|Current Version|ERROR" "$DEPLOY_LOG" || cat "$DEPLOY_LOG"
+rm -f "$DEPLOY_LOG"
+
 # ── 2b. Pre-warm Container ───────────────────────────────────────────────────
 echo ""
 echo "=== [2b/6] Pre-warming Gas City Container (up to 120s) ==="
