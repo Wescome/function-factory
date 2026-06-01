@@ -2164,17 +2164,21 @@ async function handleSeedDispatchEp(request: Request, env: PipelineEnv): Promise
     }
 
     const vrKey = `VR-SEED-COHERENCE-${runId}`
-    const existingVr = await db.get<Record<string, unknown>>('verification_reports', vrKey)
-    if (!existingVr) {
-      await db.save('verification_reports', {
-        _key: vrKey,
-        kind: 'coherence',
-        status: 'passed',
-        source_refs: [esId],
-        created_at: new Date().toISOString(),
-        explicitness: 'explicit',
-        notes: `seeded by /seed-dispatch-ep for bootstrap dispatch of ${esId}`,
-      })
+    if (env.ENVIRONMENT !== 'production') {
+      const existingVr = await db.get<Record<string, unknown>>('verification_reports', vrKey)
+      if (!existingVr) {
+        await db.save('verification_reports', {
+          _key: vrKey,
+          kind: 'coherence',
+          status: 'passed',
+          source_refs: [esId],
+          created_at: new Date().toISOString(),
+          explicitness: 'explicit',
+          notes: `seeded by /seed-dispatch-ep for bootstrap dispatch of ${esId}`,
+        })
+      }
+    } else {
+      return Response.json({ error: 'real_coherence_verification_required', message: '/seed-dispatch-ep synthetic VR disabled in production. Use the synthesis pipeline to generate a real coherence VR.' }, { status: 422 })
     }
 
     // Seed IS document so dispatch-formula can resolve intentSpecificationId.
