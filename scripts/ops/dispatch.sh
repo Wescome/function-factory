@@ -68,6 +68,9 @@ DISPATCH_RESP="$("${CURL_RETRY[@]}" -X POST "$FF_BASE/dispatch-formula" \
   -H "Authorization: Bearer $OPERATOR_TOKEN" \
   -H "Content-Type: application/json" \
   -d "{\"epId\": \"$EP_ID\", \"factoryAttempt\": $ATTEMPT}")"
+# Persist the raw response so wrappers (e.g. first-dispatch.sh) can reuse it
+# without re-issuing the dispatch and risking a second bead.
+echo "$DISPATCH_RESP" > /tmp/gc_dispatch_resp.json
 echo "$DISPATCH_RESP" | jq .
 
 OUTCOME="$(echo "$DISPATCH_RESP" | jq -r '.outcome // empty')"

@@ -44,13 +44,10 @@ GC_HMAC_SECRET="$(cat /tmp/gc_hmac_secret.txt)"
 
 bash "$DIR/dispatch.sh" "$EP_ID"
 
-# Re-issue the dispatch to capture the full response (form_id + bead id) the
-# webhook bridge below needs. dispatch.sh prints the human-facing result; this
-# call feeds the smoke scaffolding.
-DISPATCH_RESP="$("${CURL_RETRY[@]}" -X POST "$FF_BASE/dispatch-formula" \
-  -H "Authorization: Bearer $OPERATOR_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d "{\"epId\": \"$EP_ID\", \"factoryAttempt\": 1}")"
+# Reuse the response dispatch.sh persisted, rather than re-issuing the dispatch
+# (which risks spawning a second bead). dispatch.sh writes the full raw JSON to
+# /tmp/gc_dispatch_resp.json; the webhook bridge below needs form_id + bead id.
+DISPATCH_RESP="$(cat /tmp/gc_dispatch_resp.json)"
 GC_BEAD_ID="$(echo "$DISPATCH_RESP" | jq -r '.gc_bead_id // empty')"
 FORM_ID="$(echo "$DISPATCH_RESP" | jq -r '.form_id // empty')"
 
