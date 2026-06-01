@@ -1,0 +1,55 @@
+id: BC-TESSERA-SKILLS-ADAPTER
+source_refs:
+  - TESSERA-CF-SPEC
+  - BC-TESSERA-SPEC-ADAPTER
+  - IS-TESSERA-SPEC-ADAPTER
+  - IS-TESSERA-ARANGO-SCHEMA
+  - IS-TESSERA-INDEXER
+  - IS-TESSERA-IMPACT
+explicitness: explicit
+rationale: >
+  Tessera already exposes impact, context, and query tools over any DomainAdapter
+  graph. BC-TESSERA-SPEC-ADAPTER proved the adapter pattern for the Factory's own
+  specifications. The WeOps k-dense corpus holds 134+ scientific agent skills whose
+  ecosystem relationships ("for X use Y", "use X not Y") are trapped in SKILL.md
+  prose and invisible to agents selecting tools. This Capability is the durable
+  ability to turn that corpus into a navigable graph using the existing Tessera
+  machinery — a fourth DomainAdapter, no interface change. Without it, agents keep
+  guessing at scientific tool selection and no tool surfaces what breaks when a
+  skill changes.
+
+name: Index Scientific Skill Capabilities as a Queryable Relationship Graph
+description: >
+  The Factory's durable ability to index 134+ scientific agent skills (the WeOps
+  k-dense corpus of SKILL.md files plus the compiled skill_definitions.json
+  registry) as a navigable graph of capabilities, domains, and tool relationships —
+  so agents can find the right scientific tool by concept (tessera_query) and
+  understand what breaks when a skill changes (tessera_impact).
+
+  The Capability is read-only and LLM-free: each SKILL.md becomes a Skill node
+  (name, domain, description, license), each distinct domain becomes a Domain node,
+  and explicit ecosystem references in the SKILL.md body are extracted via a closed
+  phrase set into USE_WITH, ALTERNATIVE_TO, COVERS, and PART_OF edges. It composes
+  the existing per-repo ArangoDB collections, ingest path, and impact traversal by
+  supplying one more DomainAdapter that conforms to the existing interface — it adds
+  no new Tessera tool and no new interface member.
+
+  Governed by: the DomainAdapter interface contract (no interface changes), the
+  per-repo collection schema (IS-TESSERA-ARANGO-SCHEMA), and the robustness rules
+  that tolerate malformed SKILL.md files and dangling ecosystem references without
+  error.
+
+yields:
+  execution: FP-TESSERA-SKILLS-ADAPTER
+
+pressures_addressed:
+  - Agents guess at scientific tool selection — no graph relates skills to each other
+  - "Use X not Y" ecosystem knowledge is buried in SKILL.md prose, unqueryable
+  - No tool surfaces the blast radius when a foundational skill (e.g. rdkit, scanpy) changes
+  - 134+ skills exist with no navigable domain or capability index
+
+platform_constraints:
+  - CF Worker context (no filesystem beyond the ingest tarball, HTTP only)
+  - Must conform to the existing DomainAdapter interface — no interface extension
+  - Closed phrase-set extraction only in V1 — no LLM call, no full-text semantic analysis
+  - Writes into the shared weops-enterprise per-repo slug, co-located with the governance graph
