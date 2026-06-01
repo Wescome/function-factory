@@ -1,0 +1,48 @@
+id: BC-TESSERA-SEARCH
+source_refs:
+  - TESSERA-CF-SPEC
+  - IS-TESSERA-SEARCH
+  - IS-TESSERA-ARANGO-SCHEMA
+  - IS-TESSERA-INDEXER
+explicitness: explicit
+rationale: >
+  Required by TESSERA-CF-SPEC §6: V1 search is BM25-only over ArangoSearch views,
+  replacing the local FTS5 virtual table. Semantic search is V2 because the
+  embedder uses native onnxruntime-node, which cannot run on Workers (§6.1).
+  Without this Capability agents grep or guess symbol names when navigating
+  unfamiliar code, and there is no concept-based retrieval reachable from the
+  cloud — local semantic search is unavailable to Workers.
+
+name: Retrieve Relevant Code Symbols by Concept
+description: >
+  The Factory's durable ability to find code symbols by natural language concept
+  using BM25 full-text search over ArangoSearch — so agents can navigate
+  unfamiliar codebases without knowing exact symbol names. A query string is
+  ranked over the tessera_search_{slug} view (fields name, filePath, kind, module
+  with the text_en analyzer), merged with an exact name-prefix lookup for short
+  queries, and deduped by uid.
+
+  The Capability keeps the RRF merge plumbing in place (K=60, mergeWithRRF /
+  GT-SEARCH) so V2 only adds the semantic input list with zero change to the merge
+  code; in V1 the semantic list is empty and meta.semanticEnabled is false.
+  Results are symbol-level hits; process grouping is V2-deferred (returns empty
+  processes), documented as a partial UC-2 — keyword retrieval works now, semantic
+  + process grouping land in V2.
+
+  Governed by: G1 (read-only graph), and the §6.1 hard constraint that native
+  onnxruntime-node cannot run on Workers, which fixes BM25 as the V1 surface and
+  semantic as V2 via the existing HTTP embedder escape hatch.
+
+yields:
+  execution: FP-TESSERA-SEARCH
+
+pressures_addressed:
+  - Agents grep or guess symbol names instead of retrieving by concept, wasting turns and missing relevant code
+  - No concept-based retrieval exists in the cloud; the local FTS5 search never leaves the developer's machine
+  - Local semantic search is unavailable to Workers (native onnxruntime-node cannot run on CF Workers, §6.1)
+
+platform_constraints:
+  - CF Worker context; read-only ArangoSearch BM25 over the per-repo view from FP-TESSERA-ARANGO-SCHEMA (G1)
+  - Semantic search is V2 only — native onnxruntime-node cannot run on Workers (§6.1); V2 uses the OpenAI-compatible HTTP embedder escape hatch
+  - text_en analyzer availability is a Container-setup concern inherited from the schema layer; its absence surfaces, never silently degrades
+  - Process grouping is V2-deferred (community/process detection not in V1); V1 returns symbol-level hits with empty processes

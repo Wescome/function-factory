@@ -1,0 +1,50 @@
+id: BC-TESSERA-MCP
+source_refs:
+  - TESSERA-CF-SPEC
+  - IS-TESSERA-MCP
+  - IS-TESSERA-ARANGO-SCHEMA
+  - IS-TESSERA-INDEXER
+  - IS-TESSERA-IMPACT
+  - IS-TESSERA-SEARCH
+explicitness: explicit
+rationale: >
+  Required by TESSERA-CF-SPEC §7: the MCP endpoint (POST /mcp, JSON-RPC 2.0 over
+  HTTP, bearer auth) is the primary interface (UC-7) and the transparent
+  replacement for the local localhost:4747 MCP server — a Claude Code config swap
+  to the cloud URL is zero-code for the V1 tools. Without this Capability, every
+  agent that speaks MCP to Tessera (Claude Code, GasCity) points at a personal,
+  unreachable localhost, and there is no cloud MCP surface for the graph at all.
+
+name: Serve Tessera Graph Intelligence via MCP from Cloudflare
+description: >
+  The Factory's durable ability to expose Tessera's tools (impact, context, query,
+  cypher, detect_changes, list_repos) as an authenticated MCP JSON-RPC endpoint on
+  Cloudflare — a transparent drop-in for localhost:4747 reachable from any agent.
+  It composes the impact (FP-TESSERA-IMPACT) and search (FP-TESSERA-SEARCH) routes
+  behind JSON-RPC, adds context and detect_changes as new graph reads, and enforces
+  bearer auth (TESSERA_QUERY_TOKEN) before any DB call.
+
+  The Capability makes the swap transparent: identical results to local Tessera on
+  a shared fixture repo for the V1 tools; the deferred 13-tool surface members
+  (route_map, tool_map, shape_check, api_impact, and the V2 rename/group_*) degrade
+  explicitly with a structured "not available in cloud V1" error — never a 500,
+  never a wrong answer. cypher is a read-only translated AQL subset; writes are
+  rejected at parse time.
+
+  Governed by: G1 (read-only graph — no agent-facing route mutates ArangoDB;
+  rename is V2 and mutates source via PR, never the graph), and the §7 transparent-
+  swap invariant that degradation is always explicit, never silent.
+
+yields:
+  execution: FP-TESSERA-MCP
+
+pressures_addressed:
+  - Claude Code and GasCity agents use localhost:4747, which is personal and unreachable in production
+  - No cloud MCP endpoint exists for Tessera; the graph intelligence cannot be reached by autonomous agents over the protocol they already speak
+  - Without a transparent drop-in, swapping to the cloud would require per-agent code changes instead of a one-line config edit
+
+platform_constraints:
+  - CF Worker context; POST /mcp JSON-RPC 2.0 over HTTP with bearer auth (TESSERA_QUERY_TOKEN)
+  - Read-only graph (G1): no MCP route writes ArangoDB; cypher rejects writes at parse time; rename is V2 and opens a PR, never mutates the graph
+  - GasCity Containers cannot call a service binding directly — they route through the gascity-supervisor /internal/tessera/* proxy (§9)
+  - V2/removed tools (rename, group_list, group_sync) return an explicit not-available-in-cloud-V1 error; the swap degrades explicitly, never silently

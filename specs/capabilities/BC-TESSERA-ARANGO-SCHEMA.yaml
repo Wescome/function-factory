@@ -1,0 +1,47 @@
+id: BC-TESSERA-ARANGO-SCHEMA
+source_refs:
+  - TESSERA-CF-SPEC
+  - IS-TESSERA-ARANGO-SCHEMA
+explicitness: explicit
+rationale: >
+  Required by TESSERA-CF-SPEC §4.7 (WP-T1): the cloud-native Tessera graph lives
+  in ArangoDB, namespaced per repo (tessera_nodes_{slug}, tessera_edges_{slug},
+  global tessera_meta) with persistent indexes on the traversal hot paths and an
+  ArangoSearch view for BM25. None of these structures exist yet, and the existing
+  arango-client (GT-ARANGO) has no view helper. Without this Capability the indexer
+  has nowhere to write, the query tools have nothing to read, and every other
+  Tessera Capability is blocked. This is the foundation layer the whole stack
+  stands on.
+
+name: Maintain Tessera Graph Schema in ArangoDB
+description: >
+  The Factory's durable ability to provision and idempotently maintain per-repo
+  ArangoDB collections (tessera_nodes_{slug} document, tessera_edges_{slug} edge),
+  persistent indexes (name, kind, filePath, name+kind, edge type), the ArangoSearch
+  view (tessera_search_{slug} over the nodes collection), and the global
+  tessera_meta collection — so any Worker can read or write graph data without
+  setup ceremony.
+
+  The Capability is idempotent end to end (safe to call on every Worker startup;
+  409 already-exists is success, never an error), non-destructive (it never drops,
+  truncates, or deletes — truncation belongs to the indexer's full rebuild), and
+  closes the one documented gap in arango-client by adding an ensureView helper
+  that surfaces all non-409 ArangoDB errors verbatim (no silent analyzer fallback).
+
+  Governed by: G2 (shared-Container citizenship — per-repo collection namespacing,
+  no cross-repo collisions), G6 (atomic ingest is the indexer's concern, not this
+  static schema), and the slug-derivation rule (§4.1) that every downstream module
+  reuses to address the same collections.
+
+yields:
+  execution: FP-TESSERA-ARANGO-SCHEMA
+
+pressures_addressed:
+  - No graph storage exists on Cloudflare; the cloud Tessera graph has no home until these collections, indexes, and views are provisioned
+  - Local LadybugDB is unreachable from Workers (it runs on a developer's machine); persistent queryable graph state must move into the Factory's proven ArangoDB Container
+  - The existing arango-client cannot create ArangoSearch views; BM25 search is impossible until the ensureView gap is closed
+
+platform_constraints:
+  - CF Worker context (no filesystem, HTTP-only access to ArangoDB via the fetch-based arango-client, GT-ARANGO)
+  - Shared ArangoDB Container with the Factory artifact store — isolation is by per-repo collection namespacing only (G2)
+  - ArangoSearch text_en analyzer is a Container-setup concern; the schema layer surfaces its absence, never silently falls back to identity (AC-V4)
