@@ -5,6 +5,7 @@ title: "Tessera Pre-Edit Impact Gate — Mandatory blast-radius check before any
 sourceCapabilityId: BC-TESSERA-IMPACT
 sourceFunctionId: FP-TESSERA-PRE-EDIT-GATE
 source_refs:
+  - TESSERA-GATE-CONOPS
   - TESSERA-CF-SPEC
   - IS-TESSERA-IMPACT
   - IS-TESSERA-MCP
