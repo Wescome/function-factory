@@ -240,8 +240,7 @@ and Notifications. No external account required.
 - `city.startup.failed` fires (any occurrence)
 - Molecule p99 `duration_ms` > 600,000ms (600s)
 
-**Prerequisite:** AE dataset `factory-metrics` must have received at least 48h of events
-before building boards (need sufficient data for meaningful p99 calculation).
+**Prerequisite:** AE dataset `factory-metrics` must be receiving events (telemetry stack live).
 
 **Honeycomb:** Optional secondary. Set `HONEYCOMB_API_KEY` secret on ff-pipeline to enable.
 No code changes needed — consumer already handles it. Not required for WP-OBS-5 completion.
