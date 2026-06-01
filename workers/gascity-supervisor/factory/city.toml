@@ -31,7 +31,7 @@ name = "control-dispatcher"
 provider = "subprocess"
 min_active_sessions = 1
 max_active_sessions = 1
-start_command = "sh -c 'exec \"${GC_BIN:-gc}\" convoy control --serve --follow control-dispatcher'"
+start_command = "sh -c 'export GC_WORKFLOW_TRACE=\"${GC_WORKFLOW_TRACE:-${GC_CONTROL_DISPATCHER_TRACE_DEFAULT:-${GC_CITY}/.gc/runtime/control-dispatcher-trace.log}}\"; trace_dir=\"${GC_WORKFLOW_TRACE%/*}\"; if [ \"$trace_dir\" = \"$GC_WORKFLOW_TRACE\" ]; then trace_dir=\".\"; elif [ -z \"$trace_dir\" ]; then trace_dir=\"/\"; fi; mkdir -p \"$trace_dir\"; exec \"${GC_BIN:-gc}\" convoy control --serve --follow control-dispatcher'"
 
 [[agent]]
 # noop provider: session lifecycle satisfied locally (state file, no external
@@ -41,6 +41,13 @@ name = "coder"
 provider = "noop"
 min_active_sessions = 0
 max_active_sessions = 3
+
+[[named_session]]
+# mode=always ensures the reconciler treats the control-dispatcher as a
+# resident named session, injecting GC_SESSION_ID/GC_SESSION_NAME and
+# reopening the bead on every supervisor restart.
+template = "control-dispatcher"
+mode = "always"
 
 # Harness runtime provider registry (IS-GC-RUNTIME-PROVIDER-CONTRACT, Open
 # Question 3: the registry lives in city configuration). Each [provider.<id>]
