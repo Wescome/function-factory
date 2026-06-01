@@ -1,0 +1,53 @@
+id: BC-TESSERA-PRE-EDIT-GATE
+source_refs:
+  - TESSERA-CF-SPEC
+  - IS-TESSERA-PRE-EDIT-GATE
+  - IS-TESSERA-IMPACT
+  - BC-TESSERA-IMPACT
+explicitness: explicit
+rationale: >
+  On 2026-06-01 a coding agent edited workflowServeQueue in gascity without
+  running impact analysis. workflowServeList is the test seam for 12+
+  RunWorkflowServe* tests. The change broke every one of them. 45 minutes
+  of iterative fixes each introduced new regressions, ending with a compile
+  error and a full revert.
+
+  tessera_impact existed. The agent did not call it. The gate did not exist.
+
+  This capability closes that gap: a mandatory pre-edit gate that coding
+  agents MUST call before any symbol mutation, with STOP returned on HIGH
+  or CRITICAL risk, an immutable audit log, and hard enforcement in every
+  indexed repo's AGENTS.md.
+
+name: Enforce Mandatory Blast-Radius Check Before Any Symbol Edit
+
+description: >
+  The Factory's durable ability to block coding agents from editing any
+  symbol in an indexed repo without first receiving a risk verdict from
+  Tessera's impact analysis — and to log every gate check, including
+  human-approved overrides, in an immutable audit trail.
+
+  The gate exposes tessera_pre_edit_check as a 14th MCP tool. It calls
+  tessera_impact internally, maps CRITICAL/HIGH to STOP, MEDIUM to WARN,
+  and LOW to PROCEED. A STOP result requires explicit human operator
+  acknowledgment (override: true) before the agent proceeds. The audit
+  log in tessera_pre_edit_gates is append-only — no DELETE path exists.
+
+  The 2026-06-01 incident is the acceptance fixture: workflowServeList
+  in gascity returns STOP with 14 d=1 callers. The 45-minute regression
+  spiral collapses to a 30-second gate check.
+
+yields:
+  execution: FP-TESSERA-PRE-EDIT-GATE
+
+pressures_addressed:
+  - Coding agents edit symbols without knowing blast radius, introducing regressions
+  - Impact analysis exists but is not enforced — agents skip it when context is tight
+  - No audit trail of what risk assessments were run before code changes
+  - AGENTS.md prose requirements ("MUST run impact analysis") are ignored under pressure
+
+platform_constraints:
+  - Gate calls tessera_impact internally — not a replacement, a wrapper
+  - Audit log is ArangoDB append-only — no DELETE route, immutable by design
+  - STOP means STOP — gate must never auto-proceed on HIGH/CRITICAL risk
+  - Enforcement via AGENTS.md in every indexed repo (gascity, function-factory, tessera)
