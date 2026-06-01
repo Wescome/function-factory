@@ -1,4 +1,4 @@
-import type { ArangoClient } from "@factory/arango-client"
+import type { ArtifactClient } from "../artifact-client.js"
 import type {
   CoherenceVRRow,
   DispatchLogRow,
@@ -9,24 +9,43 @@ import type {
 } from "./formula-compiler.js"
 
 export function buildFormulaCompilerDeps(
-  db: ArangoClient,
+  db: ArtifactClient,
   env: FormulaCompilerEnv & { GAS_CITY?: Fetcher; WORKSPACE_BUCKET?: unknown },
+  fallback?: {
+    query<T = unknown>(aql: string, vars?: Record<string, unknown>): Promise<T[]>
+    get<T = unknown>(collection: string, key: string): Promise<T | null>
+    save(collection: string, doc: Record<string, unknown>): Promise<unknown>
+    update(collection: string, key: string, patch: Record<string, unknown>): Promise<unknown>
+    ensureCollection?(collection: string): Promise<void>
+  },
 ): FormulaCompilerDeps {
-  let uncertaintyCollectionEnsured = false
   // The CF binding is typed `unknown` upstream (PipelineEnv); narrow it once.
   const workspaceBucket = env.WORKSPACE_BUCKET as R2Bucket | undefined
   return {
     fetchCoherenceVR: async (esId: string) => {
-      const rows = await db.query<CoherenceVRRow>(
-        `FOR vr IN verification_reports
+      try {
+        const rows = await db.query<CoherenceVRRow>("verification_reports", {
+          kind: "coherence",
+          status: "passed",
+        })
+        const matches = rows.filter((row) => {
+          const sourceRefs = (row as unknown as { source_refs?: unknown[] }).source_refs
+          return Array.isArray(sourceRefs) && sourceRefs.includes(esId)
+        })
+        return matches[0] ?? null
+      } catch (err) {
+        if (!shouldFallback(err) || !fallback) throw err
+        const rows = await fallback.query<CoherenceVRRow>(
+          `FOR vr IN verification_reports
   FILTER vr.kind == "coherence" AND vr.status == "passed"
   FILTER @esId IN vr.source_refs
   SORT vr.created_at DESC
   LIMIT 1
   RETURN vr`,
-        { esId },
-      )
-      return rows[0] ?? null
+          { esId },
+        )
+        return rows[0] ?? null
+      }
     },
 
     getDispatchLogByIdempotencyKey: async (
@@ -34,52 +53,63 @@ export function buildFormulaCompilerDeps(
       factoryAttempt: number,
       excludeKey?: string,
     ) => {
-      const rows = await db.query<DispatchLogRow>(
-        `FOR dl IN dispatch_log
-  FILTER dl.idempotency_key == @idempotencyKey
-    AND dl.factory_attempt == @factoryAttempt
-    AND (@excludeKey == null OR dl._key != @excludeKey)
-  SORT dl.started_at DESC
-  LIMIT 1
-  RETURN dl`,
-        {
-          idempotencyKey,
-          factoryAttempt,
-          excludeKey: excludeKey ?? null,
-        },
-      )
-      return rows[0] ?? null
+      const rows = await db.query<DispatchLogRow>("dispatch_log", {
+        idempotency_key: idempotencyKey,
+        factory_attempt: factoryAttempt,
+      })
+      const filtered = excludeKey
+        ? rows.filter((row) => String((row as unknown as { _key?: string })._key ?? "") !== excludeKey)
+        : rows
+      return filtered[0] ?? null
     },
 
     getFormulaByKey: async (key: string) => {
-      return await db.get<FormArtifact>("formulas", key)
+      try {
+        return await db.get<FormArtifact>("formulas", key)
+      } catch (err) {
+        if (!shouldFallback(err) || !fallback) throw err
+        return await fallback.get<FormArtifact>("formulas", key)
+      }
     },
 
     writeFormAndDispatchLog: async (form: FormArtifact, dispatchLog: DispatchLogRow) => {
-      await db.save("formulas", form as unknown as Record<string, unknown>)
-      await db.save("dispatch_log", dispatchLog as unknown as Record<string, unknown>)
+      try {
+        await db.insert("formulas", form as unknown as Record<string, unknown>)
+      } catch (err) {
+        if (!shouldFallback(err) || !fallback) throw err
+        await fallback.save("formulas", form as unknown as Record<string, unknown>)
+      }
+      await db.insert("dispatch_log", dispatchLog as unknown as Record<string, unknown>)
     },
 
     writeDispatchLogOnly: async (dispatchLog: DispatchLogRow) => {
-      await db.save("dispatch_log", dispatchLog as unknown as Record<string, unknown>)
+      await db.insert("dispatch_log", dispatchLog as unknown as Record<string, unknown>)
     },
 
     updateFormulaVersion: async (formKey: string, version: string) => {
-      await db.update("formulas", formKey, { formula_version: version })
+      try {
+        await db.patch("formulas", formKey, { formula_version: version })
+      } catch (err) {
+        if (!shouldFallback(err) || !fallback) throw err
+        await fallback.update("formulas", formKey, { formula_version: version })
+      }
     },
 
     updateDispatchLog: async (key: string, patch: Partial<DispatchLogRow>) => {
-      await db.update("dispatch_log", key, patch as Record<string, unknown>)
+      await db.patch("dispatch_log", key, patch as Record<string, unknown>)
     },
 
     emitUncertaintyEntry: async (entry: UncertaintyEmission) => {
       try {
-        if (!uncertaintyCollectionEnsured) {
-          await db.ensureCollection("uncertainty_entries")
-          uncertaintyCollectionEnsured = true
-        }
-        await db.save("uncertainty_entries", entry as unknown as Record<string, unknown>)
+        await db.insert("uncertainty_entries", entry as unknown as Record<string, unknown>)
       } catch (err) {
+        if (fallback) {
+          try {
+            if (fallback.ensureCollection) await fallback.ensureCollection("uncertainty_entries")
+            await fallback.save("uncertainty_entries", entry as unknown as Record<string, unknown>)
+            return
+          } catch {}
+        }
         console.warn("[UNCERTAINTY_EMIT_FAILED]", err)
       }
     },
@@ -105,13 +135,20 @@ export function buildFormulaCompilerDeps(
 
     // ── IS-WORKSPACE-SEEDING deps ──────────────────────────────────────────
     fetchIntentSpec: async (id: string) => {
-      const rows = await db.query<Record<string, unknown>>(
-        `FOR doc IN intent_specifications
+      let rows: Record<string, unknown>[] = []
+      try {
+        const byId = await db.get<Record<string, unknown>>("intent_specifications", id)
+        rows = byId ? [byId] : await db.query<Record<string, unknown>>("intent_specifications", { id })
+      } catch (err) {
+        if (!shouldFallback(err) || !fallback) throw err
+        rows = await fallback.query<Record<string, unknown>>(
+          `FOR doc IN intent_specifications
   FILTER doc._key == @id OR doc.id == @id
   LIMIT 1
   RETURN doc`,
-        { id },
-      )
+          { id },
+        )
+      }
       const doc = rows[0]
       if (!doc) return null
       const body =
@@ -127,13 +164,20 @@ export function buildFormulaCompilerDeps(
     },
 
     fetchExecutableSpec: async (id: string) => {
-      const rows = await db.query<Record<string, unknown>>(
-        `FOR doc IN executable_specifications
+      let rows: Record<string, unknown>[] = []
+      try {
+        const byId = await db.get<Record<string, unknown>>("executable_specifications", id)
+        rows = byId ? [byId] : await db.query<Record<string, unknown>>("executable_specifications", { id })
+      } catch (err) {
+        if (!shouldFallback(err) || !fallback) throw err
+        rows = await fallback.query<Record<string, unknown>>(
+          `FOR doc IN executable_specifications
   FILTER doc._key == @id OR doc.id == @id
   LIMIT 1
   RETURN doc`,
-        { id },
-      )
+          { id },
+        )
+      }
       const doc = rows[0]
       if (!doc) return null
       const body =
@@ -164,4 +208,9 @@ export function buildFormulaCompilerDeps(
       return await obj.text()
     },
   }
+}
+
+function shouldFallback(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err)
+  return message.includes("no such table") || message.includes("not_found")
 }
