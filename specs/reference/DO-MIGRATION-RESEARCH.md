@@ -141,7 +141,7 @@ Replacing `bd`/Dolt with DO SQLite loses:
 
 - No commit graph — storage cost = live row set only
 - No cold-start — DO is always live
-- No adoption phase — Container reconnects immediately
+- Adoption phase remains in startup FSM, but Dolt-specific blocking/cold-start behavior is removed
 - Real SQLite FKs across execution/knowledge planes (`emission_bead_id`)
 - Single-writer serialization (no concurrent write corruption, different mechanism from Dolt merge)
 - `PRAGMA foreign_keys = ON` — referential integrity at storage layer

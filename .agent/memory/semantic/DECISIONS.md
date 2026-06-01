@@ -3,6 +3,26 @@
 Past architectural choices that would be costly to revisit. Do not
 re-litigate without explicit architect approval.
 
+## 2026-05-31: DO migration — replace bd/Dolt bead store + ArangoDB with FactoryStore DO
+
+**Decision:** Replace `bd`/Dolt bead store and ArangoDB artifact store with a single Cloudflare Durable Object (`FactoryStore`) backed by one SQLite database. Two table namespaces share one `ctx.storage.sql`: execution plane (`beads`, `deps`) and knowledge plane (`specifications`, `verdicts`, `lineage_edges`, etc.). Real SQLite foreign keys enforce `emission_bead_id → beads(id)` across the boundary.
+
+**Architect verdict (2026-05-31):** ACCEPTABLE. Every bd/Dolt feature loss is either (a) already compensated by Factory lineage (`source_refs` + `emission_bead_id` + `lineage_mismatch` 409 enforcement), (b) structurally eliminated by DO single-writer serialization (merge safety), or (c) unused by the pipeline today (audit log, rollback, `bd doctor --agent`, rig stores). The migration removes two confirmed production failure modes — Dolt cold-start/adoption hang and unbounded commit-graph growth — for features the Factory never calls.
+
+**Three guardrails (see DO-BEAD-STORE-ARCHITECTURE.md §13):**
+- **G1 (rig-store gate):** No formula ships `[[rig]]` blocks until the per-rig DO routing question is answered.
+- **G2 (throughput watch):** Revisit DO single-writer model if `max_active_sessions` scales ~10x.
+- **G3 (operator runbook):** Re-dispatch is the sanctioned recovery for corrupted bead state. Must be documented before WP-DO-5 cleanup ships.
+
+**References:**
+- Full Architect assessment: `specs/reference/DO-MIGRATION-RESEARCH.md §8`
+- Implementation spec: `specs/reference/DO-BEAD-STORE-ARCHITECTURE.md`
+- 5 work packages in §9. WP-DO-1 (FactoryStore TypeScript) and WP-DO-2 (DoStore Go client) are parallel. WP-DO-5 (cleanup: remove Dolt + ArangoDB) ships last.
+
+**Status:** Active. Approved 2026-05-31.
+
+---
+
 ## 2026-05-30: Release step routing — E2 supervisor-local no-op harness provider
 
 **Decision:** The Release step in `factory-coding-v1.toml` is routed to a new
