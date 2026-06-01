@@ -1,13 +1,6 @@
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
       curl ca-certificates netcat-openbsd unzip bash openssl tini git \
-    && DOLT_VERSION=2.0.3 \
-    && curl -fsSL "https://github.com/dolthub/dolt/releases/download/v${DOLT_VERSION}/dolt-linux-amd64.tar.gz" \
-       | tar -xz -C /usr/local/bin --strip-components=2 dolt-linux-amd64/bin/dolt \
-    # bd — beads CLI required by gc-beads-bd.sh (bd provider bead store management).
-    && BD_VERSION=1.0.4 \
-    && curl -fsSL "https://github.com/gastownhall/beads/releases/download/v${BD_VERSION}/beads_${BD_VERSION}_linux_amd64.tar.gz" \
-       | tar -xz -C /usr/local/bin bd \
     # bun — single static binary; runs the deterministic fidelity validator CLI.
     # The container has no node/python/jq, so the validator ships its own runtime.
     && BUN_VERSION=1.3.13 \
@@ -33,5 +26,4 @@ RUN chmod +x /entrypoint.sh /etc/gc/factory/fidelity/fidelity-release.sh
 ENV GC_HOME=/data/gc
 WORKDIR /data
 EXPOSE 9443
-EXPOSE 3306
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
