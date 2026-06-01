@@ -245,9 +245,14 @@ export class FactoryStore {
     const query = JSON.parse(q) as JsonRecord
     const where: string[] = []
     const values: unknown[] = []
-    if (query.status) { where.push(`status=?${values.length + 1}`); values.push(query.status) }
-    if (query.assignee) { where.push(`assignee=?${values.length + 1}`); values.push(query.assignee) }
-    if (query.parent) { where.push(`parent_id=?${values.length + 1}`); values.push(query.parent) }
+    // gc DoStore (internal/beads/query.go ListQuery) marshals with no json tags,
+    // so wire keys are PascalCase: Status/Assignee/ParentID. Accept both casings.
+    const status = query.status ?? query.Status
+    const assignee = query.assignee ?? query.Assignee
+    const parent = query.parent ?? query.ParentID
+    if (status) { where.push(`status=?${values.length + 1}`); values.push(status) }
+    if (assignee) { where.push(`assignee=?${values.length + 1}`); values.push(assignee) }
+    if (parent) { where.push(`parent_id=?${values.length + 1}`); values.push(parent) }
     const rows = this.db.exec(`SELECT * FROM beads${where.length > 0 ? ` WHERE ${where.join(" AND ")}` : ""}`, ...values).toArray() as JsonRecord[]
     return this.json(rows.map((row) => this.mapBeadRow(row)))
   }
