@@ -1,6 +1,6 @@
 ---
 id: IS-TESSERA-INDEXER
-version: 1
+version: 2
 title: "Tessera Indexer — GitHub webhook → CF Queue → parse + load graph into ArangoDB"
 sourceCapabilityId: BC-TESSERA-INDEXER
 sourceFunctionId: FP-TESSERA-INDEXER
@@ -23,6 +23,15 @@ rationale: >
   (§4.1), atomic ingest so readers never see a partial graph (§4.4, G6), and
   idempotent crash recovery via Queue retry (§4.5) — each retry deletes-all
   first, so re-running produces the same final graph.
+
+  v2 (2026-06-01): P0 MEMORY GAP identified and resolved. The v1 spec assumed
+  build-then-write: accumulate the full graph in memory, then batch-insert into
+  ArangoDB. The local analyzer uses 8GB heap and 17 minutes on gascity (2,164
+  files, 77,979 nodes, 276,625 edges). CF Workers have a hard 128MB memory
+  limit — 64x under what the v1 approach requires. The architecture is replaced
+  with stream-and-write: parse → write immediately → never accumulate the full
+  graph in a single Worker invocation. Three queue phases replace the single
+  monolithic consumer.
 ---
 
 # Tessera Indexer (WP-T2 + WP-T4 ingest pipeline)
@@ -47,10 +56,12 @@ Without this pipeline:
 - The parser (IS-TESSERA-PARSER) is never invoked at scale.
 - The query tools (impact, search, MCP) have an empty or stale graph.
 
-Two non-trivial constraints make this more than a script:
-- **Scale.** gascity is ~78k nodes / ~277k edges (TESSERA-CF-SPEC §4.3,
-  AC-PARSE-3). A single 30s Worker invocation cannot fetch, parse, and load it.
-  Work must ride a CF Queue and load in batches.
+Three non-trivial constraints make this more than a script:
+- **Memory (P0 — v2 gap).** The local `tessera analyze` uses **8GB heap and
+  17 minutes** on gascity. CF Workers hard-limit at **128MB** — 64x under.
+  The v1 "build full graph in memory then write" approach is incompatible with
+  CF Workers at production scale. Architecture must be stream-and-write: parse
+  one file → write immediately → never hold the full graph in a single Worker.
 - **Atomicity.** A reader must never see a half-written graph (G6). The ingest
   deletes the old graph and writes the new one as an atomic unit; readers see the
   previous commit until the new one is fully committed.
@@ -60,24 +71,40 @@ Two non-trivial constraints make this more than a script:
 
 ## Goal
 
-Implement two files:
+### Three-phase streaming pipeline (v2)
+
+The fundamental architectural shift: **ArangoDB is the graph store throughout
+indexing, not the final destination after in-memory construction.** Each file
+is parsed and written immediately. No Worker invocation ever holds more than
+~100 files in memory at once.
+
+**Phase 1 — Symbol extraction (queue: `INDEX_QUEUE`)**
+- Fetch tarball, stream it, write each source file to R2
+- Parse each file via IS-TESSERA-PARSER, emit `ParsedSymbol[]`
+- Write symbols as nodes to `tessera_nodes_{slug}` (staging) **immediately after each file** — no accumulation
+- Batch size: 100 files per Worker invocation (≤ ~30MB peak heap)
+- Each 100-file batch is a separate queue message; the webhook enqueues a manifest of batch jobs
+
+**Phase 2 — Edge resolution (queue: `INDEX_EDGES_QUEUE`)**
+- Triggered after all Phase 1 batches complete (last batch enqueues Phase 2)
+- Reads symbol table from `tessera_nodes_{slug}` (ArangoDB is the symbol table — not memory)
+- Resolves cross-file edges (IMPORTS, CALLS, EXTENDS, IMPLEMENTS) via AQL name lookups
+- Writes edges to `tessera_edges_{slug}` in batches of 5,000
+- Peak heap: one batch of edges, ~10MB
+
+**Phase 3 — Graph analytics (queue: `INDEX_ANALYTICS_QUEUE`)**
+- Triggered after Phase 2 completes
+- Community detection: AQL-based clustering pass over `tessera_edges_{slug}` (not Leiden in-memory)
+- Process detection: AQL graph traversal from entry-point nodes
+- Writes Community and Process nodes to `tessera_nodes_{slug}`
+- Rebuilds ArangoSearch view
+- Upserts `tessera_meta` — this is the completion signal
 
 **`workers/tessera-worker/src/webhook.ts`** — `POST /webhook/github`:
-1. Validate HMAC SHA-256 (`X-Hub-Signature-256`) against `TESSERA_PUSH_TOKEN`.
-2. On a valid `push` to a watched ref, build an `IndexJob`.
-3. Apply the **10-minute debounce gate** (§10) per `{slug, ref}`; enqueue to
-   `INDEX_QUEUE` only if outside the window, coalescing the newest commit
-   otherwise.
+1. Validate HMAC SHA-256 against `TESSERA_PUSH_TOKEN`.
+2. Build `IndexJob`, apply 10-minute debounce gate, enqueue Phase 1 manifest.
 
-**`workers/tessera-worker/src/indexer.ts`** — the `INDEX_QUEUE` consumer:
-1. Fetch the GitHub App installation token (KV cache, §8), `GET` the repo
-   tarball, **follow the 302**, **stream** it, **cap at 500MB**.
-2. Parse each source file via IS-TESSERA-PARSER; build nodes + edges (intra-file
-   at parse, cross-file resolved against the full symbol table).
-3. Load into ArangoDB atomically: ensure schema → delete-all for this slug →
-   batch-insert nodes (1,000/batch) → batch-insert edges (5,000/batch) → rebuild
-   the ArangoSearch view → upsert `tessera_meta`.
-4. Each retry is idempotent (delete-all first).
+**`workers/tessera-worker/src/indexer.ts`** — queue consumers for all 3 phases.
 
 ## Scope
 
@@ -97,17 +124,13 @@ Implement two files:
   `include_content` (§4.3).
 
 **Out of scope:**
-- Schema creation itself (IS-TESSERA-ARANGO-SCHEMA — this IS calls
-  `initTesseraSchema`).
-- The `parse` function (IS-TESSERA-PARSER — this IS calls it).
-- Impact / search / MCP read tools (separate IS files).
-- Community detection, process detection (V2, §4.3).
-- Incremental / delta indexing (V1 is full rebuild per push, §4.1; incremental
-  is V2 §4.6).
-- The DLQ-replay route `POST /repos/:repo/reindex` (operational tooling; the
-  Queue's DLQ config is in scope, the manual replay route is V1-optional and may
-  ship with the MCP IS).
-- Semantic embedding (V2, §6.3).
+- Schema creation itself (IS-TESSERA-ARANGO-SCHEMA — this IS calls `initTesseraSchema`)
+- The `parse` function (IS-TESSERA-PARSER — this IS calls it)
+- Impact / search / MCP read tools (separate IS files)
+- Leiden community detection in WASM (V2 — Phase 3 uses AQL clustering in V1)
+- Incremental / delta indexing (V1 is full rebuild per push; incremental is V2)
+- Semantic embedding (V2)
+- The DLQ-replay route `POST /repos/:repo/reindex` (V1-optional)
 
 ## Acceptance Criteria
 
@@ -163,23 +186,64 @@ with a DLQ entry; it does not OOM the Worker.
 `include_content` (§4.3). Binary / non-source files are skipped by the extension
 allowlist before parsing.
 
-### Parse + build (AC-B*)
+### Phase 1 — Symbol extraction (AC-P1*)
 
-**AC-B1.** Each source file is parsed via IS-TESSERA-PARSER's `parse(content,
-language, filePath)`. Language is selected from the file extension (`.ts`/`.tsx`
-→ typescript, `.go` → go). Files the parser skips (>512KB, binary, generated)
-contribute no symbols (AC-SK*).
+**AC-P1-1 (memory ceiling).** No single Worker invocation holds more than
+**100 files** of parsed symbols in memory simultaneously. After each 100-file
+batch: flush nodes to ArangoDB, release memory, proceed to next batch. Peak
+heap target: ≤ 64MB per invocation (well under 128MB CF limit).
 
-**AC-B2.** Nodes are built from `ParsedSymbol[]`. Each node carries
-`startLine`/`endLine` and **no source body** (G5 — bodies stay in R2, AC-F4).
+**AC-P1-2.** Each source file is parsed via IS-TESSERA-PARSER's
+`parse(content, language, filePath)`. Language from extension (`.ts`/`.tsx` →
+typescript, `.go` → go). Files >512KB, binary, or generated contribute no nodes.
 
-**AC-B3.** Intra-file edges (DEFINES, HAS_METHOD, HAS_PROPERTY) are built from
-the per-file structural signals the parser carries in `properties`.
+**AC-P1-3.** Nodes are written to `tessera_nodes_{slug}` **immediately after
+each 100-file batch** — no accumulation across the full repo. Each node carries
+`startLine`/`endLine` and **no source body** (G5 — bodies in R2, AC-F4).
 
-**AC-B4.** Cross-file edges (IMPORTS, CALLS, EXTENDS, IMPLEMENTS) are resolved
-once all symbols across all files are known, against the full symbol table, each
-emitted with `type`, `confidence`, `step` (GT-RELSET / GT-CONF). Edge `_from`/
-`_to` are fully qualified (`tessera_nodes_{slug}/<uid>`).
+**AC-P1-4.** Intra-file structural edges (DEFINES, HAS_METHOD, HAS_PROPERTY)
+are written alongside their nodes in the same batch.
+
+**AC-P1-5.** When all Phase 1 batches complete, the last batch enqueues one
+`EdgeResolutionJob` to `INDEX_EDGES_QUEUE`. If any Phase 1 batch fails and
+exhausts retries, the edge job is NOT enqueued — the DLQ receives the batch
+failure and the index is marked stale.
+
+### Phase 2 — Edge resolution (AC-P2*)
+
+**AC-P2-1.** The edge consumer reads the symbol table **from ArangoDB**
+(`tessera_nodes_{slug}`) via AQL name-lookup queries — not from memory. Peak
+heap: one batch of edge candidates, ≤ 10MB.
+
+**AC-P2-2.** Cross-file edges (IMPORTS, CALLS, EXTENDS, IMPLEMENTS) are
+resolved by matching import paths and symbol names against the ArangoDB
+symbol table. Unresolved references are dropped (not errors).
+
+**AC-P2-3.** Edges written to `tessera_edges_{slug}` in batches of 5,000 with
+`type`, `confidence` (GT-CONF floors), and `_from`/`_to` as fully qualified
+`tessera_nodes_{slug}/<uid>`.
+
+**AC-P2-4.** On completion, enqueues one `AnalyticsJob` to
+`INDEX_ANALYTICS_QUEUE`.
+
+### Phase 3 — Graph analytics (AC-P3*)
+
+**AC-P3-1.** Community detection is implemented as an **AQL graph pass** over
+`tessera_edges_{slug}` — not the Leiden algorithm in memory. V1 uses connected
+components or weighted degree clustering via AQL; Leiden WASM port is V2.
+
+**AC-P3-2.** Process/execution flow detection is implemented as AQL traversal
+from entry-point nodes (exported functions, HTTP handlers, queue consumers).
+V1 detects flows up to depth 10.
+
+**AC-P3-3.** Community and Process nodes are written to `tessera_nodes_{slug}`.
+
+**AC-P3-4.** ArangoSearch view `tessera_search_{slug}` is rebuilt after
+analytics complete.
+
+**AC-P3-5.** `tessera_meta` is upserted with `commit`, `indexedAt`,
+`nodeCount`, `edgeCount`, `communityCount`, `processCount`. This upsert is the
+**completion signal** — no other phase writes `tessera_meta`.
 
 ### ArangoDB load (AC-L*)
 
@@ -287,5 +351,11 @@ pushes to the same ref within ten minutes coalesce into a single rebuild of the
 newest commit.
 
 At scale, gascity (≥77,979 nodes / ≥276,625 edges) indexes through the
-Queue-driven batched consumer — never a single 30-second invocation — end to end
-in under five minutes, replacing the local `tessera analyze` CLI entirely.
+three-phase stream-and-write pipeline — no single Worker invocation exceeds
+64MB heap — end to end in under 10 minutes, replacing the local `tessera
+analyze` CLI (8GB heap, 17 minutes) entirely.
+
+**Memory proof:** 100 files × ~300 symbols/file × ~500 bytes/symbol ≈ 15MB
+per Phase 1 invocation. Peak heap well under 128MB CF limit at any batch size
+≤ 200 files. The full 77,979-node / 276,625-edge graph never exists in a
+single Worker's memory.
