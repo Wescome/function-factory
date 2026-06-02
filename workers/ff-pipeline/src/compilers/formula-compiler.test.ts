@@ -1353,7 +1353,44 @@ describe("formula-compiler: compileAndDispatchFormula (IP-1)", () => {
       expect(vars.planner_inputs).toBe(JSON.stringify(["intent"]))
       expect(vars.planner_outputs).toBe(JSON.stringify(["plan"]))
       expect(vars.coder_prompt).toBe("Implement the plan.")
+      expect(vars.coder_outputs).toBe(JSON.stringify(["CandidatePatch"]))
       expect(vars.verifier_prompt).toBe("Verify the diff.")
+      expect(vars.verifier_outputs).toBe(JSON.stringify(["VerifierReport"]))
+    })
+
+    it("defaults factory coding Code and Verify outputs to canonical artifacts when EP role outputs are empty", async () => {
+      const state = defaultState()
+      const m = makeMocks(state)
+      await compileAndDispatchFormula({
+        ep: makeEP({
+          roles: [
+            {
+              roleId: "planner",
+              instruction: "Plan the work.",
+              inputs: [],
+              outputs: [],
+            },
+            {
+              roleId: "coder",
+              instruction: "Implement the plan.",
+              inputs: ["Plan"],
+              outputs: [],
+            },
+            {
+              roleId: "verifier",
+              instruction: "Verify the patch.",
+              inputs: ["CandidatePatch"],
+              outputs: [],
+            },
+          ],
+        }) as Parameters<typeof compileAndDispatchFormula>[0]["ep"],
+        factoryAttempt: 1,
+        env: BASE_ENV,
+        deps: m.deps,
+      })
+      const vars = state.formArtifact!.vars
+      expect(vars.coder_outputs).toBe(JSON.stringify(["CandidatePatch"]))
+      expect(vars.verifier_outputs).toBe(JSON.stringify(["VerifierReport"]))
     })
 
     it("missing standard roles become empty strings", async () => {

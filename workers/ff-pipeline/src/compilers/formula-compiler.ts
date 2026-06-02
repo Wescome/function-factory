@@ -272,6 +272,11 @@ const RESERVED_VAR_NAMES = new Set<string>([
  */
 const STANDARD_ROLE_IDS = ["planner", "coder", "verifier"] as const
 
+const FACTORY_CODING_ROLE_OUTPUTS: Record<string, string[]> = {
+  coder: ["CandidatePatch"],
+  verifier: ["VerifierReport"],
+}
+
 const PER_CALL_TIMEOUT_MS = 25_000
 const CALL_2_RETRY_BACKOFF_MS = [1000, 2000, 4000] // AC-13: 3 retries
 const CALL_3_RETRY_BACKOFF_MS = [1000, 2000, 4000] // AC-18: 3 retries
@@ -424,8 +429,8 @@ export async function compileAndDispatchFormula(
     roles: Array<{
       roleId: string
       instruction: string
-      inputs: string[]
-      outputs: string[]
+      inputs?: unknown
+      outputs?: unknown
     }>
   }
 
@@ -554,8 +559,10 @@ export async function compileAndDispatchFormula(
   for (const role of epAny.roles) {
     seenRoleIds.add(role.roleId)
     roleVars[`${role.roleId}_prompt`] = role.instruction
-    roleVars[`${role.roleId}_inputs`] = JSON.stringify(role.inputs)
-    roleVars[`${role.roleId}_outputs`] = JSON.stringify(role.outputs)
+    roleVars[`${role.roleId}_inputs`] = JSON.stringify(compactStringArray(role.inputs))
+    roleVars[`${role.roleId}_outputs`] = JSON.stringify(
+      roleOutputsForTemplate(templateName, role.roleId, role.outputs),
+    )
   }
   for (const standardId of STANDARD_ROLE_IDS) {
     if (!seenRoleIds.has(standardId)) {
@@ -1370,6 +1377,34 @@ async function sha256Hex(input: string): Promise<string> {
 // `stableStringify` now lives in ./stable-stringify.ts (shared with seed
 // assembly). Re-exported for any external consumer that imported it from here.
 export { stableStringify } from "./stable-stringify.js"
+
+function compactStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  const out: string[] = []
+  const seen = new Set<string>()
+  for (const item of value) {
+    if (typeof item !== "string") continue
+    const trimmed = item.trim()
+    if (!trimmed || seen.has(trimmed)) continue
+    seen.add(trimmed)
+    out.push(trimmed)
+  }
+  return out
+}
+
+function roleOutputsForTemplate(
+  templateName: string,
+  roleId: string,
+  rawOutputs: unknown,
+): string[] {
+  const outputs = compactStringArray(rawOutputs)
+  if (templateName !== "factory-coding-v1") return outputs
+  const canonical = FACTORY_CODING_ROLE_OUTPUTS[roleId]
+  if (!canonical) return outputs
+  if (outputs.length === 0) return canonical
+  if (canonical.some((artifact) => outputs.includes(artifact))) return outputs
+  return canonical
+}
 
 /**
  * Merge reserved + role var maps into a key-sorted object. Sorting keys
