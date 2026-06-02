@@ -20,18 +20,17 @@ url = "https://gascity-cloudflare-control-worker.koales.workers.dev"
 [daemon]
 formula_v2 = true
 
-[[agent]]
-# Explicit control-dispatcher required so sling's controlDispatcherBinding can
-# resolve the control route and create workflow-control beads. Without this,
-# injectControlDispatcherAgents injects it implicitly but the sling code path
-# reads the raw config before injection — molecule steps are never created.
-# start_command must be set explicitly because the implicit injection via
-# injectControlDispatcherAgents is skipped when an explicit block is present.
-name = "control-dispatcher"
-provider = "subprocess"
-min_active_sessions = 1
-max_active_sessions = 1
-start_command = "sh -c 'export GC_WORKFLOW_TRACE=\"${GC_WORKFLOW_TRACE:-${GC_CONTROL_DISPATCHER_TRACE_DEFAULT:-${GC_CITY}/.gc/runtime/control-dispatcher-trace.log}}\"; trace_dir=\"${GC_WORKFLOW_TRACE%/*}\"; if [ \"$trace_dir\" = \"$GC_WORKFLOW_TRACE\" ]; then trace_dir=\".\"; elif [ -z \"$trace_dir\" ]; then trace_dir=\"/\"; fi; mkdir -p \"$trace_dir\"; exec \"${GC_BIN:-gc}\" convoy control --serve --follow control-dispatcher'"
+# NOTE: The control-dispatcher is NOT declared here. With daemon.formula_v2 =
+# true, config.InjectImplicitAgents → injectControlDispatcherAgents (internal/
+# config/config.go) injects the control-dispatcher agent AND its
+# mode=always named session automatically during composition (compose.go:569),
+# BEFORE any sling/dispatch consumer sees the config. The injected agent uses
+# the canonical ControlDispatcherStartCommandFor() trace-init start command and
+# carries the per-dispatcher GC_WORKFLOW_TRACE distinction injected at spawn time
+# (template_resolve.go). Declaring an explicit [[agent]] + [[named_session]]
+# pair caused pool_alias_conflict: control-dispatcher (the pool-managed session
+# and the resident named session fought over the same alias). Let injection own
+# the single session entity. Do NOT re-add an explicit control-dispatcher block.
 
 [[agent]]
 # noop provider: session lifecycle satisfied locally (state file, no external
@@ -41,13 +40,6 @@ name = "coder"
 provider = "noop"
 min_active_sessions = 0
 max_active_sessions = 3
-
-[[named_session]]
-# mode=always ensures the reconciler treats the control-dispatcher as a
-# resident named session, injecting GC_SESSION_ID/GC_SESSION_NAME and
-# reopening the bead on every supervisor restart.
-template = "control-dispatcher"
-mode = "always"
 
 # Harness runtime provider registry (IS-GC-RUNTIME-PROVIDER-CONTRACT, Open
 # Question 3: the registry lives in city configuration). Each [provider.<id>]
