@@ -24,13 +24,20 @@ export function buildPrompt(input) {
   }
 
   if (declaredOutputs.length > 0) {
+    const patchOutputs = declaredOutputs.filter((name) => typeof name === 'string' && name.endsWith('Patch'))
+    const patchGuidance = patchOutputs.length > 0
+      ? '\n\nPatch artifact rule: make changes from inside `./workspace` when a seeded workspace is present, ' +
+        `but write the unified diff to ${patchOutputs.map((name) => `\`./${name}\``).join(', ')} in the current working directory. ` +
+        'Do not leave edits only inside `./workspace`; the root patch file is the artifact.'
+      : ''
     parts.push(
       '## Required Output Files\n\n' +
       'You must create each required output as a non-empty local file in the current working directory. ' +
       'A final chat response is not an artifact. Do not finish until every file below exists and is non-empty.\n\n' +
       declaredOutputs.map((name) => `- Artifact \`${name}\`: write local file \`./${name}\``).join('\n') +
       '\n\nUse your filesystem tools or shell commands to create the files. ' +
-      'The file name must match the artifact name exactly.',
+      'The file name must match the artifact name exactly.' +
+      patchGuidance,
     )
   }
 

@@ -1,7 +1,10 @@
 import { mkdir, writeFile } from 'node:fs/promises'
+import { execFile } from 'node:child_process'
 import { dirname, join } from 'node:path'
+import { promisify } from 'node:util'
 
 const SEED_ARTIFACT_NAME = 'SeedWorkspace'
+const execFileAsync = promisify(execFile)
 
 export function hasSeedWorkspace(input) {
   return typeof input?.context?.inputArtifacts?.[SEED_ARTIFACT_NAME] === 'string'
@@ -36,8 +39,17 @@ export async function prepareSeedWorkspace(workDir, seedContent) {
     ].join('\n'),
     'utf8',
   )
+  await initializeSeedWorkspaceGit(workspaceDir)
 
   return { seed, workspaceDir }
+}
+
+async function initializeSeedWorkspaceGit(workspaceDir) {
+  await execFileAsync('git', ['-C', workspaceDir, 'init', '--quiet'])
+  await execFileAsync('git', ['-C', workspaceDir, 'config', 'user.email', 'factory@example.invalid'])
+  await execFileAsync('git', ['-C', workspaceDir, 'config', 'user.name', 'Function Factory'])
+  await execFileAsync('git', ['-C', workspaceDir, 'add', '-A'])
+  await execFileAsync('git', ['-C', workspaceDir, 'commit', '--quiet', '--no-gpg-sign', '-m', 'seed workspace'])
 }
 
 export function workspacePromptSection(prepared) {
@@ -60,8 +72,9 @@ export function workspacePromptSection(prepared) {
   }
   lines.push(
     '',
-    'For patch outputs, write a unified diff relative to the workspace root.',
+    'For patch outputs, edit files from inside `./workspace`, then write the unified diff to the required root artifact such as `./CandidatePatch`.',
     'Use paths like `a/src/file.ts` and `b/src/file.ts` in diff headers.',
+    'The seeded workspace is a git repo with a clean baseline, so `cd workspace && git diff > ../CandidatePatch` is the preferred patch artifact path.',
     'For verification outputs, copy `./workspace` to a temporary directory, run `git apply ../CandidatePatch` from that copy, then run the declared test command.',
   )
   return lines.join('\n')

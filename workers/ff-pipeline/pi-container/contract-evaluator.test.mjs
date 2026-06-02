@@ -407,4 +407,13 @@ describe('buildContractRepairPrompt', () => {
     expect(typeof prompt).toBe('string')
     expect(prompt.length).toBeGreaterThan(0)
   })
+
+  it('repeats root patch artifact guidance for failed patch outputs', () => {
+    const prompt = buildContractRepairPrompt([
+      { artifact: 'CandidatePatch', status: 'fail', kind: 'text', failureCode: 'missing_file' },
+    ])
+
+    expect(prompt).toContain('`./CandidatePatch`')
+    expect(prompt).toContain('cd workspace && git diff > ../CandidatePatch')
+  })
 })

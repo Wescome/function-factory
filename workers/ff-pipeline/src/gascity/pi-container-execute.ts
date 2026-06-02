@@ -15,7 +15,7 @@ export interface WorkerInput {
   stageName: string
   roleName: string
   runId: string
-  context: { inputArtifacts: Record<string, unknown>; contextRefs?: Record<string, unknown> }
+  context: { inputArtifacts: Record<string, unknown>; taskText?: string; contextRefs?: Record<string, unknown> }
   declaredOutputs: unknown[]
   outputContracts?: Array<{ artifact: string; kind: string }>
   model?: { id: string }
@@ -74,12 +74,13 @@ export function normalizePiContainerExecuteInput(
     body.context_refs && typeof body.context_refs === 'object'
       ? (body.context_refs as Record<string, unknown>)
       : {}
+  const taskText = str(body.purpose)
 
   const workerInput: WorkerInput = {
     stageName,
     roleName,
     runId,
-    context: { inputArtifacts: inputs, contextRefs },
+    context: { inputArtifacts: inputs, ...(taskText ? { taskText } : {}), contextRefs },
     declaredOutputs,
   }
   if (outputContracts) workerInput.outputContracts = outputContracts

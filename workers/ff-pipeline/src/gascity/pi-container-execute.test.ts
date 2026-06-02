@@ -9,6 +9,7 @@ describe('normalizePiContainerExecuteInput', () => {
       step_name: 'GeneratePatch',
       role_name: 'Coder',
       session_id: 'run-1',
+      purpose: 'Produce CandidatePatch from SeedWorkspace.',
       inputs: { SeedWorkspace: 'tarball-ref' },
       declared_outputs: ['Patch'],
       verifier_contract: { declared_output_match: [{ artifact: 'Patch', kind: 'text' }] },
@@ -20,6 +21,7 @@ describe('normalizePiContainerExecuteInput', () => {
     expect(out?.roleName).toBe('Coder')
     expect(out?.runId).toBe('run-1')
     expect(out?.context.inputArtifacts.SeedWorkspace).toBe('tarball-ref')
+    expect(out?.context.taskText).toBe('Produce CandidatePatch from SeedWorkspace.')
     expect(out?.declaredOutputs).toEqual(['Patch'])
     expect(out?.outputContracts).toEqual([{ artifact: 'Patch', kind: 'text' }])
     expect(out?.model).toEqual({ id: 'openrouter/moonshotai/kimi-k2' })

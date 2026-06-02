@@ -56,6 +56,19 @@ describe('pi container execution contract', () => {
     expect(prompt).toContain('diff --git a/src/coding-adapter-smoke.ts b/src/coding-adapter-smoke.ts')
   })
 
+  it('gives seeded patch outputs an explicit root artifact command pattern', () => {
+    const prompt = buildPrompt({
+      roleName: 'Coder',
+      context: {
+        taskText: 'A repository fixture has been prepared at `./workspace`.',
+      },
+      declaredOutputs: ['CandidatePatch'],
+    })
+
+    expect(prompt).toContain('write the unified diff to `./CandidatePatch`')
+    expect(prompt).toContain('from inside `./workspace`')
+  })
+
   it('builds a bounded repair prompt for missing outputs', () => {
     const prompt = buildRepairPrompt(['SmokeArtifact'])
 

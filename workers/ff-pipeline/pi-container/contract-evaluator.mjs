@@ -301,6 +301,15 @@ export function buildContractRepairPrompt(findings) {
   } else {
     lines.push('Fix each failure below. Write the corrected file(s) to disk directly.')
     lines.push('Do not summarize the work in chat — the file contents are the only thing that counts.')
+    const patchArtifacts = failing
+      .map((f) => f.artifact)
+      .filter((name) => typeof name === 'string' && name.endsWith('Patch'))
+    if (patchArtifacts.length > 0) {
+      lines.push(
+        `For patch artifacts, write the unified diff to ${patchArtifacts.map((name) => `\`./${name}\``).join(', ')} in the current working directory.`,
+      )
+      lines.push(`If a seeded workspace exists, use \`cd workspace && git diff > ../${patchArtifacts[0]}\` after making the workspace edits.`)
+    }
     lines.push('')
     for (const f of failing) {
       const parts = [

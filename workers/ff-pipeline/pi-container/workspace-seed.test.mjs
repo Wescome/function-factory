@@ -2,11 +2,15 @@ import { describe, expect, it } from 'vitest'
 import { mkdtemp, readFile, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
 import {
   hasSeedWorkspace,
   prepareSeedWorkspace,
   workspacePromptSection,
 } from './workspace-seed.mjs'
+
+const execFileAsync = promisify(execFile)
 
 const seed = JSON.stringify({
   schemaVersion: '1.0',
@@ -44,6 +48,14 @@ describe('prepareSeedWorkspace', () => {
     await expect(stat(join(workDir, 'workspace/.factory/seed-workspace.json'))).resolves.toMatchObject({
       isFile: expect.any(Function),
     })
+  })
+
+  it('initializes ./workspace as a clean git repo for diff generation', async () => {
+    const workDir = await mkdtemp(join(tmpdir(), 'seed-workspace-'))
+    await prepareSeedWorkspace(workDir, seed)
+
+    const { stdout } = await execFileAsync('git', ['-C', join(workDir, 'workspace'), 'status', '--short'])
+    expect(stdout).toBe('')
   })
 
   it('rejects unsafe paths before writing files', async () => {
