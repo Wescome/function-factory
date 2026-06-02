@@ -11,11 +11,9 @@ type TxOp =
 export class FactoryStore {
   private ctx: DurableObjectState
   private db: SqlStorage
-  private token: string
 
-  constructor(ctx: DurableObjectState, env: { GC_SUPERVISOR_TOKEN?: string }) {
+  constructor(ctx: DurableObjectState, _env: unknown) {
     this.ctx = ctx
-    this.token = env.GC_SUPERVISOR_TOKEN ?? ""
     this.db = ctx.storage.sql
     this.db.exec("PRAGMA foreign_keys = ON")
     try {
@@ -35,8 +33,7 @@ export class FactoryStore {
 
   async fetch(request: Request): Promise<Response> {
     try {
-      const auth = request.headers.get("Authorization") ?? ""
-      if (auth !== `Bearer ${this.token}`) {
+      if (request.headers.get("X-FF-Internal") !== "factory-store") {
         return this.json({ error: "unauthorized" }, 401)
       }
       const url = new URL(request.url)

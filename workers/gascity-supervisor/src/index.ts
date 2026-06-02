@@ -175,8 +175,18 @@ export default {
       }
       const city = rest.slice(0, slash)
       const doPath = rest.slice(slash)
+      // Proxy is the auth gate (validated above against the always-current secret).
+      // Strip the rotating bearer and inject a stable internal sentinel so the DO
+      // validates something that never goes stale on token rotation.
+      const inner = new Headers(request.headers)
+      inner.delete("Authorization")
+      inner.set("X-FF-Internal", "factory-store")
       const stub = env.FACTORY_STORE.get(env.FACTORY_STORE.idFromName(city))
-      return stub.fetch(new Request(new URL(doPath + url.search, "https://do.internal"), request))
+      return stub.fetch(new Request(new URL(doPath + url.search, "https://do.internal"), {
+        method: request.method,
+        headers: inner,
+        body: request.method !== "GET" && request.method !== "HEAD" ? request.body : undefined,
+      }))
     }
 
     // Auth gate — all requests require bearer token
