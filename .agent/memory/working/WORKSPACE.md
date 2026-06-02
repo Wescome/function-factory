@@ -14,9 +14,16 @@ Validation passed:
 - `npm run typecheck` in `workers/gascity-supervisor`
 - Tessera `detect-changes --repo function-factory`: medium scope, expected pi-container flows.
 
+Committed:
+- `89ba50c FIX: prevent phantom pi completion and release exit 1`
+- `9170987 INFRA: rotate Gas City supervisor singleton v40`
+
+Deployed:
+- `ff-pipeline` Worker version `fd5c7dd5-becc-4444-aa07-b5b78c674282`; sandbox image digest `sha256:a64ae25431d463413fbc57c2670d54e2264ac3f0e21548621fbe3f7415a6b1a8`; Pi container image digest `sha256:7a34a721d60a32ff703a75cb6ca24e33010cbd22250d1fe8b947689c033b2fe5`.
+- `gascity-supervisor` Worker version `a21cfa9c-8b3e-4652-9e04-58081765f1e0`; container image digest `sha256:13a10f597fdf4030b2117c792838275f47187db2041d15ab94805d1b67d16b46`; singleton marker `singleton-v40`.
+
 Not completed:
 - No authenticated live attempt was run; tokens are still not exported in this shell and no secret files were read.
-- Deployment not yet performed for ff-pipeline or gascity-supervisor after these latest fixes.
 
 ## Last update
 2026-06-02T22:45:00Z
