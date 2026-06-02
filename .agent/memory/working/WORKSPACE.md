@@ -1,38 +1,36 @@
 # Current Workspace
 
 ## Status
-Session ended at 2026-05-31T21:34:03.244Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
+Gas City dispatch/pi-rpc recovery handoff written at 2026-06-02T02:35:54Z.
 
 ## Last update
-2026-05-31T21:34:03.244Z
+2026-06-02T02:35:54Z
 
-## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
+## Current focus
+- CareTrace dispatch `EP-MPVY9M6H` is live enough to execute Plan, Code, Verify, and Finalize through the `control-dispatcher` and pi-rpc path.
+- Current live root beads: dispatch `do-4041`, workflow `do-4042`, trace `5d0de67b-76b5-46ff-8b5c-275a965b6ced`.
+- Deployed Function Factory worker version `d7582377-a523-41f5-abcc-f789004ca1af`, image `d7582377`, singleton `singleton-v38`.
+- Queue at handoff: `running=1`, `work.in_progress=0`, `work.ready=0`, `work.open=1`.
 
-- [21:23:29] Bash: cd /Users/wes/Developer/gascity && go test ./cmd/gc/ -run 'Harness|Fidelity|Dispatch|Molecule' -count=1 -timeout 120s -v
-- [21:23:38] Bash: cd /Users/wes/Developer/gascity && go test ./cmd/gc/ -run 'TestFidelityValidatorMissingWebhookURLNoPanic' -count=1 -time
-- [21:24:22] Bash: cd /Users/wes/Developer/gascity && git stash list; git status --short | head; echo "=== stash my changes and test baseli
-- [21:24:27] Bash: cd /Users/wes/Developer/gascity && git status --short
-- [21:24:35] Bash: cd /Users/wes/Developer/gascity && echo "### handler_sling.go diff (should be ONLY molecule.start)"; git diff internal/a
-- [21:24:45] Bash: cd /Users/wes/Developer/gascity && go vet ./internal/telemetry/ ./internal/api/ ./cmd/gc/ 2>&1 | tail -15; echo "=== vet
-- [21:25:03] Bash: cd /Users/wes/Developer/gascity && go build ./... && echo "BUILD OK" && go test ./internal/telemetry/ -count=1 -timeout 
-- [21:29:00] Bash: cd /Users/wes/Developer/gascity && go test $(go list ./... | grep -v 'cmd/gc') -count=1 -timeout 180s 2>&1 | grep -E "^(
-- [21:29:34] Bash: cd /Users/wes/Developer/gascity && git stash push -u -m wp-obs-4-baseline-check >/dev/null 2>&1 && echo "stashed"; go te
-- [21:29:50] Bash: cd /Users/wes/Developer/gascity && go test ./internal/api/ -run 'TestHandleProviderReadiness|TestHandleReadiness' -count
-- [21:30:48] Bash: cd /Users/wes/Developer/gascity && go test ./internal/api/ ./internal/telemetry/ -count=1 -timeout 120s -p 1 2>&1 | grep
-- [21:31:23] Bash: cd /Users/wes/Developer/gascity && go test ./cmd/gc/ -run 'Harness|Fidelity|Dispatch|Molecule' -count=1 -timeout 180s -p
-- [21:32:17] Bash: cd /Users/wes/Developer/gascity && go test ./cmd/gc/ -run 'Harness|Fidelity|Dispatch|Molecule' -count=1 -timeout 180s -p
-- [21:32:48] Bash: cd /Users/wes/Developer/gascity && GOOS=linux GOARCH=amd64 go build -o /Users/wes/Developer/function-factory/workers/gas
-- [21:32:55] Bash: cd /Users/wes/Developer/gascity && git add \
-  internal/telemetry/events.go \
-  internal/telemetry/events_molecule_test.
-- [21:33:03] Bash: cd /Users/wes/Developer/gascity && git commit -m "INFRA: WP-OBS-4 molecule lifecycle telemetry
+## Completed fixes
+- `workflowServeQueue` now recovers `in_progress` runtime work already assigned to `control-dispatcher`.
+- Factory Store Durable Object contract now handles PascalCase `UpdateOpts`, null-as-absent fields, metadata merges, labels, CloseAll metadata/count, query filters, limits, and `includeClosed`.
+- Gas City `openControlStoreAtForCity` preserves DO-backed stores instead of forcing bd-backed control-store access.
+- Headless control-dispatcher env guard was emergency-unblocked; follow-up should tighten this to only the `control-dispatcher` headless path.
+- Formula template and supervisor binary were rebuilt and redeployed.
 
-Wire the WP-OBS-3 Emitte
-- [21:33:09] Bash: git branch --show-current && git add workers/gascity-supervisor/gc-linux-amd64 && git commit -m "INFRA: WP-OBS-4 rebuild
-- [21:33:13] Bash: curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"message":"WP-OBS-4 molecule lifec
-- [21:33:43] Agent: WP-OBS-4 molecule lifecycle telemetry
-- [21:33:57] Edit: /Users/wes/.claude/projects/-Users-wes-Developer-function-factory/memory/project_session_2026_05_31.md
+## Validation
+- `go test ./cmd/gc -run 'TestOpenControlStoreAtForCityPreservesFileAndExecProviderStores|TestRunWorkflowServeFollowAllowsHeadlessControlDispatcher|TestWorkflowServeQueueIncludesInProgressControlDispatcherRuntimeWork' -count=1` passed.
+- `npm run typecheck` passed.
+- Live DO contract repro passed after deployment.
+- Attempt 5 results: Plan `do-4043` pass, Code `do-4044` pass, Verify `do-4045` pass, Release `do-4046` fail-closed on `fidelity-release.sh exit=1`, Finalize `do-4047` pass.
+
+## Handoff
+- Primary handoff document: `specs/reference/CODEX-HANDOFF-GC-DISPATCH-PI-RPC-2026-06-02.md`.
+- Remaining work: tighten the headless dispatcher guard, investigate Release fidelity failure, restore ff-pipeline run-monitor snapshots if required, and optionally close/clean older failed attempts.
+
+## Dirty-state warning
+- Function Factory and Gas City both had pre-existing unrelated dirty files before the final handoff. Do not treat every dirty file as part of this recovery without checking `git diff`.
 
 ## Notes
-This file is auto-updated on session end. Manual edits will be overwritten.
-Archive to `.agent/memory/episodic/snapshots/` if you need to preserve a specific state.
+This file is auto-updated on session end. Manual edits may be overwritten.

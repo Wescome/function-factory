@@ -47,7 +47,8 @@ authenticity before triggering Fidelity Verification (IP-3).
 Read each step's description before acting. Config values in vars override
 this header text."""
 formula = "factory-coding-v1"
-version = 1
+version = 3
+contract = "graph.v2"
 
 [vars]
 
@@ -135,6 +136,8 @@ default = "[]"
 [[steps]]
 id = "plan"
 title = "Plan — {{fn_id}} attempt {{factory_attempt}}"
+# AC-REG2/AC-REG6: planner needs AI reasoning + workspace write scope.
+runtime_requirements = ["ai_reasoning", "model_routing", "workspace_write_scope"]
 labels = [
   "fn-id:{{fn_id}}",
   "is-id:{{is_id}}",
@@ -172,6 +175,8 @@ description = """
 id = "code"
 title = "Code — {{fn_id}} attempt {{factory_attempt}}"
 needs = ["plan"]
+# AC-REG2/AC-REG6: coder needs AI reasoning + workspace write scope + contract eval + tool probe.
+runtime_requirements = ["ai_reasoning", "model_routing", "workspace_write_scope", "contract_evaluation", "tool_capability_probe"]
 labels = [
   "fn-id:{{fn_id}}",
   "is-id:{{is_id}}",
@@ -204,6 +209,8 @@ description = """
 id = "verify"
 title = "Verify — {{fn_id}} attempt {{factory_attempt}}"
 needs = ["code"]
+# AC-REG2/AC-REG6: verifier needs AI reasoning + contract evaluation.
+runtime_requirements = ["ai_reasoning", "model_routing", "contract_evaluation"]
 labels = [
   "fn-id:{{fn_id}}",
   "is-id:{{is_id}}",
@@ -241,6 +248,8 @@ re-enter at the Code step.
 id = "release"
 title = "Release — signal Factory completion for {{fn_id}}"
 needs = ["verify"]
+# AC-REG2: release step runs the fidelity shell script; needs command exec only.
+runtime_requirements = ["command_exec", "file_materialize"]
 labels = [
   "fn-id:{{fn_id}}",
   "is-id:{{is_id}}",
@@ -254,60 +263,85 @@ description = """
 Signal Factory that this execution is complete. Factory will run Fidelity
 Verification (IP-3) on receipt.
 
-**1. Collect the outcome:**
+The outcome is NOT decided here by a heuristic. It is computed by the Gas City
+fidelity validator (IS-GC-FIDELITY-VALIDATION) — a deterministic, no-LLM pure
+function of the provider response envelope, the step type, and the prior step
+verdicts. The validator produces exactly one verdict (`approved` | `revise`),
+builds the exact RELEASE payload the Factory webhook accepts (bare-integer
+`factory_attempt`, fixed field order, HMAC over the raw bytes), and decides
+whether to re-run the molecule, emit the RELEASE webhook, or fail closed.
 
-Read `{{rig_root}}/REVISE-{{factory_attempt}}.md` if it exists — if present,
-outcome is `revise`; otherwise outcome is `approved`.
+**1. Assemble the fidelity job from the molecule's evidence.**
 
-```bash
-OUTCOME="approved"
-if [ -f "{{rig_root}}/REVISE-{{factory_attempt}}.md" ]; then
-  OUTCOME="revise"
-fi
-```
+The provider evidence for each step (response envelope: `status`,
+`artifact_manifest`, `policy_events`, plus the domain-adapter-normalized
+per-step evidence in `step_outputs` — e.g. `patch_diff`,
+`patch_applies_cleanly`, `verifier_report_present`, `verifier_accepts`,
+`tests_section_present`, `final_matches_verified`, `patch_model_id`,
+`verify_model_id`) and the prior step verdicts MUST be written to
+`{{rig_root}}/fidelity-job.json` in the validator's job shape. The validator is
+domain-neutral: which per-step-type checks run is decided by
+`factory/fidelity-checks.toml` (the per-step-type check table, matched against
+`step_name` by regex), NOT by the validator code. `is_release_step` marks the
+molecule's terminator step (the one that emits the RELEASE webhook). The lineage
+and loop fields come from the formula vars already substituted here:
 
-**2. Build the payload:**
-
-```bash
-PAYLOAD=$(cat <<EOF
+```json
 {
-  "fn_id": "{{fn_id}}",
-  "is_id": "{{is_id}}",
-  "es_id": "{{es_id}}",
-  "ep_id": "{{ep_id}}",
-  "form_id": "{{form_id}}",
-  "factory_attempt": "{{factory_attempt}}",
-  "bead_id": "$GC_BEAD_ID",
-  "outcome": "$OUTCOME"
+  "step_name": "release",
+  "is_release_step": true,
+  "lineage": {
+    "fn_id": "{{fn_id}}",
+    "is_id": "{{is_id}}",
+    "es_id": "{{es_id}}",
+    "ep_id": "{{ep_id}}",
+    "form_id": "{{form_id}}",
+    "factory_attempt": {{factory_attempt}},
+    "bead_id": "$GC_BEAD_ID"
+  },
+  "declared_outputs": [ ... ],
+  "prior_step_verdicts": [ ... ],
+  "response": { ... the provider response envelope for the molecule ... },
+  "convergence": { "max_amendment_depth": {{max_iterations}} },
+  "webhook": {
+    "url": "{{ff_webhook_url}}",
+    "hmac_secret": "$GAS_CITY_HMAC_SECRET",
+    "key_id": "{{ff_webhook_hmac_keyid}}"
+  }
 }
-EOF
-)
 ```
 
-**3. Sign and POST to Factory:**
+`factory_attempt` is emitted as a BARE JSON INTEGER here (no quotes) — the
+validator and the Factory schema both require `Number.isInteger`. Do not quote
+it.
+
+**2. Run the validator + RELEASE driver.**
+
+The driver reads the job, runs the deterministic validator, and acts on the
+verdict: it POSTs the signed RELEASE payload (retrying once on non-2xx,
+FV-22), re-enters the molecule on a re-runnable `revise`, or POSTs a
+`molecule.failed` event if evidence is absent/malformed (fail-closed, FV-20).
 
 ```bash
-SIGNATURE=$(printf '%s' "$PAYLOAD" | openssl dgst -sha256 -hmac "$GAS_CITY_HMAC_SECRET" | awk '{print $2}')
+export GC_BEAD_ID FN_ID="{{fn_id}}" GAS_CITY_HMAC_SECRET
+export FF_WEBHOOK_URL="{{ff_webhook_url}}"
+export FF_WEBHOOK_HMAC_KEYID="{{ff_webhook_hmac_keyid}}"
+export RIG_ROOT="{{rig_root}}"
 
-curl -s -o /dev/null -w "%{http_code}" \
-  -X POST "{{ff_webhook_url}}" \
-  -H "Content-Type: application/json" \
-  -H "X-GC-Signature: sha256=$SIGNATURE" \
-  -H "X-GC-Key-ID: {{ff_webhook_hmac_keyid}}" \
-  -d "$PAYLOAD"
+bash /data/cities/factory/fidelity/fidelity-release.sh
+RC=$?
 ```
 
-Expect HTTP 200 or 202. On any other status, log the response body and retry
-once after 5 seconds. If retry also fails, write the error to bead notes
-(`gc bd note <this-bead> "RELEASE failed: <status> <body>"`) and close with
-`--status=blocked`. Factory's operational sweeper will detect the stale
-dispatch_log row and alert.
+Driver exit codes:
+- `0`  — RELEASE POSTed and accepted (200/202); the bead is already closed.
+- `10` — verdict was a re-runnable `revise`; the molecule re-enters at the
+  Code step as attempt N+1 (formula `max_iterations = {{max_iterations}}`
+  governs the loop). The remediation is persisted to
+  `{{rig_root}}/REMEDIATION-<next>.md` for the next attempt to inject.
+- `20` — fail-closed: a `molecule.failed` event was POSTed and the bead was
+  closed `--status=blocked`. Factory's operational sweeper picks it up.
 
-**4. Close this step:**
-
-```bash
-gc bd close "$GC_BEAD_ID"
-```
-
-**Exit criteria:** HTTP 200/202 received and logged. Step closed.
+**Exit criteria:** the driver exited 0 (RELEASE accepted) or 10 (molecule
+re-entering) or 20 (fail-closed event emitted). On 0 the bead is closed by the
+driver; do not double-close.
 """

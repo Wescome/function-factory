@@ -169,15 +169,25 @@ export class FactoryStore {
     const sets: string[] = []
     const values: unknown[] = []
     const add = (k: string, v: unknown): void => { sets.push(`${k} = ?${values.length + 1}`); values.push(v) }
-    if (opts.title !== undefined) add("title", opts.title)
-    if (opts.status !== undefined) add("status", opts.status)
-    if (opts.issue_type !== undefined) add("issue_type", opts.issue_type)
-    if (opts.priority !== undefined) add("priority", opts.priority)
-    if (opts.description !== undefined) add("description", opts.description)
-    if (opts.parent !== undefined) add("parent_id", opts.parent)
-    if (opts.assignee !== undefined) add("assignee", opts.assignee)
-    if (opts.metadata !== undefined) add("metadata", JSON.stringify(opts.metadata))
-    if (opts.labels !== undefined) add("labels", JSON.stringify(opts.labels))
+    const title = this.opt(opts, "title", "Title")
+    const status = this.opt(opts, "status", "Status")
+    const issueType = this.opt(opts, "issue_type", "Type")
+    const priority = this.opt(opts, "priority", "Priority")
+    const description = this.opt(opts, "description", "Description")
+    const parent = this.opt(opts, "parent", "ParentID")
+    const assignee = this.opt(opts, "assignee", "Assignee")
+    const metadata = this.opt(opts, "metadata", "Metadata")
+    const labels = this.opt(opts, "labels", "Labels")
+    const removeLabels = this.opt(opts, "remove_labels", "RemoveLabels")
+    if (title !== undefined) add("title", title)
+    if (status !== undefined) add("status", status)
+    if (issueType !== undefined) add("issue_type", issueType)
+    if (priority !== undefined) add("priority", priority)
+    if (description !== undefined) add("description", description)
+    if (parent !== undefined) add("parent_id", parent)
+    if (assignee !== undefined) add("assignee", assignee)
+    if (metadata !== undefined) add("metadata", JSON.stringify(this.mergedMetadata(id, metadata)))
+    if (labels !== undefined || removeLabels !== undefined) add("labels", JSON.stringify(this.mergedLabels(id, labels, removeLabels)))
     if (sets.length > 0) this.db.exec(`UPDATE beads SET ${sets.join(", ")} WHERE id = ?${values.length + 1}`, ...values, id)
     return this.getBead(id)
   }
@@ -187,9 +197,9 @@ export class FactoryStore {
   private tombstoneBead(id: string): Response { this.db.exec("UPDATE beads SET status='deleted', ephemeral=0 WHERE id=?1", id); return this.json({ ok: true }) }
 
   private setMetadataBatch(id: string, body: JsonRecord): Response {
-    const kvs = (body.kvs ?? {}) as Record<string, string>
+    const kvs = this.stringRecord(body.kvs ?? {})
     const row = this.db.exec("SELECT metadata FROM beads WHERE id=?1", id).one() as { metadata?: string } | null
-    const metadata = row?.metadata ? JSON.parse(row.metadata) as Record<string, string> : {}
+    const metadata = this.parseMetadata(row?.metadata)
     Object.assign(metadata, kvs)
     this.db.exec("UPDATE beads SET metadata=?1 WHERE id=?2", JSON.stringify(metadata), id)
     return this.json({ ok: true })
@@ -197,8 +207,76 @@ export class FactoryStore {
 
   private closeAll(body: JsonRecord): Response {
     const ids = (body.ids ?? []) as string[]
-    for (const id of ids) this.db.exec("UPDATE beads SET status='closed' WHERE id=?1", id)
-    return this.json({ closed: ids.length })
+    const metadataPatch = this.stringRecord(this.opt(body, "metadata", "Metadata") ?? {})
+    let closed = 0
+    for (const id of ids) {
+      const row = this.db.exec("SELECT status, metadata FROM beads WHERE id=?1", id).one() as { status?: string, metadata?: string } | null
+      if (!row || row.status === "closed") continue
+      const metadata = this.parseMetadata(row.metadata)
+      Object.assign(metadata, metadataPatch)
+      this.db.exec("UPDATE beads SET status='closed', metadata=?1 WHERE id=?2", JSON.stringify(metadata), id)
+      closed++
+    }
+    return this.json({ closed })
+  }
+
+  private opt(record: JsonRecord, lower: string, upper: string): unknown {
+    if (record[lower] !== undefined && record[lower] !== null) return record[lower]
+    if (record[upper] !== undefined && record[upper] !== null) return record[upper]
+    return undefined
+  }
+
+  private stringOpt(record: JsonRecord, lower: string, upper: string): string {
+    const value = this.opt(record, lower, upper)
+    return value === undefined || value === null ? "" : String(value)
+  }
+
+  private mergedMetadata(id: string, patch: unknown): Record<string, string> {
+    const row = this.db.exec("SELECT metadata FROM beads WHERE id=?1", id).one() as { metadata?: string } | null
+    const metadata = this.parseMetadata(row?.metadata)
+    Object.assign(metadata, this.stringRecord(patch))
+    return metadata
+  }
+
+  private mergedLabels(id: string, append: unknown, remove: unknown): string[] {
+    const row = this.db.exec("SELECT labels FROM beads WHERE id=?1", id).one() as { labels?: string } | null
+    const labels = new Set(this.parseStringArray(row?.labels))
+    for (const label of this.stringArray(append)) labels.add(label)
+    for (const label of this.stringArray(remove)) labels.delete(label)
+    return [...labels]
+  }
+
+  private parseMetadata(raw: unknown): Record<string, string> {
+    if (typeof raw !== "string" || raw.trim() === "") return {}
+    try {
+      return this.stringRecord(JSON.parse(raw))
+    } catch {
+      return {}
+    }
+  }
+
+  private stringRecord(value: unknown): Record<string, string> {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return {}
+    const out: Record<string, string> = {}
+    for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+      if (raw === undefined || raw === null) continue
+      out[key] = String(raw)
+    }
+    return out
+  }
+
+  private parseStringArray(raw: unknown): string[] {
+    if (typeof raw !== "string" || raw.trim() === "") return []
+    try {
+      return this.stringArray(JSON.parse(raw))
+    } catch {
+      return []
+    }
+  }
+
+  private stringArray(value: unknown): string[] {
+    if (!Array.isArray(value)) return []
+    return value.filter((item): item is string => typeof item === "string" && item !== "")
   }
 
   private runTx(body: JsonRecord): Response {
@@ -249,9 +327,15 @@ export class FactoryStore {
     const values: unknown[] = []
     // gc DoStore (internal/beads/query.go ListQuery) marshals with no json tags,
     // so wire keys are PascalCase: Status/Assignee/ParentID. Accept both casings.
-    const status = query.status ?? query.Status
-    const assignee = query.assignee ?? query.Assignee
-    const parent = query.parent ?? query.ParentID
+    const status = this.stringOpt(query, "status", "Status")
+    const assignee = this.stringOpt(query, "assignee", "Assignee")
+    const parent = this.stringOpt(query, "parent", "ParentID")
+    const issueType = this.stringOpt(query, "issue_type", "Type")
+    const label = this.stringOpt(query, "label", "Label")
+    const metadata = this.stringRecord(this.opt(query, "metadata", "Metadata") ?? {})
+    const includeClosed = Boolean(this.opt(query, "include_closed", "IncludeClosed"))
+    const limit = Number(this.opt(query, "limit", "Limit") ?? 0)
+    const sort = this.stringOpt(query, "sort", "Sort")
     if (status) {
       if (status === "open") {
         // Legacy beads predate the createBead default fix and persist as status=''.
@@ -262,11 +346,29 @@ export class FactoryStore {
         where.push(`status=?${values.length + 1}`)
       }
       values.push(status)
+    } else if (!includeClosed) {
+      where.push(`status!='closed'`)
     }
     if (assignee) { where.push(`assignee=?${values.length + 1}`); values.push(assignee) }
     if (parent) { where.push(`parent_id=?${values.length + 1}`); values.push(parent) }
+    if (issueType) { where.push(`issue_type=?${values.length + 1}`); values.push(issueType) }
     const rows = this.db.exec(`SELECT * FROM beads${where.length > 0 ? ` WHERE ${where.join(" AND ")}` : ""}`, ...values).toArray() as JsonRecord[]
-    return this.json(rows.map((row) => this.mapBeadRow(row)))
+    let beads = rows.map((row) => this.mapBeadRow(row))
+    if (label) beads = beads.filter((bead) => this.stringArray(bead.labels).includes(label))
+    if (Object.keys(metadata).length > 0) {
+      beads = beads.filter((bead) => {
+        const beadMetadata = this.stringRecord(bead.metadata)
+        return Object.entries(metadata).every(([key, value]) => beadMetadata[key] === value)
+      })
+    }
+    if (sort === "created_asc" || sort === "created_desc") {
+      beads.sort((a, b) => {
+        const cmp = String(a.created_at).localeCompare(String(b.created_at))
+        return sort === "created_desc" ? -cmp : cmp
+      })
+    }
+    if (limit > 0 && beads.length > limit) beads = beads.slice(0, limit)
+    return this.json(beads)
   }
 
   private mapBeadRow(row: JsonRecord): JsonRecord {
