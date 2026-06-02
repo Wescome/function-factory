@@ -54,16 +54,29 @@ emit_molecule_failed() {
   # Fail-closed path when the runtime or job is unusable. Build + sign a minimal
   # molecule.failed event so the bead does not silently hang (FV-20).
   local message="$1"
-  local body sig
+  local body sig code
   body=$(printf '{"event_type":"molecule.failed","fn_id":"%s","bead_id":"%s","severity":"sev2","message":"%s"}' \
     "${FN_ID:-FN-UNKNOWN}" "${GC_BEAD_ID:-bead-unknown}" "$message")
   sig=$(printf '%s' "$body" | openssl dgst -sha256 -hmac "${GAS_CITY_HMAC_SECRET:-}" -hex | awk '{print $NF}')
-  curl -s -o /dev/null -w "%{http_code}" \
+  code=$(curl -s -o /dev/null -w "%{http_code}" \
     -X POST "${FF_WEBHOOK_URL:?FF_WEBHOOK_URL required}" \
     -H "Content-Type: application/json" \
     -H "X-GC-Signature: sha256=$sig" \
     -H "X-GC-Key-ID: $KEYID" \
-    -d "$body" || true
+    -d "$body") || true
+}
+
+extract_cli_result() {
+  local result="$1"
+  local rt="$2"
+  local expr="$3"
+  printf '%s' "$result" | "$rt" -e "const fs=require('fs');let r;try{r=JSON.parse(fs.readFileSync(0,'utf8'));}catch{process.exit(2)}const value=$expr;if(value===undefined||value===null){process.exit(3)}process.stdout.write(String(value))"
+}
+
+fail_malformed_cli_output() {
+  emit_molecule_failed "Fidelity validator output was not valid JSON or was missing required fields."
+  gc bd close "$GC_BEAD_ID" --status=blocked || true
+  exit 20
 }
 
 main() {
@@ -86,14 +99,18 @@ main() {
   result="$("$rt" "$CLI" < "$JOB")" || true
 
   local action
-  action="$(printf '%s' "$result" | "$rt" -e 'const r=JSON.parse(require("fs").readFileSync(0,"utf8"));process.stdout.write(r.action)')"
+  if ! action="$(extract_cli_result "$result" "$rt" 'r.action')"; then
+    fail_malformed_cli_output
+  fi
 
   case "$action" in
     post_release)
       local body url sig
-      body="$(printf '%s' "$result" | "$rt" -e 'const r=JSON.parse(require("fs").readFileSync(0,"utf8"));process.stdout.write(r.body)')"
-      url="$(printf '%s' "$result" | "$rt" -e 'const r=JSON.parse(require("fs").readFileSync(0,"utf8"));process.stdout.write(r.url)')"
-      sig="$(printf '%s' "$result" | "$rt" -e 'const r=JSON.parse(require("fs").readFileSync(0,"utf8"));process.stdout.write(r.headers["X-GC-Signature"])')"
+      if ! body="$(extract_cli_result "$result" "$rt" 'r.body')" ||
+         ! url="$(extract_cli_result "$result" "$rt" 'r.url')" ||
+         ! sig="$(extract_cli_result "$result" "$rt" 'r.headers["X-GC-Signature"]')"; then
+        fail_malformed_cli_output
+      fi
 
       local code
       code=$(curl -s -o /tmp/ff-release-resp.txt -w "%{http_code}" \
@@ -104,7 +121,7 @@ main() {
         -d "$body")
       if [ "$code" != "200" ] && [ "$code" != "202" ]; then
         # FV-22 — retry once with the identical payload + signature.
-        sleep 5
+        sleep "${FIDELITY_RETRY_SLEEP_SECONDS:-5}"
         code=$(curl -s -o /tmp/ff-release-resp.txt -w "%{http_code}" \
           -X POST "$url" \
           -H "Content-Type: application/json" \
@@ -115,15 +132,18 @@ main() {
       if [ "$code" != "200" ] && [ "$code" != "202" ]; then
         gc bd note "$GC_BEAD_ID" "RELEASE failed: $code $(cat /tmp/ff-release-resp.txt 2>/dev/null)" || true
         gc bd close "$GC_BEAD_ID" --status=blocked || true
-        exit 1
+        emit_molecule_failed "Factory RELEASE webhook rejected completion payload with status $code."
+        exit 20
       fi
       gc bd close "$GC_BEAD_ID"
       exit 0
       ;;
     rerun)
       local next rem
-      next="$(printf '%s' "$result" | "$rt" -e 'const r=JSON.parse(require("fs").readFileSync(0,"utf8"));process.stdout.write(String(r.next_attempt))')"
-      rem="$(printf '%s' "$result" | "$rt" -e 'const r=JSON.parse(require("fs").readFileSync(0,"utf8"));process.stdout.write(r.remediation_to_inject)')"
+      if ! next="$(extract_cli_result "$result" "$rt" 'r.next_attempt')" ||
+         ! rem="$(extract_cli_result "$result" "$rt" 'r.remediation_to_inject')"; then
+        fail_malformed_cli_output
+      fi
       # Whole-molecule restart (spec Open Question 1 adopted default). Persist the
       # remediation so the next attempt's authoring steps can inject it as context.
       printf '%s' "$rem" > "${RIG_ROOT:-.}/REMEDIATION-${next}.md"
@@ -132,8 +152,10 @@ main() {
       ;;
     molecule_failed)
       local body url sig
-      body="$(printf '%s' "$result" | "$rt" -e 'const r=JSON.parse(require("fs").readFileSync(0,"utf8"));process.stdout.write(r.body)')"
-      sig="$(printf '%s' "$result" | "$rt" -e 'const r=JSON.parse(require("fs").readFileSync(0,"utf8"));process.stdout.write(r.headers["X-GC-Signature"])')"
+      if ! body="$(extract_cli_result "$result" "$rt" 'r.body')" ||
+         ! sig="$(extract_cli_result "$result" "$rt" 'r.headers["X-GC-Signature"]')"; then
+        fail_malformed_cli_output
+      fi
       curl -s -o /dev/null -w "%{http_code}" \
         -X POST "$FF_WEBHOOK_URL" \
         -H "Content-Type: application/json" \

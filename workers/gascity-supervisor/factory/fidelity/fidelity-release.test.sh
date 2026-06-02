@@ -42,7 +42,7 @@ cat > "$WORK/bin/curl" <<EOF
 #!/usr/bin/env bash
 # Record the POST body + headers, return 202.
 for a in "\$@"; do printf '%s\n' "\$a" >> "$WORK/curl.args"; done
-echo "202"
+echo "\${CURL_STATUS:-202}"
 EOF
 cat > "$WORK/bin/gc" <<EOF
 #!/usr/bin/env bash
@@ -82,7 +82,26 @@ contains "POST carries bare integer factory_attempt" '"factory_attempt": 1' "$(c
 contains "POST carries X-GC-Key-ID v1" "v1" "$(cat "$WORK/curl.args")"
 contains "bead closed" "bd close bead-driver-1" "$(cat "$WORK/gc.calls")"
 
-echo "[2] verifier reject → post_release revise (Abort, no rerun)"
+echo "[2] release webhook rejection → molecule_failed, bead blocked"
+write_job '{
+  "step_name":"release","is_release_step":true,
+  "lineage":{"fn_id":"FN-GC-FIDELITY-VALIDATION","is_id":"IS-X","es_id":"ES-X","ep_id":"EP-X","form_id":"FORM-X","factory_attempt":1,"bead_id":"bead-driver-1"},
+  "declared_outputs":["FinalPatch"],
+  "prior_step_verdicts":[{"step_index":0,"step_name":"verify","outcome":"approved","remediation":""}],
+  "response":{"status":"completed","artifact_manifest":[{"name":"FinalPatch","state":"produced","checksum":"f1"}],"policy_events":[],"completion_claimed_without_manifest":false,"step_outputs":{"final_matches_verified":true}},
+  "convergence":{"max_amendment_depth":3},
+  "webhook":{"url":"https://factory/webhooks/gascity","hmac_secret":"driver-secret","key_id":"v1"}
+}'
+: > "$WORK/curl.args"; : > "$WORK/gc.calls"
+export CURL_STATUS=500
+export FIDELITY_RETRY_SLEEP_SECONDS=0
+set +e; bash "$SCRIPT_DIR/fidelity-release.sh"; rc=$?; set -e
+unset CURL_STATUS FIDELITY_RETRY_SLEEP_SECONDS
+check "exit code 20 (molecule_failed)" "20" "$rc"
+contains "molecule.failed event POSTed" "molecule.failed" "$(cat "$WORK/curl.args")"
+contains "bead blocked" "bd close bead-driver-1 --status=blocked" "$(cat "$WORK/gc.calls")"
+
+echo "[3] verifier reject → post_release revise (Abort, no rerun)"
 write_job '{
   "step_name":"verify","is_release_step":false,
   "lineage":{"fn_id":"FN-GC-FIDELITY-VALIDATION","is_id":"IS-X","es_id":"ES-X","ep_id":"EP-X","form_id":"FORM-X","factory_attempt":1,"bead_id":"bead-driver-1"},
@@ -98,7 +117,7 @@ check "exit code 0 (post_release)" "0" "$rc"
 contains "POST carries revise outcome" '"outcome": "revise"' "$(cat "$WORK/curl.args")"
 contains "POST carries remediation" '"remediation"' "$(cat "$WORK/curl.args")"
 
-echo "[3] patch conflict, depth remaining → rerun (no POST, remediation persisted)"
+echo "[4] patch conflict, depth remaining → rerun (no POST, remediation persisted)"
 write_job '{
   "step_name":"code","is_release_step":false,
   "lineage":{"fn_id":"FN-GC-FIDELITY-VALIDATION","is_id":"IS-X","es_id":"ES-X","ep_id":"EP-X","form_id":"FORM-X","factory_attempt":1,"bead_id":"bead-driver-1"},
@@ -112,14 +131,26 @@ write_job '{
 set +e; bash "$SCRIPT_DIR/fidelity-release.sh"; rc=$?; set -e
 check "exit code 10 (rerun)" "10" "$rc"
 check "no POST issued on rerun" "" "$(cat "$WORK/curl.args")"
-contains "remediation persisted for attempt 2" "regenerate" "$(cat "$WORK/REMEDIATION-2.md" 2>/dev/null || echo MISSING)"
+contains "remediation persisted for attempt 2" "non-empty diff" "$(cat "$WORK/REMEDIATION-2.md" 2>/dev/null || echo MISSING)"
 
-echo "[4] fail-closed: job spec absent → molecule_failed POSTed, bead blocked"
+echo "[5] fail-closed: job spec absent → molecule_failed POSTed, bead blocked"
 rm -f "$WORK/fidelity-job.json"
 : > "$WORK/curl.args"; : > "$WORK/gc.calls"
 set +e; bash "$SCRIPT_DIR/fidelity-release.sh"; rc=$?; set -e
 check "exit code 20 (molecule_failed)" "20" "$rc"
 contains "molecule.failed event POSTed" "molecule.failed" "$(cat "$WORK/curl.args")"
+
+echo "[6] fail-closed: malformed CLI output → molecule_failed POSTed, no shell crash"
+cat > "$WORK/malformed-cli.js" <<'EOF'
+process.stdout.write('not-json')
+EOF
+export FIDELITY_CLI="$WORK/malformed-cli.js"
+write_job '{}'
+: > "$WORK/curl.args"; : > "$WORK/gc.calls"
+set +e; bash "$SCRIPT_DIR/fidelity-release.sh"; rc=$?; set -e
+check "exit code 20 (molecule_failed)" "20" "$rc"
+contains "molecule.failed event POSTed" "molecule.failed" "$(cat "$WORK/curl.args")"
+export FIDELITY_CLI="$SCRIPT_DIR/cli.ts"
 
 echo ""
 echo "RESULT: $PASS passed, $FAIL failed"

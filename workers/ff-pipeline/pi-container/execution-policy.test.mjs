@@ -4,6 +4,7 @@ import {
   PI_DEFAULT_TOOL_NAMES,
   authoringModeForInput,
   executionPolicyObservation,
+  shouldSkipPromptAfterPreflight,
   shouldMaterializeContracts,
 } from './execution-policy.mjs'
 
@@ -37,5 +38,31 @@ describe('pi execution policy', () => {
       expectedToolNames: PI_DEFAULT_TOOL_NAMES,
       toolInventorySource: 'pi-default-system-prompt',
     })
+  })
+
+  it('does not skip the prompt when no output contracts exist', () => {
+    expect(shouldSkipPromptAfterPreflight({
+      deterministicCommandCount: 0,
+      contractCount: 0,
+      missingCount: 0,
+    })).toBe(false)
+  })
+
+  it('skips the prompt only when deterministic materialization satisfied declared contracts', () => {
+    expect(shouldSkipPromptAfterPreflight({
+      deterministicCommandCount: 1,
+      contractCount: 1,
+      missingCount: 0,
+    })).toBe(true)
+    expect(shouldSkipPromptAfterPreflight({
+      deterministicCommandCount: 1,
+      contractCount: 2,
+      missingCount: 0,
+    })).toBe(false)
+    expect(shouldSkipPromptAfterPreflight({
+      deterministicCommandCount: 1,
+      contractCount: 1,
+      missingCount: 1,
+    })).toBe(false)
   })
 })

@@ -26,7 +26,7 @@ import { fileURLToPath } from 'node:url'
 import { buildPrompt } from './execution-contract.mjs'
 import { evaluateContracts, defaultContract, buildContractRepairPrompt } from './contract-evaluator.mjs'
 import { contractMaterializeCommand } from './contract-materializer.mjs'
-import { executionPolicyObservation, shouldMaterializeContracts } from './execution-policy.mjs'
+import { executionPolicyObservation, shouldMaterializeContracts, shouldSkipPromptAfterPreflight } from './execution-policy.mjs'
 import { hasSeedWorkspace, prepareSeedWorkspace, workspacePromptSection } from './workspace-seed.mjs'
 import { workspaceDerivedArtifactCommand } from './workspace-derived-artifacts.mjs'
 import { createPromptDiagnostic } from './prompt-diagnostics.mjs'
@@ -751,7 +751,11 @@ async function handleExecute(req, res) {
     pushObservationEvent(observation, { type: 'contract.evaluation', attempt: 'pre-prompt', findings: evaluation.findings })
 
     const deterministicCommandCount = workspaceDerivedCommands.length + materializeCommands.length
-    const skipPrompt = deterministicCommandCount === contracts.length && evaluation.missing.length === 0
+    const skipPrompt = shouldSkipPromptAfterPreflight({
+      deterministicCommandCount,
+      contractCount: contracts.length,
+      missingCount: evaluation.missing.length,
+    })
     if (!skipPrompt) {
       if (requiresFilesystemAuthoring(evaluation, declaredOutputs)) {
         const probe = await runToolCapabilityProbe({

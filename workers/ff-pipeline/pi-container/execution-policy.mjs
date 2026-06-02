@@ -15,6 +15,16 @@ export function shouldMaterializeContracts(input) {
   return authoringModeForInput(input) !== AUTHORING_MODES.autonomousFilesystem
 }
 
+export function shouldSkipPromptAfterPreflight({
+  deterministicCommandCount,
+  contractCount,
+  missingCount,
+}) {
+  return contractCount > 0 &&
+    deterministicCommandCount === contractCount &&
+    missingCount === 0
+}
+
 export function executionPolicyObservation(input) {
   const execution = input?.execution ?? {}
   const requiredCapabilities = Array.isArray(execution.requiredCapabilities)
