@@ -1,36 +1,50 @@
 # Current Workspace
 
 ## Status
-Gas City dispatch/pi-rpc recovery handoff written at 2026-06-02T02:35:54Z.
+Active continuation at 2026-06-02T03:08:27Z.
+
+Gas City dispatch/pi-rpc recovery progressed past the Release webhook mismatch:
+- tightened `gc convoy control --serve --follow` headless guard so only control-dispatcher can run without `GC_SESSION_NAME` / `GC_SESSION_ID`;
+- fixed Gas City fidelity job lineage so RELEASE payload `bead_id` uses `gc.source_bead_id` when present, matching Factory `dispatch_log.gc_bead_id`;
+- rebuilt `workers/gascity-supervisor/gc-linux-amd64`;
+- rotated supervisor singleton `singleton-v38` -> `singleton-v39`;
+- deployed `gascity-supervisor` Worker version `75301dd0-7bec-4fb7-8adc-c291935d7330`, container image tag `75301dd0`.
+
+Validation passed:
+- `go test ./cmd/gc -run 'TestFidelity|TestOpenControlStoreAtForCityPreservesFileAndExecProviderStores|TestRunWorkflowServeFollow(AllowsHeadlessControlDispatcher|AllowsHeadlessQualifiedControlDispatcher|RejectsHeadlessNonControlDispatcher|AllowsSessionContextForNonControlDispatcher)|TestWorkflowServeQueueIncludesInProgressControlDispatcherRuntimeWork' -count=1`
+- `npm run typecheck` in `workers/gascity-supervisor`
+- unauthenticated supervisor `/v0/health` returned 401, confirming Worker reachability/auth gate.
+
+Not completed:
+- full `go test ./cmd/gc -count=1` parked with no output after ~2.5 minutes and was stopped.
+- no authenticated live redispatch was attempted because no token was read.
 
 ## Last update
-2026-06-02T02:35:54Z
+2026-06-02T03:08:27Z
 
-## Current focus
-- CareTrace dispatch `EP-MPVY9M6H` is live enough to execute Plan, Code, Verify, and Finalize through the `control-dispatcher` and pi-rpc path.
-- Current live root beads: dispatch `do-4041`, workflow `do-4042`, trace `5d0de67b-76b5-46ff-8b5c-275a965b6ced`.
-- Deployed Function Factory worker version `d7582377-a523-41f5-abcc-f789004ca1af`, image `d7582377`, singleton `singleton-v38`.
-- Queue at handoff: `running=1`, `work.in_progress=0`, `work.ready=0`, `work.open=1`.
+## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
-## Completed fixes
-- `workflowServeQueue` now recovers `in_progress` runtime work already assigned to `control-dispatcher`.
-- Factory Store Durable Object contract now handles PascalCase `UpdateOpts`, null-as-absent fields, metadata merges, labels, CloseAll metadata/count, query filters, limits, and `includeClosed`.
-- Gas City `openControlStoreAtForCity` preserves DO-backed stores instead of forcing bd-backed control-store access.
-- Headless control-dispatcher env guard was emergency-unblocked; follow-up should tighten this to only the `control-dispatcher` headless path.
-- Formula template and supervisor binary were rebuilt and redeployed.
-
-## Validation
-- `go test ./cmd/gc -run 'TestOpenControlStoreAtForCityPreservesFileAndExecProviderStores|TestRunWorkflowServeFollowAllowsHeadlessControlDispatcher|TestWorkflowServeQueueIncludesInProgressControlDispatcherRuntimeWork' -count=1` passed.
-- `npm run typecheck` passed.
-- Live DO contract repro passed after deployment.
-- Attempt 5 results: Plan `do-4043` pass, Code `do-4044` pass, Verify `do-4045` pass, Release `do-4046` fail-closed on `fidelity-release.sh exit=1`, Finalize `do-4047` pass.
-
-## Handoff
-- Primary handoff document: `specs/reference/CODEX-HANDOFF-GC-DISPATCH-PI-RPC-2026-06-02.md`.
-- Remaining work: tighten the headless dispatcher guard, investigate Release fidelity failure, restore ff-pipeline run-monitor snapshots if required, and optionally close/clean older failed attempts.
-
-## Dirty-state warning
-- Function Factory and Gas City both had pre-existing unrelated dirty files before the final handoff. Do not treat every dirty file as part of this recovery without checking `git diff`.
+- [01:43:16] Bash: cd /Users/wes/Developer/gascity && grep -n "workflowServeScanLimit\|workflowServeIdlePoll" cmd/gc/dispatch_runtime.go | 
+- [01:43:56] Bash: grep -n "GC_BEADS\|GC_BEAD_STORE_URL\|GC_SUPERVISOR_TOKEN\|containerEnv\|container.*env\|env.*container" /Users/wes/Deve
+- [01:44:19] Bash: cd /Users/wes/Developer/gascity && grep -n "func controlBdStoreForCity" cmd/gc/*.go 2>/dev/null
+- [01:45:10] Bash: cd /Users/wes/Developer/gascity && grep -n "ControlDispatcherAgentName\|injectControlDispatcherAgents\|\"control-dispatc
+- [02:35:54] Codex: Completed Gas City dispatch/pi-rpc recovery handoff: DO Store contract, control-store DO provider preservation, workflow queue recovery, d7582377 deployment, and live attempt 5 status documented; Release fidelity fail-closed remains.
+- [02:45:27] Bash: git log --oneline -8 && echo "---" && git status --short
+- [02:45:33] Bash: git show a1c8aa0 -p -- harnesses/gascity-templates/factory-coding-v1.toml workers/gascity-supervisor/src/factory-store-d
+- [02:45:47] Bash: git show a1c8aa0 -p -- workers/gascity-supervisor/src/factory-store-do.ts workers/gascity-supervisor/src/index.ts 2>/dev
+- [02:46:01] Bash: find /Users/wes/Developer/function-factory -name "CODEX-HANDOFF*" 2>/dev/null
+- [02:49:53] Bash: git log --oneline -5 && echo "---STATUS---" && git status --short && echo "---DIFF STAT---" && git diff --stat HEAD
+- [02:49:53] Bash: cd /Users/wes/Developer/gascity && git log --oneline -5 && echo "---STATUS---" && git status --short && echo "---DIFF ST
+- [02:50:08] Bash: cd /Users/wes/Developer/gascity && git branch --show-current && git log --oneline -3 && echo "---REMOTE---" && git remot
+- [02:50:09] Bash: git diff workers/ff-pipeline/wrangler.jsonc
+- [02:50:18] Bash: git branch --show-current && git remote -v && git log origin/factory/fp-motdwvr2-w7un..HEAD --oneline 2>/dev/null || git
+- [02:50:22] Bash: git fetch origin factory/fp-motdwvr2-w7un 2>/dev/null && git log origin/factory/fp-motdwvr2-w7un..HEAD --oneline
+- [02:50:23] Bash: cd /Users/wes/Developer/gascity && git fetch fork factory 2>/dev/null && git log fork/factory..HEAD --oneline
+- [02:50:26] Bash: git log --oneline origin/factory/fp-motdwvr2-w7un..HEAD 2>/dev/null; echo "ff ahead count: $?"
+- [02:50:26] Bash: cd /Users/wes/Developer/gascity && git log --oneline fork/factory..HEAD 2>/dev/null; echo "gc ahead count: $?"
+- [02:50:31] Bash: git rev-parse HEAD && git rev-parse origin/factory/fp-motdwvr2-w7un 2>/dev/null || echo "remote ref not found"
+- [02:50:32] Bash: cd /Users/wes/Developer/gascity && git rev-parse HEAD && git rev-parse fork/factory 2>/dev/null || echo "remote ref not 
 
 ## Notes
-This file is auto-updated on session end. Manual edits may be overwritten.
+This file is auto-updated on session end. Manual edits will be overwritten.
+Archive to `.agent/memory/episodic/snapshots/` if you need to preserve a specific state.

@@ -7,6 +7,37 @@ Primary repos:
 
 ## Executive State
 
+Continuation update at 2026-06-02T03:08:27Z:
+
+The Release failure root cause was narrowed from "fidelity validation failed" to
+"Factory webhook rejected the approved RELEASE payload." `fidelity-release.sh`
+exit `1` is the script's post-release non-2xx path. The likely rejection was
+`orphan_bead`: the Factory webhook matches `payload.bead_id` to
+`dispatch_log.gc_bead_id` (`do-4041` in attempt 5), while Gas City was sending
+the Release step bead id (`do-4046`).
+
+Fix deployed:
+- Gas City `buildFidelityJob` now uses `gc.source_bead_id` as the RELEASE
+  webhook `bead_id` when present, falling back to the local bead id.
+- `gc convoy control --serve --follow` headless mode is tightened: only the
+  control-dispatcher target can run without `GC_SESSION_NAME` / `GC_SESSION_ID`.
+- Rebuilt `workers/gascity-supervisor/gc-linux-amd64`.
+- Rotated supervisor singleton `singleton-v38` -> `singleton-v39`.
+- Deployed supervisor Worker version `75301dd0-7bec-4fb7-8adc-c291935d7330`,
+  container image tag `75301dd0`.
+
+Validation:
+- Gas City focused regressions passed:
+  `go test ./cmd/gc -run 'TestFidelity|TestOpenControlStoreAtForCityPreservesFileAndExecProviderStores|TestRunWorkflowServeFollow(AllowsHeadlessControlDispatcher|AllowsHeadlessQualifiedControlDispatcher|RejectsHeadlessNonControlDispatcher|AllowsSessionContextForNonControlDispatcher)|TestWorkflowServeQueueIncludesInProgressControlDispatcherRuntimeWork' -count=1`
+- Supervisor `npm run typecheck` passed.
+- Unauthenticated `GET /v0/health` returned HTTP 401, confirming deployed Worker
+  reachability and auth gate.
+
+Not yet done:
+- No authenticated live redispatch/attempt 6 was run in this continuation.
+- Full `go test ./cmd/gc -count=1` parked with no output after about 2.5 minutes
+  and was stopped; focused regression coverage passed.
+
 The original CareTrace dispatch failure is fixed live.
 
 Gas City now:
@@ -242,4 +273,3 @@ Gas City:
 - `/Users/wes/Developer/gascity/cmd/gc/dispatch_runtime.go`
 
 Pre-existing unrelated dirty files were present in both repos. Do not assume the full git diff belongs to this recovery.
-
