@@ -18,7 +18,8 @@
  */
 
 import { createServer } from 'node:http'
-import { spawn } from 'node:child_process'
+import { execSync, execFileSync, spawn } from 'node:child_process'
+import { writeFileSync } from 'node:fs'
 import { mkdir, mkdtemp, readFile, writeFile, stat, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
@@ -360,7 +361,13 @@ class JsonlReader {
 
 // ── Wait for pi agent_end ─────────────────────────────────────────────────────
 
-function waitForAgentEnd(reader, timeoutMs) {
+function capturePatchFromWorkspace(workspaceDir) {
+  execFileSync('git', ['add', '-A'], { cwd: workspaceDir, stdio: 'inherit' })
+  const diff = execFileSync('git', ['diff', '--cached'], { cwd: workspaceDir }).toString()
+  writeFileSync(join(dirname(workspaceDir), 'CandidatePatch'), diff)
+}
+
+function waitForAgentEnd(reader, timeoutMs, onAgentEnd) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       off()
@@ -370,6 +377,9 @@ function waitForAgentEnd(reader, timeoutMs) {
       if (msg.type === 'agent_end') {
         clearTimeout(timer)
         off()
+        if (typeof onAgentEnd === 'function') {
+          onAgentEnd()
+        }
         resolve(msg)
       }
     })
@@ -713,6 +723,19 @@ async function handleExecute(req, res) {
     }
   }
 
+  const workspaceDir = join(workDir, 'workspace')
+  const captureCandidatePatch = () => {
+    try {
+      capturePatchFromWorkspace(workspaceDir)
+      pushObservationEvent(observation, { type: 'candidate_patch_captured' })
+    } catch (err) {
+      pushObservationEvent(observation, {
+        type: 'candidate_patch_capture_error',
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
+  }
+
   const startPi = async (model, modelIndex, reason = 'initial') => {
     selectedModel = model
     selectedModelIndex = modelIndex
@@ -900,7 +923,7 @@ async function handleExecute(req, res) {
       }
       const prompt = buildPrompt(promptInput)
       capturePromptDiagnostic(diagnosticContents, observation, stageName, 'initial', prompt)
-      const agentEndPromise = waitForAgentEnd(reader, EXECUTE_TIMEOUT_MS)
+      const agentEndPromise = waitForAgentEnd(reader, EXECUTE_TIMEOUT_MS, captureCandidatePatch)
       pi.stdin.write(JSON.stringify({ type: 'prompt', message: prompt }) + '\n')
       await agentEndPromise
       evaluation = await evaluateContracts({ workDir, contracts })
@@ -913,7 +936,7 @@ async function handleExecute(req, res) {
       const repairPrompt = buildContractRepairPrompt(evaluation.findings)
       capturePromptDiagnostic(diagnosticContents, observation, stageName, `repair-${repairsUsed}`, repairPrompt)
       pushObservationEvent(observation, { type: 'contract.repair_requested', round: repairsUsed })
-      const endPromise = waitForAgentEnd(reader, EXECUTE_TIMEOUT_MS)
+      const endPromise = waitForAgentEnd(reader, EXECUTE_TIMEOUT_MS, captureCandidatePatch)
       pi.stdin.write(JSON.stringify({ type: 'prompt', message: repairPrompt }) + '\n')
       await endPromise
       evaluation = await evaluateContracts({ workDir, contracts })

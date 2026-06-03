@@ -74,7 +74,7 @@ export function workspacePromptSection(prepared) {
     '',
     'For patch outputs, edit files from inside `./workspace`, then write the unified diff to the required root artifact such as `./CandidatePatch`.',
     'Use paths like `a/src/file.ts` and `b/src/file.ts` in diff headers.',
-    'The seeded workspace is a git repo with a clean baseline, so `cd workspace && git diff > ../CandidatePatch` is the preferred patch artifact path.',
+    'The seeded workspace is a git repo with a clean baseline, so `cd workspace && git add -A && git diff --cached > ../CandidatePatch` is the preferred patch artifact path.',
     'For verification outputs, copy `./workspace` to a temporary directory, run `git apply ../CandidatePatch` from that copy, then run the declared test command.',
   )
   return lines.join('\n')

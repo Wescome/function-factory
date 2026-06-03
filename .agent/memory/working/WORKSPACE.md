@@ -1,56 +1,37 @@
 # Current Workspace
 
 ## Status
-Session ended at 2026-06-03T03:09:06.490Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
+Session ended at 2026-06-03T05:12:55.417Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
 
 ## Last update
-2026-06-03T03:09:06.490Z
+2026-06-03T05:12:55.417Z
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
-- [01:02:19] Bash: OPERATOR_TOKEN=$(cat /tmp/gc_token.txt)
-curl -s -H "Authorization: Bearer $OPERATOR_TOKEN" \
-  "https://ff-pipeline.koal
-- [01:02:32] Bash: node --check /Users/wes/Developer/function-factory/workers/ff-pipeline/pi-container/server.mjs 2>&1
-- [01:15:55] Bash: cd /Users/wes/Developer/function-factory && git status --short && echo "---" && git log --oneline -3 && echo "---gascity
-- [01:17:36] Bash: cd /Users/wes/Developer/function-factory && bash scripts/ops/dispatch-only.sh 2>&1
-- [01:27:52] Bash: GC_BEARER=$(cat /tmp/gc_supervisor_token.txt)
-ROOT_BEAD="do-4831"
-SUPERVISOR_URL="https://gascity-supervisor.koales.work
-- [01:31:51] Bash: OPERATOR_TOKEN=$(cat /tmp/gc_token.txt)
-curl -s -H "Authorization: Bearer $OPERATOR_TOKEN" \
-  "https://ff-pipeline.koal
-- [01:32:09] Bash: bash scripts/ops/dispatch-only.sh 2>&1
-- [01:35:41] Bash: GC_BEARER=$(cat /tmp/gc_supervisor_token.txt)
-ROOT_BEAD="do-4884"
-SUPERVISOR_URL="https://gascity-supervisor.koales.work
-- [01:36:11] Bash: GC_BEARER=$(cat /tmp/gc_supervisor_token.txt)
-for BEAD in do-4885 do-4886 do-4887; do
-  echo "=== $BEAD ==="
-  curl -s -
-- [02:25:46] Bash: node --check /Users/wes/Developer/function-factory/workers/ff-pipeline/pi-container/server.mjs 2>&1 && echo "OK"
-- [02:27:18] Bash: cd /Users/wes/Developer/function-factory && bash scripts/ops/dispatch-only.sh 2>&1
-- [02:33:40] Bash: GC_BEARER=$(cat /tmp/gc_supervisor_token.txt)
-ROOT_BEAD="do-5001"
-SUPERVISOR_URL="https://gascity-supervisor.koales.work
-- [02:33:53] Bash: GC_BEARER=$(cat /tmp/gc_supervisor_token.txt)
-curl -s -H "Authorization: Bearer $GC_BEARER" \
-  "https://gascity-supervi
-- [02:34:07] Bash: OPERATOR_TOKEN=$(cat /tmp/gc_token.txt)
-curl -s -H "Authorization: Bearer $OPERATOR_TOKEN" \
-  "https://ff-pipeline.koal
-- [02:50:14] Bash: node --check /Users/wes/Developer/function-factory/workers/ff-pipeline/pi-container/server.mjs 2>&1 && echo "OK"
-- [02:51:24] Bash: cd /Users/wes/Developer/function-factory && bash scripts/ops/dispatch-only.sh 2>&1
-- [03:01:37] Bash: GC_BEARER=$(cat /tmp/gc_supervisor_token.txt)
-ROOT_BEAD="do-5086"
-SUPERVISOR_URL="https://gascity-supervisor.koales.work
-- [03:02:06] Bash: OPERATOR_TOKEN=$(cat /tmp/gc_token.txt)
-curl -s -H "Authorization: Bearer $OPERATOR_TOKEN" \
-  "https://ff-pipeline.koal
-- [03:02:27] Bash: bash scripts/ops/dispatch-only.sh 2>&1
-- [03:09:01] Bash: GC_BEARER=$(cat /tmp/gc_supervisor_token.txt)
-ROOT_BEAD="do-5133"
-SUPERVISOR_URL="https://gascity-supervisor.koales.work
+- [05:00:34] Agent: SE augment SPEC-FF-DEVOPS-001 for full lifecycle production/Ops
+- [05:00:34] Bash: grep -rn "ACTIVE_EXECUTION_KEY\|R2.*checkpoint\|checkpoint\|exit 143\|exit143\|143\|SIGTERM\|resume" workers/ff-pipeline
+- [05:00:42] Bash: curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"message":"Algorithm agent activat
+- [05:00:46] Bash: ls /Users/wes/.claude/skills/PAI/SKILL.md /Users/wes/.claude/skills/skill-index.json 2>&1; echo "---REPO SEARCH---"; fin
+- [05:00:46] Bash: cd /Users/wes/Developer/function-factory; echo "=== ff-pipeline wrangler ==="; grep -n "name\|image\|class_name\|contain
+- [05:00:57] Bash: cd /Users/wes/Developer/function-factory; grep -n "recordActiveExecution\|clearActiveExecution\|infrastructure_error\|fa
+- [05:01:00] Bash: grep -rl "SPEC-FF-DEVOPS" . 2>/dev/null | head; echo "---WRANGLER---"; ls workers/ff-pipeline/wrangler.jsonc 2>/dev/null
+- [05:01:08] Bash: cd /Users/wes/Developer/function-factory
+echo "=== pi-container-version.ts (restart decision) ==="
+grep -n "shouldRestar
+- [05:01:09] Bash: curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"message":"Augmented the DevOps sp
+- [05:01:16] Bash: cd /Users/wes/Developer/function-factory; sed -n '100,120p' workers/ff-pipeline/wrangler.jsonc
+- [05:02:21] Bash: curl -s -X POST http://localhost:8888/notify \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Running the St
+- [05:04:47] Bash: ls /Users/wes/Developer/function-factory/workers/ && ls /Users/wes/Developer/function-factory/ 2>/dev/null | head -30
+- [05:04:51] Bash: ls /Users/wes/Developer/function-factory/workers/gascity-supervisor/ 2>/dev/null && cat /Users/wes/Developer/function-fa
+- [05:04:52] Bash: ls /Users/wes/Developer/function-factory/.github/workflows/ 2>/dev/null || echo "no .github/workflows found"
+- [05:07:32] Bash: ls /Users/wes/Developer/function-factory/.github/workflows/ 2>/dev/null && cat /Users/wes/Developer/function-factory/.gi
+- [05:11:29] Write: /Users/wes/Developer/function-factory/specs/reference/SPEC-FF-DEVOPS-001-v2.md
+- [05:12:18] Bash: ls /Users/wes/Developer/function-factory/specs/reference/ 2>/dev/null && ls /Users/wes/Developer/function-factory/docs/a
+- [05:12:33] Bash: wc -l /Users/wes/Developer/function-factory/specs/reference/SPEC-FF-DEVOPS-001-v2.md && tail -30 /Users/wes/Developer/fu
+- [05:12:35] Bash: wc -l /Users/wes/Developer/function-factory/docs/adr/ADR-0012-candidatepatch-untracked-file-fix.md 2>/dev/null && head -
+- [05:12:46] Bash: head -30 /Users/wes/Developer/function-factory/specs/reference/ADR-012-candidatepatch-git-diff-fix.md
 
 ## Notes
 This file is auto-updated on session end. Manual edits will be overwritten.

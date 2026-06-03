@@ -308,7 +308,7 @@ export function buildContractRepairPrompt(findings) {
       lines.push(
         `For patch artifacts, write the unified diff to ${patchArtifacts.map((name) => `\`./${name}\``).join(', ')} in the current working directory.`,
       )
-      lines.push(`If a seeded workspace exists, use \`cd workspace && git diff > ../${patchArtifacts[0]}\` after making the workspace edits.`)
+      lines.push(`If a seeded workspace exists, use \`cd workspace && git add -A && git diff --cached > ../${patchArtifacts[0]}\` after making the workspace edits.`)
     }
     lines.push('')
     for (const f of failing) {
