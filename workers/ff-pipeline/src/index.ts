@@ -291,6 +291,11 @@ export default {
       return fetchPiContainerDiagnostic(env, '/__pi-container/restart', 'POST')
     }
 
+    if (url.pathname === '/smoke/e2e' && request.method === 'POST') {
+      const { handleSmokeE2E } = await import('./smoke/smoke-e2e-handler.js')
+      return handleSmokeE2E(request, env)
+    }
+
     if (url.pathname.startsWith('/run-status/') && request.method === 'GET') {
       if (!env.WORKSPACE_BUCKET) {
         return json({ error: 'WORKSPACE_BUCKET binding unavailable' }, 503)
@@ -2445,11 +2450,11 @@ async function handleSeedFactoryArtifacts(request: Request, env: PipelineEnv): P
   }
 }
 
-type OperatorAuthorizationResult =
+export type OperatorAuthorizationResult =
   | { ok: true }
   | { ok: false; status: number; error: string }
 
-function authorizeOperatorControl(request: Request, env: PipelineEnv): OperatorAuthorizationResult {
+export function authorizeOperatorControl(request: Request, env: PipelineEnv): OperatorAuthorizationResult {
   const expected = env.OPERATOR_CONTROL_TOKEN
   if (!expected) {
     return env.ENVIRONMENT === 'production'

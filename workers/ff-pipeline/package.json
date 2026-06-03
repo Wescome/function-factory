@@ -8,7 +8,9 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
-    "test": "vitest run --passWithNoTests --no-file-parallelism --exclude \"src/_attic/**\""
+    "test": "vitest run --passWithNoTests --no-file-parallelism --exclude \"src/_attic/**\"",
+    "fidelity:check": "node scripts/fidelity-check.mjs",
+    "smoke:e2e": "node scripts/smoke-e2e.mjs"
   },
   "dependencies": {
     "@cloudflare/sandbox": "latest",
