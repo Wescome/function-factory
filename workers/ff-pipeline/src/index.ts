@@ -59,7 +59,7 @@ function piContainerStub(env: PipelineEnv): DurableObjectStub | null {
 
 async function fetchPiContainerDiagnostic(
   env: PipelineEnv,
-  path: '/__pi-container/status' | '/__pi-container/restart' | '/health',
+  path: '/__pi-container/status' | '/__pi-container/restart' | '/health' | '/__pi-container/fence',
   method: 'GET' | 'POST',
 ): Promise<Response> {
   const stub = piContainerStub(env)
@@ -1405,6 +1405,12 @@ export default {
 
     if (url.pathname === '/__pi-container/status' && request.method === 'GET') {
       return fetchPiContainerDiagnostic(env, '/__pi-container/status', 'GET')
+    }
+
+    if (url.pathname === '/__pi-container/fence' && request.method === 'GET') {
+      const auth = authorizeOperatorControl(request, env)
+      if (!auth.ok) return json({ error: auth.error }, auth.status)
+      return fetchPiContainerDiagnostic(env, '/__pi-container/fence', 'GET')
     }
 
     if (url.pathname === '/__pi-container/restart' && request.method === 'POST') {

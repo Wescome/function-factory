@@ -88,6 +88,10 @@ export class PiContainer extends DurableObject<PiContainerEnv> {
       return this.statusResponse()
     }
 
+    if (url.pathname === "/__pi-container/fence") {
+      return this.fenceResponse()
+    }
+
     if (request.method === "POST" && url.pathname === "/__pi-container/restart") {
       const desiredBuildId = resolveDesiredPiContainerBuildId(this.env)
       await this.restartContainer(desiredBuildId, "manual")
@@ -463,6 +467,26 @@ export class PiContainer extends DurableObject<PiContainerEnv> {
         startedAt: startedAt ?? null,
         lastMonitorEvent: lastMonitorEvent ?? null,
         activeExecution: activeExecution ?? null,
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    )
+  }
+
+  private async fenceResponse(): Promise<Response> {
+    const activeExecution = await this.ctx.storage.get<ActiveExecution>(ACTIVE_EXECUTION_KEY)
+    const now = Date.now()
+    const startedAt = activeExecution?.startedAt
+    return new Response(
+      JSON.stringify({
+        active: Boolean(activeExecution),
+        ...(activeExecution
+          ? {
+              runId: activeExecution.runId,
+              stageName: activeExecution.stageName,
+              startedAt,
+              ageMs: startedAt ? now - new Date(startedAt).getTime() : undefined,
+            }
+          : {}),
       }),
       { status: 200, headers: { "Content-Type": "application/json" } },
     )

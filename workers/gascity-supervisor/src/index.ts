@@ -1,6 +1,8 @@
 import { Container } from "@cloudflare/containers";
 import { FactoryStore } from "./factory-store-do";
 
+const SUPERVISOR_SINGLETON = "singleton-v43";
+
 export class GasCitySupervisor extends Container<Env> {
   defaultPort = 9443;
   sleepAfter = "30m";
@@ -61,6 +63,14 @@ export class GasCitySupervisor extends Container<Env> {
       return new Response(JSON.stringify({ ok: true, refcount: next }), {
         headers: { "Content-Type": "application/json" },
       });
+    }
+
+    if (url.pathname === "/__supervisor/fence") {
+      const refcount = (await this.ctx.storage.get<number>("keepalive_refcount")) ?? 0;
+      return new Response(
+        JSON.stringify({ active: refcount > 0, refcount }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
     }
 
     // Inject CSRF header — Gas City requires X-GC-Request on all mutations.
@@ -201,7 +211,7 @@ export default {
     // Singleton supervisor DO. The suffix intentionally rotates the container
     // instance after Gas City graph routing/session runtime fixes so Cloudflare
     // starts the newly deployed image instead of reusing a warm pre-fix container.
-    const id = env.SUPERVISOR.idFromName("singleton-v43");
+    const id = env.SUPERVISOR.idFromName(SUPERVISOR_SINGLETON);
     const stub = env.SUPERVISOR.get(id);
     return stub.fetch(request);
   },
