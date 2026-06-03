@@ -1,6 +1,6 @@
 # SPEC-FF-DEVOPS-001 v2 — Function Factory DevOps Governance
 
-**Status:** Production-Ready Candidate — Architect + SE reviewed 2026-06-03  
+**Status:** Production-Ready Candidate — Architect + SE reviewed 2026-06-03. G1/G2/G4 decided 2026-06-03.  
 **Supersedes:** SPEC-FF-DEVOPS-001 draft (2026-06-01)  
 **Produced by:** Architect Agent + SE Agent (parallel review 2026-06-03)  
 **Source anchors:** `workers/ff-pipeline/src/coordinator/pi-container.ts`, `workers/ff-pipeline/src/cf-workers.ts`, `workers/ff-pipeline/wrangler.jsonc`, `workers/gascity-supervisor/src/index.ts`
@@ -691,14 +691,14 @@ jobs:
 
 ## 15. Open Architecture Gates [ADDED]
 
-These require Wes decision before implementation:
+**G1, G2, G4 decided 2026-06-03 by Wes (Architect recommendation approved).**
 
-| # | Gate | Question | Impact if deferred |
-|---|------|----------|---------------------|
-| G1 | `idFromName` collision | Version-naming (`singleton-vN`) vs city-sharding (`singleton-{cityId}`) both want the DO argument. Must be reconciled before automatic buildId-comparison replaces manual rotation. | Manual rotation remains; scaling to multi-city blocked |
-| G2 | `rollout_active_grace_period` value | Max useful grace = ~840s (15 min CF window). If a molecule step runs > 840s, the window is insufficient. Need: confirmed maximum step duration. | SIGTERM can still kill long-running steps even with INV-8 |
-| G3 | `smoke:e2e` + `fidelity:check` scripts | Neither npm script exists today. Required for CI gate. | `factory-pr-check` + `smoke-test` jobs are stubs |
-| G4 | Two-repo vs monorepo for `gc` binary | CI assumes `gc` source lives under `workers/gascity-supervisor`. If gascity is a separate repo, the `go-build` job needs a cross-repo checkout. | `go-build` job produces wrong binary |
+| # | Gate | Decision |
+|---|------|----------|
+| G1 | `idFromName` naming | **Composite `{cityId}-vN`** — hardcode `factory` today; zero-cost composability for multi-city. `singleton-{cityId}-vN` pattern. |
+| G2 | `rollout_active_grace_period` | **Configurable env var, default 600s** — upper bound unknown; tune without redeploy. INV-9 (exit 143 retryable) covers overruns. |
+| G3 | `smoke:e2e` + `fidelity:check` scripts | **Implementation task** — not a Wes gate. GUV to spec and assign. |
+| G4 | `gc` binary CI | **Status quo — committed binary** (`workers/gascity-supervisor/gc-linux-amd64`). Rebuild is manual and infrequent. Cross-repo build when drift becomes a real problem. |
 
 ---
 

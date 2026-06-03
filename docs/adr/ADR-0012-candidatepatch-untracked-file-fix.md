@@ -1,6 +1,6 @@
 # CandidatePatch Capture — Fix Untracked-File Blindness
 
-* Status: Accepted — D1 approved by Wes 2026-06-03. D2/D3 parked.
+* Status: Accepted — D1 approved by Wes 2026-06-03. D2 cancelled. D3 deferred.
 * Deciders: Wes
 * Date: 2026-06-03
 * Technical Story: Live failure do-5193 — CareTrace run produced CandidatePatch = 440 bytes (expected ~2000 lines of TypeScript). Architect review of SPEC-FF-SEEDWORKSPACE-001 completed 2026-06-03.
@@ -41,9 +41,9 @@ Option C is the recommended long-term posture: ship A immediately, re-scope skel
 
 | ID | Question | Options |
 |----|----------|---------|
-| D1 | Ship the two-line prompt fix and re-run CareTrace before any skeleton work? | Yes / No |
-| D2 | Reframe SPEC-FF-SEEDWORKSPACE-001 as "adapter-supplied repoRef skeleton" (agent edits existing target repo) rather than a CandidatePatch bug fix? | Accept reframing / Cancel spec |
-| D3 | Remove `gc-linux-amd64` (102 MB) from git tracking (LFS or R2 artifact)? | LFS / R2 / Separate repo / Defer |
+| D1 | Ship the two-line prompt fix and re-run CareTrace before any skeleton work? | **Approved 2026-06-03** |
+| D2 | Reframe SPEC-FF-SEEDWORKSPACE-001 as "adapter-supplied repoRef skeleton"? | **Cancelled 2026-06-03** — spec cancelled outright |
+| D3 | Remove `gc-linux-amd64` (102 MB) from git tracking? | **Deferred 2026-06-03** — stay with committed binary (see SPEC-FF-DEVOPS-001-v2 G4) |
 
 ### Positive Consequences
 
