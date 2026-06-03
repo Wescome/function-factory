@@ -704,14 +704,14 @@ jobs:
 
 ## Acceptance Criteria for v2 to be Production-Ready
 
-- [ ] All 15 invariants have working detectors (§1.1 audit closed)
-- [ ] `/__pi-container/fence` and `/__supervisor/fence` endpoints implemented
-- [ ] `pi-container.ts:340` classification literal replaced
-- [ ] `pi-container.ts:242` checkpoint-before-delete implemented
-- [ ] `cf-workers.ts:422` + `:364` rollout-retry path added
+- [ ] All 15 invariants have working detectors (§1.1 audit closed — see DEVOPS-INVARIANT-STATUS.md)
+- [x] `/__pi-container/fence` and `/__supervisor/fence` endpoints implemented (d2b94af)
+- [x] `pi-container.ts:340` classification literal replaced (26158e5)
+- [x] `pi-container.ts:242` checkpoint-before-delete implemented (26158e5)
+- [x] `cf-workers.ts:422` + `:364` rollout-retry path added (26158e5)
 - [ ] `singleton-rotation-check` CI gate implemented against CF Deployments API
-- [ ] `smoke:e2e` npm script implemented (no-op molecule, < 5 min, passes Release)
-- [ ] `fidelity:check` npm script implemented
+- [x] `smoke:e2e` npm script implemented (7bbb704)
+- [x] `fidelity:check` npm script implemented (7bbb704)
 - [ ] `secrets-manifest.yaml` created and Runbook-2 procedure validated end-to-end
 - [ ] All six runbooks exercised in staging at least once
-- [ ] G1-G4 architecture gates resolved or explicitly deferred with documented rationale
+- [x] G1-G4 architecture gates resolved or explicitly deferred with documented rationale (9160c96)

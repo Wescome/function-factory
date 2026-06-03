@@ -318,6 +318,7 @@ describe('formatGovernorContextForPrompt', () => {
       hot_config: [
         { _key: 'routing_config', value: {}, updatedAt: '2026-04-29T00:00:00Z' },
       ],
+      lineage_gaps: [],
     }
 
     const text = formatGovernorContextForPrompt(ctx)
@@ -349,6 +350,7 @@ describe('formatGovernorContextForPrompt', () => {
       orientation_assessments: [],
       completion_ledgers: [],
       hot_config: [],
+      lineage_gaps: [],
     }
 
     const text = formatGovernorContextForPrompt(ctx)
