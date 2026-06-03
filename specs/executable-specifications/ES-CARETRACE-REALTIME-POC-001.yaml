@@ -1,0 +1,112 @@
+id: ES-CARETRACE-REALTIME-POC-001
+intentSpecificationId: IS-CARETRACE-REALTIME-POC-001
+functionId: FN-CARETRACE-REALTIME-POC-001
+status: active
+version: "1.0"
+date: 2026-06-01
+source_refs:
+  - IS-CARETRACE-REALTIME-POC-001
+  - CARETRACE-REALTIME-POC-001
+explicitness: explicit
+
+rig_root: /tmp/caretrace-realtime-poc
+
+roles:
+  planner:
+    instruction: |
+      You are planning the implementation of the CareTrace Realtime POC.
+
+      The full specification is in the coder_prompt. Read it completely before producing your plan.
+
+      Produce:
+      1. An ordered list of files to create (exact paths relative to rig_root)
+      2. For each file: one sentence on what it contains
+      3. Deployment order (caretrace-patient-state → caretrace-session → caretrace-agent → dashboard)
+      4. Any risks or ambiguities in the spec
+
+      Do not write code. Output the plan only.
+
+  coder:
+    instruction: |
+      You are implementing the CareTrace Realtime POC. The complete specification follows.
+      Create every file exactly as specified. Do not omit any file. Do not add files not in the spec.
+
+      Working directory: {{rig_root}}
+
+      COMPLETE SPECIFICATION:
+
+      ## Repository Structure
+
+      Create this directory structure under {{rig_root}}:
+
+      caretrace-realtime-poc/
+      ├── workers/
+      │   ├── caretrace-session/
+      │   │   ├── src/index.ts
+      │   │   ├── src/env.d.ts
+      │   │   ├── package.json
+      │   │   ├── tsconfig.json
+      │   │   └── wrangler.jsonc
+      │   ├── caretrace-agent/
+      │   │   ├── src/index.ts
+      │   │   ├── src/ClinicalSignalProcessor.ts
+      │   │   ├── src/env.d.ts
+      │   │   ├── package.json
+      │   │   ├── tsconfig.json
+      │   │   └── wrangler.jsonc
+      │   └── caretrace-patient-state/
+      │       ├── src/index.ts
+      │       ├── src/env.d.ts
+      │       ├── package.json
+      │       ├── tsconfig.json
+      │       └── wrangler.jsonc
+      ├── dashboard/
+      │   ├── coordinator.html
+      │   ├── meeting.html
+      │   └── config.js
+      ├── package.json
+      └── pnpm-workspace.yaml
+
+      Write every file exactly as specified in document CARETRACE-REALTIME-POC-001.
+      The full file contents for every file are in that document — transcribe them exactly.
+
+  verifier:
+    instruction: |
+      Verify the CareTrace Realtime POC implementation against its acceptance criteria.
+
+      Check every file exists at the correct path under {{rig_root}}.
+      Check that file contents match the specification (key signatures, exports, route handlers).
+
+      Acceptance criteria (all must pass):
+      - [ ] package.json exists at root with workspaces config
+      - [ ] pnpm-workspace.yaml exists
+      - [ ] caretrace-patient-state/src/index.ts exports PatientStateDO class and default handler
+      - [ ] caretrace-patient-state/wrangler.jsonc has new_sqlite_classes: ["PatientStateDO"]
+      - [ ] caretrace-session/src/index.ts handles POST /meeting, POST /session/new, POST /session/:id/tracks, PUT /session/:id/renegotiate, GET /health
+      - [ ] caretrace-agent/src/ClinicalSignalProcessor.ts exports ClinicalSignalProcessor extending TextComponent
+      - [ ] caretrace-agent/src/index.ts exports CareTraceAgentDO extending RealtimeAgent and handles POST /init, POST /deinit, GET /health
+      - [ ] caretrace-agent/wrangler.jsonc has script_name: "caretrace-patient-state" binding
+      - [ ] dashboard/config.js exports window.POC_CONFIG with all required keys
+      - [ ] dashboard/coordinator.html and dashboard/meeting.html exist and load config.js
+      - [ ] All wrangler.jsonc files have compatibility_date set
+      - [ ] All tsconfig.json files have strict: true
+
+      Report PASS or REVISE for each criterion. If any REVISE, specify exactly what is missing or wrong.
+
+acceptance_criteria:
+  - id: AC-001
+    description: All files created at correct paths
+  - id: AC-002
+    description: PatientStateDO handles signal storage and WebSocket fan-out
+  - id: AC-003
+    description: caretrace-session proxies Cloudflare Realtime REST API
+  - id: AC-004
+    description: ClinicalSignalProcessor uses Workers AI Llama 3.1 8B for signal extraction
+  - id: AC-005
+    description: CareTraceAgentDO extends RealtimeAgent with Deepgram STT pipeline
+  - id: AC-006
+    description: Dashboard files complete with correct POC_CONFIG shape
+  - id: AC-007
+    description: All TypeScript configs have strict mode enabled
+  - id: AC-008
+    description: Deployment order documented (patient-state → session → agent)

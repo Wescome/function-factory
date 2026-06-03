@@ -22,6 +22,10 @@ export interface WorkerInput {
   modelCandidates?: unknown[]
   maxRepairRounds?: number
   executionSurface?: string
+  execution?: {
+    authoringMode?: 'contract_materialized_when_possible' | 'autonomous_filesystem'
+    [key: string]: unknown
+  }
   [key: string]: unknown
 }
 
@@ -88,5 +92,12 @@ export function normalizePiContainerExecuteInput(
   if (Array.isArray(runtimeConfig.model_candidates)) workerInput.modelCandidates = runtimeConfig.model_candidates
   if (typeof runtimeConfig.max_repair_rounds === 'number') workerInput.maxRepairRounds = runtimeConfig.max_repair_rounds
   if (typeof runtimeConfig.execution_surface === 'string') workerInput.executionSurface = runtimeConfig.execution_surface
+
+  const hasWorkspaceWriteScope = Array.isArray((body as { policy?: { filesystem_scope?: string[] } }).policy?.filesystem_scope)
+    && (body as { policy?: { filesystem_scope?: string[] } }).policy?.filesystem_scope.includes('/workspace')
+  if (hasWorkspaceWriteScope) {
+    workerInput.execution = { authoringMode: 'autonomous_filesystem' }
+  }
+
   return workerInput
 }

@@ -104,7 +104,7 @@
   },
 
   "vars": {
-    "ENVIRONMENT": "production",
+    "ENVIRONMENT": "development",
     "PI_MODEL": "openrouter/openai/gpt-5.4",
     "PI_FILESYSTEM_MODEL_CANDIDATES": "openrouter/openai/gpt-5.4,openrouter/anthropic/claude-sonnet-4.6,openrouter/google/gemini-3.1-pro-preview,openrouter/x-ai/grok-4.20",
     "FACTORY_MAX_ITERATIONS": "5",

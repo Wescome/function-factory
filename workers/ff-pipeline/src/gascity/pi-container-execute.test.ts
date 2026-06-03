@@ -29,6 +29,18 @@ describe('normalizePiContainerExecuteInput', () => {
     expect(out?.executionSurface).toBe('rpc')
   })
 
+  it('forces autonomous_filesystem authoring mode when policy filesystem_scope includes /workspace', () => {
+    const out = normalizePiContainerExecuteInput({
+      step_name: 'GeneratePatch',
+      session_id: 'run-1',
+      policy: {
+        filesystem_scope: ['/workspace'],
+      },
+    })
+
+    expect(out?.execution).toEqual({ authoringMode: 'autonomous_filesystem' })
+  })
+
   // A WorkerInput (camelCase) passes through unchanged.
   it('passes a WorkerInput through unchanged', () => {
     const input = {

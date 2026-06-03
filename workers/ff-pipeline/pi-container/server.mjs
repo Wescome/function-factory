@@ -22,6 +22,7 @@ import { spawn } from 'node:child_process'
 import { mkdir, mkdtemp, readFile, writeFile, stat, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
+import { createHash } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { buildPrompt } from './execution-contract.mjs'
 import { evaluateContracts, defaultContract, buildContractRepairPrompt } from './contract-evaluator.mjs'
@@ -30,7 +31,6 @@ import { executionPolicyObservation, shouldMaterializeContracts, shouldSkipPromp
 import { hasSeedWorkspace, prepareSeedWorkspace, workspacePromptSection } from './workspace-seed.mjs'
 import { workspaceDerivedArtifactCommand } from './workspace-derived-artifacts.mjs'
 import { createPromptDiagnostic } from './prompt-diagnostics.mjs'
-import { createPathGuard } from './path-guard.mjs'
 import {
   TOOL_PROBE_FILE,
   assessToolCapabilityProbe,
@@ -197,6 +197,32 @@ function writeJson(res, status, body) {
   res.end(JSON.stringify(body))
 }
 
+function normalizeArtifactContent(content) {
+  if (typeof content === 'string') return content
+  if (content == null) return ''
+  if (typeof content === 'number' || typeof content === 'boolean') return String(content)
+  if (typeof content === 'object') {
+    try {
+      return JSON.stringify(content)
+    } catch {
+      return ''
+    }
+  }
+  return String(content)
+}
+
+async function loadPathGuard(allowedPaths) {
+  try {
+    const { createPathGuard } = await import('./path-guard.mjs')
+    return createPathGuard(allowedPaths)
+  } catch (err) {
+    throw new PiExecutionError(
+      'PI_PATH_GUARD_IMPORT_ERROR',
+      `path guard unavailable during patch validation: ${err instanceof Error ? err.message : String(err)}`,
+    )
+  }
+}
+
 function capturePromptDiagnostic(diagnosticContents, observation, stageName, attempt, prompt) {
   const diagnostic = createPromptDiagnostic(stageName, attempt, prompt)
   diagnosticContents[diagnostic.key] = diagnostic.content
@@ -250,10 +276,58 @@ function normalizeOutputContract(contract) {
 }
 
 function normalizeOutputContracts(input, declaredOutputs) {
+  const declared = Array.isArray(declaredOutputs) ? declaredOutputs : []
   if (Array.isArray(input.outputContracts) && input.outputContracts.length > 0) {
     return input.outputContracts.map(normalizeOutputContract).filter(Boolean)
   }
-  return declaredOutputs.map(defaultContract)
+  return declared.map(defaultContract)
+}
+
+function manifestChecksum(content) {
+  if (typeof content !== 'string') return ''
+  return createHash('sha256').update(content).digest('hex')
+}
+
+function buildArtifactManifest(declaredOutputs, evaluation) {
+  const declaredList = Array.isArray(declaredOutputs) ? declaredOutputs : []
+  const findings = Array.isArray(evaluation?.findings) ? evaluation.findings : []
+  const contents = evaluation && typeof evaluation.contents === 'object' && evaluation.contents !== null
+    ? evaluation.contents
+    : {}
+  const declared = Array.from(
+    new Set(declaredList.filter((artifact) => typeof artifact === 'string' && artifact.length > 0)),
+  )
+  const declaredSet = new Set(declared)
+  const findingsByArtifact = new Map(
+    findings
+      .filter((finding) => finding && typeof finding === 'object')
+      .map((finding) => [finding.artifact, finding.status]),
+  )
+
+  const manifest = []
+  for (const name of declared) {
+    const status = findingsByArtifact.get(name)
+    if (status === 'pass') {
+      manifest.push({
+        name,
+        state: 'produced',
+        checksum: manifestChecksum(contents[name]),
+      })
+    } else {
+      manifest.push({ name, state: 'missing' })
+    }
+  }
+
+  for (const [name, status] of findingsByArtifact.entries()) {
+    if (declaredSet.has(name) || status !== 'pass' || typeof name !== 'string' || name.length === 0) continue
+    manifest.push({
+      name,
+      state: 'extra',
+      checksum: manifestChecksum(contents[name]),
+    })
+  }
+
+  return manifest
 }
 
 // ── JSONL byte-buffer reader ──────────────────────────────────────────────────
@@ -517,9 +591,9 @@ async function captureSessionArchive(workDir, sessionDir) {
   })
 }
 
-function enforceSeedWorkspacePatchGuard(seed, artifactNames, artifactContents, log) {
+async function enforceSeedWorkspacePatchGuard(seed, artifactNames, artifactContents, log) {
   if (!seed) return
-  const guard = createPathGuard(seed.files.map((file) => file.path))
+  const guard = await loadPathGuard(seed.files.map((file) => file.path))
   const blockedPaths = []
   for (const artifact of artifactNames.filter((name) => name.endsWith('Patch'))) {
     const patch = artifactContents[artifact]
@@ -598,9 +672,11 @@ async function handleExecute(req, res) {
 
   const inputArtifacts = input.context?.inputArtifacts ?? {}
   for (const [name, content] of Object.entries(inputArtifacts)) {
-    await writeFile(join(workDir, name), content, 'utf8')
-    stageLogFn('info', 'execute.input_artifact_written', { stageName, name, bytes: content.length })
-    pushObservationEvent(observation, { type: 'input_artifact_written', name, bytes: content.length })
+    const safeContent = normalizeArtifactContent(content)
+    await writeFile(join(workDir, name), safeContent, 'utf8')
+    const bytes = Buffer.byteLength(safeContent, 'utf8')
+    stageLogFn('info', 'execute.input_artifact_written', { stageName, name, bytes })
+    pushObservationEvent(observation, { type: 'input_artifact_written', name, bytes })
   }
 
   let promptInput = input
@@ -627,6 +703,9 @@ async function handleExecute(req, res) {
   let toolExecutionEventCount = 0
   let pi = null
   let reader = null
+  let artifactManifest = []
+  const declaredOutputs = Array.isArray(input.declaredOutputs) ? input.declaredOutputs : []
+  let evaluation = null
 
   const stopPi = () => {
     if (pi && pi.exitCode === null) {
@@ -697,7 +776,6 @@ async function handleExecute(req, res) {
   try {
     await startPi(selectedModel, selectedModelIndex)
 
-    const declaredOutputs = input.declaredOutputs ?? []
     const maxRepairRounds = Number.isFinite(input.maxRepairRounds) ? Math.max(0, input.maxRepairRounds) : 1
 
     const contracts = normalizeOutputContracts(input, declaredOutputs)
@@ -747,7 +825,7 @@ async function handleExecute(req, res) {
       }
     }
 
-    let evaluation = await evaluateContracts({ workDir, contracts })
+    evaluation = await evaluateContracts({ workDir, contracts })
     pushObservationEvent(observation, { type: 'contract.evaluation', attempt: 'pre-prompt', findings: evaluation.findings })
 
     const deterministicCommandCount = workspaceDerivedCommands.length + materializeCommands.length
@@ -858,7 +936,8 @@ async function handleExecute(req, res) {
 
     const artifactNames = evaluation.findings.filter((f) => f.status === 'pass').map((f) => f.artifact)
     const artifactContents = evaluation.contents
-    enforceSeedWorkspacePatchGuard(seedWorkspace, declaredOutputs, artifactContents, stageLogFn)
+    artifactManifest = buildArtifactManifest(declaredOutputs, evaluation)
+    await enforceSeedWorkspacePatchGuard(seedWorkspace, declaredOutputs, artifactContents, stageLogFn)
 
     let sessionArchive = null
     try {
@@ -885,6 +964,7 @@ async function handleExecute(req, res) {
     stageLogs.set(runId, stageName, stageLog.tail())
     writeJson(res, 200, {
       artifacts: artifactNames,
+      artifact_manifest: artifactManifest,
       artifactContents,
       diagnosticContents,
       message: `${stageName} complete`,
@@ -902,8 +982,10 @@ async function handleExecute(req, res) {
     const observationOut = observationPayload(observation, stageLog, { elapsedMs })
     stageLogFn('error', 'execute.failed', { stageName, error: redact(message), stderrTail: observationOut.stderrTail, elapsedMs })
     stageLogs.set(runId, stageName, stageLog.tail())
+    const resolvedManifest = artifactManifest.length > 0 ? artifactManifest : buildArtifactManifest(declaredOutputs, evaluation)
     writeJson(res, 500, {
       error: { code, message: redact(message), stderrTail: observationOut.stderrTail },
+      artifact_manifest: resolvedManifest,
       observation: observationOut,
       diagnosticContents,
     })
@@ -948,3 +1030,5 @@ const server = createServer(async (req, res) => {
 server.listen(PORT, () => {
   log('info', 'server.ready', { port: PORT, piBin: PI_BIN })
 })
+
+export { handleExecute }
