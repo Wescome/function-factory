@@ -40,6 +40,11 @@ import { emitRunEvent } from "./observability/run-event-log"
 
 const MAX_CONTAINER_DISPATCH_INFRA_ATTEMPTS = 3
 const CONTAINER_DISPATCH_RETRY_DELAYS_MS = [1_000, 3_000]
+// Rollout-specific retry constants. Container replacement after a rollout
+// can take 30-60s (CF cold-start). The shorter infra budget is deliberately
+// preserved for cold-start; rollout gets a longer window.
+const MAX_CONTAINER_ROLLOUT_DISPATCH_ATTEMPTS = 12
+const CONTAINER_ROLLOUT_RETRY_DELAYS_MS = [2_000, 5_000, 10_000, 15_000]
 let containerDispatchRetryDelayOverrideMs: number | undefined
 
 export function setContainerDispatchRetryDelayForTest(delayMs: number | undefined): void {
@@ -345,7 +350,7 @@ abstract class ContainerWorkerAdapter implements WorkerAdapter {
   ): Promise<Response> {
     const routedInput = input as RoutedWorkerInput
     let lastRetryReason: string | undefined
-    for (let attempt = 1; attempt <= MAX_CONTAINER_DISPATCH_INFRA_ATTEMPTS; attempt += 1) {
+    for (let attempt = 1; attempt <= MAX_CONTAINER_ROLLOUT_DISPATCH_ATTEMPTS; attempt += 1) {
       try {
         const response = await this.container.fetch(
           new Request(this.endpoint, {
@@ -361,10 +366,14 @@ abstract class ContainerWorkerAdapter implements WorkerAdapter {
       } catch (fetchErr) {
         const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr)
         console.error(`[${this.name}] dispatch.fetch_error stage=${input.stageName} attempt=${attempt} error=${msg} elapsedMs=${Date.now() - startMs}`)
-        if (!isContainerNotRunningTransient(msg) || attempt >= MAX_CONTAINER_DISPATCH_INFRA_ATTEMPTS) {
-          throw fetchErr
-        }
-        const delayMs = containerDispatchRetryDelayMs(attempt)
+        const isInfraTransient = isContainerNotRunningTransient(msg)
+        const isRolloutTransient = isContainerRolloutTransient(msg)
+        if (!isInfraTransient && !isRolloutTransient) throw fetchErr
+        if (isInfraTransient && attempt >= MAX_CONTAINER_DISPATCH_INFRA_ATTEMPTS) throw fetchErr
+        if (isRolloutTransient && attempt >= MAX_CONTAINER_ROLLOUT_DISPATCH_ATTEMPTS) throw fetchErr
+        const delayMs = isRolloutTransient
+          ? (CONTAINER_ROLLOUT_RETRY_DELAYS_MS[Math.min(attempt - 1, CONTAINER_ROLLOUT_RETRY_DELAYS_MS.length - 1)] ?? 15_000)
+          : containerDispatchRetryDelayMs(attempt)
         lastRetryReason = msg
         await this.emitContainerDispatchRetryScheduled(routedInput, attempt, delayMs, msg)
         await sleep(delayMs)
@@ -389,7 +398,9 @@ abstract class ContainerWorkerAdapter implements WorkerAdapter {
       data: {
         worker: this.name,
         attempt,
-        maxAttempts: MAX_CONTAINER_DISPATCH_INFRA_ATTEMPTS,
+        maxAttempts: isContainerRolloutTransient(reason ?? "")
+          ? MAX_CONTAINER_ROLLOUT_DISPATCH_ATTEMPTS
+          : MAX_CONTAINER_DISPATCH_INFRA_ATTEMPTS,
         delayMs,
         reason,
       },
@@ -421,6 +432,11 @@ abstract class ContainerWorkerAdapter implements WorkerAdapter {
 
 export function isContainerNotRunningTransient(message: string): boolean {
   return /container is not running,?\s+consider calling start\(\)/i.test(message)
+}
+
+// Error strings confirmed from @cloudflare/containers@0.3.5 dist/lib/container.js:962-971
+export function isContainerRolloutTransient(message: string): boolean {
+  return /network connection lost|container suddenly disconnected|runtime signalled the container to exit/i.test(message)
 }
 
 function containerDispatchRetryDelayMs(attempt: number): number {

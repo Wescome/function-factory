@@ -60,6 +60,17 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+// Regex grounded in CF Container runtime error strings from
+// @cloudflare/containers dist/lib/container.js:10-12
+const ROLLOUT_INTERRUPTED_RE = /runtime signalled the container to exit/i
+
+export function classifyContainerCrash(
+  message: string | undefined,
+): "rollout_interrupted" | "infrastructure_error" {
+  if (message && ROLLOUT_INTERRUPTED_RE.test(message)) return "rollout_interrupted"
+  return "infrastructure_error"
+}
+
 export class PiContainer extends DurableObject<PiContainerEnv> {
   private startPromise: Promise<void> | null = null
   private executeQueue = new BoundedSerialQueue(MAX_EXECUTE_QUEUE_DEPTH)
@@ -239,6 +250,39 @@ export class PiContainer extends DurableObject<PiContainerEnv> {
       await this.ctx.container.destroy(reason)
     }
     this.executeQueue = new BoundedSerialQueue(MAX_EXECUTE_QUEUE_DEPTH)
+    // storage.get is wrapped so a DO storage error never blocks the restart (AC-B6).
+    let activeExec: ActiveExecution | undefined
+    try {
+      activeExec = await this.ctx.storage.get<ActiveExecution>(ACTIVE_EXECUTION_KEY)
+    } catch (err) {
+      console.error("pi.container.checkpoint_read_failed", {
+        message: err instanceof Error ? err.message : String(err),
+      })
+    }
+    if (activeExec && this.env.WORKSPACE_BUCKET) {
+      const checkpointKey = `runs/${activeExec.runId}/checkpoints/${activeExec.stageName}.${activeExec.attemptNumber ?? 1}.json`
+      try {
+        await this.env.WORKSPACE_BUCKET.put(
+          checkpointKey,
+          JSON.stringify({
+            runId: activeExec.runId,
+            stageName: activeExec.stageName,
+            attemptNumber: activeExec.attemptNumber ?? 1,
+            interruptedAt: new Date().toISOString(),
+            reason: "rollout_interrupted",
+            restartReason: reason,
+          }),
+          { httpMetadata: { contentType: "application/json" } },
+        )
+      } catch (err) {
+        console.error("pi.container.checkpoint_write_failed", {
+          runId: activeExec.runId,
+          stageName: activeExec.stageName,
+          message: err instanceof Error ? err.message : String(err),
+        })
+        // Intentionally swallowed — restart must proceed even if checkpoint fails.
+      }
+    }
     await this.ctx.storage.delete(ACTIVE_EXECUTION_KEY)
     await this.ctx.storage.delete(STARTED_BUILD_ID_KEY)
     await this.ctx.storage.delete(STARTED_AT_KEY)
@@ -337,7 +381,7 @@ export class PiContainer extends DurableObject<PiContainerEnv> {
             buildId: event.buildId,
             monitorEvent: event.event,
             activeExecutionStartedAt: activeExecution.startedAt,
-            failureClass: "infrastructure_error",
+            failureClass: classifyContainerCrash(event.message ?? event.event),
             message: event.message ?? event.event,
           },
           error: {
