@@ -331,12 +331,15 @@ describe("formula-compiler: compileAndDispatchFormula (IP-1)", () => {
       expect(result.gc_bead_id).toBe("bead-XYZ-001")
     })
 
-    it("fires exactly three Gas City calls in order GET-POST-POST", () => {
+    it("fires exactly four Gas City calls in order GET-POST-POST-POST", () => {
       // Strip query params from the CALL 1 URL before comparing.
+      // The trailing POST is the best-effort keepalive start fired after a
+      // successful sling dispatch (never fails the dispatch).
       expect(state.calls.map((c) => `${c.method} ${c.url.split("/").pop()!.split("?")[0]}`)).toEqual([
         "GET factory-coding-v1",
         "POST beads",
         "POST sling",
+        "POST start",
       ])
     })
 
@@ -1491,8 +1494,9 @@ describe("formula-compiler: compileAndDispatchFormula (IP-1)", () => {
         deps: m.deps,
       })
       expect(result.outcome).toBe("dispatched")
-      // CALL 1 (GET) + CALL 2 (POST beads) + CALL 3 (POST sling) = 3 fetches.
-      expect(signals).toHaveLength(3)
+      // CALL 1 (GET) + CALL 2 (POST beads) + CALL 3 (POST sling) +
+      // best-effort keepalive (POST start) = 4 fetches, each AbortSignal-based.
+      expect(signals).toHaveLength(4)
       for (const sig of signals) {
         expect(sig).toBeDefined()
         // Duck-type check for AbortSignal: has `aborted` boolean and the

@@ -257,12 +257,12 @@ describe('GovernorAgent', () => {
 })
 
 describe('prefetchGovernorContext', () => {
-  it('calls all 8 AQL queries in parallel', async () => {
+  it('calls all 9 AQL queries in parallel', async () => {
     const { db, calls } = createMockDb()
 
     const ctx = await prefetchGovernorContext(db)
 
-    expect(calls).toHaveLength(8)
+    expect(calls).toHaveLength(9)
     expect(calls.some(c => c.query.includes('orl_telemetry'))).toBe(true)
     expect(calls.some(c => c.query.includes('specs_signals') && c.query.includes('pending'))).toBe(true)
     expect(calls.some(c => c.query.includes('execution_artifacts'))).toBe(true)
@@ -271,6 +271,8 @@ describe('prefetchGovernorContext', () => {
     expect(calls.some(c => c.query.includes('orientation_assessments'))).toBe(true)
     expect(calls.some(c => c.query.includes('completion_ledgers'))).toBe(true)
     expect(calls.some(c => c.query.includes('hot_config'))).toBe(true)
+    // Q9: INV-DEVOPS-5 lineage-gap detector — artifacts with null/empty source_refs.
+    expect(calls.some(c => c.query.includes('source_refs == null'))).toBe(true)
   })
 
   it('returns empty arrays when all queries fail', async () => {
