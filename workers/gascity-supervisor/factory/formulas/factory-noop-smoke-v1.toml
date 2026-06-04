@@ -14,21 +14,10 @@ version = 1
 [[steps]]
 id = "probe"
 title = "Smoke probe"
-description = """
-No-op smoke step. Close immediately.
-```bash
-echo "smoke:probe ok"
-```
-"""
+description = "No-op smoke step. Close immediately."
 
 [[steps]]
 id = "probe-confirm"
 title = "Smoke probe confirm"
 needs = ["probe"]
-description = """
-Second no-op step to force convoy expansion and guarantee a workflow_id
-in the sling response. Close immediately.
-```bash
-echo "smoke:probe-confirm ok"
-```
-"""
+description = "Second no-op step to force convoy expansion and guarantee a workflow_id in the sling response. Close immediately."

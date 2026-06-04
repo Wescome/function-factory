@@ -1,7 +1,7 @@
 import { Container } from "@cloudflare/containers";
 import { FactoryStore } from "./factory-store-do";
 
-const SUPERVISOR_SINGLETON = "singleton-v46";
+const SUPERVISOR_SINGLETON = "singleton-v47";
 
 export class GasCitySupervisor extends Container<Env> {
   defaultPort = 9443;
