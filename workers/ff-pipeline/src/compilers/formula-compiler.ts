@@ -1154,7 +1154,11 @@ async function dispatchCall3AndFinalize(args: {
       if (
         priorRow?.outcome === "dispatched" &&
         typeof priorRow.gc_workflow_id === "string" &&
-        priorRow.gc_workflow_id.length > 0
+        priorRow.gc_workflow_id.length > 0 &&
+        // MUST-2: only treat as replay when the 409 carries no workflow_id, or
+        // one that matches the prior dispatched row. A present-but-mismatched
+        // workflow_id is inconsistent evidence and must fall through to reject.
+        (!respWf || respWf === priorRow.gc_workflow_id)
       ) {
         const replayWorkflowID = priorRow.gc_workflow_id
         const replayBeadID = priorRow.gc_bead_id ?? beadId
