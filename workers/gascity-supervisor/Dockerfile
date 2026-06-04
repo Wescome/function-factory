@@ -17,6 +17,7 @@ COPY entrypoint.sh /entrypoint.sh
 COPY supervisor.toml /etc/gc/supervisor.toml
 COPY factory/city.toml /etc/gc/factory/city.toml
 COPY factory/formulas/factory-coding-v1.toml /etc/gc/factory/formulas/factory-coding-v1.toml
+COPY factory/formulas/factory-noop-smoke-v1.toml /etc/gc/factory/formulas/factory-noop-smoke-v1.toml
 # Gas City fidelity validator (IS-GC-FIDELITY-VALIDATION) — deterministic verdict
 # bijection, RELEASE payload + HMAC, convergence loop, fail-closed emission.
 COPY factory/fidelity /etc/gc/factory/fidelity
