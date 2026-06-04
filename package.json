@@ -76,8 +76,7 @@
       "ignoreMissing": []
     },
     "overrides": {
-      "execa": "^8.0.0",
-      "@wescome/nlah": "file:/Users/wes/nlah"
+      "execa": "^8.0.0"
     }
   },
   "workspaces": [
