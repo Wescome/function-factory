@@ -1,0 +1,34 @@
+description = """
+Synthetic smoke probe formula. Two noop steps that force convoy expansion,
+guaranteeing a workflow_id in the sling response for polling.
+
+No AI, no workspace, no pi-rpc. The coder agent's provider=noop handles
+both steps locally without spinning up a Cloudflare Sandbox or pi session.
+
+Used by POST /smoke/e2e on ff-pipeline to verify the dispatch-to-Gas-City
+path is alive after a deploy (INV-8 + SPEC-G3).
+"""
+formula = "factory-noop-smoke-v1"
+version = 1
+
+[[steps]]
+id = "probe"
+title = "Smoke probe"
+description = """
+No-op smoke step. Close immediately.
+```bash
+echo "smoke:probe ok"
+```
+"""
+
+[[steps]]
+id = "probe-confirm"
+title = "Smoke probe confirm"
+needs = ["probe"]
+description = """
+Second no-op step to force convoy expansion and guarantee a workflow_id
+in the sling response. Close immediately.
+```bash
+echo "smoke:probe-confirm ok"
+```
+"""
