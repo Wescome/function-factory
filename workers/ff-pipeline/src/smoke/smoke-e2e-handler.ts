@@ -8,6 +8,7 @@
 
 import { authorizeOperatorControl } from '../index.js'
 import type { PipelineEnv } from '../types.js'
+import type { FormulaCompilerEnv } from '../compilers/formula-compiler.js'
 
 type SmokeOutcome = 'approved' | 'failed' | 'skipped'
 
@@ -55,11 +56,16 @@ export async function handleSmokeE2E(request: Request, env: PipelineEnv): Promis
   }
 
   // GAS_CITY env vars live on FormulaCompilerEnv (same cast pattern as index.ts:2040).
-  const gcEnv = env as PipelineEnv & import('../compilers/formula-compiler.js').FormulaCompilerEnv
+  const gcEnv = env as PipelineEnv & FormulaCompilerEnv & { GAS_CITY?: Fetcher }
   const baseUrl = gcEnv.GAS_CITY_BASE_URL
   const cityName = gcEnv.GAS_CITY_CITY_NAME
   const bearer = gcEnv.GAS_CITY_BEARER_TOKEN
   const agentName = gcEnv.GAS_CITY_AGENT_NAME
+  // Route through the service binding to avoid CF error 1042 (Workers on the same account
+  // cannot use fetch() to call each other via *.workers.dev URLs).
+  const gcFetch: typeof fetch = gcEnv.GAS_CITY
+    ? (url, init) => gcEnv.GAS_CITY!.fetch(url as string, init)
+    : (url, init) => globalThis.fetch(url as string, init)
 
   const missing: string[] = []
   if (!baseUrl) missing.push('GAS_CITY_BASE_URL')
@@ -92,7 +98,7 @@ export async function handleSmokeE2E(request: Request, env: PipelineEnv): Promis
 
   let slingRes: Response
   try {
-    slingRes = await fetch(slingUrl, {
+    slingRes = await gcFetch(slingUrl, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${bearer}`,
@@ -172,7 +178,7 @@ export async function handleSmokeE2E(request: Request, env: PipelineEnv): Promis
 
     let pollRes: Response
     try {
-      pollRes = await fetch(workflowUrl, {
+      pollRes = await gcFetch(workflowUrl, {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${bearer}`,
