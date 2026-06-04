@@ -6,7 +6,6 @@ settings:
 
 overrides:
   execa: ^8.0.0
-  '@wescome/nlah': file:/Users/wes/nlah
 
 importers:
 
@@ -397,8 +396,8 @@ importers:
   packages/nlah:
     dependencies:
       '@wescome/nlah':
-        specifier: file:/Users/wes/nlah
-        version: file:../../nlah
+        specifier: github:Wescome/NLAH#v0.1.0-ff1
+        version: https://codeload.github.com/Wescome/NLAH/tar.gz/d38255f5b541b2971160d832a1f8817028e90b4e
     devDependencies:
       typescript:
         specifier: ^5.4.0
@@ -699,6 +698,22 @@ importers:
       wrangler:
         specifier: ^4.0.0
         version: 4.92.0(@cloudflare/workers-types@4.20260425.1)
+
+  workers/gascity-supervisor:
+    dependencies:
+      '@cloudflare/containers':
+        specifier: ^0.3.5
+        version: 0.3.5
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^4.20260501.0
+        version: 4.20260527.1
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+      wrangler:
+        specifier: ^4.0.0
+        version: 4.92.0(@cloudflare/workers-types@4.20260527.1)
 
 packages:
 
@@ -2041,6 +2056,7 @@ packages:
   '@mariozechner/pi-ai@0.70.2':
     resolution: {integrity: sha512-+30LRPjXsXF+oI96DvGWMbdPGeqoLJvadh6UPev7wx2DzhC9FEqXkQcoMZ0usbCm7E9pl8ua8a9s/pQ5ikaUbg==}
     engines: {node: '>=20.0.0'}
+    deprecated: please use @earendil-works/pi-ai instead going forward
     hasBin: true
 
   '@mistralai/mistralai@1.14.1':
@@ -2659,8 +2675,9 @@ packages:
   '@vitest/utils@3.2.4':
     resolution: {integrity: sha512-fB2V0JFrQSMsCo9HiSq3Ezpdv4iYaXRG1Sx8edX3MwxfyNn83mKiGzOcH+Fkxt4MHxr3y42fQi1oeAInqgX2QA==}
 
-  '@wescome/nlah@file:../../nlah':
-    resolution: {directory: ../../nlah, type: directory}
+  '@wescome/nlah@https://codeload.github.com/Wescome/NLAH/tar.gz/d38255f5b541b2971160d832a1f8817028e90b4e':
+    resolution: {tarball: https://codeload.github.com/Wescome/NLAH/tar.gz/d38255f5b541b2971160d832a1f8817028e90b4e}
+    version: 0.1.0
     engines: {node: '>=20'}
     hasBin: true
 
@@ -6260,7 +6277,7 @@ snapshots:
       loupe: 3.2.1
       tinyrainbow: 2.0.0
 
-  '@wescome/nlah@file:../../nlah':
+  '@wescome/nlah@https://codeload.github.com/Wescome/NLAH/tar.gz/d38255f5b541b2971160d832a1f8817028e90b4e':
     dependencies:
       commander: 12.1.0
       execa: 8.0.1

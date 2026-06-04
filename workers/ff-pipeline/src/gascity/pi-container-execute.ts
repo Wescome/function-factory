@@ -93,8 +93,8 @@ export function normalizePiContainerExecuteInput(
   if (typeof runtimeConfig.max_repair_rounds === 'number') workerInput.maxRepairRounds = runtimeConfig.max_repair_rounds
   if (typeof runtimeConfig.execution_surface === 'string') workerInput.executionSurface = runtimeConfig.execution_surface
 
-  const hasWorkspaceWriteScope = Array.isArray((body as { policy?: { filesystem_scope?: string[] } }).policy?.filesystem_scope)
-    && (body as { policy?: { filesystem_scope?: string[] } }).policy?.filesystem_scope.includes('/workspace')
+  const filesystemScope = (body as { policy?: { filesystem_scope?: string[] } }).policy?.filesystem_scope
+  const hasWorkspaceWriteScope = Array.isArray(filesystemScope) && filesystemScope.includes('/workspace')
   if (hasWorkspaceWriteScope) {
     workerInput.execution = { authoringMode: 'autonomous_filesystem' }
   }

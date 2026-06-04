@@ -414,6 +414,6 @@ describe('buildContractRepairPrompt', () => {
     ])
 
     expect(prompt).toContain('`./CandidatePatch`')
-    expect(prompt).toContain('cd workspace && git diff > ../CandidatePatch')
+    expect(prompt).toContain('cd workspace && git add -A && git diff --cached > ../CandidatePatch')
   })
 })
