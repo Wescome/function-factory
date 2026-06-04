@@ -10,6 +10,7 @@ cp /etc/gc/supervisor.toml "$GC_HOME/supervisor.toml"
 cp /etc/gc/factory/city.toml /data/cities/factory/city.toml
 mkdir -p /data/cities/factory/formulas
 cp /etc/gc/factory/formulas/factory-coding-v1.toml /data/cities/factory/formulas/factory-coding-v1.toml
+cp /etc/gc/factory/formulas/factory-noop-smoke-v1.toml /data/cities/factory/formulas/factory-noop-smoke-v1.toml
 # Fidelity validator — the RELEASE step invokes /data/cities/factory/fidelity/fidelity-release.sh.
 mkdir -p /data/cities/factory/fidelity
 cp -R /etc/gc/factory/fidelity/. /data/cities/factory/fidelity/
