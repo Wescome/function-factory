@@ -1,2 +1,3 @@
 export type { BeadId, BeadEnvelope, KnowingState, AmendmentBead } from './types.js'
-export { KnowingStateSDK, SessionNotInitialized } from './sdk.js'
+export type { KnowingStateSDK } from './sdk.js'
+export { SessionNotInitialized } from './sdk.js'
