@@ -12,21 +12,21 @@ export const ToolPermission = z.enum([
   'read-only', // subset of shell: cat, ls, find, grep, head, tail, wc only
 ])
 
-// Recursive type — use z.infer only; no manual type declaration
-const BaseSuccessCondition = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('exit-code'), expectedCode: z.number().int().default(0) }),
-  z.object({ type: z.literal('output-contains'), substring: z.string().min(1) }),
-  z.object({ type: z.literal('output-matches'), pattern: z.string().min(1) }),
-  z.object({ type: z.literal('file-exists'), path: z.string().min(1) }),
-])
-
-type BaseSuccessCondition = z.infer<typeof BaseSuccessCondition>
-
-export type SuccessConditionType = BaseSuccessCondition | { type: 'composite'; all: SuccessConditionType[] }
+// No z.default() inside SuccessCondition variants — keeps input/output types identical
+// which allows the recursive ZodType<T,_,T> constraint to be satisfied.
+export type SuccessConditionType =
+  | { type: 'exit-code'; expectedCode: number }
+  | { type: 'output-contains'; substring: string }
+  | { type: 'output-matches'; pattern: string }
+  | { type: 'file-exists'; path: string }
+  | { type: 'composite'; all: SuccessConditionType[] }  // max depth 3
 
 export const SuccessCondition: z.ZodType<SuccessConditionType> = z.lazy(() =>
   z.union([
-    BaseSuccessCondition,
+    z.object({ type: z.literal('exit-code'), expectedCode: z.number().int() }),
+    z.object({ type: z.literal('output-contains'), substring: z.string().min(1) }),
+    z.object({ type: z.literal('output-matches'), pattern: z.string().min(1) }),
+    z.object({ type: z.literal('file-exists'), path: z.string().min(1) }),
     z.object({ type: z.literal('composite'), all: z.array(SuccessCondition).min(2).max(8) }),
   ])
 )
