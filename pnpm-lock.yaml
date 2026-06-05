@@ -46,6 +46,25 @@ importers:
         specifier: ^1.4.0
         version: 1.6.1(@types/node@24.12.2)
 
+  packages/architect-agent:
+    dependencies:
+      '@factory/knowing-state-sdk':
+        specifier: workspace:*
+        version: link:../knowing-state-sdk
+      '@factory/schemas':
+        specifier: workspace:*
+        version: link:../schemas
+      zod:
+        specifier: ^3.23.0
+        version: 3.25.76
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^4.0.0
+        version: 4.20260425.1
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+
   packages/architecture-candidates:
     dependencies:
       '@factory/schemas':
@@ -128,6 +147,25 @@ importers:
         specifier: ^1.4.0
         version: 1.6.1(@types/node@24.12.2)
 
+  packages/commissioning-agent:
+    dependencies:
+      '@factory/knowing-state-sdk':
+        specifier: workspace:*
+        version: link:../knowing-state-sdk
+      '@factory/schemas':
+        specifier: workspace:*
+        version: link:../schemas
+      zod:
+        specifier: ^3.23.0
+        version: 3.25.76
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^4.0.0
+        version: 4.20260425.1
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+
   packages/compiler:
     dependencies:
       '@factory/coverage-gates':
@@ -155,6 +193,25 @@ importers:
       vitest:
         specifier: ^1.4.0
         version: 1.6.1(@types/node@20.19.39)
+
+  packages/conducting-agent:
+    dependencies:
+      '@factory/knowing-state-sdk':
+        specifier: workspace:*
+        version: link:../knowing-state-sdk
+      '@factory/schemas':
+        specifier: workspace:*
+        version: link:../schemas
+      zod:
+        specifier: ^3.23.0
+        version: 3.25.76
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^4.0.0
+        version: 4.20260425.1
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
 
   packages/controlled-effectors:
     dependencies:
@@ -354,6 +411,16 @@ importers:
         specifier: ^5
         version: 5.9.3
 
+  packages/knowing-state-sdk:
+    dependencies:
+      '@factory/schemas':
+        specifier: workspace:*
+        version: link:../schemas
+    devDependencies:
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+
   packages/literate-tools:
     dependencies:
       '@factory/schemas':
@@ -369,6 +436,25 @@ importers:
       vitest:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@24.12.2)
+
+  packages/mediation-agent:
+    dependencies:
+      '@factory/knowing-state-sdk':
+        specifier: workspace:*
+        version: link:../knowing-state-sdk
+      '@factory/schemas':
+        specifier: workspace:*
+        version: link:../schemas
+      zod:
+        specifier: ^3.23.0
+        version: 3.25.76
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^4.0.0
+        version: 4.20260425.1
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
 
   packages/meta-governance:
     dependencies:
@@ -618,7 +704,7 @@ importers:
         version: link:../../packages/gdk-ai
       agents:
         specifier: 0.11.6
-        version: 0.11.6(@babel/core@7.29.0)(@babel/runtime@7.29.2)(@cloudflare/codemode@0.3.4(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76))(ai@6.0.168(zod@3.25.76))(zod@3.25.76))(@cloudflare/workers-types@4.20260425.1)(ai@6.0.168(zod@3.25.76))(react@19.2.5)(rolldown@1.0.0-rc.18)(vite@5.4.21(@types/node@24.12.2))(zod@3.25.76)
+        version: 0.11.6(@babel/core@7.29.0)(@babel/runtime@7.29.2)(@cloudflare/codemode@0.3.4(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76))(ai@6.0.168(zod@3.25.76))(zod@3.25.76))(@cloudflare/workers-types@4.20260425.1)(ai@6.0.168(zod@3.25.76))(react@19.2.5)(rolldown@1.0.0-rc.18)(zod@3.25.76)
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20260101.0
@@ -5015,14 +5101,13 @@ snapshots:
   '@rolldown/binding-win32-x64-msvc@1.0.0-rc.18':
     optional: true
 
-  '@rolldown/plugin-babel@0.2.3(@babel/core@7.29.0)(@babel/runtime@7.29.2)(rolldown@1.0.0-rc.18)(vite@5.4.21(@types/node@24.12.2))':
+  '@rolldown/plugin-babel@0.2.3(@babel/core@7.29.0)(@babel/runtime@7.29.2)(rolldown@1.0.0-rc.18)':
     dependencies:
       '@babel/core': 7.29.0
       picomatch: 4.0.4
       rolldown: 1.0.0-rc.18
     optionalDependencies:
       '@babel/runtime': 7.29.2
-      vite: 5.4.21(@types/node@24.12.2)
 
   '@rolldown/pluginutils@1.0.0-rc.18': {}
 
@@ -5573,12 +5658,12 @@ snapshots:
 
   agent-base@7.1.4: {}
 
-  agents@0.11.6(@babel/core@7.29.0)(@babel/runtime@7.29.2)(@cloudflare/codemode@0.3.4(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76))(ai@6.0.168(zod@3.25.76))(zod@3.25.76))(@cloudflare/workers-types@4.20260425.1)(ai@6.0.168(zod@3.25.76))(react@19.2.5)(rolldown@1.0.0-rc.18)(vite@5.4.21(@types/node@24.12.2))(zod@3.25.76):
+  agents@0.11.6(@babel/core@7.29.0)(@babel/runtime@7.29.2)(@cloudflare/codemode@0.3.4(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76))(ai@6.0.168(zod@3.25.76))(zod@3.25.76))(@cloudflare/workers-types@4.20260425.1)(ai@6.0.168(zod@3.25.76))(react@19.2.5)(rolldown@1.0.0-rc.18)(zod@3.25.76):
     dependencies:
       '@babel/plugin-proposal-decorators': 7.29.0(@babel/core@7.29.0)
       '@cfworker/json-schema': 4.1.1
       '@modelcontextprotocol/sdk': 1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76)
-      '@rolldown/plugin-babel': 0.2.3(@babel/core@7.29.0)(@babel/runtime@7.29.2)(rolldown@1.0.0-rc.18)(vite@5.4.21(@types/node@24.12.2))
+      '@rolldown/plugin-babel': 0.2.3(@babel/core@7.29.0)(@babel/runtime@7.29.2)(rolldown@1.0.0-rc.18)
       ai: 6.0.168(zod@3.25.76)
       cron-schedule: 6.0.0
       mimetext: 3.0.28
@@ -5590,7 +5675,6 @@ snapshots:
       zod: 3.25.76
     optionalDependencies:
       '@cloudflare/codemode': 0.3.4(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76))(ai@6.0.168(zod@3.25.76))(zod@3.25.76)
-      vite: 5.4.21(@types/node@24.12.2)
     transitivePeerDependencies:
       - '@babel/core'
       - '@babel/plugin-transform-runtime'
