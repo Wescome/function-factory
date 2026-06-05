@@ -1,0 +1,18 @@
+{
+  "name": "@factory/knowing-state-sdk",
+  "version": "0.1.0",
+  "description": "Domain-agnostic Knowing-State Prosthesis SDK. Provisional name — will move to @koales/knowing-state-sdk when cross-product infrastructure decision is made.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@factory/schemas": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}

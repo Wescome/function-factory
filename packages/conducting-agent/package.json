@@ -1,0 +1,21 @@
+{
+  "name": "@factory/conducting-agent",
+  "version": "0.1.0",
+  "description": "Conducting Agent — execution substrate interface (Gas City + CF Sandboxes). SPEC-CONDUCTING-AGENT-001",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@factory/knowing-state-sdk": "workspace:*",
+    "@factory/schemas": "workspace:*",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "@cloudflare/workers-types": "^4.0.0"
+  }
+}
