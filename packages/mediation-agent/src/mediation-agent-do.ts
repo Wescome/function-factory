@@ -333,8 +333,9 @@ export class MediationAgentDO implements DurableObject {
       }
       case 'VerdictEvent': {
         const p = event.payload as VerdictPayload
-        if (p.verdictType === 'coherence') return { ...state, coherenceVerdict: { value: p.value, reason: p.reason } }
-        return { ...state, fidelityVerdict: { value: p.value, reason: p.reason } }
+        const verdict = p.reason !== undefined ? { value: p.value, reason: p.reason } : { value: p.value }
+        if (p.verdictType === 'coherence') return { ...state, coherenceVerdict: verdict }
+        return { ...state, fidelityVerdict: verdict }
       }
       case 'DivergenceEvent': {
         const p = event.payload as DivergencePayload
