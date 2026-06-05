@@ -12,6 +12,7 @@ also being the canonical architecture, contract, or backlog for that area.
 | [`OPERATOR_RUNBOOK_GAS_CITY_PRODUCTION.md`](OPERATOR_RUNBOOK_GAS_CITY_PRODUCTION.md) | Run day-to-day production operations for the Gas City integration path. |
 | [`INCIDENT_RUNBOOK_GAS_CITY.md`](INCIDENT_RUNBOOK_GAS_CITY.md) | Triage and recover dispatch/webhook/autonomy production incidents. |
 | [`SLO_DASHBOARD.md`](SLO_DASHBOARD.md) | Run and interpret the production SLO dashboard checks. |
+| [`SMOKE_E2E_RUNBOOK.md`](SMOKE_E2E_RUNBOOK.md) | Run the post-deploy `/smoke/e2e` Gas City dispatch liveness probe and interpret its outcomes. |
 | [`STRATEGY_RECIPES_DOGFOOD.md`](STRATEGY_RECIPES_DOGFOOD.md) | Run the Strategy.Recipes autonomous-scheduler dogfood flow. |
 
 ## Current Boundary

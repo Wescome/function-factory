@@ -42,6 +42,7 @@ Task-oriented operator and developer guidance.
 | [`how-to/OPERATOR_RUNBOOK_GAS_CITY_PRODUCTION.md`](how-to/OPERATOR_RUNBOOK_GAS_CITY_PRODUCTION.md) | Production operator runbook for Factory + Gas City on Cloudflare. |
 | [`how-to/INCIDENT_RUNBOOK_GAS_CITY.md`](how-to/INCIDENT_RUNBOOK_GAS_CITY.md) | Incident response runbook for dispatch/webhook/autonomy failures. |
 | [`how-to/SLO_DASHBOARD.md`](how-to/SLO_DASHBOARD.md) | SLO dashboard command and threshold reference. |
+| [`how-to/SMOKE_E2E_RUNBOOK.md`](how-to/SMOKE_E2E_RUNBOOK.md) | Run the post-deploy `/smoke/e2e` Gas City dispatch liveness probe and read its outcomes. |
 | [`how-to/STRATEGY_RECIPES_DOGFOOD.md`](how-to/STRATEGY_RECIPES_DOGFOOD.md) | Run the Strategy.Recipes autonomous-scheduler dogfood flow. |
 
 ### Reference
