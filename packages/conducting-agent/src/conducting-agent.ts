@@ -95,7 +95,7 @@ async function executeWithRetry(
     const sessionResult = await runGasCitySession(directive, env)
 
     const rawOutput = sessionResult.stdout.slice(0, 4096) // post_execution.ts hook
-    const sandboxOutputRef = sessionResult.stdout.length > 4096
+    const fullOutput = sessionResult.stdout.length > 4096
       ? await storeFullOutput(sessionResult.stdout, directive.directiveId, env)
       : undefined
 
@@ -112,7 +112,7 @@ async function executeWithRetry(
       repoId,
       outcome,
       rawOutput,
-      sandboxOutputRef,
+      ...(fullOutput !== undefined ? { sandboxOutputRef: fullOutput } : {}),
       durationMs: sessionResult.durationMs,
       attemptNumber: attempt,
       producedAt: new Date().toISOString(),
@@ -126,7 +126,8 @@ async function executeWithRetry(
     if (!isolatedRetry || attempt >= maxAttempts) break
   }
 
-  return lastTrace!
+  if (!lastTrace) throw new Error('executeWithRetry: no trace produced — maxAttempts must be >= 1')
+  return lastTrace
 }
 
 // ── Gas City session ────────────────────────────────────────────────────────
