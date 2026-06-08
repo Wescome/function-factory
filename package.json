@@ -59,7 +59,8 @@
     "prod:smoke:controls": "node scripts/ops/prod-live-control-smoke.mjs",
     "slo:dashboard": "node scripts/ops/slo-dashboard.mjs",
     "dream": "tsx .agent/tools/dream.ts",
-    "bootstrap": "tsx scripts/bootstrap.ts"
+    "bootstrap": "tsx scripts/bootstrap.ts",
+    "rotate:singleton": "bash scripts/rotate-singleton.sh"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

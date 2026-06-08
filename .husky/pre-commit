@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+# Auto-rotate SUPERVISOR_SINGLETON when Gas City supervisor image changes (IS-GC-SINGLETON-AUTO-ROTATE)
+GC_IMAGE_STAGED=$(git diff --cached --name-only | \
+  grep -E '(workers/gascity-supervisor/Dockerfile|workers/gascity-supervisor/gc-linux-amd64)' || true)
+if [ -n "$GC_IMAGE_STAGED" ]; then
+  echo "pre-commit: Gas City image staged — auto-rotating singleton..."
+  bash scripts/rotate-singleton.sh
+  git add workers/gascity-supervisor/src/index.ts
+  echo "pre-commit: singleton rotated and staged."
+fi
