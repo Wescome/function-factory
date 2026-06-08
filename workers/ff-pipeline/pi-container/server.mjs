@@ -20,7 +20,7 @@
 import { createServer } from 'node:http'
 import { execSync, execFileSync, spawn } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
-import { mkdir, mkdtemp, readFile, writeFile, stat, readdir, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, writeFile, stat, readdir, rm, symlink, unlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { createHash } from 'node:crypto'
@@ -694,6 +694,13 @@ async function handleExecute(req, res) {
   if (hasSeedWorkspace(input)) {
     const prepared = await prepareSeedWorkspace(workDir, inputArtifacts.SeedWorkspace)
     seedWorkspace = prepared.seed
+    // Symlink /workspace → actual workspaceDir so that formula vars resolved to
+    // {{rig_root}} = "/workspace" (absolute) match what was seeded at ./workspace.
+    // kimi-k2 used relative paths; gpt-5.4 follows the formula literally.
+    await unlink('/workspace').catch(() => {})
+    await symlink(prepared.workspaceDir, '/workspace').catch((err) => {
+      stageLogFn('warn', 'execute.workspace_symlink_failed', { error: err.message })
+    })
     const workspaceSection = workspacePromptSection(prepared)
     promptInput = {
       ...input,
