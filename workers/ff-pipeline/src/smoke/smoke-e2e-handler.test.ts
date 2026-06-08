@@ -152,60 +152,35 @@ describe('handleSmokeE2E', () => {
     expect(body.reason).toBe('sling_rejected')
   })
 
-  it('fails when the slung response omits a workflow id', async () => {
+  it('approves even when the slung response omits a workflow id', async () => {
+    // Polling was removed: smoke approves on successful sling regardless of
+    // whether workflow_id is present. A slung bead proves the dispatch path.
     const gasCity = vi.fn<GcFetch>(async () => jsonRes({ status: 'slung' }, 200))
     const res = await handleSmokeE2E(smokeRequest(), makeEnv({ gasCity }))
-    expect(res.status).toBe(500)
+    expect(res.status).toBe(200)
     const body = (await res.json()) as SmokeBody
-    expect(body.outcome).toBe('failed')
-    expect(body.reason).toBe('sling_missing_workflow_id')
+    expect(body.outcome).toBe('approved')
+    expect(body.workflowId).toBeUndefined()
   })
 
-  it('approves when the workflow reaches a non-failure terminal state', async () => {
-    vi.useFakeTimers()
-    const gasCity = vi.fn<GcFetch>(async (url) => {
-      if (url.endsWith('/sling')) return jsonRes({ status: 'slung', workflow_id: 'wf-smoke-1' }, 200)
-      return jsonRes({ complete: true }, 200)
-    })
-    const p = handleSmokeE2E(smokeRequest(), makeEnv({ gasCity }))
-    await vi.advanceTimersByTimeAsync(5_000) // first poll fires after one interval
-    const res = await p
+  it('approves and surfaces workflow_id when sling returns one', async () => {
+    const gasCity = vi.fn<GcFetch>(async () =>
+      jsonRes({ status: 'slung', workflow_id: 'wf-smoke-1' }, 200),
+    )
+    const res = await handleSmokeE2E(smokeRequest(), makeEnv({ gasCity }))
     expect(res.status).toBe(200)
     const body = (await res.json()) as SmokeBody
     expect(body.outcome).toBe('approved')
     expect(body.workflowId).toBe('wf-smoke-1')
   })
 
-  it('fails when the workflow terminates with a failure reason', async () => {
-    vi.useFakeTimers()
-    const gasCity = vi.fn<GcFetch>(async (url) => {
-      if (url.endsWith('/sling')) return jsonRes({ status: 'slung', workflow_id: 'wf-smoke-2' }, 200)
-      return jsonRes({ complete: true, terminal_reason: 'rejected_by_gate' }, 200)
-    })
-    const p = handleSmokeE2E(smokeRequest(), makeEnv({ gasCity }))
-    await vi.advanceTimersByTimeAsync(5_000)
-    const res = await p
-    expect(res.status).toBe(500)
-    const body = (await res.json()) as SmokeBody
-    expect(body.outcome).toBe('failed')
-    expect(body.reason).toBe('rejected_by_gate')
-    expect(body.workflowId).toBe('wf-smoke-2')
-  })
-
-  it('keeps polling through transient non-200 poll responses before approving', async () => {
-    vi.useFakeTimers()
-    let pollCount = 0
-    const gasCity = vi.fn<GcFetch>(async (url) => {
-      if (url.endsWith('/sling')) return jsonRes({ status: 'slung', workflow_id: 'wf-smoke-3' }, 200)
-      pollCount += 1
-      if (pollCount === 1) return jsonRes({ error: 'row not projected yet' }, 503)
-      return jsonRes({ complete: true }, 200)
-    })
-    const p = handleSmokeE2E(smokeRequest(), makeEnv({ gasCity }))
-    await vi.advanceTimersByTimeAsync(10_000) // two poll intervals
-    const res = await p
-    const body = (await res.json()) as SmokeBody
-    expect(body.outcome).toBe('approved')
-    expect(pollCount).toBe(2)
+  it('makes exactly one GC request (no polling after sling)', async () => {
+    // Polling was removed to avoid CF container-instance limits during smoke runs.
+    // The sling call is the only GC subrequest.
+    const gasCity = vi.fn<GcFetch>(async () =>
+      jsonRes({ status: 'slung', workflow_id: 'wf-smoke-2' }, 200),
+    )
+    await handleSmokeE2E(smokeRequest(), makeEnv({ gasCity }))
+    expect(gasCity).toHaveBeenCalledTimes(1)
   })
 })
