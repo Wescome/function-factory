@@ -138,7 +138,7 @@ id = "plan"
 title = "Plan — {{fn_id}} attempt {{factory_attempt}}"
 # AC-REG2/AC-REG6: planner needs AI reasoning + workspace write scope.
 runtime_requirements = ["ai_reasoning", "model_routing", "workspace_write_scope"]
-labels = [
+tags = [
   "fn-id:{{fn_id}}",
   "is-id:{{is_id}}",
   "es-id:{{es_id}}",
@@ -177,7 +177,7 @@ title = "Code — {{fn_id}} attempt {{factory_attempt}}"
 needs = ["plan"]
 # AC-REG2/AC-REG6: coder needs AI reasoning + workspace write scope + contract eval + tool probe.
 runtime_requirements = ["ai_reasoning", "model_routing", "workspace_write_scope", "contract_evaluation", "tool_capability_probe"]
-labels = [
+tags = [
   "fn-id:{{fn_id}}",
   "is-id:{{is_id}}",
   "es-id:{{es_id}}",
@@ -211,7 +211,7 @@ title = "Verify — {{fn_id}} attempt {{factory_attempt}}"
 needs = ["code"]
 # AC-REG2/AC-REG6: verifier needs AI reasoning + contract evaluation.
 runtime_requirements = ["ai_reasoning", "model_routing", "contract_evaluation"]
-labels = [
+tags = [
   "fn-id:{{fn_id}}",
   "is-id:{{is_id}}",
   "es-id:{{es_id}}",
@@ -250,7 +250,7 @@ title = "Release — signal Factory completion for {{fn_id}}"
 needs = ["verify"]
 # AC-REG2: release step runs the fidelity shell script; needs command exec only.
 runtime_requirements = ["command_exec", "file_materialize"]
-labels = [
+tags = [
   "fn-id:{{fn_id}}",
   "is-id:{{is_id}}",
   "es-id:{{es_id}}",
