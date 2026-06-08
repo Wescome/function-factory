@@ -257,6 +257,18 @@ tags = [
   "form-id:{{form_id}}",
   "factory-attempt:{{factory_attempt}}",
 ]
+# Lineage metadata required by harness_fidelity.go — reads gc.fn_id, gc.ff_webhook_url
+# etc. from bead metadata (not labels). The metadata field copies directly to bead metadata.
+[steps.metadata]
+"gc.fn_id" = "{{fn_id}}"
+"gc.is_id" = "{{is_id}}"
+"gc.es_id" = "{{es_id}}"
+"gc.ep_id" = "{{ep_id}}"
+"gc.form_id" = "{{form_id}}"
+"gc.factory_attempt" = "{{factory_attempt}}"
+"gc.ff_webhook_url" = "{{ff_webhook_url}}"
+"gc.ff_webhook_hmac_keyid" = "{{ff_webhook_hmac_keyid}}"
+"gc.rig_root" = "{{rig_root}}"
 description = """
 **Factory lineage:** fn={{fn_id}} is={{is_id}} es={{es_id}} ep={{ep_id}} form={{form_id}} attempt={{factory_attempt}}
 
