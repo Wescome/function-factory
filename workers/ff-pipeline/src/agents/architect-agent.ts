@@ -69,7 +69,7 @@ export function buildArangoTool(db: ArangoClient): AgentTool {
     }),
     async execute(_toolCallId, params) {
       try {
-        const results = await db.query(params.query)
+        const results = await db.query((params as { query: string }).query)
         return {
           content: [{ type: 'text' as const, text: JSON.stringify(results, null, 2) }],
           details: { rowCount: results.length },

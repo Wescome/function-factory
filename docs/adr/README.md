@@ -11,6 +11,7 @@ part of the broader architecture/spec corpus.
 | --- | --- | --- |
 | [`ADR-0001-autonomous-scheduler-boundary.md`](ADR-0001-autonomous-scheduler-boundary.md) | Accepted | Defines the autonomous scheduler boundary: Function Factory emits `AgentRequest` records, Codex runners claim work, and completed work returns `AgentResult` evidence. |
 | [`ADR-0012-candidatepatch-untracked-file-fix.md`](ADR-0012-candidatepatch-untracked-file-fix.md) | Accepted | Fixes CandidatePatch untracked-file blindness: patch capture must run `git add -A && git diff --cached` so agent-created files are not silently omitted. |
+| [`ADR-0013-ladybugdb-closed-loop-artifact-graph.md`](ADR-0013-ladybugdb-closed-loop-artifact-graph.md) | Accepted | Establishes LadybugDB as the closed-loop artifact graph store, replacing ArangoDB with Cloudflare D1. |
 
 ## Relationship To `specs/reference/ADR-*`
 

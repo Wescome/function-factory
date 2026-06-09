@@ -4,6 +4,7 @@ import type { PipelineEnv, PipelineResult } from './types'
 
 function env(overrides: Partial<PipelineEnv> = {}): PipelineEnv {
   return {
+    DB: {} as PipelineEnv['DB'],
     ARANGO_URL: 'http://localhost:8529',
     ARANGO_DATABASE: 'test',
     ARANGO_JWT: 'jwt',

@@ -17,7 +17,7 @@
 
 import { Agent } from 'agents'
 import { executeAtomSlice, type AtomSlice, type AtomResult } from './atom-executor.js'
-import { createClientFromEnv } from '@factory/arango-client'
+import { createClientFromEnv, type D1Database } from '@factory/arango-client'
 import { resolveAgentModel, keyForModel } from '../agents/resolve-model.js'
 import { extractContext, resolveImportPaths, type FileContext } from '@factory/file-context'
 import { ingestSignal } from '../stages/ingest-signal.js'
@@ -27,6 +27,8 @@ import { ingestSignal } from '../stages/ingest-signal.js'
 // ────────────────────────────────────────────────────────────
 
 export interface AtomExecutorEnv {
+  /** Cloudflare D1 database binding */
+  DB: D1Database
   ARANGO_URL: string
   ARANGO_DATABASE: string
   ARANGO_JWT?: string

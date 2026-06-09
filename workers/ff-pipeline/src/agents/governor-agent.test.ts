@@ -78,7 +78,7 @@ const VALID_CYCLE_RESULT: GovernanceCycleResult = {
 // ── Mock DB ──────────────────────────────────────────────────────
 
 function createMockDb(overrides?: { failCollections?: string[] }) {
-  const calls: { query: string; params: Record<string, unknown> | undefined }[] = []
+  const calls: { query: string; params: unknown }[] = []
   const saves: { collection: string; data: Record<string, unknown> }[] = []
   const failSet = new Set(overrides?.failCollections ?? [])
 

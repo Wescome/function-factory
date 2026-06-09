@@ -1,5 +1,5 @@
 import { Agent, callable, type FiberContext, type FiberRecoveryContext } from 'agents'
-import { createClientFromEnv, type ArangoClient } from '@factory/arango-client'
+import { createClientFromEnv, type ArangoClient, type D1Database } from '@factory/arango-client'
 import { validateArtifact } from '@factory/artifact-validator'
 import { createModelBridge } from './model-bridge-do'
 import {
@@ -33,6 +33,8 @@ import {
 } from '@factory/schemas'
 
 export interface CoordinatorEnv {
+  /** Cloudflare D1 database binding */
+  DB: D1Database
   ARANGO_URL: string
   ARANGO_DATABASE: string
   ARANGO_JWT: string

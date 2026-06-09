@@ -59,6 +59,7 @@ Precise lookup material for architecture, artifacts, schemas, and decisions.
 | [`adr/README.md`](adr/README.md) | Repository/process ADR index. |
 | [`TERMINAL_INTEGRATION_CONTRACT.md`](TERMINAL_INTEGRATION_CONTRACT.md) | Terminal integration contract for repo, artifact, gateway, and config behavior. |
 | [`TERMINAL_IMPLEMENTATION_BACKLOG.md`](TERMINAL_IMPLEMENTATION_BACKLOG.md) | Terminal implementation atoms, acceptance criteria, and phase gates. |
+| [`cloudflare-artifacts-beta-application.md`](cloudflare-artifacts-beta-application.md) | Cloudflare Artifacts beta application form and submission status. |
 
 ### Explanation
 

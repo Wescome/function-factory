@@ -17,16 +17,17 @@ export function buildFormulaCompilerDeps(
 
   return {
     fetchCoherenceVR: async (esId: string) => {
-      const rows = await db.query<CoherenceVRRow>(
-        `FOR vr IN verification_reports
-  FILTER vr.kind == "coherence" AND vr.status == "passed"
-  FILTER @esId IN vr.source_refs
-  SORT vr.created_at DESC
-  LIMIT 1
-  RETURN vr`,
-        { esId },
+      const row = await db.queryOne<{ json: string }>(
+        `SELECT json FROM documents
+  WHERE collection='verification_reports'
+    AND json_extract(json,'$.kind')='coherence'
+    AND json_extract(json,'$.status')='passed'
+    AND EXISTS (SELECT 1 FROM json_each(json_extract(json,'$.source_refs')) WHERE value=?)
+  ORDER BY json_extract(json,'$.created_at') DESC
+  LIMIT 1`,
+        [esId],
       )
-      return rows[0] ?? null
+      return row ? JSON.parse(row.json) as CoherenceVRRow : null
     },
 
     getDispatchLogByIdempotencyKey: async (
@@ -34,21 +35,17 @@ export function buildFormulaCompilerDeps(
       factoryAttempt: number,
       excludeKey?: string,
     ) => {
-      const rows = await db.query<DispatchLogRow>(
-        `FOR dl IN dispatch_log
-  FILTER dl.idempotency_key == @idempotencyKey
-    AND dl.factory_attempt == @factoryAttempt
-    AND (@excludeKey == null OR dl._key != @excludeKey)
-  SORT dl.started_at DESC
-  LIMIT 1
-  RETURN dl`,
-        {
-          idempotencyKey,
-          factoryAttempt,
-          excludeKey: excludeKey ?? null,
-        },
+      const row = await db.queryOne<{ json: string }>(
+        `SELECT json FROM documents
+  WHERE collection='dispatch_log'
+    AND json_extract(json,'$.idempotency_key')=?
+    AND json_extract(json,'$.factory_attempt')=?
+    AND (? IS NULL OR key != ?)
+  ORDER BY json_extract(json,'$.started_at') DESC
+  LIMIT 1`,
+        [idempotencyKey, factoryAttempt, excludeKey ?? null, excludeKey ?? null],
       )
-      return rows[0] ?? null
+      return row ? JSON.parse(row.json) as DispatchLogRow : null
     },
 
     getFormulaByKey: async (key: string) => {
@@ -98,15 +95,14 @@ export function buildFormulaCompilerDeps(
     },
 
     fetchIntentSpec: async (id: string) => {
-      const rows = await db.query<Record<string, unknown>>(
-        `FOR doc IN intent_specifications
-  FILTER doc._key == @id OR doc.id == @id
-  LIMIT 1
-  RETURN doc`,
-        { id },
+      const row = await db.queryOne<{ json: string }>(
+        `SELECT json FROM documents
+  WHERE collection='intent_specifications' AND (key=? OR json_extract(json,'$.id')=?)
+  LIMIT 1`,
+        [id, id],
       )
-      const doc = rows[0]
-      if (!doc) return null
+      if (!row) return null
+      const doc = JSON.parse(row.json) as Record<string, unknown>
       const body =
         (typeof doc.body === "string" ? doc.body : undefined) ??
         (typeof doc.content === "string" ? doc.content : undefined) ??
@@ -120,15 +116,14 @@ export function buildFormulaCompilerDeps(
     },
 
     fetchExecutableSpec: async (id: string) => {
-      const rows = await db.query<Record<string, unknown>>(
-        `FOR doc IN executable_specifications
-  FILTER doc._key == @id OR doc.id == @id
-  LIMIT 1
-  RETURN doc`,
-        { id },
+      const row = await db.queryOne<{ json: string }>(
+        `SELECT json FROM documents
+  WHERE collection='executable_specifications' AND (key=? OR json_extract(json,'$.id')=?)
+  LIMIT 1`,
+        [id, id],
       )
-      const doc = rows[0]
-      if (!doc) return null
+      if (!row) return null
+      const doc = JSON.parse(row.json) as Record<string, unknown>
       const body =
         (typeof doc.body === "string" ? doc.body : undefined) ??
         (typeof doc.content === "string" ? doc.content : undefined) ??
