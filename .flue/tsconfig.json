@@ -1,0 +1,20 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "composite": false,
+    "typeRoots": ["./types", "../node_modules/@types"],
+    "paths": {
+      "@flue/runtime": ["./types/flue-runtime.d.ts"],
+      "@flue/runtime/routing": ["./types/flue-runtime.d.ts"],
+      "just-bash": ["./types/flue-runtime.d.ts"],
+      "valibot": ["./types/flue-runtime.d.ts"],
+      "@factory/ff-context": ["../packages/ff-context/src/index.ts"],
+      "@factory/ff-context/patch": ["../packages/ff-context/src/patch.ts"],
+      "@factory/ff-context/inject": ["../packages/ff-context/src/inject.ts"],
+      "@factory/ff-arango": ["../packages/ff-arango/src/index.ts"]
+    }
+  },
+  "include": ["./*.ts", "./workflows/*.ts", "./types/*.d.ts"],
+  "exclude": ["dist", "node_modules"]
+}

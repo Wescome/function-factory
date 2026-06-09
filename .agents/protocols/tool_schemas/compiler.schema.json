@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "compiler",
+  "description": "Invoke the Factory's Stage 5 IS-to-Executable Specification compiler",
+  "operations": {
+    "compile": {
+      "required_args": {
+        "prd_path": {
+          "type": "string",
+          "description": "Path to the Intent Specification markdown file under specs/intent-specifications/"
+        },
+        "output_dir": {
+          "type": "string",
+          "default": "specs/executable-specifications"
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["full", "dry-run", "coherenceVerification-only"],
+          "default": "full",
+          "description": "full = all 8 passes + Coherence Verification + Executable Specification emission; dry-run = all 8 passes but no file writes; coherenceVerification-only = stops after Coherence Verification, emits only the Verification Report"
+        }
+      },
+      "preconditions": [
+        "prd_path exists",
+        "Intent Specification front-matter is well-formed YAML",
+        "source_refs in Intent Specification are resolvable"
+      ],
+      "side_effects": [
+        "emits intermediate artifacts per pass to .factory/intermediates/ (gitignored)",
+        "emits VerificationReport to specs/verification-reports/ on every run",
+        "emits Executable Specification to specs/executable-specifications/ on successful Coherence Verification"
+      ],
+      "output_contract": {
+        "on_success": "Executable Specification YAML written + VerificationReport (overall: pass)",
+        "on_coherenceVerification_fail": "VerificationReport (overall: fail) written; NO Executable Specification emitted; exit code 10",
+        "on_uncertainty": "UncertaintyLedger written; compiler halts; exit code 20",
+        "on_internal_error": "error with pass number and artifact; exit code 1"
+      },
+      "requires_approval": false
+    },
+    "pass": {
+      "required_args": {
+        "pass_number": { "type": "integer", "minimum": 0, "maximum": 8 },
+        "input_path": { "type": "string" }
+      },
+      "description": "Run a single compiler pass. For debugging; not the normal pipeline.",
+      "requires_approval": false
+    }
+  }
+}
