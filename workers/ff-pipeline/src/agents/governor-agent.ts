@@ -188,148 +188,154 @@ export async function prefetchGovernorContext(db: ArangoClient): Promise<Governo
   ] = await Promise.all([
 
     // Q1: ORL telemetry — 7-day aggregated success/failure rates per schema
-    db.query<Record<string, unknown>>(
-      `FOR t IN orl_telemetry
-        FILTER t.timestamp >= DATE_SUBTRACT(DATE_NOW(), 7, 'day')
-        COLLECT schemaName = t.schemaName
-        AGGREGATE
-          success_count = SUM(t.success ? 1 : 0),
-          fail_count = SUM(t.success ? 0 : 1),
-          avg_repairs = AVG(t.repairAttempts),
-          latest = MAX(t.timestamp)
-        RETURN {
-          schemaName, success_count, fail_count,
-          avg_repairs, latest,
-          success_rate: success_count / (success_count + fail_count)
-        }`,
-    ).catch(() => [] as Record<string, unknown>[]),
+    db.query<Record<string, unknown>>(`
+      SELECT
+        json_extract(json, '$.schemaName') AS schemaName,
+        SUM(CASE WHEN json_extract(json, '$.success') = 1 THEN 1 ELSE 0 END) AS success_count,
+        SUM(CASE WHEN json_extract(json, '$.success') = 1 THEN 0 ELSE 1 END) AS fail_count,
+        AVG(CAST(json_extract(json, '$.repairAttempts') AS REAL)) AS avg_repairs,
+        MAX(json_extract(json, '$.timestamp')) AS latest,
+        CAST(SUM(CASE WHEN json_extract(json, '$.success') = 1 THEN 1 ELSE 0 END) AS REAL)
+          / NULLIF(COUNT(*), 0) AS success_rate
+      FROM documents
+      WHERE collection = 'orl_telemetry'
+        AND json_extract(json, '$.timestamp') >= datetime('now', '-7 days')
+      GROUP BY json_extract(json, '$.schemaName')
+    `).catch(() => [] as Record<string, unknown>[]),
 
     // Q2: Pending signals — not yet in a pipeline, ordered by age
-    db.query<Record<string, unknown>>(
-      `FOR s IN specs_signals
-        FILTER s.status == 'pending' OR s.status == null
-        FILTER !HAS(s, 'pipelineId') OR s.pipelineId == null
-        SORT s.createdAt ASC
-        LIMIT 30
-        RETURN {
-          _key: s._key,
-          signalType: s.signalType,
-          subtype: s.subtype,
-          title: s.title,
-          source: s.source,
-          severity: s.severity,
-          createdAt: s.createdAt,
-          sourceRefs: s.sourceRefs,
-          feedbackDepth: s.raw.feedbackDepth,
-          autoApprove: s.raw.autoApprove
-        }`,
-    ).catch(() => [] as Record<string, unknown>[]),
+    db.query<Record<string, unknown>>(`
+      SELECT
+        key AS _key,
+        json_extract(json, '$.signalType') AS signalType,
+        json_extract(json, '$.subtype') AS subtype,
+        json_extract(json, '$.title') AS title,
+        json_extract(json, '$.source') AS source,
+        json_extract(json, '$.severity') AS severity,
+        json_extract(json, '$.createdAt') AS createdAt,
+        json_extract(json, '$.sourceRefs') AS sourceRefs,
+        json_extract(json, '$.raw.feedbackDepth') AS feedbackDepth,
+        json_extract(json, '$.raw.autoApprove') AS autoApprove
+      FROM documents
+      WHERE collection = 'specs_signals'
+        AND (json_extract(json, '$.status') = 'pending' OR json_extract(json, '$.status') IS NULL)
+        AND json_extract(json, '$.pipelineId') IS NULL
+      ORDER BY json_extract(json, '$.createdAt') ASC
+      LIMIT 30
+    `).catch(() => [] as Record<string, unknown>[]),
 
     // Q3: Active/recent pipelines — status of in-flight work
-    db.query<Record<string, unknown>>(
-      `FOR p IN execution_artifacts
-        FILTER p.type == 'pipeline_run'
-        FILTER p.createdAt >= DATE_SUBTRACT(DATE_NOW(), 2, 'day')
-        SORT p.createdAt DESC
-        LIMIT 20
-        RETURN {
-          _key: p._key,
-          workflowId: p.workflowId,
-          status: p.status,
-          signalId: p.signalId,
-          functionId: p.functionId,
-          executableSpecificationId: p.executableSpecificationId,
-          createdAt: p.createdAt,
-          completedAt: p.completedAt,
-          verdict: p.verdict
-        }`,
-    ).catch(() => [] as Record<string, unknown>[]),
+    db.query<Record<string, unknown>>(`
+      SELECT
+        key AS _key,
+        json_extract(json, '$.workflowId') AS workflowId,
+        json_extract(json, '$.status') AS status,
+        json_extract(json, '$.signalId') AS signalId,
+        json_extract(json, '$.functionId') AS functionId,
+        json_extract(json, '$.executableSpecificationId') AS executableSpecificationId,
+        json_extract(json, '$.createdAt') AS createdAt,
+        json_extract(json, '$.completedAt') AS completedAt,
+        json_extract(json, '$.verdict') AS verdict
+      FROM documents
+      WHERE collection = 'execution_artifacts'
+        AND json_extract(json, '$.type') = 'pipeline_run'
+        AND json_extract(json, '$.createdAt') >= datetime('now', '-2 days')
+      ORDER BY json_extract(json, '$.createdAt') DESC
+      LIMIT 20
+    `).catch(() => [] as Record<string, unknown>[]),
 
     // Q4: Recent feedback signals — the self-improvement loop output
-    db.query<Record<string, unknown>>(
-      `FOR s IN specs_signals
-        FILTER s.source == 'factory:feedback-loop'
-        SORT s.createdAt DESC
-        LIMIT 20
-        RETURN {
-          _key: s._key,
-          subtype: s.subtype,
-          title: s.title,
-          createdAt: s.createdAt,
-          sourceRefs: s.sourceRefs,
-          feedbackDepth: s.raw.feedbackDepth
-        }`,
-    ).catch(() => [] as Record<string, unknown>[]),
+    db.query<Record<string, unknown>>(`
+      SELECT
+        key AS _key,
+        json_extract(json, '$.subtype') AS subtype,
+        json_extract(json, '$.title') AS title,
+        json_extract(json, '$.createdAt') AS createdAt,
+        json_extract(json, '$.sourceRefs') AS sourceRefs,
+        json_extract(json, '$.raw.feedbackDepth') AS feedbackDepth
+      FROM documents
+      WHERE collection = 'specs_signals'
+        AND json_extract(json, '$.source') = 'factory:feedback-loop'
+      ORDER BY json_extract(json, '$.createdAt') DESC
+      LIMIT 20
+    `).catch(() => [] as Record<string, unknown>[]),
 
     // Q5: Curated memory — patterns the Factory has learned
-    db.query<Record<string, unknown>>(
-      `FOR l IN memory_curated
-        FILTER l.decay_status == 'active'
-        SORT l.confidence DESC
-        LIMIT 20
-        RETURN {
-          pattern: l.pattern,
-          confidence: l.confidence,
-          severity: l.severity,
-          recommendation: l.recommendation,
-          evidence_count: l.evidence_count,
-          affects_agents: l.affects_agents
-        }`,
-    ).catch(() => [] as Record<string, unknown>[]),
+    db.query<Record<string, unknown>>(`
+      SELECT
+        json_extract(json, '$.pattern') AS pattern,
+        json_extract(json, '$.confidence') AS confidence,
+        json_extract(json, '$.severity') AS severity,
+        json_extract(json, '$.recommendation') AS recommendation,
+        json_extract(json, '$.evidence_count') AS evidence_count,
+        json_extract(json, '$.affects_agents') AS affects_agents
+      FROM documents
+      WHERE collection = 'memory_curated'
+        AND json_extract(json, '$.decay_status') = 'active'
+      ORDER BY CAST(json_extract(json, '$.confidence') AS REAL) DESC
+      LIMIT 20
+    `).catch(() => [] as Record<string, unknown>[]),
 
     // Q6: Recent orientation assessments — previous governance cycle context
-    db.query<Record<string, unknown>>(
-      `FOR a IN orientation_assessments
-        SORT a.createdAt DESC
-        LIMIT 10
-        RETURN {
-          _key: a._key,
-          type: a.type,
-          recommendation: a.recommendation,
-          priority: a.priority,
-          rationale: a.rationale,
-          createdAt: a.createdAt
-        }`,
-    ).catch(() => [] as Record<string, unknown>[]),
+    db.query<Record<string, unknown>>(`
+      SELECT
+        key AS _key,
+        json_extract(json, '$.type') AS type,
+        json_extract(json, '$.recommendation') AS recommendation,
+        json_extract(json, '$.priority') AS priority,
+        json_extract(json, '$.rationale') AS rationale,
+        json_extract(json, '$.createdAt') AS createdAt
+      FROM documents
+      WHERE collection = 'orientation_assessments'
+      ORDER BY json_extract(json, '$.createdAt') DESC
+      LIMIT 10
+    `).catch(() => [] as Record<string, unknown>[]),
 
     // Q7: In-flight completion ledgers — synthesis work in progress
-    db.query<Record<string, unknown>>(
-      `FOR l IN completion_ledgers
-        FILTER l.status != 'complete'
-        SORT l.createdAt DESC
-        LIMIT 10
-        RETURN {
-          _key: l._key,
-          executableSpecificationId: l.executableSpecificationId,
-          totalAtoms: l.totalAtoms,
-          completedAtoms: l.completedAtoms,
-          status: l.status,
-          createdAt: l.createdAt
-        }`,
-    ).catch(() => [] as Record<string, unknown>[]),
+    db.query<Record<string, unknown>>(`
+      SELECT
+        key AS _key,
+        json_extract(json, '$.executableSpecificationId') AS executableSpecificationId,
+        json_extract(json, '$.totalAtoms') AS totalAtoms,
+        json_extract(json, '$.completedAtoms') AS completedAtoms,
+        json_extract(json, '$.status') AS status,
+        json_extract(json, '$.createdAt') AS createdAt
+      FROM documents
+      WHERE collection = 'completion_ledgers'
+        AND json_extract(json, '$.status') != 'complete'
+      ORDER BY json_extract(json, '$.createdAt') DESC
+      LIMIT 10
+    `).catch(() => [] as Record<string, unknown>[]),
 
     // Q8: Hot config — runtime configuration
-    db.query<Record<string, unknown>>(
-      `FOR c IN hot_config
-        RETURN { _key: c._key, value: c.value, updatedAt: c.updatedAt }`,
-    ).catch(() => [] as Record<string, unknown>[]),
+    db.query<Record<string, unknown>>(`
+      SELECT
+        key AS _key,
+        json_extract(json, '$.value') AS value,
+        json_extract(json, '$.updatedAt') AS updatedAt
+      FROM documents
+      WHERE collection = 'hot_config'
+    `).catch(() => [] as Record<string, unknown>[]),
 
     // Q9: INV-DEVOPS-5 detector — lineage gaps (artifacts with null/missing source_refs)
-    db.query<Record<string, unknown>>(
-      `FOR a IN execution_artifacts
-        FILTER a.createdAt >= DATE_SUBTRACT(DATE_NOW(), 2, 'day')
-        FILTER a.source_refs == null OR LENGTH(a.source_refs) == 0
-        FILTER a.type != 'pipeline_run'
-        SORT a.createdAt DESC
-        LIMIT 20
-        RETURN {
-          _key: a._key,
-          type: a.type,
-          functionId: a.functionId,
-          executableSpecificationId: a.executableSpecificationId,
-          createdAt: a.createdAt
-        }`,
-    ).catch(() => [] as Record<string, unknown>[]),
+    db.query<Record<string, unknown>>(`
+      SELECT
+        key AS _key,
+        json_extract(json, '$.type') AS type,
+        json_extract(json, '$.functionId') AS functionId,
+        json_extract(json, '$.executableSpecificationId') AS executableSpecificationId,
+        json_extract(json, '$.createdAt') AS createdAt
+      FROM documents
+      WHERE collection = 'execution_artifacts'
+        AND json_extract(json, '$.createdAt') >= datetime('now', '-2 days')
+        AND json_extract(json, '$.type') != 'pipeline_run'
+        AND (
+          json_extract(json, '$.source_refs') IS NULL
+          OR json_array_length(json_extract(json, '$.source_refs')) = 0
+        )
+      ORDER BY json_extract(json, '$.createdAt') DESC
+      LIMIT 20
+    `).catch(() => [] as Record<string, unknown>[]),
   ])
 
   return {
