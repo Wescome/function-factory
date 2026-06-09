@@ -48,6 +48,7 @@ const mockDb = {
   queryOne: vi.fn(async () => null),
   save: vi.fn(async (_collection: string, signal: Record<string, unknown>) => signal),
   setValidator: vi.fn(),
+  ensureCollection: vi.fn(async () => {}),
 }
 
 vi.mock('@factory/arango-client', () => ({
