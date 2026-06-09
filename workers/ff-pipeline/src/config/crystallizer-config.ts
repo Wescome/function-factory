@@ -8,7 +8,7 @@
  * Traces to: DESIGN-CRYSTALLIZER-NEXT.md Priority 1
  */
 
-import type { ArangoClient } from '@factory/arango-client'
+import type { ArangoClient } from '@factory/db-client'
 
 // ── Types ──────────────────────────────────────────────────────
 

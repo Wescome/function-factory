@@ -123,7 +123,7 @@ export type Result<T> = { ok: true; data: T } | { ok: false; error: string };`;
   describe('complex real-world file', () => {
     it('extracts all symbols from a coordinator-like file', () => {
       const code = `import { Agent } from 'agents';
-import type { ArangoClient } from '@factory/arango-client';
+import type { ArangoClient } from '@factory/db-client';
 import { extractContext, resolveImportPaths, type FileContext } from '@factory/file-context';
 
 export interface ExecutorEnv {
@@ -157,7 +157,7 @@ export { MAX_RETRIES };
 
       // Imports
       expect(ctx.structure.imports).toContain('agents');
-      expect(ctx.structure.imports).toContain('@factory/arango-client');
+      expect(ctx.structure.imports).toContain('@factory/db-client');
       expect(ctx.structure.imports).toContain('@factory/file-context');
 
       // Exports

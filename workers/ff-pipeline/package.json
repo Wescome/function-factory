@@ -15,7 +15,7 @@
   "dependencies": {
     "@cloudflare/sandbox": "latest",
     "@cloudflare/shell": "0.3.4",
-    "@factory/arango-client": "workspace:*",
+    "@factory/db-client": "workspace:*",
     "@factory/artifact-validator": "workspace:*",
     "@factory/compiler": "workspace:*",
     "@factory/diff-engine": "workspace:*",

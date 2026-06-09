@@ -21,7 +21,7 @@ import type {
   DispatchLogRow,
   CoherenceVRRow,
 } from "../src/compilers/formula-compiler.js"
-import { ArangoClient } from "../../../packages/arango-client/src/index.js"
+import { ArangoClient } from "@factory/db-client"
 
 // ── Config from environment ────────────────────────────────────────────────
 

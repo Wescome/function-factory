@@ -41,7 +41,7 @@ vi.mock('agents', () => {
 })
 
 // ─── Mock arango client ───
-vi.mock('@factory/arango-client', () => ({
+vi.mock('@factory/db-client', () => ({
   createClientFromEnv: () => ({
     save: vi.fn(async () => ({ _key: 'mock' })),
     get: vi.fn(async () => null),

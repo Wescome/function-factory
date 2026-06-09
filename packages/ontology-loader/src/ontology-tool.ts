@@ -9,7 +9,7 @@
  *   - "What collection does Signal persist to?"
  */
 
-import type { ArangoClient } from '@factory/arango-client'
+import type { ArangoClient } from '@factory/db-client'
 import {
   getConstraintsForClass,
   getRoleSpec,

@@ -1,4 +1,4 @@
-import { createClientFromEnv } from "@factory/arango-client"
+import { createClientFromEnv } from "@factory/db-client"
 import { GasCityFidelityVerificationReport, Incident } from "@factory/schemas"
 import type { PipelineEnv } from "../types.js"
 import { ensureGasCityCollections } from "./collection-schema.js"

@@ -1,4 +1,4 @@
-import type { ArangoClient } from '@factory/arango-client'
+import type { ArangoClient } from '@factory/db-client'
 import type { PipelineEnv } from '../types'
 import { callModel } from '../model-bridge'
 import { extractContext, type FileContext } from '@factory/file-context'

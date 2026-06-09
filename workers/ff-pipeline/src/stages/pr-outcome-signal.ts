@@ -5,7 +5,7 @@
  * This module is observational only: it never merges, closes, or mutates PRs.
  */
 
-import type { ArangoClient } from '@factory/arango-client'
+import type { ArangoClient } from '@factory/db-client'
 import type { SignalInput } from '../types'
 import type { FeedbackSignal } from './generate-feedback'
 import { ingestSignal } from './ingest-signal'

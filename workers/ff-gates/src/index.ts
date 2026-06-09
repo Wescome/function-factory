@@ -12,6 +12,7 @@
 
 import { WorkerEntrypoint } from 'cloudflare:workers'
 import { createClientFromEnv, type ArangoClient, type D1Database } from '@factory/arango-client'
+import { createClientFromEnv, type ArangoClient } from '@factory/db-client'
 
 export default {
   async fetch(): Promise<Response> {

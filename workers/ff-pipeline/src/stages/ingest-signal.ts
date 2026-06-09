@@ -1,4 +1,4 @@
-import type { ArangoClient } from '@factory/arango-client'
+import type { ArangoClient } from '@factory/db-client'
 import type { SignalInput } from '../types'
 
 export async function ingestSignal(

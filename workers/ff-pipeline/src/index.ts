@@ -184,7 +184,7 @@ export default {
     if (url.pathname === '/internal/do-health' && request.method === 'GET') {
       const auth = authorizeOperatorControl(request, env)
       if (!auth.ok) return json({ error: auth.error }, auth.status === 403 ? 401 : auth.status)
-      const { createClientFromEnv } = await import('@factory/arango-client')
+      const { createClientFromEnv } = await import('@factory/db-client')
       const db = createClientFromEnv(env)
       const id = `SMOKE-ARANGO-HEALTH-${Date.now()}`
       await db.ensureCollection('memory_entries')
@@ -493,7 +493,7 @@ export default {
     // ── Diagnostic: Governor cycle status ──
     if (url.pathname === '/debug/governor' && request.method === 'GET') {
       try {
-        const { createClientFromEnv } = await import('@factory/arango-client')
+        const { createClientFromEnv } = await import('@factory/db-client')
         const db = createClientFromEnv(env)
         const assessments = await db.query<{ json: string }>(
           `SELECT json FROM documents WHERE collection='orientation_assessments' ORDER BY json_extract(json,'$.generated_at') DESC LIMIT 5`,
@@ -516,7 +516,7 @@ export default {
     // ── Diagnostic: Crystallizer observability — anchors, probes, drift ──
     if (url.pathname === '/debug/crystallizer' && request.method === 'GET') {
       try {
-        const { createClientFromEnv } = await import('@factory/arango-client')
+        const { createClientFromEnv } = await import('@factory/db-client')
         const db = createClientFromEnv(env)
         const signalId = url.searchParams.get('signal') ?? undefined
 
@@ -602,7 +602,7 @@ export default {
           }), { status: 400, headers: { 'Content-Type': 'application/json' } })
         }
 
-        const { createClientFromEnv } = await import('@factory/arango-client')
+        const { createClientFromEnv } = await import('@factory/db-client')
         const db = createClientFromEnv(env)
         const rows = await db.query<{ json: string }>(
           `SELECT json FROM documents WHERE collection='specs_signals' AND json_extract(json,'$.source')='factory:pr-outcome' AND json_extract(json,'$.subtype') LIKE 'synthesis:pr-%' AND json_extract(json,'$.raw.pr.number')=? AND json_extract(json,'$.raw.executableSpecificationId')=? ORDER BY json_extract(json,'$.createdAt') DESC LIMIT 1`,
@@ -649,7 +649,7 @@ export default {
           : undefined
 
         if (body.processNow === true) {
-          const { createClientFromEnv } = await import('@factory/arango-client')
+          const { createClientFromEnv } = await import('@factory/db-client')
           const { fetchPROutcomeFromGitHub, ingestPROutcomeSignals } = await import('./stages/pr-outcome-signal.js')
 
           const outcome = body.outcome ?? await (async () => {
@@ -723,7 +723,7 @@ export default {
           }), { status: 503, headers: { 'Content-Type': 'application/json' } })
         }
 
-        const { createClientFromEnv } = await import('@factory/arango-client')
+        const { createClientFromEnv } = await import('@factory/db-client')
         const db = createClientFromEnv(env)
         const rows = await db.query<{ json: string }>(
           `SELECT json FROM documents WHERE collection='specs_signals' AND json_extract(json,'$.source')='factory:pr-outcome' AND json_extract(json,'$.subtype') LIKE 'synthesis:pr-%' AND json_extract(json,'$.raw.pr.number') IS NOT NULL AND json_extract(json,'$.raw.pr.state')='OPEN' AND (json_extract(json,'$.raw.pr.merged') IS NULL OR json_extract(json,'$.raw.pr.merged')!=1) AND json_extract(json,'$.raw.pipelineId') IS NOT NULL AND json_extract(json,'$.raw.proposalId') IS NOT NULL AND json_extract(json,'$.raw.executableSpecificationId') IS NOT NULL AND key IN (SELECT key FROM documents WHERE collection='specs_signals' GROUP BY json_extract(json,'$.raw.pr.number') HAVING key=MAX(key)) ORDER BY json_extract(json,'$.createdAt') DESC LIMIT ?`,
@@ -835,7 +835,7 @@ export default {
         const mergeReadinessPackId = typeof body.mergeReadinessPackId === 'string' && body.mergeReadinessPackId.trim().length > 0
           ? body.mergeReadinessPackId.trim()
           : undefined
-        const { createClientFromEnv } = await import('@factory/arango-client')
+        const { createClientFromEnv } = await import('@factory/db-client')
         const { evaluateFunctionIdentity } = await import('./function-identity.js')
         const db = createClientFromEnv(env)
         const proposalDocument = await db.get<Record<string, unknown>>('specs_functions', proposalKey)
@@ -891,7 +891,7 @@ export default {
         const mergeReadinessPackId = typeof body.mergeReadinessPackId === 'string' && body.mergeReadinessPackId.trim().length > 0
           ? body.mergeReadinessPackId.trim()
           : undefined
-        const { createClientFromEnv } = await import('@factory/arango-client')
+        const { createClientFromEnv } = await import('@factory/db-client')
         const { evaluateFunctionIdentity } = await import('./function-identity.js')
         const db = createClientFromEnv(env)
         const proposalDocument = await db.get<Record<string, unknown>>('specs_functions', proposalKey)
@@ -1014,7 +1014,7 @@ export default {
           }), { status: 400, headers: { 'Content-Type': 'application/json' } })
         }
 
-        const { createClientFromEnv } = await import('@factory/arango-client')
+        const { createClientFromEnv } = await import('@factory/db-client')
         const {
           buildMergeReadinessPack,
           ingestMergeReadinessPack,
@@ -1130,7 +1130,7 @@ export default {
           }), { status: 400, headers: { 'Content-Type': 'application/json' } })
         }
 
-        const { createClientFromEnv } = await import('@factory/arango-client')
+        const { createClientFromEnv } = await import('@factory/db-client')
         const {
           buildMergeReadinessPack,
           ingestMergeReadinessPack,
@@ -1244,7 +1244,7 @@ export default {
           }), { status: 400, headers: { 'Content-Type': 'application/json' } })
         }
 
-        const { createClientFromEnv } = await import('@factory/arango-client')
+        const { createClientFromEnv } = await import('@factory/db-client')
         const db = createClientFromEnv(env)
         await db.ensureCollection('merge_readiness_evidence')
         const key = body.key.trim()
@@ -1280,7 +1280,7 @@ export default {
           }), { status: 400, headers: { 'Content-Type': 'application/json' } })
         }
 
-        const { createClientFromEnv } = await import('@factory/arango-client')
+        const { createClientFromEnv } = await import('@factory/db-client')
         const db = createClientFromEnv(env)
         const pack = await db.queryOne<{ json: string }>(
           `SELECT json FROM documents WHERE collection='merge_readiness_packs' AND json_extract(json,'$.id')=? LIMIT 1`,
@@ -1432,7 +1432,7 @@ export default {
       // ── feedback-signals queue: Factory PR outcome observations ──
       if (batch.queue === 'feedback-signals' && (msg.body as any).type === 'pr-outcome') {
         try {
-          const { createClientFromEnv } = await import('@factory/arango-client')
+          const { createClientFromEnv } = await import('@factory/db-client')
           const { validateArtifact } = await import('@factory/artifact-validator')
           const { fetchPROutcomeFromGitHub, ingestPROutcomeSignals } = await import('./stages/pr-outcome-signal.js')
 
@@ -1534,7 +1534,7 @@ export default {
         try {
           // Lazy import to avoid circular deps at module level
           const { recordAtomResult, getReadyAtoms, isComplete } = await import('./coordinator/completion-ledger.js')
-          const { createClientFromEnv } = await import('@factory/arango-client')
+          const { createClientFromEnv } = await import('@factory/db-client')
           const { validateArtifact } = await import('@factory/artifact-validator')
 
           const db = createClientFromEnv(env)
@@ -1672,7 +1672,7 @@ export default {
         try {
           const { MemoryCuratorAgent } = await import('./agents/memory-curator-agent.js')
           const { keyForModel, resolveAgentModel } = await import('./agents/resolve-model.js')
-          const { createClientFromEnv } = await import('@factory/arango-client')
+          const { createClientFromEnv } = await import('@factory/db-client')
           const { validateArtifact } = await import('@factory/artifact-validator')
 
           const db = createClientFromEnv(env)
@@ -1705,7 +1705,7 @@ export default {
         try {
           const { generateFeedbackSignals } = await import('./stages/generate-feedback.js')
           const { ingestSignal } = await import('./stages/ingest-signal.js')
-          const { createClientFromEnv } = await import('@factory/arango-client')
+          const { createClientFromEnv } = await import('@factory/db-client')
           const { validateArtifact } = await import('@factory/artifact-validator')
 
           const db = createClientFromEnv(env)
@@ -1889,7 +1889,7 @@ export default {
             // Structured signal to ArangoDB so Governor can see dispatch failures
             try {
               const { ingestSignal } = await import('./stages/ingest-signal.js')
-              const { createClientFromEnv } = await import('@factory/arango-client')
+              const { createClientFromEnv } = await import('@factory/db-client')
               const db = createClientFromEnv(env)
               await ingestSignal({
                 signalType: 'internal',
@@ -2008,7 +2008,7 @@ async function handleDispatchFormula(
       return json({ error: 'Gas City env vars not configured', missing }, 500)
     }
 
-    const { createClientFromEnv } = await import('@factory/arango-client')
+    const { createClientFromEnv } = await import('@factory/db-client')
     const { buildFormulaCompilerDeps } = await import('./compilers/formula-compiler-adapter.js')
     const { compileAndDispatchFormula } = await import('./compilers/formula-compiler.js')
     const arangoDb = createClientFromEnv(env)
@@ -2111,7 +2111,7 @@ async function handleSeedDispatchEp(request: Request, env: PipelineEnv): Promise
     const coderPrompt = cleanString(body.coderPrompt, '') || `Implement the plan from ${esId}: ${task}`
     const verifierPrompt = cleanString(body.verifierPrompt, '') || `Verify the implementation against ${esId} acceptance criteria. Approve if all pass.`
 
-    const { createClientFromEnv } = await import('@factory/arango-client')
+    const { createClientFromEnv } = await import('@factory/db-client')
     const db = createClientFromEnv(env)
 
     await db.ensureCollection('execution_packets')
@@ -2351,7 +2351,7 @@ async function handleSeedFactoryArtifacts(request: Request, env: PipelineEnv): P
     if (!isBody) return json({ error: 'isBody is required' }, 400)
     if (!esBody) return json({ error: 'esBody is required' }, 400)
 
-    const { createClientFromEnv } = await import('@factory/arango-client')
+    const { createClientFromEnv } = await import('@factory/db-client')
     const db = createClientFromEnv(env)
 
     await db.ensureCollection('intent_specifications')
@@ -2667,7 +2667,7 @@ async function skeletonHmacSha256Hex(secret: string, message: string): Promise<s
 
 async function checkArango(env: PipelineEnv): Promise<boolean> {
   try {
-    const { createClientFromEnv } = await import('@factory/arango-client')
+    const { createClientFromEnv } = await import('@factory/db-client')
     const db = createClientFromEnv(env)
     return await db.ping()
   } catch {
@@ -2710,7 +2710,7 @@ async function _initDb(env: PipelineEnv): Promise<Response> {
   }
 
   // 2. Ensure all collections
-  const { createClientFromEnv } = await import('@factory/arango-client')
+  const { createClientFromEnv } = await import('@factory/db-client')
   const db = createClientFromEnv(env)
 
   const docCollections = [

@@ -11,7 +11,7 @@
 import { agentLoop } from '@weops/gdk-agent'
 import type { AgentTool } from '@weops/gdk-agent'
 import { Type, type Model, type AssistantMessage, type Message, type UserMessage } from '@weops/gdk-ai'
-import type { ArangoClient } from '@factory/arango-client'
+import type { ArangoClient } from '@factory/db-client'
 import { resolveAgentModel } from './resolve-model'
 import { processAgentOutput, extractAssistantText, buildTelemetryEntry, BRIEFING_SCRIPT_SCHEMA } from './output-reliability'
 

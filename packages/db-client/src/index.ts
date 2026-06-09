@@ -1,5 +1,5 @@
 /**
- * @module arango-client
+ * @module db-client
  *
  * D1-backed document/edge client for Cloudflare Workers.
  *

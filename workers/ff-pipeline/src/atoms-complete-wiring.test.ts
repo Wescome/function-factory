@@ -71,7 +71,7 @@ const mockDb = {
   setValidator: vi.fn(),
 }
 
-vi.mock('@factory/arango-client', () => ({
+vi.mock('@factory/db-client', () => ({
   createClientFromEnv: () => mockDb,
 }))
 
