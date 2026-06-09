@@ -5,7 +5,8 @@ import { buildFormulaCompilerDeps } from "./formula-compiler-adapter.js"
 
 interface MockDb {
   ensureCollection: Mock<(collection: string) => Promise<void>>
-  query: Mock<(aql: string, bindVars?: Record<string, unknown>) => Promise<Record<string, unknown>[]>>
+  query: Mock<(sql: string, params?: unknown[]) => Promise<Record<string, unknown>[]>>
+  queryOne: Mock<(sql: string, params?: unknown[]) => Promise<Record<string, unknown> | null>>
   get: Mock<(collection: string, key: string) => Promise<Record<string, unknown> | null>>
   save: Mock<(collection: string, doc: Record<string, unknown>) => Promise<Record<string, unknown>>>
   update: Mock<(collection: string, key: string, patch: Record<string, unknown>) => Promise<Record<string, unknown>>>
@@ -14,7 +15,8 @@ interface MockDb {
 function makeDb(): MockDb {
   return {
     ensureCollection: vi.fn(async (_collection: string) => undefined),
-    query: vi.fn(async (_aql: string, _bindVars?: Record<string, unknown>) => []),
+    query: vi.fn(async (_sql: string, _params?: unknown[]) => []),
+    queryOne: vi.fn(async (_sql: string, _params?: unknown[]) => null),
     get: vi.fn(async (_collection: string, _key: string) => null),
     save: vi.fn(async (_collection: string, doc: Record<string, unknown>) => doc),
     update: vi.fn(async (_collection: string, _key: string, patch: Record<string, unknown>) => patch),
@@ -40,26 +42,26 @@ describe("buildFormulaCompilerDeps", () => {
 
   it("fetchCoherenceVR queries the latest passed coherence verification report for an ES", async () => {
     const db = makeDb()
-    db.query.mockResolvedValueOnce([{ _key: "VR-1" }])
+    db.queryOne.mockResolvedValueOnce({ json: JSON.stringify({ _key: "VR-1" }) })
     const deps = buildDeps(db)
 
     const row = await deps.fetchCoherenceVR("ES-123")
 
     expect(row).toEqual({ _key: "VR-1" })
-    expect(db.query).toHaveBeenCalledOnce()
+    expect(db.queryOne).toHaveBeenCalledOnce()
   })
 
   it("getDispatchLogByIdempotencyKey uses null excludeKey by default and filters non-null excludeKey", async () => {
     const db = makeDb()
-    db.query
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([{ _key: "DL-2" }])
+    db.queryOne
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ json: JSON.stringify({ _key: "DL-2" }) })
     const deps = buildDeps(db)
 
     await expect(deps.getDispatchLogByIdempotencyKey("idem-1", 1)).resolves.toBeNull()
     await expect(deps.getDispatchLogByIdempotencyKey("idem-1", 1, "DL-1")).resolves.toEqual({ _key: "DL-2" })
 
-    expect(db.query).toHaveBeenCalledTimes(2)
+    expect(db.queryOne).toHaveBeenCalledTimes(2)
   })
 
   it("writeFormAndDispatchLog saves the form before the dispatch log", async () => {

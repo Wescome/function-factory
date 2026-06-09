@@ -44,8 +44,7 @@ describe('loadCrystallizerEnabled', () => {
 
   it('returns true when hot_config doc has crystallizer.enabled = true', async () => {
     db.query.mockResolvedValue([{
-      _key: 'pipeline',
-      crystallizer: { enabled: true },
+      json: JSON.stringify({ _key: 'pipeline', crystallizer: { enabled: true } }),
     }])
 
     const enabled = await loadCrystallizerEnabled(db as never)
@@ -54,8 +53,7 @@ describe('loadCrystallizerEnabled', () => {
 
   it('returns false when hot_config doc has crystallizer.enabled = false', async () => {
     db.query.mockResolvedValue([{
-      _key: 'pipeline',
-      crystallizer: { enabled: false },
+      json: JSON.stringify({ _key: 'pipeline', crystallizer: { enabled: false } }),
     }])
 
     const enabled = await loadCrystallizerEnabled(db as never)
@@ -77,7 +75,7 @@ describe('loadCrystallizerEnabled', () => {
   })
 
   it('defaults to true when crystallizer field is missing from doc', async () => {
-    db.query.mockResolvedValue([{ _key: 'pipeline' }])
+    db.query.mockResolvedValue([{ json: JSON.stringify({ _key: 'pipeline' }) }])
 
     const enabled = await loadCrystallizerEnabled(db as never)
     expect(enabled).toBe(true)
@@ -94,15 +92,16 @@ describe('seedPipelineConfig', () => {
   it('upserts pipeline config doc with crystallizer.enabled = true', async () => {
     await seedPipelineConfig(db as never)
 
-    // Should have called query with upsert for hot_config
+    // D1 upsert uses positional params: [collection, key, json_string, now]
+    // Filter by looking at params array for 'hot_config' as first element
     const upsertCalls = db.query.mock.calls.filter(
-      (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('hot_config'),
+      (c: unknown[]) => Array.isArray(c[1]) && (c[1] as unknown[])[0] === 'hot_config',
     )
     expect(upsertCalls.length).toBe(1)
 
-    // Verify the params include crystallizer.enabled
-    const params = upsertCalls[0]![1] as Record<string, unknown>
-    expect(params.crystallizer).toEqual({ enabled: true })
+    const posParams = upsertCalls[0]![1] as unknown[]
+    const doc = JSON.parse(posParams[2] as string) as { crystallizer: { enabled: boolean } }
+    expect(doc.crystallizer).toEqual({ enabled: true })
   })
 
   it('ensures hot_config collection exists', async () => {

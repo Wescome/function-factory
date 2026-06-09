@@ -25,10 +25,10 @@ interface PipelineHotConfig {
  */
 export async function loadCrystallizerEnabled(db: ArangoClient): Promise<boolean> {
   try {
-    const results = await db.query<PipelineHotConfig>(
-      `FOR c IN hot_config FILTER c._key == 'pipeline' RETURN c`,
+    const rows = await db.query<{ json: string }>(
+      `SELECT json FROM documents WHERE collection='hot_config' AND key='pipeline' LIMIT 1`,
     )
-    const doc = results[0]
+    const doc = rows[0] ? JSON.parse(rows[0].json) as PipelineHotConfig : undefined
     if (!doc || doc.crystallizer?.enabled === undefined) return true
     return doc.crystallizer.enabled
   } catch {
@@ -47,12 +47,10 @@ export async function seedPipelineConfig(
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     await db.ensureCollection('hot_config')
+    const now = new Date().toISOString()
     await db.query(
-      `UPSERT { _key: 'pipeline' }
-       INSERT { _key: 'pipeline', crystallizer: @crystallizer, seededAt: @now, source: 'hardcoded-defaults' }
-       UPDATE { seededAt: @now, source: 'hardcoded-defaults' }
-       IN hot_config`,
-      { crystallizer: { enabled: true }, now: new Date().toISOString() },
+      `INSERT INTO documents (collection, key, json) VALUES (?, ?, ?) ON CONFLICT(collection, key) DO UPDATE SET json=json_patch(json, json_object('seededAt', ?, 'source', 'hardcoded-defaults'))`,
+      ['hot_config', 'pipeline', JSON.stringify({ _key: 'pipeline', crystallizer: { enabled: true }, seededAt: now, source: 'hardcoded-defaults' }), now],
     )
     return { ok: true }
   } catch (err) {

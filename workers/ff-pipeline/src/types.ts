@@ -1,7 +1,10 @@
 import type { FunctionJob } from "@factory/schemas"
+import type { D1Database } from "@factory/arango-client"
 import type { PiWorkerVersionMetadata } from "./coordinator/pi-container-version"
 
 export interface PipelineEnv {
+  /** Cloudflare D1 database binding */
+  DB: D1Database
   ARANGO_URL: string
   ARANGO_DATABASE: string
   ARANGO_JWT: string

@@ -128,13 +128,13 @@ export class HotConfigLoader {
 
   private async loadAliases(): Promise<Record<string, Record<string, string[]>>> {
     try {
-      const results = await this.db.query<{
-        _key: string
-        aliases: Record<string, string[]>
-      }>('FOR c IN config_aliases RETURN c')
-
+      const results = await this.db.query<{ json: string }>(
+        'SELECT json FROM documents WHERE collection=?',
+        ['config_aliases'],
+      )
       const aliasMap: Record<string, Record<string, string[]>> = {}
-      for (const doc of results) {
+      for (const row of results) {
+        const doc = JSON.parse(row.json) as { _key: string; aliases: Record<string, string[]> }
         aliasMap[doc._key] = doc.aliases
       }
       return aliasMap
@@ -145,12 +145,12 @@ export class HotConfigLoader {
 
   private async loadRouting(): Promise<RoutingConfig> {
     try {
-      const results = await this.db.query<{
-        _key: string
-        config: RoutingConfig
-      }>('FOR c IN config_routing RETURN c')
-
-      const defaultDoc = results.find(r => r._key === 'default')
+      const results = await this.db.query<{ json: string }>(
+        'SELECT json FROM documents WHERE collection=?',
+        ['config_routing'],
+      )
+      const docs = results.map(r => JSON.parse(r.json) as { _key: string; config: RoutingConfig })
+      const defaultDoc = docs.find(r => r._key === 'default')
       if (defaultDoc?.config) return defaultDoc.config
       return DEFAULT_CONFIG
     } catch {
@@ -160,16 +160,13 @@ export class HotConfigLoader {
 
   private async loadModelCapabilities(): Promise<Record<string, ModelCapabilities>> {
     try {
-      const results = await this.db.query<{
-        _key: string
-        supportsJsonMode: boolean
-        supportsFunctionCalling: boolean
-        maxOutputTokens: number
-        reliabilityTier: 'high' | 'medium' | 'low'
-      }>('FOR c IN config_model_capabilities RETURN c')
-
+      const results = await this.db.query<{ json: string }>(
+        'SELECT json FROM documents WHERE collection=?',
+        ['config_model_capabilities'],
+      )
       const capMap: Record<string, ModelCapabilities> = {}
-      for (const doc of results) {
+      for (const row of results) {
+        const doc = JSON.parse(row.json) as { _key: string; supportsJsonMode: boolean; supportsFunctionCalling: boolean; maxOutputTokens: number; reliabilityTier: 'high' | 'medium' | 'low' }
         capMap[doc._key] = {
           supportsJsonMode: doc.supportsJsonMode,
           supportsFunctionCalling: doc.supportsFunctionCalling,
@@ -279,12 +276,10 @@ export async function seedHotConfig(
 
   // Seed default routing config (upsert — always update to latest defaults)
   try {
+    const now = new Date().toISOString()
     await db.query(
-      `UPSERT { _key: 'default' }
-       INSERT { _key: 'default', config: @config, seededAt: @now, source: 'hardcoded-defaults' }
-       UPDATE { config: @config, seededAt: @now, source: 'hardcoded-defaults' }
-       IN config_routing`,
-      { config: DEFAULT_CONFIG, now: new Date().toISOString() },
+      `INSERT INTO documents (collection, key, json) VALUES (?, ?, ?) ON CONFLICT(collection, key) DO UPDATE SET json=excluded.json`,
+      ['config_routing', 'default', JSON.stringify({ _key: 'default', config: DEFAULT_CONFIG, seededAt: now, source: 'hardcoded-defaults' })],
     )
     seeded++
   } catch (err) {

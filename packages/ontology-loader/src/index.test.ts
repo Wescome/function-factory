@@ -28,69 +28,59 @@ import type { OntologyClass, OntologyProperty, OntologyConstraint, OntologyInsta
 // ── Mock ArangoClient ────────────────────────────────────────────────
 
 function createMockDb() {
-  const collections: Record<string, Record<string, unknown>[]> = {}
+  // Store documents keyed by collection → key → json string (mirrors D1 schema)
+  const store: Record<string, Record<string, string>> = {}
+
+  const saveDoc = (collection: string, doc: Record<string, unknown>) => {
+    if (!store[collection]) store[collection] = {}
+    const key = String(doc._key ?? '')
+    store[collection][key] = JSON.stringify(doc)
+  }
+
+  // query() returns { json: string }[] — same shape as D1 rows
+  const query = vi.fn(async <T = unknown>(sql: string, params: unknown[] = []): Promise<T[]> => {
+    if (sql.includes('ontology_constraints') && sql.includes('targetClasses')) {
+      const className = params[0] as string
+      const rows = Object.values(store['ontology_constraints'] ?? {})
+      return rows
+        .map(j => JSON.parse(j) as OntologyConstraint)
+        .filter(c => c.targetClasses?.includes(className))
+        .map(c => ({ json: JSON.stringify(c) }) as unknown as T)
+    }
+    if (sql.includes('consultation_requests')) {
+      return [] as T[]
+    }
+    return [] as T[]
+  })
+
+  // queryOne() returns { json: string } | null
+  const queryOne = vi.fn(async <T = unknown>(sql: string, params: unknown[] = []): Promise<T | null> => {
+    if (sql.includes('ontology_instances')) {
+      const key = params[0] as string
+      const json = store['ontology_instances']?.[key]
+      return json ? ({ json } as unknown as T) : null
+    }
+    if (sql.includes('ontology_classes')) {
+      const key = params[0] as string
+      const json = store['ontology_classes']?.[key]
+      return json ? ({ json } as unknown as T) : null
+    }
+    if (sql.includes('specs_functions')) {
+      const key = params[0] as string
+      const json = store['specs_functions']?.[key]
+      return json ? ({ json } as unknown as T) : null
+    }
+    return null
+  })
 
   return {
-    _collections: collections,
+    _store: store,
     save: vi.fn(async (collection: string, doc: Record<string, unknown>) => {
-      if (!collections[collection]) collections[collection] = []
-      collections[collection].push(doc)
+      saveDoc(collection, doc)
       return { _key: doc._key, _id: `${collection}/${doc._key}` }
     }),
-    query: vi.fn(async <T = unknown>(aql: string, bindVars: Record<string, unknown> = {}): Promise<T[]> => {
-      // Simulate AQL queries based on patterns
-      if (aql.includes('ontology_constraints') && aql.includes('targetClasses')) {
-        const className = bindVars.className as string
-        const constraints = (collections['ontology_constraints'] ?? []) as unknown as OntologyConstraint[]
-        return constraints.filter(c =>
-          c.targetClasses?.includes(className)
-        ) as unknown as T[]
-      }
-      if (aql.includes('ontology_instances') && aql.includes('@key')) {
-        const key = bindVars.key as string
-        const instances = (collections['ontology_instances'] ?? []) as unknown as OntologyInstance[]
-        return instances.filter(i => i._key === key) as unknown as T[]
-      }
-      if (aql.includes('specs_functions') && aql.includes('lifecycleState')) {
-        const key = bindVars.key as string
-        // Simulate no lifecycle state stored
-        return [] as unknown as T[]
-      }
-      if (aql.includes('consultation_requests') && aql.includes('pending')) {
-        return [] as unknown as T[]
-      }
-      if (aql.includes('ontology_classes') && aql.includes('persistsIn')) {
-        const className = bindVars.className as string
-        const classes = (collections['ontology_classes'] ?? []) as unknown as OntologyClass[]
-        const cls = classes.find(c => c._key === className)
-        if (cls?.persistsIn) {
-          return [{ persistsIn: cls.persistsIn }] as unknown as T[]
-        }
-        return [] as unknown as T[]
-      }
-      return [] as unknown as T[]
-    }),
-    queryOne: vi.fn(async <T = unknown>(aql: string, bindVars: Record<string, unknown> = {}): Promise<T | null> => {
-      if (aql.includes('ontology_instances') && aql.includes('@key')) {
-        const key = bindVars.key as string
-        const instances = (collections['ontology_instances'] ?? []) as unknown as OntologyInstance[]
-        const found = instances.find(i => i._key === key)
-        return (found as unknown as T) ?? null
-      }
-      if (aql.includes('specs_functions') && aql.includes('lifecycleState')) {
-        return null
-      }
-      if (aql.includes('ontology_classes') && aql.includes('persistsIn')) {
-        const className = bindVars.className as string
-        const classes = (collections['ontology_classes'] ?? []) as unknown as OntologyClass[]
-        const cls = classes.find(c => c._key === className)
-        if (cls?.persistsIn) {
-          return { persistsIn: cls.persistsIn } as unknown as T
-        }
-        return null
-      }
-      return null
-    }),
+    query,
+    queryOne,
   }
 }
 

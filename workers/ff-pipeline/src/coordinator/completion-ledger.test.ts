@@ -157,7 +157,8 @@ describe('v5.1: completion-ledger', () => {
       const result = makeAtomResult('atom-1')
       const updated = await recordAtomResult(db as never, 'ES-001', 'atom-1', result)
 
-      expect(db.query).toHaveBeenCalledOnce()
+      expect(db.get).toHaveBeenCalledOnce()
+      expect(db.update).toHaveBeenCalledOnce()
       expect(updated.completedAtoms).toBe(1)
       expect(updated.atomResults['atom-1']).toBeDefined()
       expect(updated.atomResults['atom-1']!.verdict.decision).toBe('pass')

@@ -78,7 +78,7 @@ const VALID_CYCLE_RESULT: GovernanceCycleResult = {
 // ── Mock DB ──────────────────────────────────────────────────────
 
 function createMockDb(overrides?: { failCollections?: string[] }) {
-  const calls: { query: string; params: Record<string, unknown> | undefined }[] = []
+  const calls: { query: string; params: unknown }[] = []
   const saves: { collection: string; data: Record<string, unknown> }[] = []
   const failSet = new Set(overrides?.failCollections ?? [])
 
@@ -132,20 +132,25 @@ function createMockDb(overrides?: { failCollections?: string[] }) {
         }
         return [] as T[]
       },
-      queryOne: async <T>(query: string, params?: Record<string, unknown>): Promise<T | null> => {
+      queryOne: async <T>(query: string, params?: unknown[]): Promise<T | null> => {
         calls.push({ query, params })
-        if (params?.key === 'SIG-001') {
+        const key = Array.isArray(params) ? params[0] : undefined
+        if (key === 'SIG-001') {
           return {
-            _key: 'SIG-001',
-            source: 'factory:feedback-loop',
-            raw: { feedbackDepth: 1, autoApprove: true },
+            json: JSON.stringify({
+              _key: 'SIG-001',
+              source: 'factory:feedback-loop',
+              raw: { feedbackDepth: 1, autoApprove: true },
+            }),
           } as T
         }
-        if (params?.key === 'SIG-UNSAFE') {
+        if (key === 'SIG-UNSAFE') {
           return {
-            _key: 'SIG-UNSAFE',
-            source: 'external:market-research',
-            raw: { feedbackDepth: 0, autoApprove: false },
+            json: JSON.stringify({
+              _key: 'SIG-UNSAFE',
+              source: 'external:market-research',
+              raw: { feedbackDepth: 0, autoApprove: false },
+            }),
           } as T
         }
         return null
@@ -272,7 +277,7 @@ describe('prefetchGovernorContext', () => {
     expect(calls.some(c => c.query.includes('completion_ledgers'))).toBe(true)
     expect(calls.some(c => c.query.includes('hot_config'))).toBe(true)
     // Q9: INV-DEVOPS-5 lineage-gap detector — artifacts with null/empty source_refs.
-    expect(calls.some(c => c.query.includes('source_refs == null'))).toBe(true)
+    expect(calls.some(c => c.query.includes('source_refs') && c.query.includes('IS NULL'))).toBe(true)
   })
 
   it('returns empty arrays when all queries fail', async () => {

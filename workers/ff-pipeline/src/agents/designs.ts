@@ -87,12 +87,12 @@ export const AGENT_DESIGNS: AgentDesign[] = [
     context: {
       tools: [{
         name: 'arango_query',
-        description: 'Query the Factory knowledge graph via AQL',
+        description: 'Query the Factory knowledge graph via SQL (D1/SQLite). Documents are stored in the documents table with collection, key, json columns.',
         aqlExamples: [
-          'FOR d IN memory_semantic FILTER d.type == "decision" RETURN { key: d._key, decision: d.decision, rationale: d.rationale }',
-          'FOR l IN memory_semantic FILTER l.type == "lesson" RETURN { key: l._key, lesson: l.lesson, pain: l.pain_score }',
-          'FOR r IN mentorscript_rules FILTER r.status == "active" RETURN { ruleId: r._key, rule: r.rule }',
-          'FOR f IN specs_functions LIMIT 5 RETURN { key: f._key, name: f.name, domain: f.domain }',
+          "SELECT json FROM documents WHERE collection='memory_semantic' AND json_extract(json,'$.type')='decision' LIMIT 10",
+          "SELECT json FROM documents WHERE collection='memory_semantic' AND json_extract(json,'$.type')='lesson' LIMIT 10",
+          "SELECT json FROM documents WHERE collection='mentorscript_rules' AND json_extract(json,'$.status')='active' LIMIT 10",
+          "SELECT json FROM documents WHERE collection='specs_functions' LIMIT 5",
         ],
       }, {
         name: 'ontology_query',
@@ -677,11 +677,11 @@ export async function seedAgentDesigns(db: ArangoClient): Promise<{ seeded: numb
 
 export async function loadAgentDesign(db: ArangoClient, roleKey: string): Promise<AgentDesign | null> {
   try {
-    const results = await db.query<AgentDesign>(
-      `FOR d IN agent_designs FILTER d._key == @key RETURN d`,
-      { key: roleKey },
+    const row = await db.queryOne<{ json: string }>(
+      `SELECT json FROM documents WHERE collection='agent_designs' AND key=? LIMIT 1`,
+      [roleKey],
     )
-    return results[0] ?? null
+    return row ? JSON.parse(row.json) as AgentDesign : null
   } catch {
     return null
   }

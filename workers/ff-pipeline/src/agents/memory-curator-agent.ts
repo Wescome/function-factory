@@ -89,36 +89,19 @@ export const MEMORY_CURATION_SCHEMA: OutputSchema<MemoryCurationResult> = {
 export async function prefetchCuratorContext(db: ArangoClient): Promise<CuratorContext> {
   const [orl_telemetry, memory_semantic, memory_episodic, specs_signals] = await Promise.all([
     db.query<Record<string, unknown>>(
-      `FOR t IN orl_telemetry
-         FILTER t.timestamp >= DATE_SUBTRACT(DATE_NOW(), 7, 'day')
-         COLLECT schemaName = t.schemaName
-         AGGREGATE success_count = SUM(t.success ? 1 : 0),
-                   fail_count = SUM(t.success ? 0 : 1),
-                   avg_repairs = AVG(t.repairAttempts)
-         RETURN { schemaName, success_count, fail_count, avg_repairs }`,
+      `SELECT json_extract(json,'$.schemaName') AS schemaName, SUM(CASE WHEN json_extract(json,'$.success')=1 THEN 1 ELSE 0 END) AS success_count, SUM(CASE WHEN json_extract(json,'$.success')=1 THEN 0 ELSE 1 END) AS fail_count, AVG(CAST(json_extract(json,'$.repairAttempts') AS REAL)) AS avg_repairs FROM documents WHERE collection='orl_telemetry' AND json_extract(json,'$.timestamp') >= datetime('now','-7 days') GROUP BY json_extract(json,'$.schemaName')`,
     ).catch(() => [] as Record<string, unknown>[]),
 
     db.query<Record<string, unknown>>(
-      `FOR l IN memory_semantic
-         FILTER l.type == 'lesson'
-         SORT l.lastSeen DESC
-         LIMIT 50
-         RETURN l`,
-    ).catch(() => [] as Record<string, unknown>[]),
+      `SELECT json FROM documents WHERE collection='memory_semantic' AND json_extract(json,'$.type')='lesson' ORDER BY json_extract(json,'$.lastSeen') DESC LIMIT 50`,
+    ).then(rows => rows.map(r => JSON.parse((r as { json: string }).json) as Record<string, unknown>)).catch(() => [] as Record<string, unknown>[]),
 
     db.query<Record<string, unknown>>(
-      `FOR e IN memory_episodic
-         SORT e.timestamp DESC
-         LIMIT 50
-         RETURN e`,
-    ).catch(() => [] as Record<string, unknown>[]),
+      `SELECT json FROM documents WHERE collection='memory_episodic' ORDER BY json_extract(json,'$.timestamp') DESC LIMIT 50`,
+    ).then(rows => rows.map(r => JSON.parse((r as { json: string }).json) as Record<string, unknown>)).catch(() => [] as Record<string, unknown>[]),
 
     db.query<Record<string, unknown>>(
-      `FOR s IN specs_signals
-         FILTER s.source == 'factory:feedback-loop'
-         SORT s.createdAt DESC
-         LIMIT 20
-         RETURN { _key: s._key, subtype: s.subtype, title: s.title, createdAt: s.createdAt }`,
+      `SELECT key AS _key, json_extract(json,'$.subtype') AS subtype, json_extract(json,'$.title') AS title, json_extract(json,'$.createdAt') AS createdAt FROM documents WHERE collection='specs_signals' AND json_extract(json,'$.source')='factory:feedback-loop' ORDER BY json_extract(json,'$.createdAt') DESC LIMIT 20`,
     ).catch(() => [] as Record<string, unknown>[]),
   ])
 
@@ -331,21 +314,12 @@ export class MemoryCuratorAgent {
     for (const lesson of curation.curated_lessons) {
       try {
         await this.db.query(
-          `UPSERT { pattern: @pattern }
-           INSERT { pattern: @pattern, confidence: @confidence, severity: @severity, recommendation: @recommendation, evidence_count: @evidence_count, last_seen: @last_seen, affects_agents: @affects_agents, decay_status: @decay_status, type: 'curated_lesson', createdAt: @now, updatedAt: @now }
-           UPDATE { confidence: @confidence, severity: @severity, recommendation: @recommendation, evidence_count: @evidence_count, last_seen: @last_seen, affects_agents: @affects_agents, decay_status: @decay_status, updatedAt: @now }
-           IN memory_curated`,
-          {
-            pattern: lesson.pattern,
-            confidence: lesson.confidence,
-            severity: lesson.severity,
-            recommendation: lesson.recommendation,
-            evidence_count: lesson.evidence_count,
-            last_seen: lesson.last_seen,
-            affects_agents: lesson.affects_agents,
-            decay_status: lesson.decay_status,
-            now: new Date().toISOString(),
-          },
+          `INSERT INTO documents (collection, key, json) VALUES ('memory_curated', ?, json(?)) ON CONFLICT(collection, key) DO UPDATE SET json=json_patch(json, ?)`,
+          [
+            lesson.pattern.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64),
+            JSON.stringify({ _key: lesson.pattern.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64), pattern: lesson.pattern, confidence: lesson.confidence, severity: lesson.severity, recommendation: lesson.recommendation, evidence_count: lesson.evidence_count, last_seen: lesson.last_seen, affects_agents: lesson.affects_agents, decay_status: lesson.decay_status, type: 'curated_lesson', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }),
+            JSON.stringify({ confidence: lesson.confidence, severity: lesson.severity, recommendation: lesson.recommendation, evidence_count: lesson.evidence_count, last_seen: lesson.last_seen, affects_agents: lesson.affects_agents, decay_status: lesson.decay_status, updatedAt: new Date().toISOString() }),
+          ],
         )
         written++
       } catch (err) {
@@ -357,19 +331,12 @@ export class MemoryCuratorAgent {
     for (const entry of curation.pattern_library_entries) {
       try {
         await this.db.query(
-          `UPSERT { pattern_name: @pattern_name }
-           INSERT { pattern_name: @pattern_name, description: @description, frequency: @frequency, first_seen: @first_seen, last_seen: @last_seen, related_lessons: @related_lessons, createdAt: @now, updatedAt: @now }
-           UPDATE { description: @description, frequency: @frequency, last_seen: @last_seen, related_lessons: @related_lessons, updatedAt: @now }
-           IN pattern_library`,
-          {
-            pattern_name: entry.pattern_name,
-            description: entry.description,
-            frequency: entry.frequency,
-            first_seen: entry.first_seen,
-            last_seen: entry.last_seen,
-            related_lessons: entry.related_lessons,
-            now: new Date().toISOString(),
-          },
+          `INSERT INTO documents (collection, key, json) VALUES ('pattern_library', ?, json(?)) ON CONFLICT(collection, key) DO UPDATE SET json=json_patch(json, ?)`,
+          [
+            entry.pattern_name.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64),
+            JSON.stringify({ _key: entry.pattern_name.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64), pattern_name: entry.pattern_name, description: entry.description, frequency: entry.frequency, first_seen: entry.first_seen, last_seen: entry.last_seen, related_lessons: entry.related_lessons, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }),
+            JSON.stringify({ description: entry.description, frequency: entry.frequency, last_seen: entry.last_seen, related_lessons: entry.related_lessons, updatedAt: new Date().toISOString() }),
+          ],
         )
         written++
       } catch (err) {

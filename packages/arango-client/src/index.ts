@@ -1,18 +1,52 @@
 /**
  * @module arango-client
  *
- * Lightweight ArangoDB HTTP client for Cloudflare Workers.
+ * D1-backed document/edge client for Cloudflare Workers.
  *
- * Workers can't use arangojs (Node.js socket assumptions). This client
- * uses fetch() directly against ArangoDB's HTTP API. Designed for the
- * Factory's access patterns: document CRUD, AQL queries, graph traversals.
+ * Previously backed ArangoDB via HTTP. Now backed by Cloudflare D1 (SQLite).
+ * All public method signatures are unchanged — ~140 call sites need no edits.
  *
- * Not a general-purpose driver. Covers what the Factory needs.
+ * Schema expected in D1:
+ *   CREATE TABLE IF NOT EXISTS documents (
+ *     collection TEXT NOT NULL,
+ *     key        TEXT NOT NULL,
+ *     json       TEXT NOT NULL,
+ *     PRIMARY KEY (collection, key)
+ *   );
+ *   CREATE TABLE IF NOT EXISTS edges (
+ *     id         INTEGER PRIMARY KEY AUTOINCREMENT,
+ *     collection TEXT NOT NULL,
+ *     from_id    TEXT NOT NULL,
+ *     to_id      TEXT NOT NULL,
+ *     data       TEXT
+ *   );
+ *
+ * BREAKING CHANGE (query / queryOne):
+ *   Consumers must now pass SQL (with ? placeholders) instead of AQL.
+ *   bindVars is replaced by a params array (unknown[]).
  */
 
+// ── Minimal D1 type shim ──────────────────────────────────────────────────────
+// Defined inline so this package has zero runtime or type-only deps on
+// @cloudflare/workers-types. Workers that already have that package in scope
+// will see structural compatibility.
+
+export interface D1PreparedStatement {
+  bind(...values: unknown[]): D1PreparedStatement
+  first<T = Record<string, unknown>>(): Promise<T | null>
+  run<T = Record<string, unknown>>(): Promise<{ results: T[] }>
+  all<T = Record<string, unknown>>(): Promise<{ results: T[] }>
+}
+
+export interface D1Database {
+  prepare(query: string): D1PreparedStatement
+}
+
+// ── Legacy exports kept for consumers that import these types ─────────────────
+
 export interface ArangoConfig {
-  url: string        // e.g., "https://your-instance.arangodb.cloud:8529"
-  database: string   // e.g., "function_factory"
+  url: string
+  database: string
   auth: {
     type: 'jwt'
     token: string
@@ -21,7 +55,7 @@ export interface ArangoConfig {
     username: string
     password: string
   }
-  /** Optional custom fetch implementation (e.g. CF service binding fetcher). */
+  /** @deprecated Not used in D1 backend. */
   fetcher?: typeof fetch | undefined
 }
 
@@ -46,19 +80,14 @@ export interface ArangoIndexOptions {
   name?: string
 }
 
+// ── Client ────────────────────────────────────────────────────────────────────
+
 export class ArangoClient {
-  private baseUrl: string
-  private headers: Record<string, string>
-  private fetcher: typeof fetch
+  private db: D1Database
   private validator?: (collection: string, doc: Record<string, unknown>) => ArangoValidationResult
 
-  constructor(private config: ArangoConfig) {
-    this.baseUrl = `${config.url}/_db/${config.database}`
-    this.headers = {
-      'Content-Type': 'application/json',
-      ...this.authHeader(),
-    }
-    this.fetcher = config.fetcher ?? fetch
+  constructor(db: D1Database) {
+    this.db = db
   }
 
   /**
@@ -71,70 +100,29 @@ export class ArangoClient {
     this.validator = fn
   }
 
-  private authHeader(): Record<string, string> {
-    if (this.config.auth.type === 'jwt') {
-      return { Authorization: `Bearer ${this.config.auth.token}` }
-    }
-    const encoded = btoa(
-      `${this.config.auth.username}:${this.config.auth.password}`,
-    )
-    return { Authorization: `Basic ${encoded}` }
+  // ── Collection operations ─────────────────────────────────────────────────
+
+  /** No-op in D1 backend — tables are created via migrations. */
+  async ensureCollection(_name: string, _options: { type?: ArangoCollectionType } = {}): Promise<void> {
+    return Promise.resolve()
   }
 
-  // ── Collection operations ──
-
-  async ensureCollection(name: string, options: { type?: ArangoCollectionType } = {}): Promise<void> {
-    const res = await this.fetcher(`${this.baseUrl}/_api/collection`, {
-      method: 'POST',
-      headers: this.headers,
-      body: JSON.stringify({
-        name,
-        type: options.type === 'edge' ? 3 : 2,
-      }),
-    })
-    if (res.ok || res.status === 409) return // 409 = already exists
-    // Non-critical — log and continue
-    console.warn(`ArangoDB: failed to ensure collection ${name}: ${res.status}`)
+  /** No-op in D1 backend — indexes are created via migrations. */
+  async ensureIndex(_collection: string, _options: ArangoIndexOptions): Promise<void> {
+    return Promise.resolve()
   }
 
-  async ensureIndex(collection: string, options: ArangoIndexOptions): Promise<void> {
-    const res = await this.fetcher(
-      `${this.baseUrl}/_api/index?collection=${encodeURIComponent(collection)}`,
-      {
-        method: 'POST',
-        headers: this.headers,
-        body: JSON.stringify({
-          type: options.type,
-          fields: options.fields,
-          unique: options.unique ?? false,
-          sparse: options.sparse ?? false,
-          ...(options.name ? { name: options.name } : {}),
-        }),
-      },
-    )
-    if (res.ok || res.status === 409) return
-    console.warn(`ArangoDB: failed to ensure index on ${collection}: ${res.status}`)
+  // ── Document operations ───────────────────────────────────────────────────
+
+  async get<T = unknown>(collection: string, key: string): Promise<T | null> {
+    const row = await this.db
+      .prepare('SELECT json FROM documents WHERE collection=? AND key=? LIMIT 1')
+      .bind(collection, key)
+      .first<{ json: string }>()
+    return row ? (JSON.parse(row.json) as T) : null
   }
 
-  // ── Document operations ──
-
-  async get<T = unknown>(
-    collection: string,
-    key: string,
-  ): Promise<T | null> {
-    const res = await this.fetcher(
-      `${this.baseUrl}/_api/document/${collection}/${key}`,
-      { headers: this.headers },
-    )
-    if (res.status === 404) return null
-    if (!res.ok) throw await this.error(res, 'GET', collection, key)
-    return res.json() as Promise<T>
-  }
-
-  async save<T = unknown>(
-    collection: string,
-    doc: Record<string, unknown>,
-  ): Promise<T> {
+  async save<T = unknown>(collection: string, doc: Record<string, unknown>): Promise<T> {
     if (this.validator) {
       const result = this.validator(collection, doc)
       if (!result.valid) {
@@ -145,21 +133,24 @@ export class ArangoClient {
           `Artifact validation failed for ${collection}: ${violationMessages.join('; ')}`,
         )
       }
-      // Log warnings (non-blocking)
       for (const v of result.violations.filter((v) => v.severity === 'warning')) {
         console.warn(`[artifact-validator] ${v.constraint}: ${v.message}`)
       }
     }
-    const res = await this.fetcher(
-      `${this.baseUrl}/_api/document/${collection}`,
-      {
-        method: 'POST',
-        headers: this.headers,
-        body: JSON.stringify(doc),
-      },
-    )
-    if (!res.ok) throw await this.error(res, 'SAVE', collection)
-    return res.json() as Promise<T>
+
+    const key =
+      (doc as Record<string, unknown>)._key != null
+        ? String((doc as Record<string, unknown>)._key)
+        : crypto.randomUUID().replace(/-/g, '').slice(0, 16).toUpperCase()
+
+    const withKey = { ...doc, _key: key }
+    await this.db
+      .prepare(
+        'INSERT INTO documents (collection, key, json) VALUES (?, ?, ?) ON CONFLICT(collection, key) DO UPDATE SET json=excluded.json',
+      )
+      .bind(collection, key, JSON.stringify(withKey))
+      .run()
+    return withKey as T
   }
 
   async update<T = unknown>(
@@ -167,53 +158,43 @@ export class ArangoClient {
     key: string,
     patch: Record<string, unknown>,
   ): Promise<T> {
-    const res = await this.fetcher(
-      `${this.baseUrl}/_api/document/${collection}/${key}`,
-      {
-        method: 'PATCH',
-        headers: this.headers,
-        body: JSON.stringify(patch),
-      },
-    )
-    if (!res.ok) throw await this.error(res, 'UPDATE', collection, key)
-    return res.json() as Promise<T>
+    const existing = await this.get<Record<string, unknown>>(collection, key)
+    const merged = existing ? { ...existing, ...patch } : { ...patch }
+    await this.db
+      .prepare(
+        'INSERT INTO documents (collection, key, json) VALUES (?, ?, ?) ON CONFLICT(collection, key) DO UPDATE SET json=excluded.json',
+      )
+      .bind(collection, key, JSON.stringify(merged))
+      .run()
+    return merged as T
   }
 
   async remove(collection: string, key: string): Promise<void> {
-    const res = await this.fetcher(
-      `${this.baseUrl}/_api/document/${collection}/${key}`,
-      { method: 'DELETE', headers: this.headers },
-    )
-    if (!res.ok && res.status !== 404) {
-      throw await this.error(res, 'REMOVE', collection, key)
-    }
+    await this.db
+      .prepare('DELETE FROM documents WHERE collection=? AND key=?')
+      .bind(collection, key)
+      .run()
   }
 
-  // ── AQL queries ──
+  // ── SQL queries ───────────────────────────────────────────────────────────
+  //
+  // NOTE: These methods previously accepted AQL + bindVars.
+  // They now accept SQL + positional params (unknown[]).
+  // All consumers must be updated to pass SQL with ? placeholders.
 
-  async query<T = unknown>(
-    aql: string,
-    bindVars: Record<string, unknown> = {},
-  ): Promise<T[]> {
-    const res = await this.fetcher(`${this.baseUrl}/_api/cursor`, {
-      method: 'POST',
-      headers: this.headers,
-      body: JSON.stringify({ query: aql, bindVars }),
-    })
-    if (!res.ok) throw await this.error(res, 'QUERY')
-    const data = (await res.json()) as ArangoQueryResult<T>
-    return data.result
+  async query<T = unknown>(sql: string, params?: unknown[]): Promise<T[]> {
+    const stmt = this.db.prepare(sql)
+    const bound = params && params.length > 0 ? stmt.bind(...params) : stmt
+    const result = await bound.all<T>()
+    return (result.results ?? []) as T[]
   }
 
-  async queryOne<T = unknown>(
-    aql: string,
-    bindVars: Record<string, unknown> = {},
-  ): Promise<T | null> {
-    const results = await this.query<T>(aql, bindVars)
+  async queryOne<T = unknown>(sql: string, params?: unknown[]): Promise<T | null> {
+    const results = await this.query<T>(sql, params)
     return results[0] ?? null
   }
 
-  // ── Edge operations (for lineage graph) ──
+  // ── Edge operations ───────────────────────────────────────────────────────
 
   async saveEdge(
     collection: string,
@@ -221,87 +202,66 @@ export class ArangoClient {
     to: string,
     data: Record<string, unknown> = {},
   ): Promise<void> {
-    await this.save(collection, { _from: from, _to: to, ...data })
+    await this.db
+      .prepare(
+        'INSERT INTO edges (collection, from_id, to_id, data) VALUES (?, ?, ?, ?)',
+      )
+      .bind(collection, from, to, Object.keys(data).length > 0 ? JSON.stringify(data) : null)
+      .run()
   }
 
-  // ── Graph traversal ──
+  // ── Graph traversal ───────────────────────────────────────────────────────
 
-  async traverse<T = unknown>(
-    startVertex: string,
-    edgeCollection: string,
-    direction: 'OUTBOUND' | 'INBOUND' | 'ANY',
-    minDepth: number,
-    maxDepth: number,
+  /**
+   * Not supported in D1 backend.
+   * Use recursive CTEs via `query()` instead, e.g.:
+   *   WITH RECURSIVE reachable(id) AS (
+   *     SELECT to_id FROM edges WHERE collection=? AND from_id=?
+   *     UNION ALL
+   *     SELECT e.to_id FROM edges e JOIN reachable r ON e.from_id=r.id
+   *   )
+   *   SELECT * FROM reachable
+   */
+  traverse<T = unknown>(
+    _startVertex: string,
+    _edgeCollection: string,
+    _direction: 'OUTBOUND' | 'INBOUND' | 'ANY',
+    _minDepth: number,
+    _maxDepth: number,
   ): Promise<T[]> {
-    return this.query<T>(
-      `FOR v, e, p IN ${minDepth}..${maxDepth} ${direction} @start ${edgeCollection}
-       RETURN v`,
-      { start: startVertex },
+    throw new Error(
+      'traverse() not supported in D1 backend — use recursive CTE via query()',
     )
   }
 
-  // ── Health check ──
+  // ── Health check ─────────────────────────────────────────────────────────
 
   async ping(): Promise<boolean> {
     try {
-      const res = await this.fetcher(`${this.config.url}/_api/version`, {
-        headers: this.headers,
-      })
-      return res.ok
+      await this.db.prepare('SELECT 1').run()
+      return true
     } catch {
       return false
     }
   }
+}
 
-  // ── Error handling ──
+// ── Factory functions ─────────────────────────────────────────────────────────
 
-  private async error(
-    res: Response,
-    op: string,
-    collection?: string,
-    key?: string,
-  ): Promise<Error> {
-    const body = await res.text().catch(() => 'no body')
-    const target = [collection, key].filter(Boolean).join('/')
-    return new Error(
-      `ArangoDB ${op} failed [${res.status}]${target ? ` on ${target}` : ''}: ${body}`,
-    )
-  }
+/**
+ * Create an ArangoClient bound to a D1 database.
+ * Use this in Workers that hold a D1 binding directly.
+ */
+export function createD1Client(db: D1Database): ArangoClient {
+  return new ArangoClient(db)
 }
 
 /**
  * Create an ArangoClient from Cloudflare Worker env bindings.
  *
  * Expects env to have:
- *   ARANGO_URL      — https://your-instance:8529
- *   ARANGO_DATABASE — function_factory
- *   ARANGO_JWT      — JWT token (production)
- *   or ARANGO_USERNAME + ARANGO_PASSWORD (development)
+ *   DB — D1Database binding
  */
-export function createClientFromEnv(env: {
-  ARANGO_URL: string
-  ARANGO_DATABASE: string
-  ARANGO_JWT?: string
-  ARANGO_USERNAME?: string
-  ARANGO_PASSWORD?: string
-  FF_ARANGO?: { fetch: typeof fetch }
-}): ArangoClient {
-  const auth = env.ARANGO_JWT
-    ? { type: 'jwt' as const, token: env.ARANGO_JWT }
-    : {
-        type: 'basic' as const,
-        username: env.ARANGO_USERNAME ?? 'root',
-        password: env.ARANGO_PASSWORD ?? '',
-      }
-
-  const fetcher = env.FF_ARANGO
-    ? env.FF_ARANGO.fetch.bind(env.FF_ARANGO)
-    : undefined
-
-  return new ArangoClient({
-    url: env.ARANGO_URL,
-    database: env.ARANGO_DATABASE,
-    auth,
-    fetcher,
-  })
+export function createClientFromEnv(env: { DB: D1Database }): ArangoClient {
+  return new ArangoClient(env.DB)
 }

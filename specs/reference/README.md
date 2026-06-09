@@ -8,7 +8,7 @@ lineage-relevant inputs.
 ## Status Authority
 
 When a file's header status conflicts with
-[`../../.agent/memory/semantic/DECISIONS.md`](../../.agent/memory/semantic/DECISIONS.md),
+[`../../docs/adr/README.md`](../../docs/adr/README.md),
 the decision log is the current authority. This index records current
 interpretation where known and calls out conflicts instead of silently editing
 source documents.

@@ -5,6 +5,11 @@
   "compatibility_date": "2026-01-01",
   "compatibility_flags": ["nodejs_compat"],
 
+  // D1 Database
+  "d1_databases": [
+    { "binding": "DB", "database_name": "ff-factory", "database_id": "REPLACE_WITH_OUTPUT_OF_wrangler_d1_create_ff-factory" }
+  ],
+
   // Service Bindings — internal Workers, no public route
   "services": [
     { "binding": "GATES", "service": "ff-gates", "entrypoint": "GatesService" },
@@ -29,5 +34,7 @@
   }
 
   // Secrets (set via `wrangler secret put`):
-  //   ARANGO_URL, ARANGO_DATABASE, ARANGO_JWT
+  //   [DEPRECATED] ARANGO_URL      — ArangoDB removed; use D1 (DB binding)
+  //   [DEPRECATED] ARANGO_DATABASE — ArangoDB removed; use D1 (DB binding)
+  //   [DEPRECATED] ARANGO_JWT      — ArangoDB removed; use D1 (DB binding)
 }

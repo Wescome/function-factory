@@ -1,5 +1,5 @@
 import { Agent, callable, type FiberContext, type FiberRecoveryContext } from 'agents'
-import { createClientFromEnv, type ArangoClient } from '@factory/arango-client'
+import { createClientFromEnv, type ArangoClient, type D1Database } from '@factory/arango-client'
 import { validateArtifact } from '@factory/artifact-validator'
 import { createModelBridge } from './model-bridge-do'
 import {
@@ -33,6 +33,8 @@ import {
 } from '@factory/schemas'
 
 export interface CoordinatorEnv {
+  /** Cloudflare D1 database binding */
+  DB: D1Database
   ARANGO_URL: string
   ARANGO_DATABASE: string
   ARANGO_JWT: string
@@ -266,11 +268,12 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       const fetchMentorRules = async () => {
         try {
           const db = this.getDb()
-          return await db.query<{ ruleId: string; rule: string }>(
-            `FOR r IN mentorscript_rules
-               FILTER r.status == 'active'
-               RETURN { ruleId: r._key, rule: r.rule }`,
-          )
+          return await db.query<{ json: string }>(
+            `SELECT json FROM documents WHERE collection='mentorscript_rules' AND json_extract(json,'$.status')='active'`,
+          ).then(rows => rows.map(r => {
+            const d = JSON.parse(r.json) as Record<string, unknown>
+            return { ruleId: d._key as string, rule: d.rule as string }
+          }))
         } catch {
           return []
         }

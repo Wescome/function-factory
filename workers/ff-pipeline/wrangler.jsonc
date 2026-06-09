@@ -40,10 +40,14 @@
     { "class_name": "PiContainer", "image": "./pi-container/Dockerfile", "max_instances": 3 }
   ],
 
+  // D1 Database
+  "d1_databases": [
+    { "binding": "DB", "database_name": "ff-factory", "database_id": "REPLACE_WITH_OUTPUT_OF_wrangler_d1_create_ff-factory" }
+  ],
+
   // Service Bindings
   "services": [
     { "binding": "GATES", "service": "ff-gates", "entrypoint": "GatesService" },
-    { "binding": "FF_ARANGO", "service": "ff-arango" },
     { "binding": "GAS_CITY", "service": "gascity-supervisor" }
   ],
 
@@ -123,7 +127,11 @@
   }
 
   // Secrets (set via `wrangler secret put`):
-  //   ARANGO_URL, ARANGO_DATABASE, ARANGO_JWT
+  //   [DEPRECATED] ARANGO_URL       — ArangoDB removed; use D1 (DB binding)
+  //   [DEPRECATED] ARANGO_JWT       — ArangoDB removed; use D1 (DB binding)
+  //   [DEPRECATED] ARANGO_USERNAME  — ArangoDB removed; use D1 (DB binding)
+  //   [DEPRECATED] ARANGO_PASSWORD  — ArangoDB removed; use D1 (DB binding)
+  //   [DEPRECATED] ARANGO_DATABASE  — ArangoDB removed; use D1 (DB binding)
   //   OFOX_API_KEY, CF_API_TOKEN, GITHUB_TOKEN, OPERATOR_CONTROL_TOKEN
   //   GAS_CITY_BEARER_TOKEN  (shared with GC_SUPERVISOR_TOKEN on gascity-supervisor)
   //   GAS_CITY_HMAC_SECRET_V1 (shared with Gas City webhook signer)

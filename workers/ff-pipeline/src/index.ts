@@ -495,12 +495,18 @@ export default {
       try {
         const { createClientFromEnv } = await import('@factory/arango-client')
         const db = createClientFromEnv(env)
-        const assessments = await db.query<Record<string, unknown>>(
-          `FOR a IN orientation_assessments SORT a.generated_at DESC LIMIT 5 RETURN { id: a._key, type: a.assessment_type, generated_at: a.generated_at, decisions: LENGTH(a.decisions || []), actions_taken: a.actions_taken }`,
-        ).catch(() => [])
-        const telemetry = await db.query<Record<string, unknown>>(
-          `FOR t IN orl_telemetry FILTER t.schemaName IN ['GovernorAssessment', 'GovernanceCycleResult', '_governance_cycle'] SORT t.timestamp DESC LIMIT 5 RETURN { timestamp: t.timestamp, success: t.success, failureMode: t.failureMode, schema: t.schemaName, verdict: t.verdict, operationalHealth: t.operationalHealth, trend: t.trend, error: t.error }`,
-        ).catch(() => [])
+        const assessments = await db.query<{ json: string }>(
+          `SELECT json FROM documents WHERE collection='orientation_assessments' ORDER BY json_extract(json,'$.generated_at') DESC LIMIT 5`,
+        ).then(rows => rows.map(r => {
+          const d = JSON.parse(r.json) as Record<string, unknown>
+          return { id: d._key, type: d.assessment_type, generated_at: d.generated_at, decisions: Array.isArray(d.decisions) ? d.decisions.length : 0, actions_taken: d.actions_taken }
+        })).catch(() => [] as Record<string, unknown>[])
+        const telemetry = await db.query<{ json: string }>(
+          `SELECT json FROM documents WHERE collection='orl_telemetry' AND (json_extract(json,'$.schemaName')='GovernorAssessment' OR json_extract(json,'$.schemaName')='GovernanceCycleResult' OR json_extract(json,'$.schemaName')='_governance_cycle') ORDER BY json_extract(json,'$.timestamp') DESC LIMIT 5`,
+        ).then(rows => rows.map(r => {
+          const t = JSON.parse(r.json) as Record<string, unknown>
+          return { timestamp: t.timestamp, success: t.success, failureMode: t.failureMode, schema: t.schemaName, verdict: t.verdict, operationalHealth: t.operationalHealth, trend: t.trend, error: t.error }
+        })).catch(() => [] as Record<string, unknown>[])
         return new Response(JSON.stringify({ assessments, telemetry, cycleCount: assessments.length }, null, 2), { headers: { 'Content-Type': 'application/json' } })
       } catch (err) {
         return new Response(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }), { status: 500, headers: { 'Content-Type': 'application/json' } })
@@ -514,19 +520,33 @@ export default {
         const db = createClientFromEnv(env)
         const signalId = url.searchParams.get('signal') ?? undefined
 
-        const anchorsQuery = signalId
-          ? `FOR a IN intent_anchors FILTER a.signal_id == @signalId RETURN a`
-          : `FOR a IN intent_anchors SORT a._key DESC LIMIT 20 RETURN a`
-        const anchors = await db.query<Record<string, unknown>>(
-          anchorsQuery, signalId ? { signalId } : undefined,
-        ).catch(() => [])
+        const anchors = await (signalId
+          ? db.query<{ json: string }>(
+              `SELECT json FROM documents WHERE collection='intent_anchors' AND json_extract(json,'$.signal_id')=?`,
+              [signalId],
+            )
+          : db.query<{ json: string }>(
+              `SELECT json FROM documents WHERE collection='intent_anchors' ORDER BY key DESC LIMIT 20`,
+            )
+        ).then(rows => rows.map(r => JSON.parse(r.json) as Record<string, unknown>)).catch(() => [] as Record<string, unknown>[])
 
-        const driftQuery = signalId
-          ? `FOR d IN compilation_drift_ledger FILTER d.signal_id == @signalId SORT d.timestamp DESC RETURN { pass: d.pass_name, verdict: d.gate_verdict, remediations: d.remediation_count, violations: LENGTH(FOR r IN d.probe_results FILTER r.is_violation RETURN 1), anchors_probed: LENGTH(d.anchors_probed), latency_ms: d.latency_ms, timestamp: d.timestamp, probe_results: d.probe_results }`
-          : `FOR d IN compilation_drift_ledger SORT d.timestamp DESC LIMIT 20 RETURN { signal: d.signal_id, pass: d.pass_name, verdict: d.gate_verdict, remediations: d.remediation_count, violations: LENGTH(FOR r IN d.probe_results FILTER r.is_violation RETURN 1), timestamp: d.timestamp }`
-        const drift = await db.query<Record<string, unknown>>(
-          driftQuery, signalId ? { signalId } : undefined,
-        ).catch(() => [])
+        const drift = await (signalId
+          ? db.query<{ json: string }>(
+              `SELECT json FROM documents WHERE collection='compilation_drift_ledger' AND json_extract(json,'$.signal_id')=? ORDER BY json_extract(json,'$.timestamp') DESC`,
+              [signalId],
+            ).then(rows => rows.map(r => {
+              const d = JSON.parse(r.json) as Record<string, unknown>
+              const probeResults = Array.isArray(d.probe_results) ? d.probe_results as Record<string, unknown>[] : []
+              return { pass: d.pass_name, verdict: d.gate_verdict, remediations: d.remediation_count, violations: probeResults.filter(p => p.is_violation).length, anchors_probed: Array.isArray(d.anchors_probed) ? d.anchors_probed.length : 0, latency_ms: d.latency_ms, timestamp: d.timestamp, probe_results: d.probe_results }
+            }))
+          : db.query<{ json: string }>(
+              `SELECT json FROM documents WHERE collection='compilation_drift_ledger' ORDER BY json_extract(json,'$.timestamp') DESC LIMIT 20`,
+            ).then(rows => rows.map(r => {
+              const d = JSON.parse(r.json) as Record<string, unknown>
+              const probeResults = Array.isArray(d.probe_results) ? d.probe_results as Record<string, unknown>[] : []
+              return { signal: d.signal_id, pass: d.pass_name, verdict: d.gate_verdict, remediations: d.remediation_count, violations: probeResults.filter(p => p.is_violation).length, timestamp: d.timestamp }
+            }))
+        ).catch(() => [] as Record<string, unknown>[])
 
         return new Response(JSON.stringify({ anchors, drift, query: { signalId } }, null, 2), {
           headers: { 'Content-Type': 'application/json' },
@@ -584,18 +604,11 @@ export default {
 
         const { createClientFromEnv } = await import('@factory/arango-client')
         const db = createClientFromEnv(env)
-        const rows = await db.query<Record<string, unknown>>(
-          `FOR s IN specs_signals
-             FILTER s.source == 'factory:pr-outcome'
-             FILTER LIKE(s.subtype, 'synthesis:pr-%')
-             FILTER s.raw.pr.number == @pullNumber
-             FILTER s.raw.executableSpecificationId == @executableSpecificationId
-             SORT s.createdAt DESC
-             LIMIT 1
-             RETURN s`,
-          { pullNumber, executableSpecificationId },
+        const rows = await db.query<{ json: string }>(
+          `SELECT json FROM documents WHERE collection='specs_signals' AND json_extract(json,'$.source')='factory:pr-outcome' AND json_extract(json,'$.subtype') LIKE 'synthesis:pr-%' AND json_extract(json,'$.raw.pr.number')=? AND json_extract(json,'$.raw.executableSpecificationId')=? ORDER BY json_extract(json,'$.createdAt') DESC LIMIT 1`,
+          [pullNumber, executableSpecificationId],
         )
-        const signal = rows[0] ?? null
+        const signal = rows[0] ? JSON.parse(rows[0].json) as Record<string, unknown> : null
         return new Response(JSON.stringify({
           found: signal !== null,
           signal,
@@ -712,23 +725,10 @@ export default {
 
         const { createClientFromEnv } = await import('@factory/arango-client')
         const db = createClientFromEnv(env)
-        const rows = await db.query<Record<string, unknown>>(
-          `FOR s IN specs_signals
-             FILTER s.source == 'factory:pr-outcome'
-             FILTER LIKE(s.subtype, 'synthesis:pr-%')
-             FILTER s.raw.pr.number != null
-             FILTER s.raw.pr.state == 'OPEN'
-             FILTER s.raw.pr.merged != true
-             FILTER s.raw.pipelineId != null
-             FILTER s.raw.proposalId != null
-             FILTER s.raw.executableSpecificationId != null
-             SORT s.createdAt DESC
-             COLLECT pullNumber = s.raw.pr.number INTO grouped
-             LET latest = FIRST(grouped[*].s)
-             LIMIT @limit
-             RETURN latest`,
-          { limit },
-        )
+        const rows = await db.query<{ json: string }>(
+          `SELECT json FROM documents WHERE collection='specs_signals' AND json_extract(json,'$.source')='factory:pr-outcome' AND json_extract(json,'$.subtype') LIKE 'synthesis:pr-%' AND json_extract(json,'$.raw.pr.number') IS NOT NULL AND json_extract(json,'$.raw.pr.state')='OPEN' AND (json_extract(json,'$.raw.pr.merged') IS NULL OR json_extract(json,'$.raw.pr.merged')!=1) AND json_extract(json,'$.raw.pipelineId') IS NOT NULL AND json_extract(json,'$.raw.proposalId') IS NOT NULL AND json_extract(json,'$.raw.executableSpecificationId') IS NOT NULL AND key IN (SELECT key FROM documents WHERE collection='specs_signals' GROUP BY json_extract(json,'$.raw.pr.number') HAVING key=MAX(key)) ORDER BY json_extract(json,'$.createdAt') DESC LIMIT ?`,
+          [limit],
+        ).then(rows => rows.map(r => JSON.parse(r.json) as Record<string, unknown>))
 
         const candidates: Array<{ pullNumber: number; executableSpecificationId: string; lastSignalKey: string }> = []
         const skipped: Array<{ lastSignalKey: string; reason: string }> = []
@@ -841,13 +841,10 @@ export default {
         const proposalDocument = await db.get<Record<string, unknown>>('specs_functions', proposalKey)
         const functionDocument = await db.get<Record<string, unknown>>('specs_functions', functionId)
         const mergeReadinessPack = mergeReadinessPackId
-          ? await db.queryOne<Record<string, unknown>>(
-            `FOR mrp IN merge_readiness_packs
-               FILTER mrp._key == @id OR mrp.id == @id
-               LIMIT 1
-               RETURN mrp`,
-            { id: mergeReadinessPackId },
-          )
+          ? await db.queryOne<{ json: string }>(
+            `SELECT json FROM documents WHERE collection='merge_readiness_packs' AND (key=? OR json_extract(json,'$.id')=?) LIMIT 1`,
+            [mergeReadinessPackId, mergeReadinessPackId],
+          ).then(r => r ? JSON.parse(r.json) as Record<string, unknown> : null)
           : null
 
         const report = evaluateFunctionIdentity({
@@ -900,13 +897,10 @@ export default {
         const proposalDocument = await db.get<Record<string, unknown>>('specs_functions', proposalKey)
         const functionDocument = await db.get<Record<string, unknown>>('specs_functions', functionId)
         const mergeReadinessPack = mergeReadinessPackId
-          ? await db.queryOne<Record<string, unknown>>(
-            `FOR mrp IN merge_readiness_packs
-               FILTER mrp._key == @id OR mrp.id == @id
-               LIMIT 1
-               RETURN mrp`,
-            { id: mergeReadinessPackId },
-          )
+          ? await db.queryOne<{ json: string }>(
+            `SELECT json FROM documents WHERE collection='merge_readiness_packs' AND (key=? OR json_extract(json,'$.id')=?) LIMIT 1`,
+            [mergeReadinessPackId, mergeReadinessPackId],
+          ).then(r => r ? JSON.parse(r.json) as Record<string, unknown> : null)
           : null
 
         const report = evaluateFunctionIdentity({
@@ -1028,18 +1022,11 @@ export default {
           withFidelityVerificationReportEvidence,
         } = await import('./merge-readiness-pack.js')
         const db = createClientFromEnv(env)
-        const prOutcomeSignals = await db.query<Record<string, unknown>>(
-          `FOR s IN specs_signals
-             FILTER s.source == 'factory:pr-outcome'
-             FILTER LIKE(s.subtype, 'synthesis:pr-%')
-             FILTER s.raw.pr.number == @pullNumber
-             FILTER s.raw.executableSpecificationId == @executableSpecificationId
-             SORT s.raw.observedAt DESC, s.createdAt DESC
-             LIMIT 1
-             RETURN s`,
-          { pullNumber: body.pullNumber, executableSpecificationId },
+        const prOutcomeSignals = await db.query<{ json: string }>(
+          `SELECT json FROM documents WHERE collection='specs_signals' AND json_extract(json,'$.source')='factory:pr-outcome' AND json_extract(json,'$.subtype') LIKE 'synthesis:pr-%' AND json_extract(json,'$.raw.pr.number')=? AND json_extract(json,'$.raw.executableSpecificationId')=? ORDER BY json_extract(json,'$.raw.observedAt') DESC, json_extract(json,'$.createdAt') DESC LIMIT 1`,
+          [body.pullNumber, executableSpecificationId],
         )
-        const prOutcomeSignal = prOutcomeSignals[0] ?? null
+        const prOutcomeSignal = prOutcomeSignals[0] ? JSON.parse(prOutcomeSignals[0].json) as Record<string, unknown> : null
         if (!prOutcomeSignal) {
           return new Response(JSON.stringify({
             error: `PR outcome signal not found for PR #${body.pullNumber} and ${executableSpecificationId}`,
@@ -1047,13 +1034,10 @@ export default {
         }
 
         const evidenceKey = body.canonicalEvidenceKey.trim()
-        const canonicalEvidenceRecord = await db.queryOne<Record<string, unknown>>(
-          `FOR evidence IN merge_readiness_evidence
-             FILTER evidence._key == @key OR evidence.id == @key
-             LIMIT 1
-             RETURN evidence`,
-          { key: evidenceKey },
-        )
+        const canonicalEvidenceRecord = await db.queryOne<{ json: string }>(
+          `SELECT json FROM documents WHERE collection='merge_readiness_evidence' AND (key=? OR json_extract(json,'$.id')=?) LIMIT 1`,
+          [evidenceKey, evidenceKey],
+        ).then(r => r ? JSON.parse(r.json) as Record<string, unknown> : null)
         if (!canonicalEvidenceRecord) {
           return new Response(JSON.stringify({
             error: `Canonical MRP evidence not found: ${evidenceKey}`,
@@ -1063,13 +1047,10 @@ export default {
           ? body.fidelityVerificationReportKey.trim()
           : undefined
         const fidelityVerificationReportRecord = fidelityVerificationReportKey
-          ? await db.queryOne<Record<string, unknown>>(
-            `FOR report IN verification_reports
-               FILTER report._key == @key OR report.id == @key
-               LIMIT 1
-               RETURN report`,
-            { key: fidelityVerificationReportKey },
-          )
+          ? await db.queryOne<{ json: string }>(
+            `SELECT json FROM documents WHERE collection='verification_reports' AND (key=? OR json_extract(json,'$.id')=?) LIMIT 1`,
+            [fidelityVerificationReportKey, fidelityVerificationReportKey],
+          ).then(r => r ? JSON.parse(r.json) as Record<string, unknown> : null)
           : null
         if (fidelityVerificationReportKey && !fidelityVerificationReportRecord) {
           return new Response(JSON.stringify({
@@ -1157,34 +1138,24 @@ export default {
           withFidelityVerificationReportEvidence,
         } = await import('./merge-readiness-pack.js')
         const db = createClientFromEnv(env)
-        const prOutcomeSignal = body.prOutcomeSignal ?? await db.queryOne<Record<string, unknown>>(
-          `FOR s IN specs_signals
-             FILTER s._key == @key
-             FILTER s.source == 'factory:pr-outcome'
-             LIMIT 1
-             RETURN s`,
-          { key: body.prOutcomeSignalKey },
-        )
+        const prOutcomeSignal = body.prOutcomeSignal ?? await db.queryOne<{ json: string }>(
+          `SELECT json FROM documents WHERE collection='specs_signals' AND key=? AND json_extract(json,'$.source')='factory:pr-outcome' LIMIT 1`,
+          [body.prOutcomeSignalKey],
+        ).then(r => r ? JSON.parse(r.json) as Record<string, unknown> : null)
         const canonicalEvidenceRecord = body.canonicalEvidenceKey
-          ? await db.queryOne<Record<string, unknown>>(
-            `FOR evidence IN merge_readiness_evidence
-               FILTER evidence._key == @key OR evidence.id == @key
-               LIMIT 1
-               RETURN evidence`,
-            { key: body.canonicalEvidenceKey },
-          )
+          ? await db.queryOne<{ json: string }>(
+            `SELECT json FROM documents WHERE collection='merge_readiness_evidence' AND (key=? OR json_extract(json,'$.id')=?) LIMIT 1`,
+            [body.canonicalEvidenceKey, body.canonicalEvidenceKey],
+          ).then(r => r ? JSON.parse(r.json) as Record<string, unknown> : null)
           : null
         const fidelityVerificationReportKey = typeof body.fidelityVerificationReportKey === 'string' && body.fidelityVerificationReportKey.trim().length > 0
           ? body.fidelityVerificationReportKey.trim()
           : undefined
         const fidelityVerificationReportRecord = fidelityVerificationReportKey
-          ? await db.queryOne<Record<string, unknown>>(
-            `FOR report IN verification_reports
-               FILTER report._key == @key OR report.id == @key
-               LIMIT 1
-               RETURN report`,
-            { key: fidelityVerificationReportKey },
-          )
+          ? await db.queryOne<{ json: string }>(
+            `SELECT json FROM documents WHERE collection='verification_reports' AND (key=? OR json_extract(json,'$.id')=?) LIMIT 1`,
+            [fidelityVerificationReportKey, fidelityVerificationReportKey],
+          ).then(r => r ? JSON.parse(r.json) as Record<string, unknown> : null)
           : null
 
         if (!prOutcomeSignal) {
@@ -1311,13 +1282,10 @@ export default {
 
         const { createClientFromEnv } = await import('@factory/arango-client')
         const db = createClientFromEnv(env)
-        const pack = await db.queryOne<Record<string, unknown>>(
-          `FOR mrp IN merge_readiness_packs
-             FILTER mrp.id == @id
-             LIMIT 1
-             RETURN mrp`,
-          { id },
-        )
+        const pack = await db.queryOne<{ json: string }>(
+          `SELECT json FROM documents WHERE collection='merge_readiness_packs' AND json_extract(json,'$.id')=? LIMIT 1`,
+          [id],
+        ).then(r => r ? JSON.parse(r.json) as Record<string, unknown> : null)
 
         return new Response(JSON.stringify({
           found: pack !== null,

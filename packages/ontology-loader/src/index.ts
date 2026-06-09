@@ -174,12 +174,11 @@ export async function getConstraintsForClass(
   db: ArangoClient,
   className: string,
 ): Promise<OntologyConstraint[]> {
-  return db.query<OntologyConstraint>(
-    `FOR c IN ontology_constraints
-       FILTER @className IN c.targetClasses
-       RETURN c`,
-    { className },
+  const rows = await db.query<{ json: string }>(
+    `SELECT d.json FROM documents d, json_each(json_extract(d.json,'$.targetClasses')) t WHERE d.collection='ontology_constraints' AND t.value=?`,
+    [className],
   )
+  return rows.map(r => JSON.parse(r.json) as OntologyConstraint)
 }
 
 /**
@@ -191,12 +190,11 @@ export async function getRoleSpec(
   db: ArangoClient,
   roleKey: string,
 ): Promise<OntologyInstance | null> {
-  return db.queryOne<OntologyInstance>(
-    `FOR i IN ontology_instances
-       FILTER i._key == @key
-       RETURN i`,
-    { key: roleKey },
+  const row = await db.queryOne<{ json: string }>(
+    `SELECT json FROM documents WHERE collection='ontology_instances' AND key=? LIMIT 1`,
+    [roleKey],
   )
+  return row ? JSON.parse(row.json) as OntologyInstance : null
 }
 
 /**
@@ -208,13 +206,13 @@ export async function getLifecycleState(
   db: ArangoClient,
   functionKey: string,
 ): Promise<string | null> {
-  const result = await db.queryOne<{ lifecycleState: string }>(
-    `FOR f IN specs_functions
-       FILTER f._key == @key
-       RETURN { lifecycleState: f.lifecycleState }`,
-    { key: functionKey },
+  const row = await db.queryOne<{ json: string }>(
+    `SELECT json FROM documents WHERE collection='specs_functions' AND key=? LIMIT 1`,
+    [functionKey],
   )
-  return result?.lifecycleState ?? null
+  if (!row) return null
+  const doc = JSON.parse(row.json) as { lifecycleState?: string }
+  return doc.lifecycleState ?? null
 }
 
 /**
@@ -225,11 +223,14 @@ export async function getLifecycleState(
 export async function getPendingCRPs(
   db: ArangoClient,
 ): Promise<{ _key: string; context: string; confidence: number }[]> {
-  return db.query<{ _key: string; context: string; confidence: number }>(
-    `FOR c IN consultation_requests
-       FILTER c.status == "pending"
-       RETURN { _key: c._key, context: c.context, confidence: c.confidence }`,
+  const rows = await db.query<{ json: string }>(
+    `SELECT json FROM documents WHERE collection='consultation_requests' AND json_extract(json,'$.status')='pending'`,
+    [],
   )
+  return rows.map(r => {
+    const doc = JSON.parse(r.json) as { _key: string; context: string; confidence: number }
+    return { _key: doc._key, context: doc.context, confidence: doc.confidence }
+  })
 }
 
 /**
@@ -241,11 +242,11 @@ export async function getPersistenceTarget(
   db: ArangoClient,
   className: string,
 ): Promise<string | null> {
-  const result = await db.queryOne<{ persistsIn: string }>(
-    `FOR c IN ontology_classes
-       FILTER c._key == @className
-       RETURN { persistsIn: c.persistsIn }`,
-    { className },
+  const row = await db.queryOne<{ json: string }>(
+    `SELECT json FROM documents WHERE collection='ontology_classes' AND key=? LIMIT 1`,
+    [className],
   )
-  return result?.persistsIn ?? null
+  if (!row) return null
+  const doc = JSON.parse(row.json) as { persistsIn?: string }
+  return doc.persistsIn ?? null
 }
