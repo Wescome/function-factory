@@ -91,7 +91,7 @@ describe("handleGasCityWebhook", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.get.mockResolvedValue(null)
-    mocks.queryOne.mockResolvedValue(dispatchLog())
+    mocks.queryOne.mockResolvedValue({ json: JSON.stringify(dispatchLog()) })
     mocks.save.mockResolvedValue({})
     mocks.update.mockResolvedValue({})
     mocks.saveEdge.mockResolvedValue({})
@@ -218,7 +218,7 @@ describe("handleGasCityWebhook", () => {
 
   it("halts amendment and writes an incident when revise exceeds max amendment depth", async () => {
     const { handleGasCityWebhook } = await import("./webhook-receiver.js")
-    mocks.queryOne.mockResolvedValueOnce(dispatchLog({ factory_attempt: 4 }))
+    mocks.queryOne.mockResolvedValueOnce({ json: JSON.stringify(dispatchLog({ factory_attempt: 4 })) })
     const response = await handleGasCityWebhook(await signedRequest({
       ...basePayload,
       factory_attempt: 4,
