@@ -56,8 +56,14 @@ class MemoryDb {
     return edge
   }
 
-  async query<T = unknown>(aql: string, vars: Record<string, unknown> = {}): Promise<T[]> {
-    if (aql.includes("COLLECT state = fn.state")) {
+  // Wrap a doc in D1 row shape so parseRows() works
+  private wrap<T extends Record<string, unknown>>(doc: T): { json: string } {
+    return { json: JSON.stringify(doc) }
+  }
+
+  async query<T = unknown>(sql: string, params: unknown[] = []): Promise<T[]> {
+    // Aggregate: state counts
+    if (sql.includes("GROUP BY") && sql.includes("specs_functions")) {
       const counts = new Map<string, number>()
       for (const fn of this.collection("specs_functions").values()) {
         const stateValue = typeof fn.state === "string" ? fn.state : "unknown"
@@ -65,27 +71,9 @@ class MemoryDb {
       }
       return [...counts].map(([stateValue, count]) => ({ state: stateValue, count })) as T[]
     }
-    if (aql.includes('fn.state == "accepted"')) {
-      return [...this.collection("specs_functions").values()].filter((fn) => fn.state === "accepted") as T[]
-    }
-    if (aql.includes('fn.state == "monitored"')) {
-      return [...this.collection("specs_functions").values()].filter((fn) => fn.state === "monitored") as T[]
-    }
-    if (aql.includes("FROM persistence_verdicts") || aql.includes("FOR vr IN persistence_verdicts")) {
-      if (aql.includes("KEEP(vr")) return [...this.collection("persistence_verdicts").values()] as T[]
-      const functionId = vars.functionId
-      return [...this.collection("persistence_verdicts").values()]
-        .filter((vr) => vr.function_id === functionId)
-        .sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp))) as T[]
-    }
-    if (aql.includes("FOR dl IN dispatch_log")) {
-      const cutoff = String(vars.cutoff ?? "")
-      const completions = new Set([...this.collection("completion_events").values()].map((ce) => ce.bead_id))
-      return [...this.collection("dispatch_log").values()]
-        .filter((dl) => dl.outcome === "dispatched" && String(dl.started_at) < cutoff && !completions.has(dl.gc_bead_id)) as T[]
-    }
-    if (aql.includes("FOR inc IN specs_incidents") && aql.includes("COLLECT incidentType")) {
-      const threshold = Number(vars.threshold ?? 3)
+    // Aggregate: escalation groups
+    if (sql.includes("specs_incidents") && sql.includes("GROUP BY")) {
+      const threshold = Number(params[0] ?? 3)
       const groups = new Map<string, { incidentType: string; functionId: string; incidentIds: string[] }>()
       for (const inc of this.collection("specs_incidents").values()) {
         if (inc.status !== "open" || typeof inc.incidentType !== "string" || !inc.incidentType.startsWith("gascity_")) continue
@@ -98,27 +86,64 @@ class MemoryDb {
       }
       return [...groups.values()]
         .filter((group) => group.incidentIds.length >= threshold)
-        .map((group) => ({ ...group, count: group.incidentIds.length })) as T[]
+        .map((group) => ({ ...group, count: group.incidentIds.length, incidentIdsList: group.incidentIds.join(',') })) as T[]
     }
-    if (aql.includes("FOR inc IN specs_incidents")) return [...this.collection("specs_incidents").values()] as T[]
-    if (aql.includes("FOR prs IN specs_pressures")) return [...this.collection("specs_pressures").values()] as T[]
+    // Document queries — return { json } rows so parseRows() works
+    if (sql.includes("specs_functions") && sql.includes("'accepted'")) {
+      return [...this.collection("specs_functions").values()]
+        .filter((fn) => fn.state === "accepted")
+        .map(doc => this.wrap(doc)) as T[]
+    }
+    if (sql.includes("specs_functions") && sql.includes("'monitored'")) {
+      return [...this.collection("specs_functions").values()]
+        .filter((fn) => fn.state === "monitored")
+        .map(doc => this.wrap(doc)) as T[]
+    }
+    if (sql.includes("persistence_verdicts")) {
+      return [...this.collection("persistence_verdicts").values()]
+        .map(doc => this.wrap(doc)) as T[]
+    }
+    if (sql.includes("dispatch_log")) {
+      const cutoff = String(params[0] ?? "")
+      const completions = new Set([...this.collection("completion_events").values()].map((ce) => ce.bead_id))
+      return [...this.collection("dispatch_log").values()]
+        .filter((dl) => dl.outcome === "dispatched" && String(dl.started_at) < cutoff && !completions.has(dl.gc_bead_id))
+        .map(doc => this.wrap(doc)) as T[]
+    }
+    if (sql.includes("specs_incidents")) {
+      return [...this.collection("specs_incidents").values()]
+        .map(doc => this.wrap(doc)) as T[]
+    }
+    if (sql.includes("specs_pressures")) {
+      return [...this.collection("specs_pressures").values()]
+        .map(doc => this.wrap(doc)) as T[]
+    }
     return []
   }
 
-  async queryOne<T = unknown>(aql: string, vars: Record<string, unknown> = {}): Promise<T | null> {
-    if (aql.includes("FOR vr IN fidelity_verdicts")) {
-      const functionId = vars.functionId
-      return ([...this.collection("fidelity_verdicts").values()]
+  async queryOne<T = unknown>(sql: string, params: unknown[] = []): Promise<T | null> {
+    if (sql.includes("fidelity_verdicts")) {
+      const functionId = params[0] as string
+      const found = [...this.collection("fidelity_verdicts").values()]
         .filter((vr) => vr.function_id === functionId && vr.overall === "pass")
-        .sort((a, b) => String(b.received_at).localeCompare(String(a.received_at)))[0] ?? null) as T | null
+        .sort((a, b) => String(b.received_at).localeCompare(String(a.received_at)))[0]
+      return (found ? this.wrap(found) : null) as T | null
     }
-    if (aql.includes("FOR ce IN completion_events")) {
-      const functionId = vars.functionId
-      return ([...this.collection("completion_events").values()]
+    if (sql.includes("completion_events")) {
+      const functionId = params[0] as string
+      const found = [...this.collection("completion_events").values()]
         .filter((ce) => ce.fn_id === functionId)
-        .sort((a, b) => String(b.received_at).localeCompare(String(a.received_at)))[0] ?? null) as T | null
+        .sort((a, b) => String(b.received_at).localeCompare(String(a.received_at)))[0]
+      return (found ? this.wrap(found) : null) as T | null
     }
-    const rows = await this.query<T>(aql, vars)
+    if (sql.includes("persistence_verdicts")) {
+      const functionId = params[0] as string
+      const found = [...this.collection("persistence_verdicts").values()]
+        .filter((vr) => vr.function_id === functionId)
+        .sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)))[0]
+      return (found ? this.wrap(found) : null) as T | null
+    }
+    const rows = await this.query<T>(sql, params)
     return rows[0] ?? null
   }
 }

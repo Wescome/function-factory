@@ -175,10 +175,12 @@ export async function getConstraintsForClass(
   className: string,
 ): Promise<OntologyConstraint[]> {
   const rows = await db.query<{ json: string }>(
-    `SELECT d.json FROM documents d, json_each(json_extract(d.json,'$.targetClasses')) t WHERE d.collection='ontology_constraints' AND t.value=?`,
-    [className],
+    `SELECT json FROM documents WHERE collection='ontology_constraints' AND json_extract(json,'$.targetClasses') LIKE ?`,
+    [`%${className}%`],
   )
-  return rows.map(r => JSON.parse(r.json) as OntologyConstraint)
+  return rows
+    .map(r => JSON.parse(r.json) as OntologyConstraint)
+    .filter(c => Array.isArray(c.targetClasses) && c.targetClasses.includes(className))
 }
 
 /**

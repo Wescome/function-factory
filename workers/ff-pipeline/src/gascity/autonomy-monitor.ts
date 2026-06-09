@@ -17,11 +17,19 @@ interface AutonomyDb {
     },
   ): Promise<void>
   get<T = unknown>(collection: string, key: string): Promise<T | null>
-  query<T = unknown>(aql: string, vars?: Record<string, unknown>): Promise<T[]>
-  queryOne<T = unknown>(aql: string, vars?: Record<string, unknown>): Promise<T | null>
+  query<T = unknown>(sql: string, params?: unknown[]): Promise<T[]>
+  queryOne<T = unknown>(sql: string, params?: unknown[]): Promise<T | null>
   save<T = unknown>(collection: string, doc: Record<string, unknown>): Promise<T>
   update<T = unknown>(collection: string, key: string, patch: Record<string, unknown>): Promise<T>
   saveEdge(collection: string, from: string, to: string, data: Record<string, unknown>): Promise<unknown>
+}
+
+// Parse json rows returned by D1 document queries
+function parseRows<T>(rows: { json: string }[]): T[] {
+  return rows.map(r => JSON.parse(r.json) as T)
+}
+function parseRow<T>(row: { json: string } | null): T | null {
+  return row ? JSON.parse(row.json) as T : null
 }
 
 interface FunctionRecord {
@@ -113,26 +121,20 @@ export async function runGasCityAutonomyMonitor(
   // full monitor sweep to keep response time tight and predictable.
   if (trigger === "smoke") {
     const ping = await queryWithTimeout(
-      db.query<{ ok: number }>("RETURN { ok: 1 }"),
+      db.query<{ ok: number }>("SELECT 1 AS ok"),
       [] as Array<{ ok: number }>,
       5000,
     )
     if (ping.length === 0) {
-      return {
-        ...summary,
-        ok: false,
-      }
+      return { ...summary, ok: false }
     }
     return summary
   }
 
   const accepted = await queryWithTimeout(
-    db.query<FunctionRecord>(
-    `FOR fn IN specs_functions
-       FILTER fn.state == "accepted"
-       LIMIT 100
-       RETURN fn`,
-    ),
+    db.query<{ json: string }>(
+      `SELECT json FROM documents WHERE collection='specs_functions' AND json_extract(json,'$.state')='accepted' LIMIT 100`,
+    ).then(rows => parseRows<FunctionRecord>(rows)),
     [] as FunctionRecord[],
     8000,
   )
@@ -159,12 +161,9 @@ export async function runGasCityAutonomyMonitor(
   }
 
   const monitored = await queryWithTimeout(
-    db.query<FunctionRecord>(
-    `FOR fn IN specs_functions
-       FILTER fn.state == "monitored"
-       LIMIT 100
-       RETURN fn`,
-    ),
+    db.query<{ json: string }>(
+      `SELECT json FROM documents WHERE collection='specs_functions' AND json_extract(json,'$.state')='monitored' LIMIT 100`,
+    ).then(rows => parseRows<FunctionRecord>(rows)),
     [] as FunctionRecord[],
     8000,
   )
@@ -197,21 +196,19 @@ export async function runGasCityAutonomyMonitor(
   }
 
   const staleDispatches = await queryWithTimeout(
-    db.query<Record<string, unknown>>(
-    `FOR dl IN dispatch_log
-       FILTER dl.outcome == "dispatched"
-       FILTER dl.started_at < @cutoff
-       LET completion = FIRST(
-         FOR ce IN completion_events
-         FILTER ce.bead_id == dl.gc_bead_id
-         LIMIT 1
-         RETURN ce
-       )
-       FILTER completion == null
-       LIMIT 100
-       RETURN dl`,
-    { cutoff: staleDispatchCutoff },
-    ),
+    db.query<{ json: string }>(
+      `SELECT d.json FROM documents d
+       WHERE d.collection='dispatch_log'
+         AND json_extract(d.json,'$.outcome')='dispatched'
+         AND json_extract(d.json,'$.started_at') < ?
+         AND NOT EXISTS (
+           SELECT 1 FROM documents ce
+           WHERE ce.collection='completion_events'
+             AND json_extract(ce.json,'$.bead_id')=json_extract(d.json,'$.gc_bead_id')
+         )
+       LIMIT 100`,
+      [staleDispatchCutoff],
+    ).then(rows => parseRows<Record<string, unknown>>(rows)),
     [] as Record<string, unknown>[],
     8000,
   )
@@ -231,42 +228,36 @@ export async function getGasCityAutonomyStatus(env: PipelineEnv): Promise<Record
   const [states, recentPersistence, openIncidents, pressures] = await Promise.all([
     queryWithTimeout(
       db.query<{ state: string; count: number }>(
-      `FOR fn IN specs_functions
-         COLLECT state = fn.state WITH COUNT INTO count
-         RETURN { state, count }`,
+        `SELECT json_extract(json,'$.state') as state, COUNT(*) as count
+         FROM documents WHERE collection='specs_functions'
+         GROUP BY json_extract(json,'$.state')`,
       ),
       [],
       6000,
     ),
     queryWithTimeout(
-      db.query<Record<string, unknown>>(
-      `FOR vr IN persistence_verdicts
-         SORT vr.timestamp DESC
-         LIMIT 10
-         RETURN KEEP(vr, ["id", "function_id", "overall", "timestamp", "remediation"])`,
-      ),
+      db.query<{ json: string }>(
+        `SELECT json FROM documents WHERE collection='persistence_verdicts'
+         ORDER BY json_extract(json,'$.timestamp') DESC LIMIT 10`,
+      ).then(rows => parseRows<Record<string, unknown>>(rows)),
       [],
       6000,
     ),
     queryWithTimeout(
-      db.query<Record<string, unknown>>(
-      `FOR inc IN specs_incidents
-         FILTER inc.status == "open"
-         SORT inc.openedAt DESC
-         LIMIT 10
-         RETURN KEEP(inc, ["id", "incidentType", "functionIds", "severity", "openedAt", "title"])`,
-      ),
+      db.query<{ json: string }>(
+        `SELECT json FROM documents WHERE collection='specs_incidents'
+         AND json_extract(json,'$.status')='open'
+         ORDER BY json_extract(json,'$.openedAt') DESC LIMIT 10`,
+      ).then(rows => parseRows<Record<string, unknown>>(rows)),
       [],
       6000,
     ),
     queryWithTimeout(
-      db.query<Record<string, unknown>>(
-      `FOR prs IN specs_pressures
-         FILTER STARTS_WITH(prs.id, "PRS-OPS-GC-")
-         SORT prs.createdAt DESC
-         LIMIT 10
-         RETURN KEEP(prs, ["id", "name", "urgency", "strength", "createdAt"])`,
-      ),
+      db.query<{ json: string }>(
+        `SELECT json FROM documents WHERE collection='specs_pressures'
+         AND json_extract(json,'$.id') LIKE 'PRS-OPS-GC-%'
+         ORDER BY json_extract(json,'$.createdAt') DESC LIMIT 10`,
+      ).then(rows => parseRows<Record<string, unknown>>(rows)),
       [],
       6000,
     ),
@@ -353,23 +344,19 @@ async function evaluateFunctionPersistence(
   freshnessCutoff: Date,
   timestamp: string,
 ): Promise<{ overall: "pass" | "fail"; reportId: string; reportWritten: boolean }> {
-  const fidelity = await db.queryOne<FidelityRecord>(
-    `FOR vr IN fidelity_verdicts
-       FILTER vr.function_id == @functionId
-       FILTER vr.overall == "pass"
-       SORT vr.received_at DESC
-       LIMIT 1
-       RETURN vr`,
-    { functionId },
-  )
-  const completion = await db.queryOne<CompletionEventRecord>(
-    `FOR ce IN completion_events
-       FILTER ce.fn_id == @functionId
-       SORT ce.received_at DESC
-       LIMIT 1
-       RETURN ce`,
-    { functionId },
-  )
+  const fidelity = await db.queryOne<{ json: string }>(
+    `SELECT json FROM documents WHERE collection='fidelity_verdicts'
+     AND json_extract(json,'$.function_id')=?
+     AND json_extract(json,'$.overall')='pass'
+     ORDER BY json_extract(json,'$.received_at') DESC LIMIT 1`,
+    [functionId],
+  ).then(row => parseRow<FidelityRecord>(row))
+  const completion = await db.queryOne<{ json: string }>(
+    `SELECT json FROM documents WHERE collection='completion_events'
+     AND json_extract(json,'$.fn_id')=?
+     ORDER BY json_extract(json,'$.received_at') DESC LIMIT 1`,
+    [functionId],
+  ).then(row => parseRow<CompletionEventRecord>(row))
   const fresh = !!fidelity && !!completion && isFresh(isoValue(fidelity.received_at ?? fidelity.timestamp), freshnessCutoff) && isFresh(isoValue(completion.received_at), freshnessCutoff)
   const report = await writePersistenceReport(db, {
     functionId,
@@ -383,14 +370,12 @@ async function evaluateFunctionPersistence(
 }
 
 async function latestPersistenceReport(db: AutonomyDb, functionId: string): Promise<Record<string, unknown> | null> {
-  return db.queryOne<Record<string, unknown>>(
-    `FOR vr IN persistence_verdicts
-       FILTER vr.function_id == @functionId
-       SORT vr.timestamp DESC
-       LIMIT 1
-       RETURN vr`,
-    { functionId },
-  )
+  return db.queryOne<{ json: string }>(
+    `SELECT json FROM documents WHERE collection='persistence_verdicts'
+     AND json_extract(json,'$.function_id')=?
+     ORDER BY json_extract(json,'$.timestamp') DESC LIMIT 1`,
+    [functionId],
+  ).then(row => parseRow<Record<string, unknown>>(row))
 }
 
 async function writePersistenceReport(
@@ -517,19 +502,27 @@ async function writeDispatchStaleIncident(
 }
 
 async function escalateRecurringIncidents(db: AutonomyDb, timestamp: string, threshold: number): Promise<number> {
-  const groups = await db.query<{ incidentType: string; functionId: string; count: number; incidentIds: string[] }>(
-    `FOR inc IN specs_incidents
-       FILTER inc.status == "open"
-       FILTER STARTS_WITH(inc.incidentType, "gascity_")
-       LET fnId = LENGTH(inc.functionIds) > 0 ? inc.functionIds[0] : "FN-GC-DISPATCH-WIRE"
-       COLLECT incidentType = inc.incidentType, functionId = fnId INTO grouped = inc
-       LET incidentIds = grouped[*].id
-       FILTER LENGTH(incidentIds) >= @threshold
-       RETURN { incidentType, functionId, count: LENGTH(incidentIds), incidentIds }`,
-    { threshold },
+  const groups = await db.query<{ incidentType: string; functionId: string; count: number; incidentIdsList: string }>(
+    `SELECT
+       json_extract(json,'$.incidentType') as incidentType,
+       COALESCE(json_extract(json,'$.functionIds[0]'), 'FN-GC-DISPATCH-WIRE') as functionId,
+       COUNT(*) as count,
+       GROUP_CONCAT(json_extract(json,'$.id')) as incidentIdsList
+     FROM documents
+     WHERE collection='specs_incidents'
+       AND json_extract(json,'$.status')='open'
+       AND json_extract(json,'$.incidentType') LIKE 'gascity_%'
+     GROUP BY json_extract(json,'$.incidentType'), functionId
+     HAVING COUNT(*) >= ?`,
+    [threshold],
   )
+  // Reshape to match expected interface (incidentIdsList → incidentIds array)
+  const typedGroups = groups.map(g => ({
+    ...g,
+    incidentIds: g.incidentIdsList ? g.incidentIdsList.split(',') : [],
+  }))
   let created = 0
-  for (const group of groups) {
+  for (const group of typedGroups) {
     const id = `PRS-OPS-GC-${(await sha256Hex(`${group.incidentType}|${group.functionId}`)).slice(0, 12).toUpperCase()}`
     const pressure = Pressure.parse({
       id,
