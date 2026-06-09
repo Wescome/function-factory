@@ -263,6 +263,8 @@ const RESERVED_VAR_NAMES = new Set<string>([
   "rig_root",
   "max_iterations",
   "parameters_json",
+  "workspace_url",
+  "skeleton_sha",
 ])
 
 /**
@@ -422,6 +424,9 @@ export async function compileAndDispatchFormula(
     intentSpecificationId: string
     executableSpecificationId: string
     instructionTuning: { inputExecutableSpecificationHash: string }
+    // SPEC-FF-SEEDWORKSPACE-001 — top-level skeleton vars threaded from the EP.
+    workspace_url?: unknown
+    skeleton_sha?: unknown
     adapter: {
       adapterId: string
       executionRequest: { parameters: Record<string, unknown> }
@@ -551,6 +556,13 @@ export async function compileAndDispatchFormula(
     rig_root: env.GAS_CITY_RIG_ROOT,
     max_iterations: env.FACTORY_MAX_ITERATIONS ?? "5",
     parameters_json: stableStringify(parameters),
+    // Skeleton vars — surfaced as top-level formula vars so the coding formula's
+    // `init` step can hydrate the workspace before the agent fires
+    // (SPEC-FF-SEEDWORKSPACE-001). Sourced from the EP's top-level fields.
+    workspace_url:
+      typeof epAny.workspace_url === "string" ? epAny.workspace_url : "",
+    skeleton_sha:
+      typeof epAny.skeleton_sha === "string" ? epAny.skeleton_sha : "unknown",
   }
 
   // AC-3 role vars (no prefix stripping; every role contributes 3 vars).

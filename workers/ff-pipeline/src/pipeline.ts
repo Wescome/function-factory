@@ -23,6 +23,7 @@ import { captureLearningTranscript } from './learning-capture'
 import { buildFormulaCompilerDeps } from './compilers/formula-compiler-adapter'
 import { compileAndDispatchFormula, type FormulaCompilerEnv } from './compilers/formula-compiler'
 import { markFunctionDispatched } from './gascity/autonomy-monitor'
+import { buildSkeleton, getSkeletonDownloadUrl, type SkeletonEnv } from './gascity/skeleton-builder'
 import type { TrellisExecutionPacket } from '@factory/schemas'
 import type {
   CoherenceVerificationReport,
@@ -492,6 +493,22 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
 
     const executableSpecification = compState.executableSpecification as { _key?: string; functionId?: string; [k: string]: unknown }
 
+    // ── Build skeleton: seed repo snapshot to R2 before Gas City dispatch ──
+    // Seeds /workspace from a GitHub tarball so a baseline git commit exists and
+    // `git add -A && git diff --cached` captures every agent-written file
+    // (SPEC-FF-SEEDWORKSPACE-001). Without this the CandidatePatch is empty.
+    const skeletonResult = await step.do('build-skeleton', DB_STEP_CONFIG, async () => {
+      const fnId = (executableSpecification.functionId as string) ?? proposalKey
+      const result = await buildSkeleton(this.env as unknown as SkeletonEnv, db, fnId)
+      const baseUrl = 'https://ff-pipeline.koales.workers.dev'
+      const downloadUrl = await getSkeletonDownloadUrl(
+        baseUrl,
+        result.r2Key,
+        (this.env as unknown as SkeletonEnv).GAS_CITY_HMAC_SECRET_V1,
+      )
+      return toStep({ ...result, downloadUrl })
+    }) as Rec
+
     // ── Build Execution Packet from compiled ES (Gas City era — replaces instruction-tuning) ──
     const executionPacket = await step.do('build-execution-packet', DB_STEP_CONFIG, async () => {
       const isKey = ((compState.intentSpecification as Record<string, unknown>)?._key as string) ?? `IS-${executableSpecificationKey}`
@@ -513,9 +530,21 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
         intentSpecificationId: isKey,
         executableSpecificationId: executableSpecificationKey,
         instructionTuning: { inputExecutableSpecificationHash: esHash },
+        // Skeleton vars — surfaced as top-level formula vars by the compiler so
+        // the formula `init` step can hydrate the workspace (SPEC-FF-SEEDWORKSPACE-001).
+        skeleton_r2_key: skeletonResult.r2Key as string,
+        skeleton_sha: skeletonResult.skeletonSha as string,
+        workspace_url: skeletonResult.downloadUrl as string,
         adapter: {
           adapterId: 'adapter.coding',
-          executionRequest: { parameters: { task, lang: 'typescript' } },
+          executionRequest: {
+            parameters: {
+              task,
+              lang: 'typescript',
+              workspace_url: skeletonResult.downloadUrl as string,
+              skeleton_sha: skeletonResult.skeletonSha as string,
+            },
+          },
         },
         roles: [
           { roleId: 'planner', instruction: `Read ${executableSpecificationKey} and produce a coding plan for: ${task}`, inputs: [], outputs: [`PLAN-${executableSpecificationKey}.md`] },

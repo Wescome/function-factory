@@ -132,9 +132,47 @@ default = "[]"
 description = "Verifier role outputs as JSON array (EP.roles[roleId=verifier].outputs)"
 default = "[]"
 
+[vars.workspace_url]
+description = "Presigned/signed URL to download workspace skeleton tar.gz from R2"
+required = true
+
+[vars.skeleton_sha]
+description = "Git SHA of the main branch snapshot used for skeleton (first 12 chars)"
+default = "unknown"
+
+
+[[steps]]
+id = "init"
+title = "Init workspace — {{fn_id}}"
+# Non-LLM workspace hydration. Runs before any agent step.
+runtime_requirements = ["command_exec"]
+tags = [
+  "fn-id:{{fn_id}}",
+  "is-id:{{is_id}}",
+  "es-id:{{es_id}}",
+  "form-id:{{form_id}}",
+  "factory-attempt:{{factory_attempt}}",
+]
+description = """
+Hydrate {{rig_root}} from the Factory skeleton snapshot before the agent fires.
+
+```bash
+set -euo pipefail
+mkdir -p {{rig_root}}
+curl -fsSL "{{workspace_url}}" | tar -xz --strip-components=1 -C {{rig_root}}
+cd {{rig_root}}
+git init -q
+git add -A
+git commit -q -m "seed: {{fn_id}} @ {{skeleton_sha}}"
+echo "[workspace-init] baseline commit ready — $(git log --oneline -1)"
+```
+
+Exit 0 on success. Non-zero exit halts the Convoy — emit DIV-SEED-INIT-FAILURE to Coordinator.
+"""
 
 [[steps]]
 id = "plan"
+needs = ["init"]
 title = "Plan — {{fn_id}} attempt {{factory_attempt}}"
 # AC-REG2/AC-REG6: planner needs AI reasoning + workspace write scope.
 runtime_requirements = ["ai_reasoning", "model_routing", "workspace_write_scope"]
@@ -339,6 +377,9 @@ export GC_BEAD_ID FN_ID="{{fn_id}}" GAS_CITY_HMAC_SECRET
 export FF_WEBHOOK_URL="{{ff_webhook_url}}"
 export FF_WEBHOOK_HMAC_KEYID="{{ff_webhook_hmac_keyid}}"
 export RIG_ROOT="{{rig_root}}"
+
+# Ensure all agent-written files are staged for diff capture (INV-SEED-3)
+cd {{rig_root}} && git add -A
 
 bash /data/cities/factory/fidelity/fidelity-release.sh
 RC=$?

@@ -1386,6 +1386,10 @@ export default {
       return handleGasCityWebhook(request, env)
     }
 
+    if (url.pathname === '/skeleton-download' && request.method === 'GET') {
+      return handleSkeletonDownload(request, env)
+    }
+
     if (url.pathname === '/seed-dispatch-ep' && request.method === 'POST') {
       return handleSeedDispatchEp(request, env)
     }
@@ -2635,6 +2639,62 @@ function json(data: unknown, status = 200): Response {
     status,
     headers: { 'Content-Type': 'application/json' },
   })
+}
+
+/**
+ * GET /skeleton-download — streams a workspace skeleton tar.gz from R2 to the
+ * Gas City `init` step. Authenticated by an HMAC-SHA256 token over a 2-hour
+ * window (SPEC-FF-SEEDWORKSPACE-001). The current and previous window are both
+ * accepted so a token minted just before a window boundary still validates.
+ */
+async function handleSkeletonDownload(request: Request, env: PipelineEnv): Promise<Response> {
+  const url = new URL(request.url)
+  const r2Key = url.searchParams.get('key') ?? ''
+  const token = url.searchParams.get('token') ?? ''
+  if (!r2Key || !token) return json({ error: 'key and token required' }, 400)
+
+  const hmacSecret = env.GAS_CITY_HMAC_SECRET_V1
+  if (!hmacSecret) return json({ error: 'hmac_secret_unconfigured' }, 503)
+
+  // Validate token for current and previous 2h window (handles boundary).
+  const hourWindow = Math.floor(Date.now() / (2 * 3600 * 1000))
+  const validWindows = [hourWindow, hourWindow - 1]
+  let valid = false
+  for (const w of validWindows) {
+    const expected = await skeletonHmacSha256Hex(hmacSecret, `${r2Key}|${w}`)
+    if (expected === token) {
+      valid = true
+      break
+    }
+  }
+  if (!valid) return json({ error: 'invalid_token' }, 401)
+
+  const bucket = env.WORKSPACE_BUCKET as R2Bucket | undefined
+  if (!bucket) return json({ error: 'workspace_bucket_unconfigured' }, 503)
+  const obj = await bucket.get(r2Key)
+  if (!obj) return json({ error: 'skeleton_not_found', r2Key }, 404)
+
+  return new Response(obj.body, {
+    headers: {
+      'Content-Type': 'application/gzip',
+      'Content-Disposition': 'attachment; filename="skeleton.tar.gz"',
+    },
+  })
+}
+
+async function skeletonHmacSha256Hex(secret: string, message: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  )
+  const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(message))
+  const bytes = new Uint8Array(signature)
+  let hex = ''
+  for (const b of bytes) hex += b.toString(16).padStart(2, '0')
+  return hex
 }
 
 async function checkArango(env: PipelineEnv): Promise<boolean> {
