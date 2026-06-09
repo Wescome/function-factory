@@ -3,5 +3,10 @@
   "name": "ff-gates",
   "main": "src/index.ts",
   "compatibility_date": "2026-01-01",
-  "compatibility_flags": ["nodejs_compat"]
+  "compatibility_flags": ["nodejs_compat"],
+
+  // D1 Database
+  "d1_databases": [
+    { "binding": "DB", "database_name": "ff-factory", "database_id": "REPLACE_WITH_OUTPUT_OF_wrangler_d1_create_ff-factory" }
+  ]
 }

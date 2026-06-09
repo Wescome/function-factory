@@ -62,10 +62,10 @@ Your response is a JSON object:
 export function buildArangoTool(db: ArangoClient): AgentTool {
   return {
     name: 'arango_query',
-    label: 'Query ArangoDB',
-    description: 'Run an AQL query against the Factory knowledge graph. Returns JSON array of results. Use for looking up decisions, lessons, mentor rules, existing functions, invariants, and lineage.',
+    label: 'Query Factory DB',
+    description: 'Run a SQL query against the Factory knowledge graph (SQLite/D1). Returns JSON array of results. Use for looking up decisions, lessons, mentor rules, existing functions, invariants, and lineage. Schema: documents(collection TEXT, key TEXT, json TEXT). Example: SELECT json FROM documents WHERE collection=\'memory_semantic\' AND json_extract(json,\'$.type\')=\'decision\' LIMIT 10',
     parameters: Type.Object({
-      query: Type.String({ description: 'AQL query string' }),
+      query: Type.String({ description: 'SQL query string (SQLite syntax, ? positional placeholders)' }),
     }),
     async execute(_toolCallId, params) {
       try {

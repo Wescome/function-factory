@@ -266,11 +266,12 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
       const fetchMentorRules = async () => {
         try {
           const db = this.getDb()
-          return await db.query<{ ruleId: string; rule: string }>(
-            `FOR r IN mentorscript_rules
-               FILTER r.status == 'active'
-               RETURN { ruleId: r._key, rule: r.rule }`,
-          )
+          return await db.query<{ json: string }>(
+            `SELECT json FROM documents WHERE collection='mentorscript_rules' AND json_extract(json,'$.status')='active'`,
+          ).then(rows => rows.map(r => {
+            const d = JSON.parse(r.json) as Record<string, unknown>
+            return { ruleId: d._key as string, rule: d.rule as string }
+          }))
         } catch {
           return []
         }

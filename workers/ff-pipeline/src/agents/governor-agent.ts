@@ -697,10 +697,10 @@ export class GovernorAgent {
             }
 
             // DETERMINISTIC VALIDATION — not LLM-based
-            const signal = await this.db.queryOne?.<Record<string, unknown>>(
-              `FOR s IN specs_signals FILTER s._key == @key RETURN s`,
-              { key: decision.target },
-            ) ?? null
+            const signal = await this.db.queryOne<{ json: string }>(
+              `SELECT json FROM documents WHERE collection='specs_signals' AND key=? LIMIT 1`,
+              [decision.target],
+            ).then(r => r ? JSON.parse(r.json) as Record<string, unknown> : null)
 
             if (!signal) {
               decision.executed = false
@@ -743,10 +743,10 @@ export class GovernorAgent {
             }
 
             // Look up the pipeline to find its associated signal
-            const pipeline = await this.db.queryOne?.<Record<string, unknown>>(
-              `FOR p IN execution_artifacts FILTER p.workflowId == @wfId RETURN p`,
-              { wfId: decision.target },
-            ) ?? null
+            const pipeline = await this.db.queryOne<{ json: string }>(
+              `SELECT json FROM documents WHERE collection='execution_artifacts' AND json_extract(json,'$.workflowId')=? LIMIT 1`,
+              [decision.target],
+            ).then(r => r ? JSON.parse(r.json) as Record<string, unknown> : null)
 
             if (!pipeline) {
               decision.executed = false
@@ -756,10 +756,10 @@ export class GovernorAgent {
 
             // Look up the signal to validate auto-approve criteria
             const approveSignal = pipeline.signalId
-              ? await this.db.queryOne?.<Record<string, unknown>>(
-                  `FOR s IN specs_signals FILTER s._key == @key RETURN s`,
-                  { key: pipeline.signalId },
-                ) ?? null
+              ? await this.db.queryOne<{ json: string }>(
+                  `SELECT json FROM documents WHERE collection='specs_signals' AND key=? LIMIT 1`,
+                  [pipeline.signalId],
+                ).then(r => r ? JSON.parse(r.json) as Record<string, unknown> : null)
               : null
 
             if (!approveSignal || !meetsAutoApproveCriteria(approveSignal)) {
@@ -811,20 +811,22 @@ export class GovernorAgent {
           }
 
           case 'archive_signal': {
-            await this.db.query(
-              `FOR s IN specs_signals FILTER s._key == @key UPDATE s WITH { status: 'archived', archivedAt: @now, archivedBy: 'governor-agent' } IN specs_signals`,
-              { key: decision.target, now: new Date().toISOString() },
-            ).catch(() => {})
+            await this.db.update('specs_signals', decision.target, {
+              status: 'archived',
+              archivedAt: new Date().toISOString(),
+              archivedBy: 'governor-agent',
+            }).catch(() => {})
             decision.executed = true
             decision.execution_result = `Signal ${decision.target} archived`
             break
           }
 
           case 'deduplicate_signal': {
-            await this.db.query(
-              `FOR s IN specs_signals FILTER s._key == @key UPDATE s WITH { status: 'deduplicated', deduplicatedAt: @now, deduplicatedBy: 'governor-agent' } IN specs_signals`,
-              { key: decision.target, now: new Date().toISOString() },
-            ).catch(() => {})
+            await this.db.update('specs_signals', decision.target, {
+              status: 'deduplicated',
+              deduplicatedAt: new Date().toISOString(),
+              deduplicatedBy: 'governor-agent',
+            }).catch(() => {})
             decision.executed = true
             decision.execution_result = `Signal ${decision.target} marked as duplicate`
             break

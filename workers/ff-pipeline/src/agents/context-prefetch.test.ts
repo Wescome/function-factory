@@ -30,10 +30,10 @@ function createMockDb(overrides?: { failCollections?: string[] }) {
             if (query.includes(col)) throw new Error(`collection ${col} not found`)
           }
         }
-        if (query.includes('memory_semantic') && query.includes('"decision"')) {
+        if (query.includes('memory_semantic') && query.includes("'decision'")) {
           return [{ key: 'D-012', decision: 'Use JWT with refresh tokens', rationale: 'Industry standard' }]
         }
-        if (query.includes('memory_semantic') && query.includes('"lesson"')) {
+        if (query.includes('memory_semantic') && query.includes("'lesson'")) {
           return [{ key: 'L-003', lesson: 'Always validate token expiry', painScore: 8 }]
         }
         if (query.includes('mentorscript_rules')) {

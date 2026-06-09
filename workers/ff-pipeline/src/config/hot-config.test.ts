@@ -111,13 +111,15 @@ describe('HotConfigLoader', () => {
   })
 
   it('loads alias overrides from ArangoDB', async () => {
-    db.query.mockImplementation(async (aql: string) => {
-      if (aql.includes('config_aliases')) {
+    db.query.mockImplementation(async (_sql: string, params?: unknown[]) => {
+      if (Array.isArray(params) && params[0] === 'config_aliases') {
         return [{
-          _key: 'BriefingScript',
-          aliases: {
-            goal: ['mission', 'intent'],
-          },
+          json: JSON.stringify({
+            _key: 'BriefingScript',
+            aliases: {
+              goal: ['mission', 'intent'],
+            },
+          }),
         }]
       }
       return []
@@ -139,9 +141,9 @@ describe('HotConfigLoader', () => {
       default: { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
     }
 
-    db.query.mockImplementation(async (aql: string) => {
-      if (aql.includes('config_routing')) {
-        return [{ _key: 'default', config: customRouting }]
+    db.query.mockImplementation(async (_sql: string, params?: unknown[]) => {
+      if (Array.isArray(params) && params[0] === 'config_routing') {
+        return [{ json: JSON.stringify({ _key: 'default', config: customRouting }) }]
       }
       return []
     })
@@ -158,9 +160,9 @@ describe('HotConfigLoader', () => {
       reliabilityTier: 'medium',
     }
 
-    db.query.mockImplementation(async (aql: string) => {
-      if (aql.includes('config_model_capabilities')) {
-        return [{ _key: 'llama-3.3-70b', ...capabilities }]
+    db.query.mockImplementation(async (_sql: string, params?: unknown[]) => {
+      if (Array.isArray(params) && params[0] === 'config_model_capabilities') {
+        return [{ json: JSON.stringify({ _key: 'llama-3.3-70b', ...capabilities }) }]
       }
       return []
     })
@@ -311,12 +313,16 @@ describe('seedHotConfig', () => {
   it('seeds default routing config via upsert', async () => {
     await seedHotConfig(db as never)
 
+    // D1 upsert uses positional params: [collection, key, json_string, ...]
+    // Filter by looking at params array for 'config_routing' as first element
     const routingQueries = db.query.mock.calls.filter(
-      (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('config_routing'),
+      (c: unknown[]) => Array.isArray(c[1]) && (c[1] as unknown[])[0] === 'config_routing',
     )
     expect(routingQueries.length).toBeGreaterThanOrEqual(1)
-    const params = routingQueries[0]![1] as { config: RoutingConfig }
-    expect(params.config).toEqual(DEFAULT_CONFIG)
+    const params = routingQueries[0]![1] as unknown[]
+    const jsonStr = params[2] as string
+    const doc = JSON.parse(jsonStr) as { config: RoutingConfig }
+    expect(doc.config).toEqual(DEFAULT_CONFIG)
   })
 
   it('seeds model capabilities from known models', async () => {

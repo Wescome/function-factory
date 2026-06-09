@@ -71,27 +71,31 @@ function createMockDb(overrides?: { failCollections?: string[] }) {
 
   return {
     db: {
-      query: async <T>(query: string, params?: Record<string, unknown>): Promise<T[]> => {
-        calls.push({ query, params })
+      query: async <T>(query: string, params?: unknown[]): Promise<T[]> => {
+        calls.push({ query, params: params as any })
         for (const col of failSet) {
           if (query.includes(col)) throw new Error(`collection ${col} not found`)
         }
         if (query.includes('orl_telemetry')) {
+          // orl_telemetry uses json_extract projections — returns raw columns
           return [
             { schemaName: 'BriefingScript', success_count: 10, fail_count: 2, avg_repairs: 0.5 },
           ] as T[]
         }
         if (query.includes('memory_semantic')) {
+          // memory_semantic uses SELECT json FROM documents — returns { json: string }
           return [
-            { _key: 'L-001', type: 'lesson', pattern: 'F1 prose output', evidence: ['atom-1'], count: 3, recommendation: 'Reduce context' },
+            { json: JSON.stringify({ _key: 'L-001', type: 'lesson', pattern: 'F1 prose output', evidence: ['atom-1'], count: 3, recommendation: 'Reduce context' }) },
           ] as T[]
         }
         if (query.includes('memory_episodic')) {
+          // memory_episodic uses SELECT json FROM documents — returns { json: string }
           return [
-            { _key: 'E-001', action: 'synthesis', outcome: 'pass', timestamp: '2026-04-28T12:00:00Z' },
+            { json: JSON.stringify({ _key: 'E-001', action: 'synthesis', outcome: 'pass', timestamp: '2026-04-28T12:00:00Z' }) },
           ] as T[]
         }
         if (query.includes('specs_signals')) {
+          // specs_signals uses json_extract projections — returns raw columns
           return [
             { _key: 'SIG-001', subtype: 'synthesis:atom-failed', title: 'Atom failed', createdAt: '2026-04-28T12:00:00Z' },
           ] as T[]
@@ -287,8 +291,8 @@ describe('persist', () => {
     expect(written).toBe(3)
     expect(errors).toEqual([])
 
-    // Lessons and patterns use UPSERT (db.query), governance uses db.save
-    const upsertQueries = calls.filter(c => c.query.includes('UPSERT'))
+    // Lessons and patterns use INSERT ... ON CONFLICT (db.query), governance uses db.save
+    const upsertQueries = calls.filter(c => c.query.includes('ON CONFLICT'))
     expect(upsertQueries.some(c => c.query.includes('memory_curated'))).toBe(true)
     expect(upsertQueries.some(c => c.query.includes('pattern_library'))).toBe(true)
 

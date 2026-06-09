@@ -325,11 +325,12 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
       fetchMentorRules: async () => {
         try {
           const db = createClientFromEnv(this.env)
-          return await db.query<{ ruleId: string; rule: string }>(
-            `FOR r IN mentorscript_rules
-               FILTER r.status == 'active'
-               RETURN { ruleId: r._key, rule: r.rule }`,
-          )
+          return await db.query<{ json: string }>(
+            `SELECT json FROM documents WHERE collection='mentorscript_rules' AND json_extract(json,'$.status')='active'`,
+          ).then(rows => rows.map(r => {
+            const d = JSON.parse(r.json) as Record<string, unknown>
+            return { ruleId: d._key as string, rule: d.rule as string }
+          }))
         } catch {
           return []
         }
@@ -364,10 +365,10 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
       try {
         // Check ArangoDB cache first (content-hash keyed)
         const ttlCutoff = new Date(Date.now() - CACHE_TTL_MS).toISOString()
-        const cached = await db.queryOne<{ ctx: FileContext; cached_at: string }>(
-          'FOR c IN @@col FILTER c.path == @path AND c.cached_at > @ttl RETURN { ctx: c.ctx, cached_at: c.cached_at }',
-          { '@col': FC_CACHE, path: filePath, ttl: ttlCutoff },
-        ).catch(() => null)
+        const cached = await db.queryOne<{ json: string }>(
+          `SELECT json FROM documents WHERE collection=? AND json_extract(json,'$.path')=? AND json_extract(json,'$.cached_at')>? LIMIT 1`,
+          [FC_CACHE, filePath, ttlCutoff],
+        ).then(r => r ? JSON.parse(r.json) as { ctx: FileContext; cached_at: string } : null).catch(() => null)
 
         if (cached) {
           return cached.ctx
@@ -392,11 +393,8 @@ export class AtomExecutor extends Agent<AtomExecutorEnv> {
 
         // Write to ArangoDB cache (file_context_cache) — UPSERT to refresh cached_at on duplicate SHA
         await db.query(
-          `UPSERT { _key: @key }
-             INSERT { _key: @key, path: @path, ctx: @ctx, cached_at: @cached_at }
-             UPDATE { cached_at: @cached_at, path: @path, ctx: @ctx }
-             IN @@col`,
-          { '@col': FC_CACHE, key: data.sha, path: filePath, ctx: result, cached_at: new Date().toISOString() },
+          `INSERT INTO documents (collection, key, json) VALUES (?, ?, ?) ON CONFLICT(collection, key) DO UPDATE SET json=excluded.json`,
+          [FC_CACHE, data.sha, JSON.stringify({ _key: data.sha, path: filePath, ctx: result, cached_at: new Date().toISOString() })],
         ).catch(() => {})
 
         await this.ctx.storage.put(`file:${filePath}`, rawContent)

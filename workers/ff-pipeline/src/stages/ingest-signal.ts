@@ -19,13 +19,10 @@ export async function ingestSignal(
 
   const idempotencyKey = computeIdempotencyKey(input)
 
-  const existing = await db.queryOne<Record<string, unknown>>(
-    `FOR s IN specs_signals
-       FILTER s.idempotencyKey == @key
-       LIMIT 1
-       RETURN s`,
-    { key: idempotencyKey },
-  )
+  const existing = await db.queryOne<{ json: string }>(
+    `SELECT json FROM documents WHERE collection='specs_signals' AND json_extract(json,'$.idempotencyKey')=? LIMIT 1`,
+    [idempotencyKey],
+  ).then(r => r ? JSON.parse(r.json) as Record<string, unknown> : null)
 
   if (existing) return existing
 

@@ -79,13 +79,12 @@ describe('captureLearningTranscript', () => {
 
     expect(captured).toBe(result)
     expect(mockDb.query).toHaveBeenCalledOnce()
-    const calls = mockDb.query.mock.calls as unknown as Array<[string, Record<string, unknown>]>
-    const [query, bindVars] = calls[0]!
-    expect(query).toContain('UPSERT')
-    expect(bindVars).toMatchObject({
-      '@collection': 'learning_run_transcripts',
-      key: 'run-run-enabled',
-    })
+    const calls = mockDb.query.mock.calls as unknown as Array<[string, unknown[]]>
+    const [query, posParams] = calls[0]!
+    // D1 uses INSERT ... ON CONFLICT with positional params [collection, key, json]
+    expect(query).toContain('ON CONFLICT')
+    expect(posParams[0]).toBe('learning_run_transcripts')
+    expect(posParams[1]).toBe('run-run-enabled')
   })
 
   it('can write factual observations without changing the result', async () => {
@@ -102,10 +101,10 @@ describe('captureLearningTranscript', () => {
 
     expect(captured).toBe(result)
     expect(mockDb.query.mock.calls.length).toBeGreaterThan(1)
-    const calls = mockDb.query.mock.calls as unknown as Array<[string, Record<string, unknown>]>
-    expect(calls[1]?.[1]).toMatchObject({
-      '@collection': 'learning_observations',
-    })
+    const calls = mockDb.query.mock.calls as unknown as Array<[string, unknown[]]>
+    // D1 uses positional params [collection, key, json] — check collection name
+    const observationCall = calls.find(c => (c[1] as unknown[])?.[0] === 'learning_observations')
+    expect(observationCall).toBeDefined()
   })
 
   it('catches storage failures and preserves the terminal verdict', async () => {

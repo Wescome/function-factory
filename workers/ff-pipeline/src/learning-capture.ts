@@ -54,16 +54,8 @@ async function upsertDocument(
   doc: Record<string, unknown>,
 ): Promise<void> {
   await db.query(
-    `UPSERT { _key: @key }
-     INSERT @doc
-     UPDATE MERGE(OLD, @doc)
-     IN @@collection
-     RETURN NEW`,
-    {
-      "@collection": collection,
-      key,
-      doc: { ...doc, _key: key },
-    },
+    `INSERT INTO documents (collection, key, json) VALUES (?, ?, ?) ON CONFLICT(collection, key) DO UPDATE SET json=json_patch(json, excluded.json)`,
+    [collection, key, JSON.stringify({ ...doc, _key: key })],
   )
 }
 

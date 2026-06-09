@@ -634,13 +634,10 @@ export async function ingestMergeReadinessPack(
 ): Promise<Record<string, unknown>> {
   assertPackReadyForPersistence(pack)
 
-  const existing = await db.queryOne<Record<string, unknown>>(
-    `FOR mrp IN merge_readiness_packs
-       FILTER mrp.id == @id
-       LIMIT 1
-       RETURN mrp`,
-    { id: pack.id },
-  )
+  const existing = await db.queryOne<{ json: string }>(
+    `SELECT json FROM documents WHERE collection='merge_readiness_packs' AND json_extract(json,'$.id')=? LIMIT 1`,
+    [pack.id],
+  ).then(r => r ? JSON.parse(r.json) as Record<string, unknown> : null)
 
   const persisted: PersistedMergeReadinessPack = {
     ...pack,

@@ -11,7 +11,7 @@
  */
 
 import { WorkerEntrypoint } from 'cloudflare:workers'
-import { createClientFromEnv, type ArangoClient } from '@factory/arango-client'
+import { createClientFromEnv, type ArangoClient, type D1Database } from '@factory/arango-client'
 
 export default {
   async fetch(): Promise<Response> {
@@ -20,11 +20,7 @@ export default {
 }
 
 interface GatesEnv {
-  ARANGO_URL: string
-  ARANGO_DATABASE: string
-  ARANGO_JWT: string
-  ARANGO_USERNAME?: string
-  ARANGO_PASSWORD?: string
+  DB: D1Database
   ENVIRONMENT: string
 }
 
@@ -195,16 +191,32 @@ class GatesService extends WorkerEntrypoint<GatesEnv> {
   private async checkLineageCompleteness(wgId: string): Promise<CoherenceVerificationCheck> {
     const db = this.getDb()
 
-    // Trace back from ExecutableSpecification through lineage edges — should reach a Signal
-    const path = await db.query<{ depth: number; type: string }>(
-      `FOR v, e, p IN 1..10 OUTBOUND @start lineage_edges
-         FILTER v.type == 'signal' OR STARTS_WITH(v._key, 'SIG-')
-         LIMIT 1
-         RETURN { depth: LENGTH(p.edges), type: v.type }`,
-      { start: `executable_specifications/${wgId}` },
+    // Walk OUTBOUND from the ExecutableSpecification through lineage_edges.
+    // Check existence of a path that terminates at a Signal node
+    // (type='signal' or key starts with 'SIG-'), depth-limited to 10 hops.
+    const startId = `executable_specifications/${wgId}`
+    const hit = await db.queryOne<{ depth: number; doc_json: string }>(
+      `WITH RECURSIVE lineage(id, depth) AS (
+         SELECT e.to_id, 1
+         FROM edges e
+         WHERE e.collection='lineage_edges' AND e.from_id=?
+         UNION ALL
+         SELECT e.to_id, l.depth+1
+         FROM edges e
+         JOIN lineage l ON e.from_id=l.id
+         WHERE e.collection='lineage_edges' AND l.depth < 10
+       )
+       SELECT l.depth, d.json AS doc_json
+       FROM lineage l
+       JOIN documents d ON d.collection=SUBSTR(l.id, 1, INSTR(l.id,'/')-1)
+                       AND d.key=SUBSTR(l.id, INSTR(l.id,'/')+1)
+       WHERE d.json->>'$.type'='signal'
+          OR d.key LIKE 'SIG-%'
+       LIMIT 1`,
+      [startId],
     )
 
-    if (path.length === 0) {
+    if (!hit) {
       return {
         name: 'lineage-completeness',
         passed: false,
@@ -214,7 +226,7 @@ class GatesService extends WorkerEntrypoint<GatesEnv> {
     return {
       name: 'lineage-completeness',
       passed: true,
-      detail: `Lineage traces to Signal in ${path[0]!.depth} hops`,
+      detail: `Lineage traces to Signal in ${hit.depth} hops`,
     }
   }
 

@@ -109,15 +109,9 @@ async function checkCooldown(
   if (!executableSpecificationId) return false
 
   const cutoff = new Date(Date.now() - COOLDOWN_MINUTES * 60 * 1000).toISOString()
-  const existing = await db.queryOne<Record<string, unknown>>(
-    `FOR s IN specs_signals
-       FILTER s.source == 'factory:feedback-loop'
-       FILTER s.subtype == @subtype
-       FILTER s.createdAt >= @cutoff
-       FILTER POSITION(s.sourceRefs, @wgRef)
-       LIMIT 1
-       RETURN s`,
-    { subtype, cutoff, wgRef: `ES:${executableSpecificationId}` },
+  const existing = await db.queryOne<{ json: string }>(
+    `SELECT json FROM documents WHERE collection='specs_signals' AND json_extract(json,'$.source')='factory:feedback-loop' AND json_extract(json,'$.subtype')=? AND json_extract(json,'$.createdAt')>=? AND json LIKE ? LIMIT 1`,
+    [subtype, cutoff, `%"ES:${executableSpecificationId}"%`],
   )
 
   return existing !== null && existing !== undefined
@@ -203,13 +197,30 @@ export async function extractLessons(
   // Write lessons to ArangoDB
   for (const lesson of lessons) {
     try {
-      await db.query(
-        `UPSERT { pattern: @pattern }
-         INSERT { pattern: @pattern, evidence: [@evidence], recommendation: @recommendation, count: 1, firstSeen: @now, lastSeen: @now, type: 'lesson' }
-         UPDATE { evidence: APPEND(OLD.evidence, @evidence, true), count: OLD.count + 1, lastSeen: @now }
-         IN memory_semantic`,
-        { pattern: lesson.pattern, evidence: lesson.evidence, recommendation: lesson.recommendation, now: new Date().toISOString() },
-      )
+      const now = new Date().toISOString()
+      const existingLesson = await db.queryOne<{ json: string }>(
+        `SELECT json FROM documents WHERE collection='memory_semantic' AND json_extract(json,'$.pattern')=? LIMIT 1`,
+        [lesson.pattern],
+      ).then(r => r ? JSON.parse(r.json) as Record<string, unknown> : null)
+      if (existingLesson) {
+        const existingEvidence = Array.isArray(existingLesson.evidence) ? existingLesson.evidence as string[] : []
+        const mergedEvidence = Array.from(new Set([...existingEvidence, lesson.evidence]))
+        await db.update('memory_semantic', existingLesson._key as string, {
+          evidence: mergedEvidence,
+          count: typeof existingLesson.count === 'number' ? existingLesson.count + 1 : 1,
+          lastSeen: now,
+        })
+      } else {
+        await db.save('memory_semantic', {
+          pattern: lesson.pattern,
+          evidence: [lesson.evidence],
+          recommendation: lesson.recommendation,
+          count: 1,
+          firstSeen: now,
+          lastSeen: now,
+          type: 'lesson',
+        })
+      }
     } catch (err) {
       console.warn(`[Feedback] Failed to write lesson: ${err instanceof Error ? err.message : err}`)
     }

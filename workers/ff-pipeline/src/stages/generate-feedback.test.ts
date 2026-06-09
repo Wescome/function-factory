@@ -325,8 +325,8 @@ describe('generateFeedbackSignals', () => {
       expect(signals.length).toBeGreaterThan(0)
       // ensureCollection should have been called for memory_semantic
       expect(db.ensureCollection).toHaveBeenCalledWith('memory_semantic')
-      // query should have been called for UPSERT (F1 lesson + partial success lesson)
-      expect(db.query).toHaveBeenCalled()
+      // save should have been called for lessons (F1 lesson + partial success lesson)
+      expect(db.save).toHaveBeenCalled()
     })
   })
 })
@@ -348,10 +348,14 @@ describe('extractLessons', () => {
     await extractLessons(ctx, db as never)
 
     expect(db.ensureCollection).toHaveBeenCalledWith('memory_semantic')
-    const queryCalls = db.query.mock.calls
-    const f1Call = queryCalls.find((c: any) => c[1]?.pattern === 'F1 prose output from agent')
+    // D1 implementation: new lessons use db.save, existing lessons use db.update
+    const saveCalls = db.save.mock.calls
+    const f1Call = saveCalls.find((c: any) => c[1]?.pattern === 'F1 prose output from agent')
     expect(f1Call).toBeDefined()
-    expect((f1Call as unknown as [unknown, Record<string, unknown>])[1]!.evidence).toContain('atom-1')
+    const f1Evidence = (f1Call as unknown as [unknown, Record<string, unknown>])[1]!.evidence
+    // evidence is stored as array of strings: [evidenceString]
+    const evidenceStr = Array.isArray(f1Evidence) ? (f1Evidence as string[]).join(' ') : String(f1Evidence)
+    expect(evidenceStr).toContain('atom-1')
   })
 
   it('writes timeout pattern lesson when atoms exceed deadline', async () => {
@@ -368,10 +372,12 @@ describe('extractLessons', () => {
 
     await extractLessons(ctx, db as never)
 
-    const queryCalls = db.query.mock.calls
-    const timeoutCall = queryCalls.find((c: any) => c[1]?.pattern === 'Atom execution timeout')
+    const saveCalls = db.save.mock.calls
+    const timeoutCall = saveCalls.find((c: any) => c[1]?.pattern === 'Atom execution timeout')
     expect(timeoutCall).toBeDefined()
-    expect((timeoutCall as unknown as [unknown, Record<string, unknown>])[1]!.evidence).toContain('atom-slow')
+    const timeoutEvidence = (timeoutCall as unknown as [unknown, Record<string, unknown>])[1]!.evidence
+    const timeoutEvidenceStr = Array.isArray(timeoutEvidence) ? (timeoutEvidence as string[]).join(' ') : String(timeoutEvidence)
+    expect(timeoutEvidenceStr).toContain('atom-slow')
   })
 
   it('writes F7 pattern lesson for empty/null responses', async () => {
@@ -388,8 +394,8 @@ describe('extractLessons', () => {
 
     await extractLessons(ctx, db as never)
 
-    const queryCalls = db.query.mock.calls
-    const f7Call = queryCalls.find((c: any) => c[1]?.pattern === 'Empty/null model response')
+    const saveCalls = db.save.mock.calls
+    const f7Call = saveCalls.find((c: any) => c[1]?.pattern === 'Empty/null model response')
     expect(f7Call).toBeDefined()
   })
 
@@ -408,10 +414,12 @@ describe('extractLessons', () => {
 
     await extractLessons(ctx, db as never)
 
-    const queryCalls = db.query.mock.calls
-    const partialCall = queryCalls.find((c: any) => c[1]?.pattern === 'Partial synthesis success')
+    const saveCalls = db.save.mock.calls
+    const partialCall = saveCalls.find((c: any) => c[1]?.pattern === 'Partial synthesis success')
     expect(partialCall).toBeDefined()
-    expect((partialCall as unknown as [unknown, Record<string, unknown>])[1]!.evidence).toContain('1/2')
+    const partialEvidence = (partialCall as unknown as [unknown, Record<string, unknown>])[1]!.evidence
+    const partialEvidenceStr = Array.isArray(partialEvidence) ? (partialEvidence as string[]).join(' ') : String(partialEvidence)
+    expect(partialEvidenceStr).toContain('1/2')
   })
 
   it('does not write lessons when no atomResults exist', async () => {
@@ -424,13 +432,13 @@ describe('extractLessons', () => {
 
     await extractLessons(ctx, db as never)
 
-    // ensureCollection is called, but no UPSERT queries
+    // ensureCollection is called, but no lesson saves
     expect(db.ensureCollection).toHaveBeenCalledWith('memory_semantic')
-    // Only the cooldown queries should exist, no lesson UPSERT
-    const upsertCalls = db.query.mock.calls.filter((c: any) =>
-      typeof c[0] === 'string' && c[0].includes('UPSERT'),
+    // No atom results → no lessons to write
+    const lessonSaves = db.save.mock.calls.filter((c: any) =>
+      c[0] === 'memory_semantic',
     )
-    expect(upsertCalls).toHaveLength(0)
+    expect(lessonSaves).toHaveLength(0)
   })
 
   it('does not write lessons when all atoms pass', async () => {
@@ -448,11 +456,11 @@ describe('extractLessons', () => {
 
     await extractLessons(ctx, db as never)
 
-    // No failure patterns detected, no UPSERT calls
-    const upsertCalls = db.query.mock.calls.filter((c: any) =>
-      typeof c[0] === 'string' && c[0].includes('UPSERT'),
+    // No failure patterns detected, no lesson saves
+    const lessonSaves = db.save.mock.calls.filter((c: any) =>
+      c[0] === 'memory_semantic',
     )
-    expect(upsertCalls).toHaveLength(0)
+    expect(lessonSaves).toHaveLength(0)
   })
 
   it('swallows db.query errors without throwing', async () => {

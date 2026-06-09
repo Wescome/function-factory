@@ -247,7 +247,7 @@ describe('merge-readiness pack', () => {
       createdAt: '2026-05-06T04:00:00Z',
     })
     const db = {
-      queryOne: vi.fn(async (_query: string, _bindVars: Record<string, unknown>) => null),
+      queryOne: vi.fn(async (_query: string, _params: unknown[]) => null),
       save: vi.fn(async (_collection: string, doc: Record<string, unknown>) => doc),
     }
 
@@ -255,7 +255,8 @@ describe('merge-readiness pack', () => {
 
     expect(db.queryOne).toHaveBeenCalledOnce()
     expect(db.queryOne.mock.calls[0]![0]).toContain('merge_readiness_packs')
-    expect(db.queryOne.mock.calls[0]![1]).toEqual({ id: 'MRP-MOTE4M1R-G7I0-71' })
+    // D1 uses positional params array [mrpId]
+    expect(db.queryOne.mock.calls[0]![1]).toEqual(['MRP-MOTE4M1R-G7I0-71'])
     expect(db.save).toHaveBeenCalledOnce()
     expect(db.save.mock.calls[0]![0]).toBe('merge_readiness_packs')
     expect(db.save.mock.calls[0]![1]).toMatchObject({
@@ -295,12 +296,14 @@ describe('merge-readiness pack', () => {
       },
     }
     const db = {
-      queryOne: vi.fn(async (_query: string, _bindVars: Record<string, unknown>) => existing),
+      // D1 queryOne returns { json: string } row; code does JSON.parse(r.json)
+      queryOne: vi.fn(async (_query: string, _params: unknown[]) => ({ json: JSON.stringify(existing) })),
       save: vi.fn(),
       update: vi.fn(),
     }
 
-    await expect(ingestMergeReadinessPack(pack, db as never)).resolves.toBe(existing)
+    const result = await ingestMergeReadinessPack(pack, db as never)
+    expect(result).toEqual(existing)
     expect(db.save).not.toHaveBeenCalled()
     expect(db.update).not.toHaveBeenCalled()
   })
@@ -330,7 +333,8 @@ describe('merge-readiness pack', () => {
       },
     }
     const db = {
-      queryOne: vi.fn(async (_query: string, _bindVars: Record<string, unknown>) => existing),
+      // D1 queryOne returns { json: string } row; code does JSON.parse(r.json)
+      queryOne: vi.fn(async (_query: string, _params: unknown[]) => ({ json: JSON.stringify(existing) })),
       save: vi.fn(),
       update: vi.fn(async (_collection: string, _key: string, patch: Record<string, unknown>) => ({
         ...existing,

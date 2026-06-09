@@ -30,33 +30,27 @@ export interface PrefetchedContext {
 export async function prefetchAgentContext(db: ArangoClient): Promise<PrefetchedContext> {
   const [decisions, lessons, mentorRules, existingFunctions, invariants, curatedLessons] = await Promise.all([
     db.query<{ key: string; decision: string; rationale?: string }>(
-      'FOR d IN memory_semantic FILTER d.type == "decision" LIMIT 10 RETURN { key: d._key, decision: d.decision, rationale: d.rationale }',
+      `SELECT key, json_extract(json,'$.decision') AS decision, json_extract(json,'$.rationale') AS rationale FROM documents WHERE collection='memory_semantic' AND json_extract(json,'$.type')='decision' LIMIT 10`,
     ).catch(() => [] as { key: string; decision: string; rationale?: string }[]),
 
     db.query<{ key: string; lesson: string; painScore?: number }>(
-      'FOR l IN memory_semantic FILTER l.type == "lesson" LIMIT 10 RETURN { key: l._key, lesson: l.lesson, painScore: l.pain_score }',
+      `SELECT key, json_extract(json,'$.lesson') AS lesson, json_extract(json,'$.pain_score') AS painScore FROM documents WHERE collection='memory_semantic' AND json_extract(json,'$.type')='lesson' LIMIT 10`,
     ).catch(() => [] as { key: string; lesson: string; painScore?: number }[]),
 
     db.query<{ ruleId: string; rule: string }>(
-      'FOR r IN mentorscript_rules FILTER r.status == "active" LIMIT 10 RETURN { ruleId: r._key, rule: r.rule }',
+      `SELECT key AS ruleId, json_extract(json,'$.rule') AS rule FROM documents WHERE collection='mentorscript_rules' AND json_extract(json,'$.status')='active' LIMIT 10`,
     ).catch(() => [] as { ruleId: string; rule: string }[]),
 
     db.query<{ key: string; name: string; domain?: string }>(
-      'FOR f IN specs_functions LIMIT 10 RETURN { key: f._key, name: f.name, domain: f.domain }',
+      `SELECT key, json_extract(json,'$.name') AS name, json_extract(json,'$.domain') AS domain FROM documents WHERE collection='specs_functions' LIMIT 10`,
     ).catch(() => [] as { key: string; name: string; domain?: string }[]),
 
     db.query<{ key: string; description: string }>(
-      'FOR i IN specs_invariants LIMIT 10 RETURN { key: i._key, description: i.description }',
+      `SELECT key, json_extract(json,'$.description') AS description FROM documents WHERE collection='specs_invariants' LIMIT 10`,
     ).catch(() => [] as { key: string; description: string }[]),
 
     db.query<{ key: string; pattern: string; confidence: number; severity: string; recommendation: string; affects_agents: string[] }>(
-      `FOR l IN memory_curated
-         FILTER l.type == 'curated_lesson'
-         FILTER l.decay_status == 'active'
-         FILTER l.confidence >= 0.5
-         SORT l.confidence DESC
-         LIMIT 10
-         RETURN { key: l._key, pattern: l.pattern, confidence: l.confidence, severity: l.severity, recommendation: l.recommendation, affects_agents: l.affects_agents }`,
+      `SELECT key, json_extract(json,'$.pattern') AS pattern, json_extract(json,'$.confidence') AS confidence, json_extract(json,'$.severity') AS severity, json_extract(json,'$.recommendation') AS recommendation, json_extract(json,'$.affects_agents') AS affects_agents FROM documents WHERE collection='memory_curated' AND json_extract(json,'$.type')='curated_lesson' AND json_extract(json,'$.decay_status')='active' AND CAST(json_extract(json,'$.confidence') AS REAL) >= 0.5 ORDER BY json_extract(json,'$.confidence') DESC LIMIT 10`,
     ).catch(() => [] as { key: string; pattern: string; confidence: number; severity: string; recommendation: string; affects_agents: string[] }[]),
   ])
 

@@ -8,6 +8,7 @@
  */
 
 import type { CoherenceVerificationReport } from './types.js'
+import type { D1Database } from '@factory/arango-client'
 
 interface GatesBinding {
   evaluateCoherenceVerification(executableSpecification: unknown): Promise<CoherenceVerificationReport>
@@ -45,10 +46,6 @@ export interface GatewayEnv {
   GATES: GatesBinding
   QUERY: QueryBinding
   PIPELINE: PipelineBinding
-  ARANGO_URL: string
-  ARANGO_DATABASE: string
-  ARANGO_JWT: string
-  ARANGO_USERNAME?: string
-  ARANGO_PASSWORD?: string
+  DB: D1Database
   ENVIRONMENT: string
 }

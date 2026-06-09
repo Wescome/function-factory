@@ -50,7 +50,7 @@ interface ArangoDb {
   save(collection: string, doc: Record<string, unknown>): Promise<{ _key: string }>
   get(collection: string, key: string): Promise<Record<string, unknown> | null>
   update(collection: string, key: string, doc: Record<string, unknown>): Promise<{ _key: string }>
-  query<T = unknown>(aql: string, bindVars?: Record<string, unknown>): Promise<T[]>
+  query<T = unknown>(sql: string, params?: unknown[]): Promise<T[]>
   ensureCollection?(name: string): Promise<void>
 }
 
@@ -103,25 +103,23 @@ export async function recordAtomResult(
   atomId: string,
   result: AtomResult,
 ): Promise<CompletionLedger> {
-  // Atomic AQL update — eliminates the get-then-update race condition where
-  // two concurrent atom completions could both read the same completedAtoms
-  // value, both increment to the same number, and lose one count.
-  const aql = `
-    LET doc = DOCUMENT('completion_ledgers', @key)
-    UPDATE doc WITH {
-      completedAtoms: doc.completedAtoms + 1,
-      atomResults: MERGE(doc.atomResults, @newResult),
-      pendingAtoms: REMOVE_VALUE(doc.pendingAtoms, @atomId),
-      phase: (doc.completedAtoms + 1) >= doc.totalAtoms ? 'complete' : doc.phase
-    } IN completion_ledgers
-    RETURN NEW
-  `
+  // SQL update using a read-modify-write pattern.
+  // D1/SQLite does not support the AQL atomic update directly, so we
+  // fetch the current document, merge the new result, and write it back.
+  const existing = await db.get('completion_ledgers', executableSpecificationId) as CompletionLedger | null
+  if (!existing) {
+    throw new Error(`Completion ledger not found for executableSpecificationId: ${executableSpecificationId}`)
+  }
+  const updatedLedger: CompletionLedger = {
+    ...existing,
+    completedAtoms: existing.completedAtoms + 1,
+    atomResults: { ...existing.atomResults, [atomId]: result },
+    pendingAtoms: (existing.pendingAtoms ?? []).filter((id: string) => id !== atomId),
+    phase: (existing.completedAtoms + 1) >= existing.totalAtoms ? 'complete' : existing.phase,
+  }
+  await db.update('completion_ledgers', executableSpecificationId, updatedLedger as unknown as Record<string, unknown>)
 
-  const results = await db.query<CompletionLedger>(aql, {
-    key: executableSpecificationId,
-    newResult: { [atomId]: result },
-    atomId,
-  })
+  const results = [updatedLedger]
 
   if (!results.length || !results[0]) {
     throw new Error(`Completion ledger not found for executableSpecificationId: ${executableSpecificationId}`)

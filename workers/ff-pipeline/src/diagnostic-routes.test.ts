@@ -1112,30 +1112,32 @@ describe('ff-pipeline diagnostic routes', () => {
     const { default: worker } = await import('./index')
     mockQuery.mockResolvedValueOnce([
       {
-        _key: 'SIG-PR-OUTCOME',
-        subtype: 'synthesis:pr-ci-passed',
-        sourceRefs: ['ES:ES-MOTE4M1R-G7I0'],
-        createdAt: '2026-05-06T03:45:00Z',
-        raw: {
-          pipelineId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
-          proposalId: 'FP-MOTDWVR2-W7UN',
-          executableSpecificationId: 'ES-MOTE4M1R-G7I0',
-          pr: {
-            number: 71,
-            url: 'https://github.com/Wescome/function-factory/pull/71',
-            headSha: 'ff6187ac67c945a4fe007f666f32d337ecafcfd8',
+        json: JSON.stringify({
+          _key: 'SIG-PR-OUTCOME',
+          subtype: 'synthesis:pr-ci-passed',
+          sourceRefs: ['ES:ES-MOTE4M1R-G7I0'],
+          createdAt: '2026-05-06T03:45:00Z',
+          raw: {
+            pipelineId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
+            proposalId: 'FP-MOTDWVR2-W7UN',
+            executableSpecificationId: 'ES-MOTE4M1R-G7I0',
+            pr: {
+              number: 71,
+              url: 'https://github.com/Wescome/function-factory/pull/71',
+              headSha: 'ff6187ac67c945a4fe007f666f32d337ecafcfd8',
+            },
+            outcome: {
+              ciState: 'passed',
+              prState: 'ready',
+              reviewState: 'none',
+            },
+            checks: {
+              passed: ['Test', 'Typecheck', 'Factory PR Gate'],
+              failed: [],
+              pending: [],
+            },
           },
-          outcome: {
-            ciState: 'passed',
-            prState: 'ready',
-            reviewState: 'none',
-          },
-          checks: {
-            passed: ['Test', 'Typecheck', 'Factory PR Gate'],
-            failed: [],
-            pending: [],
-          },
-        },
+        }),
       },
     ])
 
@@ -1167,7 +1169,7 @@ describe('ff-pipeline diagnostic routes', () => {
     })
     expect(mockQuery).toHaveBeenCalledWith(
       expect.stringContaining('synthesis:pr-'),
-      { pullNumber: 71, executableSpecificationId: 'ES-MOTE4M1R-G7I0' },
+      [71, 'ES-MOTE4M1R-G7I0'],
     )
   })
 
@@ -1176,25 +1178,27 @@ describe('ff-pipeline diagnostic routes', () => {
     const send = vi.fn(async () => undefined)
     mockQuery.mockResolvedValueOnce([
       {
-        _key: 'SIG-MOTILTZ0-6DGK',
-        sourceRefs: [
-          'SIG:SIG-MOTDWPYM-LTW5',
-          'PRS:PRS-MOTDWQ0T-S55Y',
-          'BC:BC-MOTDWSVY-PQOO',
-          'FN:FP-MOTDWVR2-W7UN',
-          'ES:ES-MOTE4M1R-G7I0',
-        ],
-        raw: {
-          pipelineId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
-          proposalId: 'FP-MOTDWVR2-W7UN',
-          executableSpecificationId: 'ES-MOTE4M1R-G7I0',
-          pr: {
-            number: 71,
-            state: 'OPEN',
-            merged: false,
-            headSha: 'ff6187ac67c945a4fe007f666f32d337ecafcfd8',
+        json: JSON.stringify({
+          _key: 'SIG-MOTILTZ0-6DGK',
+          sourceRefs: [
+            'SIG:SIG-MOTDWPYM-LTW5',
+            'PRS:PRS-MOTDWQ0T-S55Y',
+            'BC:BC-MOTDWSVY-PQOO',
+            'FN:FP-MOTDWVR2-W7UN',
+            'ES:ES-MOTE4M1R-G7I0',
+          ],
+          raw: {
+            pipelineId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
+            proposalId: 'FP-MOTDWVR2-W7UN',
+            executableSpecificationId: 'ES-MOTE4M1R-G7I0',
+            pr: {
+              number: 71,
+              state: 'OPEN',
+              merged: false,
+              headSha: 'ff6187ac67c945a4fe007f666f32d337ecafcfd8',
+            },
           },
-        },
+        }),
       },
     ])
 
@@ -1235,7 +1239,7 @@ describe('ff-pipeline diagnostic routes', () => {
     })
     expect(mockQuery).toHaveBeenCalledWith(
       expect.stringContaining("factory:pr-outcome"),
-      { limit: 10 },
+      [10],
     )
   })
 
@@ -1244,13 +1248,15 @@ describe('ff-pipeline diagnostic routes', () => {
     const send = vi.fn(async () => undefined)
     mockQuery.mockResolvedValueOnce([
       {
-        _key: 'SIG-BAD',
-        sourceRefs: [],
-        raw: {
-          pipelineId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
-          proposalId: 'FP-MOTDWVR2-W7UN',
-          pr: { number: 71 },
-        },
+        json: JSON.stringify({
+          _key: 'SIG-BAD',
+          sourceRefs: [],
+          raw: {
+            pipelineId: 'b1b51f73-416d-4d87-90a5-9ccaa12bec76',
+            proposalId: 'FP-MOTDWVR2-W7UN',
+            pr: { number: 71 },
+          },
+        }),
       },
     ])
 
@@ -1310,7 +1316,7 @@ describe('ff-pipeline diagnostic routes', () => {
     })
     expect(mockQueryOne).toHaveBeenCalledWith(
       expect.stringContaining('merge_readiness_packs'),
-      { id: 'MRP-MOTE4M1R-G7I0-71' },
+      ['MRP-MOTE4M1R-G7I0-71'],
     )
     expect(mockSave).toHaveBeenCalledWith(
       'merge_readiness_packs',
@@ -1326,7 +1332,7 @@ describe('ff-pipeline diagnostic routes', () => {
   it('POST /debug/mrp can resolve the PR outcome signal by key before persisting', async () => {
     const { default: worker } = await import('./index')
     mockQueryOne
-      .mockResolvedValueOnce(makePROutcomeSignal())
+      .mockResolvedValueOnce({ json: JSON.stringify(makePROutcomeSignal()) })
       .mockResolvedValueOnce(null)
 
     const response = await worker.fetch(
@@ -1353,7 +1359,7 @@ describe('ff-pipeline diagnostic routes', () => {
     })
     expect(mockQueryOne.mock.calls[0]).toEqual([
       expect.stringContaining('specs_signals'),
-      { key: 'SIG-MOTILTZ0-6DGK' },
+      ['SIG-MOTILTZ0-6DGK'],
     ])
     expect(mockSave).toHaveBeenCalledOnce()
   })
@@ -1394,7 +1400,7 @@ describe('ff-pipeline diagnostic routes', () => {
   it('POST /debug/mrp can rebuild canonical MRP from persisted Fidelity Verification evidence', async () => {
     const { default: worker } = await import('./index')
     mockQueryOne
-      .mockResolvedValueOnce({
+      .mockResolvedValueOnce({ json: JSON.stringify({
         _key: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z',
         id: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z',
         type: 'fidelity-verification',
@@ -1403,7 +1409,7 @@ describe('ff-pipeline diagnostic routes', () => {
           verification: "fidelity",
           overall: 'pass',
         },
-      })
+      }) })
       .mockResolvedValueOnce(null)
 
     const response = await worker.fetch(
@@ -1437,7 +1443,7 @@ describe('ff-pipeline diagnostic routes', () => {
     })
     expect(mockQueryOne.mock.calls[0]).toEqual([
       expect.stringContaining('verification_reports'),
-      { key: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z' },
+      ['VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z', 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z'],
     ])
     expect(mockSave).toHaveBeenCalledOnce()
   })
@@ -1445,10 +1451,10 @@ describe('ff-pipeline diagnostic routes', () => {
   it('POST /debug/mrp can source canonical evidence by key before canonical validation', async () => {
     const { default: worker } = await import('./index')
     mockQueryOne
-      .mockResolvedValueOnce({
+      .mockResolvedValueOnce({ json: JSON.stringify({
         _key: 'MRP-EVIDENCE-MOTE4M1R',
         canonicalEvidence: makeCanonicalMRPEvidence(),
-      })
+      }) })
       .mockResolvedValueOnce(null)
 
     const response = await worker.fetch(
@@ -1476,7 +1482,7 @@ describe('ff-pipeline diagnostic routes', () => {
     })
     expect(mockQueryOne.mock.calls[0]).toEqual([
       expect.stringContaining('merge_readiness_evidence'),
-      { key: 'MRP-EVIDENCE-MOTE4M1R' },
+      ['MRP-EVIDENCE-MOTE4M1R', 'MRP-EVIDENCE-MOTE4M1R'],
     ])
     expect(mockSave).toHaveBeenCalledOnce()
   })
@@ -1553,24 +1559,26 @@ describe('ff-pipeline diagnostic routes', () => {
     const { default: worker } = await import('./index')
     mockQuery.mockResolvedValueOnce([
       {
-        ...makePROutcomeSignal(),
-        _key: 'SIG-LATEST',
-        raw: {
-          ...makePROutcomeSignal().raw as Record<string, unknown>,
-          pr: {
-            ...((makePROutcomeSignal().raw as Record<string, unknown>).pr as Record<string, unknown>),
-            headSha: 'b44ae7d085e1d8c763b162d805767e04b22f7c89',
+        json: JSON.stringify({
+          ...makePROutcomeSignal(),
+          _key: 'SIG-LATEST',
+          raw: {
+            ...makePROutcomeSignal().raw as Record<string, unknown>,
+            pr: {
+              ...((makePROutcomeSignal().raw as Record<string, unknown>).pr as Record<string, unknown>),
+              headSha: 'b44ae7d085e1d8c763b162d805767e04b22f7c89',
+            },
+            observedAt: '2026-05-07T21:18:02.047Z',
           },
-          observedAt: '2026-05-07T21:18:02.047Z',
-        },
-        createdAt: '2026-05-07T21:18:02.105Z',
+          createdAt: '2026-05-07T21:18:02.105Z',
+        }),
       },
     ])
     mockQueryOne
-      .mockResolvedValueOnce({
+      .mockResolvedValueOnce({ json: JSON.stringify({
         _key: 'MRP-EVIDENCE-MOTE4M1R-b44ae7d',
         canonicalEvidence: makeCanonicalMRPEvidence(),
-      })
+      }) })
       .mockResolvedValueOnce(null)
 
     const response = await worker.fetch(
@@ -1610,11 +1618,11 @@ describe('ff-pipeline diagnostic routes', () => {
     })
     expect(mockQuery).toHaveBeenCalledWith(
       expect.stringContaining('factory:pr-outcome'),
-      { pullNumber: 71, executableSpecificationId: 'ES-MOTE4M1R-G7I0' },
+      [71, 'ES-MOTE4M1R-G7I0'],
     )
     expect(mockQueryOne).toHaveBeenCalledWith(
       expect.stringContaining('merge_readiness_evidence'),
-      { key: 'MRP-EVIDENCE-MOTE4M1R-b44ae7d' },
+      ['MRP-EVIDENCE-MOTE4M1R-b44ae7d', 'MRP-EVIDENCE-MOTE4M1R-b44ae7d'],
     )
   })
 
@@ -1622,21 +1630,23 @@ describe('ff-pipeline diagnostic routes', () => {
     const { default: worker } = await import('./index')
     mockQuery.mockResolvedValueOnce([
       {
-        ...makePROutcomeSignal(),
-        _key: 'SIG-LATEST',
+        json: JSON.stringify({
+          ...makePROutcomeSignal(),
+          _key: 'SIG-LATEST',
+        }),
       },
     ])
     mockQueryOne
-      .mockResolvedValueOnce({
+      .mockResolvedValueOnce({ json: JSON.stringify({
         _key: 'MRP-EVIDENCE-MOTE4M1R-b44ae7d',
         canonicalEvidence: makeCanonicalMRPEvidence(),
-      })
-      .mockResolvedValueOnce({
+      }) })
+      .mockResolvedValueOnce({ json: JSON.stringify({
         _key: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z',
         id: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z',
         type: 'fidelity-verification',
         passed: true,
-      })
+      }) })
       .mockResolvedValueOnce(null)
 
     const response = await worker.fetch(
@@ -1670,7 +1680,7 @@ describe('ff-pipeline diagnostic routes', () => {
     })
     expect(mockQueryOne.mock.calls[1]).toEqual([
       expect.stringContaining('verification_reports'),
-      { key: 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z' },
+      ['VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z', 'VR-FN-MOTDWVR2-W7UN-FIDELITY-2026-05-07T21-33-20-000Z'],
     ])
   })
 
@@ -2101,7 +2111,7 @@ describe('ff-pipeline diagnostic routes', () => {
         lifecycleState: 'produced',
       })
       .mockResolvedValueOnce(null)
-    mockQueryOne.mockResolvedValueOnce({
+    mockQueryOne.mockResolvedValueOnce({ json: JSON.stringify({
       id: 'MRP-MOTE4M1R-G7I0-71',
       proposalId: 'FP-MOTDWVR2-W7UN',
       functionId: 'FN-MOTDWVR2-W7UN',
@@ -2110,7 +2120,7 @@ describe('ff-pipeline diagnostic routes', () => {
         signalId: 'SIG-MOW36LRI-I3NG',
         headSha: '99d78b7c609c3c3a2005e5ef10c68521f2cf69b6',
       },
-    })
+    }) })
 
     const response = await worker.fetch(
       new Request('https://ff-pipeline.example.com/debug/function-identity', {
@@ -2175,7 +2185,7 @@ describe('ff-pipeline diagnostic routes', () => {
     expect(mockGet).toHaveBeenCalledWith('specs_functions', 'FN-MOTDWVR2-W7UN')
     expect(mockQueryOne).toHaveBeenCalledWith(
       expect.stringContaining('merge_readiness_packs'),
-      { id: 'MRP-MOTE4M1R-G7I0-71' },
+      ['MRP-MOTE4M1R-G7I0-71', 'MRP-MOTE4M1R-G7I0-71'],
     )
     expect(mockSave).not.toHaveBeenCalled()
     expect(mockUpdate).not.toHaveBeenCalled()
@@ -2190,12 +2200,12 @@ describe('ff-pipeline diagnostic routes', () => {
         lifecycleState: 'produced',
       })
       .mockResolvedValueOnce(null)
-    mockQueryOne.mockResolvedValueOnce({
+    mockQueryOne.mockResolvedValueOnce({ json: JSON.stringify({
       id: 'MRP-MOTE4M1R-G7I0-71',
       proposalId: 'FP-MOTDWVR2-W7UN',
       functionId: 'FN-MOTDWVR2-W7UN',
       verdict: 'merge-ready',
-    })
+    }) })
 
     const response = await worker.fetch(
       new Request('https://ff-pipeline.example.com/debug/function-identity-migration', {
@@ -2254,12 +2264,12 @@ describe('ff-pipeline diagnostic routes', () => {
         lifecycleState: 'produced',
       })
       .mockResolvedValueOnce(null)
-    mockQueryOne.mockResolvedValueOnce({
+    mockQueryOne.mockResolvedValueOnce({ json: JSON.stringify({
       id: 'MRP-MOTE4M1R-G7I0-71',
       proposalId: 'FP-MOTDWVR2-W7UN',
       functionId: 'FN-MOTDWVR2-W7UN',
       verdict: 'merge-ready',
-    })
+    }) })
 
     const response = await worker.fetch(
       new Request('https://ff-pipeline.example.com/debug/function-identity-migration', {
@@ -2328,12 +2338,12 @@ describe('ff-pipeline diagnostic routes', () => {
         lifecycleState: 'produced',
       })
       .mockResolvedValueOnce(null)
-    mockQueryOne.mockResolvedValueOnce({
+    mockQueryOne.mockResolvedValueOnce({ json: JSON.stringify({
       id: 'MRP-MOTE4M1R-G7I0-71',
       proposalId: 'FP-MOTDWVR2-W7UN',
       functionId: 'FN-DIFFERENT',
       verdict: 'merge-ready',
-    })
+    }) })
 
     const response = await worker.fetch(
       new Request('https://ff-pipeline.example.com/debug/function-identity-migration', {
@@ -2391,12 +2401,12 @@ describe('ff-pipeline diagnostic routes', () => {
 
   it('GET /debug/mrp returns a persisted merge-readiness pack by id', async () => {
     const { default: worker } = await import('./index')
-    mockQueryOne.mockResolvedValueOnce({
+    mockQueryOne.mockResolvedValueOnce({ json: JSON.stringify({
       _key: 'MRP-MOTE4M1R-G7I0-71',
       id: 'MRP-MOTE4M1R-G7I0-71',
       readinessVerdict: 'ready',
       verdict: 'merge-ready',
-    })
+    }) })
 
     const response = await worker.fetch(
       new Request('https://ff-pipeline.example.com/debug/mrp?id=MRP-MOTE4M1R-G7I0-71'),
@@ -2414,7 +2424,7 @@ describe('ff-pipeline diagnostic routes', () => {
     })
     expect(mockQueryOne).toHaveBeenCalledWith(
       expect.stringContaining('merge_readiness_packs'),
-      { id: 'MRP-MOTE4M1R-G7I0-71' },
+      ['MRP-MOTE4M1R-G7I0-71'],
     )
   })
 })
