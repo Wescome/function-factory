@@ -59,7 +59,7 @@ interface GasCityWebhookDb {
     },
   ): Promise<void>
   get<T = unknown>(collection: string, key: string): Promise<T | null>
-  queryOne<T = unknown>(aql: string, vars?: Record<string, unknown>): Promise<T | null>
+  queryOne<T = unknown>(sql: string, params?: unknown[]): Promise<T | null>
   save<T = unknown>(collection: string, doc: Record<string, unknown>): Promise<T>
   update<T = unknown>(collection: string, key: string, patch: Record<string, unknown>): Promise<T>
   saveEdge(collection: string, from: string, to: string, data: Record<string, unknown>): Promise<unknown>
@@ -105,14 +105,13 @@ export async function handleGasCityWebhook(request: Request, env: PipelineEnv): 
     return json({ duplicate: true, bead_id: payload.bead_id, ...(vrId ? { vr_id: vrId } : {}) }, 200)
   }
 
-  const dispatch = await db.queryOne<DispatchLogMatch>(
-    `FOR dl IN dispatch_log
-       FILTER dl.gc_bead_id == @beadId
-       FILTER dl.outcome == "dispatched"
-       LIMIT 1
-       RETURN dl`,
-    { beadId: payload.bead_id },
-  )
+  const dispatch = await db.queryOne<{ json: string }>(
+    `SELECT json FROM documents WHERE collection='dispatch_log'
+       AND json_extract(json,'$.gc_bead_id')=?
+       AND json_extract(json,'$.outcome')='dispatched'
+       LIMIT 1`,
+    [payload.bead_id],
+  ).then(row => row ? JSON.parse(row.json) as DispatchLogMatch : null)
   if (!dispatch) {
     await writeWebhookRejection(db, {
       reason: "orphan_bead",
