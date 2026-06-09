@@ -20,6 +20,10 @@ import { appendDriftEntry } from './stages/drift-ledger'
 import { loadCrystallizerEnabled } from './config/crystallizer-config'
 import { createCRP } from './crp'
 import { captureLearningTranscript } from './learning-capture'
+import { buildFormulaCompilerDeps } from './compilers/formula-compiler-adapter'
+import { compileAndDispatchFormula, type FormulaCompilerEnv } from './compilers/formula-compiler'
+import { markFunctionDispatched } from './gascity/autonomy-monitor'
+import type { TrellisExecutionPacket } from '@factory/schemas'
 import type {
   CoherenceVerificationReport,
   PipelineEnv,
@@ -486,174 +490,97 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       return captureTerminal(compileIncompleteResult)
     }
 
-    const executableSpecification = compState.executableSpecification as { _key?: string; [k: string]: unknown }
-    const instructionTuning = await step.do('instruction-tuning', DB_STEP_CONFIG, async () => {
-      return toStep({
-        status: 'blocked',
-        diagnostics: [{
-          code: 'instruction-tuning:removed',
-          message: 'REMOVED: synthesis-era — see GAS-CITY-ERA-ARCHITECTURE.md',
-        }],
-      })
-    })
+    const executableSpecification = compState.executableSpecification as { _key?: string; functionId?: string; [k: string]: unknown }
 
-    if (instructionTuning.status !== 'emitted') {
-      await step.do('persist-instruction-tuning-blocked', DB_STEP_CONFIG, async () => {
-        await db.save('verification_reports', {
-          _key: `VR-INSTRUCTION-TUNING-${executableSpecificationKey}-${Date.now().toString(36)}`,
-          type: 'instruction-tuning',
-          passed: false,
-          summary: 'Instruction Tuning blocked Trellis packet emission.',
-          checks: instructionTuning.diagnostics ?? [],
-          sourceRefs: [`ES:${executableSpecificationKey}`],
-          source_refs: [executableSpecificationKey],
-          timestamp: new Date().toISOString(),
-        })
-        return { persisted: true }
+    // ── Build Execution Packet from compiled ES (Gas City era — replaces instruction-tuning) ──
+    const executionPacket = await step.do('build-execution-packet', DB_STEP_CONFIG, async () => {
+      const isKey = ((compState.intentSpecification as Record<string, unknown>)?._key as string) ?? `IS-${executableSpecificationKey}`
+      const fnId = (executableSpecification.functionId as string) ?? proposalKey
+      const epKey = `EP-${executableSpecificationKey}`
+
+      const esBytes = new TextEncoder().encode(JSON.stringify(compState.executableSpecification))
+      const hashBuf = await crypto.subtle.digest('SHA-256', esBytes)
+      const esHash = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('')
+
+      const task = typeof (signal as Rec).raw?.description === 'string'
+        ? (signal as Rec).raw.description as string
+        : `Implement ${isKey}`
+
+      const ep = {
+        _key: epKey,
+        id: epKey,
+        functionId: fnId,
+        intentSpecificationId: isKey,
+        executableSpecificationId: executableSpecificationKey,
+        instructionTuning: { inputExecutableSpecificationHash: esHash },
+        adapter: {
+          adapterId: 'adapter.coding',
+          executionRequest: { parameters: { task, lang: 'typescript' } },
+        },
+        roles: [
+          { roleId: 'planner', instruction: `Read ${executableSpecificationKey} and produce a coding plan for: ${task}`, inputs: [], outputs: [`PLAN-${executableSpecificationKey}.md`] },
+          { roleId: 'coder', instruction: `Implement the plan from ${executableSpecificationKey}: ${task}`, inputs: [`PLAN-${executableSpecificationKey}.md`], outputs: [] },
+          { roleId: 'verifier', instruction: `Verify the implementation against ${executableSpecificationKey} acceptance criteria. Approve if all pass.`, inputs: [], outputs: [] },
+        ],
+        kind: 'PipelineExecutionPacket',
+        compiled_at: new Date().toISOString(),
+        source_refs: [fnId, isKey, executableSpecificationKey],
+      }
+
+      await db.ensureCollection('execution_packets')
+      await db.save('execution_packets', ep)
+      await db.saveEdge('lineage_edges',
+        `execution_packets/${epKey}`,
+        `executable_specifications/${executableSpecificationKey}`,
+        { type: 'compiled-from', createdAt: new Date().toISOString() },
+      )
+      return toStep(ep)
+    }) as Rec
+
+    // ── Formula Dispatch: compile FORM-* and sling to Gas City ──
+    const formulaEnv = this.env as PipelineEnv & FormulaCompilerEnv
+    const dispatchResult = await step.do('dispatch-formula', DB_STEP_CONFIG, async () => {
+      const formulaDeps = buildFormulaCompilerDeps(db, formulaEnv)
+      const result = await compileAndDispatchFormula({
+        ep: executionPacket as unknown as TrellisExecutionPacket,
+        factoryAttempt: 1,
+        traceId: event.instanceId ?? crypto.randomUUID(),
+        env: formulaEnv,
+        deps: formulaDeps,
       })
-      const instructionTuningBlockedResult: PipelineResult = {
-        status: 'instruction-tuning-blocked',
+      return toStep(result as unknown as Record<string, unknown>)
+    }) as Rec
+
+    if (dispatchResult.outcome !== 'dispatched') {
+      const dispatchFailedResult: PipelineResult = {
+        status: 'dispatch-failed',
         signalId: signalKey,
         executableSpecificationId: executableSpecificationKey,
-        reason: 'Instruction Tuning could not emit a certified Trellis Execution Packet.',
-        diagnostics: instructionTuning.diagnostics,
-      } as PipelineResult
-      return captureTerminal(instructionTuningBlockedResult)
-    }
-
-    const trellisExecutionPacket = instructionTuning.packet as Record<string, unknown>
-
-    await step.do('persist-trellis-execution-packet', DB_STEP_CONFIG, async () => {
-      await db.save('execution_packets', {
-        ...trellisExecutionPacket,
-        _key: trellisExecutionPacket.id,
-        source_refs: trellisExecutionPacket.source_refs,
-      })
-      await db.saveEdge('lineage_edges', `execution_packets/${trellisExecutionPacket.id as string}`, `executable_specifications/${executableSpecificationKey}`, {
-        type: 'tuned-from', createdAt: new Date().toISOString(),
-      })
-      return { persisted: true }
-    })
-
-    // Enqueue synthesis request to CF Queue.
-    // The queue consumer (queue() handler) will call the DO and send
-    // the result back as a workflow event.
-    // Thread specContent from the proposal through to the DO (when present)
-    const specContent = typeof proposal.specContent === 'string' ? proposal.specContent : undefined
-
-    await step.do('enqueue-synthesis', DB_STEP_CONFIG, async () => {
-      await this.env.SYNTHESIS_QUEUE.send({
-        workflowId: event.instanceId,
-        executableSpecificationId: executableSpecificationKey,
-        executableSpecification: executableSpecification,
-        trellisExecutionPacket,
-        dryRun,
-        ...(specContent ? { specContent } : {}),
-      })
-      return { enqueued: true }
-    })
-
-    // Wait for external trigger to complete synthesis via DO and send event
-    const synthEvent = await step.waitForEvent<{
-      verdict: { decision: string; confidence: number; reason: string }
-      tokenUsage: number
-      repairCount: number
-    }>('synthesis-complete', { type: 'synthesis-complete', timeout: '30 minutes' })
-
-    const synthPayload = synthEvent.payload as {
-      verdict: { decision: string; confidence: number; reason: string }
-      tokenUsage: number
-      repairCount: number
-    }
-
-    // ── If Phase 1 dispatched atoms, wait for Phase 2+3 completion ──
-    // When the coordinator dispatches atoms (vertical slicing), the synthesis-complete
-    // event carries verdict.decision === 'dispatched'. The actual pass/fail comes later
-    // via the 'atoms-complete' event after all atoms finish and Phase 3 runs.
-    let finalVerdict = synthPayload.verdict
-    let finalTokenUsage = synthPayload.tokenUsage
-    let finalRepairCount = synthPayload.repairCount
-    let atomResults: Record<string, unknown> | undefined
-
-    if (synthPayload.verdict.decision === 'dispatched') {
-      try {
-        const atomsEvent = await step.waitForEvent('atoms-complete', { type: 'atoms-complete', timeout: '30 minutes' })
-
-        const atomsPayload = atomsEvent.payload as {
-          verdict: { decision: string; confidence: number; reason: string }
-          tokenUsage: number
-          repairCount: number
-          atomResults?: Record<string, unknown>
-        }
-
-        // Use the atoms-complete verdict as the final synthesis result
-        finalVerdict = atomsPayload.verdict
-        finalTokenUsage = synthPayload.tokenUsage + atomsPayload.tokenUsage
-        finalRepairCount = synthPayload.repairCount + atomsPayload.repairCount
-        atomResults = atomsPayload.atomResults
-      } catch {
-        // Timeout or error waiting for atoms — report as synthesis-timeout
-        const synthesisTimeoutResult: PipelineResult = {
-          status: 'synthesis-timeout',
-          signalId: signalKey,
-          pressureId: pressureKey,
-          capabilityId: capabilityKey,
-          proposalId: proposalKey,
-          executableSpecificationId: executableSpecificationKey,
-          coherenceVerificationReport: coherenceVerification,
-          synthesisResult: {
-            verdict: { decision: 'timeout', confidence: 1.0, reason: 'Atoms did not complete within 30 minutes' },
-            tokenUsage: synthPayload.tokenUsage,
-            repairCount: synthPayload.repairCount,
-          },
-        }
-        return captureTerminal(synthesisTimeoutResult, trellisExecutionPacket)
+        reason: `Formula dispatch failed: ${String(dispatchResult.error ?? dispatchResult.outcome)}`,
       }
+      return captureTerminal(dispatchFailedResult)
     }
 
-    // Lineage: execution artifact -> executableSpecification
-    await step.do('edge-synthesis-executableSpecification', DB_STEP_CONFIG, async () => {
-      await db.saveEdge('lineage_edges',
-        `execution_artifacts/EA-${executableSpecificationKey}-synthesis`,
-        `executable_specifications/${executableSpecificationKey}`,
-        { type: 'synthesized-from', createdAt: new Date().toISOString() },
-      )
+    // ── Mark function dispatched in lifecycle ──
+    await step.do('mark-function-dispatched', DB_STEP_CONFIG, async () => {
+      await markFunctionDispatched(db as never, {
+        functionId: String(executionPacket.functionId ?? proposalKey),
+        isId: String(executionPacket.intentSpecificationId ?? ''),
+        esId: executableSpecificationKey,
+        epId: String(executionPacket.id ?? ''),
+        formId: String(dispatchResult.form_id ?? ''),
+        dispatchLogKey: String(dispatchResult.dispatch_log_key ?? ''),
+        timestamp: new Date().toISOString(),
+      })
       return { ok: true }
     })
 
-    // ── Feedback loop: synthesis result → new signal ──
-    const finalResult: PipelineResult = {
-      status: finalVerdict.decision === 'pass'
-        ? 'synthesis-passed'
-        : `synthesis-${finalVerdict.decision}`,
+    const dispatchedResult: PipelineResult = {
+      status: 'dispatched',
       signalId: signalKey,
-      pressureId: pressureKey,
-      capabilityId: capabilityKey,
-      proposalId: proposalKey,
       executableSpecificationId: executableSpecificationKey,
       coherenceVerificationReport: coherenceVerification,
-      synthesisResult: {
-        verdict: finalVerdict,
-        tokenUsage: finalTokenUsage,
-        repairCount: finalRepairCount,
-      },
-      ...(atomResults ? { atomResults } : {}),
     }
-
-    if (!dryRun) {
-      await step.do('enqueue-feedback', DB_STEP_CONFIG, async () => {
-        const feedbackDepth = typeof (signal as Rec).raw?.feedbackDepth === 'number'
-          ? (signal as Rec).raw.feedbackDepth as number : 0
-        await this.env.FEEDBACK_QUEUE?.send({
-          result: finalResult,
-          parentSignal: signal,
-          parentFeedbackDepth: feedbackDepth,
-          dryRun,
-        })
-        return { enqueued: true }
-      })
-    }
-
-    return captureTerminal(finalResult, trellisExecutionPacket)
+    return captureTerminal(dispatchedResult)
   }
 }
