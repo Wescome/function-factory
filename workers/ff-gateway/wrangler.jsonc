@@ -7,7 +7,7 @@
 
   // D1 Database
   "d1_databases": [
-    { "binding": "DB", "database_name": "ff-factory", "database_id": "REPLACE_WITH_OUTPUT_OF_wrangler_d1_create_ff-factory" }
+    { "binding": "DB", "database_name": "ff-factory", "database_id": "6a72d5c3-bcbb-41e3-b29d-d8de5834c3b3" }
   ],
 
   // Service Bindings — internal Workers, no public route
