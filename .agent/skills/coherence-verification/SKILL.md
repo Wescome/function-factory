@@ -1,0 +1,166 @@
+---
+name: coherence-verification
+version: 2026-04-19
+triggers:
+  - "Coherence Verification"
+  - "compile completeness"
+  - "coherence verification"
+  - "verification check before executable-specification"
+tools: [bash, view]
+preconditions:
+  - "compiler transformations before Coherence Verification have completed"
+constraints:
+  - "fail closed on any coverage miss"
+  - "emit Verification Report to specs/verification-reports/ even on pass"
+  - "do not emit Executable Specification/Executable Specification if verification fails"
+  - "during Bootstrap mode, additionally verify META- prefix on Intent Specification ID and every artifact ID referenced in compiler intermediates"
+category: factory-core
+---
+
+# Coherence Verification
+
+Runs before Executable Specification Assembly. Coherence Verification verifies that the
+compiled specification is internally complete before any Executable Specification is emitted.
+During Bootstrap mode, additionally enforces the META- prefix rule from ConOps §4.1 Rule 2.
+
+## Inputs
+
+- RequirementAtom[] from Decomposition (legacy Pass 1)
+- Contract[] from Binding (legacy Pass 2)
+- Invariant[] from Obligation Extraction (legacy Pass 3)
+- Dependency[] from Structural Assembly dependency resolution (legacy Pass 4)
+- ValidationSpec[] from Structural Assembly validation wiring (legacy Pass 5)
+- Intent Specification ID of the compilation target
+- Factory mode (`bootstrap` | `steady_state`) — determines whether
+  check #5 runs
+
+## Verification checks
+
+Four checks run in Steady-State mode; five run in Bootstrap mode. Checks
+#1–#4 are the core coverage discipline and run in both modes. Check #5
+is Bootstrap-specific and enforces the META- prefix rule. All active
+checks must pass for `overall: pass`; partial pass is fail regardless
+of mode.
+
+### 1. Atom coverage
+Every RequirementAtom must have ≥1 downstream artifact (Contract, Invariant,
+or ValidationSpec) that references it in its `source_refs` or `covers*`
+fields.
+
+An atom without a downstream artifact is dead specification: the Intent Specification stated
+something and nothing in the compiled output addresses it.
+
+### 2. Invariant coverage
+Every Invariant must have:
+- ≥1 ValidationSpec whose `coversInvariantIds` includes this invariant's ID.
+- ≥1 detector spec (compile-time: must be present and well-formed; runtime
+  liveness is Persistence Verification's concern).
+
+An invariant without a validation is untested. An invariant without a
+detector is a wish. Both are required.
+
+### 3. Validation coverage
+Every ValidationSpec must have ≥1 backmap to an atom, contract, or invariant
+via `coversAtomIds`, `coversContractIds`, or `coversInvariantIds`.
+
+A validation that covers nothing is a dead test: it runs, it passes, it
+proves nothing about the specification.
+
+### 4. Dependency closure
+Every Dependency's `from` and `to` endpoints must resolve to existing
+artifact IDs. Dangling dependencies mean the graph is incomplete.
+
+### 5. Bootstrap prefix check (Bootstrap mode only)
+During Bootstrap, every Factory artifact must carry the `META-` qualifier
+in its ID per ConOps §4.1 Rule 2. Coherence Verification verifies that:
+
+- The Intent Specification ID being compiled matches the pattern `IS-META-*`.
+- Every artifact ID referenced in the compiler intermediates — atom IDs,
+  contract IDs, invariant IDs, dependency endpoints, validation IDs, plus
+  every ID inside those artifacts' `source_refs`, `derivedFromAtomIds`,
+  `derivedFromContractIds`, `coversAtomIds`, `coversContractIds`,
+  `coversInvariantIds`, `from`, and `to` fields — carries a `META-`
+  qualifier after its type prefix (e.g., `ATOM-META-*`, `INV-META-*`,
+  `DEP-META-*`).
+
+Failing IDs are named in `bootstrap_prefix_check.non_meta_artifact_ids`.
+A non-META reference from a META intermediate is both a coverage failure
+and a lineage defect- it means the compiler intermediates reference an
+artifact that does not exist under the Bootstrap discipline.
+
+This check is skipped entirely when Factory mode is `steady_state`, and
+the `bootstrap_prefix_check` field is absent from non-bootstrap Verification Reports.
+
+## Output
+
+A `VerificationReport` written to
+`specs/verification-reports/VR-<IS-ID>-COHERENCE-<timestamp>.yaml`:
+
+```yaml
+id: VR-<IS-ID>-COHERENCE-<timestamp>
+verification: coherence
+intent_specification_id: <IS-ID>
+timestamp: <ISO-8601>
+overall: pass | fail
+checks:
+  atom_coverage:
+    status: pass | fail
+    orphan_atoms: [ATOM-ID, ...]
+  invariant_coverage:
+    status: pass | fail
+    invariants_missing_validation: [INV-ID, ...]
+    invariants_missing_detector: [INV-ID, ...]
+  validation_coverage:
+    status: pass | fail
+    validations_covering_nothing: [VAL-ID, ...]
+  dependency_closure:
+    status: pass | fail
+    dangling_dependencies: [DEP-ID, ...]
+  # Present only when Factory mode is `bootstrap`; absent in steady_state.
+  bootstrap_prefix_check:
+    status: pass | fail
+    non_meta_artifact_ids: [ARTIFACT-ID, ...]
+remediation: |
+  Human-readable description of what upstream artifact must be fixed and
+  where. Always populated, even on pass (with "no remediation required").
+```
+
+## Behavior
+
+- **On pass:** emit Verification Report with `overall: pass`. Proceed to
+  Executable Specification Assembly.
+- **On fail:** emit Verification Report with `overall: fail` and `remediation`
+  populated. Halt compiler. Do not emit Executable Specification. The Intent Specification must be
+  remediated upstream (new atoms added, invariants given detectors,
+  validations given backmaps, dependencies resolved, or — during
+  Bootstrap — artifact IDs re-prefixed with `META-`).
+- **Mode-dependent check count:** Steady-State runs checks #1–#4.
+  Bootstrap runs all five. The verdict is `fail` if any active check
+  fails; there is no partial-credit or majority rule.
+
+## Anti-patterns
+
+- **Soft-warning on coverage miss.** Never. The verification is fail-closed by
+  design. A soft warning that ships anyway is identical to not having the
+  verification.
+- **Auto-generating placeholder validations to pass verification.** Never.
+  Coherence Verification failure is a specification defect, not a compiler
+  defect; do not paper over it.
+- **Emitting a Executable Specification on partial pass.** Never. All active coverage
+  checks must pass; a majority is not enough, and the set of active
+  checks is mode-dependent.
+- **Emitting a Executable Specification in Bootstrap when non-META artifact IDs are
+  referenced.** Never. The META- prefix rule (ConOps §4.1 Rule 2) is
+  absolute during Bootstrap. A compiler intermediate that references a
+  non-META artifact ID is a ConOps violation and a lineage defect;
+  remediation is to either re-prefix the referenced artifact as META or
+  to hold the Intent Specification until the Bootstrap → Steady-State transition.
+
+## Self-rewrite hook
+
+After every 10 Coherence Verification runs OR on any downstream failure
+traceable to a coverage miss that this verification should have caught:
+1. Review recent Verification Reports.
+2. If a class of coverage miss keeps slipping through, propose an
+   additional check.
+3. Commit: `META: skill-update: coherence-verification, {one-line reason}`
