@@ -2720,19 +2720,25 @@ async function _initDb(env: PipelineEnv): Promise<Response> {
   const basicAuth = btoa(`${env.ARANGO_USERNAME ?? 'root'}:${env.ARANGO_PASSWORD ?? ''}`)
   const rootHeaders = { Authorization: `Basic ${basicAuth}`, 'Content-Type': 'application/json' }
 
-  // 1. Create database (idempotent — error 1207 = already exists)
-  const dbRes = await fetch(`${env.ARANGO_URL}/_api/database`, {
-    method: 'POST',
-    headers: rootHeaders,
-    body: JSON.stringify({ name: env.ARANGO_DATABASE }),
-  })
-  const dbBody = await dbRes.json() as Record<string, unknown>
-  if (dbRes.ok) {
-    results.push(`db:${env.ARANGO_DATABASE} created`)
-  } else if ((dbBody.errorNum as number) === 1207) {
-    results.push(`db:${env.ARANGO_DATABASE} exists`)
-  } else {
-    return json({ ok: false, error: `database create failed: ${JSON.stringify(dbBody)}`, results }, 500)
+  // 1. Create database (best-effort — skipped if Basic auth unavailable or DB already exists)
+  try {
+    const dbRes = await fetch(`${env.ARANGO_URL}/_api/database`, {
+      method: 'POST',
+      headers: rootHeaders,
+      body: JSON.stringify({ name: env.ARANGO_DATABASE }),
+    })
+    const dbText = await dbRes.text()
+    let dbBody: Record<string, unknown> = {}
+    try { dbBody = JSON.parse(dbText) } catch { /* non-JSON response — skip */ }
+    if (dbRes.ok) {
+      results.push(`db:${env.ARANGO_DATABASE} created`)
+    } else if ((dbBody.errorNum as number) === 1207) {
+      results.push(`db:${env.ARANGO_DATABASE} exists`)
+    } else {
+      results.push(`db:create skipped (${dbRes.status}: ${dbText.slice(0, 80)})`)
+    }
+  } catch (err) {
+    results.push(`db:create skipped (${err instanceof Error ? err.message : String(err)})`)
   }
 
   // 2. Ensure all collections

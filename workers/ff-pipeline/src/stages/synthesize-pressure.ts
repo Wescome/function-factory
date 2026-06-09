@@ -65,6 +65,7 @@ export async function synthesizePressure(
 
   const pressure = {
     _key: key,
+    id: key,
     type: 'pressure',
     ...parsed,
     sourceSignalId: signal._key,
