@@ -1,6 +1,5 @@
 import { Agent, callable, type FiberContext, type FiberRecoveryContext } from 'agents'
-import { createClientFromEnv, type ArangoClient, type D1Database } from '@factory/arango-client'
-import { createClientFromEnv, type ArangoClient } from '@factory/db-client'
+import { createClientFromEnv, type ArangoClient, type D1Database } from '@factory/db-client'
 import { validateArtifact } from '@factory/artifact-validator'
 import { createModelBridge } from './model-bridge-do'
 import {

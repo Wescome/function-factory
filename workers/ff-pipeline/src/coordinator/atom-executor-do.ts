@@ -17,8 +17,7 @@
 
 import { Agent } from 'agents'
 import { executeAtomSlice, type AtomSlice, type AtomResult } from './atom-executor.js'
-import { createClientFromEnv, type D1Database } from '@factory/arango-client'
-import { createClientFromEnv } from '@factory/db-client'
+import { createClientFromEnv, type D1Database } from '@factory/db-client'
 import { resolveAgentModel, keyForModel } from '../agents/resolve-model.js'
 import { extractContext, resolveImportPaths, type FileContext } from '@factory/file-context'
 import { ingestSignal } from '../stages/ingest-signal.js'
