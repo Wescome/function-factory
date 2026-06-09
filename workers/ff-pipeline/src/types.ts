@@ -1,5 +1,5 @@
 import type { FunctionJob } from "@factory/schemas"
-import type { D1Database } from "@factory/arango-client"
+import type { D1Database } from "@factory/db-client"
 import type { PiWorkerVersionMetadata } from "./coordinator/pi-container-version"
 
 export interface PipelineEnv {

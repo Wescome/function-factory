@@ -19,7 +19,7 @@
  *   Layer 3: 30-min cooldown per functionId + subtype via AQL query
  */
 
-import type { ArangoClient } from '@factory/arango-client'
+import type { ArangoClient } from '@factory/db-client'
 import type { SignalInput } from '../types'
 
 // ── Types ────────────────────────────────────────────────────────────

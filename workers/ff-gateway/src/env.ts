@@ -8,7 +8,7 @@
  */
 
 import type { CoherenceVerificationReport } from './types.js'
-import type { D1Database } from '@factory/arango-client'
+import type { D1Database } from '@factory/db-client'
 
 interface GatesBinding {
   evaluateCoherenceVerification(executableSpecification: unknown): Promise<CoherenceVerificationReport>

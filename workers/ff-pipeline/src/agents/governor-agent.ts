@@ -23,7 +23,7 @@
 
 import { agentLoop } from '@weops/gdk-agent'
 import type { Model, AssistantMessage, Message, UserMessage } from '@weops/gdk-ai'
-import type { ArangoClient } from '@factory/arango-client'
+import type { ArangoClient } from '@factory/db-client'
 import { resolveAgentModel } from './resolve-model'
 import { processAgentOutput, extractAssistantText, buildTelemetryEntry, type OutputSchema } from './output-reliability'
 import type { PipelineEnv } from '../types'
@@ -970,7 +970,7 @@ export async function runGovernanceCycle(
   env: PipelineEnv,
   trigger: 'cron' | 'feedback-complete' | 'manual' = 'cron',
 ): Promise<void> {
-  const { createClientFromEnv } = await import('@factory/arango-client')
+  const { createClientFromEnv } = await import('@factory/db-client')
   const { validateArtifact } = await import('@factory/artifact-validator')
   const { keyForModel, resolveAgentModel } = await import('./resolve-model.js')
 

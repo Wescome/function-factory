@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest"
-import type { ArangoClient } from "@factory/arango-client"
+import type { ArangoClient } from "@factory/db-client"
 import type { DispatchLogRow, FormArtifact, UncertaintyEmission } from "./formula-compiler.js"
 import { buildFormulaCompilerDeps } from "./formula-compiler-adapter.js"
 

@@ -31,7 +31,7 @@ export interface SkeletonManifest {
   expiresAt: string
 }
 
-/** Minimal ArangoDB client surface used here (matches @factory/arango-client). */
+/** Minimal ArangoDB client surface used here (matches @factory/db-client). */
 interface SkeletonDb {
   ensureCollection(name: string): Promise<void>
   save(collection: string, doc: Record<string, unknown>): Promise<unknown>

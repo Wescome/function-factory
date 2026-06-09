@@ -22,7 +22,7 @@
  *   getPersistenceTarget   — "What collection does class X persist to?"
  */
 
-import type { ArangoClient } from '@factory/arango-client'
+import type { ArangoClient } from '@factory/db-client'
 
 // ═══════════════════════════════════════════════════════════════════
 // TYPES

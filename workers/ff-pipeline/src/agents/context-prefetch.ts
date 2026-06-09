@@ -8,7 +8,7 @@
  * Never throws — all queries catch errors and return empty arrays.
  */
 
-import type { ArangoClient } from '@factory/arango-client'
+import type { ArangoClient } from '@factory/db-client'
 
 export interface PrefetchedContext {
   decisions: { key: string; decision: string; rationale?: string }[]

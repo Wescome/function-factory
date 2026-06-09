@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@factory/arango-client": "workspace:*"
+    "@factory/db-client": "workspace:*"
   },
   "devDependencies": {
     "@weops/gdk-ai": "workspace:*",

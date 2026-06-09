@@ -18,7 +18,7 @@
  * Traces to: DESIGN-CRYSTALLIZER.md Section 4 (Phase 3)
  */
 
-import type { ArangoClient } from '@factory/arango-client'
+import type { ArangoClient } from '@factory/db-client'
 import type { ProbeResult } from './reconciliation-gate'
 
 // ── Types ──────────────────────────────────────────────────────

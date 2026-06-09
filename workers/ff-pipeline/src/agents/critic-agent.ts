@@ -9,7 +9,7 @@
 import { agentLoop } from '@weops/gdk-agent'
 import type { AgentTool } from '@weops/gdk-agent'
 import type { Model, AssistantMessage, Message, UserMessage } from '@weops/gdk-ai'
-import type { ArangoClient } from '@factory/arango-client'
+import type { ArangoClient } from '@factory/db-client'
 import { resolveAgentModel } from './resolve-model'
 import { processAgentOutput, extractAssistantText, buildTelemetryEntry, SEMANTIC_REVIEW_SCHEMA, CRITIQUE_REPORT_SCHEMA } from './output-reliability'
 

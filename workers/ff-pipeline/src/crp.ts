@@ -16,7 +16,7 @@
  *   C7 shape: ConfidenceEscalationShape (factory-shapes.ttl)
  */
 
-import type { ArangoClient } from '@factory/arango-client'
+import type { ArangoClient } from '@factory/db-client'
 
 // ── Types ──────────────────────────────────────────────────────────
 

@@ -180,7 +180,7 @@ const sharedMockDb = createMockDb()
 // We mock all upstream transformations so we can isolate the Agent Call execution handoff behavior.
 // The pipeline imports are mocked at module level.
 
-vi.mock('@factory/arango-client', () => ({
+vi.mock('@factory/db-client', () => ({
   createClientFromEnv: () => sharedMockDb,
 }))
 

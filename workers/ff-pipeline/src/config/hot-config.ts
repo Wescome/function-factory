@@ -16,7 +16,7 @@
  *   - Config changes propagate within TTL (default 60s)
  */
 
-import type { ArangoClient } from '@factory/arango-client'
+import type { ArangoClient } from '@factory/db-client'
 import { DEFAULT_CONFIG, type RoutingConfig } from '@factory/task-routing'
 
 // ── Types ──────────────────────────────────────────────────────

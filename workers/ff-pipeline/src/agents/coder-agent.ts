@@ -11,7 +11,7 @@
 import { agentLoop } from '@weops/gdk-agent'
 import type { AgentTool } from '@weops/gdk-agent'
 import type { Model, AssistantMessage, Message, UserMessage } from '@weops/gdk-ai'
-import type { ArangoClient } from '@factory/arango-client'
+import type { ArangoClient } from '@factory/db-client'
 import type { CodeArtifact, Plan, CritiqueReport } from '../coordinator/state'
 import type { FileContext } from '@factory/file-context'
 import { resolveAgentModel } from './resolve-model'

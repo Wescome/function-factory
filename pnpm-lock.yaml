@@ -40,7 +40,7 @@ importers:
         specifier: ^1.4.0
         version: 1.6.1(@types/node@24.12.2)
 
-  packages/arango-client:
+  packages/arango-client-OLD:
     devDependencies:
       typescript:
         specifier: ^5.4.0
@@ -164,6 +164,15 @@ importers:
       '@factory/schemas':
         specifier: workspace:*
         version: link:../schemas
+    devDependencies:
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.4.0
+        version: 1.6.1(@types/node@24.12.2)
+
+  packages/db-client:
     devDependencies:
       typescript:
         specifier: ^5.4.0
@@ -450,9 +459,9 @@ importers:
 
   packages/ontology-loader:
     dependencies:
-      '@factory/arango-client':
+      '@factory/db-client':
         specifier: workspace:*
-        version: link:../arango-client
+        version: link:../db-client
     devDependencies:
       '@weops/gdk-agent':
         specifier: workspace:*
@@ -631,9 +640,9 @@ importers:
 
   workers/ff-gates:
     dependencies:
-      '@factory/arango-client':
+      '@factory/db-client':
         specifier: workspace:*
-        version: link:../../packages/arango-client
+        version: link:../../packages/db-client
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20260101.0
@@ -647,9 +656,9 @@ importers:
 
   workers/ff-gateway:
     dependencies:
-      '@factory/arango-client':
+      '@factory/db-client':
         specifier: workspace:*
-        version: link:../../packages/arango-client
+        version: link:../../packages/db-client
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20260101.0
@@ -661,6 +670,8 @@ importers:
         specifier: ^3.100.0
         version: 3.114.17(@cloudflare/workers-types@4.20260425.1)
 
+  workers/ff-graph-spike: {}
+
   workers/ff-pipeline:
     dependencies:
       '@cloudflare/sandbox':
@@ -669,15 +680,15 @@ importers:
       '@cloudflare/shell':
         specifier: 0.3.4
         version: 0.3.4(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76))(ai@6.0.168(zod@3.25.76))(zod@3.25.76)
-      '@factory/arango-client':
-        specifier: workspace:*
-        version: link:../../packages/arango-client
       '@factory/artifact-validator':
         specifier: workspace:*
         version: link:../../packages/artifact-validator
       '@factory/compiler':
         specifier: workspace:*
         version: link:../../packages/compiler
+      '@factory/db-client':
+        specifier: workspace:*
+        version: link:../../packages/db-client
       '@factory/diff-engine':
         specifier: workspace:*
         version: link:../../packages/diff-engine

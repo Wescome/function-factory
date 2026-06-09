@@ -5,7 +5,7 @@ import {
   type RunTranscript,
   type TerminalPipelineResult,
 } from "@factory/learning"
-import type { ArangoClient } from "@factory/arango-client"
+import type { ArangoClient } from "@factory/db-client"
 import type { PipelineEnv, PipelineResult } from "./types"
 
 const DEFAULT_LEARNING_WRITE_TIMEOUT_MS = 500

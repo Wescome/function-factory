@@ -3,7 +3,7 @@ import {
   type WorkflowEvent,
   type WorkflowStep,
 } from 'cloudflare:workers'
-import { createClientFromEnv } from '@factory/arango-client'
+import { createClientFromEnv } from '@factory/db-client'
 import { validateArtifact } from '@factory/artifact-validator'
 import { ingestSignal } from './stages/ingest-signal'
 import { synthesizePressure } from './stages/synthesize-pressure'

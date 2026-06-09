@@ -130,7 +130,7 @@ const mockEnv = {
 } as Record<string, unknown>
 
 import { compileIntentSpecification, PASS_NAMES } from './compile'
-import type { ArangoClient } from '@factory/arango-client'
+import type { ArangoClient } from '@factory/db-client'
 import type { PipelineEnv } from '../types'
 
 // ── Discrepancy #1 tests ────────────────────────────────────────────

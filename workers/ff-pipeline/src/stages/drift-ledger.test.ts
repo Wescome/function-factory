@@ -23,7 +23,7 @@ vi.mock('agents', () => ({
 }))
 
 import { appendDriftEntry, analyzeDrift, detectErosion, type DriftEntry } from './drift-ledger'
-import type { ArangoClient } from '@factory/arango-client'
+import type { ArangoClient } from '@factory/db-client'
 import type { ProbeResult } from './reconciliation-gate'
 
 // ── Helpers ──────────────────────────────────────────────────

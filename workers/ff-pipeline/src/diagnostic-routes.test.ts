@@ -58,7 +58,7 @@ const mockSaveEdge = vi.fn(async (
   edge: Record<string, unknown>,
 ) => edge)
 
-vi.mock('@factory/arango-client', () => ({
+vi.mock('@factory/db-client', () => ({
   createClientFromEnv: () => ({
     ping: mockPing,
     ensureCollection: mockEnsureCollection,

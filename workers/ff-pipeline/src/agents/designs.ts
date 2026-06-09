@@ -11,7 +11,7 @@
  * their own system prompts — they query the graph for them.
  */
 
-import type { ArangoClient } from '@factory/arango-client'
+import type { ArangoClient } from '@factory/db-client'
 
 // ═══════════════════════════════════════════════════════════════
 // SCHEMA

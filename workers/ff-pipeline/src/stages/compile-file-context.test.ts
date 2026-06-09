@@ -80,7 +80,7 @@ const mockDb = {
 }
 
 import { compileIntentSpecification } from './compile'
-import type { ArangoClient } from '@factory/arango-client'
+import type { ArangoClient } from '@factory/db-client'
 import type { PipelineEnv } from '../types'
 import type { FileContext } from '@factory/file-context'
 

@@ -64,7 +64,7 @@ vi.mock("@cloudflare/containers", () => ({
   getContainer: () => ({}),
 }))
 
-vi.mock("@factory/arango-client", () => ({
+vi.mock("@factory/db-client", () => ({
   createClientFromEnv: mocks.createClientFromEnv,
 }))
 

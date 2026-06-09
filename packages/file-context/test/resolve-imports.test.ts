@@ -42,11 +42,11 @@ describe('resolveImportPaths', () => {
   describe('workspace package imports', () => {
     it('resolves @factory/* to packages/*/src/index.ts', () => {
       const result = resolveImportPaths(
-        ['@factory/arango-client'],
+        ['@factory/db-client'],
         'workers/ff-pipeline/src/index.ts',
       );
       expect(result).toHaveLength(1);
-      expect(result[0]!.resolvedPath).toBe('packages/arango-client/src/index.ts');
+      expect(result[0]!.resolvedPath).toBe('packages/db-client/src/index.ts');
       expect(result[0]!.kind).toBe('workspace');
     });
 
@@ -106,7 +106,7 @@ describe('resolveImportPaths', () => {
       const imports = [
         './state',
         '../agents/coder-agent',
-        '@factory/arango-client',
+        '@factory/db-client',
         'vitest',
         '@factory/diff-engine',
       ];

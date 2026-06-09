@@ -278,6 +278,7 @@ describe('prefetchGovernorContext', () => {
     expect(calls.some(c => c.query.includes('hot_config'))).toBe(true)
     // Q9: INV-DEVOPS-5 lineage-gap detector — artifacts with null/empty source_refs.
     expect(calls.some(c => c.query.includes('source_refs') && c.query.includes('IS NULL'))).toBe(true)
+    expect(calls.some(c => c.query.includes('source_refs'))).toBe(true)
   })
 
   it('returns empty arrays when all queries fail', async () => {

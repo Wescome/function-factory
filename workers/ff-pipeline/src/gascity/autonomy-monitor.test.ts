@@ -4,7 +4,7 @@ const state = vi.hoisted(() => ({
   db: null as unknown,
 }))
 
-vi.mock("@factory/arango-client", () => ({
+vi.mock("@factory/db-client", () => ({
   createClientFromEnv: () => state.db,
 }))
 

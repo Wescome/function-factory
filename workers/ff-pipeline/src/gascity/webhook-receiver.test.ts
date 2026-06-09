@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
   saveEdge: vi.fn(async () => ({})),
 }))
 
-vi.mock("@factory/arango-client", () => ({
+vi.mock("@factory/db-client", () => ({
   createClientFromEnv: () => mocks,
 }))
 

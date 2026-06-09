@@ -60,7 +60,7 @@ vi.mock('@cloudflare/containers', () => ({
   getContainer: () => ({}),
 }))
 
-vi.mock('@factory/arango-client', () => ({
+vi.mock('@factory/db-client', () => ({
   createClientFromEnv: () => ({
     save: vi.fn(async () => ({ _key: 'mock-key' })),
     saveEdge: vi.fn(async () => ({ _key: 'mock-edge' })),
