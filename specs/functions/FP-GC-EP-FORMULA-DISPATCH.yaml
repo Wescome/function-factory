@@ -1,0 +1,80 @@
+id: FP-GC-EP-FORMULA-DISPATCH
+source_refs:
+  - BC-GC-FORMULA-DISPATCH
+  - IS-GC-EP-FORMULA-DISPATCH
+  - GOVD-GAS-CITY-PHASE1-INTEGRATION
+  - ADR-010-gas-city-supersedes-nlah
+explicitness: explicit
+rationale: >
+  Execution Function implementing BC-GC-FORMULA-DISPATCH. Scoped as Integration Point 1
+  (IP-1) of the Factory+Gas City architecture. The FormulaCompilation transformation
+  (D-NEW-2) and parametric template dispatch model (D-Q1C) are both implemented here.
+  This is the first Factory Function that calls an external system (Gas City) and the
+  first to produce a FORM-* artifact. Load-bearing for all downstream phases.
+
+capabilityId: BC-GC-FORMULA-DISPATCH
+name: dispatch_formula_to_gas_city
+functionType: execution
+
+purpose: >
+  Accept a validated Execution Packet (EP-*) whose Coherence Verification has passed,
+  compile it into a parametric FormulaArtifact (FORM-*), and dispatch it to Gas City
+  via the three-call HTTP sequence, such that Gas City executes the specification and
+  produces evidence for Factory's Fidelity Verification (IP-3).
+
+implementation:
+  module: workers/ff-pipeline/src/compilers/formula-compiler.ts
+  tests: workers/ff-pipeline/src/compilers/formula-compiler.test.ts
+  template: harnesses/gascity-templates/factory-coding-v1.toml
+  status: built  # 43/43 tests pass; Architect + SE + Critic approved 2026-05-21
+
+expectedInputs:
+  - Execution Packet (EP-*) with passing Coherence VR
+  - Environment: GAS_CITY_BASE_URL, GAS_CITY_CITY_NAME, GAS_CITY_BEARER_TOKEN, GAS_CITY_AGENT_NAME,
+      GAS_CITY_RIG, GAS_CITY_RIG_ROOT, GAS_CITY_WEBHOOK_URL,
+      GAS_CITY_FORMULA_VERSION_{TEMPLATE}, FACTORY_MAX_ITERATIONS,
+      ARANGO_URL, ARANGO_DB, ARANGO_USER, ARANGO_PASSWORD
+
+expectedOutputs:
+  - FormulaArtifact (FORM-*) persisted in ArangoDB formulas collection
+  - dispatch_log record in ArangoDB with outcome: dispatched
+  - Gas City bead tree: root bead + plan/code/verify/release child beads
+    (all carrying 5 lineage labels: fn-id, is-id, es-id, form-id, factory-attempt)
+
+governingConstraints:
+  - No-LLM invariant: zero model provider calls (V2 static import check enforced)
+  - Determinism: identical EP → identical FORM-* (byte-equal vars, V1)
+  - EP-only input (D1): compiler reads EP, not IS/ES/ArchitectureCandidate
+  - Dispatch-time only (D4/SE-Onto §7): Factory calls Gas City once at dispatch,
+    then waits for RELEASE step callback (IP-4)
+  - ArangoDB/Dolt isolation: writes ArangoDB only, never Dolt
+  - Zero Gas City contributions (ADR-010 §5): works with existing GC API surface only
+  - Idempotency: dispatch_log unique index + bead Idempotency-Key + sling 409 detection
+  - Stream transaction: FORM-* + dispatch_log written atomically (AC-23)
+  - Partition recovery: resumes at CALL 3 if CALL 2 succeeded but CALL 3 failed (AC-24)
+
+candidateInvariants:
+  - No FORM-* is persisted without a Coherence VR passing for the source ES (AC-0, V10)
+  - No dispatch is attempted without a persisted FORM-* (AC-7, V3)
+  - No dispatch is attempted without a dispatch_log pending row (AC-8, V4)
+  - dispatch_log has unique index on (idempotency_key, factory_attempt) (AC-21)
+  - Every dispatched FORM-* is queryable via source_refs ANY == EP-ID
+  - CALL 2 bead carries exactly five lineage labels (AC-12, V8); six on amendment (V9)
+  - No LLM import exists in formula-compiler.ts (V2)
+
+successSignals:
+  - V1 (determinism) passes
+  - Phase 1 gate: gc formula show factory-coding-v1 exits 0 against pinned version
+  - Phase 1 gate: bead labels confirmed via bd list (five on root, template step-level on children)
+  - Phase 1 gate: dispatch_log row written and queryable
+  - Idempotency proven under retry (V6, V7, V13)
+  - Zero version_mismatch dispatch_log outcomes in steady state
+
+confidence: 0.92
+
+phase1_gate_conditions:
+  - V1 passes (determinism)
+  - gc formula show factory-coding-v1 exits 0 (template validation)
+  - End-to-end smoke dispatch produces bead tree with correct lineage labels
+  - dispatch_log written and carries gc_bead_id + gc_workflow_id after dispatch
+  - Idempotency proven: second dispatch with same (es_id, factory_attempt) returns early

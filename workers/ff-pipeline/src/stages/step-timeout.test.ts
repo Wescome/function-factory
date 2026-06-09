@@ -91,7 +91,7 @@ vi.mock('./propose-function', () => ({
   proposeFunction: vi.fn(async () => ({
     _key: 'FP-001',
     title: 'test proposal',
-    prd: { title: 'Test PRD', atoms: [], invariants: [] },
+    intentSpecification: { title: 'Test Intent Specification', atoms: [], invariants: [] },
   })),
 }))
 
@@ -106,17 +106,40 @@ vi.mock('./semantic-review', () => ({
 }))
 
 vi.mock('./compile', () => ({
-  PASS_NAMES: ['atoms', 'contracts', 'invariants', 'validations', 'dependencies', 'schedule', 'budget', 'workgraph'],
-  compilePRD: vi.fn(async (_pass: string, state: Record<string, unknown>) => ({
+  PASS_NAMES: ['atoms', 'contracts', 'invariants', 'validations', 'dependencies', 'schedule', 'budget', 'executableSpecification'],
+  compileIntentSpecification: vi.fn(async (_pass: string, state: Record<string, unknown>) => ({
     ...state,
-    workGraph: {
-      _key: 'WG-TEST',
-      title: 'Test WorkGraph',
+    executableSpecification: {
+      _key: 'ES-TEST',
+      title: 'Test ExecutableSpecification',
       atoms: [{ id: 'a1', description: 'test atom' }],
       invariants: [],
       dependencies: [],
     },
   })),
+}))
+
+vi.mock('../gascity/skeleton-builder', () => ({
+  buildSkeleton: vi.fn(async () => ({ r2Key: 'skeletons/test/skeleton.tar.gz', skeletonSha: 'abc123def456' })),
+  getSkeletonDownloadUrl: vi.fn(() => 'https://ff-pipeline.koales.workers.dev/skeleton-download?key=test&token=tok'),
+}))
+
+vi.mock('../compilers/formula-compiler-adapter', () => ({
+  buildFormulaCompilerDeps: vi.fn(() => ({})),
+}))
+
+vi.mock('../compilers/formula-compiler', () => ({
+  compileAndDispatchFormula: vi.fn(async () => ({
+    outcome: 'dispatched',
+    form_id: 'FORM-TEST',
+    dispatch_log_key: 'DL-TEST',
+    gc_bead_id: 'bead-123',
+    gc_workflow_id: 'wf-123',
+  })),
+}))
+
+vi.mock('../gascity/autonomy-monitor', () => ({
+  markFunctionDispatched: vi.fn(async () => {}),
 }))
 
 // ─── Step call tracker ───
@@ -133,11 +156,11 @@ function createMockEnv() {
     ARANGO_JWT: 'test-jwt',
     ENVIRONMENT: 'test',
     GATES: {
-      evaluateGate1: vi.fn(async () => ({
-        gate: 1,
+      evaluateCoherenceVerification: vi.fn(async () => ({
+        verification: "coherence",
         passed: true,
         timestamp: '2026-05-04T00:00:00Z',
-        workGraphId: 'WG-TEST',
+        executableSpecificationId: 'ES-TEST',
         checks: [{ name: 'lineage', passed: true, detail: 'ok' }],
         summary: 'All checks passed',
       })),
@@ -154,7 +177,7 @@ function createMockEnv() {
       idFromName: vi.fn(() => 'do-id-123'),
       get: vi.fn(() => ({
         synthesize: vi.fn(async () => ({
-          functionId: 'WG-TEST',
+          functionId: 'ES-TEST',
           verdict: { decision: 'pass', confidence: 0.95, reason: 'ok' },
           tokenUsage: 4200,
           repairCount: 0,
@@ -168,6 +191,11 @@ function createMockEnv() {
     FEEDBACK_QUEUE: {
       send: vi.fn(async () => ({})),
     },
+    GITHUB_TOKEN: 'test-token',
+    GAS_CITY_HMAC_SECRET_V1: 'test-secret',
+    WORKSPACE_BUCKET: { put: vi.fn(async () => ({})), get: vi.fn(async () => null) },
+    GAS_CITY_BASE_URL: 'https://gascity.example.com',
+    GAS_CITY_BEARER_TOKEN: 'test-bearer',
   }
 }
 
@@ -232,14 +260,13 @@ describe('Step timeout configuration', () => {
     'edge-proposal-capability',
     'lifecycle-proposed',
     'persist-intent-anchors',
-    'edge-workgraph-proposal',
-    'persist-gate1-pass',
+    'edge-executableSpecification-proposal',
+    'persist-coherence-verification-pass',
     'lifecycle-designed',
-    'enqueue-synthesis',
-    'lifecycle-in-progress',
-    'edge-synthesis-workgraph',
-    'lifecycle-produced',
-    'enqueue-feedback',
+    'build-skeleton',
+    'build-execution-packet',
+    'dispatch-formula',
+    'mark-function-dispatched',
   ]
 
   it('AI-calling steps pass timeout: "2 minutes" to step.do', async () => {

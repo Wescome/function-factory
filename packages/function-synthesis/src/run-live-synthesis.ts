@@ -2,13 +2,13 @@
 /**
  * FIRST LIVE SYNTHESIS — Function Factory producing real code autonomously.
  *
- * Executes WG-V2-CLASSIFY-COMMITS through PiAgentBindingMode with real
+ * Executes ES-V2-CLASSIFY-COMMITS through PiAgentBindingMode with real
  * Anthropic API calls (Claude Haiku everywhere).
  *
  * JTBD: When the Factory attempts its first autonomous code production,
  * I want a runner that wires real LLM calls into the five-role synthesis
  * topology, so we can observe whether the Factory can produce working
- * code from a WorkGraph specification.
+ * code from a ExecutableSpecification specification.
  *
  * Usage: npx tsx packages/function-synthesis/src/run-live-synthesis.ts
  */
@@ -17,7 +17,7 @@ import { readFileSync, mkdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 
 // ─── YAML Parser (minimal, no dependency) ────────────────────────────
-// The WorkGraph YAML is simple enough to parse with basic string ops.
+// The ExecutableSpecification YAML is simple enough to parse with basic string ops.
 // We need: id, functionId, nodes[], edges[]
 
 function parseSimpleYaml(text: string): Record<string, unknown> {
@@ -108,7 +108,7 @@ function parseSimpleYaml(text: string): Record<string, unknown> {
 
 // ─── Imports from synthesis package ──────────────────────────────────
 
-import type { ArchitectureCandidate, WorkGraph } from "@factory/schemas"
+import type { ArchitectureCandidate, ExecutableSpecification } from "@factory/schemas"
 import type { RoleContract } from "./role-contracts.js"
 import type { BindingMode, BindingModeOutput, BindingModeContext } from "./binding-mode.js"
 import type { RoleName, ToolCallRecord, RoleIterationRecord, PatchProposal } from "./types.js"
@@ -191,7 +191,7 @@ class LivePiAgentBindingMode implements BindingMode {
   }
 
   async execute(
-    workGraph: WorkGraph,
+    executableSpecification: ExecutableSpecification,
     candidate: ArchitectureCandidate,
     contracts: readonly RoleContract[],
     context: BindingModeContext,
@@ -214,9 +214,9 @@ class LivePiAgentBindingMode implements BindingMode {
         name: "Planner",
         buildPrompt: () =>
           `You are planning the implementation of a commit classification function.\n\n` +
-          `WorkGraph: ${workGraph.id}\n` +
-          `Function: ${workGraph.functionId}\n` +
-          `Nodes:\n${workGraph.nodes.map((n) => `  - ${n.id}: ${n.title} (${n.type})`).join("\n")}\n\n` +
+          `ExecutableSpecification: ${executableSpecification.id}\n` +
+          `Function: ${executableSpecification.functionId}\n` +
+          `Nodes:\n${executableSpecification.nodes.map((n) => `  - ${n.id}: ${n.title} (${n.type})`).join("\n")}\n\n` +
           `Your task: Produce a detailed implementation plan for a TypeScript commit classifier.\n` +
           `The classifier should:\n` +
           `1. Accept a git commit message string\n` +
@@ -315,7 +315,7 @@ class LivePiAgentBindingMode implements BindingMode {
         const model = createRealModel("anthropic", this.modelId)
         const tools = getLiveToolsForRole(roleDef.name)
         const allowedNames = getAllowedToolNames(roleDef.name)
-        const systemPrompt = renderRolePrompt(contract, workGraph, candidate)
+        const systemPrompt = renderRolePrompt(contract, executableSpecification, candidate)
 
         const agent = new RealAnthropicAgent(
           {
@@ -429,7 +429,7 @@ class LivePiAgentBindingMode implements BindingMode {
     const patchProposals: PatchProposal[] = producedFiles.map((fp) => ({
       targetPath: fp.replace(OUTPUT_DIR + "/", ""),
       content: "// Written by live synthesis",
-      workGraphNodeId: workGraph.nodes[0]?.id ?? "unknown",
+      executableSpecificationNodeId: executableSpecification.nodes[0]?.id ?? "unknown",
       rationale: "Produced by live Coder agent",
     }))
 
@@ -458,7 +458,7 @@ class LivePiAgentBindingMode implements BindingMode {
 
 async function main() {
   console.log("=== FIRST LIVE SYNTHESIS ===")
-  console.log(`WorkGraph: WG-V2-CLASSIFY-COMMITS`)
+  console.log(`ExecutableSpecification: ES-V2-CLASSIFY-COMMITS`)
   console.log(`Candidate: Haiku-everywhere`)
   console.log(`Binding mode: PiAgentBindingMode (pi-ai — 22-provider unified API)`)
   console.log(`Output dir: ${OUTPUT_DIR}`)
@@ -479,19 +479,19 @@ async function main() {
   // ─── Ensure output directory ───────────────────────────────────
   mkdirSync(OUTPUT_DIR, { recursive: true })
 
-  // ─── Load WorkGraph ────────────────────────────────────────────
-  const wgPath = join(process.cwd(), "specs/workgraphs/WG-V2-CLASSIFY-COMMITS.yaml")
-  console.log(`Loading WorkGraph from: ${wgPath}`)
+  // ─── Load ExecutableSpecification ────────────────────────────────────────────
+  const wgPath = join(process.cwd(), "specs/executable-specifications/ES-V2-CLASSIFY-COMMITS.yaml")
+  console.log(`Loading ExecutableSpecification from: ${wgPath}`)
   const wgYaml = readFileSync(wgPath, "utf-8")
   const wgRaw = parseSimpleYaml(wgYaml)
 
-  // Build a WorkGraph-shaped object (bypass zod for the runner since
+  // Build a ExecutableSpecification-shaped object (bypass zod for the runner since
   // the YAML doesn't have lineage fields the schema requires)
-  const workGraph = {
-    id: String(wgRaw.id ?? "WG-V2-CLASSIFY-COMMITS"),
+  const executableSpecification = {
+    id: String(wgRaw.id ?? "ES-V2-CLASSIFY-COMMITS"),
     source_refs: (wgRaw.source_refs as string[]) ?? [],
     explicitness: "explicit" as const,
-    rationale: String(wgRaw.rationale ?? "WorkGraph for classify-commits"),
+    rationale: String(wgRaw.rationale ?? "ExecutableSpecification for classify-commits"),
     functionId: String(wgRaw.functionId ?? "FP-V2-CLASSIFY-COMMITS"),
     nodes: ((wgRaw.nodes as Record<string, unknown>[]) ?? []).map((n) => ({
       id: String(n.id ?? ""),
@@ -504,19 +504,19 @@ async function main() {
       to: String(e.to ?? ""),
       dependencyType: e.dependencyType ? String(e.dependencyType) : undefined,
     })),
-  } as unknown as WorkGraph
+  } as unknown as ExecutableSpecification
 
-  console.log(`WorkGraph loaded: ${workGraph.nodes.length} nodes, ${workGraph.edges.length} edges`)
+  console.log(`ExecutableSpecification loaded: ${executableSpecification.nodes.length} nodes, ${executableSpecification.edges.length} edges`)
   console.log("")
 
   // ─── Create Architecture Candidate ─────────────────────────────
   const candidate = {
     id: "AC-V2-CLASSIFY-COMMITS-HAIKU-EVERYWHERE",
-    source_refs: ["WG-V2-CLASSIFY-COMMITS"],
+    source_refs: ["ES-V2-CLASSIFY-COMMITS"],
     explicitness: "explicit" as const,
     rationale: "Haiku-everywhere config for first live synthesis",
-    sourcePrdId: "PRD-V2-CLASSIFY-COMMITS",
-    sourceWorkGraphId: "WG-V2-CLASSIFY-COMMITS",
+    sourceIntentSpecificationId: "IS-V2-CLASSIFY-COMMITS",
+    sourceExecutableSpecificationId: "ES-V2-CLASSIFY-COMMITS",
     candidateStatus: "selected" as const,
     topology: {
       shape: "linear_chain" as const,
@@ -548,7 +548,7 @@ async function main() {
   resetGlobalTokenUsage()
 
   const output = await bindingMode.execute(
-    workGraph,
+    executableSpecification,
     candidate,
     ALL_ROLE_CONTRACTS,
     {
@@ -607,7 +607,7 @@ async function main() {
     const tracePath = join(OUTPUT_DIR, "synthesis-trace.json")
     const trace = {
       runId: `SYN-LIVE-${Date.now()}`,
-      workGraphId: workGraph.id,
+      executableSpecificationId: executableSpecification.id,
       candidate: candidate.id,
       model: MODEL_ID,
       verdict: output.verifierDecision,

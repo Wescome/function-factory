@@ -9,7 +9,7 @@ export type EffectorType = z.infer<typeof EffectorType>
 
 export const EffectorArtifact = Lineage.extend({
   id: ArtifactId.refine((s) => s.startsWith("EFF-"), "EffectorArtifact IDs must start with EFF-"),
-  sourceWorkGraphId: ArtifactId,
+  sourceExecutableSpecificationId: ArtifactId,
   sourceArchitectureCandidateId: ArtifactId,
   sourceSelectionId: ArtifactId,
   sourceAdmissionId: ArtifactId,

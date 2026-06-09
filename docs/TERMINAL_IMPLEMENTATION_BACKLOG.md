@@ -114,7 +114,7 @@ Acceptance:
 
 - Resolve artifact ID to `specs/**/*.yaml` or `specs/**/*.md`.
 - Read YAML artifacts into maps.
-- Read Markdown PRDs into an envelope with raw content.
+- Read Markdown Intent Specifications into an envelope with raw content.
 - Unit tests cover YAML and Markdown.
 
 ### FFTERM-0203: Implement local inspect handler
@@ -122,7 +122,7 @@ Acceptance:
 Acceptance:
 
 - `ff:inspect` returns artifact ID, type, source refs, explicitness, rationale, and data/content.
-- Works for at least `PRD-META-COMPILER-PASS-8` and one YAML artifact.
+- Works for at least `IS-META-COMPILER-PASS-8` and one YAML artifact.
 - Unit tests pass.
 
 ### FFTERM-0204: Build minimal `ff-inspect` block
@@ -137,7 +137,7 @@ Acceptance:
 
 Acceptance:
 
-- Running `ff inspect PRD-META-COMPILER-PASS-8` opens an inspect block.
+- Running `ff inspect IS-META-COMPILER-PASS-8` opens an inspect block.
 - Missing artifact returns a clear error.
 
 ### FFTERM-0206: Implement local lineage traversal
@@ -160,7 +160,7 @@ Acceptance:
 
 Acceptance:
 
-- Running `ff trace PRD-META-COMPILER-PASS-8` opens a lineage block.
+- Running `ff trace IS-META-COMPILER-PASS-8` opens a lineage block.
 - Missing artifact returns a clear error.
 
 ## Phase 3: Gateway and Pipeline
@@ -193,7 +193,7 @@ Acceptance:
 Acceptance:
 
 - Local mode returns clear unsupported or simulated result.
-- Gateway mode translates PRD intent into current `/pipeline` signal payload.
+- Gateway mode translates Intent Specification intent into current `/pipeline` signal payload.
 - Opens pipeline monitor block.
 
 ### FFTERM-0305: Implement polling pipeline monitor
@@ -208,7 +208,7 @@ Acceptance:
 
 Acceptance:
 
-- `ff-decision` displays pending CRP/MRP/gate failure data.
+- `ff-decision` displays pending CRP/MRP/verification failure data.
 - Submit action calls `/approve/:id` where supported.
 
 ## Phase 4: Operator Dashboards
@@ -221,12 +221,12 @@ Acceptance:
 - Shows local placeholder state in local mode.
 - Badge count available for widget bar.
 
-### FFTERM-0402: Coverage block
+### FFTERM-0402: Verification block
 
 Acceptance:
 
-- Displays gate status for an artifact or PRD.
-- Supports local coverage report files under `specs/coverage-reports/`.
+- Displays verification status for an artifact or Intent Specification.
+- Supports local verification report files under `specs/verification-reports/`.
 
 ### FFTERM-0403: Cost block
 

@@ -1,0 +1,117 @@
+# Per-step-type fidelity checks for the coding formula.
+#
+# This file is CONFIGURATION, not code. The Gas City fidelity validator
+# (factory/fidelity/fidelity-validator.ts) reads it and applies the matching
+# checks; no per-step-type judgment lives in TypeScript or Go.
+#
+# Settled by IS-GC-FIDELITY-VALIDATION Q2 (resolved-by-reasoning, ADR-010 §3 ZFC):
+# "the gate-class table lives in city configuration." This is that table.
+#
+# Schema
+# ------
+# Each [[check]] entry applies to a molecule step whose raw `step_name` matches
+# `step_pattern` (a case-insensitive regular expression). The validator evaluates
+# the four universal checks (in code, always domain-agnostic) FIRST, then every
+# matching [[check]] here in file order. The first failing check determines the
+# verdict (FV-06).
+#
+#   step_pattern  regex (case-insensitive) matched against the step name (FV-11).
+#   check_id      stable name of the check; appears in the audit record (FV-23).
+#   gate_class    "preflight" | "revision" | "escalation" | "abort" (FV-13).
+#   condition     { field, predicate } — `field` is a dot-path into
+#                 `step_outputs` (the provider's per-step evidence map). The check
+#                 PASSES when the predicate holds for that field, FAILS otherwise.
+#                 A field that is absent fails the predicate (fail-closed, FV-07),
+#                 except predicate "not_applicable_when_absent" — see below.
+#   remediation   actionable, Factory-domain remediation emitted on failure (FV-14,
+#                 FV-15). Names the failed check and what the agent must do.
+#
+# Predicates
+# ----------
+#   non_empty_string   field is a string with non-whitespace content.
+#   truthy             field is === true (a boolean true). Absent/false → fail.
+#   present            field is not undefined and not null.
+#   eq:<value>         field, coerced to string, equals <value>.
+#   gte:<n>            field is a number >= n.
+#   na_unless_present  NOT-APPLICABLE when the field is absent (the validator
+#                      records not-applicable and skips it — the FV-12 exception
+#                      for configuration invariants the envelope cannot witness);
+#                      when present, requires the field to be truthy.
+#   distinct_from:<other-field>
+#                      NOT-APPLICABLE when either `field` or <other-field> is
+#                      absent; otherwise FAILS when the two field values are equal
+#                      (FV-12 verifier_distinct_from_author exception to fail-closed).
+
+# ---- PATCH step (role: PatchWorker) ----
+
+[[check]]
+step_pattern = "(^|[^a-z])patch|patchworker|code"
+check_id = "patch_non_empty"
+gate_class = "revision"
+condition = { field = "patch_diff", predicate = "na_unless_present" }
+remediation = "The candidate patch was empty. Produce a non-empty diff that implements the required change."
+
+[[check]]
+step_pattern = "(^|[^a-z])patch|patchworker|code"
+check_id = "patch_applies_cleanly"
+gate_class = "revision"
+condition = { field = "patch_applies_cleanly", predicate = "na_unless_present" }
+remediation = "The candidate patch did not apply to the seed workspace; regenerate the diff against the current file contents and ensure hunks match."
+
+# ---- VERIFY step (role: Verifier) ----
+
+[[check]]
+step_pattern = "verif"
+check_id = "verifier_report_present"
+gate_class = "preflight"
+condition = { field = "verifier_report_present", predicate = "na_unless_present" }
+remediation = "No verifier report was available; independent verification must run and produce a report before the step can be approved."
+
+[[check]]
+step_pattern = "verif"
+check_id = "verifier_accepts"
+gate_class = "abort"
+condition = { field = "verifier_accepts", predicate = "na_unless_present" }
+remediation = "Independent verification rejected the result. The implementation does not satisfy the acceptance criteria; a new attempt must address the rejected criteria."
+
+[[check]]
+step_pattern = "verif"
+check_id = "tests_support_claims"
+gate_class = "revision"
+condition = { field = "tests_section_present", predicate = "na_unless_present" }
+remediation = "The verifier report did not capture the tests it ran. Re-run with the test commands and capture their output so the claims are supported by evidence."
+
+[[check]]
+step_pattern = "verif"
+check_id = "verifier_distinct_from_author"
+gate_class = "escalation"
+condition = { field = "verify_model_id", predicate = "distinct_from:patch_model_id" }
+remediation = "Verification was performed by the same model that authored the result. Independent verification requires a distinct verifier; this is a configuration matter for the architect."
+
+# ---- SEED / CONTRACT / MAP steps (role: Cartographer for CONTRACT/MAP) ----
+#
+# The stage output existence is already enforced by the universal
+# declared_outputs_produced check. The MAP-only content adequacy check below is
+# only evaluable when the provider exposes a content-pattern result; when absent
+# it is recorded not-applicable (na_unless_present), never fabricated as a fail.
+
+[[check]]
+step_pattern = "(^|[^a-z])map|repomap|cartograph"
+check_id = "repo_map_content_adequate"
+gate_class = "revision"
+condition = { field = "map_content_adequate", predicate = "na_unless_present" }
+remediation = "The repository map did not name the relevant files and test entrypoints. Regenerate the map so it covers the files the change must touch."
+
+# ---- RELEASE step (role: ReleaseAgent) ----
+#
+# all_prior_steps_approved is a universal pre-flight applied in code for any step
+# whose declared role is the molecule terminator; it is not configured here
+# because it reads prior_step_verdicts, not step_outputs. The final-patch identity
+# check below reads step_outputs and is configured.
+
+[[check]]
+step_pattern = "(^|[^a-z])release|finalpatch|prsummary"
+check_id = "final_patch_matches_verified_candidate"
+gate_class = "abort"
+condition = { field = "final_matches_verified", predicate = "na_unless_present" }
+remediation = "The final patch differs from the verified candidate. Release exactly the change that independent verification accepted."

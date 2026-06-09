@@ -90,7 +90,7 @@ describe('ADR-005 v4.1 (Queue fallback): Coordinator callback wiring', () => {
     })
 
     it('catches queue publish errors without crashing synthesis', () => {
-      expect(coordinatorSrc).toContain('[Stage 6] Result queue publish failed')
+      expect(coordinatorSrc).toContain('[Agent Call execution] Result queue publish failed')
     })
 
     it('handles missing SYNTHESIS_RESULTS binding gracefully', () => {
@@ -102,7 +102,7 @@ describe('ADR-005 v4.1 (Queue fallback): Coordinator callback wiring', () => {
   describe('alarm handler: calls notifyCallback on timeout', () => {
 
     it('alarm handler calls notifyCallback with interrupt verdict', () => {
-      expect(coordinatorSrc).toContain('await this.notifyCallback(this.buildResult(workGraphId, timedOutState))')
+      expect(coordinatorSrc).toContain('await this.notifyCallback(this.buildResult(executableSpecificationId, timedOutState))')
     })
 
     it('alarm handler sets __completed before calling callback', () => {
@@ -162,7 +162,7 @@ describe('ADR-005 v4.1 (Queue fallback): Coordinator callback flow (unit)', () =
 
     // Step 2: Synthesis produces a result
     const result = {
-      functionId: 'WG-E2E',
+      functionId: 'ES-E2E',
       verdict: { decision: 'pass', confidence: 0.95, reason: 'All roles passed' },
       tokenUsage: 4200,
       repairCount: 0,
@@ -273,7 +273,7 @@ describe('ADR-005 v4.1 (Queue fallback): Coordinator callback flow (unit)', () =
     storage.set('__workflowId', 'wf-queue-fail')
 
     const result = {
-      functionId: 'WG-FAIL',
+      functionId: 'ES-FAIL',
       verdict: { decision: 'pass', confidence: 0.9, reason: 'ok' },
       tokenUsage: 100,
       repairCount: 0,

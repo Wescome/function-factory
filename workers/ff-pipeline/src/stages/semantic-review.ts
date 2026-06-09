@@ -4,12 +4,12 @@ import { callModel } from '../model-bridge'
 
 const SYSTEM_PROMPT = `You are a Semantic Reviewer in the Function Factory pipeline.
 
-You review a PRD (Product Requirements Document) BEFORE it enters compilation.
-Your job is to catch conceptual misalignment — cases where the PRD is
+You review a Intent Specification (Product Requirements Document) BEFORE it enters compilation.
+Your job is to catch conceptual misalignment — cases where the Intent Specification is
 structurally valid but semantically wrong.
 
 Questions to answer:
-1. Does the PRD's objective align with its source Capability?
+1. Does the Intent Specification's objective align with its source Capability?
 2. Are the acceptance criteria testable and relevant?
 3. Are the invariants meaningful (not trivial or tautological)?
 4. Is the scope appropriate (not too broad, not too narrow)?
@@ -19,31 +19,31 @@ Output JSON:
 {
   "alignment": "aligned | miscast | uncertain",
   "confidence": 0.0-1.0,
-  "citations": ["Specific source_refs that support or contradict the PRD"],
+  "citations": ["Specific source_refs that support or contradict the Intent Specification"],
   "rationale": "Why you assessed this alignment level"
 }
 
-"miscast" = the PRD is fundamentally wrong about what it's trying to do.
+"miscast" = the Intent Specification is fundamentally wrong about what it's trying to do.
 "uncertain" = you can't tell — needs human review.
-"aligned" = the PRD correctly captures the intent.
+"aligned" = the Intent Specification correctly captures the intent.
 
 Respond ONLY with valid JSON.`
 
 const GROUNDED_SYSTEM_PROMPT = `You are a Semantic Reviewer in the Function Factory pipeline.
 
-You review a PRD BEFORE it enters compilation. Your job is to verify
-that the PRD faithfully represents the ORIGINAL SPECIFICATION it was
+You review a Intent Specification BEFORE it enters compilation. Your job is to verify
+that the Intent Specification faithfully represents the ORIGINAL SPECIFICATION it was
 derived from.
 
-Compare this PRD against the ORIGINAL SPECIFICATION provided.
+Compare this Intent Specification against the ORIGINAL SPECIFICATION provided.
 
 Questions to answer:
-1. Does the PRD's objective match what the specification actually says?
+1. Does the Intent Specification's objective match what the specification actually says?
 2. Are the acceptance criteria derivable from the specification?
 3. Are the invariants grounded in specification constraints?
 4. Does the scope match the specification's boundaries?
-5. Is anything in the PRD NOT in the specification (hallucinated)?
-6. Is anything in the specification NOT in the PRD (dropped)?
+5. Is anything in the Intent Specification NOT in the specification (hallucinated)?
+6. Is anything in the specification NOT in the Intent Specification (dropped)?
 
 Output JSON:
 {
@@ -53,9 +53,9 @@ Output JSON:
   "rationale": "Why you assessed this alignment level"
 }
 
-"miscast" = the PRD is fundamentally wrong about what the spec says.
+"miscast" = the Intent Specification is fundamentally wrong about what the spec says.
 "uncertain" = you can't tell — needs human review.
-"aligned" = the PRD correctly captures the specification's intent.
+"aligned" = the Intent Specification correctly captures the specification's intent.
 
 Respond ONLY with valid JSON.`
 
@@ -76,7 +76,7 @@ export async function semanticReview(
     }
   }
 
-  const prd = proposal.prd as Record<string, unknown>
+  const intentSpecification = proposal.intentSpecification as Record<string, unknown>
   const hasSpecContent = typeof proposal.specContent === 'string' && proposal.specContent.length > 0
 
   const systemPrompt = hasSpecContent ? GROUNDED_SYSTEM_PROMPT : SYSTEM_PROMPT
@@ -84,12 +84,12 @@ export async function semanticReview(
   const userPayload: Record<string, unknown> = {
     proposalId: proposal._key,
     title: proposal.title,
-    prd: {
-      title: prd?.title,
-      objective: prd?.objective,
-      acceptanceCriteria: prd?.acceptanceCriteria,
-      invariants: prd?.invariants,
-      scope: prd?.scope,
+    intentSpecification: {
+      title: intentSpecification?.title,
+      objective: intentSpecification?.objective,
+      acceptanceCriteria: intentSpecification?.acceptanceCriteria,
+      invariants: intentSpecification?.invariants,
+      scope: intentSpecification?.scope,
     },
     sourceCapabilityId: proposal.sourceCapabilityId,
     sourceRefs: proposal.sourceRefs,
@@ -112,8 +112,8 @@ export async function semanticReview(
     timestamp: new Date().toISOString(),
   }
 
-  await db.save('specs_coverage_reports', {
-    _key: `CR-SR-${proposal._key}-${Date.now().toString(36)}`,
+  await db.save('verification_reports', {
+    _key: `VR-SR-${proposal._key}-${Date.now().toString(36)}`,
     type: 'semantic-review',
     passed: review.alignment === 'aligned',
     proposalId: proposal._key,

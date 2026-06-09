@@ -40,7 +40,7 @@ const FAILING_TEST_REPORT: TestReport = {
 }
 
 const SAMPLE_WORKGRAPH = {
-  _key: 'WG-TEST-001',
+  _key: 'ES-TEST-001',
   title: 'User Authentication Module',
   atoms: [{ id: 'atom-001', description: 'Auth middleware' }],
   invariants: [{ id: 'INV-001', rule: 'All tokens must expire within 1 hour' }],
@@ -91,7 +91,7 @@ describe('TesterAgent', () => {
       const agent = new TesterAgent({ db, apiKey: 'test-key', dryRun: true })
 
       const result = await agent.runTests({
-        workGraph: SAMPLE_WORKGRAPH,
+        executableSpecification: SAMPLE_WORKGRAPH,
         plan: SAMPLE_PLAN,
         code: SAMPLE_CODE,
       })
@@ -110,7 +110,7 @@ describe('TesterAgent', () => {
       const agent = new TesterAgent({ db, apiKey: 'test-key', dryRun: true })
 
       await agent.runTests({
-        workGraph: SAMPLE_WORKGRAPH,
+        executableSpecification: SAMPLE_WORKGRAPH,
         plan: SAMPLE_PLAN,
         code: SAMPLE_CODE,
       })
@@ -183,11 +183,11 @@ describe('TesterAgent', () => {
     })
 
     it('accepts TestReport with optional coverage field', async () => {
-      const withCoverage = {
+      const withVerification = {
         ...VALID_TEST_REPORT,
         coverage: { lines: 85, branches: 70, functions: 90 },
       }
-      const result = await processAgentOutput(JSON.stringify(withCoverage), TEST_REPORT_SCHEMA)
+      const result = await processAgentOutput(JSON.stringify(withVerification), TEST_REPORT_SCHEMA)
       expect(result.success).toBe(true)
     })
   })
@@ -198,7 +198,7 @@ describe('TesterAgent', () => {
       const agent = new TesterAgent({ db, apiKey: 'test-key', dryRun: true })
 
       const result = await agent.runTests({
-        workGraph: SAMPLE_WORKGRAPH,
+        executableSpecification: SAMPLE_WORKGRAPH,
         plan: SAMPLE_PLAN,
         code: SAMPLE_CODE,
         // critique intentionally omitted
@@ -212,7 +212,7 @@ describe('TesterAgent', () => {
       const agent = new TesterAgent({ db, apiKey: 'test-key', dryRun: true })
 
       const result = await agent.runTests({
-        workGraph: SAMPLE_WORKGRAPH,
+        executableSpecification: SAMPLE_WORKGRAPH,
         plan: SAMPLE_PLAN,
         code: SAMPLE_CODE,
         critique: {
@@ -257,7 +257,7 @@ describe('TesterAgent', () => {
       })
 
       const result = await agent.runTests({
-        workGraph: SAMPLE_WORKGRAPH,
+        executableSpecification: SAMPLE_WORKGRAPH,
         plan: SAMPLE_PLAN,
         code: SAMPLE_CODE,
       })
@@ -290,7 +290,7 @@ describe('TesterAgent', () => {
       })
 
       const result = await agent.runTests({
-        workGraph: SAMPLE_WORKGRAPH,
+        executableSpecification: SAMPLE_WORKGRAPH,
         plan: SAMPLE_PLAN,
         code: SAMPLE_CODE,
       })
@@ -317,7 +317,7 @@ describe('TesterAgent', () => {
 
       await expect(
         agent.runTests({
-          workGraph: SAMPLE_WORKGRAPH,
+          executableSpecification: SAMPLE_WORKGRAPH,
           plan: SAMPLE_PLAN,
           code: SAMPLE_CODE,
         }),

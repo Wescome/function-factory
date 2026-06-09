@@ -115,7 +115,7 @@ export type HumanApprovalPayload = z.infer<typeof HumanApprovalPayload>
 
 export const SynthesisTraceLog = z.object({
   runId: z.string().min(1),
-  workGraphId: z.string().min(1),
+  executableSpecificationId: z.string().min(1),
   architectureCandidateId: z.string().min(1),
   bindingModeName: z.string().min(1),
   roleIterations: z.array(RoleIterationRecord),
@@ -160,13 +160,13 @@ export const RoleAdherenceReport = z.object({
 })
 export type RoleAdherenceReport = z.infer<typeof RoleAdherenceReport>
 
-// ─── Gate 2 Input (AC 11) ─────────────────────────────────────────────
+// ─── Fidelity Verification Input (AC 11) ──────────────────────────────
 // TODO: promote to @factory/schemas — normalized acceptance evidence
 
-export const Gate2Input = z.object({
+export const FidelityVerificationInput = z.object({
   synthesisRunId: z.string().min(1),
   functionId: z.string().min(1),
-  workGraphId: z.string().min(1),
+  executableSpecificationId: z.string().min(1),
   architectureCandidateId: z.string().min(1),
   artifactPaths: z.array(z.string()),
   validationOutcomes: z.array(ValidationOutcome),
@@ -185,7 +185,7 @@ export const Gate2Input = z.object({
     completedAt: z.string().datetime(),
   }),
 })
-export type Gate2Input = z.infer<typeof Gate2Input>
+export type FidelityVerificationInput = z.infer<typeof FidelityVerificationInput>
 
 // ─── Candidate Selection Report (AC 12) ───────────────────────────────
 // TODO: promote to @factory/schemas
@@ -206,7 +206,7 @@ export type SynthesisCandidateSelectionReport = z.infer<typeof SynthesisCandidat
 export const PatchProposal = z.object({
   targetPath: z.string().min(1),
   content: z.string(),
-  workGraphNodeId: z.string().min(1),
+  executableSpecificationNodeId: z.string().min(1),
   rationale: z.string().min(1),
 })
 export type PatchProposal = z.infer<typeof PatchProposal>
@@ -219,7 +219,7 @@ export const SynthesisResult = z.object({
   generatedArtifactPaths: z.array(z.string()),
   traceLog: SynthesisTraceLog,
   roleAdherenceReport: RoleAdherenceReport,
-  gate2Input: Gate2Input,
+  fidelityVerificationInput: FidelityVerificationInput,
   candidateSelectionReport: SynthesisCandidateSelectionReport,
   requiresHumanApproval: z.boolean(),
   humanApprovalPayload: HumanApprovalPayload.optional(),

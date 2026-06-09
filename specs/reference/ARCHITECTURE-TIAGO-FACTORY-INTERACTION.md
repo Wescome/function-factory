@@ -57,8 +57,8 @@ and do completely different things.
 |              ArangoDB Oasis (Cloud)                            |
 |                                                                |
 |  specs_signals, specs_pressures, specs_capabilities,          |
-|  specs_functions, specs_workgraphs, specs_coverage_reports,   |
-|  execution_artifacts, lineage_edges, gate_status,             |
+|  specs_functions, executable_specifications, verification_reports,   |
+|  execution_artifacts, lineage_edges, verification_status,             |
 |  memory_episodic, memory_semantic, orl_telemetry,             |
 |  mentorscript_rules, hot_config, completion_ledgers           |
 +---------------------------------------------------------------+
@@ -179,7 +179,7 @@ TIAGO (Wes's laptop)
   |     Write lineage edge: Capability -> Pressure.
   |
   |-- step.do('propose-function')
-  |     LLM call: Capability -> Function proposal + PRD.
+  |     LLM call: Capability -> Function proposal + Intent Specification.
   |     Write to ArangoDB specs_functions.
   |
   |-- step.do('edge-proposal-capability')
@@ -207,22 +207,22 @@ TIAGO (Wes's laptop)
   |-- step.do('compile-{pass}') x 8 passes
   |     Eight sequential LLM compilation passes:
   |       structure, invariants, detectors, atoms,
-  |       dependencies, test-strategy, acceptance, workgraph
-  |     Each pass refines the PRD into a WorkGraph.
-  |     Write WorkGraph to ArangoDB specs_workgraphs.
+  |       dependencies, test-strategy, acceptance, executable-specification
+  |     Each pass refines the Intent Specification into a Executable Specification.
+  |     Write Executable Specification to ArangoDB executable_specifications.
   |
   |-- step.do('lifecycle-designed')
   |     Set function lifecycle state to "designed".
   |
-  |-- step.do('gate-1')
+  |-- step.do('coherence-verification')
   |     Service Binding call to ff-gates Worker.
-  |     Deterministic structural check: does the WorkGraph have
+  |     Deterministic structural check: does the Executable Specification have
   |     lineage, atoms, dependencies, test strategy?
   |     If FAIL: enqueue feedback signal, return early.
   |
   |-- step.do('enqueue-synthesis')
   |     Push message to SYNTHESIS_QUEUE:
-  |       { workflowId, workGraphId, workGraph, dryRun }
+  |       { workflowId, executableSpecificationId, executableSpecification, dryRun }
   |
   |-- step.do('lifecycle-in-progress')
   |     Set function lifecycle state to "in_progress".
@@ -243,8 +243,8 @@ TIAGO (Wes's laptop)
   |     |
   |     v
   |
-  |-- step.do('edge-synthesis-workgraph')
-  |     Write lineage edge: execution -> WorkGraph.
+  |-- step.do('edge-synthesis-executable-specification')
+  |     Write lineage edge: execution -> Executable Specification.
   |
   |-- step.do('lifecycle-implemented')  [if pass]
   |     Set function lifecycle state to "implemented".
@@ -254,7 +254,7 @@ TIAGO (Wes's laptop)
   |
   |-- return PipelineResult
        { status, signalId, pressureId, capabilityId,
-         proposalId, workGraphId, gate1Report,
+         proposalId, executableSpecificationId, coherenceVerificationReport,
          synthesisResult, atomResults }
 ```
 
@@ -266,9 +266,9 @@ Cloudflare's architecture requires an intermediate hop via Queues.
 ```
 [A] SYNTHESIS_QUEUE consumer (ff-pipeline queue() handler)
     |
-    |  Receives message: { workflowId, workGraphId, workGraph }
+    |  Receives message: { workflowId, executableSpecificationId, executableSpecification }
     |  Creates DO stub: env.COORDINATOR.idFromName('synth-{wgKey}')
-    |  Calls DO.fetch('https://do/synthesize', { workGraph })
+    |  Calls DO.fetch('https://do/synthesize', { executableSpecification })
     |  Acks message immediately (fire-and-forget to DO).
     |
     v
@@ -278,7 +278,7 @@ Cloudflare's architecture requires an intermediate hop via Queues.
     |    1. ArchitectAgent    -> BriefingScript (kimi-k2.6 REST API)
     |    2. CriticAgent       -> SemanticReview
     |    3. CoderAgent stub   -> CompileStub
-    |    4. Gate 1 stub       -> structural check
+    |    4. Coherence Verification stub       -> structural check
     |    5. PlannerAgent      -> Plan with atoms + layers
     |
     |  Phase 2: Dispatch atoms to SYNTHESIS_QUEUE
@@ -316,7 +316,7 @@ Cloudflare's architecture requires an intermediate hop via Queues.
     |
     |  Stores result in DO storage (idempotency).
     |  Publishes to ATOM_RESULTS queue:
-    |    { workGraphId, atomId, result, workflowId }
+    |    { executableSpecificationId, atomId, result, workflowId }
     |
     v
 [E] ATOM_RESULTS queue consumer (ff-pipeline queue() handler)
@@ -346,7 +346,7 @@ Cloudflare's architecture requires an intermediate hop via Queues.
     |    - synthesis:verdict-fail
     |    - synthesis:low-confidence
     |    - synthesis:orl-degradation
-    |    - synthesis:gate1-failed
+    |    - synthesis:coherenceVerification-failed
     |
     |  Loop prevention (3 layers):
     |    L1: feedbackDepth counter, max 3 generations
@@ -400,7 +400,7 @@ TIAGO's world                       Factory's world
                   |        [Everything below is autonomous]
                   |          |
                   |        Stages 1-4: LLM calls, ArangoDB writes
-                  |        Gate 1: structural validation
+                  |        Coherence Verification: structural validation
                   |        Synthesis: DO coordination, atom execution
                   |        Feedback: new signals, PR generation
                   |        Memory: lesson extraction, curation
@@ -555,7 +555,7 @@ ArangoDB at every decision point in the queue consumers.
 // Example: instrument the PR generation path
 await db.save('pipeline_audit', {
   stage: 'feedback-pr-check',
-  workGraphId,
+  executableSpecificationId,
   signalCount: feedbackSignals.length,
   prCandidateFound: hasPrCandidate,
   githubTokenPresent: !!env.GITHUB_TOKEN,
@@ -574,7 +574,7 @@ Add a `/debug/feedback-status` route to ff-pipeline (or ff-gateway) that
 returns recent feedback processing results from ArangoDB.
 
 ```
-GET /debug/feedback-status?workGraphId=WG-xxx
+GET /debug/feedback-status?executableSpecificationId=ES-xxx
 
 {
   "feedbackSignals": [...],

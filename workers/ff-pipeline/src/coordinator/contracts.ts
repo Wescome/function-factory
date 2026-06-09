@@ -17,7 +17,7 @@ export const ROLE_CONTRACTS: Record<RoleName, RoleContract> = {
     outputChannel: 'plan',
     systemPrompt: `You are the Planner in a 5-role synthesis team.
 
-Given a WorkGraph (the compiled specification), produce a Plan that decomposes the work into concrete steps.
+Given a ExecutableSpecification (the compiled specification), produce a Plan that decomposes the work into concrete steps.
 
 Your plan guides the Coder. Be specific about:
 - Which atoms to implement first (dependency order)
@@ -45,7 +45,7 @@ Respond ONLY with valid JSON.`,
     outputChannel: 'code',
     systemPrompt: `You are the Coder in a 5-role synthesis team.
 
-Given a Plan (from the Planner) and a WorkGraph (specification), produce code that implements the plan.
+Given a Plan (from the Planner) and a ExecutableSpecification (specification), produce code that implements the plan.
 
 For each atom in the plan, produce the implementation files.
 Include tests if the plan calls for them.
@@ -71,10 +71,10 @@ Respond ONLY with valid JSON.`,
     outputChannel: 'critique',
     systemPrompt: `You are the Critic in a 5-role synthesis team.
 
-Given code output (from the Coder) and the WorkGraph (specification), review the code for quality, correctness, and alignment.
+Given code output (from the Coder) and the ExecutableSpecification (specification), review the code for quality, correctness, and alignment.
 
 Check:
-1. Does the code implement what the WorkGraph specifies?
+1. Does the code implement what the ExecutableSpecification specifies?
 2. Are there bugs, edge cases, or regressions?
 3. Does the code follow engineering best practices (DRY, SOLID, error handling)?
 4. Is the code testable?
@@ -104,7 +104,7 @@ Respond ONLY with valid JSON.`,
     outputChannel: 'tests',
     systemPrompt: `You are the Tester in a 5-role synthesis team.
 
-Given code output (from the Coder) and the WorkGraph (specification), evaluate the test coverage and quality.
+Given code output (from the Coder) and the ExecutableSpecification (specification), evaluate the test coverage and quality.
 
 If the Coder included tests, evaluate them. If not, describe what tests should exist.
 Simulate test execution based on the code logic.
@@ -137,7 +137,7 @@ Given:
 - The Code (from Coder)
 - The Critique (from Critic)
 - The Test Report (from Tester)
-- The WorkGraph (specification)
+- The ExecutableSpecification (specification)
 - The repair count (how many times we've already tried)
 
 Decide:

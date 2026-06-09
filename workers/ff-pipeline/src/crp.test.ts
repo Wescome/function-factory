@@ -31,34 +31,34 @@ describe('CRP auto-generation (C7)', () => {
 
   it('creates a CRP document with all required fields', async () => {
     const crp = await createCRP(db as any, {
-      artifactKey: 'EA-WG-001-code',
+      artifactKey: 'EA-ES-001-code',
       collection: 'execution_artifacts',
       confidence: 0.45,
       context: 'Coder produced low-confidence output during synthesis',
       agentRole: 'coder',
-      workGraphId: 'WG-001',
+      executableSpecificationId: 'ES-001',
     })
 
     expect(crp.type).toBe('crp')
     expect(crp.status).toBe('pending')
-    expect(crp.relatedArtifact).toBe('EA-WG-001-code')
+    expect(crp.relatedArtifact).toBe('EA-ES-001-code')
     expect(crp.relatedCollection).toBe('execution_artifacts')
     expect(crp.confidence).toBe(0.45)
     expect(crp.context).toBe('Coder produced low-confidence output during synthesis')
     expect(crp.agentRole).toBe('coder')
-    expect(crp.workGraphId).toBe('WG-001')
+    expect(crp.executableSpecificationId).toBe('ES-001')
     expect(crp.createdAt).toBeTruthy()
     expect(typeof crp.createdAt).toBe('string')
   })
 
   it('generates a unique _key with CRP prefix', async () => {
     const crp = await createCRP(db as any, {
-      artifactKey: 'EA-WG-001-code',
+      artifactKey: 'EA-ES-001-code',
       collection: 'execution_artifacts',
       confidence: 0.5,
       context: 'test',
       agentRole: 'coder',
-      workGraphId: 'WG-001',
+      executableSpecificationId: 'ES-001',
     })
 
     expect(crp._key).toMatch(/^CRP-/)
@@ -67,12 +67,12 @@ describe('CRP auto-generation (C7)', () => {
 
   it('writes to consultation_requests collection', async () => {
     await createCRP(db as any, {
-      artifactKey: 'EA-WG-002-code',
+      artifactKey: 'EA-ES-002-code',
       collection: 'execution_artifacts',
       confidence: 0.3,
       context: 'test',
       agentRole: 'verifier',
-      workGraphId: 'WG-002',
+      executableSpecificationId: 'ES-002',
     })
 
     expect(db.save).toHaveBeenCalledTimes(1)
@@ -81,10 +81,10 @@ describe('CRP auto-generation (C7)', () => {
       expect.objectContaining({
         type: 'crp',
         status: 'pending',
-        relatedArtifact: 'EA-WG-002-code',
+        relatedArtifact: 'EA-ES-002-code',
         confidence: 0.3,
         agentRole: 'verifier',
-        workGraphId: 'WG-002',
+        executableSpecificationId: 'ES-002',
       }),
     )
   })
@@ -96,7 +96,7 @@ describe('CRP auto-generation (C7)', () => {
       confidence: 0.5,
       context: 'first',
       agentRole: 'coder',
-      workGraphId: 'WG-001',
+      executableSpecificationId: 'ES-001',
     })
 
     const crp2 = await createCRP(db as any, {
@@ -105,7 +105,7 @@ describe('CRP auto-generation (C7)', () => {
       confidence: 0.4,
       context: 'second',
       agentRole: 'tester',
-      workGraphId: 'WG-001',
+      executableSpecificationId: 'ES-001',
     })
 
     expect(crp1._key).not.toBe(crp2._key)
@@ -118,7 +118,7 @@ describe('CRP auto-generation (C7)', () => {
       confidence: 0.6,
       context: 'test',
       agentRole: 'coder',
-      workGraphId: 'WG-001',
+      executableSpecificationId: 'ES-001',
     })
 
     expect(crp.resolvedAt).toBeUndefined()
@@ -133,7 +133,7 @@ describe('CRP auto-generation (C7)', () => {
       confidence: 0.5,
       context: 'test',
       agentRole: 'coder',
-      workGraphId: 'WG-001',
+      executableSpecificationId: 'ES-001',
     })
     const after = new Date().toISOString()
 
@@ -153,7 +153,7 @@ describe('CRP auto-generation (C7)', () => {
       confidence: 0.5,
       context: 'test',
       agentRole: 'coder',
-      workGraphId: 'WG-001',
+      executableSpecificationId: 'ES-001',
     })).resolves.toBeDefined()
   })
 })

@@ -1,5 +1,5 @@
-id: DEL-META-SEMANTICALLY-REVIEW-PRDS
-capabilityId: BC-META-SEMANTICALLY-REVIEW-PRDS
+id: DEL-META-SEMANTICALLY-REVIEW-Intent SpecificationS
+capabilityId: BC-META-SEMANTICALLY-REVIEW-Intent SpecificationS
 overallStatus: missing
 findings:
   - dimension: execution
@@ -25,7 +25,7 @@ findings:
       - SIG-META-REPO-ARCH-AUDIT
   - dimension: integration
     status: underutilized
-    statement: Gate 1 exists but semantic review is not integrated into the compile path
+    statement: Coherence Verification exists but semantic review is not integrated into the compile path
     severity: 0.75
     confidence: 0.9
     evidenceRefs:

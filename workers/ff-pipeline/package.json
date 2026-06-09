@@ -8,18 +8,25 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests --no-file-parallelism --exclude \"src/_attic/**\"",
+    "fidelity:check": "node scripts/fidelity-check.mjs",
+    "smoke:e2e": "node scripts/smoke-e2e.mjs"
   },
   "dependencies": {
     "@cloudflare/sandbox": "latest",
     "@cloudflare/shell": "0.3.4",
     "@factory/arango-client": "workspace:*",
     "@factory/artifact-validator": "workspace:*",
+    "@factory/compiler": "workspace:*",
     "@factory/diff-engine": "workspace:*",
     "@factory/file-context": "workspace:*",
+    "@factory/learning": "workspace:*",
+    "@factory/nlah": "workspace:*",
     "@factory/ontology-loader": "workspace:*",
+    "@factory/schemas": "workspace:*",
     "@factory/task-routing": "workspace:*",
     "@factory/transmission-adapters": "workspace:*",
+    "@factory/verification": "workspace:*",
     "@weops/gdk-agent": "workspace:*",
     "@weops/gdk-ai": "workspace:*",
     "agents": "0.11.6"
@@ -28,6 +35,6 @@
     "@cloudflare/workers-types": "^4.20260101.0",
     "typescript": "^5.5.0",
     "vitest": "^2.0.0",
-    "wrangler": "^3.100.0"
+    "wrangler": "^4.0.0"
   }
 }

@@ -234,7 +234,7 @@ MEMORY.md (accumulated session patterns).
 | F8: Memory & Learning | DOES DIFFERENTLY (limited) | Writes governance assessments and telemetry to ArangoDB. Cannot update MEMORY.md files. Cannot create session handoffs. |
 | F9: Communication | CANNOT DO | No conversation with Wes. GitHub issues are one-directional escalation. |
 
-### 2.3 Coverage Summary
+### 2.3 Verification Summary
 
 - **Functions GovernorAgent CAN do (with limitations):** F2, F3, F7, F8 (partial)
 - **Functions GovernorAgent CANNOT do at all:** F1, F4, F5, F6 (mostly), F9

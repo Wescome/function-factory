@@ -1,0 +1,78 @@
+id: EL-D-Q1C-FORMULA-VERSION
+kind: ElucidationArtifact
+disposition_event_ref: D-Q1C
+source_refs:
+  - GOVD-GAS-CITY-PHASE1-INTEGRATION
+  - IS-GC-EP-FORMULA-DISPATCH
+  - UE-Q1C-1
+authored: 2026-05-21
+decidedBy: Wes (via IS V2 approval 2026-05-21)
+explicitness: explicit
+rationale: >
+  D-Q1C dispatch_flow referenced formula_version_hash (a sha256 of the on-disk
+  formula TOML) as the field stored in FORM-* and sent in CALL 2 metadata.
+  UE-Q1C-1 resolution from Gas City source (huma_handlers_formulas.go) confirmed
+  that GET /v0/city/{name}/formulas/{name} returns a structured formulaDetailResponse
+  with a version field (string, e.g. "1") — no raw TOML and no content hash.
+  IS-GC-EP-FORMULA-DISPATCH V2 uses formula_version (the string returned by CALL 1)
+  throughout. This elucidation records the term amendment and its justification.
+
+amendment:
+  original_term: formula_version_hash
+  original_definition: >
+    sha256 of the on-disk formula TOML content, computed independently by Factory
+    and verified at runtime against the Gas City GET response.
+  amended_term: formula_version
+  amended_definition: >
+    The version string returned by GET /v0/city/{cityName}/formulas/{name} in the
+    version field of the formulaDetailResponse. Declared in the formula TOML as
+    version = N (integer, rendered as string). Compared against
+    GAS_CITY_FORMULA_VERSION_{TEMPLATE} env var at dispatch time.
+
+candidate_set:
+  - option: A
+    label: formula_version (string from GC GET response)
+    description: >
+      Use the version string returned by Gas City's GET /formulas/{name} endpoint.
+      Factory compares against a pinned env var (GAS_CITY_FORMULA_VERSION_*).
+      This is the only value Gas City's API surface makes available at runtime
+      without raw TOML access.
+    score: HIGH
+    recommendation: true
+
+  - option: B
+    label: formula_version_hash (sha256 of on-disk TOML)
+    description: >
+      Hash the on-disk TOML and compare. Requires Factory to independently compute
+      the hash. Not feasible in CF Worker context: Factory has no filesystem access,
+      no SSH to Gas City host, and the GET endpoint returns no raw TOML (UE-Q1C-1).
+    score: LOW
+    rejection_class: infeasible_in_platform_context
+    rejection_predicate: >
+      Gas City GET /formulas/{name} confirmed from source to return structured fields
+      only (formulaDetailResponse: Name, Description, Version, VarDefs, Steps, Deps,
+      Preview). No raw TOML field. Factory cannot access the on-disk file directly
+      (CF Worker, no filesystem, no SSH). Therefore formula_version_hash cannot be
+      computed or verified at runtime. Option B is infeasible on the actual platform.
+
+selected_option: formula_version
+justification_predicate: >
+  The Gas City API surface (confirmed from source, UE-Q1C-1) makes only the declared
+  version string available at runtime. formula_version is the unique implementable term.
+  Version pinning via GAS_CITY_FORMULA_VERSION_{TEMPLATE} env var achieves the same
+  deployment-time safety guarantee that formula_version_hash intended — it prevents
+  dispatch against an undeclared template version.
+
+files_amended:
+  - path: specs/intent-specifications/IS-GC-EP-FORMULA-DISPATCH.md
+    change: >
+      V2: replaced all formula_version_hash references with formula_version.
+      Added governance term elucidation note referencing this EL artifact.
+  - path: specs/ontology/factory-ontology.ttl
+    change: >
+      D-NEW-2 FormulaArtifact rdfs:comment notes the amendment.
+  - note: >
+      GOVD-GAS-CITY-PHASE1-INTEGRATION D-Q1C dispatch_flow (lines 620, 586) still
+      references formula_version_hash. Those lines remain as historical record;
+      this EL artifact is the authoritative amendment. Future GOVD edits should
+      align the dispatch_flow section with formula_version.

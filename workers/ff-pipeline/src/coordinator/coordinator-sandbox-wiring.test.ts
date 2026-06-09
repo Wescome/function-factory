@@ -4,14 +4,14 @@
  * Verifies that the coordinator's private buildSandboxDeps() method:
  * 1. When env.SANDBOX is defined, delegates to the real sandbox-deps-factory
  * 2. When env.SANDBOX is undefined, returns throwing stubs (backward compat)
- * 3. Passes currentWorkGraphId through to the real factory
+ * 3. Passes currentExecutableSpecificationId through to the real factory
  *
  * Strategy: Since SynthesisCoordinator extends Agent (cloudflare:workers), it
  * cannot be instantiated in vitest. We verify:
  *   a) Source-level: the coordinator source imports and calls buildRealSandboxDeps
  *   b) Behavioral: the sandbox-deps-factory returns real deps (already tested)
  *   c) Integration: makeExecutionRole with throwing stubs falls back correctly
- *   d) Source-level: currentWorkGraphId is set before buildSandboxDeps is called
+ *   d) Source-level: currentExecutableSpecificationId is set before buildSandboxDeps is called
  */
 import { describe, it, expect, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -44,10 +44,10 @@ describe('T12-wiring: buildSandboxDeps() env.SANDBOX branching', () => {
     expect(coordinatorSrc).toMatch(/buildRealSandboxDeps\(\s*this\.env\.SANDBOX/)
   })
 
-  it('passes this.currentWorkGraphId to buildRealSandboxDeps', () => {
-    // The real factory needs the workGraphId for sandbox naming
+  it('passes this.currentExecutableSpecificationId to buildRealSandboxDeps', () => {
+    // The real factory needs the executableSpecificationId for sandbox naming
     expect(coordinatorSrc).toMatch(
-      /buildRealSandboxDeps\(\s*this\.env\.SANDBOX\s*,\s*this\.currentWorkGraphId\s*\)/,
+      /buildRealSandboxDeps\(\s*this\.env\.SANDBOX\s*,\s*this\.currentExecutableSpecificationId\s*\)/,
     )
   })
 
@@ -66,9 +66,9 @@ describe('T12-wiring: buildSandboxDeps() env.SANDBOX branching', () => {
     expect(coordinatorSrc).toMatch(/prepareWorkspace[\s\S]*?throw\s+new\s+Error/)
   })
 
-  it('stub createBackup returns empty string (non-throwing)', () => {
-    // createBackup is non-fatal; returning empty string is fine
-    expect(coordinatorSrc).toMatch(/createBackup:\s*async\s*\([^)]*\)\s*=>\s*['"]/)
+  it('stub createBackup returns a serializable placeholder handle (non-throwing)', () => {
+    // createBackup is non-fatal; placeholder must still match SandboxBackupHandle shape.
+    expect(coordinatorSrc).toMatch(/createBackup:\s*async\s*\(\s*dir\s*\)\s*=>\s*\(\{\s*id:\s*['"]sandbox-unavailable['"],\s*dir\s*\}\)/)
   })
 
   it('stub restoreBackup is a no-op (non-throwing)', () => {
@@ -78,36 +78,36 @@ describe('T12-wiring: buildSandboxDeps() env.SANDBOX branching', () => {
 })
 
 // ────────────────────────────────────────────────────────────
-// 2. currentWorkGraphId tracking
+// 2. currentExecutableSpecificationId tracking
 // ────────────────────────────────────────────────────────────
 
-describe('T12-wiring: currentWorkGraphId lifecycle', () => {
-  it('declares currentWorkGraphId as a private field', () => {
-    expect(coordinatorSrc).toMatch(/private\s+currentWorkGraphId\s*:\s*string/)
+describe('T12-wiring: currentExecutableSpecificationId lifecycle', () => {
+  it('declares currentExecutableSpecificationId as a private field', () => {
+    expect(coordinatorSrc).toMatch(/private\s+currentExecutableSpecificationId\s*:\s*string/)
   })
 
-  it('initializes currentWorkGraphId with a default value', () => {
+  it('initializes currentExecutableSpecificationId with a default value', () => {
     // Should have a default so buildSandboxDeps never gets undefined
-    expect(coordinatorSrc).toMatch(/currentWorkGraphId\s*:\s*string\s*=\s*['"]/)
+    expect(coordinatorSrc).toMatch(/currentExecutableSpecificationId\s*:\s*string\s*=\s*['"]/)
   })
 
-  it('sets currentWorkGraphId at the start of synthesize()', () => {
-    // In synthesize(), currentWorkGraphId must be set from the workGraph
-    expect(coordinatorSrc).toMatch(/this\.currentWorkGraphId\s*=\s*workGraphId/)
+  it('sets currentExecutableSpecificationId at the start of synthesize()', () => {
+    // In synthesize(), currentExecutableSpecificationId must be set from the executableSpecification
+    expect(coordinatorSrc).toMatch(/this\.currentExecutableSpecificationId\s*=\s*executableSpecificationId/)
   })
 
-  it('currentWorkGraphId is set BEFORE buildSandboxDeps is called', () => {
+  it('currentExecutableSpecificationId is set BEFORE buildSandboxDeps is called', () => {
     // Extract the synthesize method body and verify ordering
     const synthesizeStart = coordinatorSrc.indexOf('async synthesize(')
-    const setWorkGraphId = coordinatorSrc.indexOf('this.currentWorkGraphId = workGraphId', synthesizeStart)
+    const setExecutableSpecificationId = coordinatorSrc.indexOf('this.currentExecutableSpecificationId = executableSpecificationId', synthesizeStart)
     const callBuildDeps = coordinatorSrc.indexOf('this.buildSandboxDeps()', synthesizeStart)
 
     // Both must exist
-    expect(setWorkGraphId).toBeGreaterThan(-1)
+    expect(setExecutableSpecificationId).toBeGreaterThan(-1)
     expect(callBuildDeps).toBeGreaterThan(-1)
 
     // Set must come before use
-    expect(setWorkGraphId).toBeLessThan(callBuildDeps)
+    expect(setExecutableSpecificationId).toBeLessThan(callBuildDeps)
   })
 })
 
@@ -161,7 +161,7 @@ describe('T12-wiring: buildRealSandboxDeps produces valid SandboxDeps', () => {
     const { buildSandboxDeps } = await import('./sandbox-deps-factory.js')
     const fakeBinding = { idFromName: vi.fn() }
 
-    const deps: SandboxDeps = buildSandboxDeps(fakeBinding, 'WG-wire-test')
+    const deps: SandboxDeps = buildSandboxDeps(fakeBinding, 'ES-wire-test')
 
     expect(typeof deps.execInSandbox).toBe('function')
     expect(typeof deps.prepareWorkspace).toBe('function')
@@ -173,10 +173,10 @@ describe('T12-wiring: buildRealSandboxDeps produces valid SandboxDeps', () => {
     const { buildSandboxDeps } = await import('./sandbox-deps-factory.js')
     const fakeBinding = { idFromName: vi.fn() }
 
-    const deps = buildSandboxDeps(fakeBinding, 'WG-wire-test')
+    const deps = buildSandboxDeps(fakeBinding, 'ES-wire-test')
     await deps.execInSandbox('{}')
 
-    expect(mockGetSandbox).toHaveBeenCalledWith(fakeBinding, 'synth-WG-wire-test')
+    expect(mockGetSandbox).toHaveBeenCalledWith(fakeBinding, 'synth-ES-wire-test')
   })
 })
 
@@ -193,7 +193,7 @@ describe('T12-wiring: throwing stubs trigger callModel fallback (integration)', 
     return {
       execInSandbox: async () => { throw new Error('Sandbox not yet deployed — falling back to callModel') },
       prepareWorkspace: async () => { throw new Error('Sandbox not yet deployed') },
-      createBackup: async () => '',
+      createBackup: async (dir) => ({ id: 'sandbox-unavailable', dir }),
       restoreBackup: async () => {},
     }
   }
@@ -230,8 +230,8 @@ describe('T12-wiring: throwing stubs trigger callModel fallback (integration)', 
     })
 
     const state: GraphState = {
-      ...createInitialState('WG-fallback', {
-        id: 'WG-fallback',
+      ...createInitialState('ES-fallback', {
+        id: 'ES-fallback',
         title: 'Fallback test',
         atoms: [{ id: 'a1', description: 'test', assignedTo: 'coder' }],
         invariants: [],
@@ -270,8 +270,8 @@ describe('T12-wiring: throwing stubs trigger callModel fallback (integration)', 
     })
 
     const state: GraphState = {
-      ...createInitialState('WG-fallback-t', {
-        id: 'WG-fallback-t',
+      ...createInitialState('ES-fallback-t', {
+        id: 'ES-fallback-t',
         title: 'Tester fallback',
         atoms: [],
         invariants: [],
@@ -320,13 +320,16 @@ describe('T12-wiring: throwing stubs trigger callModel fallback (integration)', 
       .rejects.toThrow(/Sandbox not/)
   })
 
-  it('stub createBackup resolves to empty string (non-fatal)', async () => {
+  it('stub createBackup resolves to a serializable placeholder handle (non-fatal)', async () => {
     const stubs = makeThrowingStubs()
-    await expect(stubs.createBackup('/workspace')).resolves.toBe('')
+    await expect(stubs.createBackup('/workspace')).resolves.toEqual({
+      id: 'sandbox-unavailable',
+      dir: '/workspace',
+    })
   })
 
   it('stub restoreBackup resolves to void (non-fatal)', async () => {
     const stubs = makeThrowingStubs()
-    await expect(stubs.restoreBackup('handle')).resolves.toBeUndefined()
+    await expect(stubs.restoreBackup({ id: 'handle', dir: '/workspace' })).resolves.toBeUndefined()
   })
 })

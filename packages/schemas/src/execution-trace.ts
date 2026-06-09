@@ -4,7 +4,7 @@ import { ExecutionNodeRecord } from "./controlled-effectors.js"
 
 export const ExecutionTrace = Lineage.extend({
   id: ArtifactId.refine((s) => s.startsWith("EXT-"), "ExecutionTrace IDs must start with EXT-"),
-  sourceWorkGraphId: ArtifactId,
+  sourceExecutableSpecificationId: ArtifactId,
   sourceArchitectureCandidateId: ArtifactId,
   sourceSelectionId: ArtifactId,
   sourceAdmissionId: ArtifactId,

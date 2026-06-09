@@ -14,10 +14,10 @@ const SPEC_DIRS: Record<string, string> = {
   pressures: 'specs_pressures',
   capabilities: 'specs_capabilities',
   functions: 'specs_functions',
-  prds: 'specs_prds',
-  workgraphs: 'specs_workgraphs',
+  'intent-specifications': 'intent_specifications',
+  'executable-specifications': 'executable_specifications',
   invariants: 'specs_invariants',
-  'coverage-reports': 'specs_coverage_reports',
+  'verification-reports': 'verification_reports',
   'critic-reviews': 'specs_critic_reviews',
 }
 
@@ -69,7 +69,7 @@ function parseYamlFile(content: string): Record<string, unknown> {
   return YAML.parse(content) ?? {}
 }
 
-function parsePrdFrontmatter(content: string): Record<string, unknown> {
+function parseIntentSpecificationFrontmatter(content: string): Record<string, unknown> {
   const match = content.match(/^---\n([\s\S]*?)\n---/)
   const result: Record<string, unknown> = match ? YAML.parse(match[1]) ?? {} : {}
   result.content = content
@@ -84,13 +84,13 @@ function resolveCollection(artifactId: string): string | null {
     BC: 'specs_capabilities',
     FP: 'specs_functions',
     FN: 'specs_functions',
-    PRD: 'specs_prds',
-    WG: 'specs_workgraphs',
+    IS: 'intent_specifications',
+    ES: 'executable_specifications',
     INV: 'specs_invariants',
-    CR: 'specs_coverage_reports',
+    VR: 'verification_reports',
     CRV: 'specs_critic_reviews',
     CONTRACT: 'specs_functions',
-    ATOM: 'specs_prds',
+    ATOM: 'intent_specifications',
   }
   return map[prefix] ?? null
 }
@@ -116,7 +116,7 @@ async function seedSpecs() {
       let doc: Record<string, unknown>
 
       if (extname(file) === '.md') {
-        doc = parsePrdFrontmatter(content)
+        doc = parseIntentSpecificationFrontmatter(content)
       } else {
         doc = parseYamlFile(content)
       }
@@ -190,8 +190,8 @@ async function seedMemory() {
 async function verifyGraph() {
   const collections = [
     'specs_signals', 'specs_pressures', 'specs_capabilities',
-    'specs_functions', 'specs_prds', 'specs_workgraphs',
-    'specs_coverage_reports', 'specs_critic_reviews',
+    'specs_functions', 'intent_specifications', 'executable_specifications',
+    'verification_reports', 'specs_critic_reviews',
   ]
 
   console.log('\n=== Verification ===')

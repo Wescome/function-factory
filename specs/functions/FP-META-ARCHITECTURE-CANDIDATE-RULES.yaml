@@ -4,8 +4,8 @@ name: architecture_candidate_rules
 purpose: Define candidate emission rules, selection criteria, and required fields
 functionType: control
 expectedInputs:
-  - PRDDraft
-  - WorkGraph
+  - IntentSpecificationDraft
+  - Executable Specification
   - doctrine sources
 expectedOutputs:
   - candidate emission rules

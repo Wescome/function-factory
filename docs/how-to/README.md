@@ -1,0 +1,29 @@
+# How-To Guides
+
+This directory contains task-oriented operating procedures for the Function
+Factory. A how-to should help an operator complete a concrete task without
+also being the canonical architecture, contract, or backlog for that area.
+
+## Current Guides
+
+| Guide | Task |
+| --- | --- |
+| [`OPERATOR_RUN_CONTROLS.md`](OPERATOR_RUN_CONTROLS.md) | Use authenticated live run note, retry, redispatch, and cancel controls. |
+| [`OPERATOR_RUNBOOK_GAS_CITY_PRODUCTION.md`](OPERATOR_RUNBOOK_GAS_CITY_PRODUCTION.md) | Run day-to-day production operations for the Gas City integration path. |
+| [`INCIDENT_RUNBOOK_GAS_CITY.md`](INCIDENT_RUNBOOK_GAS_CITY.md) | Triage and recover dispatch/webhook/autonomy production incidents. |
+| [`SLO_DASHBOARD.md`](SLO_DASHBOARD.md) | Run and interpret the production SLO dashboard checks. |
+| [`SMOKE_E2E_RUNBOOK.md`](SMOKE_E2E_RUNBOOK.md) | Run the post-deploy `/smoke/e2e` Gas City dispatch liveness probe and interpret its outcomes. |
+| [`STRATEGY_RECIPES_DOGFOOD.md`](STRATEGY_RECIPES_DOGFOOD.md) | Run the Strategy.Recipes autonomous-scheduler dogfood flow. |
+
+## Current Boundary
+
+No other root-level `docs/*.md` file is currently classified as a pure how-to:
+
+| Document | Current mode | Reason |
+| --- | --- | --- |
+| [`../AUTONOMOUS_FACTORY_TRANSITION.md`](../AUTONOMOUS_FACTORY_TRANSITION.md) | Explanation | Defines the operating model and transition sequence. |
+| [`../TERMINAL_INTEGRATION_CONTRACT.md`](../TERMINAL_INTEGRATION_CONTRACT.md) | Reference | Defines the terminal integration contract. |
+| [`../TERMINAL_IMPLEMENTATION_BACKLOG.md`](../TERMINAL_IMPLEMENTATION_BACKLOG.md) | Reference | Tracks implementation atoms and phase gates. |
+
+Move additional files here only when the document is primarily procedural. Keep
+a compatibility stub at the old path while the docs migration is in progress.

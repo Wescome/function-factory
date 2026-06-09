@@ -3,11 +3,11 @@
  * CLI entry for the Factory compiler.
  *
  * Usage-
- *   pnpm compile <path-to-prd.md> [--mode bootstrap|steady_state]
- *                                  [--coverage-reports-dir <path>]
+ *   pnpm compile <path-to-intent-specification.md> [--mode bootstrap|steady_state]
+ *                                  [--verification-reports-dir <path>]
  *
- * Exits 0 on Gate 1 pass, 1 on Gate 1 fail, 2 on compile error
- * (parse failure, schema violation, IO error, etc.). The Coverage
+ * Exits 0 on Coherence Verification pass, 1 on Coherence Verification fail, 2 on compile error
+ * (parse failure, schema violation, IO error, etc.). The Verification
  * Report is emitted on disk regardless of verdict — a fail exit
  * does not suppress report emission.
  */
@@ -17,16 +17,16 @@ import type { CompileOptions } from "./compile.js"
 import type { FactoryMode } from "./types.js"
 
 interface ParsedArgs {
-  readonly prdPath: string
+  readonly intentSpecificationPath: string
   readonly options: CompileOptions
 }
 
 function parseArgs(argv: readonly string[]): ParsedArgs {
   // Skip node + script path; walk positional and flag arguments.
   const args = argv.slice(2)
-  let prdPath: string | null = null
+  let intentSpecificationPath: string | null = null
   let mode: FactoryMode | undefined
-  let coverageReportsDir: string | undefined
+  let verificationReportsDir: string | undefined
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]
@@ -39,32 +39,32 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
       }
       mode = next
       i++
-    } else if (arg === "--coverage-reports-dir") {
+    } else if (arg === "--verification-reports-dir") {
       const next = args[i + 1]
       if (next === undefined) {
-        throw new Error("--coverage-reports-dir requires a path argument")
+        throw new Error("--verification-reports-dir requires a path argument")
       }
-      coverageReportsDir = next
+      verificationReportsDir = next
       i++
     } else if (arg !== undefined && !arg.startsWith("--")) {
-      if (prdPath !== null) {
+      if (intentSpecificationPath !== null) {
         throw new Error(`Unexpected positional argument- ${arg}`)
       }
-      prdPath = arg
+      intentSpecificationPath = arg
     } else {
       throw new Error(`Unknown flag- ${arg}`)
     }
   }
 
-  if (prdPath === null) {
-    throw new Error("Usage- compile <path-to-prd.md> [--mode ...] [--coverage-reports-dir ...]")
+  if (intentSpecificationPath === null) {
+    throw new Error("Usage- compile <path-to-intent-specification.md> [--mode ...] [--verification-reports-dir ...]")
   }
 
   const options: CompileOptions = {
     ...(mode !== undefined && { mode }),
-    ...(coverageReportsDir !== undefined && { coverageReportsDir }),
+    ...(verificationReportsDir !== undefined && { verificationReportsDir }),
   }
-  return { prdPath, options }
+  return { intentSpecificationPath, options }
 }
 
 async function main(): Promise<void> {
@@ -77,14 +77,14 @@ async function main(): Promise<void> {
   }
 
   try {
-    const result = await compile(parsed.prdPath, parsed.options)
+    const result = await compile(parsed.intentSpecificationPath, parsed.options)
     process.stdout.write(
-      `Gate 1- ${result.report.overall.toUpperCase()}\n` +
-        `PRD- ${result.intermediates.prd.id}\n` +
+      `Coherence Verification- ${result.report.overall.toUpperCase()}\n` +
+        `IS- ${result.intermediates.intentSpecification.id}\n` +
         `Mode- ${result.mode}\n` +
-        `Coverage Report- ${result.reportPath}\n` +
-        (result.workgraphPath !== null
-          ? `WorkGraph- ${result.workgraphPath}\n`
+        `Verification Report- ${result.reportPath}\n` +
+        (result.executableSpecificationPath !== null
+          ? `Executable Specification- ${result.executableSpecificationPath}\n`
           : "") +
         `Atoms- ${result.intermediates.atoms.length}, ` +
         `Contracts- ${result.intermediates.contracts.length}, ` +

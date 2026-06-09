@@ -30,8 +30,8 @@ export type CandidateConvergencePolicy = z.infer<typeof CandidateConvergencePoli
 
 export const ArchitectureCandidate = Lineage.extend({
   id: ArtifactId.refine((s) => s.startsWith("AC-"), "ArchitectureCandidate IDs must start with AC-"),
-  sourcePrdId: ArtifactId,
-  sourceWorkGraphId: ArtifactId,
+  sourceIntentSpecificationId: ArtifactId,
+  sourceExecutableSpecificationId: ArtifactId,
   candidateStatus: CandidateStatus,
   topology: CandidateTopology,
   modelBinding: CandidateModelBinding,

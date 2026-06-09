@@ -3,6 +3,343 @@
 Past architectural choices that would be costly to revisit. Do not
 re-litigate without explicit architect approval.
 
+## 2026-05-31: DO migration — replace bd/Dolt bead store + ArangoDB with FactoryStore DO
+
+**Decision:** Replace `bd`/Dolt bead store and ArangoDB artifact store with a single Cloudflare Durable Object (`FactoryStore`) backed by one SQLite database. Two table namespaces share one `ctx.storage.sql`: execution plane (`beads`, `deps`) and knowledge plane (`specifications`, `verdicts`, `lineage_edges`, etc.). Real SQLite foreign keys enforce `emission_bead_id → beads(id)` across the boundary.
+
+**Architect verdict (2026-05-31):** ACCEPTABLE. Every bd/Dolt feature loss is either (a) already compensated by Factory lineage (`source_refs` + `emission_bead_id` + `lineage_mismatch` 409 enforcement), (b) structurally eliminated by DO single-writer serialization (merge safety), or (c) unused by the pipeline today (audit log, rollback, `bd doctor --agent`, rig stores). The migration removes two confirmed production failure modes — Dolt cold-start/adoption hang and unbounded commit-graph growth — for features the Factory never calls.
+
+**Three guardrails (see DO-BEAD-STORE-ARCHITECTURE.md §13):**
+- **G1 (rig-store gate):** No formula ships `[[rig]]` blocks until the per-rig DO routing question is answered.
+- **G2 (throughput watch):** Revisit DO single-writer model if `max_active_sessions` scales ~10x.
+- **G3 (operator runbook):** Re-dispatch is the sanctioned recovery for corrupted bead state. Must be documented before WP-DO-5 cleanup ships.
+
+**References:**
+- Full Architect assessment: `specs/reference/DO-MIGRATION-RESEARCH.md §8`
+- Implementation spec: `specs/reference/DO-BEAD-STORE-ARCHITECTURE.md`
+- 5 work packages in §9. WP-DO-1 (FactoryStore TypeScript) and WP-DO-2 (DoStore Go client) are parallel. WP-DO-5 (cleanup: remove Dolt + ArangoDB) ships last.
+
+**Status:** Active. Approved 2026-05-31.
+
+---
+
+## 2026-05-30: Release step routing — E2 supervisor-local no-op harness provider
+
+**Decision:** The Release step in `factory-coding-v1.toml` is routed to a new
+`supervisor-local` harness provider (E2) rather than to `cloudflare-sandbox` or
+`pi-rpc`. This is not a real remote runtime — it is a no-op at the harness
+level whose `ExecuteStep` returns the accumulated molecule envelope and allows
+`runFidelityValidator` (already supervisor-resident Go) to proceed with the
+full molecule evidence.
+
+**Root cause that triggered this decision (Architect finding, 2026-05-30):**
+
+The original `runtime_requirements = ["command_exec", "file_materialize"]` on
+the Release step was a category error. `fidelity-release.sh` does NOT run
+inside a provider's sandbox. Gas City's supervisor assembles `fidelity-job.json`
+in Go (`harness_fidelity.go`) from the provider response envelope it already
+holds in memory, writes it to disk, then runs the script as a local subprocess.
+The validator reads only that one JSON document — no PI container workspace,
+no file handoff across providers. Routing Release to `cloudflare-sandbox` made
+Gas City dispatch a throwaway sandbox that returned an empty envelope; the
+validator correctly `fail_closed` on empty evidence.
+
+The problem was never "cross-provider workspace handoff" — it was wrong
+capability-key routing.
+
+**E1 vs E2 rationale:**
+
+- **E1** (introduce `fidelity_finalize` capability key, supervisor owns the
+  terminator natively) requires amending the canonical 12-key capability set —
+  an architecture gate.
+- **E2** (new `supervisor-local` no-op harness provider) reuses the already-
+  blessed noop pattern from `phantom-session-provider.md` one layer up, at the
+  harness level. No capability-key-set amendment. Zero remote cost. E1 remains
+  the long-term clean form and is not foreclosed.
+
+**E1 gate:** Amending the 12-key set is an architecture decision, not an
+implementation choice. It requires a separate DECISIONS entry. Do not amend the
+canonical key set without explicit Architect approval.
+
+**The real load-bearing change (must ship alongside E2):**
+
+`buildFidelityJob` in `harness_fidelity.go` ships empty `DeclaredOutputs` and
+`PriorStepVerdicts`. The supervisor must accumulate per-step `ExecutionResponse`
+envelopes across the molecule and populate these fields before the Release step
+runs. Without this, the fidelity validator will `fail_closed` on empty prior
+verdicts regardless of routing.
+
+**Files to change:**
+
+- `factory-coding-v1.toml` line ~252: `runtime_requirements = ["command_exec",
+  "file_materialize"]` → a key that maps to `supervisor-local` provider
+- `city.toml` (`factory/city.toml`): add `[provider.supervisor-local]` block
+  with all 8 harness slots (AC-REG4), finalize capability key only
+- `Wescome/gascity eai/cloudflare`: `harness_dispatch.go` — skip
+  `provider.ExecuteStep` for terminator bead, pass accumulated molecule
+  envelope into `runFidelityValidator` directly (or via the no-op provider)
+- `Wescome/gascity eai/cloudflare`: `harness_fidelity.go` — populate
+  `DeclaredOutputs` and `PriorStepVerdicts` from retained per-step responses
+
+**Current state (2026-05-30):** Routing fixed in `cde4dc2e` (Release skips
+remote dispatch, calls `runFidelityValidator` locally). Envelope accumulation
+implemented — `DeclaredOutputs` and `PriorStepVerdicts` populated from sibling
+bead metadata.
+
+**Status:** Implemented. E1 remains the architectural ideal; E2 unblocks execution.
+Supersedes the original `runtime_requirements` in `factory-coding-v1.toml`.
+
+---
+
+## 2026-05-30: bd bead store dependencies for Gas City Container
+
+**Decision:** The Gas City Container requires three binaries beyond the original
+image to use `beads.provider = "bd"`:
+
+1. **Dolt 2.0.3** (was 1.44.4) — the `gc` binary generates a `dolt-config.yaml`
+   with fields (`back_log`, `max_connections_timeout_millis`, `auto_gc_behavior`)
+   that only exist in Dolt 2.x. Dolt 1.x exits at startup with yaml parse error.
+2. **git** — `gc-beads-bd.sh` calls `git config --global beads.role` during bead
+   store init.
+3. **bd v1.0.4** (`gastownhall/beads`) — `gc-beads-bd.sh` calls `bd init` via the
+   bd CLI. Install from `beads_1.0.4_linux_amd64.tar.gz`.
+
+All three are now in the Dockerfile (`eai/examples/factory/weops-gascity/stage/
+supervisor/Dockerfile`, image `5cb1caae`).
+
+**Known remaining gap:** With all dependencies present, the city reaches
+`adopting_sessions` phase but then hangs. The adoption barrier
+(`runAdoptionBarrier`) does not panic and does not complete — suggesting
+`sp.ListRunning("")` (the subprocess session provider's session enumeration)
+is blocking. Root cause not yet identified. City reverted to
+`beads.provider = "file"` to restore dispatch while this is investigated.
+
+**Status:** Active (partial). `bd` works up to `adopting_sessions`. Blocking
+hang is a separate investigation item.
+
+---
+
+## 2026-05-21: Factory→Gas City dispatch uses parametric template model (D-Q1C)
+
+**Decision:** Factory dispatches to Gas City using a **parametric template per
+domain adapter**, not per-ES compiled TOML. One canonical template
+(`factory-coding-v1.toml`) is operator-deployed to Gas City's `formulas/`
+directory at city-init. Per-dispatch variation flows through the sling call's
+`vars` map only.
+
+**Dispatch sequence (3 HTTP calls, Factory → Gas City):**
+1. `GET /v0/city/{cityName}/formulas/factory-coding-v1` — version probe, SHA verify
+2. `POST /v0/city/{cityName}/beads` — create root Bead with 5 lineage labels
+   (`fn-id:`, `is-id:`, `es-id:`, `form-id:`, `factory-attempt:`) + dispatch metadata;
+   `Idempotency-Key: sha256(es_id|version_hash|attempt)`
+3. `POST /v0/city/{cityName}/sling` — `formula: "factory-coding-v1"`,
+   `attached_bead_id: <from step 2>`, `vars: { fn_id, is_id, es_id, form_id,
+   factory_attempt, ff_webhook_url, ep_id, rig_root, max_iterations,
+   role_{planner,coder,verifier}_{prompt,inputs,outputs}, parameters_json }`
+
+**FORM-* artifact** captures `(template_name, version_hash, vars, prompts_resolved)`
+— the parametric specification. NOT raw TOML substrate. TOML substrate is
+operator-managed config.
+
+**D-NEW-2 ontology amendment required:** FormulaCompilation produces
+parametric spec (template + vars + resolved prompts), not raw TOML.
+Tier: procedural→procedural. Lineage edge: compiled_from EP-*.
+
+**GC→Factory notification:** RELEASE `[[step]]` in template HTTP POSTs
+`molecule.completed` to Factory `POST /webhooks/gascity` with HMAC signature.
+Factory never calls Gas City during execution.
+
+**Rejected alternatives:** SSH/SCP (CF Workers can't SSH), pack import (no POST
+endpoint in Gas City), TOML-in-vars (vars inject into loaded formula, not replace
+it), Gas City contribution (zero-contribution constraint in Phase 1), R2 SEED pull
+(formula must be on disk before sling resolves it).
+
+**Recorded in:** GOVD-GAS-CITY-PHASE1-INTEGRATION.yaml D-Q1C. Approved by Wes 2026-05-21.
+
+---
+
+## 2026-05-19: Gas City replaces NLAH as Factory execution substrate
+
+**Decision:** Gas City (`github.com/gastownhall/gascity` v1.0.0) is the
+Factory's execution layer. ADR-009 (NLAH as harness runtime) is superseded.
+The 9 pending NLAH upstream contributions are abandoned. No NLAH code lands
+in the Factory.
+
+The two-layer split: **Factory** (CF Workers + ArangoDB) = governance layer
+(Signal → IS → ES → VR → FN lifecycle, Crystallizer, Verification). **Gas
+City** (external: VPS Phase 0 → k8s production) = execution layer (Sessions,
+Beads, Formulas, Convergence, Event Bus, Health Patrol, GUPP).
+
+Five integration points connect them (revised 2026-05-20 per SE Ontology §7):
+(1) Execution Packet → Formula Compiler (deterministic, Factory compiles EP to
+Gas City Formula TOML; EP.DomainAdapterBinding.executionRequest.parameters →
+[vars]; EP.RoleInstruction[] → [[steps]]); (2) Beads as lineage carriers (every
+Bead labeled fn-id/is-id/es-id/form-id); (3) Molecule completion — VERIFY stage
+produces verifier_report.md (Verdict: PASS/FAIL), convergence gate reads it
+internally, RELEASE [[step]] HTTP POSTs molecule.completed to Factory (no Factory
+endpoint called during convergence); (4) Factory Fidelity Verification on
+molecule.completed (structural: evidence completeness + acceptance criteria
+verdict bijection — deterministic, no LLM; Factory creates VR-* kind=fidelity);
+(5) Full amendment loop (Fidelity VR fail → new IS-V2 → ES-V2 → Execution
+Packet → Formula → RELEASE step posts to Factory). IP-3 (Factory
+/verify/coherence endpoint during Gas City execution) is REMOVED — wrong per SE
+Ontology §7. Coherence VR is pre-dispatch only.
+
+**Rationale:** Gas City is NLAH at production scale: Formula + Convergence =
+HarnessSpec + runHarness, but with GUPP (work survives crashes), NDI
+(convergence through durable Beads), multi-agent routing, health patrol, and
+Event Bus. NLAH was v0.1.0 with 9 upstream contributions pending — none
+landed. Gas City is v1.0.0 running 20–30 agents in production. ADR-009 was
+never Architect-approved, providing a clean supersession window before any
+NLAH code landed. Core principles inherited: ZFC (zero judgment in Go),
+Bitter Lesson (primitives improve with model capability), GUPP, NDI, ZERO
+hardcoded roles.
+
+**Consequences:** IS-HARNESS-DSL-v1 archived. `harness-bridge.ts` NLAH path
+replaced by Gas City webhook bridge. `harness-dispatcher.ts` NLAH dispatch
+replaced by ES → Formula compiler dispatch. StateGraph retirement gates
+(originally ADR-009 §8) re-scoped: Gas City convergence replaces NLAH as
+migration target; five gate conditions unchanged. Runtime: VPS Phase 0
+validation, k8s production.
+
+**Status:** Active. See `specs/reference/ADR-010-gas-city-supersedes-nlah.md`.
+Supersedes the 2026-05-16 NLAH entry below and ADR-009.
+
+---
+
+## 2026-05-18: Pi singleton Containers are coordinated by Worker version
+
+**Decision:** The Pi Cloudflare Container remains a singleton Durable Object
+instance for warm stage dispatch, but its lifecycle is governed by the active
+Worker version. The Worker binds `CF_VERSION_METADATA`; `PiContainer` persists
+the Worker version that started the singleton container; any running container
+with a missing or mismatched started version is destroyed and restarted before
+stage dispatch. Pi container health and execution observations must expose the
+runtime identity used to start the process.
+
+**Rationale:** Cloudflare updates Worker code immediately while Container
+instances roll separately. A singleton Durable Object addressed by
+`idFromName("pi")` can therefore keep serving a stale image after a successful
+Worker deploy unless the Worker/container boundary carries explicit version
+state. `containers info` is useful platform telemetry, but it is not an
+application invariant. The application needs its own desired-vs-started
+version contract.
+
+**Consequences:** Rollout verification must check `/debug/pi-container/status`
+and Pi `/health` or stage observations for matching `desiredBuildId`,
+`startedBuildId`, and `containerRuntime.workerVersionId` before trusting a
+smoke result. Manual restarts are explicit via `POST /debug/pi-container/restart`.
+
+**Status:** Active.
+
+## 2026-05-16: NLAH is the Trellis harness runtime substrate
+
+**Decision:** `/Users/wes/nlah` (TypeScript `"nlah"` v0.1.0, unscoped — scoping to
+`@wescome/nlah` is upstream contribution #0) is adopted as the **single,
+domain-agnostic execution primitive** for all Trellis task flows. NLAH owns the
+authoritative `HarnessSpec` Zod schema, `compileHarness()`, harness state machine
+(`initHarness` + `advanceHarness` pure functions after contribution #1c), gate
+registry, worker adapters (`LoomCliWorkerAdapter`), and failure-taxonomy execution.
+There is one execution primitive. ADR-004's core principle — Cloudflare platform
+primitives over LangGraph — is preserved: NLAH itself uses CF primitives, not LangGraph.
+
+**Execution model:** Event-driven. `initHarness()` initializes state in the
+RunCoordinator DO; `advanceHarness()` is called on each stage completion; a CF Queue
+delivers stage work; the Workflow issues `step.waitForEvent('harness-complete', {
+timeout: '7 days' })`. A blocking `runHarness()` loop inside `step.do()` cannot handle
+real agent wall-clock durations (25–100 min coding, unbounded synthesis repair).
+
+**Rationale:** NLAH already implements what IS-HARNESS-DSL-v1 was speccing from
+scratch: typed schema (Zod), compiler with 9 assertion checks, linear-graph runner,
+8-gate registry, `LoomCliWorkerAdapter` wrapping pi CLI, failure taxonomy execution.
+Authoring a parallel TypeScript schema and runtime inside Trellis would create two
+competing harness runtimes — a substrate fork the Factory does not support. The
+correct boundary is: NLAH = execution substrate; Factory = governance layer
+(verification reports, lineage enforcement, CF-compatible ArtifactManager interface).
+
+**Integration approach:**
+- `packages/nlah` workspace package — wraps `@wescome/nlah`; exposes `HarnessSpec`,
+  `compileHarness`, `initHarness`, `advanceHarness` to ff-pipeline
+- Event-driven `harness-bridge.ts` — `startHarnessRun()` initializes RunCoordinator DO;
+  DO calls `advanceHarness()` on each stage completion; Workflow waits on event
+- `packages/verification/src/harness-completeness-verification.ts` — Factory
+  contributes VR-* artifacts; input is NLAH's `CompiledHarness`, not a re-parsed spec
+- Upstream NLAH contributions required (9 total): #0 (scoping), #1a (ArtifactManager
+  interface), #1b (injectable fileReader), #1c (initHarness + advanceHarness), #1d
+  (loadHarness string overload), #2 (failure semantics), #3 (trace provenance), #4
+  (lineage field), #5 (gate registry export)
+
+**IS impact:** IS-HARNESS-DSL-v1 (v3) is an integration and governance spec. It does
+not author a schema, compiler, or `HarnessBindings`. It specifies the event-driven
+bridge, RunCoordinator DO extension, all 9 upstream contribution requests, type
+contracts, CfArtifactManager constructor, Container dispatch API, and test infrastructure.
+
+**StateGraph retirement gates:** `graph-runner.ts` and `coordinator/graph.ts` are
+retired only when all of: (1) NLAH v0.2 Phase 3 (return_to_stage) lands; (2)
+`synthesis.harness.yaml` compiles; (3) `runHarnessCompletenessVerification` passes on
+it; (4) all synthesis DO integration tests pass with event-driven path; (5) Architect
+reviews migrated synthesis harness. Not an accomplished fact — gated.
+
+**Gate:** ADR-009 (`specs/reference/ADR-009-nlah-runtime-replaces-state-graph.md`)
+must be Architect-approved before IS-HARNESS-DSL-v1 is revised and before any code lands.
+
+**Status:** ~~Active~~ **Superseded by 2026-05-19 Gas City entry and ADR-010.** NLAH abandoned. No code lands.
+
+---
+
+## 2026-05-11: Learning evidence substrate precedes Dream DO
+
+**Decision:** Implement Factory learning as a disabled-by-default Learning
+Evidence Substrate before any active Dream Durable Object. Learning documents
+are Arango collection documents with `source_refs`, not canonical artifact
+families, until a later artifact identity decision. Phases 1-6 use collection
+documents only and do not write `lineage_edges` or participate in
+`lineage_graph`.
+
+**Rationale:** The DREAM-DO source material is directionally useful, but the
+current runtime has concrete constraints: Workflow steps must not call Durable
+Objects, terminal pipeline results exit through multiple return paths, the
+Arango client's create path is not retry-safe under Workflow replay, and no
+complete governance apply path exists for template or routing changes. Starting
+with durable evidence capture gives the Factory learning memory without
+creating a second control loop or allowing unreviewed learning output to affect
+Verification, compilation, routing, or lifecycle.
+
+**Consequences:** `@factory/learning` owns pure schemas and deterministic
+derivations. Pipeline integration is optional and disabled by default. Runtime
+writes must use deterministic keys, UPSERT semantics, bounded timeout, and
+caught failure behavior. Template promotion, warm-start, routing proposals, and
+Dream DO mutation remain blocked until typed governance requests, mutation
+journals, detectors, and negative tests exist.
+
+**Status:** Active.
+
+## 2026-05-10: Intent/Executable/Verification IDs and storage are canonical
+
+**Decision:** Hard-cut active repository surfaces from `IS-*`,
+`ES-*`, `VR-*`, `specs/intent-specifications`, `specs/executable-specifications`,
+`specs/verification-reports`, `intent_specifications`, `executable_specifications`,
+`verification_reports`, and `verification_status` to canonical
+`IS-*`, `ES-*`, `VR-*`, `specs/intent-specifications`,
+`specs/executable-specifications`, `specs/verification-reports`,
+`intent_specifications`, `executable_specifications`,
+`verification_reports`, and `verification_status`.
+
+**Rationale:** The architect explicitly rejected compatibility baggage during
+the ontology refactor. Keeping legacy prefixes and storage names active defeats
+the Domain Factory generalization because compiler, runtime, docs, and database
+surfaces would still teach agents the old coding-factory categories.
+
+**Consequences:** Historical names may survive only inside explicitly archived
+external evidence. Active schemas, compiler output, worker runtime storage,
+artifact validation, docs audits, and repository instructions must use the
+canonical names. Any future reintroduction of legacy names requires a new
+decision with an explicit migration reason.
+
+**Status:** Active. Supersedes the compatibility portions of the 2026-05-10
+Pass 8 compatibility-label decision and the 2026-04-18 Verification Gate naming
+decision for active implementation surfaces.
+
 ## 2026-04-18: Factory built by the Factory as first application
 **Decision:** The first application of the Factory is the Factory's own
 construction. Every Function in the Factory codebase carries lineage back to
@@ -16,6 +353,58 @@ doubles as bootstrap proof.
 for v1), RevOps (was an earlier candidate but rejected as not
 architecture-proving), password reset (an illustrative example from source
 material, not a real candidate).
+**Status:** Active.
+
+## 2026-05-10: Current compiler Pass 8 is a Structural Assembly compatibility label
+
+**Decision:** Treat the current repository's `Pass 8` Executable Specification assembly
+surface as a legacy compatibility implementation name for Structural Assembly
+completion, not as the ontology's future Instruction Tuning category.
+`packages/compiler/src/passes/08-assemble-executable-specification.ts`,
+`assembleWorkgraph`, and `emitWorkgraph` remain stable compatibility surfaces
+until a one-family physical rename proposal is approved. New code should prefer
+the ontology-primary aliases `assembleExecutableSpecification` and
+`emitExecutableSpecification`.
+
+**Rationale:** `FF-ONTOLOGY-ADDENDUM-A.md` maps Passes 4-6 to Structural
+Assembly and reserves Pass 8 for future Instruction Tuning. The live compiler,
+historical Intent Specifications, tests, and emitted Executable Specifications already use `Pass 8` to mean
+Executable Specification assembly. Reinterpreting that label silently would make the ontology
+exercise ambiguous; physically renaming it immediately would create avoidable
+churn across compiler tests, docs, and historical artifacts.
+
+**Consequences:** Active documentation must explain the conflict explicitly.
+Audits must prove that current Executable Specification assembly is documented as a
+compatibility label and that Instruction Tuning remains unimplemented. Any
+future physical rename must follow the ontology rename proposal template,
+preserve compatibility aliases, and prove affected tests, docs audits,
+typecheck, and PR checks remain green.
+
+**Status:** Active.
+
+## 2026-05-10: Domain Factory kernel is canonical; coding is an adapter
+
+**Decision:** Treat the Function Factory as a domain-neutral kernel whose
+canonical concepts are Signal, Pressure, Capability, Function Proposal,
+Function, Intent Specification, Executable Specification, Verification,
+Evidence, Lifecycle, and Domain Adapter. Coding terms such as repository,
+branch, pull request, diff, CI check, code review, Coder, Tester, and deployment
+belong to the coding Domain Adapter, not the Factory kernel.
+
+**Rationale:** The Factory is being generalized from a code-generation factory
+into a domain factory. If coding substrate terms remain first-class architecture
+categories, every downstream domain will inherit software-specific baggage and
+the ontology exercise will collapse back into a repo/PR pipeline. The bootstrap
+coding implementation remains useful evidence, but it is not the product
+boundary.
+
+**Consequences:** Active architecture docs and new source should use kernel
+terms first. New refactors should hard-cut active surfaces to kernel terms
+rather than adding permanent dual names. Persisted data migrations still need
+explicit migration plans, but compatibility should be treated as migration debt,
+not as architecture. Coding-specific terms may remain inside adapter
+implementation, tests, historical references, and live PR evidence.
+
 **Status:** Active.
 
 ## 2026-04-18: Function as the canonical executable unit
@@ -40,8 +429,8 @@ as the concept rather than the runtime name gives both benefits without
 breaking implementation.
 **Status:** Active.
 
-## 2026-04-18: WorkGraph is not Work Order
-**Decision:** A WorkGraph (Factory-produced typed DAG) and a Work Order
+## 2026-04-18: Executable Specification is not Work Order
+**Decision:** A Executable Specification (Factory-produced typed DAG) and a Work Order
 (WeOps-governed organizational act) are distinct objects at distinct layers.
 Factory tooling must not produce Work Orders and must not pretend to govern
 them.
@@ -50,10 +439,10 @@ whitepaper v4.
 **Status:** Active. Any schema or function that blurs the two is a PR
 rejection.
 
-## 2026-04-18: Three Coverage Gates, all fail-closed
-**Decision:** Gate 1 (Compile, end of Stage 5), Gate 2 (Simulation, before
-verified → monitored), and Gate 3 (Assurance, continuous) are all required,
-all fail-closed, and all produce lineage-preserving Coverage Reports.
+## 2026-04-18: Three Verification Gates, all fail-closed
+**Decision:** Coherence Verification (Compile, end of Stage 5), Fidelity Verification (Simulation, before
+verified → monitored), and Persistence Verification (Assurance, continuous) are all required,
+all fail-closed, and all produce lineage-preserving Verification Reports.
 **Rationale:** Trust computation without coverage is a claim rather than a
 proof. Each gate closes a different failure mode (incomplete spec,
 untested implementation, silent assurance loss). Any gate missing makes the
@@ -85,45 +474,45 @@ repository infrastructure. Untyped commits break the lineage graph.
 
 ## 2026-04-19: Add `specs/signals/` bucket for Stage 1 Signal artifacts
 
-**Decision:** Add a new bucket `specs/signals/` to the repository layout for Stage 1 ExternalSignal artifacts (`SIG-*` IDs). Amend the README.md repo layout table to include it. Update the `factory-meta` skill's "When to invoke" section to name Signal authoring as a Bootstrap-relevant activity alongside Pressures, Capabilities, FunctionProposals, and PRDs.
+**Decision:** Add a new bucket `specs/signals/` to the repository layout for Stage 1 ExternalSignal artifacts (`SIG-*` IDs). Amend the README.md repo layout table to include it. Update the `factory-meta` skill's "When to invoke" section to name Signal authoring as a Bootstrap-relevant activity alongside Pressures, Capabilities, FunctionProposals, and Intent Specifications.
 
-**Rationale:** The Pressure schema in `packages/schemas/src/core.ts` requires `derivedFromSignalIds: z.array(ArtifactId).min(1)`. The ArtifactId regex in `packages/schemas/src/lineage.ts` requires the referenced ID to match `SIG-*`. The `lineage-preservation` skill requires every cited artifact ID to resolve to a file in `specs/`. Prior to this decision, those three constraints jointly required a specs/signals/ bucket that did not exist, leaving the Bootstrap chain (Signal → Pressure → Capability → FunctionProposal → PRD) uncommittable by design. The first Signal authored under this decision is SIG-META-WHITEPAPER-V4, which produces PRS-META-THREE-COVERAGE-GATES and the rest of the Gate 1 lineage chain.
+**Rationale:** The Pressure schema in `packages/schemas/src/core.ts` requires `derivedFromSignalIds: z.array(ArtifactId).min(1)`. The ArtifactId regex in `packages/schemas/src/lineage.ts` requires the referenced ID to match `SIG-*`. The `lineage-preservation` skill requires every cited artifact ID to resolve to a file in `specs/`. Prior to this decision, those three constraints jointly required a specs/signals/ bucket that did not exist, leaving the Bootstrap chain (Signal → Pressure → Capability → FunctionProposal → Intent Specification) uncommittable by design. The first Signal authored under this decision is SIG-META-WHITEPAPER-V4, which produces PRS-META-THREE-VERIFICATION-FAMILIES and the rest of the Coherence Verification lineage chain.
 
 **Alternatives considered:** (a) Treat Bootstrap Signals as implicit — cited in source_refs but not materialized as files. Rejected — breaks the lineage-preservation skill's audit algorithm (§4- "For every ID in source_refs, confirm the referenced artifact exists in specs/") and creates an opaque Bootstrap exemption. (b) Extend the ExternalSignal schema with a `bootstrap_origin` flag marking signals as narrative-only. Rejected — Class A change (canonical schema) for a problem solvable with a bucket addition.
 
 **Status:** Active.
 
-## 2026-04-19: Add `bootstrap_prefix_check` field to Gate1Report schema
+## 2026-04-19: Add `bootstrap_prefix_check` field to CoherenceVerificationReport schema
 
-**Decision:** Add an optional `bootstrap_prefix_check` field to the Gate1Report schema in `packages/schemas/src/coverage.ts`. Proposed Zod shape:
+**Decision:** Add an optional `bootstrap_prefix_check` field to the CoherenceVerificationReport schema in `packages/schemas/src/coverage.ts`. Proposed Zod shape:
 
 ```typescript
-bootstrap_prefix_check: CoverageCheck.extend({
+bootstrap_prefix_check: VerificationCheck.extend({
   non_meta_artifact_ids: z.array(ArtifactId).default([]),
 }).optional(),
 ```
 
-The field is populated only when Gate 1 runs with Factory mode `bootstrap`; it is absent from Gate1Reports emitted in `steady_state` mode. `overall: fail` is set when `bootstrap_prefix_check.status` is `fail`, consistent with the other four checks.
+The field is populated only when Coherence Verification runs with Factory mode `bootstrap`; it is absent from CoherenceVerificationReports emitted in `steady_state` mode. `overall: fail` is set when `bootstrap_prefix_check.status` is `fail`, consistent with the other four checks.
 
-**Rationale:** ConOps §4.1 Rule 2 specifies that every artifact during Bootstrap must carry the `META-` prefix; absence is a Gate 1 failure. PRD-META-GATE-1-COMPILE-COVERAGE (acceptance criteria 12 and 13) makes this an explicit fifth coverage check. The Gate1Report schema as shipped has four checks (atom, invariant, validation, dependency closure) and no mechanism to carry a Bootstrap-prefix verdict. An optional field preserves the four existing checks unchanged, expresses the mode-dependent fifth check structurally, and keeps the Coverage Report a single lineage-preserving artifact per whitepaper §6.5.
+**Rationale:** ConOps §4.1 Rule 2 specifies that every artifact during Bootstrap must carry the `META-` prefix; absence is a Coherence Verification failure. IS-META-COHERENCE-VERIFICATION (acceptance criteria 12 and 13) makes this an explicit fifth coverage check. The CoherenceVerificationReport schema as shipped has four checks (atom, invariant, validation, dependency closure) and no mechanism to carry a Bootstrap-prefix verdict. An optional field preserves the four existing checks unchanged, expresses the mode-dependent fifth check structurally, and keeps the Verification Report a single lineage-preserving artifact per whitepaper §6.5.
 
-**Alternatives considered:** (a) A separate `BootstrapPrefixReport` artifact emitted alongside the Gate1Report. Rejected — splits the verdict across two files and breaks the "one compile, one Coverage Report" discipline. (b) A mandatory always-present field populated with `status: skipped` in Steady-State. Rejected — produces noisy reports with empty checks in every Steady-State compile. (c) Making the check a property of `atom_coverage` rather than a new top-level check. Rejected — the prefix rule is orthogonal to atom-to-downstream coverage; conflating them obscures the diagnostic signal when both fail.
+**Alternatives considered:** (a) A separate `BootstrapPrefixReport` artifact emitted alongside the CoherenceVerificationReport. Rejected — splits the verdict across two files and breaks the "one compile, one Verification Report" discipline. (b) A mandatory always-present field populated with `status: skipped` in Steady-State. Rejected — produces noisy reports with empty checks in every Steady-State compile. (c) Making the check a property of `atom_coverage` rather than a new top-level check. Rejected — the prefix rule is orthogonal to atom-to-downstream coverage; conflating them obscures the diagnostic signal when both fail.
 
 **Status:** Active.
 
-## 2026-04-19: Amend `coverage-gate-1` skill to include the Bootstrap prefix check
+## 2026-04-19: Amend `coverage-coherence-verification` skill to include the Bootstrap prefix check
 
-**Decision:** Amend `.agent/skills/coverage-gate-1/SKILL.md` to reflect the Bootstrap META- prefix check as a fifth coverage check that runs only during Bootstrap mode. Specifically-
+**Decision:** Amend `.agent/skills/coverage-coherence-verification/SKILL.md` to reflect the Bootstrap META- prefix check as a fifth coverage check that runs only during Bootstrap mode. Specifically-
 
-- Update the "Four coverage checks" section heading to "Coverage checks" and note that four run in Steady-State, five run in Bootstrap.
-- Add a subsection "5. Bootstrap prefix check (Bootstrap mode only)" specifying that Gate 1 verifies the META- prefix on the PRD ID and on every artifact ID referenced in the compiler intermediates, and names failing IDs in `bootstrap_prefix_check.non_meta_artifact_ids`.
+- Update the "Four coverage checks" section heading to "Verification checks" and note that four run in Steady-State, five run in Bootstrap.
+- Add a subsection "5. Bootstrap prefix check (Bootstrap mode only)" specifying that Coherence Verification verifies the META- prefix on the Intent Specification ID and on every artifact ID referenced in the compiler intermediates, and names failing IDs in `bootstrap_prefix_check.non_meta_artifact_ids`.
 - Update the YAML output schema example in the SKILL to include the new `bootstrap_prefix_check` field.
 - Update the "Behavior" section to describe mode-dependent check behavior.
-- Add an anti-pattern "Emitting a WorkGraph in Bootstrap when non-META artifact IDs are referenced."
+- Add an anti-pattern "Emitting a Executable Specification in Bootstrap when non-META artifact IDs are referenced."
 
-**Rationale:** PRD-META-GATE-1-COMPILE-COVERAGE specifies the Bootstrap prefix check per ConOps §4.1. The SKILL.md is the agent-facing operational guidance that Coding Agents and Critic Agents consult during compile work. A SKILL that contradicts the PRD it operationalizes would produce agent behavior that fails the PRD's acceptance criteria 12 and 13. PRD and SKILL must agree — the PRD is the architectural spec and the SKILL is the agent-facing rendering.
+**Rationale:** IS-META-COHERENCE-VERIFICATION specifies the Bootstrap prefix check per ConOps §4.1. The SKILL.md is the agent-facing operational guidance that Coding Agents and Critic Agents consult during compile work. A SKILL that contradicts the Intent Specification it operationalizes would produce agent behavior that fails the Intent Specification's acceptance criteria 12 and 13. Intent Specification and SKILL must agree — the Intent Specification is the architectural spec and the SKILL is the agent-facing rendering.
 
-**Alternatives considered:** (a) Leave the SKILL unchanged and rely on agents reading the PRD. Rejected — the `.agent/skills/` layer exists specifically to carry quick-reference operational guidance that need not be reconstructed from PRDs each session; PRD-only specification defeats the purpose of the skill layer. (b) Remove the Bootstrap check from the PRD. Rejected — ConOps §4.1 is unambiguous that the META- prefix rule applies during Bootstrap and Gate 1 is the enforcement point.
+**Alternatives considered:** (a) Leave the SKILL unchanged and rely on agents reading the Intent Specification. Rejected — the `.agent/skills/` layer exists specifically to carry quick-reference operational guidance that need not be reconstructed from Intent Specifications each session; IS-only specification defeats the purpose of the skill layer. (b) Remove the Bootstrap check from the Intent Specification. Rejected — ConOps §4.1 is unambiguous that the META- prefix rule applies during Bootstrap and Coherence Verification is the enforcement point.
 
 **Status:** Active.
 
@@ -145,39 +534,39 @@ Also amend the audit algorithm (§4) to skip the "For every ID in source_refs...
 
 **Decision:** Add minimum viable scaffolding to each of the four empty packages (`@factory/coverage-gates`, `@factory/assurance-graph`, `@factory/runtime`, `@factory/harness-bridge`). Each receives three files — `package.json` matching the established pattern of `@factory/schemas` and `@factory/compiler`, `tsconfig.json` extending `../../tsconfig.base.json`, and `src/index.ts` containing `export {}`. Each declares `@factory/schemas` as a workspace dependency and `zod` as a direct dependency. Test script is `vitest run --passWithNoTests` until real tests are authored. Additionally normalize `@factory/compiler` to the same pattern- add a `src/index.ts` stub (its `src/passes/` is empty today) and change its test script from `vitest run` to `vitest run --passWithNoTests` so `pnpm -r test` succeeds across the full monorepo.
 
-**Rationale:** `packages/compiler/package.json` declares `@factory/coverage-gates` (workspace:*) as a dependency. Without a `package.json` in that package, `pnpm install` at the repo root fails workspace resolution. The same blocker applies prospectively to `assurance-graph`, `runtime`, and `harness-bridge` — any future package that adds one of them as a workspace dep will hit the same wall. Scaffolding all four now is cheaper than scaffolding them one at a time. The workspace dependency on `@factory/coverage-gates` is architecturally correct per the `prd-compiler` skill (Pass 7 runs Gate 1); removing the dep to unblock install would leave compiler's `package.json` lying about its real dependencies during the interim. The compiler normalization is bundled because validation surfaced that `pnpm -r typecheck` and `pnpm -r test` also fail on compiler's empty `src/` for the same structural reason (tsc TS18003 "no inputs found" under strict mode; vitest exit-1 on empty corpus); leaving compiler broken after the scaffold defeats the stated goal of making `pnpm -r` work end-to-end.
+**Rationale:** `packages/compiler/package.json` declares `@factory/coverage-gates` (workspace:*) as a dependency. Without a `package.json` in that package, `pnpm install` at the repo root fails workspace resolution. The same blocker applies prospectively to `assurance-graph`, `runtime`, and `harness-bridge` — any future package that adds one of them as a workspace dep will hit the same wall. Scaffolding all four now is cheaper than scaffolding them one at a time. The workspace dependency on `@factory/coverage-gates` is architecturally correct per the `prd-compiler` skill (Pass 7 runs Coherence Verification); removing the dep to unblock install would leave compiler's `package.json` lying about its real dependencies during the interim. The compiler normalization is bundled because validation surfaced that `pnpm -r typecheck` and `pnpm -r test` also fail on compiler's empty `src/` for the same structural reason (tsc TS18003 "no inputs found" under strict mode; vitest exit-1 on empty corpus); leaving compiler broken after the scaffold defeats the stated goal of making `pnpm -r` work end-to-end.
 
-**Alternatives considered:** (a) Remove `@factory/coverage-gates` from compiler's dependencies temporarily. Rejected — the dep is architecturally correct and will need to be re-added when Gate 1 implementation lands; maintenance debt for zero architectural benefit, and the lying-package.json-during-interim pattern is exactly the kind of thing lineage-preservation discipline exists to prevent. (b) Scaffold only `@factory/coverage-gates` (the one currently blocking install). Rejected — same blocker recurs the next time any package adds any of the other three as a workspace dep. (c) Scaffold the four empty packages but leave compiler as-is. Rejected — `pnpm -r typecheck` and `pnpm -r test` still fail after the scaffold, defeating the architect's stated goal. (d) Invent richer stubs (empty schema modules, placeholder Gate exports). Rejected — stub contents should be obviously-empty so downstream code never imports placeholders by mistake; `export {}` is the minimum valid ESM module and it is the right minimum. Real exports land in the PR that implements each package.
+**Alternatives considered:** (a) Remove `@factory/coverage-gates` from compiler's dependencies temporarily. Rejected — the dep is architecturally correct and will need to be re-added when Coherence Verification implementation lands; maintenance debt for zero architectural benefit, and the lying-package.json-during-interim pattern is exactly the kind of thing lineage-preservation discipline exists to prevent. (b) Scaffold only `@factory/coverage-gates` (the one currently blocking install). Rejected — same blocker recurs the next time any package adds any of the other three as a workspace dep. (c) Scaffold the four empty packages but leave compiler as-is. Rejected — `pnpm -r typecheck` and `pnpm -r test` still fail after the scaffold, defeating the architect's stated goal. (d) Invent richer stubs (empty schema modules, placeholder Gate exports). Rejected — stub contents should be obviously-empty so downstream code never imports placeholders by mistake; `export {}` is the minimum valid ESM module and it is the right minimum. Real exports land in the PR that implements each package.
 
 **Status:** Active.
 
-## 2026-04-19: Ship compiler MVP for Gate 1 bootstrap proof
+## 2026-04-19: Ship compiler MVP for Coherence Verification bootstrap proof
 
-**Decision:** Ship minimum viable Stage 5 compiler (Passes 0–7, skipping Pass 8 WorkGraph assembly) as `@factory/compiler`. Implements seven pure passes plus an IO-bearing orchestrator and CLI, consuming the real `PRD-META-GATE-1-COMPILE-COVERAGE.md` and producing a Gate 1 Coverage Report. First bootstrap compile- `overall: pass` (all five coverage checks green). 29 atoms, 3 contracts, 3 invariants, 0 dependencies, 3 validations produced; Coverage Report emitted to `specs/coverage-reports/CR-PRD-META-GATE-1-COMPILE-COVERAGE-GATE1-<timestamp>.yaml`. Full monorepo typecheck/test/build green (68 tests total- 10 schemas + 50 coverage-gates + 8 compiler e2e).
+**Decision:** Ship minimum viable Stage 5 compiler (Passes 0–7, skipping Pass 8 Executable Specification assembly) as `@factory/compiler`. Implements seven pure passes plus an IO-bearing orchestrator and CLI, consuming the real `IS-META-COHERENCE-VERIFICATION.md` and producing a Coherence Verification Verification Report. First bootstrap compile- `overall: pass` (all five coverage checks green). 29 atoms, 3 contracts, 3 invariants, 0 dependencies, 3 validations produced; Verification Report emitted to `specs/verification-reports/VR-IS-META-COHERENCE-VERIFICATION-COHERENCE-<timestamp>.yaml`. Full monorepo typecheck/test/build green (68 tests total- 10 schemas + 50 coverage-gates + 8 compiler e2e).
 
-**Rationale:** Closes the bootstrap loop per the whitepaper. Per the PRD's own closing section- "Whether that compile passes or fails on its first run is not the point. The Coverage Report from that first compile is the artifact that matters." The first compile passed, which means Gate 1 as specified is internally complete- every RequirementAtom extracted from the PRD has a downstream Contract/Invariant/ValidationSpec reference, every Invariant has a covering Validation and a well-formed DetectorSpec, every Validation backmaps to ≥1 artifact, every generated artifact ID carries the `META-` qualifier per ConOps §4.1 Rule 2. The Coverage Report itself is now the first non-scaffolding Factory artifact committed to `specs/coverage-reports/` — the evidence the Factory is checking itself by the discipline it will apply to every subsequent artifact.
+**Rationale:** Closes the bootstrap loop per the whitepaper. Per the Intent Specification's own closing section- "Whether that compile passes or fails on its first run is not the point. The Verification Report from that first compile is the artifact that matters." The first compile passed, which means Coherence Verification as specified is internally complete- every RequirementAtom extracted from the Intent Specification has a downstream Contract/Invariant/ValidationSpec reference, every Invariant has a covering Validation and a well-formed DetectorSpec, every Validation backmaps to ≥1 artifact, every generated artifact ID carries the `META-` qualifier per ConOps §4.1 Rule 2. The Verification Report itself is now the first non-scaffolding Factory artifact committed to `specs/verification-reports/` — the evidence the Factory is checking itself by the discipline it will apply to every subsequent artifact.
 
-**Alternatives considered:** (a) Implement all 8 compiler passes including WorkGraph assembly. Rejected — the Coverage Report is the bootstrap proof; a WorkGraph is additive and does not strengthen the proof. (b) Hand-author the first Coverage Report without building a compiler. Rejected — that would prove the schema and Gate 1 work on a synthetic example, not that the full pipeline (parse → extract → derive → gate → emit) is compositionally correct against a real PRD. (c) General-purpose compiler rather than MVP. Rejected — open-ended; the minimal closing-the-loop implementation is more valuable right now than a production-ready parser.
+**Alternatives considered:** (a) Implement all 8 compiler passes including Executable Specification assembly. Rejected — the Verification Report is the bootstrap proof; a Executable Specification is additive and does not strengthen the proof. (b) Hand-author the first Verification Report without building a compiler. Rejected — that would prove the schema and Coherence Verification work on a synthetic example, not that the full pipeline (parse → extract → derive → gate → emit) is compositionally correct against a real Intent Specification. (c) General-purpose compiler rather than MVP. Rejected — open-ended; the minimal closing-the-loop implementation is more valuable right now than a production-ready parser.
 
 **Deferred follow-ups flagged during draft review:**
 
-1. *Hardcoded atom subject/action/object.* Pass 1 assigns `subject: "Gate 1"`, `action: "shall"`, full criterion text in `object`. The MVP does not parse natural language into structured triples. A follow-up should implement a proper NL extractor (tokenize, identify auxiliary verbs, split) or propose relaxing the PRDDraft schema to not require the triple. Ship-as-is accepted by Architect.
+1. *Hardcoded atom subject/action/object.* Pass 1 assigns `subject: "Coherence Verification"`, `action: "shall"`, full criterion text in `object`. The MVP does not parse natural language into structured triples. A follow-up should implement a proper NL extractor (tokenize, identify auxiliary verbs, split) or propose relaxing the IntentSpecificationDraft schema to not require the triple. Ship-as-is accepted by Architect.
 
 2. *Contract IDs use `FN-` prefix with `-CONTRACT-` internal segment.* The `ArtifactId` regex does not permit a `CONTRACT-` prefix. A follow-up should propose adding `CONTRACT` as an allowed `ArtifactId` type prefix in `packages/schemas/src/lineage.ts` (Class B schema change per ConOps §12.1, requiring its own DECISIONS entry). Until then, contract IDs look like Function IDs from the outside, which is an audit readability concern. Ship-as-is accepted by Architect.
 
-3. *`FactoryMode` defined in `@factory/coverage-gates` rather than `@factory/schemas`.* Currently derived as `Gate1Input["mode"]` since Gate 1 is the canonical consumer. `FactoryMode` is a Factory-wide concept (whitepaper §5, ConOps §4.1) and architecturally belongs in `@factory/schemas/core.ts`. A follow-up should promote it- add `export const FactoryMode = z.enum(["bootstrap", "steady_state"])` to core.ts, update `Gate1Input` and compiler types to import from there. Ship-as-is accepted by Architect.
+3. *`FactoryMode` defined in `@factory/coverage-gates` rather than `@factory/schemas`.* Currently derived as `CoherenceVerificationInput["mode"]` since Coherence Verification is the canonical consumer. `FactoryMode` is a Factory-wide concept (whitepaper §5, ConOps §4.1) and architecturally belongs in `@factory/schemas/core.ts`. A follow-up should promote it- add `export const FactoryMode = z.enum(["bootstrap", "steady_state"])` to core.ts, update `CoherenceVerificationInput` and compiler types to import from there. Ship-as-is accepted by Architect.
 
 **Observation from the bootstrap compile worth capturing:**
 
-Pass 3 (invariant derivation) uses four hand-crafted templates (DETERMINISM, FAIL-CLOSED, LINEAGE, EMISSION) matched against constraint-category atoms only. On the first bootstrap compile, three invariants emitted (DETERMINISM, FAIL-CLOSED, LINEAGE) but EMISSION did not fire. Investigation- the PRD's emission wording ("Gate 1 writes the Gate1Report to specs/coverage-reports/...") lives in Acceptance Criterion 8, not in the Constraints section, and Pass 3 only inspects constraint-category atoms. A follow-up should decide between (a) extending template matching across all atom categories, or (b) treating the category-scoping as intentional and ensuring emission-class properties are authored as constraints not AC. This is the first piece of operational information the Factory has recorded about its own behavior- exactly the kind of diagnostic the whitepaper frames the bootstrap proof around, and exactly the self-rewrite-hook trigger condition named in `coverage-gate-1/SKILL.md`.
+Pass 3 (invariant derivation) uses four hand-crafted templates (DETERMINISM, FAIL-CLOSED, LINEAGE, EMISSION) matched against constraint-category atoms only. On the first bootstrap compile, three invariants emitted (DETERMINISM, FAIL-CLOSED, LINEAGE) but EMISSION did not fire. Investigation- the Intent Specification's emission wording ("Coherence Verification writes the CoherenceVerificationReport to specs/verification-reports/...") lives in Acceptance Criterion 8, not in the Constraints section, and Pass 3 only inspects constraint-category atoms. A follow-up should decide between (a) extending template matching across all atom categories, or (b) treating the category-scoping as intentional and ensuring emission-class properties are authored as constraints not AC. This is the first piece of operational information the Factory has recorded about its own behavior- exactly the kind of diagnostic the whitepaper frames the bootstrap proof around, and exactly the self-rewrite-hook trigger condition named in `coverage-coherence-verification/SKILL.md`.
 
 **Status:** Active.
 
 ## 2026-04-19: Promote FactoryMode to canonical Zod enum; add CONTRACT artifact prefix
 
-**Decision:** Promote `FactoryMode` from a TypeScript type derived from `Gate1Input["mode"]` in `packages/compiler/src/types.ts` into a canonical Zod enum in `packages/schemas/src/core.ts`. Add `CONTRACT` to the `ArtifactId` prefix alternation in `packages/schemas/src/lineage.ts` and to `META_PREFIX_REGEX` in `packages/coverage-gates/src/checks.ts`. Contract ID emission format changes from `FN-${subject}-CONTRACT-${tag}` to `CONTRACT-${subject}-${tag}` in Pass 2 (`packages/compiler/src/passes/02-derive-contracts.ts`), with the matching lookup in Pass 3 (`packages/compiler/src/passes/03-derive-invariants.ts`) updated in lockstep. `compiler/types.ts` re-exports `FactoryMode` so compiler-local callers continue to import it from `./types.js` without reaching into schemas directly.
+**Decision:** Promote `FactoryMode` from a TypeScript type derived from `CoherenceVerificationInput["mode"]` in `packages/compiler/src/types.ts` into a canonical Zod enum in `packages/schemas/src/core.ts`. Add `CONTRACT` to the `ArtifactId` prefix alternation in `packages/schemas/src/lineage.ts` and to `META_PREFIX_REGEX` in `packages/coverage-gates/src/checks.ts`. Contract ID emission format changes from `FN-${subject}-CONTRACT-${tag}` to `CONTRACT-${subject}-${tag}` in Pass 2 (`packages/compiler/src/passes/02-derive-contracts.ts`), with the matching lookup in Pass 3 (`packages/compiler/src/passes/03-derive-invariants.ts`) updated in lockstep. `compiler/types.ts` re-exports `FactoryMode` so compiler-local callers continue to import it from `./types.js` without reaching into schemas directly.
 
-**Rationale:** `FactoryMode` is a Factory-wide concept (whitepaper §5, ConOps §4.1) — promoting it to `@factory/schemas` gives the enum one source of truth at the schema layer rather than the inter-package type derivation that previously made `@factory/coverage-gates` the de-facto owner of an enum it conceptually doesn't own. Contracts were previously emitted with IDs like `FN-META-GATE-1-COMPILE-COVERAGE-CONTRACT-CONSTRAINT`, collapsing them into the Function-ID namespace with an internal `-CONTRACT-` disambiguation segment — audit-unreadable once Coverage Reports accumulate. A dedicated `CONTRACT-` prefix makes Contracts first-class artifacts. `META_PREFIX_REGEX` in coverage-gates must stay in sync with the `ArtifactId` regex in schemas; invariant comment added in both files. No existing artifacts in `specs/` carry the old `FN-*-CONTRACT-*` format — the one prior bootstrap compile was superseded by a fresh compile run against the new schema, which again produced `overall: pass` across all five checks. Pass 2 (contract emission) and Pass 3 (contract lookup) now share an implicit contract on ID format; a follow-up PR should extract that into a shared helper to eliminate drift risk.
+**Rationale:** `FactoryMode` is a Factory-wide concept (whitepaper §5, ConOps §4.1) — promoting it to `@factory/schemas` gives the enum one source of truth at the schema layer rather than the inter-package type derivation that previously made `@factory/coverage-gates` the de-facto owner of an enum it conceptually doesn't own. Contracts were previously emitted with IDs like `FN-META-COHERENCE-VERIFICATION-CONTRACT-CONSTRAINT`, collapsing them into the Function-ID namespace with an internal `-CONTRACT-` disambiguation segment — audit-unreadable once Verification Reports accumulate. A dedicated `CONTRACT-` prefix makes Contracts first-class artifacts. `META_PREFIX_REGEX` in coverage-gates must stay in sync with the `ArtifactId` regex in schemas; invariant comment added in both files. No existing artifacts in `specs/` carry the old `FN-*-CONTRACT-*` format — the one prior bootstrap compile was superseded by a fresh compile run against the new schema, which again produced `overall: pass` across all five checks. Pass 2 (contract emission) and Pass 3 (contract lookup) now share an implicit contract on ID format; a follow-up PR should extract that into a shared helper to eliminate drift risk.
 
 **Alternatives considered:** (a) Leave both as-is (ship the compiler MVP with `FN-*-CONTRACT-*` IDs and inline mode union). Originally accepted; reconsidered because contracts would enter the lineage graph under the wrong namespace and the lying-namespace-during-interim pattern is exactly what lineage-preservation discipline exists to prevent. (b) Add `CONTRACT` prefix only, leave FactoryMode derived. Rejected — same architectural-cleanliness argument applies to FactoryMode; bundling both into one paired schemas PR is cheaper than two sequential PRs. (c) Extract the shared contract-ID helper in this PR. Rejected for scope discipline — prefix rename and enum promotion are the scope; the helper refactor is a separate Class B change captured as a follow-up.
 
@@ -185,55 +574,55 @@ Pass 3 (invariant derivation) uses four hand-crafted templates (DETERMINISM, FAI
 
 ## 2026-04-19: Extract shared `contractId` helper for Pass 2 and Pass 3
 
-**Decision:** Extract contract-ID construction into a shared helper at `packages/compiler/src/passes/_shared.ts` exporting `contractId(prdId, tag)`. Both Pass 2 (emission, `02-derive-contracts.ts`) and Pass 3 (lookup, `03-derive-invariants.ts`) import the helper and call it at the single point where contract IDs are constructed. One source of truth for the `CONTRACT-${subject}-${tag}` format.
+**Decision:** Extract contract-ID construction into a shared helper at `packages/compiler/src/passes/_shared.ts` exporting `contractId(intentSpecificationId, tag)`. Both Pass 2 (emission, `02-derive-contracts.ts`) and Pass 3 (lookup, `03-derive-invariants.ts`) import the helper and call it at the single point where contract IDs are constructed. One source of truth for the `CONTRACT-${subject}-${tag}` format.
 
-**Rationale:** The 2026-04-19 paired schemas PR (`fb5b3e8`) flagged that Pass 2 and Pass 3 duplicated contract-ID template-literal construction — the two sites must produce byte-identical strings for Pass 3's `.find()` lookup to resolve against Pass 2's emission, and independent template literals meant silent drift risk on any future format change. The refactor is zero-behavior-change: byte-identical Coverage Report verified between the pre-refactor compile (`CR-*-14-51-03-281Z.yaml`) and the post-refactor compile (`CR-*-15-09-33-804Z.yaml`), modulo the expected `id` and `timestamp` fields. With the helper, format changes (prefix rename, subject-derivation tweak, tag canonicalization) apply to both passes automatically; reviews of contract-ID-format changes have one file to read; the helper is unit-testable in isolation. 3 new unit tests (`_shared.test.ts`) cover the format contract directly, bringing the monorepo total to 86 tests green.
+**Rationale:** The 2026-04-19 paired schemas PR (`fb5b3e8`) flagged that Pass 2 and Pass 3 duplicated contract-ID template-literal construction — the two sites must produce byte-identical strings for Pass 3's `.find()` lookup to resolve against Pass 2's emission, and independent template literals meant silent drift risk on any future format change. The refactor is zero-behavior-change: byte-identical Verification Report verified between the pre-refactor compile (`VR-*-14-51-03-281Z.yaml`) and the post-refactor compile (`VR-*-15-09-33-804Z.yaml`), modulo the expected `id` and `timestamp` fields. With the helper, format changes (prefix rename, subject-derivation tweak, tag canonicalization) apply to both passes automatically; reviews of contract-ID-format changes have one file to read; the helper is unit-testable in isolation. 3 new unit tests (`_shared.test.ts`) cover the format contract directly, bringing the monorepo total to 86 tests green.
 
 **Alternatives considered:** (a) Leave the two sites independent; rely on discipline + a code comment to keep them in sync. Rejected — the whole point of the paired-PR DECISIONS entry flagging this follow-up was that implicit contracts between passes are exactly the drift-risk surface the Factory's lineage-preservation discipline is meant to eliminate. (b) Inline the lookup into Pass 2 and have Pass 3 receive the constraint-contract reference directly. Rejected — Pass 2 returns a `Contract[]` with deterministic ordering; changing the return shape would ripple across the compiler orchestrator. The helper approach is the smaller surface-area change.
 
 **Status:** Active.
 
-## 2026-04-19: Document compiler-consumed vs informational PRD section convention
+## 2026-04-19: Document compiler-consumed vs informational Intent Specification section convention
 
-**Decision:** Amend `prd-compiler/SKILL.md` to name which PRD section titles are compiler-consumed by Pass 0 and which are conventionally informational (human-audience) and therefore silently dropped to `unrecognizedSections`. Three known informational title patterns documented: `## Shared <X> shape`, `## Schema <X> required` / `## Schema additions required`, `## Downstream artifacts <X> will enable`. Placement guidance added: informational sections go at `##` after the compiler-consumed block for readability. Convention is documentation, not enforcement.
+**Decision:** Amend `prd-compiler/SKILL.md` to name which Intent Specification section titles are compiler-consumed by Pass 0 and which are conventionally informational (human-audience) and therefore silently dropped to `unrecognizedSections`. Three known informational title patterns documented: `## Shared <X> shape`, `## Schema <X> required` / `## Schema additions required`, `## Downstream artifacts <X> will enable`. Placement guidance added: informational sections go at `##` after the compiler-consumed block for readability. Convention is documentation, not enforcement.
 
-**Rationale:** Two successive Factory PRDs (PRD-META-GATE-1-COMPILE-COVERAGE and PRD-META-DETECT-REGRESSION) have authored H2 sections that the compiler silently ignores — three such sections in the first ("Shared GateEvaluator shape", "Schema amendment required", "Downstream artifacts Gate 1 will enable"), two in the second ("Shared ControlFunction shape", "Schema additions required"), with overlapping titles across both. The pattern is now systematic, not a quirk of one PRD. The compiler's silence on these sections is intentional in the current MVP — they carry design communication, not pipeline input — but the silence is invisible to authors and downstream readers. Documenting the convention in the prd-compiler skill makes the compiler's intended behavior explicit and names which section patterns are safe for human-audience content versus which would be extraction losses. Version on prd-compiler/SKILL.md bumped 2026-04-18 → 2026-04-19.
+**Rationale:** Two successive Factory Intent Specifications (IS-META-COHERENCE-VERIFICATION and IS-META-DETECT-REGRESSION) have authored H2 sections that the compiler silently ignores — three such sections in the first ("Shared GateEvaluator shape", "Schema amendment required", "Downstream artifacts Coherence Verification will enable"), two in the second ("Shared ControlFunction shape", "Schema additions required"), with overlapping titles across both. The pattern is now systematic, not a quirk of one Intent Specification. The compiler's silence on these sections is intentional in the current MVP — they carry design communication, not pipeline input — but the silence is invisible to authors and downstream readers. Documenting the convention in the prd-compiler skill makes the compiler's intended behavior explicit and names which section patterns are safe for human-audience content versus which would be extraction losses. Version on prd-compiler/SKILL.md bumped 2026-04-18 → 2026-04-19.
 
-**Alternatives considered:** (a) Relocate informational content into `## Notes` or the PRD frontmatter's `rationale` field. Rejected — imposes structural burden on every future PRD for no root-cause gain; authors will drift back to H2 out of habit and the compiler would still silently ignore the H2 title anyway. (b) Extend Pass 0 to emit UncertaintyEntry artifacts for every unrecognized section so the compiler's inaction is audit-trailed. Architecturally correct per the whitepaper's UncertaintyEntry design — this is exactly the "compiler cannot confidently produce" case UncertaintyEntry was designed for. Deferred as a future compiler amendment; the convention documented here matches current reality and unblocks skill-doc alignment immediately. The option-(b) work becomes a separate DECISIONS entry when Pass 0 gets its next real amendment.
+**Alternatives considered:** (a) Relocate informational content into `## Notes` or the Intent Specification frontmatter's `rationale` field. Rejected — imposes structural burden on every future Intent Specification for no root-cause gain; authors will drift back to H2 out of habit and the compiler would still silently ignore the H2 title anyway. (b) Extend Pass 0 to emit UncertaintyEntry artifacts for every unrecognized section so the compiler's inaction is audit-trailed. Architecturally correct per the whitepaper's UncertaintyEntry design — this is exactly the "compiler cannot confidently produce" case UncertaintyEntry was designed for. Deferred as a future compiler amendment; the convention documented here matches current reality and unblocks skill-doc alignment immediately. The option-(b) work becomes a separate DECISIONS entry when Pass 0 gets its next real amendment.
 
 **Status:** Active.
 
-## 2026-04-19: Gate 1 general-case validation via PRD-META-DETECT-REGRESSION
+## 2026-04-19: Coherence Verification general-case validation via IS-META-DETECT-REGRESSION
 
-**Observation:** Second meta-PRD compiled through the Stage 5 pipeline without modification and produced a passing Coverage Report at `specs/coverage-reports/CR-PRD-META-DETECT-REGRESSION-GATE1-2026-04-19T15-18-09-677Z.yaml`. Intermediates: 29 atoms, 3 contracts, 4 invariants, 0 dependencies, 4 validations. All five coverage checks (atom_coverage, invariant_coverage, validation_coverage, dependency_closure, bootstrap_prefix_check) pass. Compile commit `6412bc1`.
+**Observation:** Second meta-Intent Specification compiled through the Stage 5 pipeline without modification and produced a passing Verification Report at `specs/verification-reports/VR-IS-META-DETECT-REGRESSION-COHERENCE-2026-04-19T15-18-09-677Z.yaml`. Intermediates: 29 atoms, 3 contracts, 4 invariants, 0 dependencies, 4 validations. All five coverage checks (atom_coverage, invariant_coverage, validation_coverage, dependency_closure, bootstrap_prefix_check) pass. Compile commit `6412bc1`.
 
-**What this establishes:** Semantic-content generality of Pass 0–7 across two PRDs with distinct subject matter — Gate 1's PRD is compile-time / structural / per-invocation; detect_regression's is runtime / evidence-driven / stateful. The compiler's pass logic is not co-evolved exclusively with Gate 1's content. Pass 3's EMISSION template fired for the first time on this PRD (Gate 1's emission wording was in AC section; detect_regression's is in Constraints section), confirming the constraint-category scoping is architecturally correct and the earlier non-firing was a PRD-authoring-scope consequence rather than a compiler gap.
+**What this establishes:** Semantic-content generality of Pass 0–7 across two Intent Specifications with distinct subject matter — Coherence Verification's Intent Specification is compile-time / structural / per-invocation; detect_regression's is runtime / evidence-driven / stateful. The compiler's pass logic is not co-evolved exclusively with Coherence Verification's content. Pass 3's EMISSION template fired for the first time on this Intent Specification (Coherence Verification's emission wording was in AC section; detect_regression's is in Constraints section), confirming the constraint-category scoping is architecturally correct and the earlier non-firing was a IS-authoring-scope consequence rather than a compiler gap.
 
-**What this does NOT establish:** Authoring-convention generality. Both PRDs conform to the `prd-compiler` SKILL's section-title conventions (same six H2 titles, identical Constraints subsection structure, numbered AC lists). PRDs authored outside that convention surface would stress Pass 0's case-insensitive exact-match section mapping in ways neither compile tested. See the "compiler-consumed vs informational PRD section convention" DECISIONS entry above for the related documentation. The 29/29 atom-count identity across both PRDs is arithmetic (both happened to have ~15 ACs plus similar paragraph counts), not a compiler property — the compiler produces PRD-shape-proportional counts, not numerically-invariant counts.
+**What this does NOT establish:** Authoring-convention generality. Both Intent Specifications conform to the `prd-compiler` SKILL's section-title conventions (same six H2 titles, identical Constraints subsection structure, numbered AC lists). Intent Specifications authored outside that convention surface would stress Pass 0's case-insensitive exact-match section mapping in ways neither compile tested. See the "compiler-consumed vs informational Intent Specification section convention" DECISIONS entry above for the related documentation. The 29/29 atom-count identity across both Intent Specifications is arithmetic (both happened to have ~15 ACs plus similar paragraph counts), not a compiler property — the compiler produces IS-shape-proportional counts, not numerically-invariant counts.
 
-**Side finding:** The self-rewrite hooks on `coverage-gate-1/SKILL.md` and `prd-compiler/SKILL.md` did not fire on this compile. Both hooks trigger on downstream failure traceable to a coverage miss the gate should have caught; Gate 1 passed cleanly on both PRDs; no downstream failure occurred. The hook mechanism is proven quiescent in the pass case — future firings can be interpreted as signal, not noise from overeager triggering.
+**Side finding:** The self-rewrite hooks on `coverage-coherence-verification/SKILL.md` and `prd-compiler/SKILL.md` did not fire on this compile. Both hooks trigger on downstream failure traceable to a coverage miss the gate should have caught; Coherence Verification passed cleanly on both Intent Specifications; no downstream failure occurred. The hook mechanism is proven quiescent in the pass case — future firings can be interpreted as signal, not noise from overeager triggering.
 
 **Status:** Observed.
 
 **Status convention note:** This is the first DECISIONS entry with `Status: Observed`. Observed entries record empirical proof points that do not require Architect approval and do not impose any effect; they are captured for audit reference. Proposed/Active remain the status values for architectural decisions (entries that require approval and take effect on activation). Observed entries may use a different field structure from Proposed/Active entries (Observation / What this establishes / What this does NOT establish / optional Side finding / Status) reflecting the empirical-proof-point nature rather than the decision-lifecycle nature.
 
-## 2026-04-19: Gate 1 architectural generality — three-compile empirical evidence
+## 2026-04-19: Coherence Verification architectural generality — three-compile empirical evidence
 
-**Context:** Gate 1 was bootstrapped by compiling its own meta-PRD (PRD-META-GATE-1-COMPILE-COVERAGE) through the compiler it itself governs, which produced Gate 1: PASS. That result alone was self-referential and did not establish that Gate 1's coverage discipline would generalize to PRDs with different semantic shape. An earlier 2-compile Observed entry (commit `8bc3a11`) recorded the first generalization proof point against PRD-META-DETECT-REGRESSION. This entry extends that record with the third compile and tightens the claim against the atom-count-identity reading that the 2-compile evidence alone could not rule out.
+**Context:** Coherence Verification was bootstrapped by compiling its own meta-Intent Specification (IS-META-COHERENCE-VERIFICATION) through the compiler it itself governs, which produced Coherence Verification: PASS. That result alone was self-referential and did not establish that Coherence Verification's coverage discipline would generalize to Intent Specifications with different semantic shape. An earlier 2-compile Observed entry (commit `8bc3a11`) recorded the first generalization proof point against IS-META-DETECT-REGRESSION. This entry extends that record with the third compile and tightens the claim against the atom-count-identity reading that the 2-compile evidence alone could not rule out.
 
-**Observation:** Three non-failing compiles against semantically divergent PRDs, same compiler, no code changes between runs:
+**Observation:** Three non-failing compiles against semantically divergent Intent Specifications, same compiler, no code changes between runs:
 
-| Compile | PRD | Atoms | Contracts | Invariants | Dependencies | Validations | Verdict |
+| Compile | Intent Specification | Atoms | Contracts | Invariants | Dependencies | Validations | Verdict |
 |---|---|---|---|---|---|---|---|
-| 2026-04-19T13:56Z | PRD-META-GATE-1-COMPILE-COVERAGE | 29 | 3 | 3 | 0 | 3 | PASS |
-| 2026-04-19T15:18Z | PRD-META-DETECT-REGRESSION | 29 | 3 | 4 | 0 | 4 | PASS |
-| 2026-04-19T15:50Z | PRD-META-COMPILER-PASS-8 | 31 | 3 | 4 | 0 | 4 | PASS |
+| 2026-04-19T13:56Z | IS-META-COHERENCE-VERIFICATION | 29 | 3 | 3 | 0 | 3 | PASS |
+| 2026-04-19T15:18Z | IS-META-DETECT-REGRESSION | 29 | 3 | 4 | 0 | 4 | PASS |
+| 2026-04-19T15:50Z | IS-META-COMPILER-PASS-8 | 31 | 3 | 4 | 0 | 4 | PASS |
 
-The three PRDs cover different semantic domains (compile-time structural, runtime stateful, execution assembly) and different Factory Function types (two control functions, one execution function). All five coverage checks passed on all three compiles with empty detail arrays. The invariant count varied with PRD content (3 vs 4 vs 4) rather than remaining constant, demonstrating that Pass 3's template matching is content-responsive rather than PRD-shape-patterning. The atom count broke the 29/29 identity from the first two compiles on the third (came in at 31), confirming that the prior identity was arithmetic-consequence-of-content-density rather than a compiler invariant.
+The three Intent Specifications cover different semantic domains (compile-time structural, runtime stateful, execution assembly) and different Factory Function types (two control functions, one execution function). All five coverage checks passed on all three compiles with empty detail arrays. The invariant count varied with Intent Specification content (3 vs 4 vs 4) rather than remaining constant, demonstrating that Pass 3's template matching is content-responsive rather than IS-shape-patterning. The atom count broke the 29/29 identity from the first two compiles on the third (came in at 31), confirming that the prior identity was arithmetic-consequence-of-content-density rather than a compiler invariant.
 
-**Claim established:** Gate 1's coverage discipline generalizes beyond the Gate 1 PRD. The compile pipeline is not fitted to its own specification. This is the whitepaper's central architectural commitment ("the Factory checks itself and checks things that aren't itself by the same discipline") and now has three independent compiles of evidence behind it. Generality claim scoped to semantic-content axis; authoring-convention generality remains unproven, per the 2026-04-19 compiler-consumed vs informational DECISIONS entry — all three PRDs conform to the prd-compiler SKILL's imposed section-title shape.
+**Claim established:** Coherence Verification's coverage discipline generalizes beyond the Coherence Verification Intent Specification. The compile pipeline is not fitted to its own specification. This is the whitepaper's central architectural commitment ("the Factory checks itself and checks things that aren't itself by the same discipline") and now has three independent compiles of evidence behind it. Generality claim scoped to semantic-content axis; authoring-convention generality remains unproven, per the 2026-04-19 compiler-consumed vs informational DECISIONS entry — all three Intent Specifications conform to the prd-compiler SKILL's imposed section-title shape.
 
-**Consequences:** No action required. This entry supersedes the 2-compile Observed entry at `8bc3a11` in scope (3 compiles > 2 compiles) but does not replace it; the earlier entry is preserved as the audit-trail record of the first generalization proof point, and this entry is the cumulative record. Subsequent failures on future compiles will be evaluated against this baseline — a rising rate of Gate 1 failures across divergent PRDs would be the signal that a specific template or derivation rule has narrowed in scope, not that Gate 1 itself is generally broken.
+**Consequences:** No action required. This entry supersedes the 2-compile Observed entry at `8bc3a11` in scope (3 compiles > 2 compiles) but does not replace it; the earlier entry is preserved as the audit-trail record of the first generalization proof point, and this entry is the cumulative record. Subsequent failures on future compiles will be evaluated against this baseline — a rising rate of Coherence Verification failures across divergent Intent Specifications would be the signal that a specific template or derivation rule has narrowed in scope, not that Coherence Verification itself is generally broken.
 
 **Status:** Observed.
 
@@ -241,31 +630,31 @@ The three PRDs cover different semantic domains (compile-time structural, runtim
 
 **Context:** Pass 3's invariant-derivation logic matches hand-crafted templates (DETERMINISM, FAIL-CLOSED, LINEAGE, EMISSION) against constraint-category atoms only. Acceptance-category and NFR-category atoms are not scanned for invariant-producing phrasing.
 
-The first bootstrap compile (Gate 1's own PRD, 2026-04-19T13:56Z) produced three invariants — EMISSION did not fire because the PRD's emission wording lived in Acceptance Criterion 8 rather than in the Constraints section. This was initially flagged as a category-scoping concern warranting potential Pass 3 widening.
+The first bootstrap compile (Coherence Verification's own Intent Specification, 2026-04-19T13:56Z) produced three invariants — EMISSION did not fire because the Intent Specification's emission wording lived in Acceptance Criterion 8 rather than in the Constraints section. This was initially flagged as a category-scoping concern warranting potential Pass 3 widening.
 
-**Observation:** The two subsequent compiles resolved the concern empirically. Both PRD-META-DETECT-REGRESSION (2026-04-19T15:18Z) and PRD-META-COMPILER-PASS-8 (2026-04-19T15:50Z) produced four invariants including EMISSION, because both PRDs authored their emission disciplines in the Constraints section. The authorship convention is the discriminator — emission-class properties belong in Constraints as persistent system obligations, not in Acceptance Criteria as point-in-time behavioral observations.
+**Observation:** The two subsequent compiles resolved the concern empirically. Both IS-META-DETECT-REGRESSION (2026-04-19T15:18Z) and IS-META-COMPILER-PASS-8 (2026-04-19T15:50Z) produced four invariants including EMISSION, because both Intent Specifications authored their emission disciplines in the Constraints section. The authorship convention is the discriminator — emission-class properties belong in Constraints as persistent system obligations, not in Acceptance Criteria as point-in-time behavioral observations.
 
-The category-scoping of Pass 3's template matching therefore reflects a valid authorship convention rather than a compiler narrowness. A PRD author who places emission phrasing in AC produces a PRD without an emission invariant; this is a content-placement authorship decision, not a compiler gap.
+The category-scoping of Pass 3's template matching therefore reflects a valid authorship convention rather than a compiler narrowness. A Intent Specification author who places emission phrasing in AC produces a Intent Specification without an emission invariant; this is a content-placement authorship decision, not a compiler gap.
 
 **Claim:** The invariant-authoring skill's guidance ("emission-class phrasing belongs in Constraints, not AC") is retroactively validated by two independent compiles that followed the convention and produced the expected EMISSION invariant.
 
-**Consequences:** No Pass 3 widening required. The category-scoping behavior is correct. The skill-doc nudge added at the MVP compiler PR stands as authoritative guidance. Future PRDs that omit the EMISSION invariant by placing emission wording in AC will produce a compile-time result with three invariants instead of four, which is intended behavior given the authorship convention.
+**Consequences:** No Pass 3 widening required. The category-scoping behavior is correct. The skill-doc nudge added at the MVP compiler PR stands as authoritative guidance. Future Intent Specifications that omit the EMISSION invariant by placing emission wording in AC will produce a compile-time result with three invariants instead of four, which is intended behavior given the authorship convention.
 
 **Status:** Observed.
 
-## 2026-04-19: Pass 8 (assemble_workgraph) implemented; Factory end-to-end through Stage 5
+## 2026-04-19: Pass 8 (assemble_executable-specification) implemented; Factory end-to-end through Stage 5
 
-**Decision:** Implement Stage 5 terminal compiler pass `assemble_workgraph` per PRD-META-COMPILER-PASS-8. New files: `packages/compiler/src/passes/08-assemble-workgraph.ts` (pure function), `packages/compiler/src/passes/_workgraph-emit.ts` (IO wrapper). Extended files: `packages/compiler/src/passes/_shared.ts` gains `workGraphId(prdId)` helper alongside existing `contractId`; `packages/compiler/src/passes/index.ts` re-exports the new pass; `packages/compiler/src/types.ts` extends `CompileResult` with `workgraph` and `workgraphPath` fields; `packages/compiler/src/compile.ts` conditionally runs Pass 8 iff Gate 1 passes; `packages/compiler/src/cli.ts` reports the WorkGraph path in stdout; `packages/compiler/src/compile.test.ts` adds three e2e assertions. New test file `08-assemble-workgraph.test.ts` with 15 unit tests. Total monorepo test count: 104 (25 schemas + 50 coverage-gates + 29 compiler).
+**Decision:** Implement Stage 5 terminal compiler pass `assemble_executable-specification` per IS-META-COMPILER-PASS-8. New files: `packages/compiler/src/passes/08-assemble-executable-specification.ts` (pure function), `packages/compiler/src/passes/_executable-specification-emit.ts` (IO wrapper). Extended files: `packages/compiler/src/passes/_shared.ts` gains `executableSpecificationId(intentSpecificationId)` helper alongside existing `contractId`; `packages/compiler/src/passes/index.ts` re-exports the new pass; `packages/compiler/src/types.ts` extends `CompileResult` with `executable-specification` and `executable-specificationPath` fields; `packages/compiler/src/compile.ts` conditionally runs Pass 8 iff Coherence Verification passes; `packages/compiler/src/cli.ts` reports the Executable Specification path in stdout; `packages/compiler/src/compile.test.ts` adds three e2e assertions. New test file `08-assemble-executable-specification.test.ts` with 15 unit tests. Total monorepo test count: 104 (25 schemas + 50 coverage-gates + 29 compiler).
 
-**Rationale:** Closes the single largest gap between the whitepaper's pipeline and the MVP implementation. Every Factory compile to date produced a Coverage Report but never a WorkGraph — leaving every downstream Factory stage (harness-bridge, runtime, assurance-graph) architecturally unreachable because they had no input source. Pass 8 unblocks them. Implementation follows the PRD's 15 acceptance criteria, the deterministic node-type assignment rule set, and the edge-derivation rule set. Fail-closed on Gate 1 fail; defensive Zod re-validation at emission; determinism via sort-before-emit; no mutation of inputs; schema-conformant output. The pure/IO split mirrors the coverage-gates package (`runGate1` pure, `emitGate1Report` IO). Three meta-PRD recompiles through full Passes 0–8 pipeline all produced `Gate 1: PASS` plus a WorkGraph — 29/3/3/0/3 for Gate 1, 29/3/4/0/4 for detect_regression, 31/3/4/0/4 for Pass 8. Three WorkGraphs now live in specs/workgraphs/: WG-META-GATE-1-COMPILE-COVERAGE, WG-META-DETECT-REGRESSION, WG-META-COMPILER-PASS-8. The last is the second-order bootstrap proof — the WorkGraph for the pass that produced it. Factory's architectural pipeline is end-to-end through Stage 5.
+**Rationale:** Closes the single largest gap between the whitepaper's pipeline and the MVP implementation. Every Factory compile to date produced a Verification Report but never a Executable Specification — leaving every downstream Factory stage (harness-bridge, runtime, assurance-graph) architecturally unreachable because they had no input source. Pass 8 unblocks them. Implementation follows the Intent Specification's 15 acceptance criteria, the deterministic node-type assignment rule set, and the edge-derivation rule set. Fail-closed on Coherence Verification fail; defensive Zod re-validation at emission; determinism via sort-before-emit; no mutation of inputs; schema-conformant output. The pure/IO split mirrors the coverage-gates package (`runCoherenceVerification` pure, `emitCoherenceVerificationReport` IO). Three meta-Intent Specification recompiles through full Passes 0–8 pipeline all produced `Coherence Verification: PASS` plus a Executable Specification — 29/3/3/0/3 for Coherence Verification, 29/3/4/0/4 for detect_regression, 31/3/4/0/4 for Pass 8. Three Executable Specifications now live in specs/executable-specifications/: ES-META-COHERENCE-VERIFICATION, ES-META-DETECT-REGRESSION, ES-META-COMPILER-PASS-8. The last is the second-order bootstrap proof — the Executable Specification for the pass that produced it. Factory's architectural pipeline is end-to-end through Stage 5.
 
-**Alternatives considered:** (a) Implement all 8 passes including WorkGraph linking/optimization in one PR. Rejected per the PRD's scope discipline — Pass 8 is canonical assembly; optimization is a future pass. (b) Emit WorkGraphs alongside Coverage Reports even on Gate 1 fail. Rejected — Pass 8's fail-closed discipline is absolute (PRD AC-2); emitting a WorkGraph for a failed PRD would produce an executable artifact for an unsound specification. (c) Put workGraphId into a new `_ids.ts` module separate from `_shared.ts`. Rejected — `contractId` and `workGraphId` follow identical derivation patterns; co-locating them in `_shared.ts` is the minimal-file-split that still expresses the helper-family concept.
+**Alternatives considered:** (a) Implement all 8 passes including Executable Specification linking/optimization in one PR. Rejected per the Intent Specification's scope discipline — Pass 8 is canonical assembly; optimization is a future pass. (b) Emit Executable Specifications alongside Verification Reports even on Coherence Verification fail. Rejected — Pass 8's fail-closed discipline is absolute (Intent Specification AC-2); emitting a Executable Specification for a failed Intent Specification would produce an executable artifact for an unsound specification. (c) Put executableSpecificationId into a new `_ids.ts` module separate from `_shared.ts`. Rejected — `contractId` and `executableSpecificationId` follow identical derivation patterns; co-locating them in `_shared.ts` is the minimal-file-split that still expresses the helper-family concept.
 
 **Status:** Proposed. Pending Architect approval.
 
 ## 2026-04-19: Second-order bootstrap proof realized as physical artifact
 
-**Observation:** `specs/workgraphs/WG-META-COMPILER-PASS-8.yaml` exists on disk. The Factory has compiled its own compiler's terminal pass through that compiler's own discipline. The WorkGraph describing Pass 8's execution topology was produced by Pass 8's first successful run against PRD-META-COMPILER-PASS-8.
+**Observation:** `specs/executable-specifications/ES-META-COMPILER-PASS-8.yaml` exists on disk. The Factory has compiled its own compiler's terminal pass through that compiler's own discipline. The Executable Specification describing Pass 8's execution topology was produced by Pass 8's first successful run against IS-META-COMPILER-PASS-8.
 
 **Claim:** Distinct from the Pass-8-implementation Observed entry above, which records the implementation landing, this entry records the physical artifact that manifests the architectural claim. The whitepaper's central commitment ("the Factory builds itself by the discipline it will apply to everything else") has moved from stated-intent to grep-able-on-disk evidence.
 
@@ -275,7 +664,7 @@ The category-scoping of Pass 3's template matching therefore reflects a valid au
 
 **Decision:** Git-commit triage is selected as v2. The Function classifies commits in a git repository against Conventional Commits taxonomy, detects domain-specific violations (missing scopes on feat commits, misattributed fix commits, etc.), and emits a CommitTriageReport.
 
-**Rationale:** The 2026-04-18 "Factory built by Factory is v1" entry implicitly left v2 undetermined. Bootstrap-stage-5-complete has been reached (three meta-PRDs compiled through full Passes 0–8, three WorkGraphs on disk, second-order bootstrap proof realized at WG-META-COMPILER-PASS-8). v2 selection is now timely and architecturally load-bearing — the choice determines what the first non-meta compile exercises and therefore what the Factory's architecture-proving claim extends to. Git-commit triage was chosen against a three-criterion rubric (non-self-referential content, adapter boundary, domain-specific invariants). Rubric mapping: (1) classifier reads arbitrary repo history via git CLI, not Factory's `specs/`; (2) git CLI via `child_process.exec` is the first real shell-exec adapter the harness-bridge will implement, with the pattern transferring to every subsequent external-tool Function; (3) commit-message convention rules (Conventional Commits), repository-state invariants (resolvable SHAs, no shallow gaps), and classification-consistency rules derive from the vertical's domain, not from whitepaper §6.2 coverage discipline. The selection rubric recorded here is reusable for v3 selection and has been encoded into the factory-meta SKILL as durable decision support.
+**Rationale:** The 2026-04-18 "Factory built by Factory is v1" entry implicitly left v2 undetermined. Bootstrap-stage-5-complete has been reached (three meta-Intent Specifications compiled through full Passes 0–8, three Executable Specifications on disk, second-order bootstrap proof realized at ES-META-COMPILER-PASS-8). v2 selection is now timely and architecturally load-bearing — the choice determines what the first non-meta compile exercises and therefore what the Factory's architecture-proving claim extends to. Git-commit triage was chosen against a three-criterion rubric (non-self-referential content, adapter boundary, domain-specific invariants). Rubric mapping: (1) classifier reads arbitrary repo history via git CLI, not Factory's `specs/`; (2) git CLI via `child_process.exec` is the first real shell-exec adapter the harness-bridge will implement, with the pattern transferring to every subsequent external-tool Function; (3) commit-message convention rules (Conventional Commits), repository-state invariants (resolvable SHAs, no shallow gaps), and classification-consistency rules derive from the vertical's domain, not from whitepaper §6.2 coverage discipline. The selection rubric recorded here is reusable for v3 selection and has been encoded into the factory-meta SKILL as durable decision support.
 
 **Alternatives considered:** (a) Healthcare triage or RevOps analytics as v2 — rejected on timing grounds, not substantive grounds. Both were deferred in the 2026-04-18 DECISIONS entry because bootstrap had to come first; the rejection language in that entry ("too much domain onboarding," "not architecture-proving") should not be read as substantive foreclosure. Both remain valid future verticals (potentially v3 or later). (b) A business-facing vertical as v2 — rejected because v2 is architecturally load-bearing as the "first non-meta" proof, and conflating "first non-meta" with "first business-facing" weakens both proofs. v2 proves the Factory compiles non-meta work. v3 (future) should prove the Factory compiles business-facing work. Separating the two claims strengthens each.
 
@@ -295,7 +684,7 @@ The category-scoping of Pass 3's template matching therefore reflects a valid au
 
 **Decision:** Add `CTR` to the `ArtifactId` prefix alternation in `packages/schemas/src/lineage.ts` and to `META_PREFIX_REGEX` in `packages/coverage-gates/src/checks.ts` (paired-PR lockstep, same discipline as CONTRACT). Add a new `CommitTriageReport` Zod schema to `packages/schemas/src/commit-triage.ts` extending Lineage with range fields, per-commit classifications, summary counts, and status enum. Colocated tests verify prefix acceptance, regression of existing prefixes, and schema structural validity.
 
-**Rationale:** Precondition for the v2 vertical (git-commit-triage per DECISIONS 2026-04-19 v2 selection entry). Every Factory artifact has its own schema per "first-class output" discipline; the v2 Function's output artifact needs its own schema rather than embedding triage data in a generic ExecutionLog outcome payload. CTR- namespace is distinct from CR- (Coverage Reports) even though both are report-kind artifacts — CommitTriageReports and Coverage Reports are not interchangeable; keeping prefixes distinct preserves grep/audit clarity.
+**Rationale:** Precondition for the v2 vertical (git-commit-triage per DECISIONS 2026-04-19 v2 selection entry). Every Factory artifact has its own schema per "first-class output" discipline; the v2 Function's output artifact needs its own schema rather than embedding triage data in a generic ExecutionLog outcome payload. CTR- namespace is distinct from VR- (Verification Reports) even though both are report-kind artifacts — CommitTriageReports and Verification Reports are not interchangeable; keeping prefixes distinct preserves grep/audit clarity.
 
 EL- prefix and ExecutionLog schema are explicitly deferred to a subsequent paired PR landing alongside harness-bridge implementation, when ExecutionLog has a consumer. That sequencing matches the "each artifact lands when consumer is ready" discipline that gated Pass 8 on prior generality proofs.
 
@@ -305,51 +694,51 @@ EL- prefix and ExecutionLog schema are explicitly deferred to a subsequent paire
 
 ## 2026-04-19: Retraction — generic-dispatch model for Stage 6 was miscast; chain removed
 
-**Retraction.** The earlier framing of Stage 6 as a generic-adapter-dispatches-WorkGraph-nodes runtime was wrong. Whitepaper §3 Stage 6 specifies a five-role coding-agent topology (Planner/Coder/Critic/Tester/Verifier) that reads a WorkGraph as a specification and produces Function implementation code. WorkGraph nodes are not shell-command dispatch sites; Stage 6's output is code, not per-node execution records.
+**Retraction.** The earlier framing of Stage 6 as a generic-adapter-dispatches-Executable Specification-nodes runtime was wrong. Whitepaper §3 Stage 6 specifies a five-role coding-agent topology (Planner/Coder/Critic/Tester/Verifier) that reads a Executable Specification as a specification and produces Function implementation code. Executable Specification nodes are not shell-command dispatch sites; Stage 6's output is code, not per-node execution records.
 
 **Scope of retraction.** The following artifacts were authored under the miscast framing and have been removed in this commit-
-- `specs/prds/PRD-META-HARNESS-EXECUTE.md` (generic-dispatch PRD)
+- `specs/intent-specifications/IS-META-HARNESS-EXECUTE.md` (generic-dispatch Intent Specification)
 - `specs/capabilities/BC-META-HARNESS-EXECUTE.yaml`
 - `specs/functions/FP-META-HARNESS-EXECUTE.yaml`
 - `specs/pressures/PRS-META-HARNESS-EXECUTE.yaml`
-- `specs/workgraphs/WG-META-HARNESS-EXECUTE.yaml`
-- `specs/coverage-reports/CR-PRD-META-HARNESS-EXECUTE-*.yaml`
+- `specs/executable-specifications/ES-META-HARNESS-EXECUTE.yaml`
+- `specs/verification-reports/VR-IS-META-HARNESS-EXECUTE-*.yaml`
 - `packages/harness-bridge/` (empty scaffold named for the wrong concept)
 
 **Prior DECISIONS entries partially invalidated.** The following entries cite the generic-dispatch framing and should be read with this retraction-
-- 2026-04-19 "Pass 8 (assemble_workgraph) implemented" — mentions harness-bridge as a downstream stage slot; the slot survives but its contents are forthcoming under the correct Stage 6 topology.
+- 2026-04-19 "Pass 8 (assemble_executable-specification) implemented" — mentions harness-bridge as a downstream stage slot; the slot survives but its contents are forthcoming under the correct Stage 6 topology.
 - 2026-04-19 "v2 vertical selection — git-commit-triage" — cites "shell-exec adapter the harness-bridge will implement" as the adapter-boundary criterion. The three-criterion rubric stands; the specific phrasing of criterion #2 should be read as "external integration boundary," not "shell-exec adapter dispatched by harness-bridge." The factory-meta SKILL has been updated accordingly.
 - 2026-04-19 "Add CTR- ArtifactId prefix + CommitTriageReport schema" — the deferred-EL- paragraph presupposed a generic-dispatch ExecutionLog that will not be implemented under the correct Stage 6 framing. CTR- schema stands on its own merits as v2's output artifact.
 
-**What comes next.** A fresh meta-PRD authoring the Stage 6 coordinator (five-role coding-agent topology) from whitepaper §3 directly. The artifact-ID stem for that chain is pending Architect decision; no files from the retracted chain will be reused.
+**What comes next.** A fresh meta-Intent Specification authoring the Stage 6 coordinator (five-role coding-agent topology) from whitepaper §3 directly. The artifact-ID stem for that chain is pending Architect decision; no files from the retracted chain will be reused.
 
 **Status:** Active (retraction; cannot be reversed without re-authorizing the wrong turn).
 
-## 2026-04-19: Observed — Gate 1 PASS does not imply conceptual correctness
+## 2026-04-19: Observed — Coherence Verification PASS does not imply conceptual correctness
 
-**Observation.** PRD-META-HARNESS-EXECUTE (now deleted; recoverable via `git show 81593a4^:specs/prds/PRD-META-HARNESS-EXECUTE.md`) compiled at Gate 1 PASS on 2026-04-19T17:32Z — 30 atoms, 3 contracts, 4 invariants, 0 dependencies, 4 validations, all coverage checks green. Every structural discipline held. The PRD's entire conceptual frame was nonetheless miscast- it specified Stage 6 as a "pure-plan / adapter-dispatch Function" with "HarnessAdapter identifier," "per-node execution outcomes," and "ExecutionLog artifact," when whitepaper §3 specifies Stage 6 as a five-role coding-agent topology (Planner/Coder/Critic/Tester/Verifier) that reads WorkGraphs as specifications and emits Function implementation code.
+**Observation.** IS-META-HARNESS-EXECUTE (now deleted; recoverable via `git show 81593a4^:specs/intent-specifications/IS-META-HARNESS-EXECUTE.md`) compiled at Coherence Verification PASS on 2026-04-19T17:32Z — 30 atoms, 3 contracts, 4 invariants, 0 dependencies, 4 validations, all coverage checks green. Every structural discipline held. The Intent Specification's entire conceptual frame was nonetheless miscast- it specified Stage 6 as a "pure-plan / adapter-dispatch Function" with "HarnessAdapter identifier," "per-node execution outcomes," and "ExecutionLog artifact," when whitepaper §3 specifies Stage 6 as a five-role coding-agent topology (Planner/Coder/Critic/Tester/Verifier) that reads Executable Specifications as specifications and emits Function implementation code.
 
-**Specific miscasts that Gate 1 did not catch, identified by re-reading the deleted PRD against §3-**
+**Specific miscasts that Coherence Verification did not catch, identified by re-reading the deleted Intent Specification against §3-**
 - Title- "Harness Execute (Stage 6 execution Function)." §3 Stage 6 is not an execution Function; it is code synthesis.
-- Problem §1 line 2- "Stage 6 consumes those WorkGraphs and invokes their nodes in a runtime adapter so the specified behavior actually runs." §3 says Stage 6 *reads* WorkGraphs and produces code; nodes are not runtime dispatch sites.
-- Goal- "Implement `harness_execute` as a pure-plan / adapter-dispatch Function... derives a deterministic execution plan (node dispatch order) from the WorkGraph... invokes the adapter with that plan." The word "plan" here means dispatch order, not the Planner role's execution plan.
+- Problem §1 line 2- "Stage 6 consumes those Executable Specifications and invokes their nodes in a runtime adapter so the specified behavior actually runs." §3 says Stage 6 *reads* Executable Specifications and produces code; nodes are not runtime dispatch sites.
+- Goal- "Implement `harness_execute` as a pure-plan / adapter-dispatch Function... derives a deterministic execution plan (node dispatch order) from the Executable Specification... invokes the adapter with that plan." The word "plan" here means dispatch order, not the Planner role's execution plan.
 - Operational constraints- "Adapter identifiers are canonical strings. The initial set is `dry-run`, `claude-code`, `cursor`." §3's five-role topology is not parameterized by adapter identifier; `claude-code` and `cursor` are *harnesses that can implement the whole topology*, not adapters dispatched per node.
 - ExecutionLog per-node records- §3 does not specify per-node records as Stage 6 output. Stage 6 output is code (tests, configuration, documentation per ConOps §9.4). Per-node telemetry belongs in Stage 7 observation of deployed Functions, not Stage 6 emission.
 - FunctionLifecycle transitions- "harness_execute may emit a transition hint as a separate artifact." The transition from `designed` → `in_progress` → `implemented` is driven by Stage 6 producing code, not by node dispatch completing.
 
-**Claim.** Gate 1's four coverage checks (atom coverage, invariant coverage with detector, validation coverage, dependency closure) are structural. They do not verify that the PRD's prose aligns with the whitepaper's semantics. A PRD can be internally coherent by Gate 1's metrics while describing a conceptually wrong Function. The entire harness_execute PRD was proof of this by construction.
+**Claim.** Coherence Verification's four coverage checks (atom coverage, invariant coverage with detector, validation coverage, dependency closure) are structural. They do not verify that the Intent Specification's prose aligns with the whitepaper's semantics. A Intent Specification can be internally coherent by Coherence Verification's metrics while describing a conceptually wrong Function. The entire harness_execute Intent Specification was proof of this by construction.
 
-**Consequence.** Gate 1 is necessary but not sufficient for PRD acceptance. A semantic-alignment check — verification that the PRD's conceptual model matches whitepaper and ConOps ground truth — is a distinct concern. Whether this should be a Gate 1.5 (compile-time, automated), a human-authored Architect review gate, or an agent-assisted check (Critic role at authoring time, not just at Stage 6) is a future architectural decision and not resolved here.
+**Consequence.** Coherence Verification is necessary but not sufficient for Intent Specification acceptance. A semantic-alignment check — verification that the Intent Specification's conceptual model matches whitepaper and ConOps ground truth — is a distinct concern. Whether this should be a Coherence Verification.5 (compile-time, automated), a human-authored Architect review gate, or an agent-assisted check (Critic role at authoring time, not just at Stage 6) is a future architectural decision and not resolved here.
 
-**Not an immediate remediation for Gate 1.** Widening Gate 1 to semantic verification without a clear derivation rule would turn it into ad-hoc compliance checking. The right response is to acknowledge the known limit and let future PRDs fail on conceptual grounds through explicit Architect review rather than through Gate 1 arithmetic.
+**Not an immediate remediation for Coherence Verification.** Widening Coherence Verification to semantic verification without a clear derivation rule would turn it into ad-hoc compliance checking. The right response is to acknowledge the known limit and let future Intent Specifications fail on conceptual grounds through explicit Architect review rather than through Coherence Verification arithmetic.
 
 **Status:** Observed.
 ## 2026-04-24: Stage 6 artifact-ID stem is FUNCTION-SYNTHESIS
 
-**Decision:** The PRS/BC/FP/PRD/WG chain for Stage 6 uses the artifact-ID
+**Decision:** The PRS/BC/FP/Intent Specification/WG chain for Stage 6 uses the artifact-ID
 stem `FUNCTION-SYNTHESIS`. Full chain: `PRS-META-FUNCTION-SYNTHESIS`,
 `BC-META-FUNCTION-SYNTHESIS`, `FP-META-FUNCTION-SYNTHESIS`,
-`PRD-META-FUNCTION-SYNTHESIS`, `WG-META-FUNCTION-SYNTHESIS`. The stem
+`IS-META-FUNCTION-SYNTHESIS`, `ES-META-FUNCTION-SYNTHESIS`. The stem
 applies to the Stage 6 coordinator and the five-role topology it governs.
 
 **Rationale:** Four candidates were evaluated: `STAGE-6-CODING-SWARM`,
@@ -393,8 +782,8 @@ with enough detail (per-role read access, write access, do-not rules, output
 contract) that an in-Factory implementation is architecturally derivable.
 The hybrid approach lets the Factory own the contract layer (what each role
 must do) while remaining agnostic about the execution layer (who does it).
-This is the same separation the Factory applies everywhere else — WorkGraphs
-specify, execution realizes. The PRD for FUNCTION-SYNTHESIS must specify the
+This is the same separation the Factory applies everywhere else — Executable Specifications
+specify, execution realizes. The Intent Specification for FUNCTION-SYNTHESIS must specify the
 role contracts as the primary deliverable and the binding-mode interface as
 the secondary deliverable; implementation of any specific binding mode is a
 downstream Function, not part of the FUNCTION-SYNTHESIS chain itself.
@@ -411,93 +800,93 @@ before any of the simpler delegation paths have been proven.
 
 **Status:** Active.
 
-## 2026-04-24: Semantic-alignment review via Critic-role involvement at PRD authoring
+## 2026-04-24: Semantic-alignment review via Critic-role involvement at Intent Specification authoring
 
 **Decision:** The semantic-alignment review mechanism — required to catch
-PRDs that pass Gate 1 structurally but are conceptually miscast against
+Intent Specifications that pass Coherence Verification structurally but are conceptually miscast against
 whitepaper and ConOps ground truth — is implemented as Critic-role
-involvement during PRD authoring, not as a separate gate. Specifically:
-before a PRD enters the Stage 5 compiler, the Critic role (as defined in
-whitepaper §3's five-role topology) reviews the PRD's conceptual model
+involvement during Intent Specification authoring, not as a separate gate. Specifically:
+before a Intent Specification enters the Stage 5 compiler, the Critic role (as defined in
+whitepaper §3's five-role topology) reviews the Intent Specification's conceptual model
 against the authoritative source material cited in its `source_refs` chain.
 The Critic's output is a typed review artifact with a verdict
 (`aligned / miscast / uncertain`) and specific citations to whitepaper or
-ConOps sections that support or contradict the PRD's framing.
+ConOps sections that support or contradict the Intent Specification's framing.
 
-The Critic-at-authoring mechanism supplements Gate 1; it does not replace
-it. Gate 1 remains the structural coverage gate. The Critic review is the
-semantic coverage check. A PRD must pass both to proceed to Stage 6
+The Critic-at-authoring mechanism supplements Coherence Verification; it does not replace
+it. Coherence Verification remains the structural coverage gate. The Critic review is the
+semantic coverage check. A Intent Specification must pass both to proceed to Stage 6
 execution.
 
-**Rationale:** The 2026-04-19 Observed entry "Gate 1 PASS does not imply
-conceptual correctness" documented the failure mode: PRD-META-HARNESS-
-EXECUTE compiled Gate 1 PASS with 30 atoms, 3 contracts, 4 invariants,
+**Rationale:** The 2026-04-19 Observed entry "Coherence Verification PASS does not imply
+conceptual correctness" documented the failure mode: IS-META-HARNESS-
+EXECUTE compiled Coherence Verification PASS with 30 atoms, 3 contracts, 4 invariants,
 all checks green, while its entire conceptual frame was wrong. The root
-cause was not a Gate 1 deficiency — Gate 1's four structural checks are
+cause was not a Coherence Verification deficiency — Coherence Verification's four structural checks are
 correct and complete for their scope — but the absence of any mechanism
-to verify that a PRD's prose aligns with the whitepaper's semantics.
+to verify that a Intent Specification's prose aligns with the whitepaper's semantics.
 
-Three options were evaluated: (a) Gate 1.5, an automated compile-time
+Three options were evaluated: (a) Coherence Verification.5, an automated compile-time
 check; (b) Architect review gate, a human checkpoint; (c) Critic-role
-involvement at PRD authoring. Option (c) was selected because it places
+involvement at Intent Specification authoring. Option (c) was selected because it places
 the review at the point of maximum leverage (before compile, when the
-PRD's conceptual frame is still malleable), it produces a typed artifact
+Intent Specification's conceptual frame is still malleable), it produces a typed artifact
 (the review) that enters the lineage graph, and it reuses the Critic role
 already specified in whitepaper §3 rather than introducing a new gate or
 a new human bottleneck. Option (b) does not scale — the Architect
-becomes a serial dependency on every PRD. Option (a) requires a
+becomes a serial dependency on every Intent Specification. Option (a) requires a
 derivation rule for semantic alignment that does not currently exist and
 risks becoming ad-hoc compliance checking (per the 2026-04-19 Observed
-entry's own warning: "widening Gate 1 to semantic verification without a
+entry's own warning: "widening Coherence Verification to semantic verification without a
 clear derivation rule would turn it into ad-hoc compliance checking").
 
 **Status:** Active.
 
-## 2026-04-24: Bootstrap carve-out — Architect is Critic for PRD-META-FUNCTION-SYNTHESIS
+## 2026-04-24: Bootstrap carve-out — Architect is Critic for IS-META-FUNCTION-SYNTHESIS
 
-**Decision:** The Critic role cannot review the PRD that instantiates the
+**Decision:** The Critic role cannot review the Intent Specification that instantiates the
 Critic role. For the FUNCTION-SYNTHESIS chain specifically
-(`PRS-META-FUNCTION-SYNTHESIS` through `PRD-META-FUNCTION-SYNTHESIS`), the
+(`PRS-META-FUNCTION-SYNTHESIS` through `IS-META-FUNCTION-SYNTHESIS`), the
 Architect fills the Critic role manually, performing semantic-alignment
-review against whitepaper §3 before the PRD enters the Stage 5 compiler.
+review against whitepaper §3 before the Intent Specification enters the Stage 5 compiler.
 This carve-out applies exclusively to the FUNCTION-SYNTHESIS chain and
-expires when the FUNCTION-SYNTHESIS WorkGraph has been executed and the
+expires when the FUNCTION-SYNTHESIS Executable Specification has been executed and the
 Critic role is operational.
 
 **Rationale:** The 2026-04-24 "Semantic-alignment review via Critic-role
 involvement" decision establishes the Critic as the semantic-alignment
-reviewer for all PRDs. But the Critic role is defined inside Stage 6, and
-Stage 6 is the subject of PRD-META-FUNCTION-SYNTHESIS. The Critic cannot
+reviewer for all Intent Specifications. But the Critic role is defined inside Stage 6, and
+Stage 6 is the subject of IS-META-FUNCTION-SYNTHESIS. The Critic cannot
 review its own specification — this is a genuine bootstrap circularity,
 not a theoretical concern. It is structurally identical to the pattern
-that allowed PRD-META-HARNESS-EXECUTE to pass Gate 1 unchallenged: no
+that allowed IS-META-HARNESS-EXECUTE to pass Coherence Verification unchallenged: no
 reviewer existed for the thing being reviewed. The carve-out resolves the
 circularity by substituting the Architect (the only agent with ground-
 truth access to whitepaper §3) for the not-yet-existing Critic, for
-exactly one chain. All subsequent PRDs — including any amendments to the
+exactly one chain. All subsequent Intent Specifications — including any amendments to the
 FUNCTION-SYNTHESIS chain — are subject to Critic review once operational.
 
 The carve-out is recorded as a separate DECISIONS entry rather than a
 footnote in the Critic-role entry because it imposes a concrete
-obligation on a specific human (the Architect must review PRD-META-
+obligation on a specific human (the Architect must review IS-META-
 FUNCTION-SYNTHESIS before compile) and has a concrete expiration
 condition (Critic role operational). Burying it in the parent entry
 risks the obligation being missed.
 
-**Alternatives considered:** (a) No carve-out — let PRD-META-FUNCTION-
-SYNTHESIS proceed without semantic review, relying on Gate 1 alone.
+**Alternatives considered:** (a) No carve-out — let IS-META-FUNCTION-
+SYNTHESIS proceed without semantic review, relying on Coherence Verification alone.
 Rejected — this is precisely the failure mode the 2026-04-19 retraction
 documented. (b) Defer the Critic-role decision until after Stage 6 is
 implemented, then retroactively review. Rejected — retroactive review of
-an already-compiled, possibly already-executed PRD has no remediation
+an already-compiled, possibly already-executed Intent Specification has no remediation
 path short of retraction and reauthoring, which is more expensive than
-upfront review. (c) Use an automated semantic check for this one PRD.
+upfront review. (c) Use an automated semantic check for this one Intent Specification.
 Rejected — no derivation rule for automated semantic alignment exists
 yet; the Architect's judgment against §3 is the only available ground
 truth.
 
 **Status:** Active. Expires when the FUNCTION-SYNTHESIS Critic role is
-operational and has reviewed its first non-FUNCTION-SYNTHESIS PRD.
+operational and has reviewed its first non-FUNCTION-SYNTHESIS Intent Specification.
 
 ## 2026-04-24: Adopt crystallization-from-execution and memory-as-tool patterns (GenericAgent-informed)
 
@@ -505,12 +894,12 @@ operational and has reviewed its first non-FUNCTION-SYNTHESIS PRD.
 framework (lsdefine/GenericAgent, reviewed 2026-04-24) into the Factory's
 operational model:
 
-1. **Crystallization from successful execution.** When a WorkGraph executes
-   through all applicable gates and produces a passing Coverage Report, the
+1. **Crystallization from successful execution.** When a Executable Specification executes
+   through all applicable gates and produces a passing Verification Report, the
    Factory emits a reusable artifact — a template, a macro, or a new
    invariant — derived from the execution path. Crystallized artifacts
    enter `specs/` with full lineage back to the execution that produced
-   them. The mechanism is: successful Gate 3 (assurance) passage triggers
+   them. The mechanism is: successful Persistence Verification (assurance) passage triggers
    a crystallization check; if the execution path contains a novel pattern
    not already captured by an existing invariant or template, a new
    artifact is proposed (not auto-committed — it enters the Critic review
@@ -519,7 +908,7 @@ operational model:
 
 2. **Memory writes as explicit, auditable tool calls.** Every write to
    `.agent/memory/` (episodic, semantic, personal, working) is performed
-   through a typed tool call that the coverage gates can observe, audit,
+   through a typed tool call that the verification checks can observe, audit,
    and include in lineage graphs. No implicit or side-effect memory writes.
    The tool interface is: `memory_write(layer, key, content, source_refs)`,
    where `source_refs` traces the write back to the Function, gate, or
@@ -531,7 +920,7 @@ operational model:
 
 - **Deferred skill authoring.** GenericAgent writes zero skills upfront and
   accretes them only after successful task execution. The Factory's domain
-  (formal PRD compilation with typed invariants and fail-closed gates)
+  (formal Intent Specification compilation with typed invariants and fail-closed gates)
   requires preloaded skills because the compiler passes, gate checks, and
   lineage rules are not discoverable from execution alone — they are
   derived from the whitepaper's formal specification. The eight existing
@@ -541,8 +930,8 @@ operational model:
 
 - **Flat tool surface.** GenericAgent exposes 7 atomic tools and derives
   all capability from composition. The Factory's typed artifact pipeline
-  (Signals → Pressures → Capabilities → Functions → PRDs → WorkGraphs →
-  Invariants → Coverage Reports) is not reducible to a flat tool surface
+  (Signals → Pressures → Capabilities → Functions → Intent Specifications → Executable Specifications →
+  Invariants → Verification Reports) is not reducible to a flat tool surface
   without losing the lineage guarantees that are the Factory's distinctive
   claim. The Factory's tool surface remains typed and stage-aware.
 
@@ -573,7 +962,7 @@ explicit tool calls, not implicit side effects. This means every memory
 mutation is observable, auditable, and attributable. The Factory's
 `.agent/tools/memory_writer.ts` already exists as a file; this decision
 formalizes that every memory write must route through it with typed
-`source_refs`, and that coverage gates may inspect memory-write records
+`source_refs`, and that verification checks may inspect memory-write records
 as part of their audit surface.
 
 **Source material:** GenericAgent repository (github.com/lsdefine/
@@ -603,8 +992,8 @@ do not, creating a two-tier auditability gap.
 **Implementation notes:**
 
 - Crystallization check logic belongs in `packages/runtime/` (Stage 7),
-  not in `packages/coverage-gates/` — it triggers *after* Gate 3, not
-  *as part of* Gate 3. Gate 3 is fail-closed on assurance; crystallization
+  not in `packages/coverage-gates/` — it triggers *after* Persistence Verification, not
+  *as part of* Persistence Verification. Persistence Verification is fail-closed on assurance; crystallization
   is an additive emit on success.
 - The `memory_write` tool interface should be specified as a new entry in
   `.agent/protocols/tool_schemas/` alongside the existing `shell.schema
@@ -612,23 +1001,23 @@ do not, creating a two-tier auditability gap.
 - Crystallized artifacts use a new prefix (candidate: `CRY-` or `TPL-`)
   requiring a paired update to `packages/schemas/src/lineage.ts` and
   `packages/coverage-gates/src/checks.ts`. Prefix selection is deferred
-  to the PRD that specifies the crystallization Function.
+  to the Intent Specification that specifies the crystallization Function.
 
 **Status:** Active.
 
 ## 2026-04-24: PiAgentBindingMode authorized as downstream Function under FUNCTION-SYNTHESIS
 
-**Decision:** The first real binding mode (`PiAgentBindingMode`, implementing `BindingMode` interface from `@factory/function-synthesis`) is authorized for implementation as a downstream Function per the 2026-04-24 DECISIONS entry: "implementation of any specific binding mode is a downstream Function, not part of the FUNCTION-SYNTHESIS chain itself." No separate PRS/BC/FP/PRD chain is required. The binding mode uses `@mariozechner/pi-ai` (model routing) and `@mariozechner/pi-agent-core` (stateful agent execution) as its execution substrate.
+**Decision:** The first real binding mode (`PiAgentBindingMode`, implementing `BindingMode` interface from `@factory/function-synthesis`) is authorized for implementation as a downstream Function per the 2026-04-24 DECISIONS entry: "implementation of any specific binding mode is a downstream Function, not part of the FUNCTION-SYNTHESIS chain itself." No separate PRS/BC/FP/Intent Specification chain is required. The binding mode uses `@mariozechner/pi-ai` (model routing) and `@mariozechner/pi-agent-core` (stateful agent execution) as its execution substrate.
 
 **Implementation constraints (Architect-directed, 2026-04-24):**
 
 1. **`beforeToolCall: enforceRoleContract` MUST block, not log-and-continue.** When a role attempts a tool call outside its contract, the hook returns `{ block: true, reason: "do_not violation: <role> attempted <tool>" }` and records the violation in the RoleAdherenceReport. Log-and-continue makes role contracts advisory; block-and-record makes them governed. The RoleAdherenceReport produced by blocking IS the audit artifact. This is the entire control Function expressed as a hook.
 
-2. **Carve-out expiration requires BOTH conditions.** Step 6 (Critic reviews code during synthesis of WG-V2-CLASSIFY-COMMITS) proves the Critic can review patches. Step 7 (Critic reviews a real PRD for semantic alignment against whitepaper §3, producing `aligned / miscast / uncertain` with citations) proves the Critic can review conceptual framing. The carve-out does not expire until Step 7 produces a real verdict on a real PRD. Step 6 alone is insufficient.
+2. **Carve-out expiration requires BOTH conditions.** Step 6 (Critic reviews code during synthesis of ES-V2-CLASSIFY-COMMITS) proves the Critic can review patches. Step 7 (Critic reviews a real Intent Specification for semantic alignment against whitepaper §3, producing `aligned / miscast / uncertain` with citations) proves the Critic can review conceptual framing. The carve-out does not expire until Step 7 produces a real verdict on a real Intent Specification. Step 6 alone is insufficient.
 
-3. **WG-V2-CLASSIFY-COMMITS is the first synthesis target.** It is small, non-meta, has domain-specific invariants (Conventional Commits taxonomy), and is already compiled through Gate 1. The commit-classification Function will require git CLI integration (`git log`). The Coder role's tool policy must account for this — either route through `@factory/controlled-effectors` (governed tool invocation) or treat it as a Stage 7 effector concern. The architectural choice between these is deferred to implementation but must be explicit in the binding-mode code.
+3. **ES-V2-CLASSIFY-COMMITS is the first synthesis target.** It is small, non-meta, has domain-specific invariants (Conventional Commits taxonomy), and is already compiled through Coherence Verification. The commit-classification Function will require git CLI integration (`git log`). The Coder role's tool policy must account for this — either route through `@factory/controlled-effectors` (governed tool invocation) or treat it as a Stage 7 effector concern. The architectural choice between these is deferred to implementation but must be explicit in the binding-mode code.
 
-4. **Run dual configurations as the first empirical CEF data point.** After the binding mode is operational, execute WG-V2-CLASSIFY-COMMITS with two ArchitectureCandidate configurations: (a) Haiku-everywhere (all five roles on claude-haiku-4-5), (b) Sonnet-mix (Coder + Verifier on claude-sonnet-4-6, Planner + Critic + Tester on claude-haiku-4-5). Diff the produced code. If the outputs are functionally equivalent, Haiku is sufficient for that Function class. That equivalence-or-divergence result is the first Signal from the CEF feedback loop — it feeds back as SIG-META-CEF-MODEL-SUFFICIENCY and may recalibrate the default routing table.
+4. **Run dual configurations as the first empirical CEF data point.** After the binding mode is operational, execute ES-V2-CLASSIFY-COMMITS with two ArchitectureCandidate configurations: (a) Haiku-everywhere (all five roles on claude-haiku-4-5), (b) Sonnet-mix (Coder + Verifier on claude-sonnet-4-6, Planner + Critic + Tester on claude-haiku-4-5). Diff the produced code. If the outputs are functionally equivalent, Haiku is sufficient for that Function class. That equivalence-or-divergence result is the first Signal from the CEF feedback loop — it feeds back as SIG-META-CEF-MODEL-SUFFICIENCY and may recalibrate the default routing table.
 
 5. **BindingMode interface vindication noted.** The 2026-04-24 hybrid topology DECISIONS entry anticipated this moment. The orchestration logic (`orchestrate.ts`) does not change. The `StubBindingMode` swaps for `PiAgentBindingMode`. The 2,452 lines of function-synthesis implementation (role contracts, evidence emission, disagreement resolution, repair loops) become the system prompts, tool schemas, and beforeToolCall hooks for five real agents. The interface boundary held. Architectural validation.
 
@@ -639,51 +1028,51 @@ do not, creating a two-tier auditability gap.
 ## 2026-04-24: Bootstrap carve-out EXPIRED — Critic role operational
 
 **Decision:** The bootstrap carve-out established in "Bootstrap carve-out —
-Architect is Critic for PRD-META-FUNCTION-SYNTHESIS" (2026-04-24) is
+Architect is Critic for IS-META-FUNCTION-SYNTHESIS" (2026-04-24) is
 expired as of commit `060db28`. Both conditions met:
 
-1. The FUNCTION-SYNTHESIS WorkGraph has been executed. The five-role
+1. The FUNCTION-SYNTHESIS Executable Specification has been executed. The five-role
    topology (Planner/Coder/Critic/Tester/Verifier) ran against
-   WG-V2-CLASSIFY-COMMITS via PiAgentBindingMode with real Anthropic API
+   ES-V2-CLASSIFY-COMMITS via PiAgentBindingMode with real Anthropic API
    calls through pi-ai (25-provider substrate). All five roles completed.
    Verifier rendered pass. Code produced on disk. Commit `80baaeb`.
 
-2. The Critic role is operational. The Critic reviewed PRD-META-COMPILER-
+2. The Critic role is operational. The Critic reviewed IS-META-COMPILER-
    PASS-8 against whitepaper §3 via pi-ai, producing a typed verdict
    (miscast, confidence 0.92) with 8 citations to specific §3 text.
    The review was substantive — it identified a real pass-numbering
    discrepancy and a citation error. Commit `060db28`.
 
-**Effect:** All PRDs from this point forward are subject to Critic review
+**Effect:** All Intent Specifications from this point forward are subject to Critic review
 before compilation. No exceptions. The Architect no longer fills the
 Critic role manually. The Architect's role shifts from semantic reviewer
 to the person who decides what to do when the Critic says miscast.
 
 **Status:** Active.
 
-## 2026-04-24: Observed — Critic finds pass-numbering discrepancy in PRD-META-COMPILER-PASS-8
+## 2026-04-24: Observed — Critic finds pass-numbering discrepancy in IS-META-COMPILER-PASS-8
 
-**Observation.** The Critic's first operational PRD review (Step 7,
-commit `060db28`) reviewed PRD-META-COMPILER-PASS-8 against whitepaper §3
+**Observation.** The Critic's first operational Intent Specification review (Step 7,
+commit `060db28`) reviewed IS-META-COMPILER-PASS-8 against whitepaper §3
 and rendered verdict: miscast (confidence 0.92). Two findings:
 
 1. **Pass-numbering discrepancy.** Whitepaper §3.5 describes an eight-pass
    compiler pipeline (normalize, extract atoms, derive contracts, derive
    invariants, derive dependencies, derive validations, consistency check,
-   assemble WorkGraph). The PRD and implementation number these as Passes
-   0–8 (nine passes), inserting Gate 1 as a discrete Pass 7 between
-   consistency check and WorkGraph assembly. §3 does not name the gating
-   step as a numbered compiler pass. The PRD's "Pass 8" is §3's eighth
+   assemble Executable Specification). The Intent Specification and implementation number these as Passes
+   0–8 (nine passes), inserting Coherence Verification as a discrete Pass 7 between
+   consistency check and Executable Specification assembly. §3 does not name the gating
+   step as a numbered compiler pass. The Intent Specification's "Pass 8" is §3's eighth
    pass, not a ninth.
 
-2. **Citation error.** The PRD's rationale cites "§3.2 for the execution
+2. **Citation error.** The Intent Specification's rationale cites "§3.2 for the execution
    Function type" but §3.2 (Business Capabilities) defines organizational
    transfer functions, not Function types. Function types (execution,
    control, evidence, integration) are defined in §3.4 (Capability Delta
    and Function Proposals).
 
 **Assessment:** Amendment trigger, not retraction trigger. The conceptual
-frame of PRD-META-COMPILER-PASS-8 — "assemble a WorkGraph from validated
+frame of IS-META-COMPILER-PASS-8 — "assemble a Executable Specification from validated
 compiler intermediates" — is correct. The implementation is correct. The
 pass numbering is a documentation-level mismatch between the whitepaper's
 narrative (which counts eight named activities) and the implementation
@@ -693,28 +1082,28 @@ here the frame is right and the numbering convention diverges. A future
 amendment should reconcile the numbering convention — either by updating
 the whitepaper to acknowledge the 0-indexed 9-pass implementation, or
 by renaming the implementation's passes to match §3's eight named
-activities with Gate 1 as an interposed gate rather than a numbered pass.
+activities with Coherence Verification as an interposed gate rather than a numbered pass.
 
 **Historical significance.** This is the first time the Factory's own
 automated Critic has identified a finding in a previously-shipped
-artifact. The 2026-04-19 Observed entry "Gate 1 PASS does not imply
+artifact. The 2026-04-19 Observed entry "Coherence Verification PASS does not imply
 conceptual correctness" predicted this capability would be needed. The
 Critic just demonstrated it retroactively on a production artifact.
 
-**Status:** Observed. Amendment deferred to a future PRD or whitepaper
+**Status:** Observed. Amendment deferred to a future Intent Specification or whitepaper
 revision. No retraction required.
 
 ## 2026-04-24: Universal Critic review before compilation — no exceptions
 
-**Decision:** Every PRD entering the Stage 5 compiler is subject to
+**Decision:** Every Intent Specification entering the Stage 5 compiler is subject to
 automated Critic review before Pass 0 (normalize). No exceptions. No
-bypass. No "just this once." The Critic review is as mandatory as Gate 1.
+bypass. No "just this once." The Critic review is as mandatory as Coherence Verification.
 
 **Mechanism:**
-1. Before `pnpm compile <prd-path>`, the Critic reads the PRD + the
+1. Before `pnpm compile <prd-path>`, the Critic reads the Intent Specification + the
    whitepaper sections cited in its `source_refs` chain.
 2. The Critic produces a typed `CRV-*` artifact at
-   `specs/critic-reviews/CRV-<PRD-ID>-<timestamp>.yaml` with verdict
+   `specs/critic-reviews/CRV-<IS-ID>-<timestamp>.yaml` with verdict
    (`aligned / miscast / uncertain`), confidence, citations, and summary.
 3. Verdict gating:
    - `aligned` → compilation proceeds. CRV artifact committed for lineage.
@@ -723,9 +1112,9 @@ bypass. No "just this once." The Critic review is as mandatory as Gate 1.
      numbering finding), or override with explicit rationale in DECISIONS.
    - `uncertain` → compilation proceeds with the CRV flagged for
      Architect review. The uncertainty is recorded, not suppressed.
-4. The CRV artifact carries lineage (`source_refs` cites the PRD) and is
+4. The CRV artifact carries lineage (`source_refs` cites the Intent Specification) and is
    a first-class Factory artifact subject to the same audit discipline as
-   Coverage Reports.
+   Verification Reports.
 
 **Model:** The Critic runs on the minimum-sufficient model — currently
 Claude Haiku 4.5 via pi-ai at ~$0.02 per review. Model selection is
@@ -734,13 +1123,13 @@ Stage 6 roles; the Critic is not hardcoded to one model.
 
 **Economics:** $0.02 per review vs the cost of one miscast retraction
 (half a session-day for HARNESS-EXECUTE). Universal review is ~1000x
-cheaper than one retraction. At 100 PRDs/year, universal review costs
+cheaper than one retraction. At 100 Intent Specifications/year, universal review costs
 $2/year. The economics are not marginal — they are overwhelming.
 
 **Rationale:** The 2026-04-19 Observed entry documented the failure mode:
-"A PRD can be internally coherent by Gate 1's metrics while describing a
+"A Intent Specification can be internally coherent by Coherence Verification's metrics while describing a
 conceptually wrong Function." The 2026-04-24 Critic review of
-PRD-META-COMPILER-PASS-8 demonstrated the capability: Haiku at $0.019
+IS-META-COMPILER-PASS-8 demonstrated the capability: Haiku at $0.019
 found a real miscast (pass-numbering discrepancy) with 8 citations at
 0.92 confidence. Universal review makes the demonstrated capability a
 permanent, automated, fail-closed governance property.
@@ -756,27 +1145,27 @@ every compile, at two cents per review.
 
 **Observation.** As of commit `bd2f9a0`, the Factory's specification
 pipeline operates end-to-end without the Architect in the governance
-loop. The governance chain for PRD-META-SIMULATION-COVERAGE:
+loop. The governance chain for IS-META-SIMULATION-COVERAGE:
 
-  SIG-META-GATE2-REACHABLE (architect-observation)
+  SIG-META-FIDELITY-REACHABLE (architect-observation)
   → PRS-META-SIMULATION-COVERAGE
   → BC-META-ENFORCE-SIMULATION-COVERAGE
   → FP triple (execution/control/evidence)
-  → PRD-META-SIMULATION-COVERAGE (201 lines, 21 ACs)
+  → IS-META-SIMULATION-COVERAGE (201 lines, 21 ACs)
   → Critic review: ALIGNED (0.98, 11 citations, $0.017) — automated
-  → Gate 1: PASS (49 atoms, 3 contracts, 4 invariants) — automated
-  → WG-META-SIMULATION-COVERAGE — 9th WorkGraph
+  → Coherence Verification: PASS (49 atoms, 3 contracts, 4 invariants) — automated
+  → ES-META-SIMULATION-COVERAGE — 9th Executable Specification
 
 The Architect's role was: (1) notice the operational gap (SIG source:
 architect-observation — the Factory cannot yet self-sense), (2) author
-the spec-chain content. The Architect did NOT: review the PRD for
-semantic alignment (the Critic did that), run Gate 1 (the compiler
+the spec-chain content. The Architect did NOT: review the Intent Specification for
+semantic alignment (the Critic did that), run Coherence Verification (the compiler
 did that), check coverage (the gate evaluator did that). Both governance
 checks ran themselves, produced lineage artifacts, and gated the
 pipeline without human intervention.
 
 **What this establishes.** The specification side of the Factory is
-self-sustaining: Signal through WorkGraph, fully automated governance,
+self-sustaining: Signal through Executable Specification, fully automated governance,
 fully lineaged. The Architect writes; the Factory governs. This is the
 shift from "Factory builds itself with the Architect reviewing every
 step" to "Factory builds itself with the Architect authoring and the
@@ -785,19 +1174,19 @@ Factory governing."
 **What this does NOT establish.** The execution side (Stage 6 function
 synthesis) and the observation side (Stage 7 observability) still
 require the Architect to fill operational roles. Stage 6 ran once
-(WG-V2-CLASSIFY-COMMITS) but is not yet routine. Stage 7 is a stub —
+(ES-V2-CLASSIFY-COMMITS) but is not yet routine. Stage 7 is a stub —
 the Architect IS the observability layer. Gates 2 and 3 are compiled
 but not implemented. The closed loop is not yet automated — the
 Architect is the sensor (architect-observation, not self-sensing).
 
-**Boundary ahead.** Gate 2 is the first gate that operates on running
+**Boundary ahead.** Fidelity Verification is the first gate that operates on running
 code, not static artifacts. Gates 1 and the Critic check structure and
-meaning — they read text. Gate 2 checks behavior — it runs code,
+meaning — they read text. Fidelity Verification checks behavior — it runs code,
 executes tests, evaluates pass/fail on actual execution. That requires
 an execution environment, test fixtures, and behavioral assertion. The
 `controlled-effectors` package (governed tool invocation) is the
 architectural boundary where this new class of work lands. Every prior
-package transforms data. Gate 2 runs things and judges the results.
+package transforms data. Fidelity Verification runs things and judges the results.
 
 **Status:** Observed.
 
@@ -805,7 +1194,7 @@ package transforms data. Gate 2 runs things and judges the results.
 
 **Decision:** Adopt the FINAL-DEPLOYMENT-ARCHITECTURE as the canonical deployment target for the Function Factory. The architecture specifies:
 
-1. **One compute platform: Cloudflare.** Workers (edge routing, Gate 1), Workflows (pipeline orchestration, Stages 1–7), Durable Objects (Stage 6 coordination, Gate 3 monitoring, memory consolidation), Containers (Coder/Tester execution via ADR-002), Queues (signal ingestion, job dispatch). No Railway. No Kubernetes.
+1. **One compute platform: Cloudflare.** Workers (edge routing, Coherence Verification), Workflows (pipeline orchestration, Stages 1–7), Durable Objects (Stage 6 coordination, Persistence Verification monitoring, memory consolidation), Containers (Coder/Tester execution via ADR-002), Queues (signal ingestion, job dispatch). No Railway. No Kubernetes.
 
 2. **Two execution modes.** Execution Mode A: pi-ai internal loop for structured reasoning (Stages 1–5, Gates, Stage 6 Planner/Critic/Verifier). Execution Mode B: Container delegation for real code execution (Stage 6 Coder/Tester), governed by ADR-002's lease/heartbeat/policy model with FunctionJob contracts.
 
@@ -813,19 +1202,19 @@ package transforms data. Gate 2 runs things and judges the results.
 
 4. **LangGraph.js scoped to Stage 6 only.** CF Workflows handle the outer pipeline skeleton (Stages 1–7). LangGraph.js runs inside the Coordinator DO for the five-role synthesis topology (Planner → Coder → Critic → Tester → Verifier) with conditional repair loops (Verifier → budget-check → Planner → Coder). DO SQLite as LangGraph checkpointer — no custom ArangoDB adapter.
 
-5. **Three Durable Objects.** Coordinator DO (Stage 6 LangGraph + Container lease/heartbeat), Assurance DO (one per monitored Function, alarm-driven Gate 3 checks + incident propagation through assurance_edges graph), Dream DO (singleton, alarm-driven memory consolidation from episodic → semantic, and crystallization check on first Gate 3 PASS).
+5. **Three Durable Objects.** Coordinator DO (Stage 6 LangGraph + Container lease/heartbeat), Assurance DO (one per monitored Function, alarm-driven Persistence Verification checks + incident propagation through assurance_edges graph), Dream DO (singleton, alarm-driven memory consolidation from episodic → semantic, and crystallization check on first Persistence Verification PASS).
 
 6. **Semantic Review as explicit Workflow step.** Runs between architect approval and Stage 5 compilation as a pi-ai Critic call. Exits pipeline with `semantic-miscast` if alignment fails. Closes the prior "Stage 5.75" gap.
 
 7. **Model substrate unchanged.** pi-ai (`@mariozechner/pi-ai`) owns the model layer. `@factory/task-routing` (formerly harness-bridge, retracted 2026-04-19 under a different scope) owns routing config: `resolve(taskKind)` → `{ provider, model }`. Container executors (OpenHands, Aider, Claude Code) own their own model access inside containers.
 
-8. **Migration path: 7 phases (0–6), each independently deployable.** Phase 0: current state. Phase 1: ArangoDB local Docker. Phase 2: Edge Workers + Gate 1. Phase 3: Workflows (Stages 1–5). Phase 4: Coordinator DO + LangGraph (all 5 roles via pi-ai). Phase 5: Container delegation for Coder/Tester. Phase 6: Assurance DO + Dream DO + Gate 3. Phase 4 works without Phase 5.
+8. **Migration path: 7 phases (0–6), each independently deployable.** Phase 0: current state. Phase 1: ArangoDB local Docker. Phase 2: Edge Workers + Coherence Verification. Phase 3: Workflows (Stages 1–5). Phase 4: Coordinator DO + LangGraph (all 5 roles via pi-ai). Phase 5: Container delegation for Coder/Tester. Phase 6: Assurance DO + Dream DO + Persistence Verification. Phase 4 works without Phase 5.
 
 9. **Cost model.** Bootstrap (1–5 Functions/month): ~$18/mo. Steady-state (50 Functions/month): ~$169/mo. LLM inference (~$95/mo) dominates; container compute (~$15/mo) is the dual-mode delta; CF infra (~$9/mo) is noise; ArangoDB Oasis (~$50/mo) is the second-largest line item.
 
 **Rationale:** Three proposals were evaluated — CF-only (all Stage 6 roles in DO via pi-ai), Dual-Mode (reasoning roles in DO, execution roles in Containers with D1 + R2 storage), and FINAL (Dual-Mode with ArangoDB consolidation). The CF-only proposal's implicit assumption that Coder and Tester can produce real code within pi-ai's internal loop is wrong — those roles need filesystem, git, and shell access. The Dual-Mode proposal correctly identified the split but introduced three storage substrates (ArangoDB + D1 + R2), adding operational complexity inappropriate for a solo-developer project in bootstrap. The FINAL consolidates execution-domain storage into ArangoDB, yielding one credential set, one query language, one backup surface, and one failure domain.
 
-The architecture was validated against the existing codebase: `packages/function-synthesis/src/orchestrate.ts` already implements the synthesis loop, `pi-agent-binding.ts` is the pi-ai internal loop, `binding-mode.ts` provides the extension point for Container delegation, `role-contracts.ts` defines five role contracts matching the topology, and the live synthesis of WG-V2-CLASSIFY-COMMITS proved the five-role pipeline end-to-end. The Wrangler bundle test (`/tmp/phase05-bundle-test`) confirmed that LangGraph.js + pi-ai bundle to a 6MB Worker output, reducing (but not eliminating) the 128MB DO memory concern.
+The architecture was validated against the existing codebase: `packages/function-synthesis/src/orchestrate.ts` already implements the synthesis loop, `pi-agent-binding.ts` is the pi-ai internal loop, `binding-mode.ts` provides the extension point for Container delegation, `role-contracts.ts` defines five role contracts matching the topology, and the live synthesis of ES-V2-CLASSIFY-COMMITS proved the five-role pipeline end-to-end. The Wrangler bundle test (`/tmp/phase05-bundle-test`) confirmed that LangGraph.js + pi-ai bundle to a 6MB Worker output, reducing (but not eliminating) the 128MB DO memory concern.
 
 **Alternatives considered:**
 
@@ -917,7 +1306,7 @@ Key additions:
 
 ## 2026-04-25: Stage 6 event-driven handoff — Workflow waits, DO executes independently
 
-**Decision:** Stage 6 synthesis uses an event-driven handoff instead of synchronous RPC. The pipeline Workflow ends its active work at Gate 1 pass, queues a synthesis request, then enters `step.waitForEvent('synthesis-complete')`. An external trigger (gateway route or Queue consumer) calls the Coordinator DO via direct HTTP. The DO runs the full 5-role synthesis graph. On completion, the DO sends `workflow.sendEvent('synthesis-complete', result)` to resume the Workflow. The Workflow returns the final PipelineResult.
+**Decision:** Stage 6 synthesis uses an event-driven handoff instead of synchronous RPC. The pipeline Workflow ends its active work at Coherence Verification pass, queues a synthesis request, then enters `step.waitForEvent('synthesis-complete')`. An external trigger (gateway route or Queue consumer) calls the Coordinator DO via direct HTTP. The DO runs the full 5-role synthesis graph. On completion, the DO sends `workflow.sendEvent('synthesis-complete', result)` to resume the Workflow. The Workflow returns the final PipelineResult.
 
 **Rationale:** CF Workflows cannot communicate with Durable Objects during `step.do()` execution — both RPC (`stub.synthesize()`) and `stub.fetch()` hang indefinitely. Verified over 2+ hours of testing on 2026-04-25. The DO itself works perfectly via direct HTTP (proven at `/test-do-live`: 5 roles, 27s, real LLM calls, verdict: pass). The constraint is specific to the Workflow→DO boundary inside step callbacks.
 
@@ -941,15 +1330,15 @@ The event-driven pattern already exists in the pipeline (`step.waitForEvent('arc
 
 ## 2026-04-26: ADR — GDK substrate adoption for Factory agent infrastructure
 
-**Decision:** The Function Factory adopts `@weops/gdk-ai` and `@weops/gdk-agent` from the `weops-pi-foundation` monorepo as its agent and model routing substrate. Factory-specific logic (pipeline orchestration, compiler passes, coverage gates, lineage graph, WorkGraph assembly) remains custom.
+**Decision:** The Function Factory adopts `@weops/gdk-ai` and `@weops/gdk-agent` from the `weops-pi-foundation` monorepo as its agent and model routing substrate. Factory-specific logic (pipeline orchestration, compiler passes, verification checks, lineage graph, Executable Specification assembly) remains custom.
 
 **What the Factory USES from GDK:**
 
-1. **`@weops/gdk-ai`** (forked pi-ai) — Unified LLM API with 22 providers. Replaces ofox.ai and `@factory/task-routing`. Providers include: Anthropic, OpenAI, Google, DeepSeek, GLM/ZAI, Kimi, Mistral, Bedrock, Groq, xAI. Push-based EventStream streaming. Faux provider for testing.
+1. **`@weops/gdk-ai`** (forked pi-ai) — Unified LLM API with 22 providers. Replaces `@factory/task-routing` for Factory Worker-side model calls. **Does NOT replace ofox.ai for pi-container** — ofox.ai is retained for pi container model routing on cost grounds (2026-05-18 correction). Providers include: Anthropic, OpenAI, Google, DeepSeek, GLM/ZAI, Kimi, Mistral, Bedrock, Groq, xAI. Push-based EventStream streaming. Faux provider for testing.
 
 2. **`@weops/gdk-agent`** (forked pi-agent) — Agent loop with `agentLoop()` returning `EventStream<AgentEvent>`. Parallel + sequential tool execution, abort, steering, `beforeToolCall`/`afterToolCall` hooks. Runtime-agnostic core — runs in CF Sandbox Containers.
 
-**What the Factory KEEPS custom:** CF Workflow pipeline, Queue bridge, Coordinator Agent, graph-runner.ts, Stage 5 compiler, Coverage gates, Lineage graph, WorkGraph assembly.
+**What the Factory KEEPS custom:** CF Workflow pipeline, Queue bridge, Coordinator Agent, graph-runner.ts, Stage 5 compiler, Verification gates, Lineage graph, Executable Specification assembly.
 
 **Rationale:** GDK packages encode design decisions (provider quirks, streaming edge cases, tool execution, abort handling) that would need to be rediscovered from scratch. The implementation IS the specification. However, Factory and GDK solve different problems (I-layer vs We-layer). They share substrate, not identity. The Factory builds itself first, then builds WeOps.
 
@@ -1071,3 +1460,94 @@ hardening pass may make the full GDK source strict-clean, but that is not a
 precondition for `ff-pipeline` diagnostic-route or pipeline deploy work.
 
 **Status:** Active.
+
+## 2026-05-06: Stage 8 MRP assembly materializes FP identity into FN identity
+
+**Decision:** Stage 8 Merge Readiness Pack assembly is the lifecycle boundary
+where a FunctionProposal identity deterministically materializes into the
+canonical Function identity. The mapping is byte-preserving across the suffix:
+`FP-<suffix>` becomes `FN-<suffix>`.
+
+**Rationale:** Runtime synthesis and Executable Specification evidence still carry the
+proposal identity because the generated work is not yet accepted as a
+Function. The canonical MRP schema requires `functionId`, and Stage 8 is the
+first point where the system has the merge-readiness evidence needed to name
+the resulting Function candidate without asking callers to supply a second
+identity. Deriving the ID at this boundary keeps lineage explicit and avoids
+fabricating or trusting external `functionId` evidence.
+
+**Consequences:** The MRP canonical adapter derives `functionId` from
+`pack.proposalId` when the proposal ID is `FP-*`. Supplied `functionId`
+evidence must match the derived value or the adapter fails closed. All other
+canonical MRP evidence remains strict: Fidelity Verification report, semantic review, Intent Specification,
+model bindings, cost, token, duration, and similar fields are not fabricated.
+This identity materialization does not imply promotion to `monitored` or
+accepted Function state; Fidelity Verification and later lifecycle transitions remain
+separate.
+
+**Status:** Active.
+
+---
+
+## synthesis.harness.yaml approved
+
+Date: 2026-05-16
+Reviewer: Architect agent (second pass)
+File: harnesses/synthesis.harness.yaml
+Authority: ADR-009 §8 gate 5, IS-HARNESS-DSL-v1
+
+Verdict: APPROVE
+
+Topology: PLAN -> CRITIQUE -> VERIFY -> ARCH -> CODE (five stages, five
+roles, five artifacts, linear graph_mode).
+
+Resolved from first-pass review:
+- H-1: CRITIQUE, VERIFY, ARCH stages added. Miscast fast-fail wired via
+  CRITIQUE.on_failure.critique_failed: return_to_PLAN. Matches ADR-009
+  miscast-as-happy-path invariant.
+- H-2: worker: pi-swarm bound to CODE stage only. PLAN, CRITIQUE, VERIFY,
+  ARCH bind worker: pi. Implements ADR §4 Phase 5 Option C.
+- M-1: lineage.source_refs cites IS-HARNESS-DSL-v1 and ADR-009.
+- M-2: failure_taxonomy includes critique_failed, verification_failed,
+  missing_artifact, budget_exceeded with correct routings.
+- M-3: max_repair_rounds at runtime scope; per-stage uses max_stage_attempts.
+- M-4: Five distinct required artifacts, one per stage, each gated via exists.
+- L-1: Role names symmetric (Planner, Critic, Verifier, Architect, Coder).
+
+Gate status:
+- 9.2 compiles: PASS
+- 9.3 completeness verification: PASS
+- 9.5 architecture review: PASS (this review, closes gate)
+
+Follow-up on first live run: confirm critique_failed routes back to PLAN
+and that the miscast repair loop terminates under max_repair_rounds: 3.
+This harness is the canonical five-stage synthesis shape.
+
+**Status:** Active (ADR-009 §8 gate 5 satisfied).
+
+---
+
+## ADR-009 §8 gate 6 complete — graph-runner.ts deleted
+
+Date: 2026-05-16
+Commit: f830279
+
+`graph-runner.ts` and `coordinator/graph.ts` are deleted. `synthesize()` in
+`SynthesisCoordinator` is stubbed with a deprecation throw (returns failState
+via the existing catch block; callers get verdict.decision='interrupt').
+
+Gates satisfied:
+- Gate 1: harness-bridge.ts authored ✓
+- Gate 2: run-coordinator.ts authored ✓
+- Gate 3: harness-dispatcher.ts authored ✓
+- Gate 4: harness-path integration tests — 21/21 pass (3 test files) ✓
+  run-coordinator.test.ts (9), harness-bridge.test.ts (6), harness-dispatcher.test.ts (5)
+  Old graph-path tests archived to _archive/. CI uses vitest@2.1.9 via node directly.
+- Gate 5: synthesis.harness.yaml Architect-reviewed ✓ (see entry above)
+- Gate 6: `grep -rn 'graph-runner' workers/ff-pipeline/src/` → 0 lines ✓
+- Gate 7: rollback note at .agent/memory/episodic/synthesis-migration-rollback.md,
+  deletion commit SHA f830279 recorded ✓
+
+The harness path (`/trigger-harness` → Workflow → HARNESS_QUEUE → harness-dispatcher
+→ RunCoordinator) is now the only synthesis execution path. The StateGraph path
+is irreversibly retired. Rollback requires `git revert f830279`.

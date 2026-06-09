@@ -61,7 +61,7 @@ second concrete workflow type is ready for implementation.
 
 1. **`context: Record<string, unknown>` is the central type-safety hole.** The
    existing SynthesisCoordinator has a typed `GraphState` with 25+ named
-   fields. Errors like "I passed `workgraph` but the node expects `workGraph`"
+   fields. Errors like "I passed `executable-specification` but the node expects `executableSpecification`"
    are caught at compile time. With `ConductorState.outputs`, this becomes a
    runtime debugging problem. The design acknowledges this (Risk 1) but
    under-estimates the impact. Every node's `inputs` array is a string-based
@@ -87,7 +87,7 @@ second concrete workflow type is ready for implementation.
 
 | Requirement | Assessment |
 |-------------|-----------|
-| Nodes represent agent invocations | **Incomplete.** Pseudo-agents (budget-check, compile, gate-1) are registered as agents but are not agent invocations. They are deterministic functions masquerading as agents. The registry conflates two categories. |
+| Nodes represent agent invocations | **Incomplete.** Pseudo-agents (budget-check, compile, coherence-verification) are registered as agents but are not agent invocations. They are deterministic functions masquerading as agents. The registry conflates two categories. |
 | Edges represent dependencies | Yes |
 | Parallel groups are consistent with edges | Yes, validated |
 | Conditional edges support safe evaluation | Yes, well-designed |
@@ -95,7 +95,7 @@ second concrete workflow type is ready for implementation.
 
 **Critical finding: pseudo-agents break the abstraction.**
 
-The SynthesisCoordinator has `budget-check`, `compile`, and `gate-1` as
+The SynthesisCoordinator has `budget-check`, `compile`, and `coherence-verification` as
 inline node functions in `graph.ts`. They are pure functions that examine
 state and return partial state updates. They do not call LLMs. They do
 not consume tokens. They do not have retry semantics.
@@ -135,7 +135,7 @@ agents. Some nodes call LLMs, some do not. The graph does not care.
 The design proposes adapters (e.g., `ArchitectAgentAdapter`) to wrap
 existing agents in the `AgentCapability` interface. The
 `ArchitectAgentAdapter` is 20 lines of boilerplate that:
-1. Extracts `input.workGraph` from the generic `Record<string, unknown>`
+1. Extracts `input.executableSpecification` from the generic `Record<string, unknown>`
 2. Calls `ArchitectAgent.produceBriefingScript()`
 3. Wraps the result in `AgentResult`
 
@@ -303,8 +303,8 @@ type safety for known workflow types.
 
 **What can go wrong?** An adapter incorrectly maps between the generic
 `Record<string, unknown>` interface and the agent's typed interface.
-For example, `ArchitectAgentAdapter` extracts `input.workGraph` -- but
-the synthesis topology node declares `inputs: ['workGraph', 'specContent']`.
+For example, `ArchitectAgentAdapter` extracts `input.executableSpecification` -- but
+the synthesis topology node declares `inputs: ['executableSpecification', 'specContent']`.
 If the upstream node stores its output under a different key, the
 adapter receives undefined. This is a silent failure that produces
 wrong agent behavior.
@@ -739,7 +739,7 @@ Before implementation:
 
 ### R4: Separate pseudo-agents from real agents
 
-Budget-check, compile, and gate-1 are deterministic functions, not
+Budget-check, compile, and coherence-verification are deterministic functions, not
 agents. They should either:
 - Be handled by the engine directly (not through the registry), or
 - Be registered in a separate "node" registry distinct from "agent"
@@ -756,7 +756,7 @@ If ConductorDO is built, define:
 interface SynthesisWorkSpec extends WorkSpec {
   type: 'synthesis'
   context: {
-    workGraph: WorkGraphSchema
+    executableSpecification: Executable SpecificationSchema
     specContent: string | null
     tokenUsage: number
     maxTokens: number

@@ -24,8 +24,8 @@ const VALID_VERDICT: Verdict = {
 }
 
 const SAMPLE_VERIFIER_INPUT: VerifierInput = {
-  workGraph: {
-    _key: 'WG-TEST-001',
+  executableSpecification: {
+    _key: 'ES-TEST-001',
     title: 'User Authentication Module',
     atoms: [{ id: 'atom-001', description: 'Auth middleware' }],
     invariants: [{ id: 'INV-001', description: 'Tokens must expire within 24h' }],

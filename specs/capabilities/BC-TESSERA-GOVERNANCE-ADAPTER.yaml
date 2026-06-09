@@ -1,0 +1,64 @@
+id: BC-TESSERA-GOVERNANCE-ADAPTER
+source_refs:
+  - TESSERA-CF-SPEC
+  - BC-TESSERA-SPEC-ADAPTER
+  - BC-TESSERA-SKILLS-ADAPTER
+  - IS-TESSERA-SPEC-ADAPTER
+  - IS-TESSERA-SKILLS-ADAPTER
+  - IS-TESSERA-ARANGO-SCHEMA
+  - IS-TESSERA-INDEXER
+  - IS-TESSERA-IMPACT
+explicitness: explicit
+rationale: >
+  WeOps governance is a 10-layer ABAC Policy Decision Point: every skill invocation
+  is evaluated against a Role, a Purpose (taxonomy), an Autonomy Tier (T0…T4), and
+  Domain bindings. The rules live across pkg/taxonomy, pkg/pdp, pkg/classification,
+  and domain_packs/*/classification_rules.go. The last k-dense harness run logged
+  938 of 1,340 assertions failing — driven by a T0/T1 tier bug and a deny-reason
+  surfacing gap — because governance changes have non-obvious blast radius and no
+  tool surfaces which purposes, tiers, and skills a rule change affects. This
+  Capability is the durable ability to graph the governance rule definitions using
+  the existing Tessera machinery, so a policy engineer can run impact analysis on a
+  classification rule or tier change before shipping it.
+
+name: Index WeOps Governance Rules as a Queryable Policy Graph
+description: >
+  The Factory's durable ability to index the WeOps governance layer — the PDP
+  autonomy-tier gate (pkg/pdp/pdp.go), the purpose taxonomy (pkg/taxonomy), the
+  ClassificationRule framework (pkg/classification), and the domain-pack
+  classification rules (domain_packs/*/classification_rules.go) — as a graph of
+  Purpose, Domain, Action, Tier, ClassificationRule, and DomainPack nodes, with
+  GOVERNS, PERMITS, DENIES, PART_OF, and APPLIES_TO edges — so policy engineers can
+  run tessera_impact on a governance change and understand which skill invocations
+  it affects.
+
+  The Capability is read-only: it graphs rule definitions only, never evaluating
+  policy, never constructing an EvaluationRequest, never deciding PERMIT/DENY at
+  index time. The tier model is taken verbatim from pdp.go (T0=0…T4=4, the single
+  checkAutonomyGate rule T0 + tool.invoke → DENY). It composes the existing per-repo
+  ArangoDB collections, ingest path, and impact traversal by supplying one more
+  DomainAdapter that conforms to the existing interface — no new Tessera tool, no
+  new interface member. Indexed into the same weops-enterprise slug as
+  BC-TESSERA-SKILLS-ADAPTER, the policy nodes connect to the Skill nodes via GOVERNS
+  edges, yielding the full governed capability graph.
+
+  Governed by: the DomainAdapter interface contract (no interface changes), the
+  per-repo collection schema (IS-TESSERA-ARANGO-SCHEMA), the read-only constraint
+  (no runtime PDP evaluation), and the robustness rules that tolerate non-
+  DOMAIN.ACTION (BCO) purposes and dangling GOVERNS targets without error.
+
+yields:
+  execution: FP-TESSERA-GOVERNANCE-ADAPTER
+
+pressures_addressed:
+  - Governance changes break skill invocations silently — no blast-radius tool exists
+  - 938 of 1,340 k-dense harness assertions failed due to undetected T0/T1 tier impact
+  - No tool surfaces which skills, purposes, and role bindings a classification-rule change affects
+  - Tier-gate behavior (T0 + tool.invoke → DENY) is buried in checkAutonomyGate, not inspectable
+
+platform_constraints:
+  - CF Worker context (no filesystem beyond the ingest tarball, HTTP only)
+  - Must conform to the existing DomainAdapter interface — no interface extension
+  - Read-only — no runtime PDP evaluation, no EvaluationRequest, no PERMIT/DENY at index time
+  - Tier model taken verbatim from pdp.go — no invented tier semantics
+  - Writes into the shared weops-enterprise per-repo slug, co-located with the skills graph

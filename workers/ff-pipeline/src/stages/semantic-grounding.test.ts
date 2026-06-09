@@ -2,7 +2,7 @@
  * Semantic Grounding Tests (TDD — RED phase)
  *
  * Tests for the minimum viable pipeline semantic grounding fix.
- * specContent threads through the pipeline so Stage 4 and the Critic
+ * specContent threads through the pipeline so Function Proposal decomposition and the Critic
  * have access to the original specification content.
  *
  * Test order follows the approved design:
@@ -39,8 +39,8 @@ const mockCallModel = vi.fn(async (_taskKind: string, _system: string, _user: st
   evidence: [],
   sourceRefs: [],
   gapAnalysis: 'Mock gap',
-  prd: {
-    title: 'Mock PRD',
+  intentSpecification: {
+    title: 'Mock Intent Specification',
     objective: 'Mock objective',
     acceptanceCriteria: ['AC-1'],
     invariants: ['INV-1'],
@@ -244,7 +244,7 @@ describe('Semantic Grounding: specContent threading', () => {
 // Test 3: proposeFunction includes specContent in LLM prompt
 // ═══════════════════════════════════════════════════════════════════
 
-describe('Semantic Grounding: Stage 4 prompt enrichment', () => {
+describe('Semantic Grounding: Function Proposal prompt enrichment', () => {
   let db: ReturnType<typeof createMockDb>
   let env: ReturnType<typeof createMockEnv>
 
@@ -300,10 +300,10 @@ describe('Semantic Grounding: Stage 4 prompt enrichment', () => {
 
 
 // ═══════════════════════════════════════════════════════════════════
-// Test 3b: Stage 4 uses SPEC_GROUNDED_PROMPT for full decomposition
+// Test 3b: Function Proposal decomposition uses SPEC_GROUNDED_PROMPT
 // ═══════════════════════════════════════════════════════════════════
 
-describe('Semantic Grounding: Stage 4 full-spec decomposition', () => {
+describe('Semantic Grounding: Function Proposal full-spec decomposition', () => {
   let db: ReturnType<typeof createMockDb>
   let env: ReturnType<typeof createMockEnv>
 
@@ -478,8 +478,8 @@ describe('Semantic Grounding: Critic review with ground truth', () => {
     const proposal = {
       _key: 'FP-001',
       title: 'Sandbox Function',
-      prd: {
-        title: 'PRD: Sandbox',
+      intentSpecification: {
+        title: 'Intent Specification: Sandbox',
         objective: 'Build sandbox',
         acceptanceCriteria: ['AC-1'],
         invariants: ['INV-1'],
@@ -509,8 +509,8 @@ describe('Semantic Grounding: Critic review with ground truth', () => {
     const proposal = {
       _key: 'FP-001',
       title: 'Legacy Function',
-      prd: {
-        title: 'PRD: Legacy',
+      intentSpecification: {
+        title: 'Intent Specification: Legacy',
         objective: 'Build legacy',
         acceptanceCriteria: ['AC-1'],
         invariants: [],
@@ -646,8 +646,8 @@ describe('Semantic Grounding: Backwards compatibility', () => {
     const proposal = {
       _key: 'FP-001',
       title: 'No spec',
-      prd: {
-        title: 'PRD',
+      intentSpecification: {
+        title: 'IS',
         objective: 'Test',
         acceptanceCriteria: ['AC-1'],
         invariants: [],
@@ -665,8 +665,8 @@ describe('Semantic Grounding: Backwards compatibility', () => {
     const proposal = {
       _key: 'FP-001',
       title: 'No spec',
-      prd: {
-        title: 'PRD',
+      intentSpecification: {
+        title: 'IS',
         objective: 'Test',
         acceptanceCriteria: ['AC-1'],
         invariants: [],

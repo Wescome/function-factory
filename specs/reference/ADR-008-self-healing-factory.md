@@ -116,7 +116,7 @@ interface PipelineHealthEvent {
 
   // End-to-end
   totalDurationMs: number
-  finalStatus: string      // 'synthesis-passed', 'gate-1-failed', 'rejected', etc.
+  finalStatus: string      // 'synthesis-passed', 'coherence-verification-failed', 'rejected', etc.
   stageReached: number     // 1-7 (how far did it get?)
 }
 ```
@@ -126,7 +126,7 @@ interface PipelineHealthEvent {
 | ID | Pattern | Threshold | Signal produced |
 |----|---------|-----------|-----------------|
 | PH-1 | Stage 1-4 LLM call failure rate | > 30% over 24h for any stage | "Stage {N} LLM reliability degraded" |
-| PH-2 | Stage 5 compiler producing malformed WorkGraphs | > 50% fail Gate 1 over 7d | "Compiler pass quality degraded" |
+| PH-2 | Stage 5 compiler producing malformed Executable Specifications | > 50% fail Coherence Verification over 7d | "Compiler pass quality degraded" |
 | PH-3 | Stage 6 synthesis completion rate drop | < 50% pass over 7d | "Synthesis success rate below threshold" |
 | PH-4 | End-to-end pipeline latency p95 spike | > 2x rolling 7d median | "Pipeline latency regression" |
 | PH-5 | Pipeline not reaching Stage 6 | > 60% of runs stop before Stage 5 over 7d | "Pipeline throughput collapse -- most runs die in spec chain" |
@@ -136,8 +136,8 @@ the final result. The event capture is a non-blocking ArangoDB write.
 
 ### Domain M2: Gate Effectiveness
 
-**What it observes:** Gate 1 (compile coverage), Gate 2 (simulation
-coverage, when implemented), Gate 3 (assurance, when implemented).
+**What it observes:** Coherence Verification (compile coverage), Fidelity Verification (simulation
+coverage, when implemented), Persistence Verification (assurance, when implemented).
 
 **Events stored in:** `gate_effectiveness_events`
 
@@ -145,11 +145,11 @@ coverage, when implemented), Gate 3 (assurance, when implemented).
 interface GateEffectivenessEvent {
   _key: string
   timestamp: string
-  gateId: 'gate-1' | 'gate-2' | 'gate-3'
-  workGraphId: string
+  gateId: 'coherence-verification' | 'fidelity-verification' | 'persistence-verification'
+  executableSpecificationId: string
   passed: boolean
 
-  // Gate 1 detail
+  // Coherence Verification detail
   checkResults?: {
     check: string         // 'atom-coverage', 'invariant-coverage', etc.
     passed: boolean
@@ -167,13 +167,13 @@ interface GateEffectivenessEvent {
 
 | ID | Pattern | Threshold | Signal produced |
 |----|---------|-----------|-----------------|
-| GE-1 | Gate 1 rejection rate too high | > 60% over 7d | "Compiler output quality consistently fails Gate 1 -- investigate pass chain" |
-| GE-2 | Gate 1 rejection rate too low | < 5% over 30d with > 10 runs | "Gate 1 may be too permissive -- review check thresholds" |
-| GE-3 | Specific Gate 1 check fails disproportionately | One check fails on > 80% of rejections | "Gate 1 check '{check}' is the dominant failure mode" |
-| GE-4 | Gate 1 passes WorkGraphs that later fail synthesis | Correlation: G1 pass -> synthesis fail > 40% | "Gate 1 passing structurally valid but semantically bad WorkGraphs (see C9)" |
+| GE-1 | Coherence Verification rejection rate too high | > 60% over 7d | "Compiler output quality consistently fails Coherence Verification -- investigate pass chain" |
+| GE-2 | Coherence Verification rejection rate too low | < 5% over 30d with > 10 runs | "Coherence Verification may be too permissive -- review check thresholds" |
+| GE-3 | Specific Coherence Verification check fails disproportionately | One check fails on > 80% of rejections | "Coherence Verification check '{check}' is the dominant failure mode" |
+| GE-4 | Coherence Verification passes Executable Specifications that later fail synthesis | Correlation: G1 pass -> synthesis fail > 40% | "Coherence Verification passing structurally valid but semantically bad Executable Specifications (see C9)" |
 
-**Write point:** Inside the `gate-1` step in `pipeline.ts` and in the
-`ff-gates` Worker's `evaluateGate1` response handler.
+**Write point:** Inside the `coherence-verification` step in `pipeline.ts` and in the
+`ff-gates` Worker's `evaluateCoherenceVerification` response handler.
 
 ### Domain M3: Agent Quality
 
@@ -188,7 +188,7 @@ interface AgentQualityEvent {
   timestamp: string
   agentRole: string        // 'architect', 'coder', 'critic', etc.
   model: string            // which model was used
-  workGraphId: string
+  executableSpecificationId: string
   atomId?: string
 
   // Output quality
@@ -241,7 +241,7 @@ interface ORLEvent {
   provider: string         // workers-ai, ofox, google, etc.
   agent: string
   schema: string           // which ORL schema
-  workGraphId: string
+  executableSpecificationId: string
   atomId: string | null
 
   // Outcome
@@ -375,7 +375,7 @@ interface OntologyComplianceEvent {
 | OC-3 | CRP backlog age | > 5 pending CRPs older than 48h | "CRP backlog growing -- {count} CRPs pending > 48h" |
 | OC-4 | MentorScript rule freshness | Rules not updated in 30 days with active pipeline use | "MentorScript rules stale -- no updates in {days} days" |
 | OC-5 | specContent propagation (C2) breaks | Any C2 violation | "specContent lost in derivation chain at {stage}" |
-| OC-6 | Unreviewed artifacts (C6) accumulating | > 5 unreviewed WorkGraphs or CodeArtifacts in 7d | "Review backlog: {count} artifacts without reviewedBy" |
+| OC-6 | Unreviewed artifacts (C6) accumulating | > 5 unreviewed Executable Specifications or CodeArtifacts in 7d | "Review backlog: {count} artifacts without reviewedBy" |
 
 **Write point:** In `@factory/artifact-validator` on every `validateArtifact`
 call, and in lifecycle.ts on state transitions.
@@ -457,7 +457,7 @@ FOR e IN pipeline_health_events
 // M2: Gate effectiveness — rejection distribution
 FOR e IN gate_effectiveness_events
   FILTER e.timestamp > DATE_SUBTRACT(DATE_NOW(), 7, 'days')
-  FILTER e.gateId == 'gate-1'
+  FILTER e.gateId == 'coherence-verification'
   COLLECT passed = e.passed
   WITH COUNT INTO cnt
   RETURN { passed, count: cnt }
@@ -521,7 +521,7 @@ from the 7 monitoring domains.
 | Urgency | Criteria | Example |
 |---------|----------|---------|
 | Immediate | Infrastructure down, pipeline completely broken | ArangoDB unreachable, all synthesis timing out |
-| High | Systemic degradation across multiple runs | Model success rate < 30%, Gate 1 rejection > 60% |
+| High | Systemic degradation across multiple runs | Model success rate < 30%, Coherence Verification rejection > 60% |
 | Routine | Trend detected, not yet impacting throughput | Latency creeping up, coercion rate increasing |
 | Informational | Data point for calibration | Self-healing fix deployed, effectiveness pending |
 
@@ -586,10 +586,10 @@ runs. For self-healing signals, it operates in a second mode.
 
 **JTBD (self-healing mode):** When a self-healing Pressure arrives from
 any of the 7 monitoring domains, I want to read the failure events, current
-configuration, and relevant ontology constraints, then produce a WorkGraph
+configuration, and relevant ontology constraints, then produce a Executable Specification
 with fix atoms, so the Factory can synthesize and deploy the fix.
 
-**Produces:** WorkGraph (type: 'self-healing-fix')
+**Produces:** Executable Specification (type: 'self-healing-fix')
 
 **Fix atom types (expanded from v1):**
 
@@ -615,7 +615,7 @@ changes. It diffs the current state against the desired state.
 against the ontology constraints, verify it does not regress other models or
 agents, and estimate blast radius, so only safe fixes reach production.
 
-**Produces:** CoverageReport (type: 'self-healing-validation')
+**Produces:** VerificationReport (type: 'self-healing-validation')
 
 **Validation checks:**
 
@@ -652,7 +652,7 @@ agents, and estimate blast radius, so only safe fixes reach production.
     memoryAccess: [
       'output_reliability_events', 'model_routing', 'model_capabilities',
       'orl_config', 'agent_designs', 'compiler_config', 'ontology_constraints',
-      'mentorscript_rules', 'specs_workgraphs',
+      'mentorscript_rules', 'executable_specifications',
     ],
     environment: 'v8-isolate',
     permissions: ['read'],
@@ -667,7 +667,7 @@ agents, and estimate blast radius, so only safe fixes reach production.
     jtbd: 'When a self-healing fix is proposed, I want to validate it against ' +
           'ontology constraints, behavioral laws, and regression analysis, so only ' +
           'safe configuration changes reach production.',
-    produces: 'CoverageReport',
+    produces: 'VerificationReport',
     outputShape: {
       passed: 'boolean',
       ontologyCompliance: '{ constraintId, shape, result, message }[]',
@@ -710,7 +710,7 @@ and be loaded at call time.
 | Agent prompts | `agent_designs` | `loadAgentDesign` | Every agent session start |
 | Model capabilities | `model_capabilities` | Signal Generator | Every Cron run |
 | Reliability tiers | `model_capabilities` | `resolveModel` | Every agent dispatch |
-| Compiler prompts | `compiler_config` | `compilePRD` | Every compile pass |
+| Compiler prompts | `compiler_config` | `compileIntentSpecification` | Every compile pass |
 | SHACL constraints | `ontology_constraints` | `artifact-validator` | Every validation call |
 | MentorScript rules | `mentorscript_rules` | Agent sessions | Every session start |
 | Queue settings | `queue_config` | Queue consumer | Every queue batch |
@@ -850,7 +850,7 @@ the fix type, and the evidence strength.
 ```typescript
 function computeFixConfidence(
   fixType: string,
-  engineerReport: CoverageReport,
+  engineerReport: VerificationReport,
   eventCount: number,
   patternConsistency: number,
 ): number {
@@ -937,16 +937,16 @@ FactoryPipeline (mode: 'self-healing')
   |     (likely existing: 'self-repair-{domain}')
   |
   +-- S4: Architect proposes fix
-  |     (WorkGraph with config-change atoms)
+  |     (Executable Specification with config-change atoms)
   |
   +-- Confidence Gate
   |     >= 0.9: auto-approve
   |     0.7-0.9: CRP, auto-approve after 1h
   |     < 0.7: CRP escalation to Wes
   |
-  +-- S5: Compile WorkGraph (compile passes apply)
+  +-- S5: Compile Executable Specification (compile passes apply)
   |
-  +-- G1: Coverage check
+  +-- G1: Verification check
   |
   +-- S6: SystemsEngineer validates
   |     (ontology + BL1-BL7 + regression + blast radius)
@@ -1120,7 +1120,7 @@ silently degrade because it monitors itself.
 | ORL coercion needed (F3-F5) | Yes | Alias addition, auto-deploy (M4) |
 | Model returning null (F7) | Yes | Routing change, medium confidence (M4) |
 | Model success rate collapse | Yes | Tier downgrade + routing (M4) |
-| Gate 1 rejection spike | Partially | Compiler prompt tweak (M2), medium confidence |
+| Coherence Verification rejection spike | Partially | Compiler prompt tweak (M2), medium confidence |
 | Agent tool call errors | Partially | MentorScript update or prompt fix (M3) |
 | Pipeline Workflow crash | No | CRP escalation. Code bug, not config. (M1) |
 | ArangoDB unreachable | No | CRP escalation. If CRP write also fails: console.error (M5) |
@@ -1164,7 +1164,7 @@ silently degrade because it monitors itself.
 1. Create all 7 telemetry collection schemas in seed script.
 2. Add `onEvent` callback to `processAgentOutput` for M4 (extends v1).
 3. Add pipeline health event emission at end of `FactoryPipeline.run()` (M1).
-4. Add gate effectiveness event emission in `gate-1` step (M2).
+4. Add gate effectiveness event emission in `coherence-verification` step (M2).
 5. Add agent quality event emission in coordinator agent calls (M3).
 6. Add infrastructure health event hooks in arango-client, queue handler,
    and coordinator DO (M5).
@@ -1209,13 +1209,13 @@ a single pipeline run.
 
 **Session 2:**
 1. Implement SystemsEngineer agent (validate fix, check BL1-BL7, produce
-   CoverageReport).
+   VerificationReport).
 2. Implement confidence computation function.
 3. Test: SE validates alias addition (pass) and routing change that removes
    only model for an agent (reject).
 
 **Evidence:** Governor produces domain-tagged Pressure. SE produces
-CoverageReport with behavioral law compliance.
+VerificationReport with behavioral law compliance.
 
 ### Phase 5: Pipeline Integration (1 session)
 

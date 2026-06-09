@@ -84,7 +84,7 @@ function makeMockEnv(): PipelineEnv {
     ARANGO_URL: 'http://localhost:8529',
     ARANGO_DATABASE: 'test',
     ARANGO_JWT: 'test-jwt',
-    GATES: { evaluateGate1: vi.fn() },
+    GATES: { evaluateCoherenceVerification: vi.fn() },
     FACTORY_PIPELINE: { create: vi.fn(), get: vi.fn() },
     COORDINATOR: {} as any,
     ATOM_EXECUTOR: {} as any,
@@ -387,7 +387,7 @@ describe('probeAnchors', () => {
       // Should contain the probe question
       expect(userMessage).toContain('Does this output reference LifecycleState?')
       // Should NOT contain compilation context markers
-      expect(userMessage).not.toContain('PRD')
+      expect(userMessage).not.toContain('IS')
       expect(userMessage).not.toContain('signal')
     })
   })

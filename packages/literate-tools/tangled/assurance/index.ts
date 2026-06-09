@@ -1,15 +1,15 @@
 // Tangled from specs/reference/literate-canonical-reference.md
 // Context: assurance
 // Blocks: 3
-// Generated: 2026-04-24T15:11:44.400Z
+// Generated: deterministic
 // DO NOT EDIT — edit the literate reference and re-run tangle.
-// --- Block from line 1765 (Part IV -- How Does a Function Prove Itself?) ---
+// --- Block from line 1769 (Part IV -- How Does a Function Prove Itself?) ---
 /**
  * ACL: Execution -> Assurance.
- * Bundle Stage 6 output into a normalized evidence package
+ * Bundle Agent Call execution output into a normalized evidence package
  * for acceptance review.
  *
- * This was formerly called "handToGate2" or "prepareGate2Input".
+ * This was formerly called a destination-numbered handoff.
  * Renamed per naming principle 1: describes what happens, not where it goes.
  *
  * Pure function: given input A, expect output B. No mocking required.
@@ -17,9 +17,9 @@
 declare function execution_bundleEvidenceForAcceptanceReview(
   traceLog: Stage6TraceLog,
   adherenceReport: RoleAdherenceReport
-): Gate2Input;
+): FidelityVerificationInput;
 
-// --- Block from line 1784 (Part IV -- How Does a Function Prove Itself?) ---
+// --- Block from line 1788 (Part IV -- How Does a Function Prove Itself?) ---
 /**
  * Normalized evidence bundle for acceptance review.
  * From ratified decisions lines 490-528.
@@ -28,11 +28,11 @@ declare function execution_bundleEvidenceForAcceptanceReview(
  * raw harness transcripts -- those are drill-down evidence,
  * not the contract.
  */
-interface Gate2Input {
+interface FidelityVerificationInput {
   id: string;
   function_id: string;
-  prd_id: string;
-  workgraph_id: string;
+  intent_specification_id: string;
+  executable_specification_id: string;
   candidate_id: string; // AC-*
   stage6_run_id: string;
 
@@ -66,23 +66,23 @@ interface Gate2Input {
   };
 }
 
-// --- Block from line 1848 (Part IV -- How Does a Function Prove Itself?) ---
+// --- Block from line 1852 (Part IV -- How Does a Function Prove Itself?) ---
 /** CANONICAL-ONLY. Acceptance review verdict. */
 interface AcceptanceReviewVerdict {
-  gate2_input_id: string;
+  fidelity_verification_input_id: string;
   scenario_coverage: boolean;
   invariant_exercise: boolean;
   required_validation_pass_rate: number;
   overall: "pass" | "fail";
-  failures: CoverageFailure[];
+  failures: VerificationFailure[];
 }
 
 /**
- * Stage 7 (entry): Evaluate acceptance review.
+ * Fidelity Verification entry: evaluate acceptance review.
  * Before lifecycle transition from produced -> accepted.
  *
  * FAIL-CLOSED: Function stays in produced state, cannot promote.
  */
 declare function assurance_evaluateAcceptanceReview(
-  gate2Input: Gate2Input
+  fidelityVerificationInput: FidelityVerificationInput
 ): AcceptanceReviewVerdict;

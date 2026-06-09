@@ -1,5 +1,5 @@
 /**
- * CF Queue bridge tests for Stage 6 synthesis.
+ * CF Queue bridge tests for Agent Call execution synthesis.
  *
  * Tests the Queue-based synthesis bridge (replacing HTTP trigger):
  *   A) Queue consumer (queue() handler in index.ts) — receives message,
@@ -13,6 +13,11 @@
  */
 
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+
+const harnessDispatcherMocks = vi.hoisted(() => ({
+  dispatchOne: vi.fn(async () => {}),
+  buildDefaultDispatcherDeps: vi.fn(() => ({ mocked: true })),
+}))
 
 // ─── Mock cloudflare:workers (unavailable outside CF runtime) ───
 
@@ -83,7 +88,7 @@ vi.mock('@factory/artifact-validator', () => ({
   validateArtifact: () => ({ valid: true, violations: [] }),
 }))
 
-// ─── Stage stubs (isolate Stage 6 from Stages 1-5) ───
+// ─── Compatibility stage stubs (isolate Agent Call execution from upstream transformations) ───
 
 vi.mock('./stages/ingest-signal', () => ({
   ingestSignal: vi.fn(async () => ({ _key: 'SIG-001', signalType: 'internal', title: 'test' })),
@@ -101,7 +106,7 @@ vi.mock('./stages/propose-function', () => ({
   proposeFunction: vi.fn(async () => ({
     _key: 'FP-001',
     title: 'test proposal',
-    prd: { title: 'Test PRD', atoms: [], invariants: [] },
+    intentSpecification: { title: 'Test Intent Specification', atoms: [], invariants: [] },
   })),
 }))
 
@@ -116,17 +121,45 @@ vi.mock('./stages/semantic-review', () => ({
 }))
 
 vi.mock('./stages/compile', () => ({
-  PASS_NAMES: ['atoms', 'contracts', 'invariants', 'validations', 'dependencies', 'schedule', 'budget', 'workgraph'],
-  compilePRD: vi.fn(async (_pass: string, state: Record<string, unknown>) => ({
+  PASS_NAMES: ['atoms', 'contracts', 'invariants', 'validations', 'dependencies', 'schedule', 'budget', 'executableSpecification'],
+  compileIntentSpecification: vi.fn(async (_pass: string, state: Record<string, unknown>) => ({
     ...state,
-    workGraph: {
-      _key: 'WG-TEST',
-      title: 'Test WorkGraph',
+    executableSpecification: {
+      _key: 'ES-TEST',
+      title: 'Test ExecutableSpecification',
       atoms: [{ id: 'a1', description: 'test atom' }],
       invariants: [],
       dependencies: [],
     },
   })),
+}))
+
+vi.mock('./harness-dispatcher.js', () => ({
+  dispatchOne: harnessDispatcherMocks.dispatchOne,
+  buildDefaultDispatcherDeps: harnessDispatcherMocks.buildDefaultDispatcherDeps,
+}))
+
+vi.mock('./gascity/skeleton-builder', () => ({
+  buildSkeleton: vi.fn(async () => ({ r2Key: 'skeletons/test/skeleton.tar.gz', skeletonSha: 'abc123def456' })),
+  getSkeletonDownloadUrl: vi.fn(() => 'https://ff-pipeline.koales.workers.dev/skeleton-download?key=test&token=tok'),
+}))
+
+vi.mock('./compilers/formula-compiler-adapter', () => ({
+  buildFormulaCompilerDeps: vi.fn(() => ({})),
+}))
+
+vi.mock('./compilers/formula-compiler', () => ({
+  compileAndDispatchFormula: vi.fn(async () => ({
+    outcome: 'dispatched',
+    form_id: 'FORM-TEST',
+    dispatch_log_key: 'DL-TEST',
+    gc_bead_id: 'bead-123',
+    gc_workflow_id: 'wf-123',
+  })),
+}))
+
+vi.mock('./gascity/autonomy-monitor', () => ({
+  markFunctionDispatched: vi.fn(async () => {}),
 }))
 
 // ─── Test helpers ───
@@ -155,7 +188,7 @@ function createMockStep() {
   return { step, stepDoNames }
 }
 
-/** Standard env with passing Gate 1 and stubbed bindings. */
+/** Standard env with passing Coherence Verification and stubbed bindings. */
 function createEnv(overrides?: Record<string, unknown>) {
   return {
     ARANGO_URL: 'http://localhost:8529',
@@ -163,11 +196,11 @@ function createEnv(overrides?: Record<string, unknown>) {
     ARANGO_JWT: 'test-jwt',
     ENVIRONMENT: 'test',
     GATES: {
-      evaluateGate1: vi.fn(async () => ({
-        gate: 1,
+      evaluateCoherenceVerification: vi.fn(async () => ({
+        verification: "coherence",
         passed: true,
         timestamp: '2026-04-25T00:00:00Z',
-        workGraphId: 'WG-TEST',
+        executableSpecificationId: 'ES-TEST',
         checks: [{ name: 'lineage', passed: true, detail: 'ok' }],
         summary: 'All checks passed',
       })),
@@ -194,6 +227,11 @@ function createEnv(overrides?: Record<string, unknown>) {
     SYNTHESIS_RESULTS: {
       send: vi.fn(async () => ({})),
     },
+    GITHUB_TOKEN: 'test-token',
+    GAS_CITY_HMAC_SECRET_V1: 'test-secret',
+    WORKSPACE_BUCKET: { put: vi.fn(async () => ({})), get: vi.fn(async () => null) },
+    GAS_CITY_BASE_URL: 'https://gascity.example.com',
+    GAS_CITY_BEARER_TOKEN: 'test-bearer',
     ...overrides,
   }
 }
@@ -202,12 +240,38 @@ const SIGNAL_PAYLOAD = {
   signal: { signalType: 'internal' as const, source: 'test', title: 'Test', description: 'Test signal' },
 }
 
+function sampleTrellisExecutionPacket(executableSpecificationId = 'ES-TEST') {
+  const subject = executableSpecificationId.replace(/^ES-/, '')
+  return {
+    id: `EP-${subject}`,
+    executableSpecificationId,
+    audit: { packetHash: `hash-${subject}` },
+  }
+}
+
 /** Create a mock CF Queue message. */
 function createMockMessage(body: unknown, attempts = 1) {
+  const messageBody = body && typeof body === 'object' && !Array.isArray(body)
+    ? {
+        ...(body as Record<string, unknown>),
+        ...(
+          'workflowId' in (body as Record<string, unknown>)
+          && 'executableSpecificationId' in (body as Record<string, unknown>)
+          && 'executableSpecification' in (body as Record<string, unknown>)
+          && !('trellisExecutionPacket' in (body as Record<string, unknown>))
+            ? {
+                trellisExecutionPacket: sampleTrellisExecutionPacket(
+                  (body as Record<string, unknown>).executableSpecificationId as string,
+                ),
+              }
+            : {}
+        ),
+      }
+    : body
   return {
     id: `msg-${Date.now()}`,
     timestamp: new Date(),
-    body,
+    body: messageBody,
     attempts,
     ack: vi.fn(),
     retry: vi.fn(),
@@ -239,10 +303,12 @@ const mockGlobalFetch = vi.fn(async () => new Response(JSON.stringify({ ok: true
 
 // ─── Tests ───
 
-describe('CF Queue bridge for Stage 6 synthesis', () => {
+describe('CF Queue bridge for Agent Call execution synthesis', () => {
   beforeEach(() => {
     mockDb.save.mockClear()
     mockDb.saveEdge.mockClear()
+    harnessDispatcherMocks.dispatchOne.mockClear()
+    harnessDispatcherMocks.buildDefaultDispatcherDeps.mockClear()
     globalThis.fetch = mockGlobalFetch as unknown as typeof fetch
     mockGlobalFetch.mockClear()
   })
@@ -255,7 +321,7 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
 
   describe('queue consumer (queue() handler) — fire-and-forget', () => {
 
-    it('dispatches to DO via stub.fetch with workGraph, dryRun, and workflowId (no callbackUrl)', async () => {
+    it('dispatches to DO via stub.fetch with executableSpecification, dryRun, and workflowId (no callbackUrl)', async () => {
       const { default: worker } = await import('./index')
 
       const mockDoFetch = vi.fn(async () => new Response('{}', {
@@ -264,15 +330,15 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
 
       const env = createEnv({
         COORDINATOR: {
-          idFromName: vi.fn(() => 'do-synth-WG-TEST'),
+          idFromName: vi.fn(() => 'do-synth-ES-TEST'),
           get: vi.fn(() => ({ fetch: mockDoFetch })),
         },
       })
 
       const msg = createMockMessage({
         workflowId: 'wf-123',
-        workGraphId: 'WG-TEST',
-        workGraph: { _key: 'WG-TEST', title: 'Test', atoms: [] },
+        executableSpecificationId: 'ES-TEST',
+        executableSpecification: { _key: 'ES-TEST', title: 'Test', atoms: [] },
         dryRun: false,
       })
 
@@ -288,11 +354,66 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
       expect(new URL(fetchArg.url).pathname).toBe('/synthesize')
 
       const fetchBody = await new Request(fetchArg).json() as Record<string, unknown>
-      expect(fetchBody.workGraph).toBeDefined()
+      expect(fetchBody.executableSpecification).toBeDefined()
       expect(fetchBody.dryRun).toBe(false)
       // Queue fallback: workflowId is passed, callbackUrl is NOT (DO uses Queue instead)
       expect(fetchBody.workflowId).toBe('wf-123')
       expect(fetchBody.callbackUrl).toBeUndefined()
+    })
+
+    it('does not route stale harness-shaped messages when batch.queue is unavailable', async () => {
+      const { default: worker } = await import('./index')
+
+      const env = createEnv()
+      const msg = createMockMessage({
+        runId: 'smoke-shape-route',
+        stageName: 'SMOKE',
+      })
+      const batch = {
+        messages: [msg],
+        metadata: { metrics: { backlogCount: 1, backlogBytes: 0 } },
+        retryAll: vi.fn(),
+        ackAll: vi.fn(),
+      }
+      const ctx = createMockCtx()
+
+      await worker.queue(batch as never, env as never, ctx as never)
+
+      expect(harnessDispatcherMocks.buildDefaultDispatcherDeps).not.toHaveBeenCalled()
+      expect(harnessDispatcherMocks.dispatchOne).not.toHaveBeenCalled()
+      expect(msg.ack).toHaveBeenCalledOnce()
+      expect(msg.retry).not.toHaveBeenCalled()
+    })
+
+    it('acks removed harness-dlq messages without calling RunCoordinator', async () => {
+      const { default: worker } = await import('./index')
+      const mockRunFetch = vi.fn(async (_request: Request) => new Response(JSON.stringify({ ok: true }), {
+        headers: { 'Content-Type': 'application/json' },
+      }))
+      const env = createEnv({
+        RUN_COORDINATOR: {
+          idFromName: vi.fn(() => 'run-do-id'),
+          get: vi.fn(() => ({ fetch: mockRunFetch })),
+        },
+      })
+      const msg = createMockMessage({
+        runId: 'run-dlq-001',
+        stageName: 'PATCH',
+      })
+      const batch = {
+        messages: [msg],
+        queue: 'harness-dlq',
+        metadata: { metrics: { backlogCount: 1, backlogBytes: 0 } },
+        retryAll: vi.fn(),
+        ackAll: vi.fn(),
+      }
+      const ctx = createMockCtx()
+
+      await worker.queue(batch as never, env as never, ctx as never)
+
+      expect(mockRunFetch).not.toHaveBeenCalled()
+      expect(msg.ack).toHaveBeenCalledOnce()
+      expect(msg.retry).not.toHaveBeenCalled()
     })
 
     it('acks IMMEDIATELY after dispatching — does NOT await DO synthesis result', async () => {
@@ -312,8 +433,8 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
 
       const msg = createMockMessage({
         workflowId: 'wf-123',
-        workGraphId: 'WG-TEST',
-        workGraph: { _key: 'WG-TEST' },
+        executableSpecificationId: 'ES-TEST',
+        executableSpecification: { _key: 'ES-TEST' },
         dryRun: false,
       })
 
@@ -346,15 +467,15 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
           })),
         },
         COORDINATOR: {
-          idFromName: vi.fn(() => 'do-synth-WG-TEST'),
+          idFromName: vi.fn(() => 'do-synth-ES-TEST'),
           get: vi.fn(() => ({ fetch: mockDoFetch })),
         },
       })
 
       const msg = createMockMessage({
         workflowId: 'wf-123',
-        workGraphId: 'WG-TEST',
-        workGraph: { _key: 'WG-TEST' },
+        executableSpecificationId: 'ES-TEST',
+        executableSpecification: { _key: 'ES-TEST' },
         dryRun: false,
       })
 
@@ -367,10 +488,10 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
       expect(mockSendEvent).not.toHaveBeenCalled()
     })
 
-    it('uses env.COORDINATOR.idFromName with synth-{workGraphId} naming', async () => {
+    it('uses env.COORDINATOR.idFromName with synth-{executableSpecificationId} naming', async () => {
       const { default: worker } = await import('./index')
 
-      const mockIdFromName = vi.fn(() => 'do-synth-WG-CUSTOM')
+      const mockIdFromName = vi.fn(() => 'do-synth-ES-CUSTOM')
       const mockDoFetch = vi.fn(async () => new Response('{}', {
         headers: { 'Content-Type': 'application/json' },
       }))
@@ -384,8 +505,8 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
 
       const msg = createMockMessage({
         workflowId: 'wf-456',
-        workGraphId: 'WG-CUSTOM',
-        workGraph: { _key: 'WG-CUSTOM' },
+        executableSpecificationId: 'ES-CUSTOM',
+        executableSpecification: { _key: 'ES-CUSTOM' },
         dryRun: true,
       })
 
@@ -394,7 +515,7 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
 
       await worker.queue(batch as never, env as never, ctx as never)
 
-      expect(mockIdFromName).toHaveBeenCalledWith('synth-WG-CUSTOM')
+      expect(mockIdFromName).toHaveBeenCalledWith('synth-ES-CUSTOM')
     })
 
     it('passes dryRun: true through to DO when message specifies it', async () => {
@@ -413,8 +534,8 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
 
       const msg = createMockMessage({
         workflowId: 'wf-789',
-        workGraphId: 'WG-DRY',
-        workGraph: { _key: 'WG-DRY' },
+        executableSpecificationId: 'ES-DRY',
+        executableSpecification: { _key: 'ES-DRY' },
         dryRun: true,
       })
 
@@ -445,8 +566,8 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
 
       const msg = createMockMessage({
         workflowId: 'wf-789',
-        workGraphId: 'WG-NODRY',
-        workGraph: { _key: 'WG-NODRY' },
+        executableSpecificationId: 'ES-NODRY',
+        executableSpecification: { _key: 'ES-NODRY' },
         // dryRun intentionally omitted
       })
 
@@ -480,8 +601,8 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
 
       const msg = createMockMessage({
         workflowId: 'wf-err',
-        workGraphId: 'WG-ERR',
-        workGraph: { _key: 'WG-ERR' },
+        executableSpecificationId: 'ES-ERR',
+        executableSpecification: { _key: 'ES-ERR' },
         dryRun: false,
       }, 1) // first attempt
 
@@ -519,8 +640,8 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
       // attempts = 3 means this is the final attempt (max_retries: 2 = 3 total attempts)
       const msg = createMockMessage({
         workflowId: 'wf-maxretry',
-        workGraphId: 'WG-MAXRETRY',
-        workGraph: { _key: 'WG-MAXRETRY' },
+        executableSpecificationId: 'ES-MAXRETRY',
+        executableSpecification: { _key: 'ES-MAXRETRY' },
         dryRun: false,
       }, 3)
 
@@ -552,181 +673,55 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
     })
   })
 
-  // ── C) Pipeline enqueue step tests ──
+  // ── C) Pipeline Gas City dispatch step tests ──
 
-  describe('pipeline enqueue-synthesis step', () => {
+  describe('pipeline Gas City dispatch step', () => {
 
-    it('sends message to SYNTHESIS_QUEUE with workflowId, workGraphId, workGraph, dryRun', async () => {
+    it('runs build-skeleton → dispatch-formula → mark-function-dispatched and returns dispatched', async () => {
       const { FactoryPipeline } = await import('./pipeline')
 
-      const mockQueueSend = vi.fn(async () => ({}))
-      const env = createEnv({
-        SYNTHESIS_QUEUE: { send: mockQueueSend },
-      })
-
+      const env = createEnv()
       const { step, stepDoNames } = createMockStep()
 
       step.waitForEvent = vi.fn((name: string) => {
         if (name === 'architect-approval') {
           return Promise.resolve({ payload: { decision: 'approved', by: 'test' } })
         }
-        if (name === 'synthesis-complete') {
-          return Promise.resolve({
-            payload: {
-              verdict: { decision: 'pass', confidence: 0.95, reason: 'ok' },
-              tokenUsage: 100,
-              repairCount: 0,
-            },
-          })
-        }
-        return Promise.reject(new Error(`Unexpected: ${name}`))
+        return Promise.reject(new Error(`Unexpected waitForEvent: ${name}`))
       })
 
       const pipeline = Object.create(FactoryPipeline.prototype)
       pipeline.env = env
 
-      await pipeline.run(
+      const result = await pipeline.run(
         {
-          instanceId: 'wf-enqueue-test',
+          instanceId: 'wf-dispatch-test',
           payload: SIGNAL_PAYLOAD,
         },
         step,
       )
 
-      // Verify enqueue-synthesis step was called (not fire-synthesis-trigger)
-      expect(stepDoNames).toContain('enqueue-synthesis')
-      expect(stepDoNames).not.toContain('fire-synthesis-trigger')
-
-      // Verify SYNTHESIS_QUEUE.send was called with correct payload
-      expect(mockQueueSend).toHaveBeenCalledOnce()
-      const calls = mockQueueSend.mock.calls as unknown[][]
-      const sentMessage = calls[0]![0] as Record<string, unknown>
-      expect(sentMessage.workflowId).toBe('wf-enqueue-test')
-      expect(sentMessage.workGraphId).toBe('WG-TEST')
-      expect(sentMessage.workGraph).toBeDefined()
-      expect((sentMessage.workGraph as Record<string, unknown>)._key).toBe('WG-TEST')
-      expect(sentMessage.dryRun).toBe(false)
+      expect(result.status).toBe('dispatched')
+      expect(stepDoNames).toContain('build-skeleton')
+      expect(stepDoNames).toContain('dispatch-formula')
+      expect(stepDoNames).toContain('mark-function-dispatched')
+      expect(stepDoNames).not.toContain('instruction-tuning')
+      expect(stepDoNames).not.toContain('enqueue-synthesis')
     })
 
-    it('passes dryRun: true when pipeline params specify dryRun', async () => {
-      const { FactoryPipeline } = await import('./pipeline')
-
-      const mockQueueSend = vi.fn(async () => ({}))
-      const env = createEnv({
-        SYNTHESIS_QUEUE: { send: mockQueueSend },
-      })
-
-      const { step } = createMockStep()
-
-      step.waitForEvent = vi.fn((name: string) => {
-        if (name === 'architect-approval') {
-          return Promise.resolve({ payload: { decision: 'approved', by: 'test' } })
-        }
-        if (name === 'synthesis-complete') {
-          return Promise.resolve({
-            payload: {
-              verdict: { decision: 'pass', confidence: 0.95, reason: 'ok' },
-              tokenUsage: 100,
-              repairCount: 0,
-            },
-          })
-        }
-        return Promise.reject(new Error(`Unexpected: ${name}`))
-      })
-
-      const pipeline = Object.create(FactoryPipeline.prototype)
-      pipeline.env = env
-
-      await pipeline.run(
-        {
-          instanceId: 'wf-dry-test',
-          payload: { ...SIGNAL_PAYLOAD, dryRun: true },
-        },
-        step,
-      )
-
-      const calls = mockQueueSend.mock.calls as unknown[][]
-      const sentMessage = calls[0]![0] as Record<string, unknown>
-      expect(sentMessage.dryRun).toBe(true)
-    })
-
-    it('returns { enqueued: true } from the enqueue-synthesis step', async () => {
-      const { FactoryPipeline } = await import('./pipeline')
-
-      const mockQueueSend = vi.fn(async () => ({}))
-      const env = createEnv({
-        SYNTHESIS_QUEUE: { send: mockQueueSend },
-      })
-
-      let enqueueResult: unknown
-      const step = {
-        do: vi.fn(async (name: string, optsOrFn: unknown, maybeFn?: unknown) => {
-          const fn = typeof optsOrFn === 'function'
-            ? optsOrFn as () => Promise<unknown>
-            : maybeFn as () => Promise<unknown>
-          const result = await fn()
-          if (name === 'enqueue-synthesis') {
-            enqueueResult = result
-          }
-          return result
-        }),
-        waitForEvent: vi.fn((name: string) => {
-          if (name === 'architect-approval') {
-            return Promise.resolve({ payload: { decision: 'approved', by: 'test' } })
-          }
-          if (name === 'synthesis-complete') {
-            return Promise.resolve({
-              payload: {
-                verdict: { decision: 'pass', confidence: 0.95, reason: 'ok' },
-                tokenUsage: 100,
-                repairCount: 0,
-              },
-            })
-          }
-          return Promise.reject(new Error(`Unexpected: ${name}`))
-        }),
-      }
-
-      const pipeline = Object.create(FactoryPipeline.prototype)
-      pipeline.env = env
-
-      await pipeline.run(
-        {
-          instanceId: 'wf-result-test',
-          payload: SIGNAL_PAYLOAD,
-        },
-        step,
-      )
-
-      expect(enqueueResult).toEqual({ enqueued: true })
-    })
-
-    it('no longer writes to ArangoDB synthesis_queue collection', async () => {
+    it('does not write to ArangoDB synthesis_queue collection', async () => {
       mockDb.save.mockClear()
 
       const { FactoryPipeline } = await import('./pipeline')
 
-      const mockQueueSend = vi.fn(async () => ({}))
-      const env = createEnv({
-        SYNTHESIS_QUEUE: { send: mockQueueSend },
-      })
-
+      const env = createEnv()
       const { step } = createMockStep()
 
       step.waitForEvent = vi.fn((name: string) => {
         if (name === 'architect-approval') {
           return Promise.resolve({ payload: { decision: 'approved', by: 'test' } })
         }
-        if (name === 'synthesis-complete') {
-          return Promise.resolve({
-            payload: {
-              verdict: { decision: 'pass', confidence: 0.95, reason: 'ok' },
-              tokenUsage: 100,
-              repairCount: 0,
-            },
-          })
-        }
-        return Promise.reject(new Error(`Unexpected: ${name}`))
+        return Promise.reject(new Error(`Unexpected waitForEvent: ${name}`))
       })
 
       const pipeline = Object.create(FactoryPipeline.prototype)
@@ -740,65 +735,10 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
         step,
       )
 
-      // Should NOT have written to synthesis_queue collection in ArangoDB
       const arangoQueueSave = (mockDb.save.mock.calls as unknown[][]).find(
         (call) => call[0] === 'synthesis_queue',
       )
       expect(arangoQueueSave).toBeUndefined()
-    })
-
-    it('enqueue-synthesis step runs between gate-1 and waitForEvent(synthesis-complete)', async () => {
-      const { FactoryPipeline } = await import('./pipeline')
-
-      const mockQueueSend = vi.fn(async () => ({}))
-      const env = createEnv({
-        SYNTHESIS_QUEUE: { send: mockQueueSend },
-      })
-
-      const stepOrder: string[] = []
-      const step = {
-        do: vi.fn(async (name: string, optsOrFn: unknown, maybeFn?: unknown) => {
-          const fn = typeof optsOrFn === 'function'
-            ? optsOrFn as () => Promise<unknown>
-            : maybeFn as () => Promise<unknown>
-          stepOrder.push(name)
-          return fn()
-        }),
-        waitForEvent: vi.fn((name: string) => {
-          stepOrder.push(`waitForEvent:${name}`)
-          if (name === 'architect-approval') {
-            return Promise.resolve({ payload: { decision: 'approved', by: 'test' } })
-          }
-          if (name === 'synthesis-complete') {
-            return Promise.resolve({
-              payload: {
-                verdict: { decision: 'pass', confidence: 0.95, reason: 'ok' },
-                tokenUsage: 100,
-                repairCount: 0,
-              },
-            })
-          }
-          return Promise.reject(new Error(`Unexpected: ${name}`))
-        }),
-      }
-
-      const pipeline = Object.create(FactoryPipeline.prototype)
-      pipeline.env = env
-
-      await pipeline.run(
-        {
-          instanceId: 'wf-order-test',
-          payload: SIGNAL_PAYLOAD,
-        },
-        step,
-      )
-
-      const enqueueIdx = stepOrder.indexOf('enqueue-synthesis')
-      const waitIdx = stepOrder.indexOf('waitForEvent:synthesis-complete')
-
-      expect(enqueueIdx).toBeGreaterThan(-1)
-      expect(waitIdx).toBeGreaterThan(-1)
-      expect(enqueueIdx).toBeLessThan(waitIdx)
     })
   })
 
@@ -833,8 +773,8 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
 
       const msg = createMockMessage({
         workflowId: 'wf-logbug',
-        workGraphId: 'WG-LOGBUG',
-        workGraph: { _key: 'WG-LOGBUG' },
+        executableSpecificationId: 'ES-LOGBUG',
+        executableSpecification: { _key: 'ES-LOGBUG' },
         dryRun: false,
       }, 3) // max retries exhausted
 
@@ -882,8 +822,8 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
 
       const msg = createMockMessage({
         workflowId: 'wf-status-log',
-        workGraphId: 'WG-STATUSLOG',
-        workGraph: { _key: 'WG-STATUSLOG' },
+        executableSpecificationId: 'ES-STATUSLOG',
+        executableSpecification: { _key: 'ES-STATUSLOG' },
         dryRun: false,
       }, 3)
 
@@ -1228,8 +1168,9 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workflowId: 'wf-123',
-          workGraphId: 'WG-TEST',
-          workGraph: { _key: 'WG-TEST' },
+          executableSpecificationId: 'ES-TEST',
+          executableSpecification: { _key: 'ES-TEST' },
+          trellisExecutionPacket: sampleTrellisExecutionPacket('ES-TEST'),
           dryRun: false,
         }),
       })
@@ -1259,11 +1200,11 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
 
       const msg = createMockMessage({
         type: 'atom-execute',
-        workGraphId: 'WG-ATOM',
+        executableSpecificationId: 'ES-ATOM',
         workflowId: 'wf-atom-1',
         atomId: 'atom-001',
         atomSpec: { id: 'atom-001', description: 'Test atom' },
-        sharedContext: { workGraphId: 'WG-ATOM', specContent: null, briefingScript: {} },
+        sharedContext: { executableSpecificationId: 'ES-ATOM', specContent: null, briefingScript: {} },
         upstreamArtifacts: {},
         maxRetries: 3,
         dryRun: true,
@@ -1282,13 +1223,13 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
 
       const fetchBody = await new Request(fetchArg).json() as Record<string, unknown>
       expect(fetchBody.atomId).toBe('atom-001')
-      expect(fetchBody.workGraphId).toBe('WG-ATOM')
+      expect(fetchBody.executableSpecificationId).toBe('ES-ATOM')
 
       // Message acked
       expect(msg.ack).toHaveBeenCalledOnce()
     })
 
-    it('uses idFromName with atom-{workGraphId}-{atomId}', async () => {
+    it('uses idFromName with atom-{executableSpecificationId}-{atomId}', async () => {
       const { default: worker } = await import('./index')
 
       const mockIdFromName = vi.fn(() => 'atom-do-id')
@@ -1303,7 +1244,7 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
 
       const msg = createMockMessage({
         type: 'atom-execute',
-        workGraphId: 'WG-NAME',
+        executableSpecificationId: 'ES-NAME',
         workflowId: 'wf-1',
         atomId: 'atom-xyz',
         atomSpec: {},
@@ -1318,7 +1259,7 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
 
       await worker.queue(batch as never, env as never, ctx as never)
 
-      expect(mockIdFromName).toHaveBeenCalledWith('atom-WG-NAME-atom-xyz')
+      expect(mockIdFromName).toHaveBeenCalledWith('atom-ES-NAME-atom-xyz')
     })
 
     it('retries atom-execute on DO dispatch failure', async () => {
@@ -1335,7 +1276,7 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
 
       const msg = createMockMessage({
         type: 'atom-execute',
-        workGraphId: 'WG-ERR',
+        executableSpecificationId: 'ES-ERR',
         workflowId: 'wf-err',
         atomId: 'atom-err',
         atomSpec: {},
@@ -1370,7 +1311,7 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
 
       const msg = createMockMessage({
         type: 'atom-execute',
-        workGraphId: 'WG-MAXRETRY',
+        executableSpecificationId: 'ES-MAXRETRY',
         workflowId: 'wf-maxretry',
         atomId: 'atom-dead',
         atomSpec: {},
@@ -1390,7 +1331,7 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
 
       const sentMsg = (mockAtomResultsSend.mock.calls[0] as unknown as [Record<string, unknown>])[0]
       expect(sentMsg.atomId).toBe('atom-dead')
-      expect(sentMsg.workGraphId).toBe('WG-MAXRETRY')
+      expect(sentMsg.executableSpecificationId).toBe('ES-MAXRETRY')
       const result = sentMsg.result as Record<string, unknown>
       const verdict = result.verdict as Record<string, unknown>
       expect(verdict.decision).toBe('fail')
@@ -1420,7 +1361,7 @@ describe('CF Queue bridge for Stage 6 synthesis', () => {
       const msg = createMockMessage({
         type: 'phase1-complete',
         workflowId: 'wf-p1',
-        workGraphId: 'WG-P1',
+        executableSpecificationId: 'ES-P1',
         atomCount: 3,
         layerCount: 2,
       })

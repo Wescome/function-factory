@@ -1,6 +1,13 @@
 # @factory/runtime
 
-Trust scoring and invariant health monitoring for deployed Functions. Planned to provide the runtime evaluation layer that feeds Gate 3 monitoring.
+Trust scoring and invariant health monitoring for deployed Functions. Planned to provide the runtime evaluation layer that feeds Persistence Verification monitoring.
+
+## Ontology Alias
+
+This package is the reserved implementation surface for runtime trust,
+invariant health, and the continuous-assurance side of `Persistence
+Verification`. The current package name remains `@factory/runtime`; ontology
+terminology does not imply a package rename.
 
 ## Pipeline Position
 

@@ -42,7 +42,7 @@ formal pipeline vs. academic framework).
 |---|---|---|---|
 | **Actors** | Agent Coach | Architect (ConOps §4.1) | No |
 | | Specialized agents | 5-role topology (Planner/Coder/Critic/Tester/Verifier) | No |
-| **Processes** | BriefingEng | Stages 1-4 (Signal → PRD) | No — PRDs are richer than BriefingScript |
+| **Processes** | BriefingEng | Stages 1-4 (Signal → Intent Specification) | No — Intent Specifications are richer than BriefingScript |
 | | ALE (loop orchestration) | CF Workflows pipeline | No — executable, not declarative-only |
 | | ATME (mentorship-as-code) | SKILL.md + LESSONS.md | **Partial** — not structured/testable |
 | | AGE (guidance engineering) | `waitForEvent('architect-approval')` | **Partial** — boolean, not structured |
@@ -50,7 +50,7 @@ formal pipeline vs. academic framework).
 | | ATIE (agent infrastructure) | pi SDK + extensions + DO coordination | No |
 | **Tools** | ACE (human command center) | gateway-worker API | **Missing** — API exists, no UI |
 | | AEE (agent execution env) | Coordinator DO + pi SDK + Containers | No |
-| **Artifacts** | BriefingScript | PRD (typed, compiled, gated) | No — Factory's is stronger |
+| **Artifacts** | BriefingScript | Intent Specification (typed, compiled, gated) | No — Factory's is stronger |
 | | LoopScript | CF Workflow definition | No — Factory's is executable |
 | | MentorScript | SKILL.md + LESSONS.md (narrative) | **Gap** — needs structure |
 | | CRP (consultation request) | — | **Missing** |
@@ -120,7 +120,7 @@ Rule conflicts detected by linter
 **Consumers:**
 - Pi SDK extensions load active rules at session creation (Coder, Tester)
 - Critic role checks compliance against rules during review
-- Gate 2 includes MentorScript compliance in simulation coverage
+- Fidelity Verification includes MentorScript compliance in simulation coverage
 - MRP reports which rules were applied and compliance status
 
 **Relationship to existing artifacts:**
@@ -163,7 +163,7 @@ type ConsultationRequestPack = {
       cons: string
     }[]
     tradeoffs: string             // why the agent can't decide alone
-    relevantArtifacts: string[]   // PRD, WorkGraph, MentorRule IDs
+    relevantArtifacts: string[]   // Intent Specification, Executable Specification, MentorRule IDs
     relevantCode?: string         // code snippet if applicable
   }
 
@@ -187,7 +187,7 @@ type ConsultationRequestPack = {
 - Planner: objective is ambiguous, multiple valid decompositions
 - Coder: architectural choice not covered by MentorScript rules
 - Critic: borderline quality — passes some criteria, fails others
-- Tester: can't determine correct behavior from PRD + WorkGraph alone
+- Tester: can't determine correct behavior from Intent Specification + Executable Specification alone
 - Verifier: repair loop exhausted budget but code is almost correct
 - Any role: MentorScript rule conflict detected
 
@@ -213,7 +213,7 @@ In the Workflow:
 ```typescript
 const synthesis = await step.do('stage-6', async () => {
   try {
-    return await coordinator.synthesize(workGraph)
+    return await coordinator.synthesize(executableSpecification)
   } catch (err) {
     if (err instanceof ConsultationRequired) {
       // Pause and wait for architect resolution
@@ -221,7 +221,7 @@ const synthesis = await step.do('stage-6', async () => {
         timeout: '7 days',
       })
       // Resume with the architect's guidance injected
-      return await coordinator.resumeWithGuidance(workGraph, resolution)
+      return await coordinator.resumeWithGuidance(executableSpecification, resolution)
     }
     throw err
   }
@@ -285,27 +285,27 @@ If VCR.mentorRuleProposal exists:
 
 ### 2.4 MRP — Merge-Readiness Pack
 
-**What it replaces:** Separate, unstructured Coverage Reports and execution
+**What it replaces:** Separate, unstructured Verification Reports and execution
 artifacts that the architect must manually correlate to determine if a
 Function is ready to ship.
 
 **What it is:** A single evidence bundle proving the Function meets all
 five criteria for merge-readiness (per SASE §4.2.4). Assembled
-automatically by the Workflow after Gate 2 passes. The architect reviews
+automatically by the Workflow after Fidelity Verification passes. The architect reviews
 one artifact, not a scatter of reports.
 
 ```typescript
 type MergeReadinessPack = {
   _key: string                    // MRP-001
   functionId: string
-  workGraphId: string
+  executableSpecificationId: string
   pipelineInstanceId: string
 
   // ── 1. Functional Completeness ──
   functionalCompleteness: {
     passed: boolean
     acceptanceCriteria: {
-      criterion: string           // from PRD
+      criterion: string           // from Intent Specification
       met: boolean
       evidence: string            // artifact ID (test result, etc.)
     }[]
@@ -320,7 +320,7 @@ type MergeReadinessPack = {
       type: 'unit' | 'integration' | 'property'
       result: 'pass' | 'fail'
     }[]
-    gate2ReportId: string         // CR-* coverage report
+    fidelityVerificationReportId: string         // VR-* verification report
     coveragePercentage?: number
   }
 
@@ -353,11 +353,11 @@ type MergeReadinessPack = {
 
   // ── 5. Auditability ──
   auditability: {
-    prdId: string
-    workGraphId: string
+    intentSpecificationId: string
+    executableSpecificationId: string
     semanticReviewId: string      // the pre-compile review artifact
-    gate1ReportId: string
-    gate2ReportId: string
+    coherenceVerificationReportId: string
+    fidelityVerificationReportId: string
     sessionTreeId?: string        // pi SDK session tree for debugging
     modelBindings: Record<RoleName, { provider: string, model: string }>
     mentorRulesApplied: string[]  // MR-* IDs
@@ -375,17 +375,17 @@ type MergeReadinessPack = {
 
 **ArangoDB collection:** `merge_readiness_packs`
 
-**Assembly — Workflow step after Gate 2:**
+**Assembly — Workflow step after Fidelity Verification:**
 
 ```typescript
 const mrp = await step.do('assemble-mrp', async () => {
   return assembleMRP({
     functionId: synthesis.functionId,
-    workGraph: compState.workGraph,
+    executableSpecification: compState.executableSpecification,
     prd: proposal.prd,
     semanticReview,
-    gate1,
-    gate2,
+    coherenceVerification,
+    fidelityVerification,
     synthesis,
     mentorRules: await getActiveMentorRules(this.env),
     tokenUsage: synthesis.tokenUsage,
@@ -423,9 +423,9 @@ await step.do('create-pr', async () => {
 
   // Create PR via GitHub API
   const pr = await createGitHubPR({
-    repo: compState.workGraph.repo,
+    repo: compState.executableSpecification.repo,
     head: branch,
-    base: compState.workGraph.repo.ref,
+    base: compState.executableSpecification.repo.ref,
     title: `[FF-${synthesis.functionId}] ${proposal.prd.title}`,
     body: formatPRBody(prDescription, mrp),
   })
@@ -458,7 +458,7 @@ await step.do('create-pr', async () => {
 - ✅ Sound verification: 12 new tests (4 unit, 6 integration, 2 property)
 - ✅ SE hygiene: 0 lint errors, 14/14 MentorScript rules compliant
 - ✅ Rationale: approach documented, 2 CRPs resolved
-- ✅ Auditability: full lineage from SIG-001 → PRS-001 → PRD-001 → WG-001
+- ✅ Auditability: full lineage from SIG-001 → PRS-001 → IS-001 → ES-001
 
 <details>
 <summary>Detailed MRP</summary>
@@ -466,7 +466,7 @@ await step.do('create-pr', async () => {
 </details>
 
 ### Lineage
-Signal: SIG-001 | Pressure: PRS-001 | PRD: PRD-001 | WorkGraph: WG-001
+Signal: SIG-001 | Pressure: PRS-001 | Intent Specification: IS-001 | Executable Specification: ES-001
 Pipeline: {pipelineInstanceId} | Cost: $1.87 | Tokens: 42,300
 ```
 
@@ -484,7 +484,7 @@ regulatory | internal | meta`). CI and GitHub events are `signalType:
 **ArtifactId registry note:** The new artifact prefixes (MR-*, CRP-*,
 VCR-*, MRP-*) must be added to the `ArtifactId` regex in
 `packages/schemas/src/lineage.ts` alongside existing prefixes (PRS-*,
-BC-*, FP-*, FN-*, PRD-*, WG-*, INV-*, CR-*, SIG-*).
+BC-*, FP-*, FN-*, IS-*, ES-*, INV-*, VR-*, SIG-*).
 
 ```typescript
 // Base Signal (all signals share this shape)
@@ -543,7 +543,7 @@ type CIRepairPayload = {
   originalFunctionId: string
   originalMrpId: string
   originalPipelineInstanceId: string
-  workGraphId: string
+  executableSpecificationId: string
   classification: CIFailureClassification
   failureLogs: string
   prNumber: number
@@ -982,9 +982,9 @@ async function triggerRepairPipeline(
   payload: CIFailPayload,
   classification: CIFailureClassification,
 ) {
-  // 1. Read the original WorkGraph and MRP
+  // 1. Read the original Executable Specification and MRP
   const mrp = await readArango(env, 'merge_readiness_packs', payload.mrpId)
-  const workGraph = await readArango(env, 'specs_workgraphs', mrp.workGraphId)
+  const executableSpecification = await readArango(env, 'executable_specifications', mrp.executableSpecificationId)
 
   // 2. Fetch CI failure logs
   const failureLogs = await fetchCILogs(env, payload.checksFailed)
@@ -1002,7 +1002,7 @@ async function triggerRepairPipeline(
       originalFunctionId: payload.functionId,
       originalMrpId: payload.mrpId,
       originalPipelineInstanceId: payload.pipelineInstanceId,
-      workGraphId: mrp.workGraphId,
+      executableSpecificationId: mrp.executableSpecificationId,
       classification,
       failureLogs,
       prNumber: payload.prNumber,
@@ -1037,7 +1037,7 @@ async function triggerRepairPipeline(
   //    and enters Stage 6 directly with repair context.
   const instance = await env.REPAIR_PIPELINE.create({
     params: {
-      workGraph,
+      executableSpecification,
       repairContext: {
         ciFailure: classification,
         failureLogs,
@@ -1073,7 +1073,7 @@ more attempts, take over manually, or abandon the Function.
 ### 4.7 Repair Workflow — Stage 6 Re-Entry
 
 The RepairPipeline is a second Workflow class. It skips Stages 1-5
-(the PRD, WorkGraph, and Gate 1 already exist and passed). It re-enters
+(the Intent Specification, Executable Specification, and Coherence Verification already exist and passed). It re-enters
 Stage 6 with the CI failure context injected into the Coder and Tester
 roles.
 
@@ -1081,15 +1081,15 @@ roles.
 export class RepairPipeline extends WorkflowEntrypoint<Env, RepairParams> {
 
   async run(event: WorkflowEvent<RepairParams>, step: WorkflowStep) {
-    const { workGraph, repairContext, repairAttempt } = event.payload
+    const { executableSpecification, repairContext, repairAttempt } = event.payload
 
     // Stage 6: synthesis with repair context
     const synthesis = await step.do('repair-synthesis', async () => {
       const id = this.env.COORDINATOR.idFromName(
-        `${workGraph.id}-repair-${repairAttempt}`
+        `${executableSpecification.id}-repair-${repairAttempt}`
       )
       const coord = this.env.COORDINATOR.get(id)
-      return coord.synthesize(workGraph, {
+      return coord.synthesize(executableSpecification, {
         repairMode: true,
         ciFailure: repairContext.ciFailure,
         failureLogs: repairContext.failureLogs,
@@ -1102,21 +1102,21 @@ export class RepairPipeline extends WorkflowEntrypoint<Env, RepairParams> {
       return { status: 'repair-failed', attempt: repairAttempt }
     }
 
-    // Gate 2: re-validate
-    const gate2 = await step.do('repair-gate-2', async () => {
-      return evaluateGate2(synthesis, workGraph, this.env)
+    // Fidelity Verification: re-validate
+    const fidelityVerification = await step.do('repair-fidelity-verification', async () => {
+      return evaluateFidelityVerification(synthesis, executableSpecification, this.env)
     })
-    if (!gate2.passed) {
-      return { status: 'repair-gate2-failed', report: gate2.report }
+    if (!fidelityVerification.passed) {
+      return { status: 'repair-fidelityVerification-failed', report: fidelityVerification.report }
     }
 
     // Assemble updated MRP
     const mrp = await step.do('repair-mrp', async () => {
       return assembleMRP({
         functionId: synthesis.functionId,
-        workGraph,
+        executableSpecification,
         synthesis,
-        gate2,
+        fidelityVerification,
         repairAttempt,
         mentorRules: await getActiveMentorRules(this.env),
         tokenUsage: synthesis.tokenUsage,
@@ -1303,11 +1303,11 @@ mechanism.
 | Architect VCR: "abandon" | Close PR immediately, delete branch | VCR handler |
 
 **Implementation:** The Assurance DO's `alarm()` method gains a cleanup
-sweep in addition to its Gate 3 checks:
+sweep in addition to its Persistence Verification checks:
 
 ```typescript
 async alarm() {
-  // Existing: Gate 3 continuous monitoring
+  // Existing: Persistence Verification continuous monitoring
   await this.checkDetectorFreshness(config)
   // ...
 
@@ -1480,7 +1480,7 @@ GitHub Actions CI runs (existing lint/test/build)
   │   │   │   ├─ If within budget → RepairPipeline Workflow
   │   │   │   │   ├─ Re-enter Stage 6 with failure context
   │   │   │   │   ├─ Coder fixes, Tester re-tests
-  │   │   │   │   ├─ Gate 2 re-validates
+  │   │   │   │   ├─ Fidelity Verification re-validates
   │   │   │   │   ├─ Push repair commits to branch (additive, not force)
   │   │   │   │   ├─ CI re-runs automatically
   │   │   │   │   └─ Loop back to top ↑
@@ -1630,7 +1630,7 @@ Existing:
   POST /signal            → enqueue Signal
   GET  /specs/:id         → spec lookup
   GET  /health            → system health
-  POST /gate/1            → Gate 1 evaluation
+  POST /gate/1            → Coherence Verification evaluation
   POST /approve/:id       → send Workflow event
   GET  /run/:id           → job status
 
@@ -1688,30 +1688,30 @@ Available for pi SDK executions; not available for Container fallback runs
 
 ---
 
-## 6. Full SDLC Coverage Map
+## 6. Full SDLC Verification Map
 
 ```
 SDLC Phase               Factory Stage          SASE Artifact       Output
 ──────────────────────────┼───────────────────────┼───────────────────┼──────────────────
 Signal detection          │ Stage 1               │ —                 │ Signal
-Requirements/Intent       │ Stages 2-4            │ ≈ BriefingScript  │ Pressure, Capability, PRD
+Requirements/Intent       │ Stages 2-4            │ ≈ BriefingScript  │ Pressure, Capability, Intent Specification
 Architect approval        │ waitForEvent           │ —                 │ VCR (approval)
 Semantic review           │ Pre-compile step       │ CRP (if uncertain)│ Review verdict
-Design/Compilation        │ Stage 5 (8 passes)     │ —                 │ WorkGraph
-Structural validation     │ Gate 1                 │ —                 │ Coverage Report
+Design/Compilation        │ Stage 5 (8 passes)     │ —                 │ Executable Specification
+Structural validation     │ Coherence Verification                 │ —                 │ Verification Report
 Implementation            │ Stage 6: Coder         │ CRP (if stuck)    │ Code artifacts
 Code review               │ Stage 6: Critic        │ MentorScript      │ Critique report
 Testing                   │ Stage 6: Tester        │ —                 │ Test plan + results
 Verdict                   │ Stage 6: Verifier      │ —                 │ Pass/patch/fail
 Repair loop               │ Verifier → Coder       │ CRP (if budget)   │ Revised artifacts
-Simulation validation     │ Gate 2                 │ —                 │ Coverage Report
+Simulation validation     │ Fidelity Verification                 │ —                 │ Verification Report
 Evidence bundling         │ MRP assembly           │ MRP               │ Merge-Readiness Pack
 Human review              │ waitForEvent (MRP)     │ VCR               │ Approval/rejection
 PR creation               │ Stage 8 (new)          │ —                 │ GitHub PR + MRP
 CI validation             │ GitHub Actions         │ —                 │ CI reports
 Merge                     │ Human (manual)         │ —                 │ Merged code
 Deployment                │ Existing CD            │ —                 │ Deployed Function
-Runtime monitoring        │ Stage 7 + Gate 3       │ —                 │ Coverage Reports
+Runtime monitoring        │ Stage 7 + Persistence Verification       │ —                 │ Verification Reports
 Maintenance/Learning      │ Dream DO               │ MentorScript (new)│ Crystallized rules
 Regression response       │ CI feedback → Pipeline │ —                 │ New Signal → new run
 ```
@@ -1733,10 +1733,10 @@ New document collections:
 All four collections participate in the lineage graph via `lineage_edges`:
 
 ```
-PRD ←── CRP (generated during PRD's execution)
+Intent Specification ←── CRP (generated during Intent Specification's execution)
 CRP ←── VCR (resolves the CRP)
 VCR ──→ MentorRule (if the resolution proposes a new rule)
-MRP ←── Gate1 Report + Gate2 Report + Synthesis artifacts
+MRP ←── CoherenceVerification Report + FidelityVerification Report + Synthesis artifacts
 MRP ←── VCR (architect approval/rejection)
 ```
 
@@ -1756,9 +1756,9 @@ step.do('propose-function')
 step.waitForEvent('architect-approval')       → VCR
 step.do('semantic-review')                    → may generate CRP
 step.do('compile-pass-1') ... step.do('compile-pass-8')
-step.do('gate-1')
+step.do('coherence-verification')
 step.do('stage-6-synthesis')                  → may generate CRPs
-step.do('gate-2-simulation')
+step.do('fidelity-verification-simulation')
 step.do('assemble-mrp')                       ← NEW
 step.waitForEvent('mrp-{id}')                 ← NEW (architect reviews MRP)
 step.do('persist-artifacts')
@@ -1777,11 +1777,11 @@ steps). Well within Workflows' 25,000 step limit.
 |-------|-------------------------|------------------------------|
 | 0 | Current state | — |
 | 1 | ArangoDB (local Docker) | Create new collections (MR, CRP, VCR, MRP, mentorscript_rules) |
-| 2 | Edge Workers + Gate 1 | Add CRP/MRP/MentorScript API endpoints |
+| 2 | Edge Workers + Coherence Verification | Add CRP/MRP/MentorScript API endpoints |
 | 3 | Workflows (Stages 1-5) | Add semantic review + MRP assembly steps. MentorScript rules loaded into Critic prompts |
 | 4 | Coordinator DO + LangGraph + pi SDK | CRP generation in role nodes. Pi SDK extensions load MentorScript rules for Coder/Tester tool gating |
 | 5 | Container fallback | — (no SDLC change) |
-| 6 | Assurance DO + Dream DO + Gate 3 | Crystallization → MentorRule proposal. Stale PR cleanup. |
+| 6 | Assurance DO + Dream DO + Persistence Verification | Crystallization → MentorRule proposal. Stale PR cleanup. |
 | 7 | — | Stage 8 (PR creation) + CI feedback loop + repair pipeline |
 | 8 | — | GitHub App installation + branch contract enforcement |
 | 9 | — | ACE UI (frontend — API-only until this phase) |
@@ -1810,7 +1810,7 @@ independently deployable.
 - **Does not auto-merge.** Human merges PRs. The Factory creates merge-
   ready evidence, not merge authority.
 - **Does not auto-deploy.** The Factory monitors deployed Functions
-  (Gate 3) but does not perform deployment. ADR-002 §7: "Workers cannot
+  (Persistence Verification) but does not perform deployment. ADR-002 §7: "Workers cannot
   merge PR, deploy, or modify production systems."
 - **Does not prescribe an ACE implementation.** The API surface is
   defined. Whether the ACE is a web app, a CLI dashboard, a VS Code
@@ -1818,6 +1818,6 @@ independently deployable.
   Until then, all ACE functionality is available via gateway-worker API.
 - **Does not require all artifacts from day one.** MentorScript can
   start empty. CRPs can start as simple `waitForEvent` gates. MRPs can
-  start as a Coverage Report dump. Structure accretes as the Factory
+  start as a Verification Report dump. Structure accretes as the Factory
   matures. The artifact schemas are the target; the implementation can
   grow into them.

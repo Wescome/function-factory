@@ -19,29 +19,35 @@
     "bindings": [
       { "name": "COORDINATOR", "class_name": "SynthesisCoordinator" },
       { "name": "SANDBOX", "class_name": "Sandbox" },
-      { "name": "ATOM_EXECUTOR", "class_name": "AtomExecutor" }
+      { "name": "ATOM_EXECUTOR", "class_name": "AtomExecutor" },
+      { "name": "RUN_COORDINATOR", "class_name": "RunCoordinator" },
+      { "name": "PI_CONTAINER", "class_name": "PiContainer" }
     ]
   },
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["SynthesisCoordinator"] },
     { "tag": "v2", "new_sqlite_classes": ["Sandbox"] },
-    { "tag": "v3", "new_sqlite_classes": ["AtomExecutor"] }
+    { "tag": "v3", "new_sqlite_classes": ["AtomExecutor"] },
+    { "tag": "v4", "new_sqlite_classes": ["RunCoordinator"] },
+    { "tag": "v5", "new_sqlite_classes": ["PiContainer"] }
   ],
 
   // Sandbox Container for Coder/Tester execution
-  "containers": {
-    "Sandbox": {
-      "image": "./Dockerfile",
-      "max_instances": 5
-    }
-  },
+  // PI_CONTAINER: pi coding agent — dispatched by PiContainerAdapter (cf-workers.ts)
+  // CF Containers are DO-backed (wrangler 4): class_name must match an exported DO class.
+  "containers": [
+    { "class_name": "Sandbox", "image": "./Dockerfile", "max_instances": 5 },
+    { "class_name": "PiContainer", "image": "./pi-container/Dockerfile", "max_instances": 3 }
+  ],
 
   // Service Bindings
   "services": [
-    { "binding": "GATES", "service": "ff-gates", "entrypoint": "GatesService" }
+    { "binding": "GATES", "service": "ff-gates", "entrypoint": "GatesService" },
+    { "binding": "FF_ARANGO", "service": "ff-arango" },
+    { "binding": "GAS_CITY", "service": "gascity-supervisor" }
   ],
 
-  // Queue bindings (Stage 6 synthesis bridge)
+  // Queue bindings (Agent Call execution synthesis bridge)
   // SYNTHESIS_QUEUE: pipeline enqueues work for the DO + atom-execute dispatch
   // SYNTHESIS_RESULTS: DO publishes completion results back (avoids self-fetch deadlock)
   // ATOM_RESULTS: AtomExecutor DOs publish per-atom results for ledger tracking
@@ -50,20 +56,38 @@
       { "binding": "SYNTHESIS_QUEUE", "queue": "synthesis-queue" },
       { "binding": "SYNTHESIS_RESULTS", "queue": "synthesis-results" },
       { "binding": "ATOM_RESULTS", "queue": "atom-results" },
-      { "binding": "FEEDBACK_QUEUE", "queue": "feedback-signals" }
+      { "binding": "FEEDBACK_QUEUE", "queue": "feedback-signals" },
+      { "binding": "HARNESS_QUEUE", "queue": "harness-queue" },
+      { "binding": "TELEMETRY_QUEUE", "queue": "telemetry-queue" }
     ],
     "consumers": [
       { "queue": "synthesis-queue", "max_batch_size": 1, "max_retries": 5 },
       { "queue": "synthesis-results", "max_batch_size": 1, "max_retries": 3 },
       { "queue": "atom-results", "max_batch_size": 1, "max_retries": 3 },
-      { "queue": "feedback-signals", "max_batch_size": 1, "max_retries": 2 }
+      { "queue": "feedback-signals", "max_batch_size": 1, "max_retries": 2 },
+      // NOTE: the harness-queue consumer is bound to the harness-dispatcher.ts
+      // entry, NOT the RunCoordinator DO. The DO consuming its own queue would
+      // self-fetch-deadlock — see MEMORY for Phase 3/4 and IS-HARNESS-DSL-v1 §3.1.
+      { "queue": "harness-queue", "max_batch_size": 1, "max_retries": 3, "dead_letter_queue": "harness-dlq" },
+      { "queue": "harness-dlq", "max_batch_size": 10, "max_retries": 1 },
+      { "queue": "telemetry-queue", "max_batch_size": 25, "max_retries": 3, "dead_letter_queue": "telemetry-dlq" },
+      { "queue": "telemetry-dlq", "max_batch_size": 10, "max_retries": 1 }
     ]
   },
+
+  "analytics_engine_datasets": [
+    { "binding": "FACTORY_METRICS", "dataset": "factory-metrics" }
+  ],
 
   // Workers AI binding (fallback provider for task-routing)
   "ai": { "binding": "AI" },
 
+  // Worker version identity used to coordinate singleton Container restarts.
+  "version_metadata": { "binding": "CF_VERSION_METADATA" },
+
   // R2 bucket for workspace persistence
+  // Run scripts/ops/configure-r2-lifecycle.sh once per env to set this.
+  // _summary.json and per-event objects have no expiry.
   "r2_buckets": [{ "binding": "WORKSPACE_BUCKET", "bucket_name": "ff-workspaces" }],
 
   // Governor: Phase 2 — verified working, ramp to 5min
@@ -72,11 +96,36 @@
     "crons": ["*/5 * * * *"]
   },
 
+  // execa cannot run in CF Workers (child_process). @factory/nlah barrel-exports
+  // adapters.ts which imports execa, but no CF Worker code path calls those adapters.
+  // Alias redirects the esbuild bundle to the CF-safe stub (src/cf-stubs/execa.js).
+  "alias": {
+    "execa": "./src/cf-stubs/execa.js"
+  },
+
   "vars": {
-    "ENVIRONMENT": "production"
+    "ENVIRONMENT": "development",
+    "PI_MODEL": "openrouter/openai/gpt-5.4",
+    "PI_FILESYSTEM_MODEL_CANDIDATES": "openrouter/openai/gpt-5.4,openrouter/anthropic/claude-sonnet-4.6,openrouter/google/gemini-3.1-pro-preview,openrouter/x-ai/grok-4.20",
+    "FACTORY_MAX_ITERATIONS": "5",
+    "BUILD_GIT_SHA": "",
+    "GAS_CITY_BASE_URL": "https://gascity-supervisor.koales.workers.dev",
+    "GAS_CITY_CITY_NAME": "factory",
+    "GAS_CITY_AGENT_NAME": "coder",
+    "GAS_CITY_RIG": "function-factory",
+    "GAS_CITY_RIG_ROOT": "/workspace",
+    "GAS_CITY_WEBHOOK_URL": "https://ff-pipeline.koales.workers.dev/webhooks/gascity",
+    "GAS_CITY_FORMULA_VERSION_FACTORY_CODING_V1": "3",
+    "GAS_CITY_MAX_AMENDMENT_DEPTH": "3",
+    "GAS_CITY_PERSISTENCE_FRESHNESS_HOURS": "24",
+    "GAS_CITY_DISPATCH_STALE_MINUTES": "60",
+    "GAS_CITY_RECURRING_INCIDENT_THRESHOLD": "3"
   }
 
   // Secrets (set via `wrangler secret put`):
   //   ARANGO_URL, ARANGO_DATABASE, ARANGO_JWT
-  //   OFOX_API_KEY, CF_API_TOKEN, GITHUB_TOKEN
+  //   OFOX_API_KEY, CF_API_TOKEN, GITHUB_TOKEN, OPERATOR_CONTROL_TOKEN
+  //   GAS_CITY_BEARER_TOKEN  (shared with GC_SUPERVISOR_TOKEN on gascity-supervisor)
+  //   GAS_CITY_HMAC_SECRET_V1 (shared with Gas City webhook signer)
+  //   HONEYCOMB_API_KEY
 }

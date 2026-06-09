@@ -130,9 +130,9 @@ describe('Ontology data constants', () => {
     expect(keys).toContain('Pressure')
     expect(keys).toContain('BusinessCapability')
     expect(keys).toContain('FunctionProposal')
-    expect(keys).toContain('WorkGraph')
+    expect(keys).toContain('ExecutableSpecification')
     expect(keys).toContain('BriefingScript')
-    expect(keys).toContain('Gate')
+    expect(keys).toContain('Verification')
     expect(keys).toContain('AgentRole')
     expect(keys).toContain('ConsultationRequestPack')
     expect(keys).toContain('MentorScript')
@@ -214,6 +214,40 @@ describe('Ontology data constants', () => {
     expect(infraInstances.length).toBeGreaterThanOrEqual(7)
   })
 
+  it('uses ontology-primary Verification instances', () => {
+    const byKey = new Map(ONTOLOGY_INSTANCES.map(instance => [instance._key, instance]))
+
+    expect(byKey.get('CoherenceVerification')).toMatchObject({
+      type: 'Verification',
+      label: 'Coherence Verification',
+    })
+    expect(byKey.get('FidelityVerification')).toMatchObject({
+      type: 'Verification',
+      label: 'Fidelity Verification',
+    })
+    expect(byKey.get('PersistenceVerification')).toMatchObject({
+      type: 'Verification',
+      label: 'Persistence Verification',
+    })
+  })
+
+  it('uses ontology-primary verification names in lifecycle constraints', () => {
+    const lifecycle = ONTOLOGY_CONSTRAINTS.find(c => c._key === 'C14-lifecycle')!
+
+    expect(lifecycle.message).toContain('Fidelity Verification')
+    expect(lifecycle.message).toContain('Persistence Verification')
+    expect(lifecycle.lifecycleRules).toContainEqual({
+      from: 'Implemented',
+      to: 'Verified',
+      requires: 'FidelityVerification',
+    })
+    expect(lifecycle.lifecycleRules).toContainEqual({
+      from: 'Verified',
+      to: 'Monitored',
+      requires: 'PersistenceVerification',
+    })
+  })
+
   it('has ArangoCollection instances', () => {
     const collections = ONTOLOGY_INSTANCES.filter(i => i.type === 'ArangoCollection')
     expect(collections.length).toBeGreaterThanOrEqual(15)
@@ -226,8 +260,8 @@ describe('Ontology data constants', () => {
     const pressure = ONTOLOGY_CLASSES.find(c => c._key === 'Pressure')!
     expect(pressure.persistsIn).toBe('specs_pressures')
 
-    const wg = ONTOLOGY_CLASSES.find(c => c._key === 'WorkGraph')!
-    expect(wg.persistsIn).toBe('specs_workgraphs')
+    const wg = ONTOLOGY_CLASSES.find(c => c._key === 'ExecutableSpecification')!
+    expect(wg.persistsIn).toBe('executable_specifications')
   })
 })
 
@@ -303,9 +337,9 @@ describe('getConstraintsForClass', () => {
     const db = createMockDb()
     await seedOntology(db as any)
 
-    const constraints = await getConstraintsForClass(db as any, 'WorkGraph')
+    const constraints = await getConstraintsForClass(db as any, 'ExecutableSpecification')
     expect(constraints.length).toBeGreaterThan(0)
-    // WorkGraph is targeted by C1 (lineage), C6 (reviewed), C13 (has atoms)
+    // ExecutableSpecification is targeted by C1 (lineage), C6 (reviewed), C13 (has atoms)
     const ids = constraints.map(c => c.constraintId)
     expect(ids).toContain('C1')
     expect(ids).toContain('C6')

@@ -1,21 +1,29 @@
+import {
+  CodingDomainAdapterContract,
+  DomainExecutionEvidence,
+  DomainExecutionRequest,
+  ArtifactId,
+  type TrellisExecutionPacket,
+} from '@factory/schemas'
+
 // ────────────────────────────────────────────────────────────
-// PipelineWorkGraph — typed WorkGraph as it flows through synthesis
+// PipelineExecutableSpecification — typed ExecutableSpecification as it flows through synthesis
 // ────────────────────────────────────────────────────────────
 
 /**
- * WorkGraph as it flows through the synthesis pipeline.
- * Extends the canonical Zod-validated shape (packages/schemas WorkGraph)
+ * ExecutableSpecification as it flows through the synthesis pipeline.
+ * Extends the canonical Zod-validated shape (packages/schemas ExecutableSpecification)
  * with ArangoDB document fields and pipeline-specific execution fields.
  *
  * The index signature preserves forward compatibility — the pipeline
  * dynamically adds fields, but known fields are now typed.
  */
-export interface PipelineWorkGraph {
-  // Canonical fields (from @factory/schemas WorkGraph)
+export interface PipelineExecutableSpecification {
+  // Canonical fields (from @factory/schemas ExecutableSpecification)
   id: string
   functionId?: string
-  nodes?: WorkGraphNodeShape[]
-  edges?: WorkGraphEdgeShape[]
+  nodes?: ExecutableSpecificationNodeShape[]
+  edges?: ExecutableSpecificationEdgeShape[]
   source_refs?: string[]
   explicitness?: string
   rationale?: string
@@ -30,7 +38,7 @@ export interface PipelineWorkGraph {
   atoms?: Record<string, unknown>[]
   invariants?: Record<string, unknown>[]
   dependencies?: Record<string, unknown>[]
-  prdId?: string
+  intentSpecificationId?: string
 
   // Sandbox execution fields
   repoUrl?: string
@@ -41,7 +49,7 @@ export interface PipelineWorkGraph {
   [key: string]: unknown
 }
 
-export interface WorkGraphNodeShape {
+export interface ExecutableSpecificationNodeShape {
   id: string
   type: string
   title?: string
@@ -49,7 +57,7 @@ export interface WorkGraphNodeShape {
   implements?: string
 }
 
-export interface WorkGraphEdgeShape {
+export interface ExecutableSpecificationEdgeShape {
   from: string
   to: string
   condition?: string
@@ -109,6 +117,12 @@ export interface TestReport {
   summary: string
 }
 
+export interface SandboxBackupHandle {
+  id: string
+  dir: string
+  localBucket?: boolean
+}
+
 export type VerdictDecision = 'pass' | 'patch' | 'resample' | 'interrupt' | 'fail'
 
 export type DisagreementClass =
@@ -142,8 +156,9 @@ export interface Verdict {
 
 export interface GraphState {
   [key: string]: unknown
-  workGraphId: string
-  workGraph: PipelineWorkGraph
+  executableSpecificationId: string
+  executableSpecification: PipelineExecutableSpecification
+  trellisExecutionPacket: TrellisExecutionPacket | null
 
   plan: Plan | null
   code: CodeArtifact | null
@@ -161,9 +176,11 @@ export interface GraphState {
   // ── Phase 5 v4: Briefing, gating, and sandbox execution (SS11) ──
   briefingScript: unknown | null
   semanticReview: unknown | null
-  gate1Passed: boolean
-  gate1Report: unknown | null
-  compiledPrd: unknown | null
+  coherenceVerificationPassed: boolean
+  coherenceVerificationReport: unknown | null
+  domainExecutionRequest: DomainExecutionRequest
+  domainExecutionEvidence: DomainExecutionEvidence | null
+  compiledIntentSpecification: unknown | null
 
   // v4.1: per-atom retry isolation — which atoms need retry (null = retry all)
   failedAtomIds: string[] | null
@@ -173,8 +190,8 @@ export interface GraphState {
 
   // Sandbox state
   sandboxName: string | null
-  freshBackupHandle: string | null
-  coderBackupHandle: string | null
+  freshBackupHandle: SandboxBackupHandle | null
+  coderBackupHandle: SandboxBackupHandle | null
   executionMode: 'dry-run' | 'sandbox' | 'callModel-fallback' | null
 
   // Tool tracking
@@ -185,13 +202,23 @@ export interface GraphState {
 }
 
 export function createInitialState(
-  workGraphId: string,
-  workGraph: PipelineWorkGraph,
-  opts?: { maxRepairs?: number; maxTokens?: number; specContent?: string | null },
+  executableSpecificationId: string,
+  executableSpecification: PipelineExecutableSpecification,
+  opts?: {
+    maxRepairs?: number
+    maxTokens?: number
+    specContent?: string | null
+    trellisExecutionPacket?: TrellisExecutionPacket | null
+  },
 ): GraphState {
+  const trellisExecutionPacket = opts?.trellisExecutionPacket ?? null
+  const domainExecutionRequest = trellisExecutionPacket?.adapter.executionRequest
+    ?? buildDomainExecutionRequest(executableSpecificationId, executableSpecification)
+
   return {
-    workGraphId,
-    workGraph,
+    executableSpecificationId,
+    executableSpecification,
+    trellisExecutionPacket,
     plan: null,
     code: null,
     critique: null,
@@ -212,13 +239,85 @@ export function createInitialState(
     // Phase 5 v4 defaults (SS11)
     briefingScript: null,
     semanticReview: null,
-    gate1Passed: false,
-    gate1Report: null,
-    compiledPrd: null,
+    coherenceVerificationPassed: false,
+    coherenceVerificationReport: null,
+    domainExecutionRequest,
+    domainExecutionEvidence: null,
+    compiledIntentSpecification: null,
     sandboxName: null,
     freshBackupHandle: null,
     coderBackupHandle: null,
     executionMode: null,
     workspaceReady: false,
   }
+}
+
+function buildDomainExecutionRequest(
+  executableSpecificationId: string,
+  executableSpecification: PipelineExecutableSpecification,
+): DomainExecutionRequest {
+  const intentSpecificationId = intentSpecificationIdFromExecutableSpecification(
+    executableSpecification,
+  )
+
+  return DomainExecutionRequest.parse({
+    adapterId: CodingDomainAdapterContract.adapterId,
+    functionId: artifactIdOrDerived('FN', executableSpecification.functionId ?? executableSpecificationId),
+    intentSpecificationId,
+    executableSpecificationId: artifactIdOrDerived('ES', executableSpecificationId),
+    runId: `synthesis-${executableSpecificationId}`,
+    mode: 'execute',
+    parameters: {
+      substrate: CodingDomainAdapterContract.substrate,
+    },
+  })
+}
+
+function intentSpecificationIdFromExecutableSpecification(
+  executableSpecification: PipelineExecutableSpecification,
+): ArtifactId {
+  if (typeof executableSpecification.intentSpecificationId === 'string' && executableSpecification.intentSpecificationId.length > 0) {
+    return artifactIdOrDerived('IS', executableSpecification.intentSpecificationId)
+  }
+
+  const sourceRefs = executableSpecification.source_refs ?? []
+  const sourceIntentSpecificationId = sourceRefs.find((ref) => ref.startsWith('IS-'))
+  if (sourceIntentSpecificationId !== undefined) {
+    return artifactIdOrDerived('IS', sourceIntentSpecificationId)
+  }
+
+  const id = executableSpecification.id
+  const subject = id.startsWith('ES-') ? id.slice(3) : id
+  return artifactIdOrDerived('IS', `IS-${subject}`)
+}
+
+function artifactIdOrDerived(prefix: 'FN' | 'IS' | 'ES', candidate: string): ArtifactId {
+  const parsed = ArtifactId.safeParse(candidate)
+  if (parsed.success) return parsed.data
+
+  const subject = candidate
+    .replace(/^[A-Za-z]+-/, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    || 'UNKNOWN'
+  return ArtifactId.parse(`${prefix}-${subject}`)
+}
+
+export function buildDomainExecutionEvidence(
+  request: DomainExecutionRequest,
+  status: DomainExecutionEvidence['status'],
+  evidenceRefs: readonly string[],
+  observationSummary: string,
+  packet?: TrellisExecutionPacket | null,
+): DomainExecutionEvidence {
+  return DomainExecutionEvidence.parse({
+    adapterId: request.adapterId,
+    executableSpecificationId: request.executableSpecificationId,
+    runId: request.runId,
+    status,
+    evidenceRefs: [...evidenceRefs],
+    observationSummary,
+    ...(packet ? { packetId: packet.id, packetHash: packet.audit.packetHash } : {}),
+  })
 }

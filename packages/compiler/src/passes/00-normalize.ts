@@ -1,27 +1,27 @@
 /**
  * Pass 0- normalize.
  *
- * Raw markdown → NormalizedPRD. Parses the PRD file's YAML frontmatter,
- * validates it against the PRDDraft Zod schema, and splits the body
- * into sections that populate the PRDDraft's list-valued fields
+ * Raw markdown → NormalizedIntentSpecification. Parses the Intent Specification file's YAML frontmatter,
+ * validates it against the IntentSpecification Zod schema, and splits the body
+ * into sections that populate the IntentSpecification's list-valued fields
  * (problem, goal, constraints, acceptanceCriteria, successMetrics,
  * outOfScope).
  *
- * Sections not mapped to a PRDDraft field are flagged as unrecognized
- * but do not block compilation — a PRD can carry informational
- * sections alongside the structured PRDDraft shape.
+ * Sections not mapped to a IntentSpecification field are flagged as unrecognized
+ * but do not block compilation — a Intent Specification can carry informational
+ * sections alongside the structured IntentSpecification shape.
  */
 
-import type { PRDDraft } from "@factory/schemas"
-import { PRDDraft as PRDDraftSchema } from "@factory/schemas"
+import type { IntentSpecification } from "@factory/schemas"
+import { IntentSpecification as IntentSpecificationDraftSchema } from "@factory/schemas"
 import { parseMarkdown } from "../parse-markdown.js"
-import type { NormalizedPRD } from "../types.js"
+import type { NormalizedIntentSpecification } from "../types.js"
 
 /**
  * Map of markdown section heading text (lowercased) to the
- * corresponding PRDDraft field name.
+ * corresponding IntentSpecification field name.
  */
-const SECTION_TO_FIELD: Readonly<Record<string, keyof PRDDraft>> = {
+const SECTION_TO_FIELD: Readonly<Record<string, keyof IntentSpecification>> = {
   problem: "problem",
   goal: "goal",
   constraints: "constraints",
@@ -31,18 +31,18 @@ const SECTION_TO_FIELD: Readonly<Record<string, keyof PRDDraft>> = {
 }
 
 /**
- * Fields that are string arrays in the PRDDraft schema. The content of
+ * Fields that are string arrays in the IntentSpecification schema. The content of
  * these sections is split into list items; everything else is kept as
  * a single string.
  */
-const LIST_FIELDS: ReadonlyArray<keyof PRDDraft> = [
+const LIST_FIELDS: ReadonlyArray<keyof IntentSpecification> = [
   "constraints",
   "acceptanceCriteria",
   "successMetrics",
   "outOfScope",
 ]
 
-export function normalize(rawMarkdown: string, sourceFile: string): NormalizedPRD {
+export function normalize(rawMarkdown: string, sourceFile: string): NormalizedIntentSpecification {
   const { frontmatter, sections } = parseMarkdown(rawMarkdown)
 
   // Build a draft object combining frontmatter with body-derived fields.
@@ -71,13 +71,13 @@ export function normalize(rawMarkdown: string, sourceFile: string): NormalizedPR
     }
   }
 
-  // Validate against PRDDraft Zod schema — this enforces the
+  // Validate against IntentSpecification Zod schema — this enforces the
   // lineage fields from frontmatter (id, source_refs, explicitness,
   // rationale) plus all required body-derived fields.
-  const parsed = PRDDraftSchema.safeParse(draftObj)
+  const parsed = IntentSpecificationDraftSchema.safeParse(draftObj)
   if (!parsed.success) {
     throw new Error(
-      `Pass 0 (normalize)- PRD at ${sourceFile} failed PRDDraft validation- ` +
+      `Pass 0 (normalize)- Intent Specification at ${sourceFile} failed IntentSpecification validation- ` +
         parsed.error.message
     )
   }
@@ -95,7 +95,7 @@ export function normalize(rawMarkdown: string, sourceFile: string): NormalizedPR
  * shape. For acceptanceCriteria, each numbered list item is one entry.
  * For other list fields, paragraph-separated entries are used.
  */
-function splitListItems(field: keyof PRDDraft, content: string): string[] {
+function splitListItems(field: keyof IntentSpecification, content: string): string[] {
   if (field === "acceptanceCriteria") {
     return splitNumberedList(content)
   }

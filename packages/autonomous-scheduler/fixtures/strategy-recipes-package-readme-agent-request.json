@@ -2,10 +2,10 @@
   "schemaVersion": "factory.agent-request.v0",
   "id": "AR-STRATEGY-RECIPES-PACKAGE-README",
   "createdAt": "2026-04-30T20:55:00.000Z",
-  "workgraph": {
-    "id": "WG-STRATEGY-RECIPES-PACKAGE-README",
+  "executableSpecification": {
+    "id": "ES-STRATEGY-RECIPES-PACKAGE-README",
     "nodeId": "package-readme",
-    "sourcePrdId": "PRD-STRATEGY-RECIPES-UX-V1-1",
+    "sourceIntentSpecificationId": "IS-STRATEGY-RECIPES-UX-V1-1",
     "sourceRefs": [
       "Strategy_Recipes_UX_Architecture_v1.1.md",
       "PR-68-strategy-recipes-first-product-view",

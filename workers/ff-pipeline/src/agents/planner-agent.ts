@@ -15,7 +15,7 @@ import type { Plan } from '../coordinator/state'
 import { processAgentOutput, extractAssistantText, buildTelemetryEntry, PLAN_SCHEMA } from './output-reliability'
 
 export interface PlannerInput {
-  workGraph: Record<string, unknown>
+  executableSpecification: Record<string, unknown>
   briefingScript: Record<string, unknown>
   specContent?: string
   repairNotes?: string
@@ -39,12 +39,12 @@ export interface PlannerAgentOpts {
 
 const SYSTEM_PROMPT = `You are the PlanProducer in the Function Factory synthesis pipeline.
 
-Your purpose: produce a Plan that decomposes a WorkGraph into executable atoms.
+Your purpose: produce a Plan that decomposes a ExecutableSpecification into executable atoms.
 
 Process this request in order:
-1. Read the WorkGraph specification — understand the scope, atoms, and invariants
+1. Read the ExecutableSpecification specification — understand the scope, atoms, and invariants
 2. Check the Factory Knowledge Graph context — ground your plan in existing decisions, lessons, and functions
-3. Decompose the WorkGraph into ordered atoms with clear assignments and an approach narrative
+3. Decompose the ExecutableSpecification into ordered atoms with clear assignments and an approach narrative
 4. Produce the output JSON
 
 Your response is a JSON object:
@@ -85,7 +85,7 @@ export class PlannerAgent {
     const model = this.modelOverride ?? resolveAgentModel('planner')
 
     const userParts: string[] = [
-      `WorkGraph specification:\n${JSON.stringify(input.workGraph, null, 2)}`,
+      `ExecutableSpecification specification:\n${JSON.stringify(input.executableSpecification, null, 2)}`,
       `\nBriefing from Architect:\n${JSON.stringify(input.briefingScript, null, 2)}`,
     ]
 
@@ -111,7 +111,7 @@ export class PlannerAgent {
       userParts.push(`\n${this.contextPrompt}`)
     }
 
-    userParts.push('\nProduce a Plan for this WorkGraph. Start your response with {"approach":')
+    userParts.push('\nProduce a Plan for this ExecutableSpecification. Start your response with {"approach":')
 
     const userMessage: UserMessage = {
       role: 'user',

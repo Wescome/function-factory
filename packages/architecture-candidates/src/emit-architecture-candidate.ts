@@ -1,22 +1,22 @@
 import type { ArchitectureCandidate } from "@factory/schemas"
-import { architectureCandidateIdFromPrdId } from "./ids.js"
+import { architectureCandidateIdFromIntentSpecificationId } from "./ids.js"
 
 export interface CandidateEmissionInput {
-  readonly sourcePrdId: string
-  readonly sourceWorkGraphId: string
+  readonly sourceIntentSpecificationId: string
+  readonly sourceExecutableSpecificationId: string
   readonly sourceRefs: readonly string[]
 }
 
 export function emitArchitectureCandidate(input: CandidateEmissionInput): ArchitectureCandidate {
-  const { sourcePrdId, sourceWorkGraphId, sourceRefs } = input
+  const { sourceIntentSpecificationId, sourceExecutableSpecificationId, sourceRefs } = input
 
   return {
-    id: architectureCandidateIdFromPrdId(sourcePrdId),
+    id: architectureCandidateIdFromIntentSpecificationId(sourceIntentSpecificationId),
     source_refs: [...sourceRefs],
     explicitness: "inferred",
-    rationale: "Derived deterministically from compiled PRD and emitted WorkGraph in the paired-emission bootstrap path.",
-    sourcePrdId,
-    sourceWorkGraphId,
+    rationale: "Derived deterministically from compiled Intent Specification and emitted ExecutableSpecification in the paired-emission bootstrap path.",
+    sourceIntentSpecificationId,
+    sourceExecutableSpecificationId,
     candidateStatus: "proposed",
     topology: {
       shape: "single_node",
@@ -24,7 +24,7 @@ export function emitArchitectureCandidate(input: CandidateEmissionInput): Archit
     },
     modelBinding: {
       bindingMode: "unbound",
-      summary: "Runtime model binding is not selected in Stage 5.5 bootstrap emission.",
+      summary: "Runtime model binding is not selected in bootstrap architecture-candidate emission.",
     },
     toolPolicy: {
       mode: "restricted",

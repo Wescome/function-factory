@@ -32,7 +32,7 @@ async function main(): Promise<void> {
         id: request.id,
         role: request.role,
         repo: request.repo,
-        workgraph: request.workgraph,
+        executableSpecification: request.executableSpecification,
       })
       return
     }

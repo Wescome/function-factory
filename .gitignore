@@ -2,6 +2,8 @@ node_modules
 dist
 *.tsbuildinfo
 .factory/intermediates
+.claude/
+**/.wrangler/
 .env
 .env.local
 .DS_Store
@@ -9,5 +11,8 @@ coverage
 *.log
 .turbo
 .pnpm-store
+workers/ff-pipeline/runs/
+workers/ff-pipeline/coding-adapter
+workers/ff-pipeline/synthesis
 workers/ff-gateway/.dev.vars
 workers/ff-gates/.dev.vars

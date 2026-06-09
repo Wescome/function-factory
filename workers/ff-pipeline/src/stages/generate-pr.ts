@@ -8,15 +8,11 @@
  * signal. This module reads the atom results and creates a branch + PR
  * via the GitHub REST API.
  *
- * GitHub API calls:
- *   1. GET  /repos/{owner}/{repo}/git/ref/heads/main — get main SHA
- *   2. POST /repos/{owner}/{repo}/git/refs           — create branch from main
- *   3. PUT  /repos/{owner}/{repo}/contents/{path}     — create/update files
- *   4. DELETE /repos/{owner}/{repo}/contents/{path}   — delete files
- *   5. POST /repos/{owner}/{repo}/pulls               — create PR
+ * GitHub API calls use GitHub App installation tokens and the Git Data API.
  */
 
 import { applyEdits, type Edit } from '@factory/diff-engine'
+import { getInstallationToken } from '../github-app-auth'
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -30,9 +26,10 @@ export interface FileChangeV2 {
 }
 
 export interface PRGenerationInput {
+  runId?: string
   signalTitle: string
   proposalId: string
-  workGraphId: string
+  executableSpecificationId: string
   atomResults: Record<string, {
     atomId: string
     verdict: { decision: string }
@@ -47,11 +44,24 @@ export interface PRGenerationInput {
   signalCreatedAt?: string
   /** Summary of the codebase state the Factory saw when generating this proposal */
   specContentSummary?: string
+  issueContract?: IssueContractArtifact | null
+}
+
+export interface IssueContractArtifact {
+  targetRepo?: string
+  [key: string]: unknown
+}
+
+export interface PRGenerationEnv {
+  GITHUB_APP_ID: string
+  GITHUB_APP_PRIVATE_KEY: string
+  GITHUB_TARGET_REPO?: string
 }
 
 export interface PRGenerationResult {
   success: boolean
   prUrl?: string
+  prNumber?: number
   branchName?: string
   error?: string
   filesWritten: number
@@ -65,21 +75,20 @@ export interface PRGenerationResult {
 
 const MAX_BRANCH_LENGTH = 50
 
-/**
- * Build a sanitized branch name from a proposalId.
- * Format: factory/{proposalId} — lowercase, truncated to 50 chars.
- */
-export function buildBranchName(proposalId: string): string {
-  const sanitized = proposalId
+export function buildBranchName(runId: string, shortHash = '00000000', suffix?: number): string {
+  const sanitized = runId
     .toLowerCase()
     .replace(/\s+/g, '-')
     .replace(/[^a-z0-9\-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '') || 'unknown'
 
-  const prefix = 'factory/'
-  const maxSlugLength = MAX_BRANCH_LENGTH - prefix.length
+  const prefix = 'factory/fn-'
+  const suffixText = suffix ? `-${suffix}` : ''
+  const maxSlugLength = MAX_BRANCH_LENGTH - prefix.length - 1 - shortHash.length - suffixText.length
   const slug = sanitized.slice(0, maxSlugLength)
 
-  return `${prefix}${slug}`
+  return `${prefix}${slug}-${shortHash}${suffixText}`
 }
 
 /**
@@ -92,7 +101,7 @@ export function buildPRBody(input: PRGenerationInput): string {
   // Header
   sections.push(`## Factory-Generated PR`)
   sections.push('')
-  sections.push(`**WorkGraph:** \`${input.workGraphId}\``)
+  sections.push(`**ExecutableSpecification:** \`${input.executableSpecificationId}\``)
   sections.push(`**Proposal:** \`${input.proposalId}\``)
   sections.push(`**Confidence:** ${input.confidence}`)
   sections.push('')
@@ -181,17 +190,42 @@ function fromBase64(encoded: string): string {
   return new TextDecoder().decode(bytes)
 }
 
-/**
- * Base64-encode a string, handling UTF-8 correctly.
- * btoa() only handles Latin-1; this uses TextEncoder for full Unicode support.
- */
-function toBase64(str: string): string {
-  const bytes = new TextEncoder().encode(str)
-  let binary = ''
-  for (const byte of bytes) {
-    binary += String.fromCharCode(byte)
+function bytesToHex(bytes: Uint8Array): string {
+  return [...bytes].map(byte => byte.toString(16).padStart(2, '0')).join('')
+}
+
+async function sha256Hex(content: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(content))
+  return bytesToHex(new Uint8Array(digest))
+}
+
+function patchFingerprint(input: PRGenerationInput): string {
+  const chunks: string[] = []
+  for (const [, atomResult] of Object.entries(input.atomResults ?? {}).sort(([a], [b]) => a.localeCompare(b))) {
+    if (atomResult.verdict.decision !== 'pass') continue
+    for (const file of atomResult.codeArtifact?.files ?? []) {
+      chunks.push(file.content ?? '')
+      for (const edit of file.edits ?? []) {
+        chunks.push(edit.search, edit.replace)
+      }
+    }
   }
-  return btoa(binary)
+  return chunks.join('\n')
+}
+
+function assertOkRepo(value: string | undefined): { owner: string; repo: string } {
+  if (!value) {
+    throw new Error('Missing target repo: IssueContract.targetRepo and GITHUB_TARGET_REPO are both unset')
+  }
+  const [owner, repo, extra] = value.split('/')
+  if (!owner || !repo || extra !== undefined) {
+    throw new Error(`Invalid target repo "${value}"; expected owner/repo`)
+  }
+  return { owner, repo }
+}
+
+function resolveTargetRepo(input: PRGenerationInput, env: PRGenerationEnv): { owner: string; repo: string } {
+  return assertOkRepo(input.issueContract?.targetRepo ?? env.GITHUB_TARGET_REPO)
 }
 
 function apiUrl(owner: string, repo: string, path: string): string {
@@ -199,6 +233,15 @@ function apiUrl(owner: string, repo: string, path: string): string {
 }
 
 // ── Main ────────────────────────────────────────────────────────────
+
+interface GitRefResponse { object: { sha: string } }
+interface GitCommitResponse { sha: string; tree: { sha: string } }
+interface GitTreeEntry { path: string; mode?: string; type: 'blob' | 'tree' | 'commit'; sha: string; size?: number }
+interface GitTreeResponse { tree: GitTreeEntry[]; truncated?: boolean }
+interface GitBlobResponse { content: string; encoding: string }
+interface GitCreateTreeResponse { sha: string }
+interface GitCreateCommitResponse { sha: string }
+interface GitPullResponse { html_url: string; number: number }
 
 /**
  * Generate a GitHub PR from synthesis atom results.
@@ -211,21 +254,38 @@ function apiUrl(owner: string, repo: string, path: string): string {
  */
 export async function generatePR(
   input: PRGenerationInput,
-  githubToken: string,
-  repoOwner: string,
-  repoName: string,
+  env: PRGenerationEnv,
 ): Promise<PRGenerationResult> {
-  const branchName = buildBranchName(input.proposalId)
+  const { owner: repoOwner, repo: repoName } = resolveTargetRepo(input, env)
+  const runId = input.runId ?? input.proposalId
+  const shortHash = (await sha256Hex(patchFingerprint(input))).slice(0, 8)
+  let branchName = buildBranchName(runId, shortHash)
   let filesWritten = 0
 
   try {
-    const headers = apiHeaders(githubToken)
+    let githubToken = await getInstallationToken(env.GITHUB_APP_ID, env.GITHUB_APP_PRIVATE_KEY, repoOwner, repoName)
+
+    const githubFetch = async (path: string, init: RequestInit): Promise<Response> => {
+      const runFetch = (token: string) => fetch(
+        apiUrl(repoOwner, repoName, path),
+        {
+          ...init,
+          headers: {
+            ...apiHeaders(token),
+            ...(init.headers as Record<string, string> | undefined),
+          },
+        },
+      )
+      let res = await runFetch(githubToken)
+      if (res.status === 401) {
+        githubToken = await getInstallationToken(env.GITHUB_APP_ID, env.GITHUB_APP_PRIVATE_KEY, repoOwner, repoName)
+        res = await runFetch(githubToken)
+      }
+      return res
+    }
 
     // ── Step 1: Get main branch SHA ──
-    const mainRefRes = await fetch(
-      apiUrl(repoOwner, repoName, '/git/ref/heads/main'),
-      { method: 'GET', headers },
-    )
+    const mainRefRes = await githubFetch('/git/ref/heads/main', { method: 'GET' })
 
     if (!mainRefRes.ok) {
       const errorBody = await mainRefRes.text()
@@ -237,37 +297,80 @@ export async function generatePR(
       }
     }
 
-    const mainRef = await mainRefRes.json() as { object: { sha: string } }
+    const mainRef = await mainRefRes.json() as GitRefResponse
     const mainSha = mainRef.object.sha
 
+    const mainCommitRes = await githubFetch(`/git/commits/${mainSha}`, { method: 'GET' })
+    if (!mainCommitRes.ok) {
+      const errorBody = await mainCommitRes.text()
+      return {
+        success: false,
+        branchName,
+        error: `Failed to get main commit (${mainCommitRes.status}): ${errorBody}`,
+        filesWritten: 0,
+      }
+    }
+    const mainCommit = await mainCommitRes.json() as GitCommitResponse
+    const baseTreeSha = mainCommit.tree.sha
+
     // ── Step 2: Create branch from main ──
-    const createBranchRes = await fetch(
-      apiUrl(repoOwner, repoName, '/git/refs'),
-      {
+    let createBranchError: string | undefined
+    for (const suffix of [undefined, 2, 3] as Array<number | undefined>) {
+      branchName = buildBranchName(runId, shortHash, suffix)
+      const createBranchRes = await githubFetch('/git/refs', {
         method: 'POST',
-        headers,
         body: JSON.stringify({
           ref: `refs/heads/${branchName}`,
           sha: mainSha,
         }),
-      },
-    )
+      })
 
-    if (!createBranchRes.ok) {
+      if (createBranchRes.ok) {
+        createBranchError = undefined
+        break
+      }
+
       const errorBody = await createBranchRes.text()
+      createBranchError = `Failed to create branch (${createBranchRes.status}): ${errorBody}`
+      if (createBranchRes.status !== 422) break
+    }
+
+    if (createBranchError) {
       return {
         success: false,
         branchName,
-        error: `Failed to create branch (${createBranchRes.status}): ${errorBody}`,
+        error: createBranchError,
         filesWritten: 0,
       }
     }
+
+    const treeRes = await githubFetch(`/git/trees/${baseTreeSha}?recursive=1`, { method: 'GET' })
+    if (!treeRes.ok) {
+      const errorBody = await treeRes.text()
+      return {
+        success: false,
+        branchName,
+        error: `Failed to get base tree (${treeRes.status}): ${errorBody}`,
+        filesWritten: 0,
+      }
+    }
+    const baseTree = await treeRes.json() as GitTreeResponse
+    const baseBlobs = new Map(
+      baseTree.tree
+        .filter((entry): entry is GitTreeEntry & { type: 'blob' } => entry.type === 'blob')
+        .map(entry => [entry.path, entry]),
+    )
 
     // ── Step 3: Write files from passing atoms ──
     // Group files by path across atoms (Architect condition #8: serialize per path)
     const filesByPath = new Map<string, FileChangeV2[]>()
     const filesNotFound: string[] = []
     const warnings: string[] = []
+    const treeEntries: Array<{ path: string; mode: '100644'; type: 'blob'; sha: string }> = []
+
+    if (baseTree.truncated) {
+      warnings.push('Base tree response was truncated; file existence checks may be incomplete')
+    }
 
     for (const [, atomResult] of Object.entries(input.atomResults ?? {})) {
       if (atomResult.verdict.decision !== 'pass') continue
@@ -293,24 +396,31 @@ export async function generatePR(
         continue
       }
 
-      // create or modify — fetch existing file state
-      const getFileRes = await fetch(
-        apiUrl(repoOwner, repoName, `/contents/${filePath}?ref=${branchName}`),
-        { method: 'GET', headers },
-      ).catch(() => null)
-
-      let existingSha: string | undefined
+      // create or modify — resolve existing file state from the base tree
+      const existingBlob = baseBlobs.get(filePath)
       let existingContent: string | undefined
 
-      if (getFileRes?.ok) {
-        const fileData = await getFileRes.json() as { sha: string; content: string }
-        existingSha = fileData.sha
-        existingContent = fromBase64(fileData.content)
+      if (existingBlob) {
+        const blobRes = await githubFetch(`/git/blobs/${existingBlob.sha}`, { method: 'GET' })
+        if (!blobRes.ok) {
+          const errorBody = await blobRes.text()
+          return {
+            success: false,
+            branchName,
+            error: `Failed to get existing blob for ${filePath} (${blobRes.status}): ${errorBody}`,
+            filesWritten,
+          }
+        }
+        const fileData = await blobRes.json() as GitBlobResponse
+        existingContent = fileData.encoding === 'base64' ? fromBase64(fileData.content) : fileData.content
         // HARD GATE: block create on existing files — prevents overwriting
         if (primaryAction === 'create') {
           warnings.push(`BLOCKED: create action on existing file: ${filePath} (${existingContent?.length ?? 0} chars). Atom must use modify with edits.`)
           continue
         }
+      } else if (primaryAction === 'create' && baseTree.truncated) {
+        warnings.push(`BLOCKED: create action on ${filePath} — base tree was truncated, cannot confirm file does not exist. Use modify with edits.`)
+        continue
       } else if (primaryAction === 'modify') {
         filesNotFound.push(filePath)
         warnings.push(`Modify target not found on branch, treating as create: ${filePath}`)
@@ -366,31 +476,33 @@ export async function generatePR(
         continue
       }
 
-      await fetch(
-        apiUrl(repoOwner, repoName, `/contents/${filePath}`),
-        {
-          method: 'PUT',
-          headers,
-          body: JSON.stringify({
-            message: `[Factory] ${primaryAction === 'create' ? 'Create' : 'Update'} ${filePath}`,
-            content: toBase64(finalContent),
-            branch: branchName,
-            ...(existingSha ? { sha: existingSha } : {}),
-          }),
-        },
-      )
+      const createBlobRes = await githubFetch('/git/blobs', {
+        method: 'POST',
+        body: JSON.stringify({
+          content: finalContent,
+          encoding: 'utf-8',
+        }),
+      })
+      if (!createBlobRes.ok) {
+        const errorBody = await createBlobRes.text()
+        return {
+          success: false,
+          branchName,
+          error: `Failed to create blob for ${filePath} (${createBlobRes.status}): ${errorBody}`,
+          filesWritten,
+        }
+      }
+      const blob = await createBlobRes.json() as { sha: string }
+      treeEntries.push({ path: filePath, mode: '100644', type: 'blob', sha: blob.sha })
       filesWritten++
     }
 
     // ── Phantom synthesis guard ──
     // If atoms declared files but none were written, all edits failed — this is a phantom PR.
     // Clean up the orphan branch and return failure.
-    if (filesWritten === 0 && filesByPath.size > 0) {
+    if (filesWritten === 0) {
       // Delete the orphan branch (best-effort)
-      await fetch(
-        apiUrl(repoOwner, repoName, `/git/refs/heads/${branchName}`),
-        { method: 'DELETE', headers },
-      ).catch(() => {})
+      await githubFetch(`/git/refs/heads/${branchName}`, { method: 'DELETE' }).catch(() => {})
 
       return {
         success: false,
@@ -398,6 +510,60 @@ export async function generatePR(
         filesWritten: 0,
         branchName,
         ...(warnings.length > 0 && { warnings }),
+      }
+    }
+
+    const createTreeRes = await githubFetch('/git/trees', {
+      method: 'POST',
+      body: JSON.stringify({
+        base_tree: baseTreeSha,
+        tree: treeEntries,
+      }),
+    })
+    if (!createTreeRes.ok) {
+      const errorBody = await createTreeRes.text()
+      return {
+        success: false,
+        branchName,
+        error: `Failed to create tree (${createTreeRes.status}): ${errorBody}`,
+        filesWritten,
+      }
+    }
+    const createdTree = await createTreeRes.json() as GitCreateTreeResponse
+
+    const createCommitRes = await githubFetch('/git/commits', {
+      method: 'POST',
+      body: JSON.stringify({
+        message: `[Factory] ${input.signalTitle}`,
+        tree: createdTree.sha,
+        parents: [mainSha],
+      }),
+    })
+    if (!createCommitRes.ok) {
+      const errorBody = await createCommitRes.text()
+      return {
+        success: false,
+        branchName,
+        error: `Failed to create commit (${createCommitRes.status}): ${errorBody}`,
+        filesWritten,
+      }
+    }
+    const createdCommit = await createCommitRes.json() as GitCreateCommitResponse
+
+    const updateRefRes = await githubFetch(`/git/refs/heads/${branchName}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        sha: createdCommit.sha,
+        force: false,
+      }),
+    })
+    if (!updateRefRes.ok) {
+      const errorBody = await updateRefRes.text()
+      return {
+        success: false,
+        branchName,
+        error: `Failed to update branch ref (${updateRefRes.status}): ${errorBody}`,
+        filesWritten,
       }
     }
 
@@ -412,20 +578,16 @@ export async function generatePR(
       }
     }
 
-    const createPRRes = await fetch(
-      apiUrl(repoOwner, repoName, '/pulls'),
-      {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          title: `[Factory] ${input.signalTitle}`,
-          body: prBody,
-          head: branchName,
-          base: 'main',
-          draft: true,
-        }),
-      },
-    )
+    const createPRRes = await githubFetch('/pulls', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: `[Factory] ${input.signalTitle}`,
+        body: prBody,
+        head: branchName,
+        base: 'main',
+        draft: true,
+      }),
+    })
 
     if (!createPRRes.ok) {
       const errorBody = await createPRRes.text()
@@ -437,38 +599,31 @@ export async function generatePR(
       }
     }
 
-    const pr = await createPRRes.json() as { html_url: string; number: number }
+    const pr = await createPRRes.json() as GitPullResponse
 
     // ── Step 5: Label the PR ──
     // Create label if it doesn't exist (409 = already exists, ignore)
-    await fetch(
-      apiUrl(repoOwner, repoName, '/labels'),
-      {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          name: 'factory-generated',
-          color: '7057ff',
-          description: 'PR generated by the Function Factory feedback loop',
-        }),
-      },
-    ).catch(() => {}) // Ignore label creation errors (409, network, etc.)
+    await githubFetch('/labels', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: 'factory-generated',
+        color: '7057ff',
+        description: 'PR generated by the Function Factory feedback loop',
+      }),
+    }).catch(() => {}) // Ignore label creation errors (409, network, etc.)
 
     // Apply label to the PR
-    await fetch(
-      apiUrl(repoOwner, repoName, `/issues/${pr.number}/labels`),
-      {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          labels: ['factory-generated'],
-        }),
-      },
-    ).catch(() => {}) // Label application is best-effort
+    await githubFetch(`/issues/${pr.number}/labels`, {
+      method: 'POST',
+      body: JSON.stringify({
+        labels: ['factory-generated'],
+      }),
+    }).catch(() => {}) // Label application is best-effort
 
     return {
       success: true,
       prUrl: pr.html_url,
+      prNumber: pr.number,
       branchName,
       filesWritten,
       ...(filesNotFound.length > 0 ? { filesNotFound } : {}),

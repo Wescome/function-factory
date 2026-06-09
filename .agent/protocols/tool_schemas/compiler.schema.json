@@ -1,38 +1,38 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "name": "compiler",
-  "description": "Invoke the Factory's Stage 5 PRD-to-WorkGraph compiler",
+  "description": "Invoke the Factory's Stage 5 IS-to-Executable Specification compiler",
   "operations": {
     "compile": {
       "required_args": {
         "prd_path": {
           "type": "string",
-          "description": "Path to the PRD markdown file under specs/prds/"
+          "description": "Path to the Intent Specification markdown file under specs/intent-specifications/"
         },
         "output_dir": {
           "type": "string",
-          "default": "specs/workgraphs"
+          "default": "specs/executable-specifications"
         },
         "mode": {
           "type": "string",
-          "enum": ["full", "dry-run", "gate1-only"],
+          "enum": ["full", "dry-run", "coherenceVerification-only"],
           "default": "full",
-          "description": "full = all 8 passes + Gate 1 + WorkGraph emission; dry-run = all 8 passes but no file writes; gate1-only = stops after Gate 1, emits only the Coverage Report"
+          "description": "full = all 8 passes + Coherence Verification + Executable Specification emission; dry-run = all 8 passes but no file writes; coherenceVerification-only = stops after Coherence Verification, emits only the Verification Report"
         }
       },
       "preconditions": [
         "prd_path exists",
-        "PRD front-matter is well-formed YAML",
-        "source_refs in PRD are resolvable"
+        "Intent Specification front-matter is well-formed YAML",
+        "source_refs in Intent Specification are resolvable"
       ],
       "side_effects": [
         "emits intermediate artifacts per pass to .factory/intermediates/ (gitignored)",
-        "emits CoverageReport to specs/coverage-reports/ on every run",
-        "emits WorkGraph to specs/workgraphs/ on successful Gate 1"
+        "emits VerificationReport to specs/verification-reports/ on every run",
+        "emits Executable Specification to specs/executable-specifications/ on successful Coherence Verification"
       ],
       "output_contract": {
-        "on_success": "WorkGraph YAML written + CoverageReport (overall: pass)",
-        "on_gate1_fail": "CoverageReport (overall: fail) written; NO WorkGraph emitted; exit code 10",
+        "on_success": "Executable Specification YAML written + VerificationReport (overall: pass)",
+        "on_coherenceVerification_fail": "VerificationReport (overall: fail) written; NO Executable Specification emitted; exit code 10",
         "on_uncertainty": "UncertaintyLedger written; compiler halts; exit code 20",
         "on_internal_error": "error with pass number and artifact; exit code 1"
       },

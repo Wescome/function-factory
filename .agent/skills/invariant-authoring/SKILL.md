@@ -10,7 +10,7 @@ triggers:
 tools: [view, create_file, str_replace]
 preconditions: []
 constraints:
-  - "invariants without detectors are rejected at Gate 1 — do not emit them"
+  - "invariants without detectors are rejected by Coherence Verification — do not emit them"
   - "every detector spec requires named evidence sources, direct rules, regression policy, and incident tags"
   - "detector specs are not optional and cannot be deferred"
 category: factory-core
@@ -53,7 +53,7 @@ detector:
 ## Rules
 
 1. **Every invariant has a scope.** Entity-level, workflow-level, or
-   system-level. Unscoped invariants fail Gate 1.
+   system-level. Unscoped invariants fail Coherence Verification.
 
 2. **Every invariant has at least one direct rule.** The direct rule must
    be a statement that an automated detector can evaluate over a named
@@ -91,7 +91,7 @@ detector:
 
 ## Self-rewrite hook
 
-After every 5 invariants authored OR on any Gate 1 failure citing an
+After every 5 invariants authored OR on any Coherence Verification failure citing an
 incomplete detector spec from this skill:
 1. Read recent invariant entries in episodic memory
 2. If a detector pattern keeps failing (e.g., evidence sources that turn out

@@ -3,13 +3,13 @@ source_refs:
   - SIG-META-REPO-ARCH-AUDIT
 explicitness: inferred
 rationale: >
-  Derived from the whitepaper v2 requirement that Stage 5 emit WorkGraph plus
-  ArchitectureCandidate, while the current repo emits only WorkGraph.
+  Derived from the whitepaper v2 requirement that Stage 5 emit Executable Specification plus
+  ArchitectureCandidate, while the current repo emits only Executable Specification.
 category: trust
 name: architecture_candidate_emission_gap
 description: >
   The compile path does not yet emit ArchitectureCandidate artifacts alongside
-  WorkGraphs, leaving the execution arrangement unspecified before runtime.
+  Executable Specifications, leaving the execution arrangement unspecified before runtime.
 derivedFromSignalIds:
   - SIG-META-REPO-ARCH-AUDIT
 affectedDomains:

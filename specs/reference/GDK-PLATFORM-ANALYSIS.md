@@ -506,7 +506,7 @@ when the Factory produces Functions for WeOps deployment.
 AOMA kernel speaks. No translation layer needed.
 
 **The Factory governs itself.** By running on GDK, every Factory operation
-(PRD compilation, WorkGraph execution, trust computation) becomes a governed
+(Intent Specification compilation, Executable Specification execution, trust computation) becomes a governed
 action with evidence. The Factory's own operations produce the same evidence
 artifacts it requires of the Functions it creates.
 
@@ -535,8 +535,8 @@ custom and must remain so.
 
 ### 5.3 Factory-Specific Compiler Passes
 
-The Factory's core value -- PRD compilation, WorkGraph generation, trust
-computation, coverage gates -- has no GDK equivalent. These are the Factory's
+The Factory's core value -- Intent Specification compilation, Executable Specification generation, trust
+computation, verification checks -- has no GDK equivalent. These are the Factory's
 unique capabilities that GDK provides the runtime for.
 
 ### 5.4 Queue-Based Pipeline Orchestration
@@ -548,7 +548,7 @@ queue-based orchestration patterns.
 ### 5.5 Multi-Agent Coordination
 
 GDK provides single-agent sessions. The Factory needs coordinated
-multi-agent patterns (e.g., PRD compiler agent handing off to WorkGraph
+multi-agent patterns (e.g., Intent Specification compiler agent handing off to Executable Specification
 generator agent). The coding-agent-tool shows one pattern (subprocess),
 but true multi-agent coordination is not in GDK.
 
@@ -569,8 +569,8 @@ for LLM-driven stages only. The deterministic stages remain custom.
 ```
 ┌─────────────────────────────────────┐
 │ Factory Logic (custom)              │
-│  PRD Compiler, WorkGraph, Trust,    │
-│  Coverage Gates, Lineage Graph      │
+│  Intent Specification Compiler, Executable Specification, Trust,    │
+│  Verification Gates, Lineage Graph      │
 ├─────────────────────────────────────┤
 │ GDK Governance Layer (@weops/gdk-ts)│
 │  GovernedAgentSession, Tiers,       │
@@ -604,7 +604,7 @@ Current: Custom LLM orchestration in pipeline coordinator.
 Target: Use `Agent` class from gdk-agent for Stage 6 execution.
 
 - Create `FactoryAgent` extending patterns from Agent class
-- Define Factory-specific AgentTools (compile_prd, generate_workgraph, etc.)
+- Define Factory-specific AgentTools (compile_prd, generate_executable-specification, etc.)
 - Use beforeToolCall/afterToolCall hooks for governance
 - Reference: gdk-agent/src/agent.ts L157-539, types.ts L292-307
 
@@ -635,8 +635,8 @@ Target: Fork governance types for Workers runtime.
 Current: Decisions are implicit in code.
 Target: Every Factory decision carries a DELExpression.
 
-- Each PRD compilation produces a DELExpression documenting the decision
-- WorkGraph nodes carry YieldClauses with outcomes
+- Each Intent Specification compilation produces a DELExpression documenting the decision
+- Executable Specification nodes carry YieldClauses with outcomes
 - Trust scores map to confidence fields
 - Reference: del-sdk/src/types.ts L319-327, factory.ts L120-134
 
@@ -652,8 +652,8 @@ Target: Use canonical stream-types for kernel communication.
 ### 6.3 What to Keep Building Custom
 
 1. **ArangoDB graph layer** -- lineage, trust, relationships
-2. **Compiler passes** -- PRD -> WorkGraph -> Functions (deterministic)
-3. **Coverage gates** -- Gate 1/2/3 evaluation logic
+2. **Compiler passes** -- Intent Specification -> Executable Specification -> Functions (deterministic)
+3. **Verification gates** -- Coherence Verification/2/3 evaluation logic
 4. **Queue orchestration** -- CF Queue bridges between pipeline stages
 5. **Edge gateway** -- ff-gateway and ff-gates remain custom Workers
 6. **Seed/schema** -- YAML schemas, artifact definitions

@@ -33,7 +33,7 @@ describe("evaluateRecursionGovernance", () => {
       policy: policy as never,
       context: {
         ...(runContext as any),
-        alreadyAuthoredPrdIdsInRun: ["PRD-META-ARCHITECTURE-CANDIDATE-EXECUTION"],
+        alreadyAuthoredIntentSpecificationIdsInRun: ["IS-META-ARCHITECTURE-CANDIDATE-EXECUTION"],
       } as never,
     })
 

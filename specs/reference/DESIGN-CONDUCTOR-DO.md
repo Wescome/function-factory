@@ -27,8 +27,8 @@ element is synthesis-specific:
 
 | Element | Hardcoded As |
 |---------|-------------|
-| Input type | `WorkGraph` with atoms, invariants, dependencies |
-| Agent topology | architect -> critic -> compile -> gate-1 -> planner (Phase 1), then code -> critique -> test -> verify per atom (Phase 2) |
+| Input type | `Executable Specification` with atoms, invariants, dependencies |
+| Agent topology | architect -> critic -> compile -> coherence-verification -> planner (Phase 1), then code -> critique -> test -> verify per atom (Phase 2) |
 | Agent classes | `ArchitectAgent`, `CriticAgent`, `PlannerAgent`, `CoderAgent`, `TesterAgent`, `VerifierAgent` -- imported directly |
 | State shape | `GraphState` with 25+ synthesis-specific fields |
 | Output type | `SynthesisResult` with verdict, tokenUsage, repairCount |
@@ -88,7 +88,7 @@ and executes the graph.
 ## 4. WorkSpec Schema
 
 The WorkSpec is the unit of work the ConductorDO accepts. It replaces
-the implicit contract of "POST a WorkGraph to /synthesize."
+the implicit contract of "POST a Executable Specification to /synthesize."
 
 ```typescript
 /**
@@ -468,7 +468,7 @@ export class ArchitectAgentAdapter implements AgentCapability {
   ): Promise<AgentResult> {
     const start = Date.now()
     const briefingScript = await this.agent.produceBriefingScript({
-      signal: input.workGraph as Record<string, unknown>,
+      signal: input.executableSpecification as Record<string, unknown>,
       ...(input.specContent ? { specContent: input.specContent as string } : {}),
     })
     return {
@@ -526,8 +526,8 @@ export function buildDefaultRegistry(): AgentRegistry {
     create: () => new CompileStubNode(),
   })
   registry.register({
-    role: 'gate-1',
-    create: () => new Gate1StubNode(),
+    role: 'coherence-verification',
+    create: () => new CoherenceVerificationStubNode(),
   })
 
   return registry
@@ -1251,32 +1251,32 @@ export function synthesisPlanningTopology(): GraphTopology {
       {
         id: 'architect',
         agentRole: 'architect',
-        inputs: ['workGraph', 'specContent'],
+        inputs: ['executableSpecification', 'specContent'],
         output: 'briefingScript',
       },
       {
         id: 'semantic-critic',
         agentRole: 'semantic-critic',
-        inputs: ['workGraph', 'specContent'],
+        inputs: ['executableSpecification', 'specContent'],
         output: 'semanticReview',
         optional: true,
       },
       {
         id: 'compile',
         agentRole: 'compile',
-        inputs: ['workGraph'],
-        output: 'compiledPrd',
+        inputs: ['executableSpecification'],
+        output: 'compiledIntentSpecification',
       },
       {
-        id: 'gate-1',
-        agentRole: 'gate-1',
-        inputs: ['workGraph', 'compiledPrd'],
-        output: 'gate1Report',
+        id: 'coherence-verification',
+        agentRole: 'coherence-verification',
+        inputs: ['executableSpecification', 'compiledIntentSpecification'],
+        output: 'coherenceVerificationReport',
       },
       {
         id: 'planner',
         agentRole: 'planner',
-        inputs: ['workGraph', 'briefingScript', 'specContent'],
+        inputs: ['executableSpecification', 'briefingScript', 'specContent'],
         output: 'plan',
       },
     ],
@@ -1284,8 +1284,8 @@ export function synthesisPlanningTopology(): GraphTopology {
       { from: 'budget-check', to: 'architect', type: 'conditional', condition: "__budget_result.passed === true" },
       { from: 'architect', to: 'semantic-critic', type: 'sequential' },
       { from: 'semantic-critic', to: 'compile', type: 'conditional', condition: "semanticReview.alignment !== 'miscast'" },
-      { from: 'compile', to: 'gate-1', type: 'sequential' },
-      { from: 'gate-1', to: 'planner', type: 'sequential' },
+      { from: 'compile', to: 'coherence-verification', type: 'sequential' },
+      { from: 'coherence-verification', to: 'planner', type: 'sequential' },
     ],
   }
 }
@@ -1615,11 +1615,11 @@ demonstrating behavioral equivalence. Here is the exact mapping.
 ### 14.1 Current SynthesisCoordinator Flow
 
 ```
-POST /synthesize { workGraph, dryRun, specContent }
+POST /synthesize { executableSpecification, dryRun, specContent }
   |
   v
 Phase 1 (serial graph):
-  budget-check -> architect -> semantic-critic -> compile -> gate-1 -> planner
+  budget-check -> architect -> semantic-critic -> compile -> coherence-verification -> planner
   |
   v
 Phase 2 (parallel dispatch via queue):
@@ -1633,13 +1633,13 @@ Return SynthesisResult with verdict: 'dispatched'
 
 ```typescript
 const synthesisWorkSpec: WorkSpec = {
-  id: `synth-${workGraphId}`,
-  label: `Synthesis: ${workGraph.title}`,
+  id: `synth-${executableSpecificationId}`,
+  label: `Synthesis: ${executableSpecification.title}`,
   type: 'synthesis',
   intent: 'Execute Phase 1 synthesis planning pipeline',
   topology: synthesisPlanningTopology(), // preset from section 10.1
   context: {
-    workGraph,
+    executableSpecification,
     specContent: specContent ?? null,
     tokenUsage: 0,
     maxTokens: 150_000,
@@ -1654,7 +1654,7 @@ const synthesisWorkSpec: WorkSpec = {
     requiresApproval: false,
     approvalAuthority: 'auto',
   },
-  sourceRefs: [workGraphId],
+  sourceRefs: [executableSpecificationId],
   resultQueue: 'synthesis-results',
   workflowId,
 }
@@ -1675,7 +1675,7 @@ was specifically designed to work around CF's DO-to-DO fetch restrictions.
 
 | Behavior | SynthesisCoordinator | ConductorDO + Synthesis Preset |
 |----------|---------------------|-------------------------------|
-| Input | WorkGraph via POST /synthesize | WorkSpec via POST /execute |
+| Input | Executable Specification via POST /synthesize | WorkSpec via POST /execute |
 | Topology | buildSynthesisGraph() with verticalSlicing=true | synthesisPlanningTopology() preset |
 | Agent resolution | Direct imports | AgentRegistry with adapters |
 | State shape | GraphState (25+ typed fields) | ConductorState.outputs (generic map) |
@@ -1840,7 +1840,7 @@ LLM agents simultaneously, spiking token usage and cost.
 - SynthesisCoordinator remains deployed in parallel (shadow mode)
 
 **Acceptance criteria:**
-- ConductorDO produces identical outputs to SynthesisCoordinator for the same WorkGraph inputs (dry-run)
+- ConductorDO produces identical outputs to SynthesisCoordinator for the same Executable Specification inputs (dry-run)
 - ConductorDO crash recovery works (fiber eviction test)
 - ConductorDO wall-clock timeout works (alarm test)
 - ORL telemetry entries are written with correct schema names
@@ -2374,7 +2374,7 @@ export class ConductorEngine {
 
 | Test | File | What It Validates |
 |------|------|-------------------|
-| Synthesis preset: dry-run | behavioral-equivalence.test.ts | ConductorDO produces same outputs as SynthesisCoordinator for identical WorkGraph |
+| Synthesis preset: dry-run | behavioral-equivalence.test.ts | ConductorDO produces same outputs as SynthesisCoordinator for identical Executable Specification |
 | Review preset: dry-run | conductor-engine.test.ts | 3-node review topology runs to completion |
 | Diagnostic preset: dry-run | conductor-engine.test.ts | 3-node diagnostic topology runs to completion |
 | Parallel execution: evaluation | conductor-engine.test.ts | Two evaluators run concurrently |

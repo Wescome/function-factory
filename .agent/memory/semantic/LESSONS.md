@@ -20,7 +20,7 @@ binding unless superseded by a later entry with explicit rationale.
   individual executable Functions. It does not govern commissioned work.
 - WeOps is **We-layer**. It governs work against organizational purpose.
 - A Function may be executed under a Work Order, but a Function is not a
-  Work Order. A WorkGraph is not a Work Order. Conflating the two is the
+  Work Order. A Executable Specification is not a Work Order. Conflating the two is the
   single most common mistake in documents that touch both systems.
 - Spec coverage (§6 of whitepaper) is an I-layer discipline. Purpose coverage
   is a We-layer discipline. They are not the same check.
@@ -39,17 +39,19 @@ binding unless superseded by a later entry with explicit rationale.
 
 ## Build discipline
 
-### On the compiler's eight passes
-- Each pass does exactly one thing. No pass is allowed to silently conflate
-  responsibilities with its neighbors.
-- Every pass preserves source references, separates explicit from inferred,
-  emits one semantic claim per object, uses canonical verbs, fails closed on
-  ambiguity, and writes an uncertainty ledger. These six properties are
-  pass-invariants, not aspirational goals.
+### On compiler transformation discipline
+- Each compiler transformation does exactly one thing. Historical pass numbers
+  remain compatibility labels, but the ontology categories are primary:
+  Decomposition, Binding, Obligation Extraction, Structural Assembly,
+  Completeness Certification, and future Instruction Tuning.
+- Every transformation preserves source references, separates explicit from
+  inferred, emits one semantic claim per object, uses canonical verbs, fails
+  closed on ambiguity, and writes an uncertainty ledger. These six properties
+  are invariants, not aspirational goals.
 
 ### On invariants
-- An invariant without a detector is a wish. Gate 1 rejects any PRD that
-  declares invariants without detector specs.
+- An invariant without a detector is a wish. Coherence Verification rejects
+  any Intent Specification/Intent Specification that declares invariants without detector specs.
 - A detector spec has, at minimum, a named evidence source, direct rules,
   warning rules, a regression policy, and incident tags. Partial detector
   specs are also wishes.

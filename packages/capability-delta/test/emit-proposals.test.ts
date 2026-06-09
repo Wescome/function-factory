@@ -49,9 +49,9 @@ describe("emitFunctionProposals", () => {
     expect(a).toEqual(b)
   })
 
-  describe("BC-META-SEMANTICALLY-REVIEW-PRDS", () => {
+  describe("BC-META-SEMANTICALLY-REVIEW-Intent SpecificationS", () => {
     const srCap = bootstrapCapabilities.find(
-      (c) => c.id === "BC-META-SEMANTICALLY-REVIEW-PRDS"
+      (c) => c.id === "BC-META-SEMANTICALLY-REVIEW-Intent SpecificationS"
     )!
     const srDelta = evaluateDelta(srCap, repoInventoryCurrent)
 
@@ -77,7 +77,7 @@ describe("emitFunctionProposals", () => {
       const proposals = emitFunctionProposals(srDelta)
       for (const p of proposals) {
         expect(p.source_refs).toEqual(srDelta.source_refs)
-        expect(p.capabilityId).toBe("BC-META-SEMANTICALLY-REVIEW-PRDS")
+        expect(p.capabilityId).toBe("BC-META-SEMANTICALLY-REVIEW-Intent SpecificationS")
       }
     })
 

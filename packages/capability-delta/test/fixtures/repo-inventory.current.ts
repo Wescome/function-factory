@@ -7,7 +7,7 @@ export const repoInventoryCurrent: RepoInventory = {
   packages: {
     "@factory/schemas": "implemented",
     "@factory/compiler": "implemented",
-    "@factory/coverage-gates": "implemented",
+    "@factory/verification": "implemented",
     "@factory/runtime": "stub",
     "@factory/assurance-graph": "stub",
     "@factory/harness-bridge": "missing"
@@ -17,20 +17,20 @@ export const repoInventoryCurrent: RepoInventory = {
     "Pressure",
     "BusinessCapability",
     "FunctionProposal",
-    "PRDDraft",
+    "IntentSpecification",
     "RequirementAtom",
     "Contract",
     "Invariant",
     "Dependency",
     "ValidationSpec",
-    "WorkGraph",
+    "ExecutableSpecification",
     "TrustSignal",
     "Trajectory",
     "ProblemFrame",
     "Incident",
-    "Gate1Report",
-    "Gate2Report",
-    "Gate3Report",
+    "CoherenceVerificationReport",
+    "FidelityVerificationReport",
+    "PersistenceVerificationReport",
     "CommitTriageReport"
   ],
   artifactCounts: {
@@ -39,13 +39,13 @@ export const repoInventoryCurrent: RepoInventory = {
     capabilities: 4,
     functions: 4,
     prds: 4,
-    workgraphs: 4,
-    coverageReports: 9,
+    executableSpecifications: 4,
+    verificationReports: 9,
     deltas: 0
   },
   runners: [
     "compiler",
-    "gate-1"
+    "coherence-verification"
   ],
   tests: {
     schemas: 39,
@@ -56,7 +56,7 @@ export const repoInventoryCurrent: RepoInventory = {
     capabilityDelta: 0
   },
   notes: [
-    "Gate 2 and Gate 3 report schemas exist without runnable implementations.",
+    "Fidelity Verification and Persistence Verification report schemas exist without runnable implementations.",
     "ArchitectureCandidate schema and AC-* artifact family are absent.",
     "CapabilityDelta engine does not yet exist."
   ]

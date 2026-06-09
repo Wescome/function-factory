@@ -10,11 +10,11 @@ expectedOutputs:
 governingConstraints:
   - source references must be preserved
 candidateInvariants:
-  - semantic review artifacts always cite doctrine and PRD inputs
+  - semantic review artifacts always cite doctrine and Intent Specification inputs
 successSignals:
   - persisted evidence artifact for each semantic review run
 confidence: 0.9
 source_refs:
   - PRS-META-SEMANTIC-REVIEW-GAP
 explicitness: inferred
-capabilityId: BC-META-SEMANTICALLY-REVIEW-PRDS
+capabilityId: BC-META-SEMANTICALLY-REVIEW-Intent SpecificationS

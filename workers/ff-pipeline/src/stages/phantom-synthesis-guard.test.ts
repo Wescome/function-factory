@@ -22,9 +22,19 @@ import {
   type PRGenerationResult,
 } from './generate-pr'
 
+vi.mock('../github-app-auth', () => ({
+  getInstallationToken: vi.fn(async () => 'ghs_installation_token'),
+}))
+
 // ── Mock fetch ──────────────────────────────────────────────────────
 
 const originalFetch = globalThis.fetch
+
+const githubAppEnv = {
+  GITHUB_APP_ID: '12345',
+  GITHUB_APP_PRIVATE_KEY: 'test-private-key',
+  GITHUB_TARGET_REPO: 'Wescome/function-factory',
+}
 
 /**
  * Mock fetch that:
@@ -54,6 +64,14 @@ function mockFetchAllEditsFail() {
       }), { status: 200 })
     }
 
+    // GET main commit
+    if (urlStr.includes('/git/commits/abc123mainsha') && method === 'GET') {
+      return new Response(JSON.stringify({
+        sha: 'abc123mainsha',
+        tree: { sha: 'basetreesha' },
+      }), { status: 200 })
+    }
+
     // POST create branch
     if (urlStr.includes('/git/refs') && method === 'POST') {
       return new Response(JSON.stringify({
@@ -66,20 +84,43 @@ function mockFetchAllEditsFail() {
       return new Response('', { status: 204 })
     }
 
-    // GET /contents/{path} -- file EXISTS with content that won't match edits
-    if (urlStr.includes('/contents/') && method === 'GET') {
+    // GET recursive tree -- files EXIST with content that won't match edits
+    if (urlStr.includes('/git/trees/basetreesha?recursive=1') && method === 'GET') {
       return new Response(JSON.stringify({
-        sha: 'existing-sha-000',
+        tree: [
+          'src/module-a.ts',
+          'src/module-b.ts',
+          'src/warn-file.ts',
+          'src/orphan.ts',
+          'src/phantom.ts',
+        ].map(path => ({ path, mode: '100644', type: 'blob', sha: 'existing-sha-000' })),
+        truncated: false,
+      }), { status: 200 })
+    }
+
+    // GET /git/blobs/{sha} -- file content that won't match edits
+    if (urlStr.includes('/git/blobs/existing-sha-000') && method === 'GET') {
+      return new Response(JSON.stringify({
         content: btoa('// completely different content that no edit will match\nconst z = 999;\n'),
         encoding: 'base64',
       }), { status: 200 })
     }
 
-    // PUT /contents/{path}
-    if (urlStr.includes('/contents/') && method === 'PUT') {
-      return new Response(JSON.stringify({
-        content: { sha: 'new-sha-456' },
-      }), { status: 201 })
+    // POST /git/blobs
+    if (urlStr.includes('/git/blobs') && method === 'POST') {
+      return new Response(JSON.stringify({ sha: 'new-sha-456' }), { status: 201 })
+    }
+
+    if (urlStr.endsWith('/git/trees') && method === 'POST') {
+      return new Response(JSON.stringify({ sha: 'new-tree-sha' }), { status: 201 })
+    }
+
+    if (urlStr.endsWith('/git/commits') && method === 'POST') {
+      return new Response(JSON.stringify({ sha: 'new-commit-sha' }), { status: 201 })
+    }
+
+    if (urlStr.includes('/git/refs/heads/') && method === 'PATCH') {
+      return new Response(JSON.stringify({ object: { sha: 'new-commit-sha' } }), { status: 200 })
     }
 
     // POST create PR
@@ -117,15 +158,27 @@ function mockFetchOneFileSucceeds() {
     if (urlStr.includes('/git/ref/heads/main') && method === 'GET') {
       return new Response(JSON.stringify({ object: { sha: 'mainsha' } }), { status: 200 })
     }
+    if (urlStr.includes('/git/commits/mainsha') && method === 'GET') {
+      return new Response(JSON.stringify({ sha: 'mainsha', tree: { sha: 'basetreesha' } }), { status: 200 })
+    }
     if (urlStr.includes('/git/refs') && method === 'POST') {
       return new Response(JSON.stringify({ ref: 'refs/heads/factory/fp-phantom' }), { status: 201 })
     }
-    // GET /contents/ -- 404 (file does not exist) so create works
-    if (urlStr.includes('/contents/') && method === 'GET') {
-      return new Response('Not Found', { status: 404 })
+    // recursive tree does not include target file, so create works
+    if (urlStr.includes('/git/trees/basetreesha?recursive=1') && method === 'GET') {
+      return new Response(JSON.stringify({ tree: [], truncated: false }), { status: 200 })
     }
-    if (urlStr.includes('/contents/') && method === 'PUT') {
-      return new Response(JSON.stringify({ content: { sha: 'new-sha' } }), { status: 201 })
+    if (urlStr.includes('/git/blobs') && method === 'POST') {
+      return new Response(JSON.stringify({ sha: 'new-sha' }), { status: 201 })
+    }
+    if (urlStr.endsWith('/git/trees') && method === 'POST') {
+      return new Response(JSON.stringify({ sha: 'new-tree-sha' }), { status: 201 })
+    }
+    if (urlStr.endsWith('/git/commits') && method === 'POST') {
+      return new Response(JSON.stringify({ sha: 'new-commit-sha' }), { status: 201 })
+    }
+    if (urlStr.includes('/git/refs/heads/') && method === 'PATCH') {
+      return new Response(JSON.stringify({ object: { sha: 'new-commit-sha' } }), { status: 200 })
     }
     if (urlStr.includes('/pulls') && method === 'POST') {
       return new Response(JSON.stringify({ html_url: 'https://github.com/x/y/pull/1', number: 1 }), { status: 201 })
@@ -146,7 +199,7 @@ function makeInput(overrides?: Partial<PRGenerationInput>): PRGenerationInput {
   return {
     signalTitle: 'PR candidate: phantom guard test',
     proposalId: 'FP-PHANTOM',
-    workGraphId: 'WG-PHANTOM',
+    executableSpecificationId: 'ES-PHANTOM',
     atomResults: {},
     sourceRefs: ['SIG:SIG-PHANTOM'],
     confidence: 0.9,
@@ -202,7 +255,7 @@ describe('generate-pr: filesWritten=0 phantom guard (Fix 2)', () => {
       },
     })
 
-    const result = await generatePR(input, 'ghp_test', 'Wescome', 'function-factory')
+    const result = await generatePR(input, githubAppEnv)
 
     // CURRENT BEHAVIOR: success: true with filesWritten: 0 (phantom PR)
     // CORRECT BEHAVIOR: success: false with error mentioning 'Phantom' or 'no files'
@@ -234,7 +287,7 @@ describe('generate-pr: filesWritten=0 phantom guard (Fix 2)', () => {
       },
     })
 
-    const result = await generatePR(input, 'ghp_test', 'Wescome', 'function-factory')
+    const result = await generatePR(input, githubAppEnv)
 
     expect(result.success).toBe(true)
     expect(result.filesWritten).toBeGreaterThanOrEqual(1)
@@ -264,7 +317,7 @@ describe('generate-pr: filesWritten=0 phantom guard (Fix 2)', () => {
       },
     })
 
-    const result = await generatePR(input, 'ghp_test', 'Wescome', 'function-factory')
+    const result = await generatePR(input, githubAppEnv)
 
     // CORRECT BEHAVIOR: result has warnings even when success is false
     expect(result.warnings).toBeDefined()
@@ -300,14 +353,14 @@ describe('generate-pr: filesWritten=0 phantom guard (Fix 2)', () => {
       },
     })
 
-    const result = await generatePR(input, 'ghp_test', 'Wescome', 'function-factory')
+    const result = await generatePR(input, githubAppEnv)
 
     // Should be failure (phantom)
     expect(result.success).toBe(false)
 
     // CORRECT BEHAVIOR: a DELETE call to /git/refs/heads/{branch} must be made
     const branchDeleteCall = calls.find(c =>
-      c.url.includes('/git/refs/heads/factory/fp-phantom') && c.method === 'DELETE'
+      c.url.includes('/git/refs/heads/factory/fn-') && c.method === 'DELETE'
     )
     expect(branchDeleteCall).toBeDefined()
   })
@@ -347,7 +400,7 @@ describe('generate-pr: phantom signal emission (Fix 3)', () => {
       },
     })
 
-    const result = await generatePR(input, 'ghp_test', 'Wescome', 'function-factory')
+    const result = await generatePR(input, githubAppEnv)
 
     // CORRECT BEHAVIOR: result indicates phantom status unambiguously
     // so the feedback consumer can emit synthesis:phantom-pr
@@ -380,7 +433,7 @@ describe('generate-pr: phantom signal emission (Fix 3)', () => {
       },
     })
 
-    const result = await generatePR(input, 'ghp_test', 'Wescome', 'function-factory')
+    const result = await generatePR(input, githubAppEnv)
 
     expect(result.success).toBe(true)
     expect(result.filesWritten).toBeGreaterThanOrEqual(1)

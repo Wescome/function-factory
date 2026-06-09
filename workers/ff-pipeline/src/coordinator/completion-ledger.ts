@@ -6,7 +6,7 @@
  * to the ledger; the queue consumer reads the ledger to determine when
  * all atoms are complete and whether dependent atoms can be dispatched.
  *
- * Stored in: ArangoDB `completion_ledgers` collection, keyed by workGraphId.
+ * Stored in: ArangoDB `completion_ledgers` collection, keyed by executableSpecificationId.
  */
 
 import type { AtomResult } from './atom-executor'
@@ -17,7 +17,7 @@ import type { DependencyLayer } from './layer-dispatch'
 // ────────────────────────────────────────────────────────────
 
 export interface CompletionLedger {
-  _key: string // workGraphId
+  _key: string // executableSpecificationId
   workflowId: string
   totalAtoms: number
   completedAtoms: number
@@ -25,7 +25,7 @@ export interface CompletionLedger {
   layers: DependencyLayer[]
   allAtomSpecs: Record<string, Record<string, unknown>>
   sharedContext: {
-    workGraphId: string
+    executableSpecificationId: string
     specContent: string | null
     briefingScript: unknown
   }
@@ -34,13 +34,13 @@ export interface CompletionLedger {
 }
 
 export interface CreateLedgerInput {
-  workGraphId: string
+  executableSpecificationId: string
   workflowId: string
   totalAtoms: number
   layers: DependencyLayer[]
   allAtomSpecs: Record<string, Record<string, unknown>>
   sharedContext: {
-    workGraphId: string
+    executableSpecificationId: string
     specContent: string | null
     briefingScript: unknown
   }
@@ -71,7 +71,7 @@ export async function createLedger(db: ArangoDb, input: CreateLedgerInput): Prom
   const pendingAtoms = Object.keys(input.allAtomSpecs).filter(id => !layer0Atoms.has(id))
 
   const ledger: CompletionLedger & Record<string, unknown> = {
-    _key: input.workGraphId,
+    _key: input.executableSpecificationId,
     workflowId: input.workflowId,
     totalAtoms: input.totalAtoms,
     completedAtoms: 0,
@@ -99,7 +99,7 @@ export async function createLedger(db: ArangoDb, input: CreateLedgerInput): Prom
  */
 export async function recordAtomResult(
   db: ArangoDb,
-  workGraphId: string,
+  executableSpecificationId: string,
   atomId: string,
   result: AtomResult,
 ): Promise<CompletionLedger> {
@@ -118,13 +118,13 @@ export async function recordAtomResult(
   `
 
   const results = await db.query<CompletionLedger>(aql, {
-    key: workGraphId,
+    key: executableSpecificationId,
     newResult: { [atomId]: result },
     atomId,
   })
 
   if (!results.length || !results[0]) {
-    throw new Error(`Completion ledger not found for workGraphId: ${workGraphId}`)
+    throw new Error(`Completion ledger not found for executableSpecificationId: ${executableSpecificationId}`)
   }
 
   return results[0]

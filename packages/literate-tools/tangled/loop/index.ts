@@ -1,9 +1,9 @@
 // Tangled from specs/reference/literate-canonical-reference.md
 // Context: loop
 // Blocks: 4
-// Generated: 2026-04-24T15:11:44.401Z
+// Generated: deterministic
 // DO NOT EDIT — edit the literate reference and re-run tangle.
-// --- Block from line 2307 (Part VII -- How Does the Code Get Organized?) ---
+// --- Block from line 2312 (Part VII -- How Does the Code Get Organized?) ---
 /**
  * The MemoryProvider interface. All repositories implement this.
  * From memory-substrate Section 3.4.
@@ -44,7 +44,7 @@ interface MemoryProvider {
   walkLineage(artifactId: string, depth?: number): Promise<LineageChain>;
 }
 
-// --- Block from line 2411 (Part VII -- How Does the Code Get Organized?) ---
+// --- Block from line 2416 (Part VII -- How Does the Code Get Organized?) ---
 /**
  * Canonical projection for cross-version lineage scoring.
  * From ratified decisions Section 8.
@@ -69,7 +69,7 @@ declare function readArchitectureCandidate(
   raw: unknown
 ): CanonicalCandidateView;
 
-// --- Block from line 2447 (Part VII -- How Does the Code Get Organized?) ---
+// --- Block from line 2452 (Part VII -- How Does the Code Get Organized?) ---
 /**
  * Routing table validation report.
  * From ratified decisions Section 11.
@@ -83,7 +83,7 @@ interface RoutingTableLintReport {
   generated_at: string;
 }
 
-// --- Block from line 2843 (Appendix C -- For the Coding Agent) ---
+// --- Block from line 2847 (Appendix C -- For the Coding Agent) ---
 /**
  * The Function Factory's closed-loop compiler.
  *
@@ -100,28 +100,28 @@ async function factoryLoop(
 
   while (signals.length > 0) {
     // SPECIFICATION CONTEXT (Stages 1-5)
-    // structural_coverage_passed + semantic review run internally
+    // structural_verification_passed + semantic review run internally
     const compiled = specification_compilePipeline(signals);
 
-    for (const workGraph of compiled.workGraphs) {
+    for (const executableSpecification of compiled.executableSpecifications) {
       const prd = compiled.prds.find(
-        (p) => p.function_id === workGraph.function_id
+        (p) => p.function_id === executableSpecification.function_id
       );
       if (!prd) continue;
 
       // SEARCH CONTEXT (Stages 4.5-4.75)
       const { selected: candidate } = search_selectCandidate(
-        workGraph, "config/routing-table.yaml", {}
+        executableSpecification, "config/routing-table.yaml", {}
       );
 
-      // EXECUTION CONTEXT (Stage 6)
+      // EXECUTION CONTEXT (Agent Call execution)
       // ACL: buildInitialDecisionState runs inside
       // ACL: bundleEvidenceForAcceptanceReview runs inside
-      const { traceLog, adherenceReport, gate2Input } =
-        execution_runDarkFactory(workGraph, candidate, prd);
+      const { traceLog, adherenceReport, fidelityVerificationInput } =
+        execution_runDarkFactory(executableSpecification, candidate, prd);
 
       // ASSURANCE CONTEXT: Acceptance Review (scenarios_cover_invariants)
-      const verdict = assurance_evaluateAcceptanceReview(gate2Input);
+      const verdict = assurance_evaluateAcceptanceReview(fidelityVerificationInput);
       if (verdict.overall === "fail") continue;
 
       // Function promoted to monitored
@@ -129,7 +129,7 @@ async function factoryLoop(
 
     // OBSERVABILITY CONTEXT (Stages 7-7.25)
     const feedback = observability_processFeedback(
-      allObservations, 0.65 // birth gate threshold
+      allObservations, 0.65 // birth verification threshold
     );
 
     // ASSURANCE CONTEXT: evidence_base_intact (continuous)

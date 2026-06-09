@@ -1,9 +1,9 @@
 import type { ExecutionStart } from "@factory/schemas"
-import { executionStartIdFromWorkGraphId } from "./ids.js"
+import { executionStartIdFromExecutableSpecificationId } from "./ids.js"
 import { assertExecutionStartAllowed } from "./assert-lifecycle-invariants.js"
 
 export function emitExecutionStart(input: {
-  sourceWorkGraphId: string
+  sourceExecutableSpecificationId: string
   sourceArchitectureCandidateId: string
   sourceSelectionId: string
   sourceAdmissionId: string
@@ -13,11 +13,11 @@ export function emitExecutionStart(input: {
 }): ExecutionStart {
   assertExecutionStartAllowed(input.radDecision)
   return {
-    id: executionStartIdFromWorkGraphId(input.sourceWorkGraphId),
+    id: executionStartIdFromExecutableSpecificationId(input.sourceExecutableSpecificationId),
     source_refs: [...input.sourceRefs],
     explicitness: "inferred",
     rationale: "Execution start emitted deterministically from allowed runtime admission.",
-    sourceWorkGraphId: input.sourceWorkGraphId,
+    sourceExecutableSpecificationId: input.sourceExecutableSpecificationId,
     sourceArchitectureCandidateId: input.sourceArchitectureCandidateId,
     sourceSelectionId: input.sourceSelectionId,
     sourceAdmissionId: input.sourceAdmissionId,

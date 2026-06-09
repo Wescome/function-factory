@@ -84,7 +84,7 @@ describe("CommitTriageReport", () => {
   it("rejects report whose id does not start with CTR-", () => {
     const bad = {
       ...baseReport,
-      id: "CR-NOT-A-TRIAGE-REPORT" as ArtifactId,
+      id: "VR-NOT-A-TRIAGE-REPORT" as ArtifactId,
     }
     expect(CommitTriageReport.safeParse(bad).success).toBe(false)
   })

@@ -1,3 +1,3 @@
-export function architectureCandidateIdFromPrdId(prdId: string): string {
-  return prdId.replace(/^PRD-/, "AC-")
+export function architectureCandidateIdFromIntentSpecificationId(intentSpecificationId: string): string {
+  return intentSpecificationId.replace(/^IS-/, "AC-")
 }

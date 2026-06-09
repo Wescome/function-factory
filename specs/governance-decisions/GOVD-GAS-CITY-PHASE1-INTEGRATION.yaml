@@ -1,0 +1,699 @@
+id: GOVD-GAS-CITY-PHASE1-INTEGRATION
+status: DECIDED  # 15 items resolved. D1–DL2 on 2026-05-20; D-Q1C on 2026-05-21.
+explicitness: explicit
+rationale: >
+  Architecture decisions required before Phase 1 of Gas City + Factory integration.
+  Sourced from ARCHITECTURE-ROADMAP-GAS-CITY-FACTORY.md and SE-DECOMPOSITION-GAS-CITY-FACTORY.md.
+  Grounded in ADR-010, SE-Onto-Draft-1.1 §7, and FF-ONTOLOGY-v0_2.
+  Each item is a Disposition Event (SE-Onto §4B.3) and must produce an Elucidation Artifact
+  recording the evaluated Candidate Set and rejection predicates (Axiom A9).
+source_refs:
+  - ADR-010-gas-city-supersedes-nlah
+  - ARCHITECTURE-ROADMAP-GAS-CITY-FACTORY
+  - SE-DECOMPOSITION-GAS-CITY-FACTORY
+  - SE-Onto-Draft-1.1
+  - FF-ONTOLOGY-v0_2
+authored: 2026-05-20
+decidedBy: Wes (2026-05-20)
+
+decisions:
+
+  - id: D1
+    question: "What is the input to the Formula compiler (Execution Packet → Gas City Formula TOML)?"
+    phase_gate: Phase 1 blocker
+    candidate_set:
+      - option: A
+        label: Execution Packet (EP) only
+        description: >
+          The Formula compiler takes the Execution Packet as input. The EP is the
+          codebase's current instantiation of the Executable Specification — the canonical
+          runtime boundary per EXECUTION-PACKET.md and EXECUTION-PACKET-IMPLEMENTATION-PLAN.md.
+        score: HIGH
+        recommendation: true
+      - option: B
+        label: Raw Executable Specification YAML directly
+        description: >
+          The Formula compiler reads the raw Executable Specification YAML artifact without
+          going through the Execution Packet. Simpler chain but bypasses the Execution Packet
+          abstraction layer.
+        score: MEDIUM
+        rejection_class: bypasses_canonical_boundary
+        rejection_predicate: >
+          The EP is the established runtime boundary; reading the Executable Specification
+          directly would require the Formula compiler to re-implement the Execution Packet's normalization
+          logic, duplicating work already done by the existing compiler passes.
+    selected_option: Execution Packet only
+    recommendation: A+ # APPROVED 2026-05-20
+    data_flow_grounding: >
+      CORRECTION 2026-05-20 (from reading EXECUTION-PACKET.md in full):
+      The exact mapping from Execution Packet fields to Formula TOML:
+        DomainAdapterBinding.executionRequest.parameters (Record<string, unknown>)
+          → Formula TOML [vars] block
+        RoleInstruction[].instruction + .inputs + .outputs + .roleId
+          → Formula TOML [[steps]] blocks (one step per role instruction)
+      The mapping is deterministic 1:1. No LLM involved in compilation.
+      The Formula compiler is pure data transformation: Execution Packet fields → TOML syntax.
+
+  - id: D2
+    question: "What is the FORM-* (FormulaArtifact) lifecycle?"
+    phase_gate: Phase 1 blocker
+    candidate_set:
+      - option: A
+        label: Persisted FORM-* artifact
+        description: >
+          Formula TOML written to specs/formulas/FORM-XXX.toml with full lineage
+          (source_refs: [es-id], tier: procedural). Enables replay, diff, and audit
+          without re-compiling. Satisfies Lineage Completeness axiom (FF-ONTOLOGY Axiom 2).
+        score: HIGH
+        recommendation: true
+      - option: B
+        label: Inline in Execution Packet
+        description: Formula TOML embedded inside the Execution Packet artifact, no separate artifact.
+        score: MEDIUM
+        rejection_class: lineage_opacity
+        rejection_predicate: >
+          Embedding Formula in the Execution Packet couples two transformation outputs; breaks
+          Lineage Completeness (each transformation must emit its own lineage edge).
+      - option: C
+        label: Ephemeral
+        description: Formula computed at dispatch time, never stored.
+        score: LOW
+        rejection_class: unauditable
+        rejection_predicate: >
+          Cannot replay dispatch, cannot diff Formula versions, cannot detect
+          TOML schema drift between versions. Violates Factory lineage principle.
+    selected_option: Persisted FORM-* artifact
+    recommendation: A+ # APPROVED 2026-05-20
+
+  - id: D3
+    question: "What artifact does Factory create when molecule.completed arrives?"
+    phase_gate: Phase 2 blocker
+    ontology_grounding: >
+      FF-ONTOLOGY: Fidelity Verification produces Verification Report (VR-*).
+      Original OPR-* proposal (OperationalRecord) is not an ontological category.
+      Fidelity VR output IS a VR-* by definition.
+    candidate_set:
+      - option: A
+        label: "VR-* with kind=fidelity"
+        description: >
+          Fold operational records into VR-* as kind: fidelity. Add Gas City-specific
+          fields (bead_id, token_usage, iteration_count, verifier_report_r2_key) as
+          VR-* extensions. No new artifact prefix needed.
+        score: HIGH
+        recommendation: true
+      - option: B
+        label: Separate OPR-* prefix
+        description: >
+          New artifact type OPR-* (OperationalRecord) distinct from VR-*. Carries
+          Gas City operational telemetry. VR-* produced separately when Factory runs
+          formal Fidelity Verification against IS.
+        score: MEDIUM
+        rejection_class: ontology_debt
+        rejection_predicate: >
+          OPR-* has no home in FF-ONTOLOGY categorical structure. Adding it creates
+          an ungrounded artifact type. Unless Fidelity Verification genuinely runs
+          separately from OPR-* creation, the split is artificial.
+      - option: C
+        label: Fold into lineage edges
+        description: Execution outcome recorded as edge properties, not a standalone artifact.
+        score: LOW
+        rejection_class: unqueryable
+        rejection_predicate: >
+          Verification verdicts must be queryable artifacts (VR-* is verdict-bearing,
+          evidence-bearing, timestamped, immutable). Edge properties cannot carry evidence.
+    selected_option: VR-* with kind=fidelity
+    recommendation: A+ # APPROVED 2026-05-20
+
+  - id: D4
+    question: "What is the scope of Coherence VR?"
+    phase_gate: N/A — settled
+    settled_by: SE-Onto-Draft-1.1 §7
+    resolution: >
+      Pre-dispatch specification check ONLY. Coherence VR evaluates structural
+      completeness of the ES before compilation to Formula. It does NOT run during
+      Gas City execution. No Factory HTTP endpoint is called during convergence.
+      This is not a decision — it is settled by first principles.
+
+  - id: D5
+    question: "What is the identity of an amended Function?"
+    phase_gate: Phase 4 blocker
+    ontology_grounding: >
+      SE-Onto diachronic identity: modifications produce successor artifacts.
+      FF-ONTOLOGY: artifacts are immutable once created; modifications produce successors.
+      One ES governs one Function — two contradictory ESs on one FN is undefined behavior.
+    candidate_set:
+      - option: A
+        label: New FN-X-V2 (successor Function)
+        description: >
+          Each amendment creates a new FunctionProposal → new Function with
+          source_refs: [FN-X-V1, PRS-FAIL-FN-X]. FN-V1 is superseded.
+          Lineage chain: FN-V1 → OPR-*(failed) → SIG-* → PRS-* → IS-V2 → ES-V2 → FN-V2.
+        score: HIGH
+        recommendation: true
+      - option: B
+        label: Same FN, new ES version
+        description: >
+          FN-X retains its identity; a new ES-V2 is attached. FN-X now has
+          two ES artifacts in its history.
+        score: LOW
+        rejection_class: invariant_violation
+        rejection_predicate: >
+          One ES per Function is a hard invariant. A Function with two ESs —
+          one superseded and one active — is undefined behavior in the ontology.
+          Versioning through FN identity conflates the Function (what) with the
+          Specification (how to build it).
+    selected_option: New FN-X-V2 (successor Function)
+    recommendation: A+ # APPROVED 2026-05-20
+
+  - id: D6
+    question: "Where does the amendment-proposing capability live?"
+    phase_gate: Phase 4 blocker
+    candidate_set:
+      - option: A
+        label: New compiler stage in Factory
+        description: Factory adds Stage N that generates IS-V2 from failed VR evidence.
+        score: MEDIUM
+        rejection_class: self_referential_gap
+        rejection_predicate: >
+          Factory writing its own amendment logic directly means the amendment
+          process is not itself governed by Factory discipline (no IS, no ES, no VR
+          for the amendment process itself).
+      - option: B
+        label: Crystallizer extension
+        description: Crystallizer probe produces IS-V2 proposal as part of fidelity evaluation.
+        score: MEDIUM
+        rejection_class: scope_creep
+        rejection_predicate: >
+          Crystallizer evaluates; it does not propose. Mixing evaluation and
+          proposal in one process breaks verification independence.
+      - option: C
+        label: Gas-City-executed Factory Function
+        description: >
+          The Factory has an IS/ES for its own amendment-proposal Function. When
+          amendment is needed, Factory dispatches that Function to Gas City to execute.
+          The system specifies how to amend itself. Recursive self-application.
+        score: HIGH
+        recommendation: true
+    selected_option: Gas-City-executed Factory Function
+    recommendation: C+ # APPROVED 2026-05-20
+
+  - id: D7
+    question: "Gas City hosting for Phase 1 development?"
+    phase_gate: Phase 1 operational prerequisite
+    candidate_set:
+      - option: A
+        label: Shared VPS
+        description: Single machine, all developers share it.
+        score: LOW
+        rejection_class: interference_risk
+        rejection_predicate: >
+          Concurrent pipeline runs from multiple developers corrupt shared Dolt state.
+          Phase 1 validation requires reproducible isolated runs.
+      - option: B
+        label: Per-dev VPS
+        description: Each developer gets their own VPS running Gas City.
+        score: MEDIUM
+        rejection_class: cost
+        rejection_predicate: Always-on VPS per developer is expensive for bootstrap phase.
+      - option: C
+        label: Per-dev Docker + shared CI VPS
+        description: >
+          Local Docker for development iteration; shared VPS for gate validation.
+          Docker image pins GAS_CITY_VERSION. CI VPS is the authoritative gate runner.
+        score: LOW
+        rejection_class: wrong_model
+        rejection_predicate: >
+          CORRECTION 2026-05-25: Gas City supervisor runs locally (gc daemon).
+          Agent sessions do NOT run on a VPS — they run in Cloudflare via Hermes
+          (a CF Worker + DO + Container that implements the Gas City cloudflare
+          runtime provider API). No VPS is involved in the session execution path.
+          Per-dev Docker for the supervisor is still valid but the shared CI VPS
+          model does not match the actual deployment.
+      - option: D
+        label: GasCitySupervisor CF Container + Cloudflare session runtime
+        description: >
+          Gas City supervisor (gc daemon) runs as a Cloudflare Container
+          Durable Object (GasCitySupervisor) deployed via
+          eai/examples/factory/weops-gascity/stage/supervisor/wrangler.jsonc.
+          Built from gascity eai/cloudflare branch. Agent sessions execute via
+          GC_SESSION=cloudflare pointing to
+          gascity-cloudflare-control-worker.koales.workers.dev.
+          formulas/ and city config are baked into the supervisor container image
+          (factory/city.toml, supervisor.toml). beads provider is "file" (local
+          to the container). Deployment is entirely on Cloudflare — no VPS, no
+          local machine.
+        score: HIGH
+        recommendation: true
+    selected_option: GasCitySupervisor CF Container + Cloudflare session runtime
+    recommendation: D+ # CORRECTED 2026-05-25 — D replaces C (C was based on wrong VPS/local assumption)
+
+  - id: D8
+    question: "Webhook authentication (Gas City → Factory)?"
+    phase_gate: Phase 3 blocker (Phase 1 for Factory→GC auth)
+    candidate_set:
+      - option: A
+        label: HMAC shared secret
+        description: >
+          Factory→GC: bearer token. GC→Factory: HMAC signature on payload with
+          shared secret. Simple, sufficient for non-public internal endpoint.
+        score: HIGH
+        recommendation: true
+      - option: B
+        label: mTLS
+        description: Mutual TLS; stronger, verifies both ends at transport layer.
+        score: MEDIUM
+        rejection_class: premature_complexity
+        rejection_predicate: >
+          mTLS requires certificate management infrastructure not yet in place.
+          May be required at Phase 5 k8s. HMAC sufficient for Phase 1-4 VPS.
+      - option: C
+        label: CF Access
+        description: Cloudflare Access protects the webhook endpoint.
+        score: LOW
+        rejection_class: operational_coupling
+        rejection_predicate: >
+          CF Access is a Cloudflare identity dependency on the Gas City side.
+          Gas City is not a CF-native service. Adds integration complexity.
+    selected_option: HMAC shared secret
+    recommendation: A+ # APPROVED 2026-05-20 — revisit mTLS at Phase 5
+    mechanism_correction: >
+      CORRECTION 2026-05-20: Gas City v1.1 has NO native HTTP webhook emission.
+      gc event emit is an internal event log command only — it does not POST to
+      external HTTP endpoints. The "GC → Factory" notification mechanism is:
+      the Formula compiler outputs a RELEASE [[step]] in the Formula TOML that
+      HTTP POSTs the molecule completion payload to Factory's webhook endpoint.
+      Gas City agents execute steps and can make HTTP tool calls within steps.
+      The selected HMAC auth option remains correct; the emission mechanism is
+      RELEASE step HTTP POST, not a Gas City native webhook feature.
+
+  - id: D9
+    question: "MaxAmendmentDepth — how many amendment attempts before halt?"
+    phase_gate: Phase 4 blocker
+    candidate_set:
+      - option: A
+        label: "3 (fixed)"
+        description: Hard-coded limit of 3 amendment attempts.
+        score: MEDIUM
+        rejection_class: inflexible
+        rejection_predicate: Different Function types may warrant different depth limits.
+      - option: B
+        label: "5 (fixed)"
+        description: Hard-coded limit of 5 amendment attempts.
+        score: LOW
+        rejection_class: too_permissive_and_inflexible
+        rejection_predicate: 5 runaway loops is expensive; still not configurable.
+      - option: C
+        label: Configurable, default 3
+        description: >
+          Factory config (wrangler env var or ArangoDB config record) controls the limit.
+          Default 3. Can be tuned per Function or per domain adapter.
+        score: HIGH
+        recommendation: true
+    selected_option: Configurable, default 3
+    recommendation: C+ # APPROVED 2026-05-20
+
+  - id: D10
+    question: "Where do role prompts (agent instruction templates) live?"
+    phase_gate: Phase 1 blocker
+    candidate_set:
+      - option: A
+        label: "harnesses/prompts/ in Factory repo"
+        description: >
+          Factory repo is canonical source. Synced to Gas City agents/ directory
+          at city-init. Single source of truth. Factory governs the spec;
+          Factory governs the prompts that instantiate it.
+        score: HIGH
+        recommendation: true
+      - option: B
+        label: Separate Gas City config repo
+        description: Prompts live in a Gas City-managed repo, versioned independently.
+        score: MEDIUM
+        rejection_class: governance_split
+        rejection_predicate: >
+          Prompts are compiled from ES (they are the Harness Skill instantiation).
+          Separating them from the Factory repo breaks the lineage chain from IS
+          through ES through prompt.
+      - option: C
+        label: Bundled in Formula TOML
+        description: Full prompt text embedded in every Formula TOML at compile time.
+        score: LOW
+        rejection_class: bloat_and_coupling
+        rejection_predicate: >
+          Large prompt text in every Formula TOML bloats the dispatch payload.
+          Prompt updates require re-compiling all affected Formulas. Gas City can
+          load prompts by reference at runtime.
+    selected_option: QUESTION_DISSOLVED
+    recommendation: >
+      RESOLVED 2026-05-20 — wrong framing. Role instructions ARE the Formula TOML [[steps]].
+      The Formula compiler produces them. agents/<name>/agent.toml is 6-line static infra
+      (provider, timeout, session count) — not role prompts. No separate prompt location
+      decision needed.
+
+  - id: D-NEW-1
+    question: "Who runs Fidelity Verification — Gas City or Factory?"
+    phase_gate: Phase 2 blocker
+    ontology_grounding: >
+      FF-ONTOLOGY: Fidelity Verification input = Executable Specification + Intent Specification.
+      Acceptance criterion: executed behavior is consistent with upstream IS's testable claims.
+      Gas City VERIFY stage does not hold the IS — only the Formula TOML (compiled from ES).
+    candidate_set:
+      - option: A
+        label: "Gas City VERIFY = Fidelity Verification (IS implicit in test suite)"
+        description: >
+          The test suite in the Formula TOML represents the IS's testable claims.
+          Factory verifies this by checking lineage (test suite derives from IS) before dispatch.
+          Gas City runs tests; verdict is authoritative. Factory receives verdict passively.
+        score: MEDIUM
+        rejection_class: local_acceptance_drift_risk
+        rejection_predicate: >
+          FF-ONTOLOGY Acceptance Criterion Derivation axiom: a verification whose
+          acceptance criterion cannot be shown to derive from downstream acceptance
+          carries local-acceptance drift risk. This is Pan et al.'s documented failure
+          mode — verifier said "solved", official evaluator failed same instance.
+          Without IS present at verdict time, the criterion is locally defined.
+      - option: B
+        label: "Gas City VERIFY = execution mechanism; Factory = semantic judgment"
+        description: >
+          Gas City VERIFY stage runs tests and produces execution artifacts
+          (verifier_report.md, test results). Factory receives via molecule.completed,
+          runs Fidelity Verification by comparing execution results against IS claims.
+          Factory holds IS. Factory produces VR-* (kind=fidelity). The verdict is
+          Factory's, not Gas City's.
+        score: HIGH
+        recommendation: true
+    selected_option: Gas City executes, Factory judges semantics
+    recommendation: B+ # APPROVED 2026-05-20
+    llm_tension_resolution: >
+      CORRECTION 2026-05-20: The apparent LLM tension dissolves via the acceptance
+      criteria bridge. IS claims are natural language, but acceptance criteria are
+      formal machine-checkable predicates. Coherence Verification pre-dispatch
+      confirms that acceptance criteria faithfully represent IS (closing the semantic
+      gap before execution). Fidelity Verification post-execution therefore does NOT
+      need to re-evaluate IS claims from natural language. It performs:
+        (1) Evidence completeness check: did all required evidence items get produced?
+        (2) Acceptance criteria verdict bijection: does PASS/FAIL from
+            verifier_report.md correspond to every IS acceptance criterion?
+        (3) Execution coverage check: did all IS validation obligations get exercised?
+      All three are structural/deterministic checks. No LLM required at Fidelity
+      Verification time. The accepted option B remains correct; the implementation
+      is deterministic once Coherence Verification has done its pre-dispatch work.
+
+  - id: D-NEW-2
+    question: "Does the Formula compiler (Execution Packet → Gas City Formula TOML) need to be registered as a new Compilation Transformation in the FF Ontology?"
+    phase_gate: Phase 1 (ontology registration)
+    ontology_grounding: >
+      FF-ONTOLOGY Slot Map: new compiler transformation kind → Compilation Transformation,
+      must satisfy Tier Descent axiom and emit lineage edge per transformation.
+      Current five transformations: Decomposition, Binding, Obligation Extraction,
+      Structural Assembly, Completeness Certification.
+      The Formula compiler is a sixth kind: procedural→procedural
+      (Executable Specification YAML → Gas City Formula TOML, same tier).
+    candidate_set:
+      - option: A
+        label: Register as new Compilation Transformation (FormulaCompilation)
+        description: >
+          Add FormulaCompilation to FF-ONTOLOGY as a Compilation Transformation.
+          Tier conversion: procedural → procedural (same tier, Gas City substrate format).
+          Emits Formula artifact (FORM-*) + lineage edge (compiled_from: EP-ID).
+        score: HIGH
+        recommendation: true
+      - option: B
+        label: Treat Gas City Formula TOML as an implementation detail, not an ontological artifact
+        description: >
+          Formula TOML is an ephemeral dispatch format, not a pipeline artifact.
+          No ontology registration needed.
+        score: LOW
+        rejection_class: lineage_gap
+        rejection_predicate: >
+          Lineage Completeness axiom: every artifact must have at least one lineage edge.
+          If the Formula TOML is dispatched to Gas City and Gas City executes it, it IS
+          a pipeline artifact. Treating it as an implementation detail severs the
+          lineage chain at the dispatch boundary — the exact point where governance
+          hands off to execution.
+    selected_option: Register as FormulaCompilation
+    recommendation: A+ # APPROVED 2026-05-20
+
+  - id: DL-1
+    question: "Decision Ledger implementation — where do Elucidation Artifacts live?"
+    phase_gate: Phase 1 (enables Hypothesis Two in future phases)
+    ontology_grounding: >
+      SE-Onto Appendix C (Factory version): every Disposition Event fires an unconditional
+      write to the Decision Ledger. The Architect agent queries deliberation_surface records
+      to form Hypothesis Two. Without a Decision Ledger, only Hypothesis One is available
+      when divergence is detected (Conservation of Gap, Axiom A7 + A9).
+    candidate_set:
+      - option: A
+        label: EL-* artifacts in main artifact graph (ArangoDB)
+        description: >
+          Elucidation Artifacts are EL-* typed artifacts in ArangoDB, alongside VR-*, ES-*.
+          Each carries source_refs to the Disposition Event artifact.
+          The evaluated Candidate Set, rejection predicates, and justification predicate
+          are fields on the EL-* artifact. Queryable via standard lineage graph traversal.
+        score: HIGH
+        recommendation: true
+      - option: B
+        label: Separate decision_ledger ArangoDB collection
+        description: >
+          New collection decision_ledger separate from the main artifact graph.
+          Specialized schema optimized for deliberation_surface queries.
+          Not part of the lineage graph.
+        score: MEDIUM
+        rejection_class: graph_partition
+        rejection_predicate: >
+          Separating decision ledger from artifact graph means lineage traversal
+          cannot reach elucidation artifacts. When divergence is detected and
+          the Architect agent needs to interrogate a decision, it must cross
+          collection boundaries rather than graph-traverse.
+    selected_option: EL-* artifacts in main ArangoDB graph
+    recommendation: A+ # APPROVED 2026-05-20
+
+  - id: DL-2
+    question: "Where does the Factory principle library live?"
+    phase_gate: Phase 2 (required for principle-enforcing Coherence VR)
+    ontology_grounding: >
+      SE-Onto Appendix C (Factory version): Elena's knowing-state = capability graph +
+      principle library + prior WorkGraph patterns. The principle library is maintained
+      by the Maintaining Agent (prosthesis), enforced by gates. The gate IS the
+      prosthetic enforcement mechanism — it checks whether principles triggered by IS
+      characteristics appear in the ES as claims.
+    candidate_set:
+      - option: A
+        label: ArangoDB principles collection (primary) + DECISIONS.md (projection)
+        description: >
+          ArangoDB is the authoritative principle library. Each principle has:
+          trigger_conditions (IS characteristics that activate it), required_claims
+          (what must appear in ES), severity. DECISIONS.md is a human-readable
+          projection, regenerated from ArangoDB. Gates query ArangoDB directly.
+        score: HIGH
+        recommendation: true
+      - option: B
+        label: DECISIONS.md only (current state)
+        description: Principles live in DECISIONS.md as prose. Gates parse prose (LLM call) or rely on manual compliance.
+        score: LOW
+        rejection_class: unqueryable_and_unenforced
+        rejection_predicate: >
+          Prose principles cannot be programmatically enforced by a gate.
+          Gate enforcement requires structured principle records with trigger
+          conditions and required claims. Prose-only principle library means
+          Coherence VR cannot check principle application — only structure.
+    selected_option: ArangoDB primary + DECISIONS.md projection
+    recommendation: A+ # APPROVED 2026-05-20
+
+  - id: D-Q1C
+    question: "How does Factory dispatch a compiled Formula to Gas City? (Gas City dispatch HTTP interface shape)"
+    phase_gate: Phase 1 blocker
+    evidence_base: >
+      Gas City source confirmed 2026-05-21:
+        - supervisor_city_routes.go: all registered routes
+        - huma_types_sling.go: SlingInput struct
+        - huma_handlers_formulas.go: only GET handlers; no POST /formulas
+        - huma_handlers_beads.go: BeadCreateInput with Labels []string + Idempotency-Key header
+        - internal/formula/expand.go: vars substitute into step bodies at sling time
+      Confirmed constraint: Gas City has NO HTTP endpoint to upload Formula TOML.
+      Formulas are filesystem-resident in Gas City's formulas/ directory only.
+      Gas City reads the formula at sling time before any step runs.
+    candidate_set:
+      - option: A
+        label: Parametric template per domain adapter (operator-deployed at city-init)
+        description: >
+          One canonical template formula per domain (e.g. factory-coding-v1.toml) is
+          operator-deployed to Gas City's formulas/ directory at city-init time.
+          Per-dispatch variation flows entirely through the sling call's vars map:
+          fn_id, is_id, es_id, form_id, factory_attempt, ff_webhook_url, rig_root,
+          max_iterations, role prompts (inlined), and parameters_json.
+          FORM-* artifact captures (template_name, version_hash, vars, prompts_resolved)
+          — the parametric specification — not raw TOML substrate.
+          Dispatch = 3 HTTP calls: (1) GET formula version probe, (2) POST /beads create
+          with 5 lineage labels, (3) POST /sling with formula + attached_bead_id + vars.
+        score: HIGH
+        recommendation: true
+      - option: B
+        label: SSH/SCP TOML push from CF Worker
+        description: >
+          Factory (CF Worker) pushes compiled TOML to Gas City VPS filesystem
+          via SSH before each dispatch.
+        score: LOW
+        rejection_class: platform_impossible
+        rejection_predicate: >
+          CF Workers have no SSH client. Even with a proxy, this introduces a
+          non-HTTP transport that violates the roadmap §1.2 "HTTP only — no shared
+          storage" invariant.
+      - option: C
+        label: Gas City pack-import HTTP endpoint
+        description: >
+          Use Gas City's pack API to bundle and import Formula TOMLs dynamically.
+        score: LOW
+        rejection_class: endpoint_does_not_exist
+        rejection_predicate: >
+          supervisor_city_routes.go registers only GET /v0/packs and GET /v0/packs/{name}.
+          No POST pack endpoint exists. Requires Gas City contribution — violates
+          "zero Gas City contributions in Phase 1."
+      - option: D
+        label: Full TOML base64-encoded in sling vars
+        description: >
+          Encode the entire Formula TOML as a base64 string in the vars map;
+          Gas City materializes it before execution.
+        score: LOW
+        rejection_class: not_how_gas_city_works
+        rejection_predicate: >
+          Gas City resolves the formula from disk at sling time before any step runs
+          (confirmed: internal/formula/resolve.go, handler_sling.go LaunchFormula).
+          Vars substitute into already-loaded formula content; they cannot replace the
+          formula source. Requires Gas City contribution.
+      - option: E
+        label: POST /formulas Gas City contribution
+        description: >
+          Factory contributes a new endpoint to Gas City that accepts Formula TOML
+          content and writes it to the formulas/ directory.
+        score: MEDIUM
+        rejection_class: phase_constraint_violation
+        rejection_predicate: >
+          "Zero Gas City contributions in Phase 1" is a hard constraint (ADR-010 §5).
+          Revisit at Phase 5 if per-ES TOML variation becomes necessary.
+      - option: F
+        label: R2 or shared object store pulled by Gas City SEED step
+        description: >
+          Factory writes compiled TOML to R2; Gas City SEED step fetches and writes
+          it to the formulas/ directory before execution.
+        score: LOW
+        rejection_class: bootstrapping_paradox
+        rejection_predicate: >
+          The SEED step is inside a formula that must already be loaded from disk before
+          the SEED step can run. There is no pre-step hook in Gas City that could load
+          a formula from a URL before sling resolution. Gas City does not rescan formulas/
+          per-dispatch.
+    selected_option: Parametric template per domain adapter (operator-deployed at city-init)
+    recommendation: A+ # APPROVED 2026-05-21
+    dispatch_flow: >
+      Pre-condition (one-time, operator-driven):
+        factory-coding-v1.toml is baked into the GasCitySupervisor container image
+        via the factory/ directory in
+        eai/examples/factory/weops-gascity/stage/supervisor/.
+        It is resolved from the container filesystem at sling time.
+        Deploying a formula template update = rebuild + redeploy the supervisor container.
+        Content SHA pinned in ff-pipeline wrangler env (GAS_CITY_FORMULA_VERSION_HASH).
+        CORRECTION 2026-05-25: supervisor is a CF Container DO, not a VPS or local process.
+        Session runtime: gascity-cloudflare-control-worker.koales.workers.dev.
+
+      Per-dispatch HTTP sequence (3 calls, sequential, Factory → Gas City):
+
+        CALL 1: GET /v0/city/{cityName}/formulas/factory-coding-v1
+          Authorization: Bearer ${GAS_CITY_BEARER_TOKEN}
+          Purpose: verify formula present and version hash matches pinned SHA.
+          On mismatch: abort dispatch, emit UncertaintyEntry, do not proceed.
+
+        CALL 2: POST /v0/city/{cityName}/beads
+          Authorization: Bearer ${GAS_CITY_BEARER_TOKEN}
+          Idempotency-Key: sha256(es_id + "|" + es_version_hash + "|" + factory_attempt)
+          Body: {
+            title: "FN-XXX attempt N — <ES title>",
+            rig: "factory-work",
+            labels: ["fn-id:FN-XXX", "is-id:IS-XXX", "es-id:ES-XXX",
+                     "form-id:FORM-XXX", "factory-attempt:N"],
+            metadata: { ff.dispatch_id, ff.formula_name, ff.formula_version_hash,
+                        ff.dispatched_at, ff.webhook_url, ff.ep_id }
+          }
+          On 201: capture gc_bead_id. On 5xx: retry with same Idempotency-Key.
+
+        CALL 3: POST /v0/city/{cityName}/sling
+          Authorization: Bearer ${GAS_CITY_BEARER_TOKEN}
+          Body: {
+            rig: "factory-work",
+            target: "factory-coding-agent",
+            formula: "factory-coding-v1",
+            attached_bead_id: <gc_bead_id from CALL 2>,
+            scope_kind: "rig", scope_ref: "factory-work",
+            force: false,
+            vars: {
+              fn_id, is_id, es_id, form_id, factory_attempt (string),
+              ff_webhook_url, ff_webhook_hmac_keyid: "v1",
+              ep_id, rig_root, max_iterations,
+              role_planner_prompt, role_planner_inputs, role_planner_outputs,
+              role_coder_prompt, role_coder_inputs, role_coder_outputs,
+              role_verifier_prompt, role_verifier_inputs, role_verifier_outputs,
+              parameters_json
+            }
+          }
+          On 200 + status=="slung": capture workflow_id. 409 with matching workflow = replay success.
+
+      GC → Factory (inverted, in template not in dispatch call):
+        RELEASE [[step]] in factory-coding-v1.toml HTTP POSTs molecule.completed
+        to Factory POST /webhooks/gascity with HMAC signature.
+        Factory never calls Gas City during execution.
+
+      FORM-* artifact (persisted in ArangoDB before CALL 1):
+        kind: FormulaArtifact, tier: procedural
+        formula_name: "factory-coding-v1"
+        formula_version_hash: <sha256 of on-disk template>
+        vars: <the full var map sent in CALL 3>
+        prompts_resolved: { planner, coder, verifier }
+        source_refs: [ES-GC-EP-FORMULA-DISPATCH]
+
+    open_questions: []  # All resolved 2026-05-25 — see resolutions below
+    resolved_questions:
+      - id: UE-Q1C-1
+        question: >
+          Does GET /v0/city/{cityName}/formulas/{name} return raw TOML or structured
+          fields only?
+        resolution: >
+          RESOLVED 2026-05-25: Structured fields only. humaHandleFormulaDetail calls
+          buildFormulaDetail which compiles the formula via formula.Parser and returns
+          a formulaDetailResponse (compiled recipe steps, variables, metadata) — not
+          raw TOML bytes. Factory CANNOT use CALL 1 for content SHA verification.
+          CORRECTION to dispatch_flow: CALL 1 becomes an existence check only
+          (formula present and named correctly). SHA pin is enforced at container
+          build time (GAS_CITY_FORMULA_VERSION_HASH in wrangler env matches the
+          hash of the TOML baked into the container image), not at runtime.
+      - id: UE-Q1C-2
+        question: >
+          Does attached_bead_id propagate lineage labels to molecule-internal child beads?
+        resolution: >
+          RESOLVED 2026-05-25: NO. attached_bead_id only stamps gc.root_bead_id on
+          child beads (molecule.go Attach function). Labels are NOT inherited from
+          the root bead. Each [[steps]] block in factory-coding-v1.toml must declare
+          the five Factory lineage labels explicitly — already implemented in the
+          template. This is a Gas City architecture invariant, not a bug.
+      - id: UE-Q1C-3
+        question: >
+          Are HTTP sling and CLI gc formula cook code paths identical?
+        resolution: >
+          RESOLVED 2026-05-25: YES, identical. Both use formula.NewParser +
+          formula.CompileWithoutRuntimeVarValidation through the same 11-stage
+          pipeline. humaHandleSling → LaunchFormula → InstantiateSlingFormula
+          and cmd_sling.go → sling package both hit the same sling_core.go logic.
+          Phase 0 CLI observations carry over to HTTP dispatch entirely.
+      - id: UE-Q1C-4
+        question: >
+          Does POST /sling support an Idempotency-Key header?
+        resolution: >
+          RESOLVED 2026-05-25: NO. SlingInput struct has no Idempotency-Key field.
+          The idempotency middleware is not integrated into the sling handler.
+          Retry idempotency relies solely on 409 conflict detection
+          (sourceworkflow.ConflictError). A 409 with a matching workflow = replay
+          success. Caller must detect 409 and treat it as idempotent success.
+    ontology_amendment_required: >
+      D-NEW-2 (FormulaCompilation approved) must be amended: the FORM-* artifact
+      captures parametric specification (template_name + version_hash + vars +
+      prompts_resolved), NOT raw TOML substrate. The TOML substrate is operator-managed
+      config. Tier conversion remains procedural→procedural. Lineage edge: compiled_from EP-*.
+      File this amendment as an EL-* Elucidation Artifact per DL-1 (ArangoDB main graph).

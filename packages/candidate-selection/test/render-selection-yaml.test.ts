@@ -6,9 +6,9 @@ describe("renderSelectionYaml", () => {
   it("renders deterministic yaml", () => {
     const selection = selectCandidate({
       candidateId: "AC-META-ARCHITECTURE-CANDIDATE-EXECUTION",
-      sourceWorkGraphId: "WG-META-ARCHITECTURE-CANDIDATE-EXECUTION",
+      sourceExecutableSpecificationId: "ES-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       sourceRefs: [
-        "PRD-META-ARCHITECTURE-CANDIDATE-EXECUTION",
+        "IS-META-ARCHITECTURE-CANDIDATE-EXECUTION",
         "AC-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       ],
     })

@@ -21,7 +21,7 @@ export type { TestReport } from '../coordinator/state'
 import type { TestReport } from '../coordinator/state'
 
 export interface TesterInput {
-  workGraph: Record<string, unknown>
+  executableSpecification: Record<string, unknown>
   plan: Plan | Record<string, unknown>
   code: CodeArtifact | Record<string, unknown>
   critique?: CritiqueReport | Record<string, unknown>
@@ -43,13 +43,13 @@ export interface TesterAgentOpts {
 
 const SYSTEM_PROMPT = `You are the Tester agent in the Function Factory synthesis pipeline.
 
-Your job: evaluate the code produced by the Coder against the WorkGraph specification, the Plan, and any invariants from the Factory context. Produce a TestReport.
+Your job: evaluate the code produced by the Coder against the ExecutableSpecification specification, the Plan, and any invariants from the Factory context. Produce a TestReport.
 
 Use the Factory Knowledge Graph context provided in the user message to ground your testing. Do not hallucinate test results — only reference invariants, lessons, and rules from the provided context.
 
 Evaluate:
 1. Does the code satisfy the invariants from the provided context?
-2. Does the code implement what the WorkGraph specifies?
+2. Does the code implement what the ExecutableSpecification specifies?
 3. Are edge cases handled (null inputs, timeouts, error paths)?
 4. If a Critique was provided, are the flagged issues addressed?
 
@@ -99,7 +99,7 @@ export class TesterAgent {
     const model = this.modelOverride ?? resolveAgentModel('tester')
 
     const userParts: string[] = [
-      `WorkGraph specification:\n${JSON.stringify(input.workGraph, null, 2)}`,
+      `ExecutableSpecification specification:\n${JSON.stringify(input.executableSpecification, null, 2)}`,
       `\nPlan:\n${JSON.stringify(input.plan, null, 2)}`,
       `\nCode artifacts:\n${JSON.stringify(input.code, null, 2)}`,
     ]

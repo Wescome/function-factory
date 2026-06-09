@@ -154,13 +154,13 @@ export class SynthesisCoordinator extends Agent<CoordinatorEnv> {
   // Agents SDK: callable from external Workers / other DOs
   @callable()
   async synthesize(
-    workGraph: Record<string, unknown>,
+    executableSpecification: Record<string, unknown>,
     opts?: { dryRun?: boolean },
   ): Promise<SynthesisResult> {
     // (amended v4.2 — Fibers + Shell): synthesis loop runs inside a Fiber.
     // Manual alarm + this.ctx.storage persistence replaced by stash().
-    return this.runFiber(`synth-${workGraph.id}`, async (fiber) => {
-      const state = createInitialState(workGraph, opts);
+    return this.runFiber(`synth-${executableSpecification.id}`, async (fiber) => {
+      const state = createInitialState(executableSpecification, opts);
       const graph = buildSynthesisGraph(this.buildDeps());
       for await (const next of graph.stream(state)) {
         fiber.stash(next);  // checkpoint after each node
@@ -276,7 +276,7 @@ and PAI-TO-PI-AI-ARCHITECTURE SS4) with:
 - Strategic Advice (approach, patterns, anti-patterns from LESSONS.md)
 - Known Gotchas (platform-specific warnings)
 - Validation Loop (test strategy)
-- Derived lineage artifacts (Pressure, Capability, PRD) extracted from content
+- Derived lineage artifacts (Pressure, Capability, Intent Specification) extracted from content
 
 Lineage artifacts are persisted to ArangoDB with `derivationMode: "architect-extracted"`.
 
@@ -329,7 +329,7 @@ export class CriticAgent extends Agent<CriticEnv> {
   async codeReview(input: {
     code: CodeArtifact;
     plan: Plan;
-    workGraph: Record<string, unknown>;
+    executableSpecification: Record<string, unknown>;
     mentorRules: { ruleId: string; rule: string }[];
   }): Promise<CritiqueReport> {
     // Standard critique: passed, issues, mentorRuleCompliance
@@ -359,7 +359,7 @@ The Critic runs at two positions in the graph:
    Verdict: `aligned` -> continue, `miscast` -> END, `uncertain` -> continue with flag.
 
 2. **Code review** (after `coder` node, before `tester`):
-   Standard code review against WorkGraph specification and MentorRules.
+   Standard code review against Executable Specification specification and MentorRules.
    Output: CritiqueReport (existing contract, unchanged from v3).
 
 ---
@@ -376,7 +376,7 @@ managed Sandbox SDK.
 // In Coordinator graph node for 'coder'
 import { getSandbox } from "@cloudflare/sandbox";
 
-const sandbox = getSandbox(this.env.SANDBOX, `synth-${state.workGraphId}`, {
+const sandbox = getSandbox(this.env.SANDBOX, `synth-${state.executableSpecificationId}`, {
   // Options if needed
 });
 
@@ -441,8 +441,8 @@ await sandbox.writeFile("/workspace/coder-input.json", JSON.stringify({
   provider: "anthropic",
   modelId: "claude-sonnet-4-5",
   plan: state.plan,
-  workGraph: state.workGraph,
-  fileScope: state.workGraph.fileScope,
+  executableSpecification: state.executableSpecification,
+  fileScope: state.executableSpecification.fileScope,
 }));
 
 // Run the coder session script
@@ -589,7 +589,7 @@ expiration prevents unbounded storage growth.
 The Coordinator assembles a memory digest once per synthesis run:
 
 ```typescript
-async function buildMemoryDigest(db: ArangoClient, workGraphId: string): Promise<string> {
+async function buildMemoryDigest(db: ArangoClient, executableSpecificationId: string): Promise<string> {
   // 1. DECISIONS: last 20 entries + lineage-relevant entries
   const decisions = await db.query<{ date: string; summary: string }>(
     `FOR d IN memory_semantic
@@ -620,7 +620,7 @@ async function buildMemoryDigest(db: ArangoClient, workGraphId: string): Promise
        SORT e.timestamp DESC
        LIMIT 10
        RETURN { action: e.action, detail: e.detail }`,
-    { id: workGraphId },
+    { id: executableSpecificationId },
   );
 
   // Serialize as single string block, target <4K tokens
@@ -637,7 +637,7 @@ async function buildMemoryDigest(db: ArangoClient, workGraphId: string): Promise
 | Skills (role-scoped) | 1,000-3,000 | Yes (per synthesis run) |
 | MentorScript rules | 500-1,500 | Yes (per synthesis run) |
 | specContent (Architect only) | 1,000-5,000 | No (varies per Signal) |
-| WorkGraph + BriefingScript | 2,000-5,000 | No (varies per task) |
+| Executable Specification + BriefingScript | 2,000-5,000 | No (varies per task) |
 | **Total per session** | **7,000-19,000** | |
 
 ### 7.3 Skill Loading
@@ -647,7 +647,7 @@ const ROLE_SKILL_MAP: Record<string, string[]> = {
   architect: ["factory-meta", "lineage-preservation", "prd-compiler"],
   planner:   ["factory-meta"],
   coder:     ["lineage-preservation"],
-  critic:    ["coverage-gate-1", "lineage-preservation", "prd-compiler"],
+  critic:    ["coherence-verification", "lineage-preservation", "prd-compiler"],
   tester:    [],
   verifier:  ["factory-meta"],
 };
@@ -674,7 +674,7 @@ The synthesis graph extends from the current 5-node topology to a 9-node
 topology with the Architect and dual-Critic positions:
 
 ```
-budget-check -> architect -> semantic-critic -> compile -> gate-1
+budget-check -> architect -> semantic-critic -> compile -> coherence-verification
   -> planner -> coder -> code-critic -> tester -> verifier -> [routing]
 ```
 
@@ -686,7 +686,7 @@ budget-check -> architect -> semantic-critic -> compile -> gate-1
 | `architect` | `ArchitectAgent.produceBriefingScript()` | Agents SDK Agent |
 | `semantic-critic` | `CriticAgent.semanticReview()` | Agents SDK Agent |
 | `compile` | Deterministic compiler passes | Coordinator graph node |
-| `gate-1` | `evaluateGate1()` deterministic | Coordinator graph node |
+| `coherence-verification` | `evaluateCoherenceVerification()` deterministic | Coordinator graph node |
 | `planner` | gdk-ai `complete()` via model bridge | Coordinator graph node (existing, amended v4.1) |
 | `coder` | gdk-agent `Agent` session in Sandbox | `@cloudflare/sandbox` (amended v4.1) |
 | `code-critic` | `CriticAgent.codeReview()` | Agents SDK Agent |
@@ -708,7 +708,7 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
   graph.addNode("architect",       deps.architectNode());
   graph.addNode("semantic-critic", deps.semanticCriticNode());
   graph.addNode("compile",         deps.compileNode());
-  graph.addNode("gate-1",          deps.gate1Node());
+  graph.addNode("coherence-verification",          deps.coherenceVerificationNode());
   graph.addNode("coder",           deps.sandboxRole("coder"));
   graph.addNode("code-critic",     deps.codeCriticNode());
   graph.addNode("tester",          deps.sandboxRole("tester"));
@@ -718,7 +718,7 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
 
   // New front-matter edges
   graph.addEdge("architect", "semantic-critic");
-  graph.addEdge("compile", "gate-1");
+  graph.addEdge("compile", "coherence-verification");
   graph.addEdge("planner", "coder");
   graph.addEdge("coder", "code-critic");
   graph.addEdge("code-critic", "tester");
@@ -740,9 +740,9 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
     return "compile";
   });
 
-  // Conditional: gate-1 can reject
-  graph.addConditionalEdge("gate-1", (state) => {
-    if (!state.gate1Passed) return END;
+  // Conditional: coherence-verification can reject
+  graph.addConditionalEdge("coherence-verification", (state) => {
+    if (!state.coherenceVerificationPassed) return END;
     return "planner";
   });
 
@@ -770,7 +770,7 @@ export function buildSynthesisGraph(deps: GraphDeps): StateGraph<GraphState> {
 
 On `patch` or `resample`, the graph routes back to `budget-check`, which
 routes to `planner` (because `state.briefingScript` is already populated).
-The Architect pipeline (architect -> semantic-critic -> compile -> gate-1)
+The Architect pipeline (architect -> semantic-critic -> compile -> coherence-verification)
 runs ONCE per synthesis. Repairs only re-run the inner loop
 (planner -> coder -> code-critic -> tester -> verifier).
 
@@ -889,8 +889,8 @@ The `sandbox-scripts/` directory contains:
 ```typescript
 interface GraphState {
   // ... existing Phase 4 fields (unchanged) ...
-  workGraphId: string;
-  workGraph: Record<string, unknown>;
+  executableSpecificationId: string;
+  executableSpecification: Record<string, unknown>;
   plan: Plan | null;
   code: CodeArtifact | null;
   critique: CritiqueReport | null;
@@ -905,9 +905,9 @@ interface GraphState {
   // Phase 5 v4 additions
   briefingScript: BriefingScript | null;       // Architect output
   semanticReview: SemanticReviewResult | null;  // Critic semantic verdict
-  gate1Passed: boolean;                         // Gate 1 result
-  gate1Report: unknown | null;                  // Gate 1 Coverage Report
-  compiledPrd: unknown | null;                  // Compiler output (PRD intermediates)
+  coherenceVerificationPassed: boolean;                         // Coherence Verification result
+  coherenceVerificationReport: unknown | null;                  // Coherence Verification Verification Report
+  compiledIntentSpecification: unknown | null;                  // Compiler output (Intent Specification intermediates)
 
   // Sandbox state (amended v4.2 — fork-based repair)
   sandboxName: string | null;                   // Active sandbox identifier
@@ -980,7 +980,7 @@ interface SemanticReviewResult {
 - **File scope (amended v4.1 -- GDK substrate):** Enforced via `beforeToolCall` hook in the gdk-agent `Agent` config. The Coordinator sends `fileScope` / `commandPolicy` as part of the session input. The sandbox session runner builds a `beforeToolCall` function that checks file paths against `fileScope` and commands against `commandPolicy`. Denied calls return `{ block: true, reason }` to the agent loop; the model sees the denial and adjusts. Violations are recorded in `blockedToolCalls`. The `afterToolCall` hook captures evidence (output hash, timing) for audit.
 
 - **Sandbox lifetime:** Fresh sandbox per synthesis (deterministic name from
-  workGraphId). No cross-synthesis state. Destroyed after terminal verdict.
+  executableSpecificationId). No cross-synthesis state. Destroyed after terminal verdict.
   R2 backups expire via TTL.
 
 - **CRP flow is NOT Agents SDK tool approval.** CRP (Consultation Request
@@ -997,7 +997,7 @@ interface SemanticReviewResult {
 |---|---|---|---|
 | Architect Agent (V8 isolate) | ~10s | 0.1 | ~$0.0001 |
 | Critic Agent - semantic (V8) | ~10s | 0.1 | ~$0.0001 |
-| Compile + Gate 1 (V8) | ~5s | 0.1 | ~$0.00005 |
+| Compile + Coherence Verification (V8) | ~5s | 0.1 | ~$0.00005 |
 | Sandbox prep (clone + install) | ~30s | 0.5 | ~$0.001 |
 | Coder session (sandbox) | ~2 min | 0.5 | ~$0.003 |
 | Critic Agent - code (V8) | ~10s | 0.1 | ~$0.0001 |
@@ -1090,10 +1090,10 @@ of raw `Container` subclass. Rationale:
 Same signal as v3 SS12.3: `"Add GET /version to ff-pipeline that returns { name, version, phase }."`
 
 Expected flow:
-1. Coordinator receives WorkGraph via `@callable() synthesize()`
+1. Coordinator receives Executable Specification via `@callable() synthesize()`
 2. ArchitectAgent produces BriefingScript from spec context
 3. CriticAgent semantic review: `aligned`
-4. Compiler + Gate 1: PASS
+4. Compiler + Coherence Verification: PASS
 5. Planner produces plan via model bridge
 6. Sandbox starts, Coder clones repo, implements endpoint
 7. CriticAgent code review: passed
@@ -1105,7 +1105,7 @@ Expected flow:
 
 1. BriefingScript's `derivedPrd.acceptanceCriteria` traceable to specContent
 2. Semantic Critic verdict: `aligned` (not `miscast`)
-3. Gate 1: PASS
+3. Coherence Verification: PASS
 4. Coder produces a real git diff (not JSON code artifacts)
 5. Tester runs real tests (vitest output, not simulated)
 6. Verifier verdict: `pass`
@@ -1128,7 +1128,7 @@ Expected flow:
 | 9 | Add migrations v2 (agents) and v3 (sandbox) | Yes (remove entries) |
 | 10 | Export all new classes from Worker entry point | Yes (remove exports) |
 | 11 | Extend GraphState with v4 fields | Yes (remove fields) |
-| 12 | Extend graph topology with architect/critic/compile/gate-1 nodes | Yes (remove nodes) |
+| 12 | Extend graph topology with architect/critic/compile/coherence-verification nodes | Yes (remove nodes) |
 | 13 | Implement sandboxRole() replacing containerRole() | Yes (revert to piAiRole) |
 | 14 | Deploy ff-pipeline | Yes (redeploy previous version) |
 | 15 | Dry-run test (Sandbox skipped -- Phase 4 parity) | N/A |
@@ -1153,7 +1153,7 @@ still works."
 | Container access | `getContainer(env.FACTORY_AGENT, name).fetch()` | `getSandbox(env.SANDBOX, name)` |
 | Agent-server | Required (custom HTTP on :8080) | Optional (sandbox.exec preferred) |
 | Workspace backup | Not specified | R2 via `sandbox.createBackup()` |
-| Graph topology | 5 nodes (planner/coder/critic/tester/verifier) | 9 nodes (+architect/semantic-critic/compile/gate-1) |
+| Graph topology | 5 nodes (planner/coder/critic/tester/verifier) | 9 nodes (+architect/semantic-critic/compile/coherence-verification) |
 | DO classes | 2 (Coordinator + FactoryAgent) | 4 (Coordinator + Architect + Critic + Sandbox) |
 | npm packages | `@cloudflare/containers` | `agents@0.11.6`, `@cloudflare/sandbox`, `@cloudflare/shell@0.3.4`, `@weops/gdk-ai`, `@weops/gdk-agent`, `@weops/gdk-ts` (amended v4.1, v4.2) |
 | LLM routing | ofox.ai via model-bridge | `@weops/gdk-ai` `getModel()` + `complete()`/`streamSimple()` (amended v4.1) |
@@ -1210,4 +1210,4 @@ afterToolCall?: (ctx: AfterToolCallContext, signal?) => Promise<AfterToolCallRes
 
 ### 18.3 What the Factory KEEPS Custom
 
-Pipeline orchestration (CF Workflow + Queue bridge), Coordinator Agent (extends `agents` SDK `Agent`), `graph-runner.ts` (StateGraph), compiler passes, coverage gates (Gate 1/2/3), lineage graph (ArangoDB), WorkGraph assembly, CRP/VCR flow, Dream DO consolidation, R2 workspace backup. These are Factory-specific logic that GDK does not address.
+Pipeline orchestration (CF Workflow + Queue bridge), Coordinator Agent (extends `agents` SDK `Agent`), `graph-runner.ts` (StateGraph), compiler passes, verification checks (Coherence Verification/2/3), lineage graph (ArangoDB), Executable Specification assembly, CRP/VCR flow, Dream DO consolidation, R2 workspace backup. These are Factory-specific logic that GDK does not address.

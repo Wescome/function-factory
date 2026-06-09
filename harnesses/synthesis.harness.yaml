@@ -1,0 +1,132 @@
+nlahspec: "0.2"
+
+lineage:
+  source_refs: [IS-HARNESS-DSL-v1, ADR-009-nlah-runtime-replaces-state-graph]
+
+harness:
+  name: SYNTHESIS
+  task_family: intent_specification_synthesis
+  objective: >
+    Synthesize an intent specification into a working implementation.
+    PLAN → CRITIQUE (miscast detection, return_to_PLAN on miscast) →
+    VERIFY → ARCH → CODE (pi-swarm handles internal parallelism, Option C).
+
+runtime:
+  state_root: state
+  artifact_root: artifacts
+  graph_mode: linear
+  default_failure_action: abort
+  max_repair_rounds: 3
+
+roles:
+  Planner:
+    responsibility: >
+      Decompose the intent specification into a sequenced, concrete execution
+      plan. Reads objective from StageContext.taskText. Output: ExecutionPlan.
+  Critic:
+    responsibility: >
+      Semantic review: assess whether the execution plan is aligned with the
+      intent specification (aligned / miscast / uncertain). A miscast verdict
+      triggers critique_failed → return_to_PLAN. Output: CritiqueReport.
+  Verifier:
+    responsibility: >
+      Verify the execution plan meets all intent specification acceptance
+      criteria before coding begins. Must not produce code.
+      Output: VerificationReport.
+  Architect:
+    responsibility: >
+      Architecture review of the planned implementation approach. Must not
+      modify the plan; output is guidance only. Output: ArchitectureBrief.
+  Coder:
+    responsibility: >
+      Implement the execution plan via the pi-swarm adapter. The adapter
+      dispatches to N containers, selects the best output via internal
+      Critic/Verifier/Architect judgment chain, and writes the merged winner
+      under the declared output names. Output: SynthesisOutput.
+
+artifacts:
+  ExecutionPlan:
+    path: artifacts/execution_plan.md
+    required: true
+  CritiqueReport:
+    path: artifacts/critique_report.md
+    required: true
+  VerificationReport:
+    path: artifacts/verification_report.md
+    required: true
+  ArchitectureBrief:
+    path: artifacts/architecture_brief.md
+    required: true
+  SynthesisOutput:
+    path: artifacts/synthesis_output.md
+    required: true
+
+stages:
+  PLAN:
+    from: TaskReceived
+    to: Planned
+    role: Planner
+    worker: pi
+    outputs: [ExecutionPlan]
+    gate:
+      all:
+        - { exists: ExecutionPlan }
+    max_stage_attempts: 3
+
+  CRITIQUE:
+    from: Planned
+    to: Critiqued
+    role: Critic
+    worker: pi
+    outputs: [CritiqueReport]
+    gate:
+      all:
+        - { exists: CritiqueReport }
+    on_failure:
+      critique_failed: return_to_PLAN
+      missing_artifact: retry_stage
+    max_stage_attempts: 3
+
+  VERIFY:
+    from: Critiqued
+    to: Verified
+    role: Verifier
+    worker: pi
+    outputs: [VerificationReport]
+    gate:
+      all:
+        - { exists: VerificationReport }
+    on_failure:
+      verification_failed: retry_stage
+      missing_artifact: retry_stage
+    max_stage_attempts: 3
+
+  ARCH:
+    from: Verified
+    to: ArchReviewed
+    role: Architect
+    worker: pi
+    outputs: [ArchitectureBrief]
+    gate:
+      all:
+        - { exists: ArchitectureBrief }
+    max_stage_attempts: 2
+
+  CODE:
+    from: ArchReviewed
+    to: Synthesized
+    role: Coder
+    worker: pi-swarm
+    outputs: [SynthesisOutput]
+    gate:
+      all:
+        - { exists: SynthesisOutput }
+    on_failure:
+      missing_artifact: retry_stage
+    max_stage_attempts: 3
+
+failure_taxonomy:
+  critique_failed:      return_to_PLAN
+  verification_failed:  retry_stage
+  missing_artifact:     retry_stage
+  budget_exceeded:      mark_incomplete

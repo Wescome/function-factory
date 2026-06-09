@@ -83,7 +83,7 @@ const GEMINI_PRO: RouteTarget = { provider: 'google', model: 'gemini-3.1-pro-pre
 
 // ── Default config ──
 // Pipeline stages (1-5): Workers AI llama-70b (zero cost)
-// Agent roles (Stage 6): Workers AI kimi-k2.6 (agent-first, single auth, CF billing)
+// Agent Call execution roles: Workers AI kimi-k2.6 (agent-first, single auth, CF billing)
 //   deepseek-v4-pro: BL6 training inertia — produces function-call JSON for every schema
 
 export const DEFAULT_CONFIG: RoutingConfig = {
@@ -101,7 +101,7 @@ export const DEFAULT_CONFIG: RoutingConfig = {
     // Crystallizer + Probe: llama-70b primary, deepseek-v4-pro fallback
     { kind: 'crystallizer', primary: CF_70B, fallback: DEEPSEEK_PRO },
     { kind: 'probe', primary: CF_70B, fallback: DEEPSEEK_PRO },
-    // Agent roles (Stage 6): kimi-k2.6 via REST API (agent-first, proven 3/5 atoms)
+    // Agent Call execution roles: kimi-k2.6 via REST API (agent-first, proven 3/5 atoms)
     { kind: 'planner', primary: CF_KIMI_K26, fallback: CF_70B },
     { kind: 'coder', primary: CF_KIMI_K26, fallback: CF_70B },
     { kind: 'critic', primary: CF_KIMI_K26, fallback: CF_70B },

@@ -10,7 +10,7 @@ export function renderSelectionYaml(
     `explicitness: ${selection.explicitness}`,
     `rationale: ${selection.rationale}`,
     `sourceArchitectureCandidateId: ${selection.sourceArchitectureCandidateId}`,
-    `sourceWorkGraphId: ${selection.sourceWorkGraphId}`,
+    `sourceExecutableSpecificationId: ${selection.sourceExecutableSpecificationId}`,
     `decision: ${selection.decision}`,
     `threshold: ${selection.threshold}`,
     "scorecard:",

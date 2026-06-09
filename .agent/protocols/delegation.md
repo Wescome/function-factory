@@ -13,13 +13,13 @@ Factory stage.
 - **Validation authoring.** Generating test scenarios from a spec can be
   delegated to a test-generation sub-agent; the primary agent remains
   responsible for ensuring the generated tests backmap correctly.
-- **Coverage Report rendering.** Formatting and emitting the Coverage
+- **Verification Report rendering.** Formatting and emitting the Verification
   Report YAML can be delegated; the primary agent remains responsible
   for the verdict.
 
 ## When delegation is inappropriate
 
-- **Gate decisions.** The primary agent is responsible for the Gate 1 / 2
+- **Gate decisions.** The primary agent is responsible for the Coherence Verification / 2
   / 3 verdict. Delegating the verdict itself is scope violation.
 - **Lineage preservation.** Every artifact's `source_refs` must be
   populated by the agent that authored the artifact. Delegating lineage

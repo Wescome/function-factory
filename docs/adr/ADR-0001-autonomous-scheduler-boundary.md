@@ -23,7 +23,7 @@ target architecture:
 
 The target workflow reverses this:
 
-1. Function Factory selects a WorkGraph node.
+1. Function Factory selects a Executable Specification node.
 2. The Governor emits an `AgentRequest`.
 3. A queue persists the request.
 4. A Codex runner claims the request in a fresh branch/session.
@@ -43,11 +43,11 @@ The initial production posture is PR/branch mode:
 4. Workers may not deploy to production.
 5. Workers may not force-push.
 6. Workers may not edit secrets.
-7. Completed work must return evidence before the Governor advances the WorkGraph.
+7. Completed work must return evidence before the Governor advances the Executable Specification.
 
 The first contracts are:
 
-1. `AgentRequest`: work assigned from a WorkGraph node to a role-specific worker.
+1. `AgentRequest`: work assigned from a Executable Specification node to a role-specific worker.
 2. `AgentResult`: worker evidence returned after implementation or refusal.
 3. `QueueEvent`: append-only event emitted at the queue boundary.
 
@@ -76,7 +76,7 @@ This ADR does not implement auto-merge.
 This ADR does not make Strategy.Recipes part of the Function Factory repo.
 
 This ADR does not replace the Factory artifact pipeline. It adds an execution
-boundary downstream of WorkGraphs.
+boundary downstream of Executable Specifications.
 
 ## Source Inputs
 

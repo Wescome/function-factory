@@ -10,7 +10,7 @@ import { synthesizePressure } from './stages/synthesize-pressure'
 import { mapCapability } from './stages/map-capability'
 import { proposeFunction } from './stages/propose-function'
 import { semanticReview } from './stages/semantic-review'
-import { compilePRD, PASS_NAMES } from './stages/compile'
+import { compileIntentSpecification, PASS_NAMES } from './stages/compile'
 import { crystallizeIntent, type CrystallizeInput, type IntentAnchor } from './stages/crystallize-intent'
 import { probeAnchors } from './stages/intent-probe'
 import { reconcile } from './stages/reconciliation-gate'
@@ -19,8 +19,19 @@ import { filterAnchorsForPass } from './stages/pass-specific-anchors'
 import { appendDriftEntry } from './stages/drift-ledger'
 import { loadCrystallizerEnabled } from './config/crystallizer-config'
 import { createCRP } from './crp'
-import { transitionLifecycle } from './lifecycle'
-import type { PipelineEnv, PipelineParams, PipelineResult, SemanticReviewResult, Gate1Report } from './types'
+import { captureLearningTranscript } from './learning-capture'
+import { buildFormulaCompilerDeps } from './compilers/formula-compiler-adapter'
+import { compileAndDispatchFormula, type FormulaCompilerEnv } from './compilers/formula-compiler'
+import { markFunctionDispatched } from './gascity/autonomy-monitor'
+import { buildSkeleton, getSkeletonDownloadUrl, type SkeletonEnv } from './gascity/skeleton-builder'
+import type { TrellisExecutionPacket } from '@factory/schemas'
+import type {
+  CoherenceVerificationReport,
+  PipelineEnv,
+  PipelineParams,
+  PipelineResult,
+  SemanticReviewResult,
+} from './types'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Rec = Record<string, any>
@@ -38,8 +49,16 @@ const DB_STEP_CONFIG = {
   retries: { limit: 3, delay: '2 seconds' as const, backoff: 'exponential' as const },
 }
 
+const COHERENCE_VERIFICATION_FAILED_STATUS = 'coherence-verification-failed'
+
 function toStep(obj: Record<string, unknown>): Rec {
   return JSON.parse(JSON.stringify(obj)) as Rec
+}
+
+function verificationStatusKey(family: string, artifactKey: string): string {
+  const safeFamily = family.replace(/[^A-Za-z0-9_-]/g, '-')
+  const safeArtifactKey = artifactKey.replace(/[^A-Za-z0-9_-]/g, '-')
+  return `verification-${safeFamily}-${safeArtifactKey}-${Date.now().toString(36)}`
 }
 
 /**
@@ -73,14 +92,39 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     db.setValidator(validateArtifact)
     const params = event.payload
     const dryRun = params.dryRun ?? false
+    const workflowRunId = typeof (event as { instanceId?: unknown }).instanceId === 'string'
+      ? (event as { instanceId: string }).instanceId
+      : undefined
 
-    // ── Stage 1: Signal ingestion ──
+    const job = params.job
+    if (job?.harnessKey) {
+      return {
+        status: 'harness-removed',
+        reason: 'REMOVED: synthesis-era — see GAS-CITY-ERA-ARCHITECTURE.md',
+      } as PipelineResult
+    }
+
+    // ── Signal Artifact collection (legacy Stage 1) ──
+    if (!params.signal) {
+      throw new Error('synthesis path requires signal in PipelineParams')
+    }
     const signal = await step.do('ingest-signal', DB_STEP_CONFIG, async () => {
-      return toStep(await ingestSignal(params.signal, db))
+      return toStep(await ingestSignal(params.signal!, db))
     })
     const signalKey = signal._key as string
+    const captureTerminal = (
+      terminalResult: PipelineResult,
+      trellis?: { id?: unknown; audit?: { packetHash?: unknown } },
+    ): Promise<PipelineResult> => captureLearningTranscript({
+      env: this.env,
+      db,
+      runId: workflowRunId ?? terminalResult.signalId ?? signalKey,
+      terminalResult,
+      ...(typeof trellis?.id === 'string' ? { trellisExecutionPacketId: trellis.id } : {}),
+      ...(typeof trellis?.audit?.packetHash === 'string' ? { trellisExecutionPacketHash: trellis.audit.packetHash } : {}),
+    })
 
-    // ── Stage 2: Pressure synthesis ──
+    // ── Pressure Artifact interpretation (legacy Stage 2) ──
     const pressure = await step.do('synthesize-pressure', AI_STEP_CONFIG, async () => {
       return toStep(await synthesizePressure(signal as Record<string, unknown>, db, this.env, dryRun))
     })
@@ -94,7 +138,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       return { ok: true }
     })
 
-    // ── Stage 3: Capability mapping ──
+    // ── Capability Artifact scoping (legacy Stage 3) ──
     const capability = await step.do('map-capability', AI_STEP_CONFIG, async () => {
       return toStep(await mapCapability(pressure as Record<string, unknown>, db, this.env, dryRun))
     })
@@ -108,7 +152,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       return { ok: true }
     })
 
-    // ── Stage 4: Function proposal ──
+    // ── Function Proposal decomposition (legacy Stage 4) ──
     const proposal = await step.do('propose-function', AI_STEP_CONFIG, async () => {
       return toStep(await proposeFunction(capability as Record<string, unknown>, db, this.env, dryRun))
     })
@@ -118,16 +162,6 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     await step.do('edge-proposal-capability', DB_STEP_CONFIG, async () => {
       await db.saveEdge('lineage_edges', `specs_functions/${proposalKey}`, `specs_capabilities/${capabilityKey}`, {
         type: 'derived-from', createdAt: new Date().toISOString(),
-      })
-      return { ok: true }
-    })
-
-    // ── Phase D: Lifecycle → proposed ──
-    await step.do('lifecycle-proposed', DB_STEP_CONFIG, async () => {
-      await transitionLifecycle(db, proposalKey, 'proposed', {
-        trigger: 'pipeline-propose-function',
-      }).catch((err: unknown) => {
-        console.warn(`[lifecycle] Failed to set proposed: ${err instanceof Error ? err.message : err}`)
       })
       return { ok: true }
     })
@@ -151,8 +185,8 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
 
     if (approvalPayload?.decision !== 'approved') {
       await step.do('persist-rejection', DB_STEP_CONFIG, async () => {
-        await db.save('specs_coverage_reports', {
-          _key: `CR-REJECT-${signalKey}-${Date.now().toString(36)}`,
+        await db.save('verification_reports', {
+          _key: `VR-REJECT-${signalKey}-${Date.now().toString(36)}`,
           type: 'architect-rejection',
           passed: false,
           signalId: signalKey,
@@ -163,11 +197,12 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
         })
         return { persisted: true }
       })
-      return {
+      const rejectionResult: PipelineResult = {
         status: 'rejected',
         reason: approvalPayload?.reason ?? 'Architect declined',
         signalId: signalKey,
       }
+      return captureTerminal(rejectionResult)
     }
 
     // ── Semantic review (Critic-at-authoring, pre-compile) ──
@@ -186,7 +221,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
           confidence: reviewConfidence,
           context: `Semantic review alignment: ${review.alignment}`,
           agentRole: 'critic',
-          workGraphId: proposalKey,
+          executableSpecificationId: proposalKey,
         })
         return { ok: true }
       })
@@ -194,7 +229,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
 
     if (review.alignment === 'miscast') {
       // Log the miscast but continue — the semantic review is advisory during bootstrap.
-      // Gate 1 is the structural gate. The Critic catches drift from Stage 2-4 reframing.
+      // Coherence Verification is structural verification. The Critic catches drift from Pressure/Capability/Proposal reframing.
       // TODO: make this configurable via hot-config (strict mode vs advisory mode)
       console.warn(`[Pipeline] Semantic review: miscast (${review.rationale?.slice(0, 100)}). Continuing to compilation.`)
     }
@@ -210,7 +245,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
         signalId: signalKey,
         title: signal.title as string,
         description: signal.description as string,
-        ...(typeof params.signal.specContent === 'string' && { specContent: params.signal.specContent }),
+        ...(typeof params.signal!.specContent === 'string' && { specContent: params.signal!.specContent }),
       }
       const result = await crystallizeIntent(
         crystallizeInput,
@@ -234,7 +269,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
       })
     }
 
-    // ── Stage 5: PRD compilation (8 passes) with inter-pass probing ──
+    // ── Intent-to-Executable compilation with inter-transformation probing ──
     //
     // C1+SE-1 resolution: probed passes (decompose, dependency, invariant) run
     // a compile-verify loop with distinct step names per remediation attempt.
@@ -259,7 +294,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
     })
 
     let compState: Record<string, unknown> = {
-      prd: proposal.prd,
+      intentSpecification: proposal.intentSpecification,
       intentAnchors,
       signalContext: {
         title: signal.title,
@@ -267,7 +302,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
         specContent: signalSpecContent,
       },
       fileContexts: compileFileContexts.fileContexts ?? [],
-      workGraph: null,
+      executableSpecification: null,
     }
 
     let intentViolation = false
@@ -291,7 +326,7 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
             : compState
           compState = await step.do(`compile-verify-${passName}-r${r}`, AI_STEP_CONFIG, async () => {
             // Compile the pass
-            const newState = toStep(await compilePRD(passName, prevState, db, this.env, dryRun))
+            const newState = toStep(await compileIntentSpecification(passName, prevState, db, this.env, dryRun))
 
             // Compute delta: only the fields added by this pass (C2)
             const delta = computeDelta(prevState, newState)
@@ -347,256 +382,234 @@ export class FactoryPipeline extends WorkflowEntrypoint<PipelineEnv, PipelinePar
         // ── Non-probed pass: simple compile ──
         const prevState = compState
         compState = await step.do(`compile-${passName}`, AI_STEP_CONFIG, async () => {
-          return toStep(await compilePRD(passName, prevState, db, this.env, dryRun))
+          return toStep(await compileIntentSpecification(passName, prevState, db, this.env, dryRun))
         }) as unknown as Record<string, unknown>
       }
     }
 
     // SE-2: Handle intent-violation escalation
     if (intentViolation) {
-      return {
+      const intentViolationResult: PipelineResult = {
         status: 'synthesis:intent-violation',
         signalId: signalKey,
         reason: `Block-severity intent anchors violated after ${MAX_REMEDIATION} remediation attempts. Violated anchors: ${((compState as Rec)._violatedAnchors ?? []).join(', ')}`,
       }
+      return captureTerminal(intentViolationResult)
     }
 
-    const wgKey = (compState.workGraph as { _key?: string })?._key ?? 'unknown'
+    const executableSpecificationKey = (compState.executableSpecification as { _key?: string })?._key ?? 'unknown'
 
-    // ── Phase D: Lifecycle → designed (after compilation) ──
-    await step.do('lifecycle-designed', DB_STEP_CONFIG, async () => {
-      await transitionLifecycle(db, proposalKey, 'designed', {
-        trigger: 'pipeline-compile',
-      }).catch((err: unknown) => {
-        console.warn(`[lifecycle] Failed to set designed: ${err instanceof Error ? err.message : err}`)
-      })
-      return { ok: true }
-    })
-
-    // Lineage: WorkGraph → Proposal (written before Gate 1 so lineage check passes)
-    await step.do('edge-workgraph-proposal', DB_STEP_CONFIG, async () => {
-      await db.saveEdge('lineage_edges', `specs_workgraphs/${wgKey}`, `specs_functions/${proposalKey}`, {
+    // Lineage: ExecutableSpecification → Proposal (written before Coherence Verification so lineage check passes)
+    await step.do('edge-executableSpecification-proposal', DB_STEP_CONFIG, async () => {
+      await db.saveEdge('lineage_edges', `executable_specifications/${executableSpecificationKey}`, `specs_functions/${proposalKey}`, {
         type: 'compiled-from', createdAt: new Date().toISOString(),
       })
       return { ok: true }
     })
 
-    // ── Gate 1: Compile coverage (deterministic) ──
-    const gate1 = await step.do('gate-1', DB_STEP_CONFIG, async () => {
-      const result = await this.env.GATES.evaluateGate1(compState.workGraph)
-      return toStep(result as unknown as Record<string, unknown>) as unknown as Gate1Report
-    }) as unknown as Gate1Report
+    // ── Coherence Verification: Compile coverage (deterministic) ──
+    const coherenceVerification = await step.do('coherence-verification', DB_STEP_CONFIG, async () => {
+      const result = await this.env.GATES.evaluateCoherenceVerification(compState.executableSpecification)
+      return toStep(result as unknown as Record<string, unknown>) as unknown as CoherenceVerificationReport
+    }) as unknown as CoherenceVerificationReport
 
-    if (!gate1.passed) {
-      await step.do('persist-gate1-failure', DB_STEP_CONFIG, async () => {
-        await db.save('specs_coverage_reports', {
-          _key: `CR-G1-${wgKey}-${Date.now().toString(36)}`,
-          type: 'gate-1',
-          passed: gate1.passed,
-          summary: gate1.summary,
-          checks: gate1.checks,
-          sourceRefs: [`WG:${wgKey}`],
-          timestamp: gate1.timestamp,
+    if (!coherenceVerification.passed) {
+      await step.do('persist-coherence-verification-failure', DB_STEP_CONFIG, async () => {
+        await db.save('verification_reports', {
+          _key: `VR-COHERENCE-${executableSpecificationKey}-${Date.now().toString(36)}`,
+          type: 'coherence-verification',
+          passed: coherenceVerification.passed,
+          summary: coherenceVerification.summary,
+          checks: coherenceVerification.checks,
+          sourceRefs: [`ES:${executableSpecificationKey}`],
+          timestamp: coherenceVerification.timestamp,
         })
-        await db.save('gate_status', {
-          _key: `gate:1:${wgKey}-${Date.now().toString(36)}`,
+        await db.save('verification_status', {
+          _key: verificationStatusKey('coherence', executableSpecificationKey),
+          family: 'coherence',
+          artifactKey: executableSpecificationKey,
           passed: false,
-          report: gate1,
+          report: coherenceVerification,
           timestamp: new Date().toISOString(),
         })
         return { persisted: true }
       })
 
-      // ── Feedback loop: Gate 1 failure → new signal ──
-      const gate1FailResult: PipelineResult = {
-        status: 'gate-1-failed',
-        report: gate1,
+      // ── Feedback loop: Coherence Verification failure → new signal ──
+      const coherenceVerificationFailResult: PipelineResult = {
+        status: COHERENCE_VERIFICATION_FAILED_STATUS,
+        report: coherenceVerification,
+        coherenceVerificationReport: coherenceVerification,
         signalId: signalKey,
       }
-      await step.do('enqueue-feedback-gate1', DB_STEP_CONFIG, async () => {
+      await step.do('enqueue-feedback-coherence-verification', DB_STEP_CONFIG, async () => {
         const feedbackDepth = typeof (signal as Rec).raw?.feedbackDepth === 'number'
           ? (signal as Rec).raw.feedbackDepth as number : 0
         await this.env.FEEDBACK_QUEUE?.send({
-          result: gate1FailResult,
+          result: coherenceVerificationFailResult,
           parentSignal: signal,
           parentFeedbackDepth: feedbackDepth,
         })
         return { enqueued: true }
       })
 
-      return gate1FailResult
+      return captureTerminal(coherenceVerificationFailResult)
     }
 
     // ── Persist gate pass ──
-    await step.do('persist-gate1-pass', DB_STEP_CONFIG, async () => {
-      await db.save('gate_status', {
-        _key: `gate:1:${wgKey}-${Date.now().toString(36)}`,
+    await step.do('persist-coherence-verification-pass', DB_STEP_CONFIG, async () => {
+      await db.save('verification_status', {
+        _key: verificationStatusKey('coherence', executableSpecificationKey),
+        family: 'coherence',
+        artifactKey: executableSpecificationKey,
         passed: true,
-        report: gate1,
+        report: coherenceVerification,
         timestamp: new Date().toISOString(),
       })
-      await db.save('specs_coverage_reports', {
-        _key: `CR-G1-${wgKey}-${Date.now().toString(36)}`,
-        type: 'gate-1',
-        passed: gate1.passed,
-        summary: gate1.summary,
-        checks: gate1.checks,
-        sourceRefs: [`WG:${wgKey}`],
-        timestamp: gate1.timestamp,
+      await db.save('verification_reports', {
+        _key: `VR-COHERENCE-${executableSpecificationKey}-${Date.now().toString(36)}`,
+        type: 'coherence-verification',
+        passed: coherenceVerification.passed,
+        summary: coherenceVerification.summary,
+        checks: coherenceVerification.checks,
+        sourceRefs: [`ES:${executableSpecificationKey}`],
+        timestamp: coherenceVerification.timestamp,
       })
       return { persisted: true }
     })
 
-    // ── Stage 6: Function synthesis (event-driven handoff) ──
+    // ── Agent Call execution / Function synthesis (event-driven handoff) ──
     // CF Workflows CANNOT communicate with DOs during step.do().
     // Instead: queue a synthesis request, wait for an external trigger
     // to call the DO via HTTP and send the result back as a workflow event.
-    if (!compState.workGraph) {
-      return {
+    if (!compState.executableSpecification) {
+      const compileIncompleteResult: PipelineResult = {
         status: 'compile-incomplete',
         signalId: signalKey,
-        reason: 'No WorkGraph produced by compilation',
+        reason: 'No ExecutableSpecification produced by compilation',
       }
+      return captureTerminal(compileIncompleteResult)
     }
 
-    const wg = compState.workGraph as { _key?: string; [k: string]: unknown }
+    const executableSpecification = compState.executableSpecification as { _key?: string; functionId?: string; [k: string]: unknown }
 
-    // Enqueue synthesis request to CF Queue.
-    // The queue consumer (queue() handler) will call the DO and send
-    // the result back as a workflow event.
-    // Thread specContent from the proposal through to the DO (when present)
-    const specContent = typeof proposal.specContent === 'string' ? proposal.specContent : undefined
-
-    await step.do('enqueue-synthesis', DB_STEP_CONFIG, async () => {
-      await this.env.SYNTHESIS_QUEUE.send({
-        workflowId: event.instanceId,
-        workGraphId: wgKey,
-        workGraph: wg,
-        dryRun,
-        ...(specContent ? { specContent } : {}),
-      })
-      return { enqueued: true }
-    })
-
-    // ── Phase D: Lifecycle → in_progress (synthesis enqueued) ──
-    await step.do('lifecycle-in-progress', DB_STEP_CONFIG, async () => {
-      await transitionLifecycle(db, proposalKey, 'in_progress', {
-        trigger: 'pipeline-enqueue-synthesis',
-      }).catch((err: unknown) => {
-        console.warn(`[lifecycle] Failed to set in_progress: ${err instanceof Error ? err.message : err}`)
-      })
-      return { ok: true }
-    })
-
-    // Wait for external trigger to complete synthesis via DO and send event
-    const synthEvent = await step.waitForEvent<{
-      verdict: { decision: string; confidence: number; reason: string }
-      tokenUsage: number
-      repairCount: number
-    }>('synthesis-complete', { type: 'synthesis-complete', timeout: '30 minutes' })
-
-    const synthPayload = synthEvent.payload as {
-      verdict: { decision: string; confidence: number; reason: string }
-      tokenUsage: number
-      repairCount: number
-    }
-
-    // ── If Phase 1 dispatched atoms, wait for Phase 2+3 completion ──
-    // When the coordinator dispatches atoms (vertical slicing), the synthesis-complete
-    // event carries verdict.decision === 'dispatched'. The actual pass/fail comes later
-    // via the 'atoms-complete' event after all atoms finish and Phase 3 runs.
-    let finalVerdict = synthPayload.verdict
-    let finalTokenUsage = synthPayload.tokenUsage
-    let finalRepairCount = synthPayload.repairCount
-    let atomResults: Record<string, unknown> | undefined
-
-    if (synthPayload.verdict.decision === 'dispatched') {
-      try {
-        const atomsEvent = await step.waitForEvent('atoms-complete', { type: 'atoms-complete', timeout: '30 minutes' })
-
-        const atomsPayload = atomsEvent.payload as {
-          verdict: { decision: string; confidence: number; reason: string }
-          tokenUsage: number
-          repairCount: number
-          atomResults?: Record<string, unknown>
-        }
-
-        // Use the atoms-complete verdict as the final synthesis result
-        finalVerdict = atomsPayload.verdict
-        finalTokenUsage = synthPayload.tokenUsage + atomsPayload.tokenUsage
-        finalRepairCount = synthPayload.repairCount + atomsPayload.repairCount
-        atomResults = atomsPayload.atomResults
-      } catch {
-        // Timeout or error waiting for atoms — report as synthesis-timeout
-        return {
-          status: 'synthesis-timeout',
-          signalId: signalKey,
-          pressureId: pressureKey,
-          capabilityId: capabilityKey,
-          proposalId: proposalKey,
-          workGraphId: wgKey,
-          gate1Report: gate1,
-          synthesisResult: {
-            verdict: { decision: 'timeout', confidence: 1.0, reason: 'Atoms did not complete within 30 minutes' },
-            tokenUsage: synthPayload.tokenUsage,
-            repairCount: synthPayload.repairCount,
-          },
-        }
-      }
-    }
-
-    // Lineage: execution artifact -> workgraph
-    await step.do('edge-synthesis-workgraph', DB_STEP_CONFIG, async () => {
-      await db.saveEdge('lineage_edges',
-        `execution_artifacts/EA-${wgKey}-synthesis`,
-        `specs_workgraphs/${wgKey}`,
-        { type: 'synthesized-from', createdAt: new Date().toISOString() },
+    // ── Build skeleton: seed repo snapshot to R2 before Gas City dispatch ──
+    // Seeds /workspace from a GitHub tarball so a baseline git commit exists and
+    // `git add -A && git diff --cached` captures every agent-written file
+    // (SPEC-FF-SEEDWORKSPACE-001). Without this the CandidatePatch is empty.
+    const skeletonResult = await step.do('build-skeleton', DB_STEP_CONFIG, async () => {
+      const fnId = (executableSpecification.functionId as string) ?? proposalKey
+      const result = await buildSkeleton(this.env as unknown as SkeletonEnv, db, fnId)
+      const baseUrl = 'https://ff-pipeline.koales.workers.dev'
+      const downloadUrl = await getSkeletonDownloadUrl(
+        baseUrl,
+        result.r2Key,
+        (this.env as unknown as SkeletonEnv).GAS_CITY_HMAC_SECRET_V1,
       )
+      return toStep({ ...result, downloadUrl })
+    }) as Rec
+
+    // ── Build Execution Packet from compiled ES (Gas City era — replaces instruction-tuning) ──
+    const executionPacket = await step.do('build-execution-packet', DB_STEP_CONFIG, async () => {
+      const isKey = ((compState.intentSpecification as Record<string, unknown>)?._key as string) ?? `IS-${executableSpecificationKey}`
+      const fnId = (executableSpecification.functionId as string) ?? proposalKey
+      const epKey = `EP-${executableSpecificationKey}`
+
+      const esBytes = new TextEncoder().encode(JSON.stringify(compState.executableSpecification))
+      const hashBuf = await crypto.subtle.digest('SHA-256', esBytes)
+      const esHash = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('')
+
+      const task = typeof (signal as Rec).raw?.description === 'string'
+        ? (signal as Rec).raw.description as string
+        : `Implement ${isKey}`
+
+      const ep = {
+        _key: epKey,
+        id: epKey,
+        functionId: fnId,
+        intentSpecificationId: isKey,
+        executableSpecificationId: executableSpecificationKey,
+        instructionTuning: { inputExecutableSpecificationHash: esHash },
+        // Skeleton vars — surfaced as top-level formula vars by the compiler so
+        // the formula `init` step can hydrate the workspace (SPEC-FF-SEEDWORKSPACE-001).
+        skeleton_r2_key: skeletonResult.r2Key as string,
+        skeleton_sha: skeletonResult.skeletonSha as string,
+        workspace_url: skeletonResult.downloadUrl as string,
+        adapter: {
+          adapterId: 'adapter.coding',
+          executionRequest: {
+            parameters: {
+              task,
+              lang: 'typescript',
+              workspace_url: skeletonResult.downloadUrl as string,
+              skeleton_sha: skeletonResult.skeletonSha as string,
+            },
+          },
+        },
+        roles: [
+          { roleId: 'planner', instruction: `Read ${executableSpecificationKey} and produce a coding plan for: ${task}`, inputs: [], outputs: [`PLAN-${executableSpecificationKey}.md`] },
+          { roleId: 'coder', instruction: `Implement the plan from ${executableSpecificationKey}: ${task}`, inputs: [`PLAN-${executableSpecificationKey}.md`], outputs: [] },
+          { roleId: 'verifier', instruction: `Verify the implementation against ${executableSpecificationKey} acceptance criteria. Approve if all pass.`, inputs: [], outputs: [] },
+        ],
+        kind: 'PipelineExecutionPacket',
+        compiled_at: new Date().toISOString(),
+        source_refs: [fnId, isKey, executableSpecificationKey],
+      }
+
+      await db.ensureCollection('execution_packets')
+      await db.save('execution_packets', ep)
+      await db.saveEdge('lineage_edges',
+        `execution_packets/${epKey}`,
+        `executable_specifications/${executableSpecificationKey}`,
+        { type: 'compiled-from', createdAt: new Date().toISOString() },
+      )
+      return toStep(ep)
+    }) as Rec
+
+    // ── Formula Dispatch: compile FORM-* and sling to Gas City ──
+    const formulaEnv = this.env as PipelineEnv & FormulaCompilerEnv
+    const dispatchResult = await step.do('dispatch-formula', DB_STEP_CONFIG, async () => {
+      const formulaDeps = buildFormulaCompilerDeps(db, formulaEnv)
+      const result = await compileAndDispatchFormula({
+        ep: executionPacket as unknown as TrellisExecutionPacket,
+        factoryAttempt: 1,
+        traceId: event.instanceId ?? crypto.randomUUID(),
+        env: formulaEnv,
+        deps: formulaDeps,
+      })
+      return toStep(result as unknown as Record<string, unknown>)
+    }) as Rec
+
+    if (dispatchResult.outcome !== 'dispatched') {
+      const dispatchFailedResult: PipelineResult = {
+        status: 'dispatch-failed',
+        signalId: signalKey,
+        executableSpecificationId: executableSpecificationKey,
+        reason: `Formula dispatch failed: ${String(dispatchResult.error ?? dispatchResult.outcome)}`,
+      }
+      return captureTerminal(dispatchFailedResult)
+    }
+
+    // ── Mark function dispatched in lifecycle ──
+    await step.do('mark-function-dispatched', DB_STEP_CONFIG, async () => {
+      await markFunctionDispatched(db as never, {
+        functionId: String(executionPacket.functionId ?? proposalKey),
+        isId: String(executionPacket.intentSpecificationId ?? ''),
+        esId: executableSpecificationKey,
+        epId: String(executionPacket.id ?? ''),
+        formId: String(dispatchResult.form_id ?? ''),
+        dispatchLogKey: String(dispatchResult.dispatch_log_key ?? ''),
+        timestamp: new Date().toISOString(),
+      })
       return { ok: true }
     })
 
-    // ── Phase D: Lifecycle → produced (if synthesis passed) ──
-    if (finalVerdict.decision === 'pass') {
-      await step.do('lifecycle-produced', DB_STEP_CONFIG, async () => {
-        await transitionLifecycle(db, proposalKey, 'produced', {
-          trigger: 'pipeline-synthesis-pass',
-        }).catch((err: unknown) => {
-          console.warn(`[lifecycle] Failed to set produced: ${err instanceof Error ? err.message : err}`)
-        })
-        return { ok: true }
-      })
-    }
-
-    // ── Feedback loop: synthesis result → new signal ──
-    const finalResult: PipelineResult = {
-      status: finalVerdict.decision === 'pass'
-        ? 'synthesis-passed'
-        : `synthesis-${finalVerdict.decision}`,
+    const dispatchedResult: PipelineResult = {
+      status: 'dispatched',
       signalId: signalKey,
-      pressureId: pressureKey,
-      capabilityId: capabilityKey,
-      proposalId: proposalKey,
-      workGraphId: wgKey,
-      gate1Report: gate1,
-      synthesisResult: {
-        verdict: finalVerdict,
-        tokenUsage: finalTokenUsage,
-        repairCount: finalRepairCount,
-      },
-      ...(atomResults ? { atomResults } : {}),
+      executableSpecificationId: executableSpecificationKey,
+      coherenceVerificationReport: coherenceVerification,
     }
-
-    await step.do('enqueue-feedback', DB_STEP_CONFIG, async () => {
-      const feedbackDepth = typeof (signal as Rec).raw?.feedbackDepth === 'number'
-        ? (signal as Rec).raw.feedbackDepth as number : 0
-      await this.env.FEEDBACK_QUEUE?.send({
-        result: finalResult,
-        parentSignal: signal,
-        parentFeedbackDepth: feedbackDepth,
-      })
-      return { enqueued: true }
-    })
-
-    return finalResult
+    return captureTerminal(dispatchedResult)
   }
 }

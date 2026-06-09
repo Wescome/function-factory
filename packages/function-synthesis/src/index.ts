@@ -1,7 +1,7 @@
 /**
  * @factory/function-synthesis — public API
  *
- * Synthesizes a compiled WorkGraph + ArchitectureCandidate into a
+ * Synthesizes a compiled ExecutableSpecification + ArchitectureCandidate into a
  * complete Function implementation through a five-role topology
  * with pluggable binding modes.
  */
@@ -25,7 +25,7 @@ export {
   ContractSurfaceCheck,
   RoleAdherenceEntry,
   RoleAdherenceReport,
-  Gate2Input,
+  FidelityVerificationInput,
   SynthesisCandidateSelectionReport,
   PatchProposal,
   SynthesisResult,
@@ -66,7 +66,11 @@ export type { DisagreementConditions, DisagreementResolution } from "./disagreem
 export { resolveDisagreement } from "./disagreement.js"
 
 // ─── Evidence ─────────────────────────────────────────────────────────
-export { buildTraceLog, buildGate2Input, buildCandidateSelectionReport } from "./evidence.js"
+export {
+  buildTraceLog,
+  buildFidelityVerificationInput,
+  buildCandidateSelectionReport,
+} from "./evidence.js"
 
 // ─── Memory ───────────────────────────────────────────────────────────
 export { MemoryWriteCollector } from "./memory-tool.js"
@@ -80,7 +84,7 @@ export { DefaultCodeEmitter, DryRunCodeEmitter, orchestrate } from "./orchestrat
 
 // ─── Top-level convenience ────────────────────────────────────────────
 
-import type { ArchitectureCandidate, WorkGraph } from "@factory/schemas"
+import type { ArchitectureCandidate, ExecutableSpecification } from "@factory/schemas"
 import type { BindingMode } from "./binding-mode.js"
 import type { SynthesisConfig } from "./orchestrate.js"
 import type { CodeEmitter } from "./orchestrate.js"
@@ -88,19 +92,19 @@ import { orchestrate } from "./orchestrate.js"
 import { DryRunCodeEmitter } from "./orchestrate.js"
 
 /**
- * Synthesize a Function from a compiled WorkGraph and ArchitectureCandidate.
+ * Synthesize a Function from a compiled ExecutableSpecification and ArchitectureCandidate.
  *
  * This is the primary public API entry point.
  */
 export async function synthesize(
-  workGraph: WorkGraph,
+  executableSpecification: ExecutableSpecification,
   candidate: ArchitectureCandidate,
   bindingMode: BindingMode,
   config: SynthesisConfig,
   codeEmitter?: CodeEmitter,
 ): Promise<import("./types.js").SynthesisResult> {
   return orchestrate(
-    workGraph,
+    executableSpecification,
     candidate,
     bindingMode,
     config,

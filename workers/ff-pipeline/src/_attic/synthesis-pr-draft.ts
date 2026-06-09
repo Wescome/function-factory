@@ -1,0 +1,123 @@
+import { buildBranchName } from './stages/generate-pr'
+
+export interface SynthesisMaterializationAudit {
+  type: 'synthesis_artifact_materialization'
+  timestamp: string
+  pipelineId: string
+  runtimeStatus: string
+  signalId: string
+  pressureId: string
+  capabilityId: string
+  proposalId: string
+  executableSpecificationId: string
+  coherenceVerificationPassed?: boolean
+  atomResults: Array<{
+    atomId: string
+    decision: string
+    confidence: number
+    tests: string
+  }>
+  materializedFiles: Array<{
+    atomId: string
+    path: string
+    action: string
+    sha256: string
+  }>
+  localVerification: string[]
+  notes?: string
+}
+
+export interface SynthesisPullRequestDraft {
+  title: string
+  branchName: string
+  baseBranch: 'main'
+  body: string
+  sourceRefs: string[]
+  proposalId: string
+  executableSpecificationId: string
+}
+
+export class SynthesisPullRequestDraftError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'SynthesisPullRequestDraftError'
+  }
+}
+
+export function auditCoherenceVerificationPassed(audit: SynthesisMaterializationAudit): boolean {
+  return audit.coherenceVerificationPassed ?? audit.coherenceVerificationPassed ?? false
+}
+
+function assertReadyForPR(audit: SynthesisMaterializationAudit): void {
+  if (audit.runtimeStatus !== 'synthesis-passed') {
+    throw new SynthesisPullRequestDraftError(`Runtime status must be synthesis-passed, got ${audit.runtimeStatus}`)
+  }
+  if (!auditCoherenceVerificationPassed(audit)) {
+    throw new SynthesisPullRequestDraftError('Coherence Verification must pass before building a synthesis PR draft')
+  }
+  if (audit.materializedFiles.length === 0) {
+    throw new SynthesisPullRequestDraftError('At least one materialized file is required for a synthesis PR draft')
+  }
+  for (const atom of audit.atomResults) {
+    if (atom.decision !== 'pass') {
+      throw new SynthesisPullRequestDraftError(`Atom ${atom.atomId} must pass before building a synthesis PR draft`)
+    }
+  }
+}
+
+export function buildSynthesisPullRequestDraft(audit: SynthesisMaterializationAudit): SynthesisPullRequestDraft {
+  assertReadyForPR(audit)
+  const coherenceVerificationPassed = auditCoherenceVerificationPassed(audit)
+
+  const sourceRefs = [
+    audit.signalId,
+    audit.pressureId,
+    audit.capabilityId,
+    audit.proposalId,
+    audit.executableSpecificationId,
+  ]
+
+  const body: string[] = [
+    '## Factory Synthesis Materialization',
+    '',
+    `Pipeline: \`${audit.pipelineId}\``,
+    `ExecutableSpecification: \`${audit.executableSpecificationId}\``,
+    `Proposal: \`${audit.proposalId}\``,
+    `Runtime status: \`${audit.runtimeStatus}\``,
+    `Coherence Verification: \`${coherenceVerificationPassed ? 'pass' : 'fail'}\``,
+    `Materialized at: \`${audit.timestamp}\``,
+    '',
+    '### Lineage',
+    '',
+    ...sourceRefs.map(ref => `- \`${ref}\``),
+    '',
+    '### Atom Results',
+    '',
+    ...audit.atomResults.map(atom => `- \`${atom.atomId}\`: ${atom.decision}, confidence ${atom.confidence}, tests ${atom.tests}`),
+    '',
+    '### Materialized Files',
+    '',
+    ...audit.materializedFiles.map(file => `- \`${file.action}\` \`${file.path}\` (${file.atomId}) sha256 \`${file.sha256}\``),
+    '',
+    '### Local Verification',
+    '',
+    ...audit.localVerification.map(item => `- ${item}`),
+    '',
+    '### Notes',
+    '',
+    audit.notes ?? 'No additional notes.',
+    '',
+    '---',
+    '_Prepared by the Function Factory synthesis artifact handoff._',
+  ]
+
+  return {
+    title: `[Factory] Materialize ${audit.executableSpecificationId} synthesis artifact`,
+    branchName: buildBranchName(audit.proposalId),
+    baseBranch: 'main',
+    body: body.join('\n'),
+    sourceRefs,
+    proposalId: audit.proposalId,
+    executableSpecificationId: audit.executableSpecificationId,
+  }
+}

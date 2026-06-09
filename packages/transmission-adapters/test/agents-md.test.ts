@@ -6,7 +6,7 @@
  * 2. Includes build commands
  * 3. Includes conventions
  * 4. Includes artifact prefixes
- * 5. No Factory-internal vocabulary (no "atom", "WorkGraph", "Pipeline" internals)
+ * 5. No Factory-internal vocabulary (no "atom", "ExecutableSpecification", "Pipeline" internals)
  * 6. Handles optional architectureDescription
  */
 
@@ -34,12 +34,12 @@ const fullInput: AgentsMdInput = {
     'PRS-*': 'Pressures',
     'BC-*': 'Capabilities',
     'FN-*': 'Functions',
-    'PRD-*': 'PRDs',
-    'WG-*': 'WorkGraphs',
+    'IS-*': 'Intent Specifications',
+    'ES-*': 'ExecutableSpecifications',
     'INV-*': 'Invariants',
-    'CR-*': 'Coverage Reports',
+    'VR-*': 'Verification Reports',
   },
-  architectureDescription: 'Event-driven pipeline with coverage gates. Pressures flow through compilation stages to produce verified Functions.',
+  architectureDescription: 'Event-driven pipeline with verification checks. Pressures flow through compilation stages to produce verified Functions.',
 }
 
 const minimalInput: AgentsMdInput = {
@@ -104,7 +104,7 @@ describe('agents-md substrate', () => {
       const result = formatForAgentsMd(fullInput)
 
       expect(result).toContain('## Architecture')
-      expect(result).toContain('Event-driven pipeline with coverage gates')
+      expect(result).toContain('Event-driven pipeline with verification checks')
     })
   })
 
@@ -165,7 +165,7 @@ describe('agents-md substrate', () => {
       expect(result).not.toMatch(/\bRequirementAtom\b/)
       expect(result).not.toMatch(/\bCodeArtifact\b/)
       expect(result).not.toMatch(/\bGraphState\b/)
-      expect(result).not.toMatch(/\bPipelineWorkGraph\b/)
+      expect(result).not.toMatch(/\bPipelineExecutableSpecification\b/)
       expect(result).not.toMatch(/\bCoderAgent\b/)
       expect(result).not.toMatch(/\bCoderInput\b/)
       expect(result).not.toMatch(/\bFactorySpecification\b/)

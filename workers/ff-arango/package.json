@@ -1,0 +1,19 @@
+{
+  "name": "ff-arango",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ArangoDB running as a Cloudflare Container Worker",
+  "type": "module",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260501.0",
+    "typescript": "^5.6.0",
+    "wrangler": "^4.0.0"
+  },
+  "dependencies": {
+    "@cloudflare/containers": "^0.3.5"
+  }
+}

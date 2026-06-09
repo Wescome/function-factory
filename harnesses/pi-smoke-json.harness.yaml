@@ -1,0 +1,48 @@
+nlahspec: "0.2"
+
+lineage:
+  source_refs:
+    - IS-HARNESS-DSL-v1
+    - ADR-009-nlah-runtime-replaces-state-graph
+
+harness:
+  name: PI_SMOKE_JSON
+  task_family: pi_container_contract_smoke
+  objective: >
+    Validate json.required_fields contract enforcement: pi must write
+    artifacts/smoke.json with top-level keys status, runId, and elapsedMs.
+
+runtime:
+  state_root: state
+  artifact_root: artifacts
+  graph_mode: linear
+  default_failure_action: abort
+  max_repair_rounds: 2
+
+roles:
+  SmokeJsonWriter:
+    responsibility: >
+      Write artifacts/smoke.json as a valid JSON object containing
+      status (string), runId (string), and elapsedMs (number).
+
+artifacts:
+  SmokeJsonArtifact:
+    path: artifacts/smoke.json
+    required: true
+    contract:
+      kind: json
+      required_fields: [status, runId, elapsedMs]
+
+stages:
+  SMOKE:
+    from: TaskReceived
+    to: SmokeJsonComplete
+    role: SmokeJsonWriter
+    worker: pi
+    outputs: [SmokeJsonArtifact]
+    gate:
+      all:
+        - { exists: SmokeJsonArtifact }
+
+failure_taxonomy:
+  missing_artifact: mark_incomplete

@@ -4,15 +4,15 @@ This file is the map. Read it before doing anything.
 
 ## Who you are
 
-You are a coding agent working on the **Function Factory** — a closed-loop
-compiler that turns Pressures (forcing functions on the organization) into
-trustworthy executable Functions. See `README.md` for the project shape and
-`specs/` for current Factory artifacts.
+You are an implementation agent working on the **Function Factory** — a
+domain-neutral closed-loop compiler that turns Pressures (forcing functions on
+the organization or system) into trustworthy executable Functions. See
+`README.md` for the project shape and `specs/` for current Factory artifacts.
 
 The Factory is being built by the Factory. That means the work you do here is
 itself subject to Factory discipline: every artifact you produce carries
-lineage, every invariant you specify must have a detector, every PR must cite
-the Function ID it implements.
+lineage, every invariant you specify must have a detector, every change must
+cite the Function ID it implements.
 
 ## What to read, in order
 
@@ -34,10 +34,11 @@ the Function ID it implements.
 
 ## Factory-specific conventions
 
-- **Artifact IDs.** Pressures `PRS-*`, Capabilities `BC-*`, Functions `FN-*`,
-  PRDs `PRD-*`, WorkGraphs `WG-*`, Invariants `INV-*`, Coverage Reports
-  `CR-*`, Trajectories `TRJ-*`, ProblemFrames `PF-*`, FunctionProposals
-  `FP-*`, Incidents `INC-*`.
+- **Artifact IDs.** Prefixes are stable implementation identifiers, not
+  ontology names. Pressures `PRS-*`, Capabilities `BC-*`, Functions `FN-*`,
+  Intent Specifications/Intent Specifications `IS-*`, Executable Specifications/Executable Specifications
+  `ES-*`, Invariants `INV-*`, Verification Reports `VR-*`, Trajectories
+  `TRJ-*`, ProblemFrames `PF-*`, FunctionProposals `FP-*`, Incidents `INC-*`.
 - **Lineage fields.** Every artifact has a `source_refs` array. It must be
   populated with the IDs of every upstream artifact that contributed to it.
   No exceptions.
@@ -47,8 +48,11 @@ the Function ID it implements.
 - **Uncertainty ledger.** When a compiler pass cannot confidently produce an
   artifact, it emits an UncertaintyEntry instead of guessing. Never guess.
 - **Commit message format.** `FN-XXX: summary` for Function work,
-  `GATE-N: summary` for Coverage Gate work, `META: summary` for
+  `VERIFICATION: summary` for Verification work, `META: summary` for
   Factory-about-the-Factory changes, `INFRA: summary` for repo plumbing.
+- **Domain adapter boundary.** Coding concepts such as repositories, branches,
+  diffs, pull requests, CI checks, code review, and deployments belong to the
+  coding Domain Adapter. They are not Factory kernel categories.
 
 ## Rules
 
@@ -62,13 +66,14 @@ the Function ID it implements.
    permission seems wrong rather than bypassing it.
 5. **When a skill's self-rewrite hook fires, propose conservative edits only.**
    Aggressive rewrites ossify into ossified mistakes.
-6. **Never generate a WorkGraph that fails Gate 1.** The Compile Coverage Gate
-   is the entry point to the rest of the system. A failed Gate 1 means the
-   PRD is incomplete; go back upstream, do not proceed.
-7. **Never promote a Function from `verified` to `monitored` without Gate 2
-   passing.** Simulation coverage is a hard precondition.
-8. **Never mark a Function `monitored` without active Gate 3 monitoring.**
-   Detector freshness is continuous; silence is a regression.
+6. **Never generate an Executable Specification that fails Coherence
+   Verification.** A failed Coherence Verification means the Intent
+   Specification is incomplete; go back upstream, do not proceed.
+7. **Never promote a Function from `verified` to `monitored` without Fidelity
+   Verification passing.** Fidelity evidence is a hard precondition.
+8. **Never mark a Function `monitored` without active Persistence
+   Verification monitoring.** Detector freshness is continuous; silence is a
+   regression.
 
 ## Bootstrap state
 
@@ -79,10 +84,11 @@ The Factory is in the `bootstrap` phase. In this phase:
 - The first Pressures are meta-Pressures — forcing functions that the
   Factory's own construction is responding to.
 - The first Capabilities are the Factory's own required abilities
-  (Compile PRDs, Execute WorkGraphs, Compute Trust, etc.).
-- The first Functions *are* the Factory. Every compiler pass, every gate,
+  (compile Intent Specifications, execute Executable Specifications, compute
+  trust, etc.).
+- The first Functions *are* the Factory. Every compiler pass, every Verification,
   every schema validator is a Function with a full lineage.
-- Coverage Reports are generated even when coverage fails. The Report is the
+- Verification Reports are generated even when Verification fails. The Report is the
   product at this stage, more than the implementation it reports on.
 
 ## How to behave

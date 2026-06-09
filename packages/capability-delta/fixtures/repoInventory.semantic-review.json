@@ -2,7 +2,7 @@
   "packages": {
     "@factory/schemas": "implemented",
     "@factory/compiler": "implemented",
-    "@factory/coverage-gates": "implemented",
+    "@factory/verification": "implemented",
     "@factory/runtime": "stub",
     "@factory/assurance-graph": "stub",
     "@factory/harness-bridge": "missing"
@@ -12,20 +12,20 @@
     "Pressure",
     "BusinessCapability",
     "FunctionProposal",
-    "PRDDraft",
+    "IntentSpecification",
     "RequirementAtom",
     "Contract",
     "Invariant",
     "Dependency",
     "ValidationSpec",
-    "WorkGraph",
+    "ExecutableSpecification",
     "TrustSignal",
     "Trajectory",
     "ProblemFrame",
     "Incident",
-    "Gate1Report",
-    "Gate2Report",
-    "Gate3Report",
+    "CoherenceVerificationReport",
+    "FidelityVerificationReport",
+    "PersistenceVerificationReport",
     "CommitTriageReport",
     "CapabilityDelta"
   ],
@@ -35,13 +35,13 @@
     "capabilities": 5,
     "functions": 7,
     "prds": 4,
-    "workgraphs": 4,
-    "coverageReports": 9,
+    "executableSpecifications": 4,
+    "verificationReports": 9,
     "deltas": 1
   },
   "runners": [
     "compiler",
-    "gate-1",
+    "coherence-verification",
     "capability-delta-runner"
   ],
   "tests": {
@@ -53,7 +53,7 @@
     "capabilityDelta": 11
   },
   "notes": [
-    "Gate 1 exists but no semantic review runner exists between Gate 1 and WorkGraph emission.",
+    "Coherence Verification exists but no semantic review runner exists between Coherence Verification and ExecutableSpecification emission.",
     "No SemanticReviewReport schema or SRR-* artifact family exists yet.",
     "ArchitectureCandidate schema and AC-* artifact family are still absent."
   ]

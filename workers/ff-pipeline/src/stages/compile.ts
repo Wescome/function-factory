@@ -28,7 +28,7 @@ const PASS_TASK_KINDS: Record<PassName, string> = {
 }
 
 const PASS_PROMPTS: Record<PassName, string> = {
-  decompose: `Decompose this PRD into requirement atoms. Each atom is a verifiable claim about what the system must do — it must be truth-apt (can be checked as true or false) and independently implementable.
+  decompose: `Decompose this Intent Specification into requirement atoms. Each atom is a verifiable claim about what the system must do — it must be truth-apt (can be checked as true or false) and independently implementable.
 
 Produce ONLY implementation atoms. Do NOT produce test atoms — testing is handled by the Tester role downstream.
 
@@ -46,11 +46,11 @@ If violationFeedback is provided, your previous attempt violated intent anchors.
 Follow violationFeedback.instruction exactly. Required claims must be addressed in atom title, description, or verifies.
 Avoidance claims must be satisfied by absence: do not include atom wording, target files, or planned work that would make an avoidance probe answer yes.
 
-Output ONLY the new atoms — do NOT repeat the PRD or any other state. Output JSON: { "atoms": [{ "id": "atom-001", "type": "implementation", "title": "...", "description": "...", "verifies": "...", "targetFiles": ["path/to/file.ts"] }] }`,
+Output ONLY the new atoms — do NOT repeat the Intent Specification or any other state. Output JSON: { "atoms": [{ "id": "atom-001", "type": "implementation", "title": "...", "description": "...", "verifies": "...", "targetFiles": ["path/to/file.ts"] }] }`,
 
   dependency: `Given atoms, identify dependencies between them. Dependencies use ATOM IDs (format "atom-001", "atom-002") as from/to values — never file paths. If there is only one atom, output an empty dependencies array. Output ONLY the new dependencies. Output JSON: { "dependencies": [{ "from": "atom-001", "to": "atom-002", "type": "requires | enables | conflicts" }] }`,
 
-  invariant: `Extract invariants from the PRD + atoms. Each invariant is a property that must always hold. Include a detector spec (how to check it). Output ONLY the new invariants — do NOT repeat atoms, PRD, or any other state. Output JSON: { "invariants": [{ "id": "INV-*", "property": "...", "detector": { "type": "...", "check": "..." } }] }`,
+  invariant: `Extract invariants from the Intent Specification + atoms. Each invariant is a property that must always hold. Include a detector spec (how to check it). Output ONLY the new invariants — do NOT repeat atoms, Intent Specification, or any other state. Output JSON: { "invariants": [{ "id": "INV-*", "property": "...", "detector": { "type": "...", "check": "..." } }] }`,
 
   interface: `Define typed interfaces between dependent atoms. Each interface specifies the data contract. Output ONLY the new interfaces — do NOT repeat atoms, dependencies, or any other state. Output JSON: { "interfaces": [{ "from": "atom-id", "to": "atom-id", "contract": { "input": {...}, "output": {...} } }] }`,
 
@@ -147,7 +147,7 @@ function decodeBase64(encoded: string): string {
   return new TextDecoder().decode(bytes)
 }
 
-export async function compilePRD(
+export async function compileIntentSpecification(
   passName: PassName,
   state: Record<string, unknown>,
   db: ArangoClient,
@@ -165,7 +165,7 @@ async function runDryPass(
   state: Record<string, unknown>,
   db: ArangoClient,
 ): Promise<Record<string, unknown>> {
-  const prd = state.prd as Record<string, unknown>
+  const intentSpecification = state.intentSpecification as Record<string, unknown>
 
   switch (passName) {
     case 'decompose':
@@ -174,8 +174,8 @@ async function runDryPass(
         atoms: [{
           id: 'atom-001',
           type: 'implementation',
-          title: `Implement ${prd?.title ?? 'TBD'}`,
-          description: prd?.objective ?? 'Dry-run atom',
+          title: `Implement ${intentSpecification?.title ?? 'TBD'}`,
+          description: intentSpecification?.objective ?? 'Dry-run atom',
           binding: null,
           critical: true, // implementation atoms are always critical
         }],
@@ -187,7 +187,7 @@ async function runDryPass(
     case 'invariant':
       return {
         ...state,
-        invariants: (prd?.invariants as string[] ?? []).map((inv: string, i: number) => ({
+        invariants: (intentSpecification?.invariants as string[] ?? []).map((inv: string, i: number) => ({
           id: `INV-${String(i + 1).padStart(3, '0')}`,
           property: inv,
           detector: { type: 'manual', check: 'TBD' },
@@ -212,13 +212,13 @@ async function runDryPass(
       return { ...state, validations: [] }
 
     case 'assembly': {
-      const wgKey = `WG-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
-      const prdKey = (state.prd as Record<string, unknown>)?._key ?? 'unknown'
-      const workGraph = {
-        _key: wgKey,
-        type: 'workgraph',
-        title: prd?.title ?? 'Dry-run WorkGraph',
-        prdId: prdKey,
+      const executableSpecificationKey = `ES-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
+      const intentSpecificationKey = (state.intentSpecification as Record<string, unknown>)?._key ?? 'unknown'
+      const executableSpecification = {
+        _key: executableSpecificationKey,
+        type: 'executableSpecification',
+        title: intentSpecification?.title ?? 'Dry-run ExecutableSpecification',
+        intentSpecificationId: intentSpecificationKey,
         atoms: ((state.atoms ?? []) as Record<string, unknown>[]).map(a => ({
           ...a,
           critical: a.critical ?? (a.type === 'config' || a.type === 'test' ? false : true),
@@ -231,12 +231,12 @@ async function runDryPass(
         repo: { url: 'https://github.com/Wescome/function-factory', ref: 'main' },
         fileScope: { include: ['src/**'], exclude: ['node_modules/**'] },
         commandPolicy: { allow: ['npm test', 'npm run build', 'npm run lint'] },
-        sourceRefs: [`PRD:${prdKey}`],
+        sourceRefs: [`Intent Specification:${intentSpecificationKey}`],
         compiledBy: 'dry-run',
         createdAt: new Date().toISOString(),
       }
-      await db.save('specs_workgraphs', workGraph)
-      return { ...state, workGraph }
+      await db.save('executable_specifications', executableSpecification)
+      return { ...state, executableSpecification }
     }
 
     case 'verification':
@@ -275,7 +275,7 @@ async function runLivePass(
     }
     // Strip test atoms — implementation-only synthesis for mergeable PRs
     boundAtoms = (boundAtoms as Record<string, unknown>[]).filter(a => a.type !== 'test')
-    // Safety net: ensure every atom has binding + implementation for Gate 1
+    // Safety net: ensure every atom has binding + implementation for Coherence Verification.
     boundAtoms = (boundAtoms as Record<string, unknown>[]).map((a, i) => ({
       ...a,
       id: a.id ?? `atom-${String(i + 1).padStart(3, '0')}`,
@@ -295,9 +295,9 @@ async function runLivePass(
   switch (passName) {
     case 'decompose': {
       // Context compression for llama-70b's 8K window:
-      // Send PRD summary (not full), signal specContent, and file exports (not raw content)
-      const prd = state.prd as Record<string, unknown> | undefined
-      context.prd = prd ? { title: prd.title, objective: prd.objective, atoms: prd.atoms, invariants: prd.invariants } : state.prd
+      // Send Intent Specification summary (not full), signal specContent, and file exports (not raw content)
+      const intentSpecification = state.intentSpecification as Record<string, unknown> | undefined
+      context.intentSpecification = intentSpecification ? { title: intentSpecification.title, objective: intentSpecification.objective, atoms: intentSpecification.atoms, invariants: intentSpecification.invariants } : state.intentSpecification
       if (state.signalContext) context.signalContext = state.signalContext
       if (state._violationFeedback) context.violationFeedback = state._violationFeedback
       if (Array.isArray(state.fileContexts) && state.fileContexts.length > 0) {
@@ -318,7 +318,7 @@ async function runLivePass(
       }))
       break
     case 'invariant':
-      context.prd = state.prd
+      context.intentSpecification = state.intentSpecification
       // Anti-corruption: strip file paths — invariants reference atom semantics, not files
       context.atoms = ((state.atoms ?? []) as Record<string, unknown>[]).map(a => ({
         id: a.id, type: a.type, title: a.title, description: a.description,

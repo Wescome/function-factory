@@ -32,9 +32,9 @@ describe("role-contracts", () => {
     }
   })
 
-  it("Planner reads the expected fields per PRD constraints", () => {
+  it("Planner reads the expected fields per Intent Specification constraints", () => {
     expect(PlannerContract.reads).toContain("specEnvelope")
-    expect(PlannerContract.reads).toContain("workGraph")
+    expect(PlannerContract.reads).toContain("executableSpecification")
     expect(PlannerContract.reads).toContain("activeCandidate")
     expect(PlannerContract.writes).toEqual(["plan"])
   })

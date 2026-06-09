@@ -8,11 +8,11 @@ events. It also includes a local JSONL queue reference implementation for
 production-alpha dogfooding. Runtime implementations consume these contracts
 from:
 
-1. WorkGraph node selected by the Governor.
+1. ExecutableSpecification node selected by the Governor.
 2. `AgentRequest` written to the queue.
 3. Codex runner claims the request and opens a PR branch.
 4. `AgentResult` returns test, diff, artifact, and PR evidence.
-5. Coverage and verifier components decide the next WorkGraph node.
+5. Verification and verifier components decide the next ExecutableSpecification node.
 
 The initial operational posture is PR/branch mode. Direct default-branch
 mutation, production deploys, force-pushes, and secret edits are explicitly

@@ -18,8 +18,8 @@
     "compile": "pnpm --filter @factory/compiler run compile",
     "delta:test": "pnpm --filter @factory/capability-delta run test",
     "delta:typecheck": "pnpm --filter @factory/capability-delta run typecheck",
-    "prd-authoring:test": "pnpm --filter @factory/prd-authoring run test",
-    "prd-authoring:typecheck": "pnpm --filter @factory/prd-authoring run typecheck",
+    "intent-authoring:test": "pnpm --filter @factory/intent-authoring run test",
+    "intent-authoring:typecheck": "pnpm --filter @factory/intent-authoring run typecheck",
     "recursion-governance:test": "pnpm --filter @factory/recursion-governance run test",
     "recursion-governance:typecheck": "pnpm --filter @factory/recursion-governance run typecheck",
     "architecture-candidates:test": "pnpm --filter @factory/architecture-candidates run test",
@@ -49,8 +49,18 @@
     "autonomous-scheduler:test": "pnpm --filter @factory/autonomous-scheduler run test",
     "autonomous-scheduler:typecheck": "pnpm --filter @factory/autonomous-scheduler run typecheck",
     "autonomous-scheduler:cli": "tsx packages/autonomous-scheduler/src/cli.ts",
+    "audit:docs": "node scripts/audit-docs.mjs",
+    "audit:ontology": "node scripts/audit-ontology-hard-cut.mjs",
+    "watch:run": "node scripts/ops/watch-run.mjs",
+    "run:note": "node scripts/ops/control-run.mjs note",
+    "run:cancel": "node scripts/ops/control-run.mjs cancel",
+    "run:retry": "node scripts/ops/control-run.mjs retry-stage",
+    "run:redispatch": "node scripts/ops/control-run.mjs redispatch-stage",
+    "prod:smoke:controls": "node scripts/ops/prod-live-control-smoke.mjs",
+    "slo:dashboard": "node scripts/ops/slo-dashboard.mjs",
     "dream": "tsx .agent/tools/dream.ts",
-    "bootstrap": "tsx scripts/bootstrap.ts"
+    "bootstrap": "tsx scripts/bootstrap.ts",
+    "rotate:singleton": "bash scripts/rotate-singleton.sh"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
@@ -59,9 +69,15 @@
     "vitest": "^1.4.0",
     "yaml": "^2.4.0"
   },
+  "overrides": {
+    "unicorn-magic": "0.4.0"
+  },
   "pnpm": {
     "peerDependencyRules": {
       "ignoreMissing": []
+    },
+    "overrides": {
+      "execa": "^8.0.0"
     }
   },
   "workspaces": [

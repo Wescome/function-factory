@@ -102,13 +102,13 @@ function makeAtomSpec() {
     atomId: 'atom-001',
     atomSpec: { id: 'atom-001', description: 'Test atom' },
     sharedContext: {
-      workGraphId: 'WG-TEST',
+      executableSpecificationId: 'ES-TEST',
       specContent: null,
       briefingScript: { goal: 'test' },
     },
     upstreamArtifacts: {},
     workflowId: 'wf-123',
-    workGraphId: 'WG-TEST',
+    executableSpecificationId: 'ES-TEST',
     maxRetries: 3,
     dryRun: true,
   }
@@ -208,7 +208,7 @@ describe('v5.1: AtomExecutor DO', () => {
     const atomResultsQueue = env.ATOM_RESULTS as { send: ReturnType<typeof vi.fn> }
     expect(atomResultsQueue.send).toHaveBeenCalledOnce()
     const sentMessage = atomResultsQueue.send.mock.calls[0]![0] as Record<string, unknown>
-    expect(sentMessage.workGraphId).toBe('WG-TEST')
+    expect(sentMessage.executableSpecificationId).toBe('ES-TEST')
     expect(sentMessage.atomId).toBe('atom-001')
     expect((sentMessage.result as Record<string, unknown>).atomId).toBe('atom-001')
   })
@@ -222,7 +222,7 @@ describe('v5.1: AtomExecutor DO', () => {
 
     // Store the atom spec metadata (normally set during fetch)
     ctx.storage._data.set('__atomId', 'atom-001')
-    ctx.storage._data.set('__workGraphId', 'WG-TEST')
+    ctx.storage._data.set('__executableSpecificationId', 'ES-TEST')
     ctx.storage._data.set('__workflowId', 'wf-123')
     // No __completed flag → alarm should fire
 
@@ -233,7 +233,7 @@ describe('v5.1: AtomExecutor DO', () => {
 
     const sentMessage = atomResultsQueue.send.mock.calls[0]![0] as Record<string, unknown>
     expect(sentMessage.atomId).toBe('atom-001')
-    expect(sentMessage.workGraphId).toBe('WG-TEST')
+    expect(sentMessage.executableSpecificationId).toBe('ES-TEST')
     const result = sentMessage.result as Record<string, unknown>
     const verdict = result.verdict as Record<string, unknown>
     expect(verdict.decision).toBe('fail')

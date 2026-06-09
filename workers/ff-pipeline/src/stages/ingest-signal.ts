@@ -40,6 +40,7 @@ export async function ingestSignal(
     idempotencyKey,
     status: 'ingested',
     subtype: input.subtype,
+    raw: input.raw,
     specContent: input.specContent,
     createdAt: new Date().toISOString(),
   }

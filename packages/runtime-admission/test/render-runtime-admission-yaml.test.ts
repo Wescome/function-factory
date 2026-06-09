@@ -5,13 +5,13 @@ import { renderRuntimeAdmissionYaml } from "../src/render-runtime-admission-yaml
 describe("renderRuntimeAdmissionYaml", () => {
   it("renders deterministic yaml", () => {
     const result = evaluateRuntimeAdmission({
-      sourceWorkGraphId: "WG-META-ARCHITECTURE-CANDIDATE-EXECUTION",
+      sourceExecutableSpecificationId: "ES-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       sourceArchitectureCandidateId: "AC-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       sourceSelectionId: "ACS-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       selectionDecision: "selected",
       bootstrapMode: true,
       sourceRefs: [
-        "PRD-META-ARCHITECTURE-CANDIDATE-EXECUTION",
+        "IS-META-ARCHITECTURE-CANDIDATE-EXECUTION",
         "AC-META-ARCHITECTURE-CANDIDATE-EXECUTION",
         "ACS-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       ],

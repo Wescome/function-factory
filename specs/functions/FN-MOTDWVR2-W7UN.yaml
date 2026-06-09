@@ -1,0 +1,70 @@
+id: FN-MOTDWVR2-W7UN
+source_refs:
+  - IS-META-FUNCTION-SYNTHESIS
+  - BC-META-FUNCTION-SYNTHESIS
+  - ES-META-FUNCTION-SYNTHESIS
+explicitness: inferred
+rationale: >
+  Stage 8 Merge Readiness Pack assembly deterministically materialized this
+  Function identity from FunctionProposal identity FP-MOTDWVR2-W7UN via the
+  active FP-* to FN-* suffix-preserving rule. The runtime dogfood evidence is
+  preserved as runtime_refs because those IDs were emitted by the live Factory
+  pipeline and are not yet materialized as specs/ artifacts.
+
+type: execution
+capability_ref: BC-META-FUNCTION-SYNTHESIS
+proposal_ref: FP-MOTDWVR2-W7UN
+
+summary: >
+  Runtime verification artifact materialized by the Factory dogfood synthesis
+  loop for Executable Specification ES-MOTE4M1R-G7I0.
+
+runtime_refs:
+  pipeline_id: b1b51f73-416d-4d87-90a5-9ccaa12bec76
+  signal_id: SIG-MOTDWPYM-LTW5
+  pressure_id: PRS-MOTDWQ0T-S55Y
+  capability_id: BC-MOTDWSVY-PQOO
+  proposal_id: FP-MOTDWVR2-W7UN
+  executable-specification_id: ES-MOTE4M1R-G7I0
+  latest_pr_outcome_signal_id: SIG-MOVZUL8I-0DYR
+  merge_readiness_pack_id: MRP-MOTE4M1R-G7I0-71
+  canonical_evidence_id: MRP-EVIDENCE-MOTE4M1R-25ec34d
+  latest_commit_sha: 25ec34d91380d68d3cbebe9cea691f624629c5c6
+
+implementation:
+  materialized_files:
+    - workers/ff-pipeline/src/runtime-verification.ts
+    - workers/ff-pipeline/src/runtime-verification.test.ts
+  pull_request: https://github.com/Wescome/function-factory/pull/71
+  branch: factory/fp-motdwvr2-w7un
+
+lifecycle_record:
+  observed_candidate_state: produced
+  observed_candidate_state_explicitness: inferred
+  observed_candidate_state_rationale: >
+    The live Stage 6 synthesis pipeline passed, code artifacts were
+    materialized into the repository, local verification passed, and Stage 8
+    MRP assembly returned merge-ready. This records candidate evidence only.
+  transition_applied: false
+  transition_policy_note: >
+    No runtime lifecycle transition is applied by this registry artifact.
+    Promotion to accepted requires Fidelity Verification evidence; promotion to monitored
+    requires Persistence Verification active monitoring.
+  blocked_target_states:
+    - accepted
+    - monitored
+
+merge_readiness:
+  latest_verdict: merge-ready
+  latest_runtime_mrp_id: MRP-MOTE4M1R-G7I0-71
+  latest_canonical_evidence_id: MRP-EVIDENCE-MOTE4M1R-25ec34d
+  ci_status: passed
+  checks_passed:
+    - Factory PR Verification
+    - Test
+    - Typecheck
+
+candidate_invariants:
+  - Function identity is derived only at Stage 8 MRP assembly from FP-* proposal identity.
+  - Merge-readiness evidence does not imply accepted or monitored lifecycle state.
+  - Fidelity Verification and Persistence Verification remain separate fail-closed lifecycle guards.

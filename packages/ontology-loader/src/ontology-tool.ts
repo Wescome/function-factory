@@ -2,7 +2,7 @@
  * AgentTool for querying the Factory ontology.
  *
  * Agents use this tool instead of raw AQL for ontology-specific questions:
- *   - "What constraints apply to a WorkGraph?"
+ *   - "What constraints apply to a ExecutableSpecification?"
  *   - "What tools should the Architect role have?"
  *   - "What's the lifecycle state of Function FN-XXX?"
  *   - "Are there pending CRPs?"

@@ -1,0 +1,190 @@
+nlahspec: "0.1"
+lineage:
+  source_refs: [IS-HARNESS-DSL-v1, ADR-009-nlah-runtime-replaces-state-graph]
+
+harness:
+  name: CODING_ADAPTER
+  task_family: repository_issue_resolution
+  objective: >
+    Resolve a repository-grounded issue by producing a patch,
+    independent verification, and a PR-ready summary.
+
+runtime:
+  state_root: state
+  artifact_root: artifacts
+  graph_mode: linear
+  default_failure_action: abort
+  max_repair_rounds: 2
+
+roles:
+  Cartographer:
+    responsibility: >
+      Read SeedWorkspace and produce issue/repository mapping artifacts.
+      Must not edit workspace files.
+  PatchWorker:
+    responsibility: >
+      Read the SeedWorkspace issue, acceptance criteria, and seeded files under
+      ./workspace. Produce a unified diff as ./CandidatePatch that, when applied
+      to the seeded workspace files, satisfies the issue and passes the declared
+      test command. The diff must cover only the files that need to change.
+      Emit each hunk with at least 3 lines of context above and below the change.
+      Count context lines from the SeedWorkspace file content exactly.
+      Do not truncate context lines.
+  Verifier:
+    responsibility: >
+      Independently evaluate CandidatePatch against SeedWorkspace. Must not
+      repair patch. Verify by copying ./workspace to a temporary directory,
+      applying ./CandidatePatch with git apply from the temporary workspace
+      root, then running the declared Node test command. Do not use python.
+      If git apply and the declared test command pass, write VerifierReport
+      with exact line "Verdict: PASS". Include a section with the exact heading
+      "## Tests run" followed by the captured test command stdout and exit code.
+      Otherwise write "Verdict: FAIL" with the failed command evidence.
+      The VerifierReport must contain the heading "## Tests run" regardless
+      of pass or fail.
+  ReleaseAgent:
+    responsibility: >
+      Copy the verified CandidatePatch to FinalPatch and produce a PR-ready
+      summary with test evidence.
+
+artifacts:
+  SeedWorkspace:
+    path: artifacts/seed_workspace.json
+    required: true
+    contract:
+      kind: json
+      required_fields: [schemaVersion, files, testCommand]
+  IssueContract:
+    path: artifacts/issue_contract.md
+    required: true
+    contract:
+      kind: text
+      required_patterns:
+        - "Issue:"
+        - "Acceptance:"
+  RepoMap:
+    path: artifacts/repo_map.md
+    required: true
+    contract:
+      kind: text
+      required_patterns:
+        - "## Relevant files"
+        - "src/coding-adapter-smoke.ts"
+        - "## Test entrypoints"
+        - "node test/coding-adapter-smoke.test.js"
+  CandidatePatch:
+    path: artifacts/candidate.patch
+    required: true
+    contract:
+      kind: text
+      required_patterns:
+        - "^diff --git a/.+ b/.+"
+        - "^--- a/"
+        - "^\\+\\+\\+ b/"
+        - "^@@ -\\d+(,\\d+)? \\+\\d+(,\\d+)? @@"
+  VerifierReport:
+    path: artifacts/verifier_report.md
+    required: true
+    contract:
+      kind: markdown
+      required_sections:
+        - "Verdict"
+        - "Tests"
+        - "Evidence"
+      required_patterns:
+        - "^Verdict:\\s+(PASS|FAIL)\\s*$"
+        - "^## Tests run"
+        - "Tests run"
+  FinalPatch:
+    path: artifacts/final.patch
+    required: true
+    contract:
+      kind: text
+      required_patterns:
+        - "^diff --git a/.+ b/.+"
+  PRSummary:
+    path: artifacts/pr_summary.md
+    required: true
+    contract:
+      kind: text
+      required_patterns:
+        - "Summary:"
+        - "Tests:"
+
+stages:
+  SEED:
+    from: TaskReceived
+    to: WorkspaceSeeded
+    role: Cartographer
+    worker: preseed
+    inputs: []
+    outputs: [SeedWorkspace]
+    gate:
+      all: [{ exists: SeedWorkspace }]
+
+  CONTRACT:
+    from: WorkspaceSeeded
+    to: IssueContracted
+    role: Cartographer
+    worker: pi-author
+    inputs: [SeedWorkspace]
+    outputs: [IssueContract]
+    gate:
+      all: [{ exists: IssueContract }]
+
+  MAP:
+    from: IssueContracted
+    to: RepoMapped
+    role: Cartographer
+    worker: pi-author
+    inputs: [SeedWorkspace, IssueContract]
+    outputs: [RepoMap]
+    gate:
+      all:
+        - { exists: RepoMap }
+        - repo_map_names_relevant_files
+        - repo_map_names_test_entrypoints
+
+  PATCH:
+    from: RepoMapped
+    to: PatchCandidate
+    role: PatchWorker
+    worker: pi-author
+    inputs: [SeedWorkspace, RepoMap]
+    outputs: [CandidatePatch]
+    gate:
+      all:
+        - { exists: CandidatePatch }
+        - { patch_applies_cleanly: CandidatePatch }
+
+  VERIFY:
+    from: PatchCandidate
+    to: VerifiedPatch
+    role: Verifier
+    worker: pi-author
+    inputs: [SeedWorkspace, CandidatePatch]
+    outputs: [VerifierReport]
+    gate:
+      all:
+        - { exists: VerifierReport }
+        - verifier_accepts_patch
+        - test_results_support_claims
+
+  RELEASE:
+    from: VerifiedPatch
+    to: PullRequestReady
+    role: ReleaseAgent
+    worker: pi-author
+    inputs: [SeedWorkspace, CandidatePatch, VerifierReport]
+    outputs: [FinalPatch, PRSummary]
+    gate:
+      all:
+        - { exists: FinalPatch }
+        - { exists: PRSummary }
+        - final_patch_matches_verified_candidate
+
+failure_taxonomy:
+  missing_artifact:     retry_stage
+  patch_does_not_apply: return_to_stage
+  verifier_rejects:     return_to_stage
+  budget_exceeded:      mark_incomplete

@@ -28,7 +28,7 @@ export const ONTOLOGY_INSTANCES: OntologyInstance[] = [
     uri: 'ff:PlannerRole',
     type: 'AgentRole',
     label: 'Planner Agent',
-    comment: 'Decomposes WorkGraph into implementation plan.',
+    comment: 'Decomposes ExecutableSpecification into implementation plan.',
     tools: ['FileReadTool', 'GrepSearchTool'],
     permissions: ['ReadOnly'],
     memoryAccess: ['DecisionsMemory', 'LessonsMemory'],
@@ -50,7 +50,7 @@ export const ONTOLOGY_INSTANCES: OntologyInstance[] = [
     uri: 'ff:CriticRole',
     type: 'AgentRole',
     label: 'Critic Agent',
-    comment: 'Reviews PRDs for semantic alignment and code for quality.',
+    comment: 'Reviews Intent Specifications for semantic alignment and code for quality.',
     tools: ['FileReadTool', 'GrepSearchTool', 'ArangoQueryTool'],
     permissions: ['ReadOnly'],
     memoryAccess: ['DecisionsMemory', 'LessonsMemory', 'MentorRulesMemory', 'CodebaseAccess'],
@@ -186,31 +186,30 @@ export const ONTOLOGY_INSTANCES: OntologyInstance[] = [
   },
 
   // ═══════════════════════════════════════════════════════════════
-  // GATE INSTANCES
+  // VERIFICATION INSTANCES
   // ═══════════════════════════════════════════════════════════════
 
   {
-    _key: 'Gate1',
-    uri: 'ff:Gate1',
-    type: 'Gate',
-    label: 'Gate 1 — Compile Coverage',
-    comment: 'Structural validation: atom coverage, invariant coverage, validation coverage, dependency closure.',
+    _key: 'CoherenceVerification',
+    uri: 'ff:CoherenceVerification',
+    type: 'Verification',
+    label: 'Coherence Verification',
+    comment: 'Structural completeness: atom coverage, invariant coverage, validation coverage, dependency closure.',
   },
   {
-    _key: 'Gate2',
-    uri: 'ff:Gate2',
-    type: 'Gate',
-    label: 'Gate 2 — Simulation Coverage',
-    comment: 'Behavioral validation: scenario coverage, invariant exercise, validation pass rate.',
+    _key: 'FidelityVerification',
+    uri: 'ff:FidelityVerification',
+    type: 'Verification',
+    label: 'Fidelity Verification',
+    comment: 'Behavioral correspondence: scenario coverage, invariant exercise, validation pass rate.',
   },
   {
-    _key: 'Gate3',
-    uri: 'ff:Gate3',
-    type: 'Gate',
-    label: 'Gate 3 — Assurance',
-    comment: 'Continuous validation: detector freshness, evidence source liveness, audit pipeline integrity.',
+    _key: 'PersistenceVerification',
+    uri: 'ff:PersistenceVerification',
+    type: 'Verification',
+    label: 'Persistence Verification',
+    comment: 'Continuous assurance: detector freshness, evidence source liveness, audit pipeline integrity.',
   },
-
   // ═══════════════════════════════════════════════════════════════
   // INFRASTRUCTURE INSTANCES — Workers, DOs, Queues, etc.
   // ═══════════════════════════════════════════════════════════════
@@ -227,14 +226,14 @@ export const ONTOLOGY_INSTANCES: OntologyInstance[] = [
     uri: 'ff:ffPipeline',
     type: 'Worker',
     label: 'ff-pipeline',
-    comment: 'Pipeline worker implementing Stages 1-5 + gates.',
+    comment: 'Pipeline worker implementing the Factory runtime pipeline.',
   },
   {
     _key: 'ffGates',
     uri: 'ff:ffGates',
     type: 'Worker',
     label: 'ff-gates',
-    comment: 'Gates worker for coverage validation.',
+    comment: 'Verification worker for validation.',
   },
   {
     _key: 'factoryPipeline',
@@ -248,7 +247,7 @@ export const ONTOLOGY_INSTANCES: OntologyInstance[] = [
     uri: 'ff:synthesisCoordinator',
     type: 'DurableObject',
     label: 'SynthesisCoordinator',
-    comment: 'Durable Object coordinating Stage 6 synthesis.',
+    comment: 'Durable Object coordinating Agent Call execution synthesis.',
   },
   {
     _key: 'sandbox',
@@ -308,15 +307,15 @@ export const ONTOLOGY_INSTANCES: OntologyInstance[] = [
     _key: 'col_prds',
     uri: 'ff:col_prds',
     type: 'ArangoCollection',
-    label: 'specs_prds',
-    comment: 'PRD Draft documents.',
+    label: 'intent_specifications',
+    comment: 'Intent Specification Draft documents.',
   },
   {
-    _key: 'col_workgraphs',
-    uri: 'ff:col_workgraphs',
+    _key: 'col_executableSpecifications',
+    uri: 'ff:col_executableSpecifications',
     type: 'ArangoCollection',
-    label: 'specs_workgraphs',
-    comment: 'WorkGraph documents.',
+    label: 'executable_specifications',
+    comment: 'ExecutableSpecification documents.',
   },
   {
     _key: 'col_invariants',
@@ -326,11 +325,11 @@ export const ONTOLOGY_INSTANCES: OntologyInstance[] = [
     comment: 'Invariant documents.',
   },
   {
-    _key: 'col_coverage_reports',
-    uri: 'ff:col_coverage_reports',
+    _key: 'col_verification_reports',
+    uri: 'ff:col_verification_reports',
     type: 'ArangoCollection',
-    label: 'specs_coverage_reports',
-    comment: 'Coverage Report documents.',
+    label: 'verification_reports',
+    comment: 'Verification Report documents.',
   },
   {
     _key: 'col_execution_artifacts',
@@ -368,11 +367,11 @@ export const ONTOLOGY_INSTANCES: OntologyInstance[] = [
     comment: 'Merge Readiness Pack documents.',
   },
   {
-    _key: 'col_gate_status',
-    uri: 'ff:col_gate_status',
+    _key: 'col_verification_status',
+    uri: 'ff:col_verification_status',
     type: 'ArangoCollection',
-    label: 'gate_status',
-    comment: 'Gate status documents.',
+    label: 'verification_status',
+    comment: 'Verification status documents.',
   },
   {
     _key: 'col_trust_scores',
@@ -440,7 +439,7 @@ export const ONTOLOGY_INSTANCES: OntologyInstance[] = [
     uri: 'ff:assuranceGraph',
     type: 'ArangoGraph',
     label: 'assurance_graph',
-    comment: 'Graph connecting invariants, detectors, gates, and coverage reports.',
+    comment: 'Graph connecting invariants, detectors, verifications, and verification reports.',
   },
   {
     _key: 'dependencyGraph',
@@ -451,64 +450,64 @@ export const ONTOLOGY_INSTANCES: OntologyInstance[] = [
   },
 
   // ═══════════════════════════════════════════════════════════════
-  // PIPELINE STAGE INSTANCES
+  // PIPELINE COMPATIBILITY LABEL INSTANCES
   // ═══════════════════════════════════════════════════════════════
 
   {
     _key: 'Stage1_Ingest',
     uri: 'ff:Stage1_Ingest',
     type: 'PipelineStage',
-    label: 'Stage 1 — Ingest',
-    comment: 'Signal ingestion from environment.',
+    label: 'Signal Artifact collection',
+    comment: 'Legacy Stage 1 compatibility label for signal ingestion from environment.',
   },
   {
     _key: 'Stage2_Pressure',
     uri: 'ff:Stage2_Pressure',
     type: 'PipelineStage',
-    label: 'Stage 2 — Pressure',
-    comment: 'Derive Pressures from Signals.',
+    label: 'Pressure Artifact interpretation',
+    comment: 'Legacy Stage 2 compatibility label for deriving Pressures from Signals.',
   },
   {
     _key: 'Stage3_Capability',
     uri: 'ff:Stage3_Capability',
     type: 'PipelineStage',
-    label: 'Stage 3 — Capability',
-    comment: 'Identify Business Capabilities from Pressures.',
+    label: 'Capability Artifact scoping',
+    comment: 'Legacy Stage 3 compatibility label for identifying Business Capabilities from Pressures.',
   },
   {
     _key: 'Stage4_Proposal',
     uri: 'ff:Stage4_Proposal',
     type: 'PipelineStage',
-    label: 'Stage 4 — Proposal',
-    comment: 'Create Function Proposals from Capabilities.',
+    label: 'Function Proposal decomposition',
+    comment: 'Legacy Stage 4 compatibility label for creating Function Proposals from Capabilities.',
   },
   {
     _key: 'Stage5_Compile',
     uri: 'ff:Stage5_Compile',
     type: 'PipelineStage',
-    label: 'Stage 5 — Compile',
-    comment: 'Compile PRD into WorkGraph.',
+    label: 'Intent-to-Executable compilation',
+    comment: 'Legacy Stage 5 compatibility label for compiling Intent Specification/Intent Specification into ExecutableSpecification/Executable Specification.',
   },
   {
     _key: 'Stage6_Synthesis',
     uri: 'ff:Stage6_Synthesis',
     type: 'PipelineStage',
-    label: 'Stage 6 — Synthesis',
-    comment: 'Multi-agent synthesis: Architect, Planner, Coder, Critic, Tester, Verifier.',
+    label: 'Agent Call execution',
+    comment: 'Legacy Stage 6 compatibility label for multi-agent synthesis: Architect, Planner, Coder, Critic, Tester, Verifier.',
   },
   {
     _key: 'Stage7_Observe',
     uri: 'ff:Stage7_Observe',
     type: 'PipelineStage',
-    label: 'Stage 7 — Observe',
-    comment: 'Runtime monitoring and Gate 3 checks.',
+    label: 'Persistence Verification',
+    comment: 'Legacy Stage 7 compatibility label for runtime monitoring and Persistence Verification checks.',
   },
   {
     _key: 'Stage8_PR',
     uri: 'ff:Stage8_PR',
     type: 'PipelineStage',
-    label: 'Stage 8 — PR',
-    comment: 'Create PR with MRP evidence bundle.',
+    label: 'Merge Readiness / PR Handoff',
+    comment: 'Repo-local Stage 8 compatibility label for creating PRs with MRP evidence bundles.',
   },
 
   // ═══════════════════════════════════════════════════════════════

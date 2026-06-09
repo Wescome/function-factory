@@ -8,7 +8,7 @@ import { describe, it, expect } from "vitest"
 import { StubBindingMode, ALL_ROLE_CONTRACTS } from "../src/index.js"
 import type { BindingMode } from "../src/index.js"
 import {
-  makeWorkGraph,
+  makeExecutableSpecification,
   makeCandidate,
   makePassConfig,
   makeFailConfig,
@@ -17,7 +17,7 @@ import {
 describe("binding-mode", () => {
   // AC 14: two binding modes, same interface, both produce valid output
   it("AC 14: two binding modes accept same inputs and return conforming outputs", async () => {
-    const workGraph = makeWorkGraph()
+    const executableSpecification = makeExecutableSpecification()
     const candidate = makeCandidate()
     const context = {
       repairLoopCount: 0,
@@ -28,11 +28,11 @@ describe("binding-mode", () => {
 
     // Binding mode 1: pass
     const mode1: BindingMode = new StubBindingMode(makePassConfig())
-    const output1 = await mode1.execute(workGraph, candidate, ALL_ROLE_CONTRACTS, context)
+    const output1 = await mode1.execute(executableSpecification, candidate, ALL_ROLE_CONTRACTS, context)
 
     // Binding mode 2: fail (different config, same interface)
     const mode2: BindingMode = new StubBindingMode(makeFailConfig())
-    const output2 = await mode2.execute(workGraph, candidate, ALL_ROLE_CONTRACTS, context)
+    const output2 = await mode2.execute(executableSpecification, candidate, ALL_ROLE_CONTRACTS, context)
 
     // Both return BindingModeOutput shape
     expect(output1.verifierDecision).toBe("pass")
@@ -45,7 +45,7 @@ describe("binding-mode", () => {
 
   // AC 15: same contracts used by both modes
   it("AC 15: both binding modes receive identical role contracts", async () => {
-    const workGraph = makeWorkGraph()
+    const executableSpecification = makeExecutableSpecification()
     const candidate = makeCandidate()
     const context = {
       repairLoopCount: 0,
@@ -74,8 +74,8 @@ describe("binding-mode", () => {
       },
     }
 
-    await mode1.execute(workGraph, candidate, ALL_ROLE_CONTRACTS, context)
-    await mode2.execute(workGraph, candidate, ALL_ROLE_CONTRACTS, context)
+    await mode1.execute(executableSpecification, candidate, ALL_ROLE_CONTRACTS, context)
+    await mode2.execute(executableSpecification, candidate, ALL_ROLE_CONTRACTS, context)
 
     // Same contracts object passed to both
     expect(capturedContracts1).toBe(capturedContracts2)
@@ -87,7 +87,7 @@ describe("binding-mode", () => {
       verifierDecisions: ["patch", "pass"],
     })
 
-    const workGraph = makeWorkGraph()
+    const executableSpecification = makeExecutableSpecification()
     const candidate = makeCandidate()
     const context = {
       repairLoopCount: 0,
@@ -96,14 +96,14 @@ describe("binding-mode", () => {
       maxResampleBranches: 2,
     }
 
-    const out1 = await mode.execute(workGraph, candidate, ALL_ROLE_CONTRACTS, context)
+    const out1 = await mode.execute(executableSpecification, candidate, ALL_ROLE_CONTRACTS, context)
     expect(out1.verifierDecision).toBe("patch")
 
-    const out2 = await mode.execute(workGraph, candidate, ALL_ROLE_CONTRACTS, context)
+    const out2 = await mode.execute(executableSpecification, candidate, ALL_ROLE_CONTRACTS, context)
     expect(out2.verifierDecision).toBe("pass")
 
     // Cycles back
-    const out3 = await mode.execute(workGraph, candidate, ALL_ROLE_CONTRACTS, context)
+    const out3 = await mode.execute(executableSpecification, candidate, ALL_ROLE_CONTRACTS, context)
     expect(out3.verifierDecision).toBe("patch")
   })
 
@@ -112,7 +112,7 @@ describe("binding-mode", () => {
       ...makePassConfig(),
       verifierDecisions: ["patch", "pass"],
     })
-    const workGraph = makeWorkGraph()
+    const executableSpecification = makeExecutableSpecification()
     const candidate = makeCandidate()
     const context = {
       repairLoopCount: 0,
@@ -121,9 +121,9 @@ describe("binding-mode", () => {
       maxResampleBranches: 2,
     }
 
-    await mode.execute(workGraph, candidate, ALL_ROLE_CONTRACTS, context)
+    await mode.execute(executableSpecification, candidate, ALL_ROLE_CONTRACTS, context)
     mode.reset()
-    const out = await mode.execute(workGraph, candidate, ALL_ROLE_CONTRACTS, context)
+    const out = await mode.execute(executableSpecification, candidate, ALL_ROLE_CONTRACTS, context)
     expect(out.verifierDecision).toBe("patch")
   })
 })

@@ -1,0 +1,43 @@
+id: BC-GC-FORMULA-DISPATCH
+source_refs:
+  - GOVD-GAS-CITY-PHASE1-INTEGRATION
+  - ADR-010-gas-city-supersedes-nlah
+  - ARCHITECTURE-ROADMAP-GAS-CITY-FACTORY
+  - IS-GC-EP-FORMULA-DISPATCH
+explicitness: explicit
+rationale: >
+  Required by ARCHITECTURE-ROADMAP §3 Phase 1: Factory must be able to dispatch
+  compiled Execution Packets to Gas City for execution. Without this Capability
+  no EP ever reaches execution, no Fidelity Verification ever runs, and no Function
+  ever exits the designed lifecycle state. This is the sole integration boundary
+  between Factory governance and Gas City execution (IP-1).
+
+name: Compile and Dispatch Gas City Formula from Execution Packet
+description: >
+  The Factory's durable ability to transform a validated Execution Packet (EP-*)
+  into a parametric Gas City Formula instance (FORM-*) and dispatch it to Gas City
+  via the three-call HTTP sequence (version probe → bead create with lineage labels
+  → sling attach with full var map), such that Gas City can execute the specification
+  and produce evidence for Factory's Fidelity Verification.
+
+  The Capability is deterministic (identical EP produces identical FORM-*), LLM-free
+  (all fields derived from EP fields and environment config), and idempotent (duplicate
+  dispatch attempts are safely deduplicated via ArangoDB dispatch_log + Gas City
+  Idempotency-Key).
+
+  Governed by: D-Q1C (parametric template model), D-NEW-2 (FormulaCompilation
+  transformation), D1 (EP-only input), D4 (dispatch-time-only calls to Gas City),
+  D8 (HMAC auth boundary), ADR-010 §5 (zero Gas City contributions in Phase 1).
+
+yields:
+  execution: FP-GC-EP-FORMULA-DISPATCH
+
+pressures_addressed:
+  - No EP ever reaches Gas City execution without this Capability (bootstrap blocker)
+  - Fidelity Verification cannot run without molecule.completed evidence (Phase 1 gate)
+  - Functions cannot exit the designed lifecycle state without execution evidence
+
+platform_constraints:
+  - CF Worker context (no filesystem, no SSH, HTTP only, 25s per-call subrequest timeout)
+  - Zero Gas City contributions in Phase 1 (ADR-010 §5)
+  - ArangoDB/Dolt isolation: Factory writes ArangoDB only; Gas City writes Dolt only

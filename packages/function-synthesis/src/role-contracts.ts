@@ -2,7 +2,7 @@
  * Five typed role-contract interfaces for the synthesis topology.
  *
  * Each role is a typed state-transform with strict read/write/do-not/output
- * constraints derived from PRD-META-FUNCTION-SYNTHESIS constraints section.
+ * constraints derived from IS-META-FUNCTION-SYNTHESIS constraints section.
  *
  * AC 6, 7, 9, 15, 16
  */
@@ -25,7 +25,7 @@ export const PlannerContract: RoleContract = {
   name: "Planner",
   reads: [
     "specEnvelope",
-    "workGraph",
+    "executableSpecification",
     "targetNodeIds",
     "activeCandidate",
     "repoContract",
@@ -44,7 +44,7 @@ export const CoderContract: RoleContract = {
   name: "Coder",
   reads: [
     "plan",
-    "workGraph",
+    "executableSpecification",
     "activeCandidate",
     "repoContract",
     "editScopes",
@@ -64,7 +64,7 @@ export const CriticContract: RoleContract = {
   reads: [
     "plan",
     "patchProposals",
-    "workGraph",
+    "executableSpecification",
     "specEnvelope",
     "repoContract",
   ],
@@ -83,7 +83,7 @@ export const TesterContract: RoleContract = {
     "plan",
     "patchProposals",
     "critique",
-    "workGraph",
+    "executableSpecification",
     "scenarioManifest",
     "toolResults",
   ],

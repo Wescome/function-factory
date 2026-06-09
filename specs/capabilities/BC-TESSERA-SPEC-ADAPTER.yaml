@@ -1,0 +1,57 @@
+id: BC-TESSERA-SPEC-ADAPTER
+source_refs:
+  - TESSERA-CF-SPEC
+  - IS-TESSERA-SPEC-ADAPTER
+  - IS-TESSERA-ARANGO-SCHEMA
+  - IS-TESSERA-INDEXER
+  - IS-TESSERA-IMPACT
+explicitness: explicit
+rationale: >
+  Tessera already has a DomainAdapter interface implemented for code (tree-sitter)
+  and management (Strategy.Recipes). The Factory's own specification artifacts
+  (IS-*, ES-*, BC-*, PRS-*, FP-*, SIG-*) form a DAG through their source_refs
+  arrays — IS references BC, ES references IS, FP references BC — but that DAG is
+  invisible to agents. Changing a BC-* may break several IS files with no tool to
+  surface it; the only way to find referencing artifacts is manual grep. A third
+  DomainAdapter that indexes the spec corpus turns every existing Tessera MCP tool
+  on the specification graph: impact on a BC-* shows its dependents, context on an
+  IS-* shows its source_refs chain, query finds specs by concept. The Factory
+  gains the same blast-radius safety for its specs that it has for its code.
+
+name: Index Factory Specification Artifacts as a Queryable Graph
+description: >
+  The Factory's durable ability to index its own IS-*, ES-*, BC-*, PRS-*, FP-*,
+  SIG-* artifacts as a Tessera graph — so agents can query "what IS files reference
+  this capability?", run impact analysis on a BC-* change, and navigate the
+  specification graph the same way they navigate code. A SpecAdapter implements
+  the existing DomainAdapter interface: it walks the specs/ directories, extracts
+  each artifact as a node (kind = artifact-type prefix, name = artifact id,
+  properties = title/description/version), and emits a REFERENCES edge for every
+  entry in each artifact's source_refs array that resolves to another indexed
+  artifact.
+
+  The Capability changes no Tessera interface and adds no new tool surface: once
+  the spec corpus is indexed under the same per-repo ArangoDB collections, every
+  existing MCP tool works on it unchanged. source_refs edges connect only to
+  artifacts present in the same index run — dangling references are skipped, not
+  errored. File patterns match spec artifacts only, never README.md or CLAUDE.md.
+
+  Governed by: G1 (read-only graph), the exact DomainAdapter contract (no
+  interface change — same shape as the code adapter in
+  tessera/src/core/domain-adapter.ts), and the V1 scope boundary (no semantic
+  analysis of spec content, no cross-repo spec indexing — both V2).
+
+yields:
+  execution: FP-TESSERA-SPEC-ADAPTER
+
+pressures_addressed:
+  - The Factory cannot query its own specification structure; the source_refs DAG is real but invisible
+  - Changing a BC-* may break many IS files with no way to detect it before editing; blast radius on a spec change is unknown
+  - Specification impact analysis is done manually by grep, which misses transitive references and is never run reflexively before an edit
+
+platform_constraints:
+  - SpecAdapter must implement the exact existing DomainAdapter interface — no interface changes (id, name, filePatterns, extract, resolveRelations)
+  - Reuses the per-repo ArangoDB collections, indexes, and MCP tools from the Tessera stack; no new storage substrate, no new tool surface
+  - source_refs edges only connect to artifacts in the same index run; dangling refs are skipped, not errors
+  - File patterns must not match non-spec files (README.md, CLAUDE.md, etc.); only specs/** artifact files are indexed
+  - V1 indexes the local function-factory specs/ only; cross-repo spec indexing and semantic content analysis are V2

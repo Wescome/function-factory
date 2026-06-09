@@ -7,10 +7,10 @@
 import { describe, it, expect } from "vitest"
 import {
   buildTraceLog,
-  buildGate2Input,
+  buildFidelityVerificationInput,
   buildCandidateSelectionReport,
   SynthesisTraceLog,
-  Gate2Input,
+  FidelityVerificationInput,
   SynthesisCandidateSelectionReport,
 } from "../src/index.js"
 import {
@@ -26,7 +26,7 @@ describe("evidence", () => {
   it("AC 10: builds a SynthesisTraceLog that parses with Zod", () => {
     const traceLog = buildTraceLog({
       runId: "SYN-TEST-001",
-      workGraphId: "WG-TEST-001",
+      executableSpecificationId: "ES-TEST-001",
       architectureCandidateId: "AC-TEST-001",
       bindingModeName: "stub",
       roleIterations: makeRoleIterations(),
@@ -51,12 +51,12 @@ describe("evidence", () => {
     expect(roles.size).toBe(5)
   })
 
-  // AC 11: Gate2Input parses with Zod
-  it("AC 11: builds a Gate2Input that parses with Zod", () => {
-    const gate2 = buildGate2Input({
+  // AC 11: FidelityVerificationInput parses with Zod
+  it("AC 11: builds a FidelityVerificationInput that parses with Zod", () => {
+    const fidelity = buildFidelityVerificationInput({
       runId: "SYN-TEST-002",
       functionId: "FP-TEST-001",
-      workGraphId: "WG-TEST-001",
+      executableSpecificationId: "ES-TEST-001",
       architectureCandidateId: "AC-TEST-001",
       artifactPaths: ["/output/src/core.ts"],
       validationOutcomes: makeValidationOutcomes(),
@@ -74,10 +74,12 @@ describe("evidence", () => {
       completedAt: now,
     })
 
-    const parsed = Gate2Input.safeParse(gate2)
+    const parsed = FidelityVerificationInput.safeParse(fidelity)
     expect(parsed.success).toBe(true)
-    expect(gate2.validationOutcomes.length).toBeGreaterThan(0)
-    expect(gate2.provenance.bindingModeName).toBe("stub")
+    expect(fidelity.validationOutcomes.length).toBeGreaterThan(0)
+    expect(fidelity.provenance.bindingModeName).toBe("stub")
+    expect(FidelityVerificationInput.safeParse(fidelity).success).toBe(true)
+    expect(buildFidelityVerificationInput).toBe(buildFidelityVerificationInput)
   })
 
   // AC 12: CandidateSelectionReport with distinct candidates

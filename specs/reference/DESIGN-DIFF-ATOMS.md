@@ -1,9 +1,9 @@
 # DESIGN: Diff-Based Atom Code Generation
 
-**Status:** APPROVED WITH CONDITIONS (all resolved below)  
-**Architecture Decision:** 2026-05-01 (Wes cleared gate)  
-**Architect Review:** 2026-05-01 — APPROVED  
-**Approach:** Diff-based atoms with regex structural extraction + compile gate  
+**Status:** APPROVED WITH CONDITIONS (all resolved below)
+**Architecture Decision:** 2026-05-01 (Wes cleared gate)
+**Architect Review:** 2026-05-01 — APPROVED
+**Approach:** Diff-based atoms with regex structural extraction + compile gate
 
 ## JTBD
 
@@ -235,10 +235,10 @@ For action='delete': DELETE (unchanged)
 ```
 
 **Multi-atom file serialization (Architect condition #8):**
-When multiple atoms in the same WorkGraph target the same file path, their
+When multiple atoms in the same Executable Specification target the same file path, their
 edits must be merged before application:
 1. Group FileChange entries by path across all atom results
-2. Order by atom dependency (from WorkGraph DAG topological sort)
+2. Order by atom dependency (from Executable Specification DAG topological sort)
 3. Concatenate edit arrays in dependency order
 4. Apply merged edits once per file
 5. Commit per-file-after-all-edits, not per-atom
@@ -260,14 +260,14 @@ CoderAgent gets specific error context for retry.
 
 ### 6. File Target Resolution
 
-Atoms in the WorkGraph have an `atomSpec` that describes what to implement.
+Atoms in the Executable Specification have an `atomSpec` that describes what to implement.
 Today this is freeform. We need atoms to declare their target files:
 
-**Option A:** Explicit in WorkGraph atom spec (architect declares targets)  
-**Option B:** CoderAgent infers from context + atom description  
-**Option C:** Hybrid — architect suggests, CoderAgent confirms/adds  
+**Option A:** Explicit in Executable Specification atom spec (architect declares targets)
+**Option B:** CoderAgent infers from context + atom description
+**Option C:** Hybrid — architect suggests, CoderAgent confirms/adds
 
-**Recommendation:** Option C. The WorkGraph architect agent already produces
+**Recommendation:** Option C. The Executable Specification architect agent already produces
 a plan with file paths. Thread those through as `suggestedFiles`. CoderAgent
 can add files (for new imports, tests) but must justify additions.
 

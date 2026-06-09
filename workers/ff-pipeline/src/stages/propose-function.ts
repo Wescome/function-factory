@@ -7,7 +7,7 @@ const SYSTEM_PROMPT = `You are a Function Proposer in the Function Factory pipel
 Given a Capability (a system ability needed), propose a Function — a
 concrete, implementable unit of work.
 
-A Function is a bounded piece of engineering work. It has a PRD (Product
+A Function is a bounded piece of engineering work. It has a Intent Specification (Product
 Requirements Document), acceptance criteria, invariants, and a scope.
 
 INVARIANT RULES (CRITICAL):
@@ -22,9 +22,9 @@ Output JSON:
 {
   "title": "Function name",
   "description": "What this Function does",
-  "prd": {
-    "title": "PRD title matching the Capability title — no reframing",
-    "objective": "What this PRD specifies — paraphrase the Capability, do not add angles",
+  "intentSpecification": {
+    "title": "Intent Specification title matching the Capability title — no reframing",
+    "objective": "What this Intent Specification specifies — paraphrase the Capability, do not add angles",
     "acceptanceCriteria": ["Criterion 1", "Criterion 2"],
     "invariants": [],
     "scope": {
@@ -46,11 +46,11 @@ const SPEC_GROUNDED_PROMPT = `You are a Function Proposer in the Function Factor
 
 You are given a Capability AND its attached specification. The specification
 is the SOLE source of truth. Your job is to decompose the COMPLETE specification
-into a single Function with a PRD whose acceptance criteria cover EVERY section.
+into a single Function with a Intent Specification whose acceptance criteria cover EVERY section.
 
 CRITICAL RULES:
 1. Identify ALL numbered or headed sections in the specification.
-2. Your PRD MUST produce acceptance criteria covering EVERY section — not just
+2. Your Intent Specification MUST produce acceptance criteria covering EVERY section — not just
    the most concrete or first-matching section.
 3. Do NOT narrow to a single subsystem — decompose the COMPLETE specification.
 4. Dependencies between acceptance criteria must reflect the specification's
@@ -65,16 +65,16 @@ INVARIANT RULES (CRITICAL):
 - If the specification contains no such constraints, the invariants array MUST be empty.
 - NEVER add invariants about timeouts, performance, scalability, or other
   concerns unless the specification explicitly states them.
-- The PRD title MUST match the specification's subject — do not reframe or
+- The Intent Specification title MUST match the specification's subject — do not reframe or
   add angles (e.g., "optimization", "enhancement") absent from the spec.
 
 Output JSON:
 {
   "title": "Function name — derived from specification subject",
   "description": "What this Function does — paraphrase the specification",
-  "prd": {
-    "title": "PRD title — matches specification subject exactly",
-    "objective": "What this PRD specifies — from the specification, not reframed",
+  "intentSpecification": {
+    "title": "Intent Specification title — matches specification subject exactly",
+    "objective": "What this Intent Specification specifies — from the specification, not reframed",
     "acceptanceCriteria": ["AC covering Section 1: ...", "AC covering Section 2: ..."],
     "invariants": [],
     "scope": {
@@ -107,8 +107,8 @@ export async function proposeFunction(
       type: 'function-proposal',
       title: `Function for ${capability.title}`,
       description: `Implementation proposal for: ${capability.description}`,
-      prd: {
-        title: `PRD: ${capability.title}`,
+      intentSpecification: {
+        title: `Intent Specification: ${capability.title}`,
         objective: capability.description,
         acceptanceCriteria: ['Dry-run — no criteria generated'],
         invariants: [],

@@ -29,7 +29,7 @@ const VALID_CODE_ARTIFACT: CodeArtifact = {
 }
 
 const SAMPLE_WORKGRAPH = {
-  _key: 'WG-CODER-001',
+  _key: 'ES-CODER-001',
   title: 'User Authentication Module',
   atoms: [{ id: 'atom-001', description: 'Auth middleware' }],
   invariants: [{ id: 'INV-001', condition: 'All requests must be authenticated' }],
@@ -75,7 +75,7 @@ describe('CoderAgent', () => {
       const agent = new CoderAgent({ db, apiKey: 'test-key', dryRun: true })
 
       const result = await agent.produceCode({
-        workGraph: SAMPLE_WORKGRAPH,
+        executableSpecification: SAMPLE_WORKGRAPH,
         plan: SAMPLE_PLAN,
       })
 
@@ -91,7 +91,7 @@ describe('CoderAgent', () => {
       const agent = new CoderAgent({ db, apiKey: 'test-key', dryRun: true })
 
       const result = await agent.produceCode({
-        workGraph: SAMPLE_WORKGRAPH,
+        executableSpecification: SAMPLE_WORKGRAPH,
         plan: SAMPLE_PLAN,
       })
 
@@ -204,7 +204,7 @@ describe('CoderAgent', () => {
       })
 
       const result = await agent.produceCode({
-        workGraph: SAMPLE_WORKGRAPH,
+        executableSpecification: SAMPLE_WORKGRAPH,
         plan: SAMPLE_PLAN,
       })
 
@@ -229,7 +229,7 @@ describe('CoderAgent', () => {
 
       // Should not throw — repair context is threaded into user message
       const result = await agent.produceCode({
-        workGraph: SAMPLE_WORKGRAPH,
+        executableSpecification: SAMPLE_WORKGRAPH,
         plan: SAMPLE_PLAN,
         repairNotes: 'Fix the JWT token expiry handling',
         previousCode: { files: [], summary: 'old', testsIncluded: false },
@@ -251,7 +251,7 @@ describe('CoderAgent', () => {
       })
 
       const result = await agent.produceCode({
-        workGraph: SAMPLE_WORKGRAPH,
+        executableSpecification: SAMPLE_WORKGRAPH,
         plan: SAMPLE_PLAN,
         specContent: 'The system SHALL authenticate all API requests using JWT.',
       })
@@ -272,7 +272,7 @@ describe('CoderAgent', () => {
       })
 
       const result = await agent.produceCode({
-        workGraph: SAMPLE_WORKGRAPH,
+        executableSpecification: SAMPLE_WORKGRAPH,
         plan: SAMPLE_PLAN,
       })
 
@@ -306,7 +306,7 @@ describe('CoderAgent', () => {
       })
 
       await expect(
-        agent.produceCode({ workGraph: SAMPLE_WORKGRAPH, plan: SAMPLE_PLAN }),
+        agent.produceCode({ executableSpecification: SAMPLE_WORKGRAPH, plan: SAMPLE_PLAN }),
       ).rejects.toThrow()
     })
 
@@ -329,7 +329,7 @@ describe('CoderAgent', () => {
       })
 
       await expect(
-        agent.produceCode({ workGraph: SAMPLE_WORKGRAPH, plan: SAMPLE_PLAN }),
+        agent.produceCode({ executableSpecification: SAMPLE_WORKGRAPH, plan: SAMPLE_PLAN }),
       ).rejects.toThrow('could not produce valid CodeArtifact')
     })
   })

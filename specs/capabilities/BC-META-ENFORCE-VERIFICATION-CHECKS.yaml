@@ -1,0 +1,61 @@
+id: BC-META-ENFORCE-VERIFICATION-CHECKS
+name: Enforce the three Verification Gates fail-closed across the Factory pipeline
+purpose: >
+  Convert the forcing condition of PRS-META-THREE-VERIFICATION-FAMILIES into a
+  continuously-operating capability to halt the Factory pipeline whenever
+  specification, simulation, or assurance coverage is incomplete, and to emit
+  a lineage-preserving Verification Report regardless of verdict. This Capability
+  is the transfer function by which the Factory converts "trust must be
+  proven, not claimed" (whitepaper §6) into operational behavior at three
+  specific pipeline points- end of Stage 5 (Coherence Verification), before verified →
+  monitored transition in Stage 7 (Fidelity Verification), and continuously throughout
+  Stage 7 (Persistence Verification).
+addressesPressureIds:
+  - PRS-META-THREE-VERIFICATION-FAMILIES
+desiredOutcomes:
+  - No Executable Specification is emitted when its compiled specification fails any of the four Coherence Verification coverage checks (atom, invariant, validation, dependency closure).
+  - No Function transitions from verified to monitored while any of the three Fidelity Verification coverage checks fail (scenario coverage, invariant exercise, required-validation pass rate).
+  - Any Function in monitored state transitions to assurance_regressed whenever any of the three Persistence Verification coverage checks fail (detector freshness, evidence source liveness, audit pipeline integrity).
+  - Every verification evaluation emits a Verification Report to specs/verification-reports/ with populated remediation text, regardless of verdict.
+  - Every Verification Report validates against the corresponding Zod schema in packages/schemas/src/coverage.ts.
+  - Override of any verification verdict requires an explicit Architect-authored DECISIONS.md entry per ConOps §5.4; overrides are per-artifact, per-incident, and auditable.
+constraints:
+  - Fail-closed discipline is absolute; soft warnings that ship anyway are architecturally forbidden (whitepaper §6, anti-pattern "Soft-warning on coverage miss").
+  - Verification evaluators are deterministic pure functions over Zod-validated inputs; identical inputs must produce identical verdicts modulo timestamp.
+  - Verification evaluators have no discretion beyond applying the Zod-validated coverage formulas to the Zod-validated inputs (ConOps §3.4- "The Verification Evaluator's determinism is architecturally load-bearing").
+  - Verification Reports are first-class lineage-preserving artifacts and are committed to git alongside the artifacts they concern (whitepaper §6.5, README convention).
+  - Bootstrap rule per ConOps §4.1 Rule 2- during Bootstrap mode, Coherence Verification additionally enforces the META- prefix on the Intent Specification ID and on every artifact ID referenced in the compiler intermediates; absence of META- prefix in Bootstrap is a Coherence Verification failure.
+  - A verification that cannot compute its verdict (input missing, schema drifted, dependency offline) is treated as fail per ConOps §4.3 Degraded mode rule; there is no silent-pass fallback.
+successMetrics:
+  - Coherence Verification pass rate by defect class (ConOps §10.1 — concentrated failures indicate upstream skill or authorship defect rather than Coherence Verification miscalibration).
+  - Rate of verified → monitored transitions blocked by Fidelity Verification (ConOps §10.1).
+  - Detector freshness distribution across all monitored Functions (ConOps §10.2).
+  - Architect override rate on verification verdicts per month (ConOps §10.3 — rising rate indicates either gate miscalibration or architect friction; investigation rather than threshold relaxation is the correct response).
+  - Zero false passes across all three gates over the Factory's operational lifetime (a single false pass is an implementation defect triggering the corresponding skill's self-rewrite hook).
+affectedPersonas:
+  - Verification Evaluator
+  - Coding Agent
+  - Critic Agent
+  - Operator
+  - Auditor
+  - Architect
+strategicPriority: 1.0
+confidence: 1.0
+source_refs:
+  - PRS-META-THREE-VERIFICATION-FAMILIES
+  - SIG-META-WHITEPAPER-V4
+explicitness: explicit
+rationale: >
+  This Capability is the transfer function — in the control-theoretic framing
+  of whitepaper §2 — that converts the sixth non-negotiable forcing condition
+  (PRS-META-THREE-VERIFICATION-FAMILIES) into operational machinery. The Capability
+  name and purpose are explicit in the factory-meta skill rule #4 and in the
+  whitepaper §6 specification of each verification's role. The Capability yields
+  three control-type FunctionProposals immediately (one per verification); additional
+  evidence-type proposals (e.g., a Verification-Report-indexing Function) may
+  surface in downstream Stage 4 analysis but are not required in v1 because
+  the evidence aspect is bundled into each verification's own control Function
+  (Verification Report emission). Coherence Verification is the first of the three to instantiate
+  during Bootstrap per ConOps §2.3 Bootstrap context- it is a precondition for
+  every subsequent Factory stage against any Intent Specification, including the Intent Specifications that
+  specify Gates 2 and 3.

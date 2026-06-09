@@ -10,7 +10,7 @@ import { describe, it, expect } from "vitest"
 import { PiAgentBindingMode, type ContractViolation } from "../src/pi-agent-binding.js"
 import type { BindingMode } from "../src/binding-mode.js"
 import { ALL_ROLE_CONTRACTS, PlannerContract, CoderContract, CriticContract, TesterContract, VerifierContract } from "../src/role-contracts.js"
-import { makeWorkGraph, makeCandidate } from "./test-fixtures.js"
+import { makeExecutableSpecification, makeCandidate } from "./test-fixtures.js"
 import { Agent, type Model, type BeforeToolCallResult } from "../src/pi-agent-mock.js"
 import { getToolsForRole, getAllowedToolNames } from "../src/role-tools.js"
 import { renderRolePrompt } from "../src/role-prompts.js"
@@ -46,10 +46,10 @@ describe("PiAgentBindingMode", () => {
     const mode = new PiAgentBindingMode({
       modelFactory: mockModelFactory,
     })
-    const workGraph = makeWorkGraph()
+    const executableSpecification = makeExecutableSpecification()
     const candidate = makeCandidate()
 
-    const result = await mode.execute(workGraph, candidate, ALL_ROLE_CONTRACTS, {
+    const result = await mode.execute(executableSpecification, candidate, ALL_ROLE_CONTRACTS, {
       repairLoopCount: 0,
       maxRepairLoops: 3,
       resampleBranchCount: 0,
@@ -73,7 +73,7 @@ describe("PiAgentBindingMode", () => {
     const mode = new PiAgentBindingMode({
       modelFactory: mockModelFactory,
     })
-    const result = await mode.execute(makeWorkGraph(), makeCandidate(), ALL_ROLE_CONTRACTS, {
+    const result = await mode.execute(makeExecutableSpecification(), makeCandidate(), ALL_ROLE_CONTRACTS, {
       repairLoopCount: 0,
       maxRepairLoops: 3,
       resampleBranchCount: 0,
@@ -88,20 +88,20 @@ describe("PiAgentBindingMode", () => {
     const mode = new PiAgentBindingMode({
       modelFactory: mockModelFactory,
     })
-    const workGraph = makeWorkGraph()
-    const result = await mode.execute(workGraph, makeCandidate(), ALL_ROLE_CONTRACTS, {
+    const executableSpecification = makeExecutableSpecification()
+    const result = await mode.execute(executableSpecification, makeCandidate(), ALL_ROLE_CONTRACTS, {
       repairLoopCount: 0,
       maxRepairLoops: 3,
       resampleBranchCount: 0,
       maxResampleBranches: 2,
     })
 
-    const executionNodes = workGraph.nodes.filter((n) => n.type === "execution")
+    const executionNodes = executableSpecification.nodes.filter((n) => n.type === "execution")
     expect(result.patchProposals.length).toBe(executionNodes.length)
     for (const patch of result.patchProposals) {
       expect(patch.targetPath).toBeTruthy()
       expect(patch.content).toBeTruthy()
-      expect(patch.workGraphNodeId).toBeTruthy()
+      expect(patch.executableSpecificationNodeId).toBeTruthy()
       expect(patch.rationale).toBeTruthy()
     }
   })
@@ -114,12 +114,12 @@ describe("beforeToolCall enforcement (BLOCKS, not logs)", () => {
     })
     const violations: ContractViolation[] = []
     const toolCallRecords: import("../src/types.js").ToolCallRecord[] = []
-    const workGraph = makeWorkGraph()
+    const executableSpecification = makeExecutableSpecification()
     const candidate = makeCandidate()
 
     const agent = mode.createRoleAgent(
       PlannerContract,
-      workGraph,
+      executableSpecification,
       candidate,
       toolCallRecords,
       violations,
@@ -154,7 +154,7 @@ describe("beforeToolCall enforcement (BLOCKS, not logs)", () => {
 
     const agent = mode.createRoleAgent(
       CriticContract,
-      makeWorkGraph(),
+      makeExecutableSpecification(),
       makeCandidate(),
       toolCallRecords,
       violations,
@@ -182,7 +182,7 @@ describe("beforeToolCall enforcement (BLOCKS, not logs)", () => {
 
     const agent = mode.createRoleAgent(
       TesterContract,
-      makeWorkGraph(),
+      makeExecutableSpecification(),
       makeCandidate(),
       toolCallRecords,
       violations,
@@ -204,7 +204,7 @@ describe("beforeToolCall enforcement (BLOCKS, not logs)", () => {
 
     const agent = mode.createRoleAgent(
       CoderContract,
-      makeWorkGraph(),
+      makeExecutableSpecification(),
       makeCandidate(),
       toolCallRecords,
       violations,
@@ -244,7 +244,7 @@ describe("afterToolCall captures ToolCallRecord", () => {
 
     const agent = mode.createRoleAgent(
       CoderContract,
-      makeWorkGraph(),
+      makeExecutableSpecification(),
       makeCandidate(),
       toolCallRecords,
       violations,
@@ -269,7 +269,7 @@ describe("afterToolCall captures ToolCallRecord", () => {
 
     const agent = mode.createRoleAgent(
       PlannerContract,
-      makeWorkGraph(),
+      makeExecutableSpecification(),
       makeCandidate(),
       toolCallRecords,
       violations,
@@ -286,10 +286,10 @@ describe("afterToolCall captures ToolCallRecord", () => {
 
 describe("Role tools per contract", () => {
   const roleToolExpectations: Record<RoleName, string[]> = {
-    Planner: ["readWorkGraph", "readRepoContract", "readValidationOutcomes"],
-    Coder: ["readPlan", "readWorkGraph", "readRepoContext", "writeFile", "readFile"],
-    Critic: ["readPlan", "readPatches", "readWorkGraph", "readSpecEnvelope", "readRepoContract"],
-    Tester: ["readPlan", "readPatches", "readCritique", "readWorkGraph", "runTest", "readToolResults"],
+    Planner: ["readExecutableSpecification", "readRepoContract", "readValidationOutcomes"],
+    Coder: ["readPlan", "readExecutableSpecification", "readRepoContext", "writeFile", "readFile"],
+    Critic: ["readPlan", "readPatches", "readExecutableSpecification", "readSpecEnvelope", "readRepoContract"],
+    Tester: ["readPlan", "readPatches", "readCritique", "readExecutableSpecification", "runTest", "readToolResults"],
     Verifier: ["readAll", "writeDecision"],
   }
 
@@ -303,12 +303,12 @@ describe("Role tools per contract", () => {
 })
 
 describe("Role prompts", () => {
-  const workGraph = makeWorkGraph()
+  const executableSpecification = makeExecutableSpecification()
   const candidate = makeCandidate()
 
   for (const contract of ALL_ROLE_CONTRACTS) {
     it(`${contract.name} prompt contains Read/Write/DoNot fields`, () => {
-      const prompt = renderRolePrompt(contract, workGraph, candidate)
+      const prompt = renderRolePrompt(contract, executableSpecification, candidate)
 
       // Contains role identity
       expect(prompt).toContain(contract.name)
@@ -329,8 +329,8 @@ describe("Role prompts", () => {
         expect(prompt).toContain(rule)
       }
 
-      // Contains WorkGraph context
-      expect(prompt).toContain(workGraph.id)
+      // Contains ExecutableSpecification context
+      expect(prompt).toContain(executableSpecification.id)
 
       // Contains candidate context
       expect(prompt).toContain(candidate.id)

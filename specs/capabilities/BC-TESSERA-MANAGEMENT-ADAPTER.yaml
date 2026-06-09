@@ -1,0 +1,58 @@
+id: BC-TESSERA-MANAGEMENT-ADAPTER
+source_refs:
+  - TESSERA-CF-SPEC
+  - IS-TESSERA-ARANGO-SCHEMA
+  - IS-TESSERA-INDEXER
+explicitness: explicit
+rationale: >
+  The management adapter already exists in local Tessera
+  (tessera/src/adapters/management/management-adapter.ts, 921 lines,
+  46 tests, proven against real Strategy.Recipes data). It is the
+  primary proof of Tessera's domain-neutrality — community detection,
+  impact analysis, and process tracing run unmodified on management data.
+  Modularity 0.4356, 11 communities, 36 entities on a 36-entity recipe.
+
+  Without this BC, the management adapter is local-only. Strategy.Recipes
+  workspaces cannot be indexed in the cloud, and agents cannot run impact
+  analysis on strategic decisions ("if I change this Constraint, what
+  Initiatives, Metrics, and Decisions are affected?") from a CF Worker.
+
+  This BC closes the gap: the existing adapter is registered in the
+  Tessera Worker indexer so it runs on every push to a watched
+  Strategy.Recipes repository.
+
+name: Index Strategy.Recipes Workspaces as a Strategic Decision Graph
+
+description: >
+  The Factory's durable ability to index Strategy.Recipes deliberation
+  workspaces into a graph of strategic entities — Decisions, Initiatives,
+  Metrics, Constraints, Hypotheses, Signals, Theses, Evidence — connected
+  by typed relations (MOTIVATES, SUPPORTS, CONSTRAINS, DEPENDS_ON,
+  VALIDATES, THREATENS, TRADEOFF_WITH, OWNS, MEASURES, SUPERSEDES,
+  DECOMPOSES_INTO) — and serve the full Tessera MCP tool surface
+  (impact, context, query, detect_changes) over that graph from Cloudflare.
+
+  The adapter is a faithful port of the proven local implementation:
+  same SR schema normalization, same legacy alias resolution, same
+  confidence scoring from evidence quality. No new extraction logic.
+  The only change is registration in the cloud indexer so it runs
+  on GitHub push events alongside the code adapter.
+
+  Use cases: "if I change this Constraint, what Initiatives and Decisions
+  does it constrain?" (tessera_impact); "what evidence supports this
+  Decision?" (tessera_context); community detection on a strategy graph
+  surfaces thematic clusters across a deliberation workspace.
+
+yields:
+  execution: FP-TESSERA-MANAGEMENT-ADAPTER
+
+pressures_addressed:
+  - Management adapter is local-only; agents in CF Workers cannot query strategic decision graphs
+  - Strategy.Recipes workspaces must be analyzed locally; no cloud-native impact analysis on decisions
+  - Domain-neutrality is proven locally but not deployed — the cloud indexer only runs the code adapter
+
+platform_constraints:
+  - CF Worker context (no filesystem — adapter receives file content via AdapterFile interface)
+  - Same DomainAdapter interface as code adapter — no interface changes permitted
+  - SR schema normalization must match the proven local adapter exactly (same test fixtures pass)
+  - filePatterns: strategy-recipes workspace JSON files (*.json matching SR schemaVersion field)

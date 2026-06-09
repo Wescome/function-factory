@@ -7,7 +7,7 @@
  * AC 14, 15
  */
 
-import type { ArchitectureCandidate, WorkGraph } from "@factory/schemas"
+import type { ArchitectureCandidate, ExecutableSpecification } from "@factory/schemas"
 import type { RoleContract } from "./role-contracts.js"
 import type {
   SynthesisTraceLog,
@@ -35,7 +35,7 @@ export interface BindingModeOutput {
 export interface BindingMode {
   readonly name: string
   execute(
-    workGraph: WorkGraph,
+    executableSpecification: ExecutableSpecification,
     candidate: ArchitectureCandidate,
     contracts: readonly RoleContract[],
     context: BindingModeContext,
@@ -74,7 +74,7 @@ export class StubBindingMode implements BindingMode {
   constructor(private readonly config: StubBindingModeConfig) {}
 
   async execute(
-    _workGraph: WorkGraph,
+    _executableSpecification: ExecutableSpecification,
     _candidate: ArchitectureCandidate,
     _contracts: readonly RoleContract[],
     _context: BindingModeContext,

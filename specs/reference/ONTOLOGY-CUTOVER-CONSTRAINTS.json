@@ -1,0 +1,167 @@
+{
+  "schemaVersion": 1,
+  "status": "active hard-cutover guardrails",
+  "stableDirectories": [
+    "specs/intent-specifications",
+    "specs/executable-specifications",
+    "specs/invariants",
+    "specs/verification-reports",
+    "packages/compiler",
+    "packages/verification",
+    "packages/schemas",
+    "packages/artifact-validator",
+    "packages/function-synthesis",
+    "packages/ontology-loader",
+    "workers/ff-pipeline",
+    "workers/ff-gates",
+    "workers/ff-gateway",
+    "infra/arangodb"
+  ],
+  "stablePackages": [
+    {
+      "manifest": "packages/schemas/package.json",
+      "name": "@factory/schemas"
+    },
+    {
+      "manifest": "packages/compiler/package.json",
+      "name": "@factory/compiler"
+    },
+    {
+      "manifest": "packages/verification/package.json",
+      "name": "@factory/verification"
+    },
+    {
+      "manifest": "packages/intent-authoring/package.json",
+      "name": "@factory/intent-authoring"
+    },
+    {
+      "manifest": "packages/runtime-admission/package.json",
+      "name": "@factory/runtime-admission"
+    },
+    {
+      "manifest": "packages/artifact-validator/package.json",
+      "name": "@factory/artifact-validator"
+    },
+    {
+      "manifest": "packages/function-synthesis/package.json",
+      "name": "@factory/function-synthesis"
+    },
+    {
+      "manifest": "packages/ontology-loader/package.json",
+      "name": "@factory/ontology-loader"
+    },
+    {
+      "manifest": "workers/ff-pipeline/package.json",
+      "name": "@factory/ff-pipeline"
+    },
+    {
+      "manifest": "workers/ff-gates/package.json",
+      "name": "@factory/ff-gates"
+    },
+    {
+      "manifest": "workers/ff-gateway/package.json",
+      "name": "@factory/ff-gateway"
+    }
+  ],
+  "forbiddenOntologyRenameTargets": [
+    "specs/intent-specifications",
+    "specs/executable-specifications",
+    "specs/verification-reports",
+    "specs/coherence-verifications",
+    "specs/fidelity-verifications",
+    "specs/persistence-verifications",
+    "packages/intent-specification",
+    "packages/executable-specification",
+    "packages/verification",
+    "packages/coherence-verification",
+    "packages/fidelity-verification",
+    "packages/persistence-verification",
+    "workers/ff-coherence-verification",
+    "workers/ff-fidelity-verification",
+    "workers/ff-persistence-verification"
+  ],
+  "runtimeCollectionFilesToScan": [
+    "infra/arangodb/init-db.ts",
+    "infra/arangodb/init/001-create-db.js",
+    "infra/arangodb/seed.ts",
+    "infra/arangodb/verify.ts",
+    "packages/ontology-loader/src/classes.ts",
+    "packages/ontology-loader/src/instances.ts",
+    "workers/ff-pipeline/src/index.ts",
+    "workers/ff-pipeline/src/lifecycle.ts",
+    "workers/ff-pipeline/src/stages/compile.ts",
+    "workers/ff-gates/src/index.ts"
+  ],
+  "stableRuntimeDiscriminators": [
+    "coherence-verification",
+    "fidelity-verification",
+    "persistence-verification",
+    "coherence-verification-failed",
+    "VR-*-COHERENCE-*",
+    "VR-*-FIDELITY-*",
+    "VR-*-PERSISTENCE-*",
+    "gateReport",
+    "coherenceVerificationReport",
+    "fidelityVerificationReport",
+    "persistenceVerificationReport"
+  ],
+  "primaryRuntimeAliases": [
+    "coherence-verification",
+    "fidelity-verification",
+    "persistence-verification",
+    "coherenceVerificationReport",
+    "fidelityVerificationReport",
+    "persistenceVerificationReport",
+    "verificationReport"
+  ],
+  "legacyNumberConcordance": {
+    "source": "specs/reference/FF-ONTOLOGY-ADDENDUM-A.md",
+    "stageExtensions": "specs/reference/ONTOLOGY-ADDENDUM-B-STAGE-EXTENSIONS.md",
+    "currentMapping": "specs/reference/ONTOLOGY-CURRENT-MAPPING.md",
+    "stageLabels": {
+      "Stage 1": "Signal Artifact collection",
+      "Stage 2": "Pressure Artifact interpretation",
+      "Stage 3": "Capability Artifact scoping",
+      "Stage 4": "Function Proposal decomposition",
+      "Stage 5 input": "Intent Specification authoring",
+      "Stage 5 output": "Executable Specification compilation",
+      "Stage 6": "Agent Call execution / orchestration",
+      "Stage 7": "Persistence Verification / continuous assurance",
+      "Stage 8": "Merge Readiness / PR Handoff / Function identity materialization",
+      "Stage 8.5": "Selection-bias correction overlay",
+      "Stage 9": "Meta-Governance / policy evolution",
+      "Stage 10": "Policy Activation / rollback control"
+    },
+    "gateLabels": {
+      "Coherence Verification": "Coherence Verification",
+      "Fidelity Verificationa": "Fidelity Verification (learned)",
+      "Fidelity Verificationb": "Fidelity Verification (deterministic)",
+      "Persistence Verification": "Persistence Verification"
+    },
+    "compilerPassLabels": {
+      "Pass 1": "Decomposition",
+      "Pass 2": "Binding",
+      "Pass 3": "Obligation Extraction",
+      "Pass 4": "Structural Assembly (dependency resolution)",
+      "Pass 5": "Structural Assembly (validation wiring)",
+      "Pass 6": "Structural Assembly (graph construction)",
+      "Pass 7": "Completeness Certification / Coherence Verification",
+      "Current repo Pass 8": "Structural Assembly completion compatibility label",
+      "Ontology Pass 8": "Instruction Tuning (future)"
+    }
+  },
+  "forbiddenOntologyCollectionTargets": [
+    "specs_intent_specifications",
+    "specs_executable_specifications",
+    "specs_verification_reports",
+    "specs_coherence_verifications",
+    "specs_fidelity_verifications",
+    "specs_persistence_verifications",
+    "intent_specifications",
+    "executable_specifications",
+    "verification_reports",
+    "coherence_verifications",
+    "fidelity_verifications",
+    "persistence_verifications"
+  ]
+}

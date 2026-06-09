@@ -1,0 +1,56 @@
+id: VR-FN-SYNTH-MIGRATE-PROD-LIVE-CONTROL-2026-05-18T22-37-36-823Z
+artifact_type: VerificationReport
+verification_kind: production-live-control-smoke
+source_refs:
+  - FN-MOTDWVR2-W7UN
+created_at: 2026-05-18T22:39:11.301Z
+target:
+  base_url: https://ff-pipeline.koales.workers.dev
+  harness_key: harnesses/operator-recovery-smoke.harness.yaml
+  worker_version_id: 2ec8630f-2334-4eef-93b5-76977bdcb82a
+  environment: production
+verdict: pass
+checks:
+  - name: interactive_retry
+    verdict: pass
+    explicitness: explicit
+    rationale: Interactive monitor note and retry recover a missing preseed artifact
+      and preserve terminal projection.
+    evidence:
+      run_id: prod-live-control-retry-mpbsbdtn-7e23be51
+      control_message: stage_retry_requested accepted
+        runId=prod-live-control-retry-mpbsbdtn-7e23be51 stage=SEED
+      status: completed
+      stage_status: pass
+      harness_complete_count: 1
+      interventions:
+        - operator_note_added
+        - stage_retry_requested
+  - name: interactive_redispatch
+    verdict: pass
+    explicitness: explicit
+    rationale: Interactive monitor redispatch re-enqueues the current stage without
+      corrupting terminal projection.
+    evidence:
+      run_id: prod-live-control-redispatch-mpbsbdtn-7e23be51
+      control_message: stage_redispatch_requested accepted
+        runId=prod-live-control-redispatch-mpbsbdtn-7e23be51 stage=SEED
+      status: completed
+      stage_status: pass
+      harness_complete_count: 1
+      interventions:
+        - stage_redispatch_requested
+  - name: interactive_cancel
+    verdict: pass
+    explicitness: explicit
+    rationale: Interactive monitor cancel requires confirmation and records
+      operator_cancelled terminal evidence.
+    evidence:
+      run_id: prod-live-control-cancel-mpbsbdtn-7e23be51
+      control_message: run_cancel_requested accepted
+        runId=prod-live-control-cancel-mpbsbdtn-7e23be51 stage=SEED
+      status: failed
+      error_class: operator_cancelled
+      interventions:
+        - run_cancel_requested
+remediation: no remediation required

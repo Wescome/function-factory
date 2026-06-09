@@ -101,13 +101,13 @@ describe('v5.1: completion-ledger', () => {
         'atom-3': { id: 'atom-3', description: 'API', dependencies: [{ atomId: 'atom-1' }, { atomId: 'atom-2' }] },
       }
       const sharedContext = {
-        workGraphId: 'WG-001',
+        executableSpecificationId: 'ES-001',
         specContent: null as string | null,
         briefingScript: { goal: 'test' } as unknown,
       }
 
       await createLedger(db as never, {
-        workGraphId: 'WG-001',
+        executableSpecificationId: 'ES-001',
         workflowId: 'wf-123',
         totalAtoms: 3,
         layers,
@@ -118,7 +118,7 @@ describe('v5.1: completion-ledger', () => {
       expect(db.save).toHaveBeenCalledOnce()
       const [collection, doc] = db.save.mock.calls[0]!
       expect(collection).toBe('completion_ledgers')
-      expect(doc._key).toBe('WG-001')
+      expect(doc._key).toBe('ES-001')
       expect(doc.workflowId).toBe('wf-123')
       expect(doc.totalAtoms).toBe(3)
       expect(doc.completedAtoms).toBe(0)
@@ -134,7 +134,7 @@ describe('v5.1: completion-ledger', () => {
       const db = makeMockDb()
       // Pre-populate ledger
       const ledger: CompletionLedger = {
-        _key: 'WG-001',
+        _key: 'ES-001',
         workflowId: 'wf-123',
         totalAtoms: 3,
         completedAtoms: 0,
@@ -148,14 +148,14 @@ describe('v5.1: completion-ledger', () => {
           'atom-2': { id: 'atom-2' },
           'atom-3': { id: 'atom-3', dependencies: [{ atomId: 'atom-1' }, { atomId: 'atom-2' }] },
         },
-        sharedContext: { workGraphId: 'WG-001', specContent: null, briefingScript: {} },
+        sharedContext: { executableSpecificationId: 'ES-001', specContent: null, briefingScript: {} },
         pendingAtoms: ['atom-3'],
         phase: 'executing',
       }
-      db._store.set('completion_ledgers/WG-001', ledger)
+      db._store.set('completion_ledgers/ES-001', ledger)
 
       const result = makeAtomResult('atom-1')
-      const updated = await recordAtomResult(db as never, 'WG-001', 'atom-1', result)
+      const updated = await recordAtomResult(db as never, 'ES-001', 'atom-1', result)
 
       expect(db.query).toHaveBeenCalledOnce()
       expect(updated.completedAtoms).toBe(1)
@@ -166,21 +166,21 @@ describe('v5.1: completion-ledger', () => {
     it('transitions phase to complete when all atoms done', async () => {
       const db = makeMockDb()
       const ledger: CompletionLedger = {
-        _key: 'WG-002',
+        _key: 'ES-002',
         workflowId: 'wf-456',
         totalAtoms: 1,
         completedAtoms: 0,
         atomResults: {},
         layers: [{ index: 0, atomIds: ['atom-only'] }],
         allAtomSpecs: { 'atom-only': { id: 'atom-only' } },
-        sharedContext: { workGraphId: 'WG-002', specContent: null, briefingScript: {} },
+        sharedContext: { executableSpecificationId: 'ES-002', specContent: null, briefingScript: {} },
         pendingAtoms: [],
         phase: 'executing',
       }
-      db._store.set('completion_ledgers/WG-002', ledger)
+      db._store.set('completion_ledgers/ES-002', ledger)
 
       const result = makeAtomResult('atom-only')
-      const updated = await recordAtomResult(db as never, 'WG-002', 'atom-only', result)
+      const updated = await recordAtomResult(db as never, 'ES-002', 'atom-only', result)
 
       expect(updated.completedAtoms).toBe(1)
       expect(updated.phase).toBe('complete')
@@ -190,7 +190,7 @@ describe('v5.1: completion-ledger', () => {
   describe('getReadyAtoms', () => {
     it('returns atoms whose deps are all complete', () => {
       const ledger: CompletionLedger = {
-        _key: 'WG-001',
+        _key: 'ES-001',
         workflowId: 'wf-123',
         totalAtoms: 3,
         completedAtoms: 2,
@@ -207,7 +207,7 @@ describe('v5.1: completion-ledger', () => {
           'atom-2': { id: 'atom-2' },
           'atom-3': { id: 'atom-3', dependencies: [{ atomId: 'atom-1' }, { atomId: 'atom-2' }] },
         },
-        sharedContext: { workGraphId: 'WG-001', specContent: null, briefingScript: {} },
+        sharedContext: { executableSpecificationId: 'ES-001', specContent: null, briefingScript: {} },
         pendingAtoms: ['atom-3'],
         phase: 'executing',
       }
@@ -218,7 +218,7 @@ describe('v5.1: completion-ledger', () => {
 
     it('returns empty when deps not yet complete', () => {
       const ledger: CompletionLedger = {
-        _key: 'WG-001',
+        _key: 'ES-001',
         workflowId: 'wf-123',
         totalAtoms: 3,
         completedAtoms: 1,
@@ -234,7 +234,7 @@ describe('v5.1: completion-ledger', () => {
           'atom-2': { id: 'atom-2' },
           'atom-3': { id: 'atom-3', dependencies: [{ atomId: 'atom-1' }, { atomId: 'atom-2' }] },
         },
-        sharedContext: { workGraphId: 'WG-001', specContent: null, briefingScript: {} },
+        sharedContext: { executableSpecificationId: 'ES-001', specContent: null, briefingScript: {} },
         pendingAtoms: ['atom-3'],
         phase: 'executing',
       }
@@ -245,7 +245,7 @@ describe('v5.1: completion-ledger', () => {
 
     it('excludes already-completed atoms from ready list', () => {
       const ledger: CompletionLedger = {
-        _key: 'WG-001',
+        _key: 'ES-001',
         workflowId: 'wf-123',
         totalAtoms: 2,
         completedAtoms: 1,
@@ -259,7 +259,7 @@ describe('v5.1: completion-ledger', () => {
           'atom-1': { id: 'atom-1' },
           'atom-2': { id: 'atom-2' },
         },
-        sharedContext: { workGraphId: 'WG-001', specContent: null, briefingScript: {} },
+        sharedContext: { executableSpecificationId: 'ES-001', specContent: null, briefingScript: {} },
         pendingAtoms: ['atom-2'],
         phase: 'executing',
       }
@@ -271,7 +271,7 @@ describe('v5.1: completion-ledger', () => {
 
     it('atoms with no dependencies are immediately ready', () => {
       const ledger: CompletionLedger = {
-        _key: 'WG-003',
+        _key: 'ES-003',
         workflowId: 'wf-789',
         totalAtoms: 2,
         completedAtoms: 0,
@@ -283,7 +283,7 @@ describe('v5.1: completion-ledger', () => {
           'atom-1': { id: 'atom-1' },
           'atom-2': { id: 'atom-2' },
         },
-        sharedContext: { workGraphId: 'WG-003', specContent: null, briefingScript: {} },
+        sharedContext: { executableSpecificationId: 'ES-003', specContent: null, briefingScript: {} },
         pendingAtoms: ['atom-1', 'atom-2'],
         phase: 'executing',
       }
@@ -296,7 +296,7 @@ describe('v5.1: completion-ledger', () => {
   describe('isComplete', () => {
     it('returns true when all atoms done', () => {
       const ledger: CompletionLedger = {
-        _key: 'WG-001',
+        _key: 'ES-001',
         workflowId: 'wf-123',
         totalAtoms: 2,
         completedAtoms: 2,
@@ -306,7 +306,7 @@ describe('v5.1: completion-ledger', () => {
         },
         layers: [{ index: 0, atomIds: ['atom-1', 'atom-2'] }],
         allAtomSpecs: {},
-        sharedContext: { workGraphId: 'WG-001', specContent: null, briefingScript: {} },
+        sharedContext: { executableSpecificationId: 'ES-001', specContent: null, briefingScript: {} },
         pendingAtoms: [],
         phase: 'complete',
       }
@@ -316,7 +316,7 @@ describe('v5.1: completion-ledger', () => {
 
     it('returns false when atoms remaining', () => {
       const ledger: CompletionLedger = {
-        _key: 'WG-001',
+        _key: 'ES-001',
         workflowId: 'wf-123',
         totalAtoms: 3,
         completedAtoms: 1,
@@ -328,7 +328,7 @@ describe('v5.1: completion-ledger', () => {
           { index: 1, atomIds: ['atom-3'] },
         ],
         allAtomSpecs: {},
-        sharedContext: { workGraphId: 'WG-001', specContent: null, briefingScript: {} },
+        sharedContext: { executableSpecificationId: 'ES-001', specContent: null, briefingScript: {} },
         pendingAtoms: ['atom-3'],
         phase: 'executing',
       }

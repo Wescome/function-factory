@@ -5,7 +5,7 @@ describe("effector realization", () => {
   it("emits EFFR for trusted safe_execute file_write", () => {
     const effr = emitEffectorRealization({
       sourceEffectorId: "EFF-N1",
-      sourceWorkGraphId: "WG-META-ARCHITECTURE-CANDIDATE-EXECUTION",
+      sourceExecutableSpecificationId: "ES-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       sourceArchitectureCandidateId: "AC-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       sourceSelectionId: "ACS-META-ARCHITECTURE-CANDIDATE-EXECUTION",
       sourceAdmissionId: "RAD-META-ARCHITECTURE-CANDIDATE-EXECUTION-ALLOW",
@@ -25,7 +25,7 @@ describe("effector realization", () => {
     expect(() =>
       emitEffectorRealization({
         sourceEffectorId: "EFF-N1",
-        sourceWorkGraphId: "WG-META-ARCHITECTURE-CANDIDATE-EXECUTION",
+        sourceExecutableSpecificationId: "ES-META-ARCHITECTURE-CANDIDATE-EXECUTION",
         sourceArchitectureCandidateId: "AC-META-ARCHITECTURE-CANDIDATE-EXECUTION",
         sourceSelectionId: "ACS-META-ARCHITECTURE-CANDIDATE-EXECUTION",
         sourceAdmissionId: "RAD-META-ARCHITECTURE-CANDIDATE-EXECUTION-ALLOW",

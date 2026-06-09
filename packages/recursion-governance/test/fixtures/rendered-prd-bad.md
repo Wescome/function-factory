@@ -1,5 +1,5 @@
 ---
-id: PRD-BAD
+id: IS-BAD
 ---
 
 # Bad

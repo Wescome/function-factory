@@ -74,6 +74,7 @@ export interface OntologyInstance {
   type: string
   label?: string
   comment?: string
+  legacyAliasOf?: string
   // Agent role specific
   tools?: string[]
   permissions?: string[]

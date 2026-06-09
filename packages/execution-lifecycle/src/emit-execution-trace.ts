@@ -1,9 +1,9 @@
 import type { ExecutionTrace } from "@factory/schemas"
-import { executionTraceIdFromWorkGraphId } from "./ids.js"
+import { executionTraceIdFromExecutableSpecificationId } from "./ids.js"
 import { assertTraceAllowed } from "./assert-lifecycle-invariants.js"
 
 export function emitExecutionTrace(input: {
-  sourceWorkGraphId: string
+  sourceExecutableSpecificationId: string
   sourceArchitectureCandidateId: string
   sourceSelectionId: string
   sourceAdmissionId: string
@@ -15,11 +15,11 @@ export function emitExecutionTrace(input: {
 }): ExecutionTrace {
   assertTraceAllowed(input.hasExecutionStart)
   return {
-    id: executionTraceIdFromWorkGraphId(input.sourceWorkGraphId),
+    id: executionTraceIdFromExecutableSpecificationId(input.sourceExecutableSpecificationId),
     source_refs: [...input.sourceRefs],
     explicitness: "inferred",
     rationale: "Execution trace emitted deterministically for the bootstrap single-path run.",
-    sourceWorkGraphId: input.sourceWorkGraphId,
+    sourceExecutableSpecificationId: input.sourceExecutableSpecificationId,
     sourceArchitectureCandidateId: input.sourceArchitectureCandidateId,
     sourceSelectionId: input.sourceSelectionId,
     sourceAdmissionId: input.sourceAdmissionId,

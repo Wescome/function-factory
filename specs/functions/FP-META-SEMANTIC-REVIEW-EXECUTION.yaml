@@ -1,11 +1,11 @@
 id: FP-META-SEMANTIC-REVIEW-EXECUTION
 rationale: Execution gap identified in semantic review capability delta
 name: semantic_review_execution
-purpose: Execute a semantic review pass between Gate 1 and WorkGraph emission
+purpose: Execute a semantic review pass between Coherence Verification and Executable Specification emission
 functionType: execution
 expectedInputs:
-  - PRDDraft
-  - Gate1Report
+  - IntentSpecificationDraft
+  - CoherenceVerificationReport
   - reference doctrine set
 expectedOutputs:
   - semantic review verdict
@@ -13,11 +13,11 @@ governingConstraints:
   - fail-closed
   - bootstrap human-governed
 candidateInvariants:
-  - semantic review is required before WorkGraph emission
+  - semantic review is required before Executable Specification emission
 successSignals:
   - semantic review verdict persisted
 confidence: 0.94
 source_refs:
   - PRS-META-SEMANTIC-REVIEW-GAP
 explicitness: inferred
-capabilityId: BC-META-SEMANTICALLY-REVIEW-PRDS
+capabilityId: BC-META-SEMANTICALLY-REVIEW-Intent SpecificationS

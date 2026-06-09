@@ -18,7 +18,12 @@ import type {
   CodeArtifact,
   TestReport,
 } from './state.js'
-import type { GraphDeps } from './graph.js'
+
+interface GraphDeps {
+  callModel: (taskKind: string, system: string, user: string) => Promise<string>
+  persistState: (state: GraphState, role: string) => Promise<void>
+  fetchMentorRules: () => Promise<{ ruleId: string; rule: string }[]>
+}
 
 // ────────────────────────────────────────────────────────────
 // SandboxDeps — mockable interface over @cloudflare/sandbox
@@ -29,10 +34,16 @@ export interface SandboxDeps {
   execInSandbox: (taskJson: string) => Promise<string>
   /** Prepares workspace: git clone, pnpm install. */
   prepareWorkspace: (config: { repoUrl: string; ref: string; branch: string }) => Promise<void>
-  /** Creates a filesystem backup; returns an opaque handle. */
-  createBackup: (dir: string) => Promise<string>
+  /** Creates a filesystem backup; returns an opaque serializable handle. */
+  createBackup: (dir: string) => Promise<SandboxBackupHandle>
   /** Restores a previously-created backup. */
-  restoreBackup: (handle: string) => Promise<void>
+  restoreBackup: (handle: SandboxBackupHandle) => Promise<void>
+}
+
+export interface SandboxBackupHandle {
+  id: string
+  dir: string
+  localBucket?: boolean
 }
 
 // ────────────────────────────────────────────────────────────
@@ -70,9 +81,9 @@ export function sandboxRole(
     // ── 1. Workspace preparation (coder only, when not ready) ──
     if (role === 'coder' && !state.workspaceReady) {
       await deps.prepareWorkspace({
-        repoUrl: state.workGraph.repoUrl ?? '',
-        ref: state.workGraph.ref ?? 'HEAD',
-        branch: state.workGraph.branch ?? 'main',
+        repoUrl: state.executableSpecification.repoUrl ?? '',
+        ref: state.executableSpecification.ref ?? 'HEAD',
+        branch: state.executableSpecification.branch ?? 'main',
       })
     }
 
@@ -91,12 +102,12 @@ export function sandboxRole(
     const contract = ROLE_CONTRACTS[role]
     const taskPayload: Record<string, unknown> = {
       role,
-      workGraphId: state.workGraphId,
-      workGraph: {
-        title: state.workGraph.title,
-        atoms: state.workGraph.atoms,
-        invariants: state.workGraph.invariants,
-        dependencies: state.workGraph.dependencies,
+      executableSpecificationId: state.executableSpecificationId,
+      executableSpecification: {
+        title: state.executableSpecification.title,
+        atoms: state.executableSpecification.atoms,
+        invariants: state.executableSpecification.invariants,
+        dependencies: state.executableSpecification.dependencies,
       },
       plan: state.plan,
       prompt: contract.systemPrompt,
@@ -346,7 +357,7 @@ async function fallbackToCoderAgent(
   config: ExecutionRoleConfig,
 ): Promise<Partial<GraphState>> {
   const code = await config.coderAgent!.produceCode({
-    workGraph: state.workGraph,
+    executableSpecification: state.executableSpecification,
     plan: state.plan,
     ...(state.verdict?.decision === 'patch' && state.verdict.notes ? {
       repairNotes: state.verdict.notes,
@@ -376,7 +387,7 @@ async function fallbackToTesterAgent(
   config: ExecutionRoleConfig,
 ): Promise<Partial<GraphState>> {
   const tests = await config.testerAgent!.runTests({
-    workGraph: state.workGraph,
+    executableSpecification: state.executableSpecification,
     plan: state.plan ?? {},
     code: state.code ?? {},
     ...(state.critique ? { critique: state.critique } : {}),
@@ -407,12 +418,12 @@ async function fallbackToCallModel(
 
   const mentorRules = await config.fetchMentorRules()
   const userMessage = JSON.stringify({
-    workGraphId: state.workGraphId,
-    workGraph: {
-      title: state.workGraph.title,
-      atoms: state.workGraph.atoms,
-      invariants: state.workGraph.invariants,
-      dependencies: state.workGraph.dependencies,
+    executableSpecificationId: state.executableSpecificationId,
+    executableSpecification: {
+      title: state.executableSpecification.title,
+      atoms: state.executableSpecification.atoms,
+      invariants: state.executableSpecification.invariants,
+      dependencies: state.executableSpecification.dependencies,
     },
     plan: state.plan,
     repairCount: state.repairCount,

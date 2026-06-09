@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "1.0",
+  "issue": "Update src/coding-adapter-smoke.ts so it exports the exact message coding-adapter smoke.",
+  "acceptance": [
+    "src/coding-adapter-smoke.ts exports message with value coding-adapter smoke",
+    "node test/coding-adapter-smoke.test.js passes after the patch is applied"
+  ],
+  "testCommand": "node test/coding-adapter-smoke.test.js",
+  "expectedChanges": [
+    {
+      "path": "src/coding-adapter-smoke.ts",
+      "from": "export const message = \"before\"",
+      "to": "export const message = \"coding-adapter smoke\""
+    }
+  ],
+  "files": [
+    {
+      "path": "src/coding-adapter-smoke.ts",
+      "content": "export const message = \"before\"\n"
+    },
+    {
+      "path": "test/coding-adapter-smoke.test.js",
+      "content": "import { readFileSync } from 'node:fs'\n\nconst source = readFileSync(new URL('../src/coding-adapter-smoke.ts', import.meta.url), 'utf8')\nif (!source.includes('export const message = \"coding-adapter smoke\"')) {\n  throw new Error('coding adapter smoke message not found')\n}\nconsole.log('coding-adapter smoke test passed')\n"
+    },
+    {
+      "path": "package.json",
+      "content": "{\"type\":\"module\",\"scripts\":{\"test\":\"node test/coding-adapter-smoke.test.js\"}}\n"
+    }
+  ]
+}

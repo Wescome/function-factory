@@ -1,15 +1,16 @@
 /**
- * Evidence emission — Stage6TraceLog, CandidateSelectionReport, Gate2Input.
+ * Evidence emission — Stage6TraceLog, CandidateSelectionReport,
+ * FidelityVerificationInput.
  *
  * Three artifacts emitted per synthesis, regardless of outcome.
  *
  * AC 10, 11, 12, 13
  */
 
-import type { ArchitectureCandidate, WorkGraph } from "@factory/schemas"
+import type { ArchitectureCandidate, ExecutableSpecification } from "@factory/schemas"
 import {
   SynthesisTraceLog,
-  Gate2Input,
+  FidelityVerificationInput,
   SynthesisCandidateSelectionReport,
   type TerminalDecision,
   type RoleIterationRecord,
@@ -22,7 +23,7 @@ import {
 
 export interface TraceLogInput {
   readonly runId: string
-  readonly workGraphId: string
+  readonly executableSpecificationId: string
   readonly architectureCandidateId: string
   readonly bindingModeName: string
   readonly roleIterations: readonly RoleIterationRecord[]
@@ -37,7 +38,7 @@ export interface TraceLogInput {
 export function buildTraceLog(input: TraceLogInput): SynthesisTraceLog {
   return SynthesisTraceLog.parse({
     runId: input.runId,
-    workGraphId: input.workGraphId,
+    executableSpecificationId: input.executableSpecificationId,
     architectureCandidateId: input.architectureCandidateId,
     bindingModeName: input.bindingModeName,
     roleIterations: [...input.roleIterations],
@@ -50,12 +51,12 @@ export function buildTraceLog(input: TraceLogInput): SynthesisTraceLog {
   })
 }
 
-// ─── Gate 2 Input Builder (AC 11) ─────────────────────────────────────
+// ─── Fidelity Verification Input Builder (AC 11) ──────────────────────
 
-export interface Gate2InputBuilderInput {
+export interface FidelityVerificationInputBuilderInput {
   readonly runId: string
   readonly functionId: string
-  readonly workGraphId: string
+  readonly executableSpecificationId: string
   readonly architectureCandidateId: string
   readonly artifactPaths: readonly string[]
   readonly validationOutcomes: readonly ValidationOutcome[]
@@ -73,11 +74,11 @@ export interface Gate2InputBuilderInput {
   readonly completedAt: string
 }
 
-export function buildGate2Input(input: Gate2InputBuilderInput): Gate2Input {
-  return Gate2Input.parse({
+export function buildFidelityVerificationInput(input: FidelityVerificationInputBuilderInput): FidelityVerificationInput {
+  return FidelityVerificationInput.parse({
     synthesisRunId: input.runId,
     functionId: input.functionId,
-    workGraphId: input.workGraphId,
+    executableSpecificationId: input.executableSpecificationId,
     architectureCandidateId: input.architectureCandidateId,
     artifactPaths: [...input.artifactPaths],
     validationOutcomes: [...input.validationOutcomes],

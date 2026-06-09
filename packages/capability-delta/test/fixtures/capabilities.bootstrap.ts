@@ -6,17 +6,17 @@ export const bootstrapCapabilities: readonly BusinessCapability[] = [
     source_refs: ["PRS-META-UPSTREAM-PIPELINE-GAP"],
     explicitness: "inferred",
     rationale:
-      "Derived from the audited Stage 4 gap: FunctionProposal artifacts exist but no delta engine exists.",
+      "Derived from the audited Function Proposal decomposition gap: FunctionProposal artifacts exist but no delta engine exists.",
     name: "compute_capability_delta",
     purpose:
       "Determine which meta-capabilities are missing, degraded, underutilized, or sufficient and emit downstream FunctionProposal demand.",
     addressesPressureIds: ["PRS-META-UPSTREAM-PIPELINE-GAP"],
     desiredOutcomes: [
       "Capability deltas become explicit first-class artifacts.",
-      "Function proposals can be emitted from deterministic Stage 4 logic."
+      "Function proposals can be emitted from deterministic Function Proposal decomposition logic."
     ],
     constraints: [
-      "Must remain separate from Stage 5 compiler logic.",
+      "Must remain separate from Intent-to-Executable compiler logic.",
       "Must preserve lineage and explicit rationale for all findings."
     ],
     successMetrics: [
@@ -28,25 +28,25 @@ export const bootstrapCapabilities: readonly BusinessCapability[] = [
     confidence: 0.95
   },
   {
-    id: "BC-META-SEMANTICALLY-REVIEW-PRDS",
+    id: "BC-META-SEMANTICALLY-REVIEW-Intent SpecificationS",
     source_refs: ["PRS-META-SEMANTIC-REVIEW-GAP"],
     explicitness: "inferred",
     rationale:
-      "Derived from the documented gap between structural Gate 1 success and conceptual correctness.",
+      "Derived from the documented gap between Coherence Verification success and conceptual correctness.",
     name: "semantically_review_prds",
     purpose:
-      "Perform fail-closed semantic review between Gate 1 success and WorkGraph emission.",
+      "Perform fail-closed semantic review between Coherence Verification success and ExecutableSpecification emission.",
     addressesPressureIds: ["PRS-META-SEMANTIC-REVIEW-GAP"],
     desiredOutcomes: [
-      "Structurally valid but conceptually wrong PRDs are blocked.",
+      "Structurally valid but conceptually wrong Intent Specifications are blocked.",
       "Semantic review becomes a first-class pre-emission control."
     ],
     constraints: [
-      "Must not weaken Gate 1 structural coverage discipline.",
+      "Must not weaken Coherence Verification structural coverage discipline.",
       "Bootstrap path remains human-governed."
     ],
     successMetrics: [
-      "Semantic review status is required before WorkGraph emission."
+      "Semantic review status is required before ExecutableSpecification emission."
     ],
     affectedPersonas: ["architect", "critic-agent"],
     strategicPriority: 0.92,
@@ -57,20 +57,20 @@ export const bootstrapCapabilities: readonly BusinessCapability[] = [
     source_refs: ["PRS-META-CANDIDATE-EMISSION-GAP"],
     explicitness: "inferred",
     rationale:
-      "Derived from the whitepaper v2 requirement that Stage 5 emit WorkGraph plus ArchitectureCandidate artifacts.",
+      "Derived from the whitepaper v2 requirement that Intent-to-Executable compilation emit ExecutableSpecification plus ArchitectureCandidate artifacts.",
     name: "emit_architecture_candidates",
     purpose:
-      "Emit candidate-bound execution artifacts alongside WorkGraphs at the end of Stage 5.",
+      "Emit candidate-bound execution artifacts alongside ExecutableSpecifications at the end of Intent-to-Executable compilation.",
     addressesPressureIds: ["PRS-META-CANDIDATE-EMISSION-GAP"],
     desiredOutcomes: [
       "Execution arrangement becomes explicit before runtime exists.",
-      "Stage 5 output aligns with v2 paired-emission doctrine."
+      "Intent-to-Executable output aligns with v2 paired-emission doctrine."
     ],
     constraints: [
-      "Must not pollute WorkGraph with runtime-only execution details."
+      "Must not pollute ExecutableSpecification with runtime-only execution details."
     ],
     successMetrics: [
-      "At least one ArchitectureCandidate artifact emitted alongside each eligible WorkGraph."
+      "At least one ArchitectureCandidate artifact emitted alongside each eligible ExecutableSpecification."
     ],
     affectedPersonas: ["architect", "compiler-agent"],
     strategicPriority: 0.94,

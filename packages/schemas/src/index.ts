@@ -14,8 +14,27 @@ export * from "./selection-bias.js"
 export * from "./meta-governance.js"
 export * from "./policy-activation.js"
 export * from "./coverage.js"
+export * from "./gascity-fidelity.js"
 export * from "./semantic-review.js"
 export * from "./trust.js"
 export * from "./decision-state.js"
 export * from "./commit-triage.js"
 export * from "./sdlc.js"
+export * from "./domain-adapter.js"
+export * from "./coding-domain-adapter.js"
+export * from "./ontology-aliases.js"
+export * from "./_attic/trellis-execution-packet.js"
+export * from "./_attic/trellis-canonical-json.js"
+export * from "./function-job.js"
+export {
+  CoherenceVerificationReport,
+  FidelityVerificationReport,
+  FidelityVerificationVerdict,
+  PersistenceVerificationReport,
+} from "./coverage.js"
+export type {
+  CoherenceVerificationReport as CoherenceVerificationReportType,
+  FidelityVerificationReport as FidelityVerificationReportType,
+  FidelityVerificationVerdict as FidelityVerificationVerdictType,
+  PersistenceVerificationReport as PersistenceVerificationReportType,
+} from "./coverage.js"

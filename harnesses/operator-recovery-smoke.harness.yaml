@@ -1,0 +1,50 @@
+nlahspec: "0.2"
+
+lineage:
+  source_refs:
+    - IS-HARNESS-DSL-v1
+    - FN-SYNTH-MIGRATE
+
+harness:
+  name: OPERATOR_RECOVERY_SMOKE
+  task_family: operator_intervention_recovery
+  objective: >
+    Prove that an operator can recover a live run by supplying a missing
+    preseed artifact and explicitly re-enqueuing the current execution node.
+
+runtime:
+  state_root: state
+  artifact_root: artifacts
+  graph_mode: linear
+  default_failure_action: retry_stage
+  max_repair_rounds: 60
+
+roles:
+  PreseedChecker:
+    responsibility: >
+      Verify that SeedWorkspace has been placed in the run artifact namespace.
+
+artifacts:
+  SeedWorkspace:
+    path: artifacts/seed_workspace.json
+    required: true
+    contract:
+      kind: json
+      required_fields: [schemaVersion, files]
+
+stages:
+  SEED:
+    from: TaskReceived
+    to: WorkspaceSeeded
+    role: PreseedChecker
+    worker: preseed
+    outputs: [SeedWorkspace]
+    max_stage_attempts: 60
+    gate:
+      all:
+        - { exists: SeedWorkspace }
+
+failure_taxonomy:
+  worker_executed: retry_stage
+  missing_artifact: retry_stage
+  budget_exceeded: mark_incomplete

@@ -8,7 +8,7 @@
  * Promise.all for concurrent I/O on LLM calls.
  */
 
-import type { CodeArtifact, CritiqueReport, TestReport, Verdict, PipelineWorkGraph } from './state'
+import type { CodeArtifact, CritiqueReport, TestReport, Verdict, PipelineExecutableSpecification } from './state'
 import type { FileContext } from '@factory/file-context'
 
 // ────────────────────────────────────────────────────────────
@@ -20,7 +20,7 @@ export interface AtomSlice {
   atomSpec: Record<string, unknown>
   upstreamArtifacts: Record<string, unknown>
   sharedContext: {
-    workGraphId: string
+    executableSpecificationId: string
     specContent: string | null
     briefingScript: unknown
   }
@@ -50,7 +50,7 @@ export interface AtomResult {
 export interface AtomExecutorDeps {
   coderAgent: {
     produceCode: (input: {
-      workGraph: PipelineWorkGraph
+      executableSpecification: PipelineExecutableSpecification
       plan: Record<string, unknown>
       specContent?: string
       repairNotes?: string
@@ -63,13 +63,13 @@ export interface AtomExecutorDeps {
     codeReview: (input: {
       code: unknown
       plan: unknown
-      workGraph: PipelineWorkGraph
+      executableSpecification: PipelineExecutableSpecification
       mentorRules?: string[]
     }) => Promise<CritiqueReport>
   }
   testerAgent: {
     runTests: (input: {
-      workGraph: PipelineWorkGraph
+      executableSpecification: PipelineExecutableSpecification
       plan: Record<string, unknown>
       code: Record<string, unknown>
       critique?: CritiqueReport | Record<string, unknown>
@@ -77,7 +77,7 @@ export interface AtomExecutorDeps {
   }
   verifierAgent: {
     verify: (input: {
-      workGraph: PipelineWorkGraph
+      executableSpecification: PipelineExecutableSpecification
       plan: Record<string, unknown> | null
       code: CodeArtifact | null
       critique: CritiqueReport | null
@@ -176,10 +176,10 @@ export async function executeAtomSlice(
   let repairNotes: string | undefined
   let previousCode: CodeArtifact | undefined
 
-  // Build a minimal workGraph-like object for the atom
-  const atomWorkGraph: PipelineWorkGraph = {
-    _key: slice.sharedContext.workGraphId,
-    id: slice.sharedContext.workGraphId,
+  // Build a minimal executableSpecification-like object for the atom
+  const atomExecutableSpecification: PipelineExecutableSpecification = {
+    _key: slice.sharedContext.executableSpecificationId,
+    id: slice.sharedContext.executableSpecificationId,
     title: `Atom: ${slice.atomId}`,
     atoms: [slice.atomSpec],
     invariants: [],
@@ -200,7 +200,7 @@ export async function executeAtomSlice(
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     // Node 1: Code
     code = await deps.coderAgent.produceCode({
-      workGraph: atomWorkGraph,
+      executableSpecification: atomExecutableSpecification,
       plan: atomPlan,
       ...(slice.sharedContext.specContent ? { specContent: slice.sharedContext.specContent } : {}),
       ...(repairNotes ? { repairNotes } : {}),
@@ -230,13 +230,13 @@ export async function executeAtomSlice(
     critique = await deps.criticAgent.codeReview({
       code,
       plan: atomPlan,
-      workGraph: atomWorkGraph,
+      executableSpecification: atomExecutableSpecification,
       mentorRules: mentorRules.map(r => `${r.ruleId}: ${r.rule}`),
     })
 
     // Node 3: Test
     tests = await deps.testerAgent.runTests({
-      workGraph: atomWorkGraph,
+      executableSpecification: atomExecutableSpecification,
       plan: atomPlan,
       code: code as unknown as Record<string, unknown>,
       ...(critique ? { critique } : {}),
@@ -244,7 +244,7 @@ export async function executeAtomSlice(
 
     // Node 4: Verify
     verdict = await deps.verifierAgent.verify({
-      workGraph: atomWorkGraph,
+      executableSpecification: atomExecutableSpecification,
       plan: atomPlan,
       code,
       critique,

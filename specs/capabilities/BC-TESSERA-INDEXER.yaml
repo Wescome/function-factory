@@ -1,0 +1,54 @@
+id: BC-TESSERA-INDEXER
+source_refs:
+  - TESSERA-CF-SPEC
+  - IS-TESSERA-INDEXER
+  - IS-TESSERA-ARANGO-SCHEMA
+  - IS-TESSERA-PARSER
+explicitness: explicit
+rationale: >
+  Required by TESSERA-CF-SPEC §4 (WP-T2, WP-T4): index freshness must stop
+  depending on a human running tessera analyze. A GitHub push webhook validates
+  HMAC SHA-256, debounces, and enqueues an IndexJob to a CF Queue; the consumer
+  fetches the repo tarball, parses every file (FP-TESSERA-PARSER), builds nodes
+  and edges, and loads the graph into the per-repo ArangoDB collections
+  (FP-TESSERA-ARANGO-SCHEMA) in batches under an atomic ingest. Without this
+  Capability the graph goes stale the moment code changes, and autonomous agents
+  operate on a graph that no longer matches reality (§1 root cause: stateful
+  intelligence inside a stateless developer environment).
+
+name: Keep Tessera Graph Index Fresh on Every Git Push
+description: >
+  The Factory's durable ability to automatically rebuild the code graph for any
+  watched repo within minutes of a push — without human intervention, without a
+  local machine, with at-least-once delivery and idempotent retry. The Capability
+  wires webhook intake (HMAC validation, debounce gate, IndexJob enqueue) to a
+  Queue-driven ingest (tarball stream, parse, batch-insert nodes 1,000/req and
+  edges 5,000/req, view rebuild, tessera_meta update) into one event-driven loop
+  that replaces the human tessera analyze CLI call.
+
+  The Capability performs a full rebuild per push (V1; incremental is V2), holds
+  the atomic-ingest invariant so readers never see a partial graph (stream
+  transaction or build-aside swap, §4.4), and recovers from crashes idempotently
+  via Queue retry (max_retries 3; each retry deletes-all first, so re-running
+  yields the same final graph). Exhausted jobs land in a DLQ surfaced via
+  list_repos index-status.
+
+  Governed by: G2 (good shared-Container citizen), G3 (10-minute debounce is
+  load-shaping, not billing — coalesces rapid pushes to one rebuild of the newest
+  commit), G6 (atomic ingest is non-negotiable), and G4 (the parser-parity gate it
+  inherits from FP-TESSERA-PARSER).
+
+yields:
+  execution: FP-TESSERA-INDEXER
+
+pressures_addressed:
+  - Index freshness depends on a human remembering to run tessera analyze; the moment code changes the graph is stale
+  - Autonomous agents operate on a stale graph, running impact analysis against a structure that no longer matches the code
+  - No event-driven indexing exists; there is no path from a git push to a refreshed cloud graph without a developer's machine in the loop
+
+platform_constraints:
+  - CF Worker + CF Queue context (at-least-once delivery, max_retries 3, DLQ); no DO alarm loop
+  - Archive must be streamed not buffered (Workers ~128MB), follow the 302 to codeload, cap at 500MB
+  - Atomic cut-over via stream transaction or build-aside swap — the arango-client has no native transaction helper, so one is added (WP-T1)
+  - Shared ArangoDB Container: full rebuilds (~78k nodes / ~277k edges for gascity) must be debounced to protect the artifact-store workload (G3)
+  - GitHub App installation-token cache (~55-min TTL) keeps tarball fetches inside the 5,000 req/hr/installation budget

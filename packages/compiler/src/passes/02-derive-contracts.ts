@@ -1,9 +1,9 @@
 /**
- * Pass 2- derive contracts.
+ * Binding (legacy Pass 2)- derive contracts.
  *
  * Produces one Contract per atom category (acceptance, constraint,
  * nfr), each with `derivedFromAtomIds` containing every atom in that
- * category. This ensures atom_coverage in Gate 1 passes- every atom
+ * category. This ensures atom_coverage in Coherence Verification passes- every atom
  * is referenced by ≥1 downstream artifact (a Contract that derived
  * from it).
  *
@@ -20,11 +20,11 @@
  */
 
 import type { ArtifactId, Contract, RequirementAtom } from "@factory/schemas"
-import type { NormalizedPRD } from "../types.js"
+import type { NormalizedIntentSpecification } from "../types.js"
 import { contractId } from "./_shared.js"
 
 export function deriveContracts(
-  normalized: NormalizedPRD,
+  normalized: NormalizedIntentSpecification,
   atoms: readonly RequirementAtom[]
 ): Contract[] {
   const { draft } = normalized
@@ -48,21 +48,21 @@ export function deriveContracts(
 }
 
 function buildContract(
-  prdId: ArtifactId,
+  intentSpecificationId: ArtifactId,
   category: string,
   categoryAtoms: readonly RequirementAtom[]
 ): Contract {
   const tag = category.toUpperCase()
-  const id = contractId(prdId, tag)
+  const id = contractId(intentSpecificationId, tag)
   const atomIds = categoryAtoms.map((a) => a.id)
 
   return {
     id,
-    source_refs: [prdId, ...atomIds],
+    source_refs: [intentSpecificationId, ...atomIds],
     explicitness: "explicit",
-    rationale: `Derived from ${categoryAtoms.length} ${category}-category atoms in ${prdId}`,
+    rationale: `Derived from ${categoryAtoms.length} ${category}-category atoms in ${intentSpecificationId}`,
     kind: categoryForKind(category),
-    statement: `Aggregate contract for ${category}-category requirements of ${prdId}`,
+    statement: `Aggregate contract for ${category}-category requirements of ${intentSpecificationId}`,
     producerHint: null,
     consumerHints: [],
     derivedFromAtomIds: atomIds,

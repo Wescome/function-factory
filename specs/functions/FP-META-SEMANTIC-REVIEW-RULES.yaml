@@ -4,20 +4,20 @@ name: semantic_review_rules
 purpose: Define fail-closed semantic review rules and statuses
 functionType: control
 expectedInputs:
-  - PRDDraft
-  - Gate1Report
+  - IntentSpecificationDraft
+  - CoherenceVerificationReport
   - doctrine sources
 expectedOutputs:
   - semantic review findings
   - semantic review status
 governingConstraints:
-  - must not weaken Gate 1
+  - must not weaken Coherence Verification
 candidateInvariants:
-  - structurally valid but conceptually wrong PRDs are blocked
+  - structurally valid but conceptually wrong Intent Specifications are blocked
 successSignals:
   - consistent semantic review classification across repeated runs
 confidence: 0.94
 source_refs:
   - PRS-META-SEMANTIC-REVIEW-GAP
 explicitness: inferred
-capabilityId: BC-META-SEMANTICALLY-REVIEW-PRDS
+capabilityId: BC-META-SEMANTICALLY-REVIEW-Intent SpecificationS

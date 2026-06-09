@@ -11,7 +11,7 @@ expectedOutputs:
 governingConstraints:
   - source references must be preserved
 candidateInvariants:
-  - candidate evidence always cites doctrine and PRD inputs
+  - candidate evidence always cites doctrine and Intent Specification inputs
 successSignals:
   - persisted evidence artifact for each candidate emission run
 confidence: 0.9

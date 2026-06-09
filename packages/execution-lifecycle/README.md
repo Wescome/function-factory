@@ -2,6 +2,13 @@
 
 Manages the EXS/EXT/EXR lifecycle: emits execution start, trace, and result artifacts with strict ordering invariants enforced by guard assertions.
 
+## Ontology Alias
+
+Execution start, trace, and result artifacts are runtime evidence around an
+`Executable Specification` execution. The package keeps the EXS/EXT/EXR
+artifact names and `@factory/execution-lifecycle` package name as compatibility
+surfaces.
+
 ## Pipeline Position
 
 **Stage:** 6.25
@@ -16,7 +23,7 @@ Manages the EXS/EXT/EXR lifecycle: emits execution start, trace, and result arti
 - `assertExecutionStartAllowed()` -- Guard: EXS requires RAD decision = allow
 - `assertTraceAllowed()` -- Guard: EXT requires existing EXS
 - `assertResultAllowed()` -- Guard: EXR requires existing EXS
-- `executionStartIdFromWorkGraphId()`, `executionTraceIdFromWorkGraphId()`, `executionResultIdFromWorkGraphId()` -- Deterministic ID generators
+- `executionStartIdFromExecutableSpecificationId()`, `executionTraceIdFromExecutableSpecificationId()`, `executionResultIdFromExecutableSpecificationId()` -- Deterministic ID generators
 
 ## Key Invariants
 

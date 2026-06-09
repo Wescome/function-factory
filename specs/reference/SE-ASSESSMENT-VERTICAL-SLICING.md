@@ -25,13 +25,13 @@
 |---|------------|-------------|-------------------|
 | A | Bug fix only | Decouple dispatch/relay (fire-and-forget + callback). Keep monolithic 10-node graph. | Minimum change. Fixes timeout. Does not address latency or blast radius. |
 | B | Bug fix + per-atom retry (v4.1) | Decouple dispatch/relay. Keep monolithic pipeline but scope `patch` verdict retry to the failing atom only. | Medium change. Fixes timeout + blast radius. Does not parallelize. |
-| C | Bug fix + full vertical slicing (v5) | Decouple dispatch/relay. Split graph into Phase 1 (whole-graph: architect→gate-1→planner), Phase 2 (per-atom parallel: code→critic→test→verify), Phase 3 (integration verify). | Large change. Fixes timeout + blast radius + latency. Adds coordination complexity. |
+| C | Bug fix + full vertical slicing (v5) | Decouple dispatch/relay. Split graph into Phase 1 (whole-graph: architect→coherence-verification→planner), Phase 2 (per-atom parallel: code→critic→test→verify), Phase 3 (integration verify). | Large change. Fixes timeout + blast radius + latency. Adds coordination complexity. |
 
 ### Evaluation Criteria (SMARTS)
 
 | # | Criterion | Scale | Best (100) | Worst (0) |
 |---|-----------|-------|-----------|----------|
-| 1 | Latency reduction | Wall-clock time for 6-atom WorkGraph | <2 min (parallel atoms) | >15 min (current serial) |
+| 1 | Latency reduction | Wall-clock time for 6-atom Executable Specification | <2 min (parallel atoms) | >15 min (current serial) |
 | 2 | Blast radius | Scope of repair on single-atom failure | 1 atom re-runs | All atoms re-run |
 | 3 | Implementation cost | LOC changed + new tests needed | <100 LOC, <10 tests | >1000 LOC, >50 tests |
 | 4 | Platform fit | Uses CF primitives natively | All patterns supported | Requires workarounds |
@@ -122,7 +122,7 @@ Each step is independently valuable and deployable.
 | Question | Answer |
 |----------|--------|
 | What can go wrong? | Atoms executed in parallel produce code that doesn't integrate — incompatible interfaces, duplicate declarations, conflicting imports. |
-| Likelihood? | **Medium.** The WorkGraph's typed dependency edges encode explicit relationships, but implicit coupling (shared utility functions, naming conventions) is not captured. |
+| Likelihood? | **Medium.** The Executable Specification's typed dependency edges encode explicit relationships, but implicit coupling (shared utility functions, naming conventions) is not captured. |
 | Consequences? | Integration verification (Phase 3) rejects the merge. All atom artifacts are valid individually but fail as a set. Wasted parallel work. |
 | What has been done? | The ontology models dependencies as typed edges. The Planner produces an atom plan with explicit ordering and assignments. |
 | How do those actions affect risk? | They reduce the likelihood of explicit dependency violations but do NOT address implicit coupling. |
@@ -175,15 +175,15 @@ Each step is independently valuable and deployable.
 
 ## 3. Functional Analysis: FFBD Decomposition
 
-### Top-Level Function: F0 — Synthesize WorkGraph
+### Top-Level Function: F0 — Synthesize Executable Specification
 
 ```
-F0: Synthesize WorkGraph
+F0: Synthesize Executable Specification
 ├── F1: Whole-Graph Processing (Serial)
 │   ├── F1.1: Produce BriefingScript (Architect agent)
 │   ├── F1.2: Semantic Review (Critic agent)
-│   ├── F1.3: Compile PRD → WorkGraph (8-pass compiler)
-│   ├── F1.4: Gate 1 Coverage Check (deterministic)
+│   ├── F1.3: Compile Intent Specification → Executable Specification (8-pass compiler)
+│   ├── F1.4: Coherence Verification Verification Check (deterministic)
 │   └── F1.5: Plan Atom Execution (Planner agent)
 │
 ├── F2: Per-Atom Synthesis (Parallel AND per dependency layer)
@@ -239,8 +239,8 @@ F0: Synthesize WorkGraph
                     │   DO Alarm (wall-clock)          │
                     └────────────┬─────────────────┘
                                  │
-  WorkGraph ─────►┌──────────────┴──────────────┐─────► SynthesisResult
-  specContent ───►│   F0: Synthesize WorkGraph  │─────► Per-atom Verdicts
+  Executable Specification ─────►┌──────────────┴──────────────┐─────► SynthesisResult
+  specContent ───►│   F0: Synthesize Executable Specification  │─────► Per-atom Verdicts
   API Keys ──────►│                              │─────► CRP (if low confidence)
                   └──────────────┬──────────────┘─────► Lifecycle transitions
                                  │
@@ -303,14 +303,14 @@ F0: Synthesize WorkGraph
 ### Next (reduce blast radius): Ship B (v4.1)
 - Per-atom retry isolation within the monolithic graph
 - Verifier returns `patch` with atom ID → only that atom's nodes re-run
-- **Evidence required:** multi-atom WorkGraph where one atom fails, others' artifacts preserved
+- **Evidence required:** multi-atom Executable Specification where one atom fails, others' artifacts preserved
 
 ### Then (unlock parallelism): Ship C (v5)
 - Full vertical slicing per FFBD decomposition above
 - Phase 1 serial → Phase 2 parallel per dependency layer → Phase 3 integration
 - LLMCompiler-style placeholder resolution for dependent atoms
 - DynTaskMAS-style scoped context per atom
-- **Evidence required:** 6-atom WorkGraph with 3 independent atoms completes in <4 min
+- **Evidence required:** 6-atom Executable Specification with 3 independent atoms completes in <4 min
 
 ### The gradient is the strategy
 Each step is independently deployable and testable. A fails? Debug the callback. B fails? Debug the retry isolation. C fails? Fall back to B (which already works). This is the Spiral lifecycle model (Sage & Rouse Ch. 1): each increment reduces risk before committing to the next.

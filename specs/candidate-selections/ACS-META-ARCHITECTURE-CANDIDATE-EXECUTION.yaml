@@ -1,11 +1,11 @@
 id: ACS-META-ARCHITECTURE-CANDIDATE-EXECUTION
 source_refs:
-  - PRD-META-ARCHITECTURE-CANDIDATE-EXECUTION
+  - IS-META-ARCHITECTURE-CANDIDATE-EXECUTION
   - AC-META-ARCHITECTURE-CANDIDATE-EXECUTION
 explicitness: inferred
 rationale: Derived deterministically from ArchitectureCandidate scorecard and bootstrap threshold policy.
 sourceArchitectureCandidateId: AC-META-ARCHITECTURE-CANDIDATE-EXECUTION
-sourceWorkGraphId: WG-META-ARCHITECTURE-CANDIDATE-EXECUTION
+sourceExecutable SpecificationId: ES-META-ARCHITECTURE-CANDIDATE-EXECUTION
 decision: selected
 threshold: 0.8
 scorecard:

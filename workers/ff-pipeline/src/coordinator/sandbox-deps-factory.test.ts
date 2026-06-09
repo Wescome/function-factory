@@ -47,9 +47,10 @@ import { buildSandboxDeps } from './sandbox-deps-factory.js'
 // ────────────────────────────────────────────────────────────
 
 const fakeSandboxBinding = {} as unknown // DurableObjectNamespace stub
+const backupHandle = { id: 'backup-abc-123', dir: '/workspace' }
 
 function makeDeps(): SandboxDeps {
-  return buildSandboxDeps(fakeSandboxBinding, 'WG-test-001')
+  return buildSandboxDeps(fakeSandboxBinding, 'ES-test-001')
 }
 
 // ────────────────────────────────────────────────────────────
@@ -91,15 +92,15 @@ describe('T12: buildSandboxDeps() — real @cloudflare/sandbox wiring', () => {
   // ── 1. execInSandbox ──────────────────────────────────────
 
   describe('execInSandbox', () => {
-    it('calls getSandbox with the binding and a sandbox name derived from workGraphId', async () => {
+    it('calls getSandbox with the binding and a sandbox name derived from executableSpecificationId', async () => {
       const deps = makeDeps()
-      const taskJson = JSON.stringify({ role: 'coder', workGraphId: 'WG-test-001' })
+      const taskJson = JSON.stringify({ role: 'coder', executableSpecificationId: 'ES-test-001' })
 
       await deps.execInSandbox(taskJson)
 
       expect(mockGetSandbox).toHaveBeenCalledWith(
         fakeSandboxBinding,
-        'synth-WG-test-001',
+        'synth-ES-test-001',
       )
     })
 
@@ -201,7 +202,7 @@ describe('T12: buildSandboxDeps() — real @cloudflare/sandbox wiring', () => {
 
       expect(mockGetSandbox).toHaveBeenCalledWith(
         fakeSandboxBinding,
-        'synth-WG-test-001',
+        'synth-ES-test-001',
       )
     })
 
@@ -273,7 +274,7 @@ describe('T12: buildSandboxDeps() — real @cloudflare/sandbox wiring', () => {
 
       expect(mockGetSandbox).toHaveBeenCalledWith(
         fakeSandboxBinding,
-        'synth-WG-test-001',
+        'synth-ES-test-001',
       )
     })
 
@@ -288,16 +289,21 @@ describe('T12: buildSandboxDeps() — real @cloudflare/sandbox wiring', () => {
       })
     })
 
-    it('returns the backup ID string', async () => {
+    it('returns the full backup handle from the sandbox SDK', async () => {
       mockSandbox.createBackup.mockResolvedValue({
         id: 'backup-xyz-789',
         dir: '/workspace',
+        localBucket: true,
       })
 
       const deps = makeDeps()
-      const backupId = await deps.createBackup('/workspace')
+      const backup = await deps.createBackup('/workspace')
 
-      expect(backupId).toBe('backup-xyz-789')
+      expect(backup).toEqual({
+        id: 'backup-xyz-789',
+        dir: '/workspace',
+        localBucket: true,
+      })
     })
 
     it('passes the dir argument through to createBackup', async () => {
@@ -318,29 +324,26 @@ describe('T12: buildSandboxDeps() — real @cloudflare/sandbox wiring', () => {
     it('calls getSandbox with the binding and sandbox name', async () => {
       const deps = makeDeps()
 
-      await deps.restoreBackup('backup-abc-123')
+      await deps.restoreBackup(backupHandle)
 
       expect(mockGetSandbox).toHaveBeenCalledWith(
         fakeSandboxBinding,
-        'synth-WG-test-001',
+        'synth-ES-test-001',
       )
     })
 
-    it('calls sandbox.restoreBackup with the backup handle as id and /workspace as dir', async () => {
+    it('calls sandbox.restoreBackup with the full backup handle unchanged', async () => {
       const deps = makeDeps()
 
-      await deps.restoreBackup('backup-abc-123')
+      await deps.restoreBackup(backupHandle)
 
-      expect(mockSandbox.restoreBackup).toHaveBeenCalledWith({
-        id: 'backup-abc-123',
-        dir: '/workspace',
-      })
+      expect(mockSandbox.restoreBackup).toHaveBeenCalledWith(backupHandle)
     })
 
     it('does not throw when restoreBackup succeeds', async () => {
       const deps = makeDeps()
 
-      await expect(deps.restoreBackup('backup-abc-123')).resolves.toBeUndefined()
+      await expect(deps.restoreBackup(backupHandle)).resolves.toBeUndefined()
     })
 
     it('propagates errors from sandbox.restoreBackup', async () => {
@@ -348,28 +351,28 @@ describe('T12: buildSandboxDeps() — real @cloudflare/sandbox wiring', () => {
 
       const deps = makeDeps()
 
-      await expect(deps.restoreBackup('backup-abc-123')).rejects.toThrow('Backup expired')
+      await expect(deps.restoreBackup(backupHandle)).rejects.toThrow('Backup expired')
     })
   })
 
   // ── 5. All deps use the same sandbox name pattern ─────────
 
   describe('sandbox naming', () => {
-    it('all deps produce sandbox name "synth-{workGraphId}"', async () => {
-      const deps = buildSandboxDeps(fakeSandboxBinding, 'WG-custom-42')
+    it('all deps produce sandbox name "synth-{executableSpecificationId}"', async () => {
+      const deps = buildSandboxDeps(fakeSandboxBinding, 'ES-custom-42')
 
       // Call each method
       await deps.execInSandbox('{}')
       await deps.prepareWorkspace({ repoUrl: '', ref: '', branch: '' })
       await deps.createBackup('/workspace')
-      await deps.restoreBackup('x')
+      await deps.restoreBackup(backupHandle)
 
       // Every getSandbox call should use the same naming pattern
       const calls = mockGetSandbox.mock.calls
       expect(calls.length).toBe(4)
       for (const call of calls) {
         expect(call[0]).toBe(fakeSandboxBinding)
-        expect(call[1]).toBe('synth-WG-custom-42')
+        expect(call[1]).toBe('synth-ES-custom-42')
       }
     })
   })

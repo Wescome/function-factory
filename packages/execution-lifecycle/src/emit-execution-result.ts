@@ -1,9 +1,9 @@
 import type { ExecutionResult } from "@factory/schemas"
-import { executionResultIdFromWorkGraphId } from "./ids.js"
+import { executionResultIdFromExecutableSpecificationId } from "./ids.js"
 import { assertResultAllowed } from "./assert-lifecycle-invariants.js"
 
 export function emitExecutionResult(input: {
-  sourceWorkGraphId: string
+  sourceExecutableSpecificationId: string
   sourceArchitectureCandidateId: string
   sourceSelectionId: string
   sourceAdmissionId: string
@@ -13,11 +13,11 @@ export function emitExecutionResult(input: {
 }): ExecutionResult {
   assertResultAllowed(input.hasExecutionStart)
   return {
-    id: executionResultIdFromWorkGraphId(input.sourceWorkGraphId),
+    id: executionResultIdFromExecutableSpecificationId(input.sourceExecutableSpecificationId),
     source_refs: [...input.sourceRefs],
     explicitness: "inferred",
     rationale: "Execution result emitted deterministically for the bootstrap single-path run.",
-    sourceWorkGraphId: input.sourceWorkGraphId,
+    sourceExecutableSpecificationId: input.sourceExecutableSpecificationId,
     sourceArchitectureCandidateId: input.sourceArchitectureCandidateId,
     sourceSelectionId: input.sourceSelectionId,
     sourceAdmissionId: input.sourceAdmissionId,

@@ -63,14 +63,14 @@ describe("evaluateDelta", () => {
     expect(a).toEqual(b)
   })
 
-  it("returns a CapabilityDelta for BC-META-SEMANTICALLY-REVIEW-PRDS", () => {
+  it("returns a CapabilityDelta for BC-META-SEMANTICALLY-REVIEW-Intent SpecificationS", () => {
     const cap = bootstrapCapabilities.find(
-      (c) => c.id === "BC-META-SEMANTICALLY-REVIEW-PRDS"
+      (c) => c.id === "BC-META-SEMANTICALLY-REVIEW-Intent SpecificationS"
     )!
     const delta = evaluateDelta(cap, repoInventoryCurrent)
 
-    expect(delta.id).toBe("DEL-META-SEMANTICALLY-REVIEW-PRDS")
-    expect(delta.capabilityId).toBe("BC-META-SEMANTICALLY-REVIEW-PRDS")
+    expect(delta.id).toBe("DEL-META-SEMANTICALLY-REVIEW-Intent SpecificationS")
+    expect(delta.capabilityId).toBe("BC-META-SEMANTICALLY-REVIEW-Intent SpecificationS")
     expect(delta.overallStatus).toBe("missing")
     expect(delta.findings).toHaveLength(4)
     expect(delta.recommendedFunctionTypes).toEqual(["execution", "control", "evidence"])
@@ -80,7 +80,7 @@ describe("evaluateDelta", () => {
 
   it("classifies semantic-review execution/control/evidence as missing, integration as underutilized", () => {
     const cap = bootstrapCapabilities.find(
-      (c) => c.id === "BC-META-SEMANTICALLY-REVIEW-PRDS"
+      (c) => c.id === "BC-META-SEMANTICALLY-REVIEW-Intent SpecificationS"
     )!
     const delta = evaluateDelta(cap, repoInventoryCurrent)
 
@@ -92,7 +92,7 @@ describe("evaluateDelta", () => {
 
   it("produces deterministic semantic-review output across calls", () => {
     const cap = bootstrapCapabilities.find(
-      (c) => c.id === "BC-META-SEMANTICALLY-REVIEW-PRDS"
+      (c) => c.id === "BC-META-SEMANTICALLY-REVIEW-Intent SpecificationS"
     )!
     const a = evaluateDelta(cap, repoInventoryCurrent)
     const b = evaluateDelta(cap, repoInventoryCurrent)

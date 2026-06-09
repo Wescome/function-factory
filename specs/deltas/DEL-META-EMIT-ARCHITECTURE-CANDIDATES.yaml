@@ -26,7 +26,7 @@ findings:
       - SIG-META-REPO-ARCH-AUDIT
   - dimension: integration
     status: underutilized
-    statement: WorkGraph emission exists but candidate emission is not integrated
+    statement: Executable Specification emission exists but candidate emission is not integrated
       into Stage 5
     severity: 0.75
     confidence: 0.9

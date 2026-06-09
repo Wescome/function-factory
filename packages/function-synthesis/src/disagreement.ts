@@ -2,7 +2,7 @@
  * Three-class disagreement resolution.
  *
  * When Verifier passes but acceptance review rejects, classify as
- * repairable_local / architectural / governance per PRD constraints.
+ * repairable_local / architectural / governance per Intent Specification constraints.
  *
  * AC 8
  */

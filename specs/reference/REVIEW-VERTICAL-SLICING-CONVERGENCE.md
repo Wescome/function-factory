@@ -46,7 +46,7 @@
 
 | FFBD Function | ADR-005 Phase | Match? |
 |---|---|---|
-| F1: Whole-Graph Processing (Serial) | Phase 1: WorkGraph-level pipeline | MATCH -- same 5 nodes (architect, semantic-critic, compile, gate-1, planner) |
+| F1: Whole-Graph Processing (Serial) | Phase 1: Executable Specification-level pipeline | MATCH -- same 5 nodes (architect, semantic-critic, compile, coherence-verification, planner) |
 | F2: Per-Atom Synthesis (Parallel AND) | Phase 2: Per-atom parallel execution | MATCH -- same topology (topo sort, layer-serial, atom-parallel) |
 | F2.2.1: For each Atom (code, critic, test, verify) | AtomExecutor DO (code, code-critic, test, verify) | MATCH -- same 4-node pipeline |
 | F2.2.1.5 retry loop (max 3) | Per-atom repair loop (max 3, configurable) | MATCH |
@@ -108,7 +108,7 @@ Defined in ADR-005:
 - `AtomLayer` (Section 4.2) -- complete
 - `AtomSliceSpec` (Section 4.2) -- complete
 - `AtomState` (Section 4.3.6) -- complete
-- `WorkGraphState` (Section 4.3.6) -- complete
+- `Executable SpecificationState` (Section 4.3.6) -- complete
 - `CompletionLedger` (Section 4.6) -- complete
 
 **GAP G5: `AtomResult` type missing** (reiteration of G1).
@@ -117,7 +117,7 @@ Defined in ADR-005:
 
 **GAP G7: `SharedContext` type not defined.** Referenced in `AtomState.sharedContext` but not shown. Presumably equals `SlicePlan.sharedContext` but not stated.
 
-**GAP G8: Relationship between new `WorkGraphState` and existing `GraphState`.** The ADR introduces `WorkGraphState` (Section 4.3.6) as the orchestrator-level state, but the existing `GraphState` (state.ts) already serves this role. The migration path -- whether `WorkGraphState` replaces `GraphState` or extends it -- is not specified. The existing `GraphState` has fields (`sandboxName`, `freshBackupHandle`, `coderBackupHandle`, `executionMode`) that are per-atom in the new model but per-WorkGraph in the current model. This needs explicit handling.
+**GAP G8: Relationship between new `Executable SpecificationState` and existing `GraphState`.** The ADR introduces `Executable SpecificationState` (Section 4.3.6) as the orchestrator-level state, but the existing `GraphState` (state.ts) already serves this role. The migration path -- whether `Executable SpecificationState` replaces `GraphState` or extends it -- is not specified. The existing `GraphState` has fields (`sandboxName`, `freshBackupHandle`, `coderBackupHandle`, `executionMode`) that are per-atom in the new model but per-Executable Specification in the current model. This needs explicit handling.
 
 ### 2.5 wrangler.jsonc Changes
 
@@ -195,7 +195,7 @@ IMPLEMENTATION-PLAN.md Phase F specifies: "Rollback triggers: F1 fails or F3 fai
 | v3: Critic caught hallucinated invariant | Retired -- hardened Stage 4 prompt | Not explicitly captured as retired risk |
 | v4: DO alarm at 180s killed synthesis | Retired -- raised to 900s | ADR Section 2.1 (alarm behavior) |
 | v5: DO callback self-fetch blocked by CF | **CRITICAL -- partially captured** | ADR Section 3.2 shows callback design. But live code uses Queue relay (SYNTHESIS_RESULTS), which is the actual fix. ADR Section 3 still proposes fetch-based callback as the design. See Amendment A2. |
-| v6: Gate 1 failed (unbound atoms) | Retired -- binding safety net | Not in risk register. Historical only. |
+| v6: Coherence Verification failed (unbound atoms) | Retired -- binding safety net | Not in risk register. Historical only. |
 | v7: Synthesis timed out after DO eviction | Captured -- VS-1 (coordinator eviction) and alarm handler | ADR Sections 3.6, 4.5 |
 | v8: 10 serial LLM calls exceed DO lifetime | Root cause for vertical slicing -- whole ADR addresses this | ADR Section 2.2 |
 
@@ -242,7 +242,7 @@ SE Assessment VS-R4 correctly identifies "Queue fallback" as mitigation. But ADR
 | v4.1 Commit 2 | V5 | Complete |
 | v5 Commits 1-5 | V7-V12 | Complete but at v5-aggregate level, not per-commit |
 
-**GAP G15: No per-commit verification criteria for v5.** V7-V12 are all v5-aggregate. Commit 1 (AtomExecutor DO) should have its own verification: "AtomExecutor runs independently with mock agents." Commit 2 should have: "Planner produces valid SlicePlan from WorkGraph." These are mentioned in the commit descriptions but not in the formal verification table.
+**GAP G15: No per-commit verification criteria for v5.** V7-V12 are all v5-aggregate. Commit 1 (AtomExecutor DO) should have its own verification: "AtomExecutor runs independently with mock agents." Commit 2 should have: "Planner produces valid SlicePlan from Executable Specification." These are mentioned in the commit descriptions but not in the formal verification table.
 
 ---
 
@@ -278,8 +278,8 @@ Modeled after IMPLEMENTATION-PLAN.md Phase F checklist:
 - PF: migration tag applied, ATOM_EXECUTOR binding resolves
 - Rollback trigger: AtomExecutor DO instantiation fails or existing synthesis-results Queue broken
 
-**A8: Specify GraphState-to-WorkGraphState migration path.**
-Document whether WorkGraphState replaces GraphState (breaking change to all tests) or extends it (additive). Specify which existing GraphState fields move to AtomState.
+**A8: Specify GraphState-to-Executable SpecificationState migration path.**
+Document whether Executable SpecificationState replaces GraphState (breaking change to all tests) or extends it (additive). Specify which existing GraphState fields move to AtomState.
 
 ### Minor (can fix during implementation)
 

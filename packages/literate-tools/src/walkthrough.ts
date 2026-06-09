@@ -4,9 +4,9 @@
  * Imports REAL Zod schemas from @factory/schemas and traces one synthetic
  * Function through the complete lifecycle:
  *
- *   Signal -> Pressure -> Capability -> Proposal -> PRD ->
- *   CoverageReport -> WorkGraph -> ArchitectureCandidate ->
- *   ExecutionTrace -> Gate2Verdict -> TrustComposite
+ *   Signal -> Pressure -> Capability -> Proposal -> Intent Specification ->
+ *   CoherenceVerificationReport -> ExecutableSpecification -> ArchitectureCandidate ->
+ *   ExecutionTrace -> FidelityVerificationVerdict -> TrustComposite
  *
  * Each step uses schema.parse() so Zod validates the shape. If any
  * parse fails, the walkthrough fails with a clear error — proving
@@ -20,12 +20,12 @@ import {
   Pressure,
   BusinessCapability,
   FunctionProposal,
-  PRDDraft,
-  Gate1Report,
-  WorkGraph,
+  IntentSpecification,
+  CoherenceVerificationReport,
+  ExecutableSpecification,
   ArchitectureCandidate,
   ExecutionTrace,
-  Gate2Verdict,
+  FidelityVerificationVerdict,
   TrustComposite,
   ArchitectureCandidateSelection,
   RuntimeAdmissionArtifact,
@@ -62,7 +62,7 @@ function main(): void {
   })
 
   // ── Step 1: ExternalSignal ──────────────────────────────────────────
-  const signal = step("ExternalSignal (Stage 1 - Signal intake)", () =>
+  const signal = step("ExternalSignal (Signal Artifact intake)", () =>
     ExternalSignal.parse({
       id: "SIG-WALK-001",
       ...lineage([]),
@@ -78,7 +78,7 @@ function main(): void {
   )
 
   // ── Step 2: Pressure ────────────────────────────────────────────────
-  const pressure = step("Pressure (Stage 2 - Forcing function)", () =>
+  const pressure = step("Pressure (Pressure Artifact interpretation)", () =>
     Pressure.parse({
       id: "PRS-WALK-001",
       ...lineage([signal.id]),
@@ -96,7 +96,7 @@ function main(): void {
   )
 
   // ── Step 3: BusinessCapability ──────────────────────────────────────
-  const capability = step("BusinessCapability (Stage 3 - Capability)", () =>
+  const capability = step("BusinessCapability (Capability Artifact scoping)", () =>
     BusinessCapability.parse({
       id: "BC-WALK-001",
       ...lineage([pressure.id]),
@@ -113,7 +113,7 @@ function main(): void {
   )
 
   // ── Step 4: FunctionProposal ────────────────────────────────────────
-  const proposal = step("FunctionProposal (Stage 4 - Proposal)", () =>
+  const proposal = step("FunctionProposal (Function Proposal decomposition)", () =>
     FunctionProposal.parse({
       id: "FP-WALK-001",
       ...lineage([capability.id]),
@@ -130,10 +130,10 @@ function main(): void {
     })
   )
 
-  // ── Step 5: PRDDraft ────────────────────────────────────────────────
-  const prd = step("PRDDraft (Stage 5 - PRD specification)", () =>
-    PRDDraft.parse({
-      id: "PRD-WALK-001",
+  // ── Step 5: IntentSpecification ────────────────────────────────────────────────
+  const prd = step("IntentSpecification (Intent Specification)", () =>
+    IntentSpecification.parse({
+      id: "IS-WALK-001",
       ...lineage([capability.id, proposal.id]),
       sourceCapabilityId: capability.id,
       sourceFunctionId: proposal.id,
@@ -147,13 +147,13 @@ function main(): void {
     })
   )
 
-  // ── Step 6: Gate1Report (CoverageReport) ────────────────────────────
-  const gate1 = step("Gate1Report (Gate 1 - Compile coverage)", () =>
-    Gate1Report.parse({
-      id: "CR-WALK-001",
+  // ── Step 6: CoherenceVerificationReport ────────────────────────────
+  const coherenceVerification = step("CoherenceVerificationReport (compile coverage)", () =>
+    CoherenceVerificationReport.parse({
+      id: "VR-WALK-001",
       ...lineage([prd.id]),
-      gate: 1,
-      prd_id: prd.id,
+      verification: "coherence",
+      intent_specification_id: prd.id,
       timestamp: NOW,
       overall: "pass",
       checks: {
@@ -179,11 +179,11 @@ function main(): void {
     })
   )
 
-  // ── Step 7: WorkGraph ───────────────────────────────────────────────
-  const workGraph = step("WorkGraph (Stage 5 - Work decomposition)", () =>
-    WorkGraph.parse({
-      id: "WG-WALK-001",
-      ...lineage([prd.id, gate1.id]),
+  // ── Step 7: ExecutableSpecification ───────────────────────────────────────────────
+  const executableSpecification = step("ExecutableSpecification (Executable Specification)", () =>
+    ExecutableSpecification.parse({
+      id: "ES-WALK-001",
+      ...lineage([prd.id, coherenceVerification.id]),
       functionId: proposal.id,
       nodes: [
         { id: "node-1", type: "interface", title: "Signal intake interface" },
@@ -198,12 +198,12 @@ function main(): void {
   )
 
   // ── Step 8: ArchitectureCandidate ───────────────────────────────────
-  const candidate = step("ArchitectureCandidate (Stage 6 - Architecture)", () =>
+  const candidate = step("ArchitectureCandidate (Agent Call execution architecture)", () =>
     ArchitectureCandidate.parse({
       id: "AC-WALK-001",
-      ...lineage([workGraph.id, prd.id]),
-      sourcePrdId: prd.id,
-      sourceWorkGraphId: workGraph.id,
+      ...lineage([executableSpecification.id, prd.id]),
+      sourceIntentSpecificationId: prd.id,
+      sourceExecutableSpecificationId: executableSpecification.id,
       candidateStatus: "selected",
       topology: { shape: "linear_chain", summary: "Signal -> ... -> TrustComposite linear pipeline" },
       modelBinding: { bindingMode: "fixed", summary: "Deterministic validation — no model needed" },
@@ -216,9 +216,9 @@ function main(): void {
   const selection = step("CandidateSelection (intermediate)", () =>
     ArchitectureCandidateSelection.parse({
       id: "ACS-WALK-001",
-      ...lineage([candidate.id, workGraph.id]),
+      ...lineage([candidate.id, executableSpecification.id]),
       sourceArchitectureCandidateId: candidate.id,
-      sourceWorkGraphId: workGraph.id,
+      sourceExecutableSpecificationId: executableSpecification.id,
       decision: "selected",
       threshold: 0.5,
       scorecard: {
@@ -237,8 +237,8 @@ function main(): void {
   const admission = step("RuntimeAdmission (intermediate)", () =>
     RuntimeAdmissionArtifact.parse({
       id: "RAD-WALK-001",
-      ...lineage([candidate.id, selection.id, workGraph.id]),
-      sourceWorkGraphId: workGraph.id,
+      ...lineage([candidate.id, selection.id, executableSpecification.id]),
+      sourceExecutableSpecificationId: executableSpecification.id,
       sourceArchitectureCandidateId: candidate.id,
       sourceSelectionId: selection.id,
       decision: "allow",
@@ -249,8 +249,8 @@ function main(): void {
   const execStart = step("ExecutionStart (intermediate)", () =>
     ExecutionStart.parse({
       id: "EXS-WALK-001",
-      ...lineage([admission.id, candidate.id, selection.id, workGraph.id]),
-      sourceWorkGraphId: workGraph.id,
+      ...lineage([admission.id, candidate.id, selection.id, executableSpecification.id]),
+      sourceExecutableSpecificationId: executableSpecification.id,
       sourceArchitectureCandidateId: candidate.id,
       sourceSelectionId: selection.id,
       sourceAdmissionId: admission.id,
@@ -260,11 +260,11 @@ function main(): void {
   )
 
   // ── Step 9: ExecutionTrace ──────────────────────────────────────────
-  const trace = step("ExecutionTrace (Stage 6 - Trace log)", () =>
+  const trace = step("ExecutionTrace (Agent Call execution trace)", () =>
     ExecutionTrace.parse({
       id: "EXT-WALK-001",
-      ...lineage([workGraph.id, candidate.id, selection.id, admission.id, execStart.id]),
-      sourceWorkGraphId: workGraph.id,
+      ...lineage([executableSpecification.id, candidate.id, selection.id, admission.id, execStart.id]),
+      sourceExecutableSpecificationId: executableSpecification.id,
       sourceArchitectureCandidateId: candidate.id,
       sourceSelectionId: selection.id,
       sourceAdmissionId: admission.id,
@@ -277,19 +277,19 @@ function main(): void {
     })
   )
 
-  // ── Step 10: Gate2Verdict ───────────────────────────────────────────
-  step("Gate2Verdict (Gate 2 - Acceptance)", () =>
-    Gate2Verdict.parse({
+  // ── Step 10: FidelityVerificationVerdict ───────────────────────────
+  step("FidelityVerificationVerdict (Acceptance Review)", () =>
+    FidelityVerificationVerdict.parse({
       verdict: "accepted",
-      evidence_reviewed: ["EXT-WALK-001", "CR-WALK-001"],
-      scenario_coverage_score: 1.0,
+      evidence_reviewed: ["EXT-WALK-001", "VR-WALK-001"],
+      scenario_verification_score: 1.0,
       invariant_exercise_rate: 1.0,
       remediation_notes: [],
     })
   )
 
   // ── Step 11: TrustComposite ─────────────────────────────────────────
-  step("TrustComposite (Stage 7 - Trust measurement)", () =>
+  step("TrustComposite (Persistence Verification trust measurement)", () =>
     TrustComposite.parse({
       correctness: 0.95,
       compliance: 0.90,

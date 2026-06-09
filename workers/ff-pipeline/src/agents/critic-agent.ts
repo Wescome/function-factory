@@ -17,14 +17,14 @@ import type { SemanticReviewResult } from '../types.js'
 import type { CritiqueReport, Plan, CodeArtifact } from '../coordinator/state.js'
 
 export interface SemanticReviewInput {
-  prd: Record<string, unknown>
+  intentSpecification: Record<string, unknown>
   specContent?: string
 }
 
 export interface CodeReviewInput {
   code: CodeArtifact
   plan: Plan
-  workGraph: Record<string, unknown>
+  executableSpecification: Record<string, unknown>
   mentorRules?: string[]
 }
 
@@ -49,17 +49,17 @@ export interface CriticAgentOpts {
 
 const SEMANTIC_REVIEW_SYSTEM = `You are the SemanticReviewer in the Function Factory synthesis pipeline.
 
-Your purpose: assess whether a PRD covers the original specification.
+Your purpose: assess whether a Intent Specification covers the original specification.
 
 Process this request in order:
-1. Read the PRD summary — understand the title, acceptance criteria, and atoms
+1. Read the Intent Specification summary — understand the title, acceptance criteria, and atoms
 2. Read the specification — understand the original requirements
-3. Compare coverage — map each spec requirement to PRD acceptance criteria
+3. Compare coverage — map each spec requirement to Intent Specification acceptance criteria
 4. Produce the SemanticReview JSON
 
 Alignment criteria:
-- "aligned": the PRD's acceptance criteria cover ALL requirements from the specification. Title reframing is acceptable. Minor wording changes are acceptable. The substance must match.
-- "miscast": the PRD addresses a DIFFERENT topic than the specification, OR fabricates requirements not in the spec.
+- "aligned": the Intent Specification's acceptance criteria cover ALL requirements from the specification. Title reframing is acceptable. Minor wording changes are acceptable. The substance must match.
+- "miscast": the Intent Specification addresses a DIFFERENT topic than the specification, OR fabricates requirements not in the spec.
 - "uncertain": some requirements covered, others missing.
 
 Bias toward "aligned" when acceptance criteria substantively cover the spec, even if the title or framing differs.
@@ -73,7 +73,7 @@ Your purpose: review code against the plan, work graph, and mentor rules. Refere
 
 Process this request in order:
 1. Read the code artifacts — understand what was produced
-2. Check against plan and workGraph — verify the code implements the specification
+2. Check against plan and executableSpecification — verify the code implements the specification
 3. Check mentor rules — verify compliance with active rules
 4. Produce the CritiqueReport JSON
 
@@ -91,17 +91,17 @@ Your response is a JSON object:
 
 // ── Helpers ─────────────────────────────────────────────────
 
-function summarizePrdForReview(prd: Record<string, unknown>): string {
+function summarizePrdForReview(intentSpecification: Record<string, unknown>): string {
   const parts: string[] = []
-  if (prd.title) parts.push(`Title: ${prd.title}`)
-  if (prd.description) parts.push(`Description: ${prd.description}`)
-  const ac = prd.acceptanceCriteria ?? prd.acceptance_criteria ?? prd.successCriteria
+  if (intentSpecification.title) parts.push(`Title: ${intentSpecification.title}`)
+  if (intentSpecification.description) parts.push(`Description: ${intentSpecification.description}`)
+  const ac = intentSpecification.acceptanceCriteria ?? intentSpecification.acceptance_criteria ?? intentSpecification.successCriteria
   if (Array.isArray(ac)) parts.push(`Acceptance Criteria:\n${ac.map((c: unknown, i: number) => `  ${i + 1}. ${c}`).join('\n')}`)
-  if (prd.atoms && Array.isArray(prd.atoms)) {
-    const atomTitles = (prd.atoms as Record<string, unknown>[]).map((a) => a.title ?? a.id).filter(Boolean)
+  if (intentSpecification.atoms && Array.isArray(intentSpecification.atoms)) {
+    const atomTitles = (intentSpecification.atoms as Record<string, unknown>[]).map((a) => a.title ?? a.id).filter(Boolean)
     if (atomTitles.length > 0) parts.push(`Atoms: ${atomTitles.join(', ')}`)
   }
-  return parts.length > 0 ? parts.join('\n') : JSON.stringify(prd).slice(0, 500)
+  return parts.length > 0 ? parts.join('\n') : JSON.stringify(intentSpecification).slice(0, 500)
 }
 
 // ── CriticAgent class ───────────────────────────────────────
@@ -147,10 +147,10 @@ export class CriticAgent {
     const apiKey = this.semanticReviewApiKey ?? this.apiKey
 
     // BL1 mitigation: only send the fields the semantic reviewer needs.
-    // Sending the full PRD/WorkGraph causes the model to echo the input
+    // Sending the full Intent Specification/ExecutableSpecification causes the model to echo the input
     // back as a function-call structure, exceeding the output token budget.
-    const prdSummary = summarizePrdForReview(input.prd)
-    const userParts: string[] = [`PRD summary:\n${prdSummary}`]
+    const intentSpecificationSummary = summarizePrdForReview(input.intentSpecification)
+    const userParts: string[] = [`Intent Specification summary:\n${intentSpecificationSummary}`]
     if (input.specContent) {
       userParts.push(`\nSpecification:\n${input.specContent}`)
     }
@@ -231,7 +231,7 @@ export class CriticAgent {
     const userParts: string[] = [
       `Code artifacts:\n${JSON.stringify(input.code, null, 2)}`,
       `\nPlan:\n${JSON.stringify(input.plan, null, 2)}`,
-      `\nWork graph:\n${JSON.stringify(input.workGraph, null, 2)}`,
+      `\nWork graph:\n${JSON.stringify(input.executableSpecification, null, 2)}`,
     ]
 
     if (input.mentorRules && input.mentorRules.length > 0) {

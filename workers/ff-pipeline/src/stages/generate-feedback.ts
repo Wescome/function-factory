@@ -7,7 +7,7 @@
  *
  * Signal taxonomy:
  *   - synthesis:atom-failed       — critical atom verdict = fail (auto-approve: true)
- *   - synthesis:gate1-failed      — Gate 1 failed (auto-approve: false)
+ *   - synthesis:coherence-verification-failed — Coherence Verification failed (auto-approve: false)
  *   - synthesis:verdict-fail      — general synthesis failure (auto-approve: false)
  *   - synthesis:low-confidence    — pass but confidence < 0.8 (auto-approve: false)
  *   - synthesis:orl-degradation   — repairCount >= 2 (auto-approve: true)
@@ -39,6 +39,8 @@ export interface FeedbackSignal {
 
 const MAX_FEEDBACK_DEPTH = 3
 const COOLDOWN_MINUTES = 30
+const COHERENCE_VERIFICATION_FAILED_STATUS = 'coherence-verification-failed'
+const COHERENCE_VERIFICATION_FAILED_SUBTYPE = 'synthesis:coherence-verification-failed'
 
 // ── Internal helpers ─────────────────────────────────────────────────
 
@@ -69,7 +71,7 @@ function buildSourceRefs(result: Record<string, unknown>): string[] {
   if (result.pressureId) refs.push(`PRS:${result.pressureId}`)
   if (result.capabilityId) refs.push(`BC:${result.capabilityId}`)
   if (result.proposalId) refs.push(`FN:${result.proposalId}`)
-  if (result.workGraphId) refs.push(`WG:${result.workGraphId}`)
+  if (result.executableSpecificationId) refs.push(`ES:${result.executableSpecificationId}`)
   return refs
 }
 
@@ -101,10 +103,10 @@ function makeSignal(
  */
 async function checkCooldown(
   db: ArangoClient,
-  workGraphId: string | undefined,
+  executableSpecificationId: string | undefined,
   subtype: string,
 ): Promise<boolean> {
-  if (!workGraphId) return false
+  if (!executableSpecificationId) return false
 
   const cutoff = new Date(Date.now() - COOLDOWN_MINUTES * 60 * 1000).toISOString()
   const existing = await db.queryOne<Record<string, unknown>>(
@@ -115,7 +117,7 @@ async function checkCooldown(
        FILTER POSITION(s.sourceRefs, @wgRef)
        LIMIT 1
        RETURN s`,
-    { subtype, cutoff, wgRef: `WG:${workGraphId}` },
+    { subtype, cutoff, wgRef: `ES:${executableSpecificationId}` },
   )
 
   return existing !== null && existing !== undefined
@@ -156,7 +158,7 @@ export async function extractLessons(
     lessons.push({
       pattern: 'F1 prose output from agent',
       evidence: `${f1Atoms.length} atoms produced prose instead of JSON: ${f1Atoms.map(([id]) => id).join(', ')}`,
-      recommendation: 'Reduce agent context size. Check if WorkGraph or Plan is too large for the model context window.',
+      recommendation: 'Reduce agent context size. Check if ExecutableSpecification or Plan is too large for the model context window.',
     })
   }
 
@@ -226,7 +228,7 @@ export async function extractLessons(
  * Loop prevention:
  *   Layer 1: feedbackDepth counter — max 3 generations
  *   Layer 2: idempotency via ingest-signal.ts hash (handled downstream)
- *   Layer 3: 30-min cooldown per workGraphId + subtype (checked here)
+ *   Layer 3: 30-min cooldown per executableSpecificationId + subtype (checked here)
  */
 export async function generateFeedbackSignals(
   ctx: FeedbackContext,
@@ -240,22 +242,22 @@ export async function generateFeedbackSignals(
   const { result } = ctx
   const feedbackDepth = ctx.parentFeedbackDepth + 1
   const sourceRefs = buildSourceRefs(result)
-  const workGraphId = result.workGraphId as string | undefined
+  const executableSpecificationId = result.executableSpecificationId as string | undefined
   const status = result.status as string
 
   const candidates: FeedbackSignal[] = []
 
-  // ── Gate 1 failure ──
-  if (status === 'gate-1-failed') {
+  // ── Coherence Verification failure ──
+  if (status === COHERENCE_VERIFICATION_FAILED_STATUS) {
     candidates.push({
       signal: makeSignal(
-        'synthesis:gate1-failed',
-        `Gate 1 failed: ${workGraphId ?? 'unknown'}`,
-        `Compile coverage gate failed for WorkGraph ${workGraphId}. ` +
+        COHERENCE_VERIFICATION_FAILED_SUBTYPE,
+        `Coherence Verification failed: ${executableSpecificationId ?? 'unknown'}`,
+        `Coherence Verification failed for ExecutableSpecification ${executableSpecificationId}. ` +
         `${(result.report as Record<string, unknown>)?.summary ?? 'No summary'}`,
         sourceRefs,
         feedbackDepth,
-        { workGraphId },
+        { executableSpecificationId },
       ),
       autoApprove: false,
     })
@@ -279,7 +281,7 @@ export async function generateFeedbackSignals(
               `Atom ${atomId} failed synthesis: ${atomVerdict.reason ?? 'unknown reason'}`,
               sourceRefs,
               feedbackDepth,
-              { atomId, atomVerdict, workGraphId },
+              { atomId, atomVerdict, executableSpecificationId },
             ),
             autoApprove: true,
           })
@@ -292,11 +294,11 @@ export async function generateFeedbackSignals(
       candidates.push({
         signal: makeSignal(
           'synthesis:verdict-fail',
-          `Synthesis failed: ${workGraphId ?? 'unknown'}`,
+          `Synthesis failed: ${executableSpecificationId ?? 'unknown'}`,
           `Synthesis verdict: fail — ${verdict.reason}`,
           sourceRefs,
           feedbackDepth,
-          { verdict, workGraphId },
+          { verdict, executableSpecificationId },
         ),
         autoApprove: false,
       })
@@ -307,11 +309,11 @@ export async function generateFeedbackSignals(
       candidates.push({
         signal: makeSignal(
           'synthesis:orl-degradation',
-          `ORL degradation: ${repairCount} repairs for ${workGraphId ?? 'unknown'}`,
+          `ORL degradation: ${repairCount} repairs for ${executableSpecificationId ?? 'unknown'}`,
           `Observe-Repair-Learn loop ran ${repairCount} repairs, indicating systemic issues`,
           sourceRefs,
           feedbackDepth,
-          { repairCount, workGraphId },
+          { repairCount, executableSpecificationId },
         ),
         autoApprove: true,
       })
@@ -322,11 +324,11 @@ export async function generateFeedbackSignals(
       candidates.push({
         signal: makeSignal(
           'synthesis:low-confidence',
-          `Low confidence pass: ${verdict.confidence.toFixed(2)} for ${workGraphId ?? 'unknown'}`,
+          `Low confidence pass: ${verdict.confidence.toFixed(2)} for ${executableSpecificationId ?? 'unknown'}`,
           `Synthesis passed with confidence ${verdict.confidence.toFixed(2)} (threshold 0.8): ${verdict.reason}`,
           sourceRefs,
           feedbackDepth,
-          { confidence: verdict.confidence, workGraphId },
+          { confidence: verdict.confidence, executableSpecificationId },
         ),
         autoApprove: false,
       })
@@ -337,11 +339,11 @@ export async function generateFeedbackSignals(
       candidates.push({
         signal: makeSignal(
           'synthesis:pr-candidate',
-          `PR candidate: ${workGraphId ?? 'unknown'}`,
+          `PR candidate: ${executableSpecificationId ?? 'unknown'}`,
           `Synthesis passed with confidence ${verdict.confidence.toFixed(2)} — ready for PR`,
           sourceRefs,
           feedbackDepth,
-          { confidence: verdict.confidence, workGraphId },
+          { confidence: verdict.confidence, executableSpecificationId },
         ),
         autoApprove: false,
       })
@@ -354,7 +356,7 @@ export async function generateFeedbackSignals(
     try {
       const suppressed = await checkCooldown(
         db,
-        workGraphId,
+        executableSpecificationId,
         candidate.signal.subtype!,
       )
       if (!suppressed) {

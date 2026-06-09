@@ -1,8 +1,8 @@
-export interface Gate1Report {
-  gate: 1
+export interface CoherenceVerificationReport {
+  verification: "coherence"
   passed: boolean
   timestamp: string
-  workGraphId: string
+  executableSpecificationId: string
   checks: { name: string; passed: boolean; detail: string }[]
   summary: string
 }

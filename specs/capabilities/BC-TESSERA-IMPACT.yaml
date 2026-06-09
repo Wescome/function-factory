@@ -1,0 +1,53 @@
+id: BC-TESSERA-IMPACT
+source_refs:
+  - TESSERA-CF-SPEC
+  - IS-TESSERA-IMPACT
+  - IS-TESSERA-ARANGO-SCHEMA
+  - IS-TESSERA-INDEXER
+explicitness: explicit
+rationale: >
+  Required by TESSERA-CF-SPEC §5, the correctness core of cloud Tessera and the
+  critical path UC-1: agents must run impact analysis before any symbol edit. The
+  local engine (local-backend.ts:_runImpactBFS, GT-IMPACT) is a breadth-first
+  traversal with Class/Interface seeding (GT-CTX480 / fix #480), per-relation
+  confidence floors (GT-CONF / M1), and exact risk thresholds (GT-RISK). The cloud
+  reproduction expresses the same behavior as a native AQL graph traversal plus a
+  post-traversal scoring pass — bit-equivalent to local Tessera. Without this
+  Capability agents edit symbols blind to blast radius, and impact analysis stays
+  trapped on a developer's localhost, unreachable from ff-pipeline and GasCity
+  Containers.
+
+name: Compute Blast Radius of Any Symbol Change from Anywhere
+description: >
+  The Factory's durable ability to answer "what breaks if I change X" for any
+  symbol in any indexed repo, reachable from any CF Worker or Container, returning
+  a risk-scored impacted set in < 500ms. Upstream is an INBOUND AQL traversal
+  (who depends on the target — the C1 direction v0.1 got backwards); downstream is
+  OUTBOUND (what the target depends on); the two sets must differ.
+
+  The Capability ports the hard-won correctness fixes natively: Class/Interface
+  seeding from the Constructor (HAS_METHOD) and owning File (DEFINES) so a Class
+  target returns its callers instead of zero (C2 / GT-CTX480, with the File itself
+  excluded from the impacted set); per-relation confidence floors applied in the
+  Worker after traversal, preferring stored confidence when > 0 (M1 / GT-CONF);
+  and exact CRITICAL/HIGH/MEDIUM/LOW thresholds with depth labels (GT-RISK). It
+  resolves ambiguous symbol names to ranked candidates rather than silently
+  picking one.
+
+  Governed by: G1 (read-only graph — impact never mutates ArangoDB), and the V1
+  caveats that process and module participation degrade safely to zero until
+  community/process detection ship in V2 (§5.5), never over-reporting risk.
+
+yields:
+  execution: FP-TESSERA-IMPACT
+
+pressures_addressed:
+  - Agents edit symbols without knowing blast radius, breaking callers they never saw
+  - Impact analysis only runs on a developer's local machine; it is invisible to autonomous agents
+  - ff-pipeline Workers and GasCity Containers cannot reach localhost:4747, so they have no impact analysis at all in production
+
+platform_constraints:
+  - CF Worker context; impact is a read-only AQL traversal over the per-repo edge collection (G1)
+  - V1 is single-repo walk only; cross-repo @group fan-out is V2
+  - Process participation (STEP_IN_PROCESS) and module participation (community module field) are V2-deferred; risk degrades safely from directCount/total signals (§5.5)
+  - < 500ms latency target served by native AQL INBOUND/OUTBOUND traversal with the persistent indexes from FP-TESSERA-ARANGO-SCHEMA

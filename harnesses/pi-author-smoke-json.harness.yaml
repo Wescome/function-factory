@@ -1,0 +1,68 @@
+nlahspec: "0.2"
+
+lineage:
+  source_refs:
+    - IS-HARNESS-DSL-v1
+    - ADR-003a-pi-rpc-container-supersedes-003
+
+harness:
+  name: PI_AUTHOR_SMOKE_JSON
+  task_family: pi_container_authoring_smoke
+  objective: >
+    Validate real Pi filesystem authoring: pi must use filesystem tools to
+    create artifacts/smoke.json with top-level keys status, runId, and elapsedMs.
+    The runId field must equal the current run id and elapsedMs must be a number.
+
+runtime:
+  state_root: state
+  artifact_root: artifacts
+  graph_mode: linear
+  default_failure_action: abort
+  max_repair_rounds: 2
+
+roles:
+  SmokeJsonWriter:
+    responsibility: >
+      Write artifacts/smoke.json as a valid JSON object containing
+      status (string), runId (string), and elapsedMs (number). The runId value
+      must exactly match the runId shown in Run Context. The artifact must be
+      created by the Pi filesystem-authoring path, not by deterministic contract
+      materialization.
+
+artifacts:
+  SmokeJsonArtifact:
+    path: artifacts/smoke.json
+    required: true
+    contract:
+      kind: json
+      required_fields: [status, runId, elapsedMs]
+
+stages:
+  SMOKE:
+    from: TaskReceived
+    to: SmokeJsonComplete
+    role: SmokeJsonWriter
+    worker: pi-author
+    outputs: [SmokeJsonArtifact]
+    gate:
+      all:
+        - { exists: SmokeJsonArtifact }
+        - id: smoke-run-id-matches
+          uses: json_field_equals
+          reads: [SmokeJsonArtifact]
+          proves: SmokeJsonArtifact.runId equals the current run id
+          args:
+            artifact: SmokeJsonArtifact
+            field: runId
+            valueFrom: runId
+        - id: smoke-elapsed-ms-is-number
+          uses: json_field_type
+          reads: [SmokeJsonArtifact]
+          proves: SmokeJsonArtifact.elapsedMs is numeric
+          args:
+            artifact: SmokeJsonArtifact
+            field: elapsedMs
+            type: number
+
+failure_taxonomy:
+  missing_artifact: mark_incomplete

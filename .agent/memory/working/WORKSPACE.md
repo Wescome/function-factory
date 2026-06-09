@@ -1,50 +1,37 @@
 # Current Workspace
 
 ## Status
-Session ended at 2026-05-04T18:19:03.564Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
+Session ended at 2026-06-03T05:12:55.417Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
 
 ## Last update
-2026-05-04T18:19:03.564Z
+2026-06-03T05:12:55.417Z
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
-- [18:11:30] Bash: curl -s "https://ff-gateway.koales.workers.dev/pipeline/0b046595-089f-4599-97a1-516d3d546369" 2>/dev/null | python3 -c "
-- [18:11:31] Bash: curl -s "https://ff-gateway.koales.workers.dev/pipeline/57d30a2b-8b75-4983-a1ec-8123232a7ebc" 2>/dev/null | python3 -c "
-- [18:12:26] Bash: for id in 0b046595-089f-4599-97a1-516d3d546369 57d30a2b-8b75-4983-a1ec-8123232a7ebc f848d60e-1e80-40a5-ab81-4f6fa88c5111
-- [18:12:33] Bash: curl -s "https://ff-pipeline.koales.workers.dev/debug/pipeline?id=0b046595-089f-4599-97a1-516d3d546369" 2>/dev/null | py
-- [18:12:35] Bash: curl -s "https://ff-pipeline.koales.workers.dev/debug/governor" 2>/dev/null | python3 -c "
-import sys, json
-d = json.loa
-- [18:12:41] Bash: curl -s "https://ff-pipeline.koales.workers.dev/debug/crystallizer?signal=latest" 2>/dev/null | python3 -c "
-import sys,
-- [18:12:42] Bash: curl -s "https://ff-pipeline.koales.workers.dev/debug/queues" 2>/dev/null | python3 -c "
-import sys, json
-try:
-  d = jso
-- [18:12:52] Bash: curl -s "https://ff-gateway.koales.workers.dev/pipeline/0b046595-089f-4599-97a1-516d3d546369" 2>/dev/null | python3 -c "
-- [18:13:00] Bash: grep -rn "signalType\|signal_type\|SignalType" /Users/wes/Developer/function-factory/workers/ff-gateway/src/ --include="
-- [18:13:01] Bash: grep -rn "signalType\|required.*field" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/ --include="*.ts" |
-- [18:13:12] Bash: ID1=$(curl -s -X POST "https://ff-gateway.koales.workers.dev/pipeline" \
+- [05:00:34] Agent: SE augment SPEC-FF-DEVOPS-001 for full lifecycle production/Ops
+- [05:00:34] Bash: grep -rn "ACTIVE_EXECUTION_KEY\|R2.*checkpoint\|checkpoint\|exit 143\|exit143\|143\|SIGTERM\|resume" workers/ff-pipeline
+- [05:00:42] Bash: curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"message":"Algorithm agent activat
+- [05:00:46] Bash: ls /Users/wes/.claude/skills/PAI/SKILL.md /Users/wes/.claude/skills/skill-index.json 2>&1; echo "---REPO SEARCH---"; fin
+- [05:00:46] Bash: cd /Users/wes/Developer/function-factory; echo "=== ff-pipeline wrangler ==="; grep -n "name\|image\|class_name\|contain
+- [05:00:57] Bash: cd /Users/wes/Developer/function-factory; grep -n "recordActiveExecution\|clearActiveExecution\|infrastructure_error\|fa
+- [05:01:00] Bash: grep -rl "SPEC-FF-DEVOPS" . 2>/dev/null | head; echo "---WRANGLER---"; ls workers/ff-pipeline/wrangler.jsonc 2>/dev/null
+- [05:01:08] Bash: cd /Users/wes/Developer/function-factory
+echo "=== pi-container-version.ts (restart decision) ==="
+grep -n "shouldRestar
+- [05:01:09] Bash: curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"message":"Augmented the DevOps sp
+- [05:01:16] Bash: cd /Users/wes/Developer/function-factory; sed -n '100,120p' workers/ff-pipeline/wrangler.jsonc
+- [05:02:21] Bash: curl -s -X POST http://localhost:8888/notify \
   -H "Content-Type: application/json" \
-  -d '{
-- [18:13:17] Bash: ID2=$(curl -s -X POST "https://ff-gateway.koales.workers.dev/pipeline" \
-  -H "Content-Type: application/json" \
-  -d '{
-- [18:13:19] Bash: ID3=$(curl -s -X POST "https://ff-gateway.koales.workers.dev/pipeline" \
-  -H "Content-Type: application/json" \
-  -d '{
-- [18:18:05] Bash: for id in 38eb0342-f210-4ef8-b063-c907ebabefe5 9bb2165a-a98e-4170-aab5-da3a04d79ecf 14638de4-3c81-4664-a089-27e34bb2f5d4
-- [18:18:14] Bash: curl -s "https://ff-pipeline.koales.workers.dev/debug/health" 2>/dev/null | python3 -c "
-import sys, json
-try:
-  d = jso
-- [18:18:15] Bash: curl -s "https://ff-pipeline.koales.workers.dev/debug/synthesis?limit=5" 2>/dev/null | python3 -c "
-import sys, json
-try
-- [18:18:23] Bash: grep -rn "running\|currentStage\|step.do" /Users/wes/Developer/function-factory/workers/ff-pipeline/src/pipeline.ts | he
-- [18:18:37] Bash: git log --oneline -5 && echo "---" && curl -s "https://ff-pipeline.koales.workers.dev/version" 2>/dev/null || echo "No v
-- [18:18:44] Bash: grep -n "wrangler\|deploy" /Users/wes/Developer/function-factory/workers/ff-pipeline/package.json | head -5
-- [18:18:55] Bash: curl -s "https://ff-gateway.koales.workers.dev/pipeline/38eb0342-f210-4ef8-b063-c907ebabefe5" 2>/dev/null | python3 -c "
+  -d '{"message": "Running the St
+- [05:04:47] Bash: ls /Users/wes/Developer/function-factory/workers/ && ls /Users/wes/Developer/function-factory/ 2>/dev/null | head -30
+- [05:04:51] Bash: ls /Users/wes/Developer/function-factory/workers/gascity-supervisor/ 2>/dev/null && cat /Users/wes/Developer/function-fa
+- [05:04:52] Bash: ls /Users/wes/Developer/function-factory/.github/workflows/ 2>/dev/null || echo "no .github/workflows found"
+- [05:07:32] Bash: ls /Users/wes/Developer/function-factory/.github/workflows/ 2>/dev/null && cat /Users/wes/Developer/function-factory/.gi
+- [05:11:29] Write: /Users/wes/Developer/function-factory/specs/reference/SPEC-FF-DEVOPS-001-v2.md
+- [05:12:18] Bash: ls /Users/wes/Developer/function-factory/specs/reference/ 2>/dev/null && ls /Users/wes/Developer/function-factory/docs/a
+- [05:12:33] Bash: wc -l /Users/wes/Developer/function-factory/specs/reference/SPEC-FF-DEVOPS-001-v2.md && tail -30 /Users/wes/Developer/fu
+- [05:12:35] Bash: wc -l /Users/wes/Developer/function-factory/docs/adr/ADR-0012-candidatepatch-untracked-file-fix.md 2>/dev/null && head -
+- [05:12:46] Bash: head -30 /Users/wes/Developer/function-factory/specs/reference/ADR-012-candidatepatch-git-diff-fix.md
 
 ## Notes
 This file is auto-updated on session end. Manual edits will be overwritten.

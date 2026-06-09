@@ -16,14 +16,14 @@ const docCollections = [
   'specs_pressures',
   'specs_capabilities',
   'specs_functions',
-  'specs_prds',
-  'specs_workgraphs',
+  'intent_specifications',
+  'executable_specifications',
   'specs_invariants',
-  'specs_coverage_reports',
+  'verification_reports',
   'specs_critic_reviews',
 
   // Gate + trust state
-  'gate_status',
+  'verification_status',
   'trust_scores',
   'invariant_health',
 
@@ -69,13 +69,13 @@ const graphs = [
       collection: 'lineage_edges',
       from: [
         'specs_signals', 'specs_pressures', 'specs_capabilities',
-        'specs_functions', 'specs_prds', 'specs_workgraphs',
-        'specs_invariants', 'specs_coverage_reports', 'specs_critic_reviews',
+        'specs_functions', 'intent_specifications', 'executable_specifications',
+        'specs_invariants', 'verification_reports', 'specs_critic_reviews',
       ],
       to: [
         'specs_signals', 'specs_pressures', 'specs_capabilities',
-        'specs_functions', 'specs_prds', 'specs_workgraphs',
-        'specs_invariants', 'specs_coverage_reports', 'specs_critic_reviews',
+        'specs_functions', 'intent_specifications', 'executable_specifications',
+        'specs_invariants', 'verification_reports', 'specs_critic_reviews',
       ],
     }],
   },
@@ -84,7 +84,7 @@ const graphs = [
     edgeDefs: [{
       collection: 'assurance_edges',
       from: ['specs_functions', 'specs_invariants'],
-      to: ['specs_functions', 'specs_invariants', 'specs_coverage_reports'],
+      to: ['specs_functions', 'specs_invariants', 'verification_reports'],
     }],
   },
   {

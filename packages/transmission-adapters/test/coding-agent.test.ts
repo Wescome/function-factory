@@ -80,11 +80,11 @@ describe('formatForCodingAgent (standalone)', () => {
   it('does not contain Factory vocabulary', () => {
     const result = formatForCodingAgent(fullSpec)
 
-    expect(result.body).not.toMatch(/\bWorkGraph\b/)
+    expect(result.body).not.toMatch(/\bExecutableSpecification\b/)
     expect(result.body).not.toMatch(/\bCodeArtifact\b/)
     expect(result.body).not.toMatch(/\bRequirementAtom\b/)
     expect(result.body).not.toMatch(/\batom\b/i)
-    expect(result.systemPrompt).not.toMatch(/\bWorkGraph\b/)
+    expect(result.systemPrompt).not.toMatch(/\bExecutableSpecification\b/)
     expect(result.systemPrompt).not.toMatch(/\batom\b/i)
   })
 })

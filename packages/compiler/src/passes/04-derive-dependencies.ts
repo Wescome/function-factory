@@ -1,7 +1,7 @@
 /**
- * Pass 4- derive dependencies.
+ * Structural Assembly dependency resolution (legacy Pass 4)- derive dependencies.
  *
- * The MVP emits no typed-edge dependencies. Gate 1's dependency_closure
+ * The MVP emits no typed-edge dependencies. Coherence Verification's dependency_closure
  * check passes vacuously on an empty dependency set- there are no
  * endpoints to resolve. This is acceptable for the bootstrap proof-
  * what matters is that every check runs and emits a verdict, not that
@@ -20,10 +20,10 @@ import type {
   Invariant,
   RequirementAtom,
 } from "@factory/schemas"
-import type { NormalizedPRD } from "../types.js"
+import type { NormalizedIntentSpecification } from "../types.js"
 
 export function deriveDependencies(
-  _normalized: NormalizedPRD,
+  _normalized: NormalizedIntentSpecification,
   _atoms: readonly RequirementAtom[],
   _contracts: readonly Contract[],
   _invariants: readonly Invariant[]

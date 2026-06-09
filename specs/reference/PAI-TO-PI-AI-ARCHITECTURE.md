@@ -58,7 +58,7 @@ sessions with role switching are rejected for three reasons:
 Each role gets a system prompt assembled from three layers:
 - **Layer 1:** Constitutional identity (role name, SASE role contract) -- from `ROLE_CONTRACTS`
 - **Layer 2:** Institutional memory (DECISIONS.md digest, LESSONS.md, MentorRules) -- loaded once per synthesis
-- **Layer 3:** Task-specific context (BriefingScript, WorkGraph, specContent) -- varies per invocation
+- **Layer 3:** Task-specific context (BriefingScript, Executable Specification, specContent) -- varies per invocation
 
 ### 1.3 Role-to-PAI Agent Mapping
 
@@ -82,7 +82,7 @@ are extracted from the BriefingScript, not generated independently.
 
 The current pipeline runs three sequential LLM calls (synthesize-pressure,
 map-capability, propose-function) each with a 1-paragraph prompt. Each call
-loses fidelity. By Stage 4, the PRD is hallucinated from a Capability title
+loses fidelity. By Stage 4, the Intent Specification is hallucinated from a Capability title
 derived from a Pressure title derived from a Signal description.
 
 The Architect Agent session replaces this with one agent that has:
@@ -98,7 +98,7 @@ sections: Goal and Why, What and Success Criteria, Architectural Context
 (loaded DECISIONS, relevant codebase files, constraints), Strategic Advice
 (approach, patterns, anti-patterns from LESSONS.md), Known Gotchas
 (platform-specific warnings), and Validation Loop (test strategy). Plus
-derived lineage artifacts (Pressure, Capability, PRD) extracted from the
+derived lineage artifacts (Pressure, Capability, Intent Specification) extracted from the
 BriefingScript content. Schema defined in Zod in `@factory/schemas`.
 
 The pipeline changes from:
@@ -160,7 +160,7 @@ context (Layer 2 in SS1.2). The loading protocol:
 
 **Digest, not dump.** DECISIONS.md is 25K+ tokens. The Coordinator produces
 a digest: last 20 entries + entries whose `source_refs` overlap with the
-current WorkGraph's lineage chain, plus full LESSONS.md, active MentorScript
+current Executable Specification's lineage chain, plus full LESSONS.md, active MentorScript
 rules, and recent episodic events for related Functions. This is a
 deterministic operation, not LLM-derived. Target: under 4K tokens.
 
@@ -228,7 +228,7 @@ const ROLE_SKILL_MAP: Record<RoleName, string[]> = {
   architect: ['factory-meta', 'lineage-preservation', 'prd-compiler'],
   planner: ['factory-meta'],
   coder: ['lineage-preservation'],
-  critic: ['coverage-gate-1', 'lineage-preservation', 'prd-compiler'],
+  critic: ['coherence-verification', 'lineage-preservation', 'prd-compiler'],
   tester: [],
   verifier: ['factory-meta'],
 }
@@ -244,8 +244,8 @@ In PAI, a skill can fire a self-rewrite hook when downstream failure traces
 back to a skill gap. In the autonomous Factory:
 
 1. **Detection:** The Critic or Verifier identifies that a failure traces to
-   a skill gap (e.g., the `coverage-gate-1` skill did not warn about a new
-   category of PRD that fails Gate 1)
+   a skill gap (e.g., the `coherence-verification` skill did not warn about a new
+   category of Intent Specification that fails Coherence Verification)
 2. **Proposal:** The Dream DO proposes a skill amendment as a structured
    diff with `source: 'crystallized'` and a link to the failure's execution
    artifact
@@ -312,15 +312,15 @@ budget-check -> planner -> coder -> critic -> tester -> verifier -> [routing]
 To:
 
 ```
-budget-check -> architect -> semantic-critic -> compile -> gate-1
+budget-check -> architect -> semantic-critic -> compile -> coherence-verification
   -> planner -> coder -> code-critic -> tester -> verifier -> [routing]
 ```
 
 The Architect node replaces the pipeline's Stages 2-4. The Critic runs
 twice: semantic review (post-Architect, pre-compile) and code review
-(post-Coder). Gate 1 runs deterministically inside the graph.
+(post-Coder). Coherence Verification runs deterministically inside the graph.
 
-Conditional edges: `semantic-critic` exits to END on `miscast`. `gate-1`
+Conditional edges: `semantic-critic` exits to END on `miscast`. `coherence-verification`
 exits to END on failure. `verifier` routes to `budget-check` on
 `patch`/`resample`, to END on `pass`/`fail`/`interrupt`.
 
@@ -398,7 +398,7 @@ rule with `source: 'inferred'`. Architect approves or rejects.
 | **Architect Agent** (pi-ai session) | BriefingScript content, derived lineage artifacts, architectural context selection | Architecture gates (proposes, does not clear) |
 | **Coder Agent** (pi-ai session in Container) | Implementation code, test code, file modifications within fileScope | Architecture decisions, MentorScript writes, scope changes |
 | **Critic Agent** (pi-ai session) | Semantic review verdict, code review verdict, MentorRule compliance | Code modification, architecture decisions |
-| **Tester Agent** (pi-ai session in Container) | Test execution, coverage reporting | Code modification (read-only tools) |
+| **Tester Agent** (pi-ai session in Container) | Test execution, verification reporting | Code modification (read-only tools) |
 | **Verifier Agent** (pi-ai in Coordinator DO) | Verdict: pass/patch/resample/interrupt/fail | Implementation, architecture |
 
 ### 7.2 Gate Ownership
@@ -407,9 +407,9 @@ rule with `source: 'inferred'`. Architect approves or rejects.
 |---|---|---|
 | Gate 0: Signal acceptance | Human Architect | `waitForEvent('architect-approval')` in pipeline |
 | Gate 0.5: Semantic alignment | Critic Agent (or Architect for bootstrap) | Semantic review verdict in graph |
-| Gate 1: Compile coverage | Deterministic (no LLM) | `evaluateGate1()` in graph |
-| Gate 2: Simulation coverage | Verifier Agent | Pass/fail verdict in graph |
-| Gate 3: Assurance | Assurance DO (continuous) | DO Alarm schedule + detectors |
+| Coherence Verification: Compile coverage | Deterministic (no LLM) | `evaluateCoherenceVerification()` in graph |
+| Fidelity Verification: Simulation coverage | Verifier Agent | Pass/fail verdict in graph |
+| Persistence Verification: Assurance | Assurance DO (continuous) | DO Alarm schedule + detectors |
 | Gate 4: Merge readiness | Human Architect | PR review + MRP audit |
 
 ---
@@ -436,7 +436,7 @@ between Containers, which is fragile and slow.
 **(c) Hybrid: Architect in its own Container, Coder+Tester share one.**
 The Architect Container starts early, clones the repo, runs the Architect
 session (read-only), and shuts down after producing the BriefingScript. The
-Coder Container starts after Gate 1, clones the repo, runs Coder and Tester
+Coder Container starts after Coherence Verification, clones the repo, runs Coder and Tester
 sessions sequentially (shared workspace), and shuts down after the verdict.
 
 **Decision: (c).** The Architect and Coder have different lifecycle
@@ -458,9 +458,9 @@ Synthesis start:
   |
   +-- Semantic Critic runs (Coordinator DO, no Container)
   +-- Compiler runs (Coordinator DO, no Container)
-  +-- Gate 1 runs (Coordinator DO, no Container)
+  +-- Coherence Verification runs (Coordinator DO, no Container)
   |
-  +-- Coder Container starts (after Gate 1 pass)
+  +-- Coder Container starts (after Coherence Verification pass)
   |     Clone repo, create branch, install deps
   |     Run Coder session (write tools)
   |     Run Tester session (same workspace, bash tools)
@@ -507,7 +507,7 @@ path). Memory digest and skills are cached per synthesis run.
 | Skills (role-scoped) | 1,000-3,000 | Yes (per synthesis run) |
 | MentorScript rules | 500-1,500 | Yes (per synthesis run) |
 | specContent (Architect only) | 1,000-5,000 | No (varies per Signal) |
-| WorkGraph + BriefingScript | 2,000-5,000 | No (varies per task) |
+| Executable Specification + BriefingScript | 2,000-5,000 | No (varies per task) |
 | **Total per session** | **7,000-19,000** | |
 
 This fits comfortably within 128K+ context windows of models routed via
@@ -534,8 +534,8 @@ itself autonomously. Specifically:
    codebase, DECISIONS.md, LESSONS.md, and the referenced spec
 3. The Architect produces a grounded BriefingScript (not hallucinated)
 4. The Critic validates semantic alignment against the spec
-5. The compiler produces a WorkGraph from the BriefingScript's derived PRD
-6. Gate 1 passes (structural coverage)
+5. The compiler produces a Executable Specification from the BriefingScript's derived Intent Specification
+6. Coherence Verification passes (structural coverage)
 7. The Coder Agent (pi-ai session in Container) implements against the real
    codebase, using real tools (read/write/bash)
 8. The Tester Agent runs real tests in the same Container
@@ -552,10 +552,10 @@ hallucinated prompts.
 
 ### 10.3 Success Criteria for Bootstrap Proof
 
-1. BriefingScript's `derivedPRD.acceptanceCriteria` are traceable to
+1. BriefingScript's `derivedIntent Specification.acceptanceCriteria` are traceable to
    specContent passages (not hallucinated)
 2. Semantic Critic verdict: `aligned` (not `miscast` or `uncertain`)
-3. Gate 1: PASS
+3. Coherence Verification: PASS
 4. Coder produces a real git diff (not JSON code artifacts)
 5. Tester runs real tests (vitest output, not simulated)
 6. Verifier verdict: `pass`
@@ -578,7 +578,7 @@ hallucinated prompts.
 - Implement `architectSession()` graph node
 - Implement BriefingScript schema (Zod in `@factory/schemas`)
 - Modify `buildSynthesisGraph()` to include architect -> semantic-critic ->
-  compile -> gate-1 flow before the existing planner -> coder -> ... flow
+  compile -> coherence-verification flow before the existing planner -> coder -> ... flow
 - Implement lineage artifact extraction from BriefingScript
 - Tests: e2e test with dry-run Architect producing BriefingScript from
   a Signal with specContent

@@ -13,7 +13,7 @@ set -euo pipefail
 #     wrangler secret put ARANGO_JWT      -c workers/ff-gates/wrangler.jsonc
 #     (repeat for workers/ff-gateway/wrangler.jsonc)
 
-echo "═══ Phase 2: Edge Workers + Gate 1 ═══"
+echo "═══ Phase 2: Edge Workers + Coherence Verification ═══"
 echo ""
 
 # 1. Build shared packages
@@ -22,7 +22,7 @@ pnpm --filter @factory/arango-client build
 
 # 2. Deploy internal Workers first (binding targets must exist)
 echo ""
-echo "→ Deploying ff-gates (Gate 1, internal)..."
+echo "→ Deploying ff-gates (Coherence Verification, internal)..."
 (cd workers/ff-gates && npx wrangler deploy)
 
 # 3. Deploy public gateway last (binds to gates + query)

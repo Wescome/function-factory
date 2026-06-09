@@ -5,7 +5,7 @@ describe("assertExecutionEligibility", () => {
   it("allows selected candidates", () => {
     expect(() =>
       assertExecutionEligibility(
-        "WG-META-ARCHITECTURE-CANDIDATE-EXECUTION",
+        "ES-META-ARCHITECTURE-CANDIDATE-EXECUTION",
         "selected"
       )
     ).not.toThrow()
@@ -14,7 +14,7 @@ describe("assertExecutionEligibility", () => {
   it("rejects non-selected candidates", () => {
     expect(() =>
       assertExecutionEligibility(
-        "WG-META-ARCHITECTURE-CANDIDATE-EXECUTION",
+        "ES-META-ARCHITECTURE-CANDIDATE-EXECUTION",
         "rejected"
       )
     ).toThrow()

@@ -3,7 +3,7 @@
 > Design spec: Fix the Factory pipeline's semantic blindness
 > Author: Architect Agent (2026-04-25)
 > Status: Proposed. Pending Architect approval.
-> Traces to: DECISIONS 2026-04-19 "Gate 1 PASS does not imply conceptual correctness",
+> Traces to: DECISIONS 2026-04-19 "Coherence Verification PASS does not imply conceptual correctness",
 > DECISIONS 2026-04-24 "Semantic-alignment review via Critic-role involvement",
 > DECISIONS 2026-04-24 "Universal Critic review before compilation — no exceptions",
 > DECISIONS 2026-04-24 "Specification pipeline is self-sustaining"
@@ -14,17 +14,17 @@
 
 The Factory pipeline (Stages 1-4 in `ff-pipeline`) is semantically blind.
 Each stage receives a one-paragraph prompt and the previous stage's JSON
-output. By Stage 4 (Function Proposal + PRD), the model has never seen the
+output. By Stage 4 (Function Proposal + Intent Specification), the model has never seen the
 actual architectural specification that the Signal references. The model
-hallucinates a generic PRD from a Capability title derived from a Pressure
+hallucinates a generic Intent Specification from a Capability title derived from a Pressure
 title derived from a 1-2 sentence Signal description. The Stage 5 compiler
-faithfully decomposes the hallucinated PRD into a well-structured but
-semantically wrong WorkGraph.
+faithfully decomposes the hallucinated Intent Specification into a well-structured but
+semantically wrong Executable Specification.
 
-**Evidence:** All 10 live-produced WorkGraphs are hallucinated or suspect.
-Zero valid. Gate 1 passed all of them because Gate 1 checks structure, not
+**Evidence:** All 10 live-produced Executable Specifications are hallucinated or suspect.
+Zero valid. Coherence Verification passed all of them because Coherence Verification checks structure, not
 semantics. The Critic review (semantic-review.ts) runs post-Stage 4 but
-checks the PRD against the Capability — which is itself hallucinated from
+checks the Intent Specification against the Capability — which is itself hallucinated from
 the same thin context. The Critic is comparing hallucination against
 hallucination.
 
@@ -44,7 +44,7 @@ hallucination.
    patterns.
 
 3. **The Critic verifies against hallucinated ground truth.** In
-   `semantic-review.ts`, the Critic receives the proposal's PRD and its
+   `semantic-review.ts`, the Critic receives the proposal's Intent Specification and its
    `sourceCapabilityId` + `sourceRefs`. But `sourceRefs` are IDs, not
    content. The Capability it would need to check against was itself
    hallucinated at Stage 3 from thin context. There is no ground truth
@@ -72,12 +72,12 @@ restructures existing meaning; generation invents meaning that may not exist
 in the source.
 
 **P3: The Critic verifies against source, not against pipeline intermediates.**
-The semantic review must compare the PRD against the original spec content
+The semantic review must compare the Intent Specification against the original spec content
 attached to the Signal — not against the Capability or Pressure, which are
 themselves derived artifacts that may have lost fidelity.
 
 **P4: Pre-authored artifacts skip, not duplicate.** When a Signal already
-carries a pre-authored PRD (as the human-authored meta-PRDs do), the
+carries a pre-authored Intent Specification (as the human-authored meta-Intent Specifications do), the
 pipeline should accept it directly, not force it through LLM re-derivation
 that can only degrade it.
 
@@ -116,8 +116,8 @@ export interface SignalInput {
    * Each key names the stage output; the value is the artifact content.
    *
    * When preAuthored.prd is present, Stages 2-4 still run (for lineage
-   * artifact creation) but the LLM-generated PRD is REPLACED by the
-   * pre-authored PRD before entering Stage 5.
+   * artifact creation) but the LLM-generated Intent Specification is REPLACED by the
+   * pre-authored Intent Specification before entering Stage 5.
    */
   preAuthored?: {
     pressure?: Record<string, unknown>
@@ -218,20 +218,20 @@ the capability gap that the specification addresses, quoting from the spec.
 #### Stage 4: propose-function.ts (derivation mode)
 
 System prompt includes spec content, pressure, AND capability. The model
-produces a PRD whose acceptance criteria, invariants, and scope are
+produces a Intent Specification whose acceptance criteria, invariants, and scope are
 extracted from the specification — not invented.
 
 **Critical constraint:** When `preAuthored.prd` is present on the Signal,
-Stage 4's LLM output is discarded. The pre-authored PRD is used instead.
+Stage 4's LLM output is discarded. The pre-authored Intent Specification is used instead.
 Stage 4 still runs (its output is stored for comparison/audit) but the
-pipeline continues with the pre-authored PRD. This is logged explicitly:
+pipeline continues with the pre-authored Intent Specification. This is logged explicitly:
 `prdSource: "pre-authored"` vs `prdSource: "derived"` vs
 `prdSource: "generated"`.
 
 ### 3.4 Critic review: verify against spec content, not pipeline intermediates
 
 The current `semantic-review.ts` receives:
-- The proposal's PRD
+- The proposal's Intent Specification
 - The proposal's `sourceCapabilityId` and `sourceRefs`
 
 This is insufficient. The Critic is comparing derived artifact against
@@ -240,12 +240,12 @@ derived artifact. It has no ground truth.
 **New Critic input (derivation mode):** When `specContent` is present on
 the originating Signal, the Critic receives:
 
-1. The PRD (as now)
+1. The Intent Specification (as now)
 2. The resolved spec content (ground truth)
 3. The Signal's original title and description (for context)
 
-The Critic's question changes from "does this PRD align with its source
-Capability?" to "does this PRD faithfully represent the specification
+The Critic's question changes from "does this Intent Specification align with its source
+Capability?" to "does this Intent Specification faithfully represent the specification
 content attached to the originating Signal?"
 
 **New system prompt for semantic-review.ts (derivation mode):**
@@ -253,8 +253,8 @@ content attached to the originating Signal?"
 ```
 You are a Semantic Reviewer in the Function Factory pipeline.
 
-You review a PRD BEFORE it enters compilation. Your job is to verify
-that the PRD faithfully represents the SPECIFICATION CONTENT it was
+You review a Intent Specification BEFORE it enters compilation. Your job is to verify
+that the Intent Specification faithfully represents the SPECIFICATION CONTENT it was
 derived from.
 
 SPECIFICATION CONTENT (ground truth):
@@ -264,16 +264,16 @@ SIGNAL CONTEXT:
 Title: {signal.title}
 Description: {signal.description}
 
-PRD UNDER REVIEW:
+Intent Specification UNDER REVIEW:
 {prd as JSON}
 
 Questions to answer:
-1. Does the PRD's objective match what the specification actually says?
+1. Does the Intent Specification's objective match what the specification actually says?
 2. Are the acceptance criteria derivable from the specification?
 3. Are the invariants grounded in specification constraints?
 4. Does the scope match the specification's boundaries?
-5. Is anything in the PRD NOT in the specification (hallucinated)?
-6. Is anything in the specification NOT in the PRD (dropped)?
+5. Is anything in the Intent Specification NOT in the specification (hallucinated)?
+6. Is anything in the specification NOT in the Intent Specification (dropped)?
 
 Output JSON:
 {
@@ -281,7 +281,7 @@ Output JSON:
   "confidence": 0.0-1.0,
   "groundedCriteria": ["AC numbers that trace to spec passages"],
   "ungroundedCriteria": ["AC numbers with no spec basis"],
-  "missedContent": ["Spec content not reflected in PRD"],
+  "missedContent": ["Spec content not reflected in Intent Specification"],
   "citations": ["Specific spec passages supporting your assessment"],
   "rationale": "..."
 }
@@ -309,12 +309,12 @@ Thread `specContent.content` through Stages 2-4 and the Critic as an
 additional parameter. Each stage function gains an optional
 `specContent: string | null` parameter.
 
-For pre-authored PRDs: after Stage 4, check if `params.signal.preAuthored?.prd`
+For pre-authored Intent Specifications: after Stage 4, check if `params.signal.preAuthored?.prd`
 exists. If so, replace the proposal's `prd` field before entering the
 semantic review and Stage 5.
 
 ```typescript
-// ── Pre-authored PRD substitution ──
+// ── Pre-authored Intent Specification substitution ──
 if (params.signal.preAuthored?.prd) {
   proposal.prd = params.signal.preAuthored.prd
   proposal.prdSource = 'pre-authored'
@@ -331,8 +331,8 @@ Every pipeline-produced artifact carries a `derivationMode` field:
 | `generated` | Generated by LLM from title/description only (current behavior) |
 | `pre-authored` | Human-authored, passed through pipeline for lineage |
 
-This field is queryable. It enables: "show me all WorkGraphs produced
-from generated (non-grounded) PRDs" — which is the query that reveals
+This field is queryable. It enables: "show me all Executable Specifications produced
+from generated (non-grounded) Intent Specifications" — which is the query that reveals
 the current problem at scale.
 
 ---
@@ -357,8 +357,8 @@ Stages 2-4 serve two purposes even when spec content is present:
    is useful work — it is the difference between "we have a spec" and
    "we have a spec decomposed into the pipeline's artifact vocabulary."
 
-**The exception: pre-authored PRDs.** When `preAuthored.prd` is present,
-Stage 4's LLM output is replaced. The human-authored PRD is
+**The exception: pre-authored Intent Specifications.** When `preAuthored.prd` is present,
+Stage 4's LLM output is replaced. The human-authored Intent Specification is
 architecturally correct by construction (the Architect wrote it against
 the whitepaper). Forcing it through LLM re-derivation can only lose
 fidelity. Stages 2-3 still run in derivation mode to produce the
@@ -367,7 +367,7 @@ Pressure and Capability lineage nodes.
 **Future optimization:** If a Signal carries `preAuthored.pressure` and
 `preAuthored.capability`, those stages also skip LLM and use the
 pre-authored artifacts directly. This is the path for fully human-authored
-spec chains (the current meta-PRD authoring workflow).
+spec chains (the current meta-Intent Specification authoring workflow).
 
 ---
 
@@ -383,18 +383,18 @@ brief asks: "What's the minimum change to stop producing garbage?"
 2. **propose-function.ts:** When `specContent` is present in the
    originating signal (threaded through pipeline state), include it in
    the Stage 4 prompt. This alone eliminates the worst hallucinations
-   because Stage 4 (PRD generation) is where the most damage occurs.
+   because Stage 4 (Intent Specification generation) is where the most damage occurs.
    Stages 2-3 hallucinations are less harmful because their outputs are
-   not compiled — the PRD is what enters Stage 5.
+   not compiled — the Intent Specification is what enters Stage 5.
 
 3. **semantic-review.ts:** When `specContent` is available, include it
    in the Critic prompt as ground truth instead of relying on the
    Capability.
 
 **Why Stage 4 is the leverage point:** The compiler (Stage 5) consumes
-only the PRD. It never sees the Pressure or Capability directly. A
-hallucinated Pressure that produces a grounded PRD still yields a
-valid WorkGraph. A grounded Pressure that produces a hallucinated PRD
+only the Intent Specification. It never sees the Pressure or Capability directly. A
+hallucinated Pressure that produces a grounded Intent Specification still yields a
+valid Executable Specification. A grounded Pressure that produces a hallucinated Intent Specification
 yields garbage. Stage 4 is where fidelity matters most.
 
 ---
@@ -416,7 +416,7 @@ yields garbage. Stage 4 is where fidelity matters most.
 - Add derivation-mode prompts to synthesize-pressure.ts and map-capability.ts
 - Add `derivationMode` markers to all artifact outputs
 - Add `preAuthored` support to SignalInput and pipeline.ts
-- Tests: integration tests for pre-authored PRD passthrough
+- Tests: integration tests for pre-authored Intent Specification passthrough
 
 ### Phase 3: Spec content storage (1 session)
 
@@ -430,8 +430,8 @@ yields garbage. Stage 4 is where fidelity matters most.
 
 - Re-run the 10 existing Signals through the pipeline with specContent
   attached
-- Compare old (generated) vs new (derived) WorkGraphs
-- Archive or mark the 10 hallucinated WorkGraphs as `derivationMode: "generated"`
+- Compare old (generated) vs new (derived) Executable Specifications
+- Archive or mark the 10 hallucinated Executable Specifications as `derivationMode: "generated"`
 
 ---
 
@@ -448,14 +448,14 @@ available for citation verification.
 **Risk 2: Derivation mode still hallucinates.**
 Mitigation: The Critic now has ground truth to verify against. Even if
 Stage 4 hallucinates details, the Critic catches them because it
-compares the PRD against the spec content, not against another
+compares the Intent Specification against the spec content, not against another
 derived artifact. This is the defense-in-depth: derivation reduces
 hallucination; Critic-with-ground-truth catches what remains.
 
-**Risk 3: Pre-authored PRD skips LLM improvement.**
-This is a feature, not a risk. The Architect's PRD is the ground truth.
-LLM "improvement" of a human-authored PRD is degradation. The PRD
-still passes through the Critic and Gate 1 — both of which can reject
+**Risk 3: Pre-authored Intent Specification skips LLM improvement.**
+This is a feature, not a risk. The Architect's Intent Specification is the ground truth.
+LLM "improvement" of a human-authored Intent Specification is degradation. The Intent Specification
+still passes through the Critic and Coherence Verification — both of which can reject
 it on their own terms.
 
 **Risk 4: Migration burden for existing signals.**
@@ -467,15 +467,15 @@ No breaking changes.
 
 ## 8. Success criteria
 
-1. A Signal with specContent produces a PRD whose acceptance criteria
+1. A Signal with specContent produces a Intent Specification whose acceptance criteria
    are traceable to specific passages in the spec.
 2. The Critic, given specContent as ground truth, can identify ungrounded
-   criteria in a derived PRD.
-3. A pre-authored PRD passes through the pipeline without LLM degradation,
+   criteria in a derived Intent Specification.
+3. A pre-authored Intent Specification passes through the pipeline without LLM degradation,
    with lineage intact.
 4. The `derivationMode` field on every artifact makes the grounding
    quality queryable.
-5. Zero new hallucinated WorkGraphs from spec-bearing Signals.
+5. Zero new hallucinated Executable Specifications from spec-bearing Signals.
 
 ---
 
@@ -483,20 +483,20 @@ No breaking changes.
 
 | Decision | Relationship |
 |---|---|
-| Gate 1 PASS does not imply conceptual correctness (2026-04-19) | This spec addresses the gap Gate 1 cannot close — semantic grounding |
+| Coherence Verification PASS does not imply conceptual correctness (2026-04-19) | This spec addresses the gap Coherence Verification cannot close — semantic grounding |
 | Semantic-alignment via Critic role (2026-04-24) | This spec gives the Critic actual ground truth to verify against |
-| Universal Critic review (2026-04-24) | Unchanged — Critic still runs on every PRD. What changes is its input |
+| Universal Critic review (2026-04-24) | Unchanged — Critic still runs on every Intent Specification. What changes is its input |
 | Specification pipeline is self-sustaining (2026-04-24) | This spec strengthens the pipeline's autonomy by reducing dependence on LLM generation |
 
 ---
 
 ## 10. What this does NOT address
 
-- **Gate 1 structural checks.** Unchanged. Gate 1 remains necessary for
-  structural coverage. This spec addresses the semantic gap Gate 1
+- **Coherence Verification structural checks.** Unchanged. Coherence Verification remains necessary for
+  structural coverage. This spec addresses the semantic gap Coherence Verification
   cannot close.
 - **Stage 6 (Function Synthesis).** Unchanged. The synthesis topology
-  consumes WorkGraphs; better WorkGraphs produce better synthesis.
+  consumes Executable Specifications; better Executable Specifications produce better synthesis.
 - **Self-sensing Signals.** The Factory cannot yet sense its own
   operational state to produce Signals. This spec assumes Signals are
   externally authored (by the Architect or by integrations). Self-sensing

@@ -251,7 +251,7 @@ export async function seedHotConfig(
   ])
 
   // TODO: TTL indexes for collection lifecycle (30-day retention)
-  // Collections needing TTL: specs_coverage_reports, gate_status, completion_ledgers, orl_telemetry
+  // Collections needing TTL: verification_reports, verification_status, completion_ledgers, orl_telemetry
   // ArangoDB TTL indexes cannot be created via AQL — they require the HTTP API:
   //   POST /_api/index?collection=<name> { "type": "ttl", "fields": ["createdAt"], "expireAfter": 2592000 }
   // Wire this into the admin/setup endpoint when the ArangoDB HTTP client supports index creation.

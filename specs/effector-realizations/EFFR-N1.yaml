@@ -4,7 +4,7 @@ source_refs:
 explicitness: inferred
 rationale: Effector realization emitted deterministically under bootstrap safe_execute policy.
 sourceEffectorId: EFF-N1
-sourceWorkGraphId: WG-META-ARCHITECTURE-CANDIDATE-EXECUTION
+sourceExecutable SpecificationId: ES-META-ARCHITECTURE-CANDIDATE-EXECUTION
 sourceArchitectureCandidateId: AC-META-ARCHITECTURE-CANDIDATE-EXECUTION
 sourceSelectionId: ACS-META-ARCHITECTURE-CANDIDATE-EXECUTION
 sourceAdmissionId: RAD-META-ARCHITECTURE-CANDIDATE-EXECUTION-ALLOW

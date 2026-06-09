@@ -1,0 +1,49 @@
+id: BC-TESSERA-PARSER
+source_refs:
+  - TESSERA-CF-SPEC
+  - IS-TESSERA-PARSER
+explicitness: explicit
+rationale: >
+  Required by TESSERA-CF-SPEC §4.3 (WP-T2): Tessera's LanguageProvider must be
+  ported from the native tree-sitter binding to tree-sitter-wasm, because native
+  tree-sitter dlopens .node/.so and cannot run on Cloudflare Workers (H5, §6.1).
+  The WASM provider has a fundamentally different async API (await Parser.init(),
+  Parser.Language.load(<wasm>)) than the synchronous native binding. Without this
+  Capability the Indexer Worker has nothing to turn source files into nodes and
+  edges, and the entire cloud graph cannot be built. Parser parity (G4) is a
+  blocking gate — divergent extraction silently corrupts every downstream
+  impact/context result.
+
+name: Parse Source Files to Typed Symbols in a CF Worker
+description: >
+  The Factory's durable ability to extract structured symbol data (functions,
+  classes, methods, interfaces, and the broader 31-kind node set, GT-SCHEMA) from
+  TypeScript and Go source using tree-sitter-wasm — without native binaries,
+  runnable inside a CF Worker. Source content plus language in, typed symbol array
+  out: a pure function with no I/O, no database, no HTTP.
+
+  The Capability extracts intra-file relations at parse (DEFINES, HAS_METHOD,
+  HAS_PROPERTY) and resolves cross-file relations (IMPORTS, CALLS, EXTENDS,
+  IMPLEMENTS) against the full symbol table, emitting edges with type, confidence,
+  and step (GT-RELSET / GT-CONF). Nodes carry startLine/endLine but never the
+  source body (G5: bodies live in R2, never on nodes).
+
+  Governed by: G4 (parser-parity gate — WASM extraction must match the native CLI
+  for the same file, modulo the content column, AC-PARSE-1), G5 (no inline content
+  on nodes), and the H5 async-API delta (Parser.init / Language.load) that is the
+  primary port risk. Community and process detection are explicitly V2 — out of
+  this Capability's V1 surface.
+
+yields:
+  execution: FP-TESSERA-PARSER
+
+pressures_addressed:
+  - Native tree-sitter cannot run on CF Workers (it dlopens .node/.so); a WASM-based parser is the only path to cloud parsing (H5, §6.1)
+  - No cloud-native parser exists for the Factory's codebase; without it the Indexer Worker cannot turn a repo tarball into a graph
+  - The native and WASM tree-sitter APIs differ (sync vs async init/load); the port risk must be absorbed once, behind a stable pure-function boundary
+
+platform_constraints:
+  - CF Worker context (no native binaries, no dlopen; tree-sitter-wasm only)
+  - WASM grammars loaded from the R2 GRAMMARS binding via Parser.Language.load (async API, H5)
+  - TypeScript + Go minimum (covers active repos); additional grammars are added behind the same LanguageProvider boundary
+  - Shared ingestion-core contract: the language-agnostic pipeline (tessera/src/core/ingestion/) must not name languages — language specifics stay behind LanguageProvider hooks

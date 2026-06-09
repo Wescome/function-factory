@@ -11,7 +11,7 @@
  * cannot be instantiated in vitest.
  */
 
-import type { SandboxDeps } from './sandbox-role.js'
+import type { SandboxBackupHandle, SandboxDeps } from './sandbox-role.js'
 
 /**
  * Build real SandboxDeps wired to @cloudflare/sandbox.
@@ -23,14 +23,14 @@ import type { SandboxDeps } from './sandbox-role.js'
  *
  * @param sandboxBinding - The DurableObjectNamespace binding for the Sandbox DO
  *                         (env.SANDBOX from wrangler config)
- * @param workGraphId    - Current WorkGraph ID, used to derive the sandbox name
+ * @param executableSpecificationId    - Current ExecutableSpecification ID, used to derive the sandbox name
  * @returns SandboxDeps conforming to the interface in sandbox-role.ts
  */
 export function buildSandboxDeps(
   sandboxBinding: unknown,
-  workGraphId: string,
+  executableSpecificationId: string,
 ): SandboxDeps {
-  const sandboxName = `synth-${workGraphId}`
+  const sandboxName = `synth-${executableSpecificationId}`
 
   // Helper: lazily obtain a sandbox instance via dynamic import.
   // getSandbox returns a typed DO stub backed by the DurableObject namespace.
@@ -70,15 +70,15 @@ export function buildSandboxDeps(
       await sandbox.exec('cd /workspace && pnpm install --frozen-lockfile')
     },
 
-    createBackup: async (dir: string): Promise<string> => {
+    createBackup: async (dir: string): Promise<SandboxBackupHandle> => {
       const sandbox = await sb()
       const backup = await sandbox.createBackup({ dir, ttl: 86400 })
-      return backup.id
+      return backup
     },
 
-    restoreBackup: async (handle: string): Promise<void> => {
+    restoreBackup: async (handle: SandboxBackupHandle): Promise<void> => {
       const sandbox = await sb()
-      await sandbox.restoreBackup({ id: handle, dir: '/workspace' })
+      await sandbox.restoreBackup(handle)
     },
   }
 }

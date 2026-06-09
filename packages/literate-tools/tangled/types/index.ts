@@ -1,7 +1,7 @@
 // Tangled from specs/reference/literate-canonical-reference.md
 // Context: types
 // Blocks: 8
-// Generated: 2026-04-24T15:11:44.397Z
+// Generated: deterministic
 // DO NOT EDIT — edit the literate reference and re-run tangle.
 // --- Block from line 116 (Part I -- What Is a Function?) ---
 /**
@@ -25,8 +25,8 @@ interface Function {
   /** Tests, scenarios, and property checks that prove contract and invariants hold. */
   validations: Validation[];
 
-  /** The WorkGraph of nodes and edges that realizes it. */
-  implementation: WorkGraph | null;
+  /** The ExecutableSpecification of nodes and edges that realizes it. */
+  implementation: ExecutableSpecification | null;
 
   /** Health, trust, freshness, incident links. */
   runtime_indicators: RuntimeIndicators;
@@ -56,7 +56,7 @@ type FunctionLifecycleState =
  * triggered by a named event, guarded by a named condition.
  *
  * Naming principle 2: the trigger and guard describe what happens
- * in plain language. "Gate 2" becomes "scenarios_cover_invariants".
+ * in plain language.
  */
 interface LifecycleTransition {
   from: FunctionLifecycleState;
@@ -82,7 +82,7 @@ const LIFECYCLE_TRANSITIONS: LifecycleTransition[] = [
   {
     from: "planned",
     to: "in_progress",
-    trigger: "dark_factory_admits_workgraph",
+    trigger: "dark_factory_admits_executable_specification",
     guard: "candidate_passes_admissibility_filter",
     responsible_context: "Execution",
   },
@@ -209,29 +209,29 @@ interface Validation {
 
 // --- Block from line 393 (Part I -- What Is a Function?) ---
 /** CANONICAL-ONLY. Compiled implementation graph. */
-interface WorkGraph {
-  id: string; // WG-*
+interface ExecutableSpecification {
+  id: string; // ES-*
   function_id: string;
-  nodes: WorkGraphNode[];
-  edges: WorkGraphEdge[];
+  nodes: ExecutableSpecificationNode[];
+  edges: ExecutableSpecificationEdge[];
   source_refs: SourceRef[];
 }
 
-/** CANONICAL-ONLY. A node in the WorkGraph. */
-interface WorkGraphNode {
+/** CANONICAL-ONLY. A node in the ExecutableSpecification. */
+interface ExecutableSpecificationNode {
   id: string;
   type: NodeType;
   label: string;
 }
 
-/** CANONICAL-ONLY. An edge in the WorkGraph. */
-interface WorkGraphEdge {
+/** CANONICAL-ONLY. An edge in the ExecutableSpecification. */
+interface ExecutableSpecificationEdge {
   from: string;
   to: string;
   label: string;
 }
 
-/** Nine WorkGraph node types. From ratified decisions lines 210-220. */
+/** Nine ExecutableSpecification node types. From ratified decisions lines 210-220. */
 type NodeType =
   | "interface"
   | "domain_model"

@@ -159,7 +159,7 @@ export const MergeReadinessPack = z.object({
     "MRP IDs must start with MRP-"
   ),
   functionId: z.string().min(1),
-  workGraphId: z.string().min(1),
+  executableSpecificationId: z.string().min(1),
   pipelineInstanceId: z.string().min(1),
 
   functionalCompleteness: z.object({
@@ -183,7 +183,7 @@ export const MergeReadinessPack = z.object({
         result: z.enum(["pass", "fail"]),
       })
     ),
-    gate2ReportId: z.string(),
+    fidelityVerificationReportId: z.string(),
     coveragePercentage: z.number().min(0).max(100).optional(),
   }),
 
@@ -219,11 +219,11 @@ export const MergeReadinessPack = z.object({
   }),
 
   auditability: z.object({
-    prdId: z.string(),
-    workGraphId: z.string(),
+    intentSpecificationId: z.string(),
+    executableSpecificationId: z.string(),
     semanticReviewId: z.string(),
-    gate1ReportId: z.string(),
-    gate2ReportId: z.string(),
+    coherenceVerificationReportId: z.string().optional(),
+    fidelityVerificationReportId: z.string().optional(),
     sessionTreeId: z.string().optional(),
     modelBindings: z.record(z.object({
       provider: z.string(),
@@ -308,7 +308,7 @@ export const CIRepairPayload = z.object({
   originalFunctionId: z.string(),
   originalMrpId: z.string(),
   originalPipelineInstanceId: z.string(),
-  workGraphId: z.string(),
+  executableSpecificationId: z.string(),
   classification: z.object({
     type: z.enum(["deterministic", "test-regression", "environment", "ambiguous"]),
     repairHint: z.string(),

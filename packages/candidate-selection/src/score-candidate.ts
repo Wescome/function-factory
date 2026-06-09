@@ -8,7 +8,7 @@ export function scoreCandidate(
   input: CandidateScoringInput
 ): CandidateScorecard {
   if (input.candidateId !== "AC-META-ARCHITECTURE-CANDIDATE-EXECUTION") {
-    throw new Error("Stage 5.75 bootstrap scoring supports only AC-META-ARCHITECTURE-CANDIDATE-EXECUTION")
+    throw new Error("Semantic-review bootstrap scoring supports only AC-META-ARCHITECTURE-CANDIDATE-EXECUTION")
   }
 
   const dimensions = [

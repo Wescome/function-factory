@@ -7,10 +7,10 @@
  * from other Workers (cross-Worker imports break rootDir).
  */
 
-import type { Gate1Report } from './types.js'
+import type { CoherenceVerificationReport } from './types.js'
 
 interface GatesBinding {
-  evaluateGate1(workGraph: unknown): Promise<Gate1Report>
+  evaluateCoherenceVerification(executableSpecification: unknown): Promise<CoherenceVerificationReport>
 }
 
 interface QueryBinding {
