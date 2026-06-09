@@ -73,9 +73,9 @@ expectIncludes(
   'GasCityFidelityVerificationReport',
 )
 expectIncludes(
-  'Pipeline blocks synthesis-era instruction tuning handoff in Gas City era',
+  'Pipeline dispatches to Gas City via formula compiler in Gas City era',
   'workers/ff-pipeline/src/pipeline.ts',
-  'instruction-tuning-blocked',
+  'dispatch-formula',
 )
 expectIncludes(
   'Coordinator state carries TrellisExecutionPacket',

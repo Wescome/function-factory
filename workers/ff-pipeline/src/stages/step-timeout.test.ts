@@ -119,6 +119,29 @@ vi.mock('./compile', () => ({
   })),
 }))
 
+vi.mock('../gascity/skeleton-builder', () => ({
+  buildSkeleton: vi.fn(async () => ({ r2Key: 'skeletons/test/skeleton.tar.gz', skeletonSha: 'abc123def456' })),
+  getSkeletonDownloadUrl: vi.fn(() => 'https://ff-pipeline.koales.workers.dev/skeleton-download?key=test&token=tok'),
+}))
+
+vi.mock('../compilers/formula-compiler-adapter', () => ({
+  buildFormulaCompilerDeps: vi.fn(() => ({})),
+}))
+
+vi.mock('../compilers/formula-compiler', () => ({
+  compileAndDispatchFormula: vi.fn(async () => ({
+    outcome: 'dispatched',
+    form_id: 'FORM-TEST',
+    dispatch_log_key: 'DL-TEST',
+    gc_bead_id: 'bead-123',
+    gc_workflow_id: 'wf-123',
+  })),
+}))
+
+vi.mock('../gascity/autonomy-monitor', () => ({
+  markFunctionDispatched: vi.fn(async () => {}),
+}))
+
 // ─── Step call tracker ───
 
 interface StepDoRecord {
@@ -168,6 +191,11 @@ function createMockEnv() {
     FEEDBACK_QUEUE: {
       send: vi.fn(async () => ({})),
     },
+    GITHUB_TOKEN: 'test-token',
+    GAS_CITY_HMAC_SECRET_V1: 'test-secret',
+    WORKSPACE_BUCKET: { put: vi.fn(async () => ({})), get: vi.fn(async () => null) },
+    GAS_CITY_BASE_URL: 'https://gascity.example.com',
+    GAS_CITY_BEARER_TOKEN: 'test-bearer',
   }
 }
 
@@ -235,11 +263,10 @@ describe('Step timeout configuration', () => {
     'edge-executableSpecification-proposal',
     'persist-coherence-verification-pass',
     'lifecycle-designed',
-    'enqueue-synthesis',
-    'lifecycle-in-progress',
-    'edge-synthesis-executableSpecification',
-    'lifecycle-produced',
-    'enqueue-feedback',
+    'build-skeleton',
+    'build-execution-packet',
+    'dispatch-formula',
+    'mark-function-dispatched',
   ]
 
   it('AI-calling steps pass timeout: "2 minutes" to step.do', async () => {

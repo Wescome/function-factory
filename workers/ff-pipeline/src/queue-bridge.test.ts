@@ -139,6 +139,29 @@ vi.mock('./harness-dispatcher.js', () => ({
   buildDefaultDispatcherDeps: harnessDispatcherMocks.buildDefaultDispatcherDeps,
 }))
 
+vi.mock('./gascity/skeleton-builder', () => ({
+  buildSkeleton: vi.fn(async () => ({ r2Key: 'skeletons/test/skeleton.tar.gz', skeletonSha: 'abc123def456' })),
+  getSkeletonDownloadUrl: vi.fn(() => 'https://ff-pipeline.koales.workers.dev/skeleton-download?key=test&token=tok'),
+}))
+
+vi.mock('./compilers/formula-compiler-adapter', () => ({
+  buildFormulaCompilerDeps: vi.fn(() => ({})),
+}))
+
+vi.mock('./compilers/formula-compiler', () => ({
+  compileAndDispatchFormula: vi.fn(async () => ({
+    outcome: 'dispatched',
+    form_id: 'FORM-TEST',
+    dispatch_log_key: 'DL-TEST',
+    gc_bead_id: 'bead-123',
+    gc_workflow_id: 'wf-123',
+  })),
+}))
+
+vi.mock('./gascity/autonomy-monitor', () => ({
+  markFunctionDispatched: vi.fn(async () => {}),
+}))
+
 // ─── Test helpers ───
 
 function createMockCtx() {
@@ -204,6 +227,11 @@ function createEnv(overrides?: Record<string, unknown>) {
     SYNTHESIS_RESULTS: {
       send: vi.fn(async () => ({})),
     },
+    GITHUB_TOKEN: 'test-token',
+    GAS_CITY_HMAC_SECRET_V1: 'test-secret',
+    WORKSPACE_BUCKET: { put: vi.fn(async () => ({})), get: vi.fn(async () => null) },
+    GAS_CITY_BASE_URL: 'https://gascity.example.com',
+    GAS_CITY_BEARER_TOKEN: 'test-bearer',
     ...overrides,
   }
 }
@@ -645,34 +673,21 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
     })
   })
 
-  // ── C) Pipeline enqueue step tests ──
+  // ── C) Pipeline Gas City dispatch step tests ──
 
-  describe('pipeline enqueue-synthesis step', () => {
+  describe('pipeline Gas City dispatch step', () => {
 
-    it('blocks before SYNTHESIS_QUEUE handoff in the Gas City era', async () => {
+    it('runs build-skeleton → dispatch-formula → mark-function-dispatched and returns dispatched', async () => {
       const { FactoryPipeline } = await import('./pipeline')
 
-      const mockQueueSend = vi.fn(async () => ({}))
-      const env = createEnv({
-        SYNTHESIS_QUEUE: { send: mockQueueSend },
-      })
-
+      const env = createEnv()
       const { step, stepDoNames } = createMockStep()
 
       step.waitForEvent = vi.fn((name: string) => {
         if (name === 'architect-approval') {
           return Promise.resolve({ payload: { decision: 'approved', by: 'test' } })
         }
-        if (name === 'synthesis-complete') {
-          return Promise.resolve({
-            payload: {
-              verdict: { decision: 'pass', confidence: 0.95, reason: 'ok' },
-              tokenUsage: 100,
-              repairCount: 0,
-            },
-          })
-        }
-        return Promise.reject(new Error(`Unexpected: ${name}`))
+        return Promise.reject(new Error(`Unexpected waitForEvent: ${name}`))
       })
 
       const pipeline = Object.create(FactoryPipeline.prototype)
@@ -680,138 +695,33 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       const result = await pipeline.run(
         {
-          instanceId: 'wf-enqueue-test',
+          instanceId: 'wf-dispatch-test',
           payload: SIGNAL_PAYLOAD,
         },
         step,
       )
 
-      expect(result.status).toBe('instruction-tuning-blocked')
-      expect(stepDoNames).toContain('instruction-tuning')
-      expect(stepDoNames).toContain('persist-instruction-tuning-blocked')
+      expect(result.status).toBe('dispatched')
+      expect(stepDoNames).toContain('build-skeleton')
+      expect(stepDoNames).toContain('dispatch-formula')
+      expect(stepDoNames).toContain('mark-function-dispatched')
+      expect(stepDoNames).not.toContain('instruction-tuning')
       expect(stepDoNames).not.toContain('enqueue-synthesis')
-      expect(stepDoNames).not.toContain('fire-synthesis-trigger')
-      expect(mockQueueSend).not.toHaveBeenCalled()
     })
 
-    it('does not enqueue synthesis when pipeline params specify dryRun', async () => {
-      const { FactoryPipeline } = await import('./pipeline')
-
-      const mockQueueSend = vi.fn(async () => ({}))
-      const env = createEnv({
-        SYNTHESIS_QUEUE: { send: mockQueueSend },
-      })
-
-      const { step } = createMockStep()
-
-      step.waitForEvent = vi.fn((name: string) => {
-        if (name === 'architect-approval') {
-          return Promise.resolve({ payload: { decision: 'approved', by: 'test' } })
-        }
-        if (name === 'synthesis-complete') {
-          return Promise.resolve({
-            payload: {
-              verdict: { decision: 'pass', confidence: 0.95, reason: 'ok' },
-              tokenUsage: 100,
-              repairCount: 0,
-            },
-          })
-        }
-        return Promise.reject(new Error(`Unexpected: ${name}`))
-      })
-
-      const pipeline = Object.create(FactoryPipeline.prototype)
-      pipeline.env = env
-
-      const result = await pipeline.run(
-        {
-          instanceId: 'wf-dry-test',
-          payload: { ...SIGNAL_PAYLOAD, dryRun: true },
-        },
-        step,
-      )
-
-      expect(result.status).toBe('instruction-tuning-blocked')
-      expect(mockQueueSend).not.toHaveBeenCalled()
-    })
-
-    it('returns { persisted: true } from the instruction-tuning blocked persistence step', async () => {
-      const { FactoryPipeline } = await import('./pipeline')
-
-      const mockQueueSend = vi.fn(async () => ({}))
-      const env = createEnv({
-        SYNTHESIS_QUEUE: { send: mockQueueSend },
-      })
-
-      let blockedPersistResult: unknown
-      const step = {
-        do: vi.fn(async (name: string, optsOrFn: unknown, maybeFn?: unknown) => {
-          const fn = typeof optsOrFn === 'function'
-            ? optsOrFn as () => Promise<unknown>
-            : maybeFn as () => Promise<unknown>
-          const result = await fn()
-          if (name === 'persist-instruction-tuning-blocked') {
-            blockedPersistResult = result
-          }
-          return result
-        }),
-        waitForEvent: vi.fn((name: string) => {
-          if (name === 'architect-approval') {
-            return Promise.resolve({ payload: { decision: 'approved', by: 'test' } })
-          }
-          if (name === 'synthesis-complete') {
-            return Promise.resolve({
-              payload: {
-                verdict: { decision: 'pass', confidence: 0.95, reason: 'ok' },
-                tokenUsage: 100,
-                repairCount: 0,
-              },
-            })
-          }
-          return Promise.reject(new Error(`Unexpected: ${name}`))
-        }),
-      }
-
-      const pipeline = Object.create(FactoryPipeline.prototype)
-      pipeline.env = env
-
-      await pipeline.run(
-        {
-          instanceId: 'wf-result-test',
-          payload: SIGNAL_PAYLOAD,
-        },
-        step,
-      )
-
-      expect(blockedPersistResult).toEqual({ persisted: true })
-    })
-
-    it('no longer writes to ArangoDB synthesis_queue collection', async () => {
+    it('does not write to ArangoDB synthesis_queue collection', async () => {
       mockDb.save.mockClear()
 
       const { FactoryPipeline } = await import('./pipeline')
 
-      const mockQueueSend = vi.fn(async () => ({}))
-      const env = createEnv({
-        SYNTHESIS_QUEUE: { send: mockQueueSend },
-      })
-
+      const env = createEnv()
       const { step } = createMockStep()
 
       step.waitForEvent = vi.fn((name: string) => {
         if (name === 'architect-approval') {
           return Promise.resolve({ payload: { decision: 'approved', by: 'test' } })
         }
-        if (name === 'synthesis-complete') {
-          return Promise.resolve({
-            payload: {
-              verdict: { decision: 'pass', confidence: 0.95, reason: 'ok' },
-              tokenUsage: 100,
-              repairCount: 0,
-            },
-          })
-        }
-        return Promise.reject(new Error(`Unexpected: ${name}`))
+        return Promise.reject(new Error(`Unexpected waitForEvent: ${name}`))
       })
 
       const pipeline = Object.create(FactoryPipeline.prototype)
@@ -825,67 +735,10 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
         step,
       )
 
-      // Should NOT have written to synthesis_queue collection in ArangoDB
       const arangoQueueSave = (mockDb.save.mock.calls as unknown[][]).find(
         (call) => call[0] === 'synthesis_queue',
       )
       expect(arangoQueueSave).toBeUndefined()
-    })
-
-    it('instruction-tuning block runs after Coherence Verification and does not wait for synthesis-complete', async () => {
-      const { FactoryPipeline } = await import('./pipeline')
-
-      const mockQueueSend = vi.fn(async () => ({}))
-      const env = createEnv({
-        SYNTHESIS_QUEUE: { send: mockQueueSend },
-      })
-
-      const stepOrder: string[] = []
-      const step = {
-        do: vi.fn(async (name: string, optsOrFn: unknown, maybeFn?: unknown) => {
-          const fn = typeof optsOrFn === 'function'
-            ? optsOrFn as () => Promise<unknown>
-            : maybeFn as () => Promise<unknown>
-          stepOrder.push(name)
-          return fn()
-        }),
-        waitForEvent: vi.fn((name: string) => {
-          stepOrder.push(`waitForEvent:${name}`)
-          if (name === 'architect-approval') {
-            return Promise.resolve({ payload: { decision: 'approved', by: 'test' } })
-          }
-          if (name === 'synthesis-complete') {
-            return Promise.resolve({
-              payload: {
-                verdict: { decision: 'pass', confidence: 0.95, reason: 'ok' },
-                tokenUsage: 100,
-                repairCount: 0,
-              },
-            })
-          }
-          return Promise.reject(new Error(`Unexpected: ${name}`))
-        }),
-      }
-
-      const pipeline = Object.create(FactoryPipeline.prototype)
-      pipeline.env = env
-
-      await pipeline.run(
-        {
-          instanceId: 'wf-order-test',
-          payload: SIGNAL_PAYLOAD,
-        },
-        step,
-      )
-
-      const instructionTuningIdx = stepOrder.indexOf('instruction-tuning')
-      const blockedPersistIdx = stepOrder.indexOf('persist-instruction-tuning-blocked')
-      const waitIdx = stepOrder.indexOf('waitForEvent:synthesis-complete')
-
-      expect(instructionTuningIdx).toBeGreaterThan(-1)
-      expect(blockedPersistIdx).toBeGreaterThan(-1)
-      expect(blockedPersistIdx).toBeGreaterThan(instructionTuningIdx)
-      expect(waitIdx).toBe(-1)
     })
   })
 
