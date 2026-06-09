@@ -190,6 +190,7 @@ describe('ingestPROutcomeSignals', () => {
     const db = {
       queryOne: vi.fn(async () => null),
       save: vi.fn(async (_collection: string, signal: Record<string, unknown>) => signal),
+      ensureCollection: vi.fn(async () => {}),
     }
 
     const records = await ingestPROutcomeSignals(makeInput(), db as never)

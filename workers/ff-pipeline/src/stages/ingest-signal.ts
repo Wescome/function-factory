@@ -15,6 +15,8 @@ export async function ingestSignal(
     )
   }
 
+  await db.ensureCollection('specs_signals')
+
   const idempotencyKey = computeIdempotencyKey(input)
 
   const existing = await db.queryOne<Record<string, unknown>>(

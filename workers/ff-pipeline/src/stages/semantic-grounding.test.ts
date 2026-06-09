@@ -65,6 +65,7 @@ function createMockDb() {
     saveEdge: vi.fn(async () => ({ _key: 'mock-edge' })),
     query: vi.fn(async () => []),
     queryOne: vi.fn(async () => null),
+    ensureCollection: vi.fn(async () => {}),
   }
 }
 
