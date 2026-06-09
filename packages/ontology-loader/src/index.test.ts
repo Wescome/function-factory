@@ -40,7 +40,9 @@ function createMockDb() {
   // query() returns { json: string }[] — same shape as D1 rows
   const query = vi.fn(async <T = unknown>(sql: string, params: unknown[] = []): Promise<T[]> => {
     if (sql.includes('ontology_constraints') && sql.includes('targetClasses')) {
-      const className = params[0] as string
+      // params[0] is a LIKE pattern like %ClassName% — strip wildcards for mock filtering
+      const raw = params[0] as string
+      const className = raw.replace(/%/g, '')
       const rows = Object.values(store['ontology_constraints'] ?? {})
       return rows
         .map(j => JSON.parse(j) as OntologyConstraint)

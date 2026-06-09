@@ -22,10 +22,10 @@ export function buildFormulaCompilerDeps(
   WHERE collection='verification_reports'
     AND json_extract(json,'$.kind')='coherence'
     AND json_extract(json,'$.status')='passed'
-    AND EXISTS (SELECT 1 FROM json_each(json_extract(json,'$.source_refs')) WHERE value=?)
+    AND json_extract(json,'$.source_refs') LIKE ?
   ORDER BY json_extract(json,'$.created_at') DESC
   LIMIT 1`,
-        [esId],
+        [`%${esId}%`],
       )
       return row ? JSON.parse(row.json) as CoherenceVRRow : null
     },
