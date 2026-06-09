@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "shell",
+  "description": "Bounded shell access for coding agents",
+  "operations": {
+    "run": {
+      "required_args": {
+        "command": { "type": "string" },
+        "cwd": { "type": "string", "default": "." }
+      },
+      "blocked_patterns": [
+        "rm -rf /",
+        "rm -rf /*",
+        "sudo",
+        "chmod 777",
+        ":(){ :|:& };:",
+        "mkfs",
+        "dd if=",
+        "> /dev/sda"
+      ],
+      "blocked_flags": [
+        "--no-verify",
+        "--force"
+      ],
+      "preconditions": [],
+      "side_effects": ["executes in shell", "may write files", "may hit network"],
+      "requires_approval": false,
+      "notes": "Network and file-write effects are governed by network and filesystem schemas; this schema governs shell invocation itself."
+    },
+    "pipe": {
+      "required_args": {
+        "commands": { "type": "array", "items": { "type": "string" } }
+      },
+      "notes": "Pipe chain. Same block rules as run. Each stage is audited individually.",
+      "requires_approval": false
+    }
+  },
+  "rate_limits": {
+    "commands_per_minute": 60,
+    "long_running_timeout_seconds": 300
+  }
+}
