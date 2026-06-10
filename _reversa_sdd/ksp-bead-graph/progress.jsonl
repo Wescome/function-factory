@@ -1,0 +1,11 @@
+{"ts":"2026-06-10T11:48:00.000Z","step":"10","status":"done","files":["packages/bead-graph/package.json","packages/bead-graph/tsconfig.json","packages/bead-graph/vitest.config.ts"]}
+{"ts":"2026-06-10T11:48:05.000Z","step":"11","status":"done","files":["packages/bead-graph/src/bead-id.ts"]}
+{"ts":"2026-06-10T11:48:10.000Z","step":"12","status":"done","files":["packages/bead-graph/src/schemas.ts"]}
+{"ts":"2026-06-10T11:48:15.000Z","step":"13","status":"done","files":["packages/bead-graph/migrations/v00_base.ts"]}
+{"ts":"2026-06-10T11:48:20.000Z","step":"14","status":"done","files":["packages/bead-graph/src/migrate.ts"]}
+{"ts":"2026-06-10T11:48:25.000Z","step":"15","status":"done","files":["packages/bead-graph/src/bead-queries.ts"]}
+{"ts":"2026-06-10T11:48:30.000Z","step":"16","status":"done","files":["packages/bead-graph/src/do.ts"]}
+{"ts":"2026-06-10T11:48:35.000Z","step":"17","status":"done","files":["packages/bead-graph/src/sdk.ts"]}
+{"ts":"2026-06-10T11:48:40.000Z","step":"18","status":"done","files":["packages/bead-graph/bindings.ts","packages/bead-graph/src/worker.ts"]}
+{"ts":"2026-06-10T11:48:45.000Z","step":"19","status":"done","files":["packages/bead-graph/wrangler.jsonc"]}
+{"ts":"2026-06-10T11:48:50.000Z","step":"20","status":"done","files":["packages/bead-graph/tests/bead.test.ts"]}

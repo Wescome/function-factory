@@ -1,0 +1,9 @@
+{"ts":"2026-06-10T00:00:00.000Z","step":"1","status":"done","files":["packages/artifact-graph/package.json","packages/artifact-graph/tsconfig.json"]}
+{"ts":"2026-06-10T00:01:00.000Z","step":"2","status":"done","files":["packages/artifact-graph/src/types.ts"]}
+{"ts":"2026-06-10T00:02:00.000Z","step":"3","status":"done","files":["packages/artifact-graph/migrations/v00_base.ts"]}
+{"ts":"2026-06-10T00:03:00.000Z","step":"4","status":"done","files":["packages/artifact-graph/src/migrate.ts"]}
+{"ts":"2026-06-10T00:04:00.000Z","step":"5","status":"done","files":["packages/artifact-graph/src/queries.ts"]}
+{"ts":"2026-06-10T00:05:00.000Z","step":"6","status":"done","files":["packages/artifact-graph/src/do.ts"]}
+{"ts":"2026-06-10T00:06:00.000Z","step":"7","status":"done","files":["packages/artifact-graph/bindings.ts","packages/artifact-graph/src/worker.ts"]}
+{"ts":"2026-06-10T00:07:00.000Z","step":"8","status":"done","files":["packages/artifact-graph/wrangler.jsonc"]}
+{"ts":"2026-06-10T00:08:00.000Z","step":"9","status":"done","files":["packages/artifact-graph/tests/generic.test.ts","packages/artifact-graph/vitest.config.ts"]}

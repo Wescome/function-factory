@@ -1,0 +1,407 @@
+{
+  "phase": "complete",
+  "output_folder": "_reversa_sdd",
+  "doc_level": "completo",
+  "doc_language": "English",
+  "chat_language": "English",
+  "user_name": "Wes",
+  "answer_mode": "file",
+  "project": "function-factory",
+  "completed": [
+    "scout",
+    "archaeologist",
+    "detective",
+    "architect",
+    "writer",
+    "reviewer"
+  ],
+  "checkpoints": {
+    "scout": {
+      "completed_at": "2026-06-10",
+      "files_generated": [
+        "_reversa_sdd/inventory.md",
+        "_reversa_sdd/dependencies.md",
+        ".reversa/context/surface.json"
+      ]
+    },
+    "archaeologist": {
+      "completed_at": "2026-06-10",
+      "modules_analyzed": [
+        "ff-pipeline",
+        "synthesis-coordinator",
+        "gascity-supervisor",
+        "ff-gates",
+        "verification",
+        "ff-gateway"
+      ],
+      "files_generated": [
+        "_reversa_sdd/code-analysis.md",
+        ".reversa/context/modules.json"
+      ]
+    },
+    "detective": {
+      "completed_at": "2026-06-08",
+      "rules_identified": 12,
+      "adrs_generated": 6,
+      "state_machines": 2,
+      "files_generated": [
+        "_reversa_sdd/domain.md",
+        "_reversa_sdd/state-machines.md"
+      ]
+    },
+    "detective_patch_2026-06-10": {
+      "completed_at": "2026-06-10",
+      "type": "patch",
+      "trigger": "D1 migration + keepalive wiring (PRs #78-#85)",
+      "commits_analyzed": [
+        "d2b4a00 — governor Q1-Q9 AQL→D1 SQL rewrite, ADR-0013 proposal",
+        "f8f0b48 — @factory/arango-client → @factory/db-client rename (~60 files)",
+        "664a3c2 — ff-factory D1 schema provisioned, wired to ff-pipeline/ff-gates/ff-gateway",
+        "485e884 — autonomy-monitor + ontology-loader AQL→SQL port",
+        "9b17d2a — webhook-receiver AQL→SQL port",
+        "6e17bf9 — pi-container timeout 300s→480s, workspace cleanup, auth.json stub",
+        "3e83e1a — keepalive start/stop wired around formula dispatch",
+        "161a136 — onStop made async to prevent stale keepalive_refcount"
+      ],
+      "new_rules": ["BR-13", "BR-14", "BR-15", "BR-16", "BR-17", "BR-18"],
+      "new_constraints": [
+        "Pi-container execute timeout 8 minutes",
+        "Keepalive call timeout 5 seconds",
+        "Gas City max amendment depth default 3"
+      ],
+      "new_state_machines": ["SM-4: GasCitySupervisor Keepalive Refcount"],
+      "new_adrs": [
+        "_reversa_sdd/adrs/ADR-010-d1-replaces-arangodb.md",
+        "_reversa_sdd/adrs/ADR-011-keepalive-refcount-lifecycle.md",
+        "_reversa_sdd/adrs/ADR-012-pi-container-timeout-and-workspace-hygiene.md"
+      ],
+      "files_updated": [
+        "_reversa_sdd/domain.md",
+        "_reversa_sdd/state-machines.md"
+      ]
+    },
+    "architect": {
+      "completed_at": "2026-06-10",
+      "files_generated": [
+        "_reversa_sdd/architecture.md",
+        "_reversa_sdd/c4-context.md",
+        "_reversa_sdd/c4-containers.md",
+        "_reversa_sdd/c4-components.md",
+        "_reversa_sdd/erd-complete.md",
+        "_reversa_sdd/traceability/spec-impact-matrix.md"
+      ]
+    },
+    "writer": {
+      "completed_at": "2026-06-08",
+      "units_generated": 5,
+      "files_generated": 15
+    },
+    "writer_patch_2026-06-10": {
+      "completed_at": "2026-06-10",
+      "type": "patch",
+      "trigger": "Gas City era, D1 migration, keepalive wiring, per-atom DO v5.1",
+      "modules_updated": [
+        "ff-pipeline",
+        "synthesis-coordinator",
+        "ff-gates",
+        "ff-gateway",
+        "gascity-supervisor"
+      ],
+      "modules_created": [
+        "packages/db-client",
+        "packages/ontology-loader"
+      ],
+      "files_updated": [
+        "_reversa_sdd/ff-pipeline/requirements.md",
+        "_reversa_sdd/ff-pipeline/design.md",
+        "_reversa_sdd/ff-pipeline/tasks.md",
+        "_reversa_sdd/synthesis-coordinator/requirements.md",
+        "_reversa_sdd/synthesis-coordinator/design.md",
+        "_reversa_sdd/synthesis-coordinator/tasks.md",
+        "_reversa_sdd/ff-gates/requirements.md",
+        "_reversa_sdd/ff-gates/design.md",
+        "_reversa_sdd/ff-gates/tasks.md"
+      ],
+      "files_created": [
+        "_reversa_sdd/gascity-supervisor/requirements.md",
+        "_reversa_sdd/gascity-supervisor/design.md",
+        "_reversa_sdd/gascity-supervisor/tasks.md",
+        "_reversa_sdd/ff-gateway/requirements.md",
+        "_reversa_sdd/ff-gateway/design.md",
+        "_reversa_sdd/ff-gateway/tasks.md",
+        "_reversa_sdd/ff-gateway/contracts.md",
+        "_reversa_sdd/packages/db-client/requirements.md",
+        "_reversa_sdd/packages/db-client/design.md",
+        "_reversa_sdd/packages/db-client/tasks.md",
+        "_reversa_sdd/packages/ontology-loader/requirements.md",
+        "_reversa_sdd/packages/ontology-loader/design.md",
+        "_reversa_sdd/packages/ontology-loader/tasks.md"
+      ],
+      "key_changes": [
+        "ff-pipeline: synthesis queue dispatch replaced by Gas City Formula dispatch; pipeline terminates at dispatched",
+        "ff-pipeline: skeleton builder, execution packet, keepalive integration documented",
+        "ff-pipeline: GovernorAgent and GasCityAutonomyMonitor documented as first-class requirements",
+        "ff-pipeline: webhook receiver lifecycle documented (approved/revise/amendment depth)",
+        "ff-pipeline: D1 as primary store (NFR-01); all collections updated",
+        "synthesis-coordinator: ADR-009 gate 6 permanent interrupt documented (FR-03)",
+        "synthesis-coordinator: Phase 2 dead code gap documented (NFR-01)",
+        "synthesis-coordinator: removed route documentation corrected (no /dispatch-atom, /atoms-callback)",
+        "synthesis-coordinator: AtomExecutor pre-flight check, 900s alarm, GitHub file caching documented",
+        "synthesis-coordinator: CompletionLedger in D1 (not ArangoDB)",
+        "gascity-supervisor: NEW — full spec for Container DO, FactoryStore SQLite DO, keepalive protocol, bead store proxy",
+        "ff-gates: check behavior corrected (no stub exclusion, no nested detector.check, D1 recursive CTE for lineage)",
+        "ff-gates: wgRequired fields corrected (removed source_refs and compiledBy)",
+        "ff-gateway: NEW — full spec for HTTP router, QueryService, collection aliases, contracts.md",
+        "packages/db-client: NEW — full spec for D1 shim (upsert, key gen, traverse throw, validator hook)",
+        "packages/ontology-loader: NEW — full spec for seedOntology, query helpers, buildOntologyTool"
+      ]
+    },
+    "reviewer": {
+      "completed_at": "2026-06-08",
+      "specs_reviewed": 5,
+      "reclassifications": 4,
+      "questions_generated": 8
+    },
+    "reviewer_patch_2026-06-10": {
+      "completed_at": "2026-06-10",
+      "type": "patch",
+      "trigger": "Post-diff-patch quality gate on db-client, ontology-loader, ff-gates, ff-gateway, gascity-supervisor, ff-pipeline, synthesis-coordinator",
+      "specs_reviewed": 8,
+      "reclassifications": 4,
+      "questions_resolved": 2,
+      "questions_open": 8,
+      "new_gaps_found": 12,
+      "critical_gaps": 3,
+      "reclassification_details": [
+        "Q-01 (ff-gates lineage AQL): 🟡 → 🟢 — D1 WITH RECURSIVE CTE confirmed from source",
+        "Q-04 (AtomExecutor protocol): 🟡 → 🟢 — full per-atom DO spec added, behaviors confirmed",
+        "ff-gates T-05: 🟡 → 🟢 — same as Q-01 resolution",
+        "Q-09 (db-client validator gate): new 🔴 — !result.valid gate not described in FR-11"
+      ],
+      "critical_gaps_summary": [
+        "GAP-01: dependencies.md still lists @factory/arango-client (stale — should be @factory/db-client)",
+        "GAP-02: db-client validator uses !result.valid gate not documented in FR-11",
+        "GAP-07: traverse() call sites unaudited — any unmigraded call site throws at runtime"
+      ],
+      "stale_references_found": [
+        "dependencies.md:40-43 — @factory/arango-client should be @factory/db-client",
+        "c4-containers.md — ArangoDB shown as primary artifact store (superseded by D1)",
+        "code-analysis.md:174,185 — 'AQL queries' should be 'D1 SQL queries' for GovernorAgent/MemoryCurator",
+        "code-analysis.md:830-897 — completion_ledgers described as ArangoDB (now D1)",
+        "inventory.md:186,190,212,230 — ArangoDB described as live artifact store (now legacy)"
+      ],
+      "overall_confidence": "88%",
+      "files_updated": [
+        "_reversa_sdd/questions.md",
+        "_reversa_sdd/gaps.md",
+        "_reversa_sdd/confidence-report.md"
+      ]
+    },
+    "writer_ksp": {
+      "ksp-artifact-graph": "2026-06-10"
+    },
+    "scout_ksp": {
+      "completed_at": "2026-06-10",
+      "type": "forward",
+      "ksp_specs_dir": "/tmp/ksp-impl/ksp-impl-specs",
+      "packages_added": [
+        "@factory/artifact-graph",
+        "@factory/bead-graph",
+        "@factory/ksp-sdk",
+        "@factory/loop-closure",
+        "packages/factory-graph",
+        "@factory/gears",
+        ".flue/workflows"
+      ],
+      "packages_deleted": [
+        "packages/harness-bridge",
+        "packages/runtime"
+      ],
+      "surface_modules_added": [
+        "ksp-artifact-graph",
+        "ksp-bead-graph",
+        "ksp-sdk",
+        "ksp-loop-closure",
+        "ksp-factory-graph",
+        "ksp-gears",
+        "ksp-flue-workflow"
+      ],
+      "files_updated": [
+        "_reversa_sdd/inventory.md",
+        ".reversa/context/surface.json"
+      ]
+    },
+    "archaeologist_ksp": {
+      "completed_at": "2026-06-10",
+      "type": "forward",
+      "modules_analyzed": [
+        "ksp-artifact-graph",
+        "ksp-bead-graph",
+        "ksp-factory-graph",
+        "ksp-flue-workflow",
+        "ksp-gears",
+        "ksp-loop-closure",
+        "ksp-sdk"
+      ]
+    },
+    "detective_ksp": {
+      "completed_at": "2026-06-10",
+      "type": "forward",
+      "trigger": "KSP layer implementation specs (SPEC-KSP-ARCH-001 and children)",
+      "specs_analyzed": [
+        "SPEC-KSP-ARCH-001",
+        "SPEC-KSP-ARTIFACT-GRAPH-001",
+        "SPEC-KSP-BEAD-GRAPH-001",
+        "SPEC-KSP-LOOP-CLOSURE-001",
+        "SPEC-KSP-FACTORY-001",
+        "SPEC-FF-GEARS-001",
+        "SPEC-FF-JUSTBASH-001-004"
+      ],
+      "business_rules_added": [
+        "BR-KSP-01 (I1 Externalization)",
+        "BR-KSP-02 (I2 Retrieval Enforcement)",
+        "BR-KSP-03 (I3 Continuous Maintenance)",
+        "BR-KSP-04 (I4 Fail-Closed Coupling)",
+        "BR-KSP-05 (Append-Only Both Layers)",
+        "BR-KSP-06 (Content-Addressed Bead Identity)",
+        "BR-KSP-07 (AuditBead in Every Transaction)",
+        "BR-KSP-08 (KV Invalidation on Adoption)",
+        "BR-KSP-09 (ElucidationArtifact on Every Adoption)",
+        "BR-KSP-10 (Bridge Fields Optional)",
+        "BR-KSP-11 (Single Writer Per DO)",
+        "BR-KSP-12 (Lineage Completeness)",
+        "BR-KSP-13 (Write Sequence Artifact Graph First)",
+        "BR-KSP-14 (HARD GATE Loop-Closure Tests)",
+        "BR-KSP-15 (ksp-sdk Zero Factory Import)",
+        "BR-KSP-16 (initRun Before getNextReady)",
+        "BR-KSP-17 (writeAudit Not a Stub)",
+        "BR-KSP-18 (evaluateSuccessCondition Async)",
+        "BR-KSP-19 (No deriveRole)",
+        "BR-KSP-20 (Amendment Adoption Atomic)"
+      ],
+      "state_machines_added": [
+        "SM-5: Amendment Lifecycle (Bead Graph)",
+        "SM-6: ExecutionBead Status (CoordinatorDO)",
+        "SM-7: Autonomy Floor Degradation",
+        "SM-8: Session Lifecycle (LoopClosureService)"
+      ],
+      "adrs_written": [
+        "_reversa_sdd/adrs/ADR-KSP-001-two-layer-storage.md",
+        "_reversa_sdd/adrs/ADR-KSP-002-cloudflare-do-sqlite.md",
+        "_reversa_sdd/adrs/ADR-KSP-003-kv-hot-cache.md",
+        "_reversa_sdd/adrs/ADR-KSP-004-content-addressed-bead-ids.md",
+        "_reversa_sdd/adrs/ADR-KSP-005-ksp-sdk-isolation.md"
+      ],
+      "files_updated": [
+        "_reversa_sdd/domain.md",
+        "_reversa_sdd/state-machines.md"
+      ]
+    },
+    "writer_ksp": {
+      "ksp-loop-closure": "2026-06-10"
+    },
+    "writer_ksp": {
+      "ksp-gears": "2026-06-10"
+    },
+    "architect_ksp": {
+      "completed_at": "2026-06-10",
+      "type": "forward",
+      "trigger": "KSP layer architectural documentation (SPEC-KSP-ARCH-001)",
+      "files_updated": [
+        "_reversa_sdd/architecture.md",
+        "_reversa_sdd/c4-containers.md",
+        "_reversa_sdd/c4-components.md",
+        "_reversa_sdd/erd-complete.md",
+        "_reversa_sdd/traceability/spec-impact-matrix.md"
+      ],
+      "sections_added": [
+        "architecture.md: ## KSP Layer (thesis, I1-I4 invariants, two-layer design, build order, Cloudflare stack, ADR-KSP-001..005)",
+        "c4-containers.md: ArtifactGraphDO, BeadGraphDO, CoordinatorDO, LoopClosureService, KnowingStateSDK, FactoryGraphDO containers + D1 factory-bead-audit + CF KV knowing-state cache",
+        "c4-containers.md: KSP Layer Storage Binding Summary table",
+        "c4-components.md: LoopClosureService, CoordinatorDO hooks, factoryDivergenceDetector, factoryHypothesisBuilder, factoryAmendmentVerifier components",
+        "c4-components.md: KSP Component Wiring — Session Lifecycle table",
+        "erd-complete.md: ### KSP DO SQLite Schemas (ArtifactGraphDO, BeadGraphDO, D1 factory-bead-audit, KV key patterns)",
+        "spec-impact-matrix.md: KSP package rows in main matrix + KSP Layer Package Impact Matrix section + Deleted Packages table"
+      ],
+      "adrs_referenced": [
+        "ADR-KSP-001",
+        "ADR-KSP-002",
+        "ADR-KSP-003",
+        "ADR-KSP-004",
+        "ADR-KSP-005"
+      ]
+    },
+    "writer_ksp": {
+      "ksp-sdk": "2026-06-10",
+      "ksp-factory-graph": "2026-06-10",
+      "ksp-bead-graph": "2026-06-10",
+      "ksp-flue-workflow": "2026-06-10"
+    },
+    "scout_patch_2026-06-10": {
+      "completed_at": "2026-06-10",
+      "type": "patch",
+      "changes": [
+        "inventory.md: DB row updated to D1 + ArangoDB dual-store",
+        "inventory.md: arango-client renamed to db-client in packages tree",
+        "inventory.md: arango-client-OLD added with deprecation note",
+        "inventory.md: 16 missing packages added to monorepo tree",
+        "inventory.md: D1 schema section added (ff-factory documents + edges tables)",
+        "inventory.md: header stamp updated",
+        "surface.json: gascity-supervisor, ff-gateway, synthesis-coordinator added as explicit modules",
+        "surface.json: 14 new package modules added (db-client, ontology-loader, artifact-validator, autonomous-scheduler, diff-engine, ff-arango, ff-context, function-synthesis, gdk-ts, harness-bridge, learning, literate-tools, nlah, selection-bias, stream-types, transmission-adapters)",
+        "surface.json: database field updated to reflect D1 + ArangoDB split",
+        "surface.json: external_integrations updated to list D1"
+      ]
+    },
+    "reviewer_ksp": {
+      "completed_at": "2026-06-10",
+      "type": "forward",
+      "trigger": "KSP forward-spec SDD quality gate — 7 modules reviewed against CLAUDE.md",
+      "modules_reviewed": [
+        "ksp-artifact-graph",
+        "ksp-bead-graph",
+        "ksp-sdk",
+        "ksp-loop-closure",
+        "ksp-factory-graph",
+        "ksp-gears",
+        "ksp-flue-workflow"
+      ],
+      "cross_checked_against": [
+        "ff-pipeline",
+        "synthesis-coordinator",
+        "gascity-supervisor"
+      ],
+      "cross_cutting_checked": [
+        "architecture.md",
+        "domain.md",
+        "state-machines.md",
+        "traceability/spec-impact-matrix.md",
+        "adrs/ (KSP-001 through KSP-005)"
+      ],
+      "overall_ksp_confidence": "89%",
+      "critical_gaps": 3,
+      "questions_added": 4,
+      "gaps_added": 10,
+      "all_52_steps_covered": true,
+      "all_10_critical_rules_covered": true,
+      "package_naming_audit": {
+        "@koales/_in_unit_sdd_files": 0,
+        "knowing-state-sdk_in_unit_sdd_files": "only in own package path (correct)",
+        "verdict": "CLEAN — unit SDD files use @factory/* consistently"
+      },
+      "critical_gaps_summary": [
+        "GAP-KSP-01 / Q-11: @koales/* vs @factory/* package naming (CLAUDE.md vs SDD conflict)",
+        "GAP-KSP-02 / Q-12: getActiveSpecification not defined in ArtifactGraphDOBase — compile blocker",
+        "GAP-KSP-03 / Q-13: dispositionEventId undefined in BP5 Step 3 — runtime blocker; tasks.md Step 25e incomplete"
+      ],
+      "reclassifications": [
+        "ksp-loop-closure/design.md §4.2: ksp-sdk consumer row inaccurate → noted as GAP-KSP-10"
+      ],
+      "files_updated": [
+        "_reversa_sdd/questions.md",
+        "_reversa_sdd/gaps.md",
+        "_reversa_sdd/confidence-report.md"
+      ]
+    }
+  }
+}

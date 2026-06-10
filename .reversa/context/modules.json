@@ -1,0 +1,112 @@
+{
+  "modules": [
+    {
+      "name": "ff-pipeline",
+      "path": "workers/ff-pipeline/src/",
+      "entry": "workers/ff-pipeline/src/pipeline.ts",
+      "type": "cloudflare-workflow",
+      "role": "Main pipeline orchestrator — Discovery Core (Signal → Pressure → Capability → FunctionProposal → IntentSpec → ExecutableSpec → Synthesis dispatch)",
+      "key_symbols": [
+        "FactoryPipeline",
+        "ingestSignal",
+        "synthesizePressure",
+        "mapCapability",
+        "proposeFunction",
+        "semanticReview",
+        "crystallizeIntent",
+        "compileIntentSpecification",
+        "probeAnchors",
+        "reconcile",
+        "evaluateCoherenceVerification",
+        "generateFeedbackSignals",
+        "captureLearningTranscript"
+      ],
+      "collections": [
+        "specs_signals",
+        "specs_pressures",
+        "specs_capabilities",
+        "specs_functions",
+        "executable_specifications",
+        "lineage_edges",
+        "verification_reports",
+        "intent_anchors",
+        "verification_status"
+      ],
+      "queues": [
+        "SYNTHESIS_QUEUE",
+        "SYNTHESIS_RESULTS",
+        "ATOM_RESULTS",
+        "FEEDBACK_QUEUE"
+      ],
+      "confidence": "HIGH"
+    },
+    {
+      "name": "synthesis-coordinator",
+      "path": "workers/ff-pipeline/src/coordinator/",
+      "entry": "workers/ff-pipeline/src/coordinator/coordinator.ts",
+      "type": "cloudflare-durable-object-agent",
+      "role": "Agent synthesis host — validates TrellisExecutionPacket, manages GraphState, runs 9-node agent topology (deprecated graph path; harness path active)",
+      "key_symbols": [
+        "SynthesisCoordinator",
+        "AtomExecutor",
+        "ArchitectAgent",
+        "PlannerAgent",
+        "CoderAgent",
+        "CriticAgent",
+        "TesterAgent",
+        "VerifierAgent",
+        "HotConfigLoader",
+        "createLedger",
+        "topologicalSort"
+      ],
+      "collections": [
+        "execution_artifacts",
+        "memory_episodic"
+      ],
+      "queues": [
+        "SYNTHESIS_RESULTS",
+        "ATOM_RESULTS",
+        "SYNTHESIS_QUEUE"
+      ],
+      "confidence": "MEDIUM"
+    },
+    {
+      "name": "gascity-dispatch",
+      "path": "workers/gascity-supervisor/src/",
+      "entry": "workers/gascity-supervisor/src/index.ts",
+      "type": "cloudflare-container",
+      "role": "Gas City daemon wrapper + FactoryStore SQLite DO — molecule dispatch, bead management, telemetry ingest",
+      "key_symbols": [
+        "GasCitySupervisor",
+        "FactoryStore"
+      ],
+      "confidence": "HIGH"
+    },
+    {
+      "name": "ff-gates",
+      "path": "workers/ff-gates/src/",
+      "entry": "workers/ff-gates/src/index.ts",
+      "type": "cloudflare-worker-entrypoint",
+      "role": "Coherence Verification — deterministic 5-check gate, no LLM, fail-closed",
+      "key_symbols": [
+        "GatesService",
+        "evaluateCoherenceVerification"
+      ],
+      "confidence": "HIGH"
+    },
+    {
+      "name": "verification",
+      "path": "packages/verification/src/",
+      "schema_path": "packages/schemas/src/coverage.ts",
+      "type": "library-package",
+      "role": "Verification Report schemas (Zod + TS) for Coherence/Fidelity/Persistence reports",
+      "key_symbols": [
+        "CoherenceVerificationReport",
+        "FidelityVerificationReport",
+        "FidelityVerificationVerdict",
+        "PersistenceVerificationReport"
+      ],
+      "confidence": "HIGH"
+    }
+  ]
+}

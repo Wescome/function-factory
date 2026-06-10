@@ -1,0 +1,4 @@
+{"ts":"2026-06-10T00:00:00.000Z","step":"21-T-01","status":"done","files":["packages/knowing-state-sdk/package.json","packages/knowing-state-sdk/tsconfig.json"]}
+{"ts":"2026-06-10T00:00:01.000Z","step":"21-T-02","status":"done","files":["packages/knowing-state-sdk/src/index.ts"]}
+{"ts":"2026-06-10T00:00:02.000Z","step":"21-T-03","status":"done","files":["pnpm-workspace.yaml"]}
+{"ts":"2026-06-10T00:00:03.000Z","step":"21-gate","status":"done","files":["packages/knowing-state-sdk/src/index.ts","packages/knowing-state-sdk/package.json","packages/knowing-state-sdk/tsconfig.json"]}
