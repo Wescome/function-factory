@@ -17,7 +17,9 @@ RUN grep -q normalizeOutputContracts /app/server.mjs
 
 RUN mkdir -p /root/.pi/agent && \
     printf '{"providers":{"openrouter":{"baseUrl":"https://api.ofox.ai/v1","api":"openai-completions","apiKey":"OFOX_API_KEY","authHeader":true}}}\n' \
-    > /root/.pi/agent/models.json
+    > /root/.pi/agent/models.json && \
+    printf '{"credentials":[]}\n' \
+    > /root/.pi/agent/auth.json
 
 EXPOSE 8080
 
