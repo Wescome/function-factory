@@ -3,14 +3,24 @@
 > Phase 2 · Forward Implementation · function-factory
 > Generated: 2026-06-10
 > SDD confidence: 89% (7 modules, all 52 steps accounted for)
+> ⚠️ Updated: 2026-06-10 — `reversa-coding` direct invocation PROHIBITED. Use `reversa-implement`.
 
 ---
 
-## Primary Implementation Agent
+## ⛔ DO NOT invoke `reversa-coding` directly
+
+Direct invocation of `reversa-coding` bypasses gate enforcement, escalation chain, and architect sign-off. A coding agent can self-report `tsc EXIT 0` without running it. This has already caused a production topology defect (undocumented `ff-flue` worker invented in commit `67ceea3`, never caught because `wrangler dev` gate was never actually run).
+
+**Always invoke `/reversa-implement` instead.** It wraps `reversa-coding` with mandatory gate execution.
+
+---
+
+## Primary Implementation Orchestrator
 
 | Agent | Skill | Role | Invoked |
 |-------|-------|------|---------|
-| **Coder** | `reversa-coding` | Transforms `tasks.md` into real TypeScript files, runs gates, writes `legacy-impact.md` and `regression-watch.md` | Every phase, primary executor |
+| **Orchestrator** | `reversa-implement` | Enforces gate execution, escalation chain, and architect sign-off. Wraps reversa-coding. Gates are run by the orchestrator — never self-reported by the coder. | Every phase, replaces direct reversa-coding |
+| **Coder** | `reversa-coding` | Transforms a single task into code. Invoked only BY reversa-implement, never directly. | Per-task, called by Orchestrator only |
 
 ---
 
