@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "moduleResolution": "bundler",
+    "strict": true,
+    "types": ["@cloudflare/workers-types", "node"],
+    "outDir": "./dist",
+    "rootDir": ".",
+    "paths": {
+      "@flue/runtime": ["./types/flue-runtime.d.ts"]
+    }
+  },
+  "include": [
+    "src/**/*.ts",
+    "types/**/*.d.ts"
+  ]
+}

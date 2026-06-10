@@ -21,36 +21,65 @@ declare module '@flue/runtime' {
     next: () => Promise<unknown>,
   ) => Promise<unknown>;
 
-  export interface FlueContext<TPayload = unknown> {
-    init: (agent: ReturnType<typeof createAgent>) => Promise<HarnessLike>;
-    payload: TPayload;
-    env: Record<string, string> & { Sandbox?: unknown };
+  // AgentProfile — returned by defineAgentProfile, passed to createAgent()
+  export interface AgentProfile {
+    name:         string;
+    model:        string;
+    instructions: string;
   }
 
-  export interface HarnessLike {
+  export function defineAgentProfile(opts: {
+    name:         string;
+    model:        string;
+    instructions: string;
+    skills?:      unknown[];
+    tools?:       unknown[];
+    subagents?:   unknown[];
+    thinkingLevel?: string;
+    compaction?:  unknown;
+    durability?:  unknown;
+  }): AgentProfile;
+
+  // FlueHarness — returned by ctx.init(agent)
+  export interface FlueHarness {
     fs: {
       writeFile(path: string, content: string): Promise<void>;
       readFile(path: string): Promise<string>;
     };
     shell(cmd: string): Promise<{ stdout: string; stderr: string; exitCode: number }>;
-    session(): Promise<SessionLike>;
+    session(name?: string): Promise<FlueSession>;
   }
 
-  export interface SessionLike {
+  // FlueSession — returned by harness.session()
+  export interface FlueSession {
     skill(
       name: string,
-      opts: { args: Record<string, unknown>; result: unknown },
-    ): Promise<{ data: Record<string, unknown> }>;
+      opts: { args?: Record<string, unknown>; result?: unknown },
+    ): Promise<{ data: Record<string, unknown>; text?: string }>;
     task(
       prompt: string,
       opts: { cwd: string; result: unknown },
     ): Promise<{ data: Record<string, unknown> }>;
   }
 
-  export function createAgent(
-    factory: (opts?: unknown) => {
-      model: string;
-      sandbox: unknown;
+  // Legacy aliases kept for other workflows that use HarnessLike/SessionLike
+  export type HarnessLike = FlueHarness;
+  export type SessionLike = FlueSession;
+
+  // FlueContext<TPayload, TEnv> — available inside a Flue workflow run()
+  export interface FlueContext<TPayload = unknown, TEnv = Record<string, string>> {
+    id:      string;
+    init: (agent: ReturnType<typeof createAgent>) => Promise<FlueHarness>;
+    payload: TPayload;
+    env:     TEnv;
+  }
+
+  export function createAgent<TPayload = unknown, TEnv = unknown>(
+    factory: (opts?: { id: string; env: TEnv }) => {
+      profile?: AgentProfile;
+      model?:   string;
+      sandbox?: unknown;
+      cwd?:     string;
       [key: string]: unknown;
     },
   ): unknown;

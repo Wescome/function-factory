@@ -1,0 +1,40 @@
+{
+  "name": "@factory/gears",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./flue": "./src/flue/index.ts",
+    "./beads": "./src/beads/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "lint": "echo 'lint: TODO'"
+  },
+  "dependencies": {
+    "@factory/loop-closure": "workspace:*",
+    "@factory/factory-graph": "workspace:*",
+    "@factory/schemas": "workspace:*",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260527.1",
+    "@cloudflare/sandbox": "^0.9.0",
+    "@cloudflare/containers": "^0.3.5",
+    "@types/node": "^24.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.4.0"
+  },
+  "peerDependencies": {
+    "@cloudflare/sandbox": "^0.9.0"
+  },
+  "peerDependenciesMeta": {
+    "@cloudflare/sandbox": {
+      "optional": false
+    }
+  }
+}

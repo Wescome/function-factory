@@ -87,6 +87,13 @@ export interface PipelineEnv {
   /** Claude Code container service binding */
   CLAUDE_CODE_CONTAINER?: { fetch: (req: Request) => Promise<Response> }
 
+  // ── KSP layer bindings (@factory/gears + factory-graph) ──────────────────
+  COORDINATOR_DO?: DurableObjectNamespace
+  ARTIFACT_GRAPH?: DurableObjectNamespace
+  BEAD_GRAPH?:     DurableObjectNamespace
+  KV_KS?:          KVNamespace
+  D1_AUDIT?:       D1Database
+
   LEARNING_ENABLED?: string
   LEARNING_OBSERVATIONS_ENABLED?: string
   LEARNING_WRITE_TIMEOUT_MS?: string

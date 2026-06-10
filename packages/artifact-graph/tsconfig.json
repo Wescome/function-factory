@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "moduleResolution": "bundler",
+    "strict": true,
+    "types": ["@cloudflare/workers-types", "node"],
+    "outDir": "./dist",
+    "rootDir": "."
+  },
+  "include": [
+    "src/**/*.ts",
+    "migrations/**/*.ts",
+    "bindings.ts",
+    "tests/**/*.ts"
+  ]
+}

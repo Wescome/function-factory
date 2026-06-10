@@ -21,7 +21,11 @@
       { "name": "SANDBOX", "class_name": "Sandbox" },
       { "name": "ATOM_EXECUTOR", "class_name": "AtomExecutor" },
       { "name": "RUN_COORDINATOR", "class_name": "RunCoordinator" },
-      { "name": "PI_CONTAINER", "class_name": "PiContainer" }
+      { "name": "PI_CONTAINER", "class_name": "PiContainer" },
+      // KSP layer — @factory/gears (SPEC-FF-GEARS-001 §11)
+      { "name": "COORDINATOR_DO",  "class_name": "CoordinatorDO" },
+      { "name": "ARTIFACT_GRAPH",  "class_name": "FactoryArtifactGraphDO" },
+      { "name": "BEAD_GRAPH",      "class_name": "FactoryBeadGraphDO" }
     ]
   },
   "migrations": [
@@ -29,7 +33,9 @@
     { "tag": "v2", "new_sqlite_classes": ["Sandbox"] },
     { "tag": "v3", "new_sqlite_classes": ["AtomExecutor"] },
     { "tag": "v4", "new_sqlite_classes": ["RunCoordinator"] },
-    { "tag": "v5", "new_sqlite_classes": ["PiContainer"] }
+    { "tag": "v5", "new_sqlite_classes": ["PiContainer"] },
+    // KSP layer migrations
+    { "tag": "v6", "new_sqlite_classes": ["CoordinatorDO", "FactoryArtifactGraphDO", "FactoryBeadGraphDO"] }
   ],
 
   // Sandbox Container for Coder/Tester execution
@@ -40,9 +46,11 @@
     { "class_name": "PiContainer", "image": "./pi-container/Dockerfile", "max_instances": 3 }
   ],
 
-  // D1 Database
+  // D1 Databases
   "d1_databases": [
-    { "binding": "DB", "database_name": "ff-factory", "database_id": "6a72d5c3-bcbb-41e3-b29d-d8de5834c3b3" }
+    { "binding": "DB", "database_name": "ff-factory", "database_id": "6a72d5c3-bcbb-41e3-b29d-d8de5834c3b3" },
+    // KSP layer — cross-run bead audit log (provision: wrangler d1 create factory-bead-audit)
+    { "binding": "D1_AUDIT", "database_name": "factory-bead-audit", "database_id": "128d4b98-585a-4de9-abcc-98b7d78691b4" }
   ],
 
   // Service Bindings
@@ -94,6 +102,12 @@
   // _summary.json and per-event objects have no expiry.
   "r2_buckets": [{ "binding": "WORKSPACE_BUCKET", "bucket_name": "ff-workspaces" }],
 
+  // KSP layer — KV namespace for knowing-state hot cache
+  // Provision: wrangler kv namespace create KV_KS → paste id below
+  "kv_namespaces": [
+    { "binding": "KV_KS", "id": "9fe793fc61174920b8030ac1d06cfd8c" }
+  ],
+
   // Governor: Phase 2 — verified working, ramp to 5min
   // Phase 1: */1 ✓ (verified 2026-04-30) → Phase 2: */5 → Phase 3: event-driven + 6h drift
   "triggers": {
@@ -104,7 +118,8 @@
   // adapters.ts which imports execa, but no CF Worker code path calls those adapters.
   // Alias redirects the esbuild bundle to the CF-safe stub (src/cf-stubs/execa.js).
   "alias": {
-    "execa": "./src/cf-stubs/execa.js"
+    "execa": "./src/cf-stubs/execa.js",
+    "@flue/runtime": "../../packages/gears/src/flue/runtime-stub.js"
   },
 
   "vars": {
@@ -136,4 +151,8 @@
   //   GAS_CITY_BEARER_TOKEN  (shared with GC_SUPERVISOR_TOKEN on gascity-supervisor)
   //   GAS_CITY_HMAC_SECRET_V1 (shared with Gas City webhook signer)
   //   HONEYCOMB_API_KEY
+  //   KSP layer:
+  //   ANTHROPIC_API_KEY  (CoordinatorDO → factoryHypothesisBuilder Claude Opus calls)
+  //   OPENAI_API_KEY     (Flue agent profiles — coderProfile, testerProfile)
+  //   DEEPSEEK_API_KEY   (Flue agent profiles — optional)
 }

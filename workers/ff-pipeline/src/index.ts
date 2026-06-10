@@ -6,6 +6,10 @@ export { RunCoordinator } from './coordinator/run-coordinator'
 export { PiContainer } from './coordinator/pi-container'
 export { Sandbox } from '@cloudflare/sandbox'
 
+// KSP layer — @factory/gears + factory-graph DOs
+export { CoordinatorDO } from '@factory/gears'
+export { FactoryArtifactGraphDO, FactoryBeadGraphDO } from '@factory/factory-graph'
+
 export { ingestSignal } from './stages/ingest-signal'
 export { generateFeedbackSignals } from './stages/generate-feedback'
 export { generatePR } from './stages/generate-pr'
@@ -294,6 +298,17 @@ export default {
     if (url.pathname === '/smoke/e2e' && request.method === 'POST') {
       const { handleSmokeE2E } = await import('./smoke/smoke-e2e-handler.js')
       return handleSmokeE2E(request, env)
+    }
+
+    // KSP integration tests — Phase 8 steps 50–52
+    if (url.pathname === '/ksp/test/loop' && request.method === 'POST') {
+      const { handleKspLoopTest } = await import('./ksp-loop-test.js')
+      return handleKspLoopTest(request, env)
+    }
+
+    if (url.pathname === '/ksp/test/fail-closed' && request.method === 'GET') {
+      const { handleKspFailClosedTest } = await import('./ksp-loop-test.js')
+      return handleKspFailClosedTest(request, env)
     }
 
     if (url.pathname.startsWith('/run-status/') && request.method === 'GET') {

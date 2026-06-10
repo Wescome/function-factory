@@ -26,6 +26,8 @@ export * from "./ontology-aliases.js"
 export * from "./_attic/trellis-execution-packet.js"
 export * from "./_attic/trellis-canonical-json.js"
 export * from "./function-job.js"
+export * from "./atom-directive.js"
+export * from "./gear-types.js"
 export {
   CoherenceVerificationReport,
   FidelityVerificationReport,
