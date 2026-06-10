@@ -13,7 +13,7 @@
 import { readFileSync, readdirSync, existsSync } from "node:fs"
 import { join } from "node:path"
 
-const SKILLS_DIR = ".agent/skills"
+const SKILLS_DIR = ".agents/skills"
 const MANIFEST = join(SKILLS_DIR, "_manifest.jsonl")
 
 export interface SkillManifestEntry {

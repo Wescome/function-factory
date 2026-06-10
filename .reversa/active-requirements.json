@@ -1,0 +1,7 @@
+{
+  "feature-id": "001-ksp-gears-cf-fixes",
+  "feature-dir": "_reversa_forward/001-ksp-gears-cf-fixes",
+  "description": "Fix CF gate failures blocking wrangler dev for ff-flue — CF002, CF004, CF005 (CF001 is architecture gate pending Wes decision)",
+  "source": "_reversa_sdd/gate-diagnostics/cf-diagnosis-ksp-gears.md",
+  "created": "2026-06-10"
+}

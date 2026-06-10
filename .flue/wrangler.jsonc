@@ -1,0 +1,53 @@
+{
+  "name": "ff-flue",
+  "compatibility_date": "2026-06-10",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // KSP layer bindings — CoordinatorDO + artifact/bead graph DOs
+  "durable_objects": {
+    "bindings": [
+      { "name": "COORDINATOR_DO",  "class_name": "CoordinatorDO",          "script_name": "ff-pipeline" },
+      { "name": "ARTIFACT_GRAPH",  "class_name": "FactoryArtifactGraphDO", "script_name": "ff-pipeline" },
+      { "name": "BEAD_GRAPH",      "class_name": "FactoryBeadGraphDO",     "script_name": "ff-pipeline" },
+      { "name": "Sandbox",         "class_name": "Sandbox",                "script_name": "ff-pipeline" },
+      { "name": "FLUE_ATOM_EXECUTION_WORKFLOW",  "class_name": "FlueAtomExecutionWorkflow" },
+      { "name": "FLUE_FACTORY_BUILD_WORKFLOW",   "class_name": "FlueFactoryBuildWorkflow" },
+      { "name": "FLUE_FACTORY_COMPILE_WORKFLOW", "class_name": "FlueFactoryCompileWorkflow" },
+      { "name": "FLUE_FACTORY_VERIFY_WORKFLOW",  "class_name": "FlueFactoryVerifyWorkflow" },
+      { "name": "FLUE_REGISTRY",                 "class_name": "FlueRegistry" }
+    ]
+  },
+
+  "kv_namespaces": [
+    { "binding": "KV_KS", "id": "9fe793fc61174920b8030ac1d06cfd8c" }
+  ],
+
+  "r2_buckets": [
+    { "binding": "SANDBOX_OUTPUT_BUCKET", "bucket_name": "ff-workspaces" }
+  ],
+
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "FlueAtomExecutionWorkflow",
+        "FlueFactoryBuildWorkflow",
+        "FlueFactoryCompileWorkflow",
+        "FlueFactoryVerifyWorkflow",
+        "FlueRegistry"
+      ]
+    }
+  ],
+
+  "vars": {
+    "WEOPS_GATEWAY_URL": "https://gateway.weops.ai",
+    "WEOPS_SIGNING_KEY": ""
+  }
+
+  // Secrets (set via wrangler secret put):
+  //   ANTHROPIC_API_KEY
+  //   OPENAI_API_KEY
+  //   DEEPSEEK_API_KEY
+  //   GITHUB_TOKEN
+  //   WEOPS_SIGNING_KEY
+}
