@@ -36,8 +36,8 @@ export class GasCitySupervisor extends Container<Env> {
     await super.onActivityExpired();
   }
 
-  override onStop(): void {
-    this.ctx.storage.delete("keepalive_refcount").catch(() => {});
+  override async onStop(): Promise<void> {
+    await this.ctx.storage.delete("keepalive_refcount").catch(() => {});
   }
 
   override async fetch(request: Request): Promise<Response> {
