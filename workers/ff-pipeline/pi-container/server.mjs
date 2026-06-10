@@ -19,7 +19,7 @@
 
 import { createServer } from 'node:http'
 import { execSync, execFileSync, spawn } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
+import { writeFileSync, unlinkSync } from 'node:fs'
 import { mkdir, mkdtemp, readFile, writeFile, stat, readdir, rm, symlink, unlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
@@ -55,8 +55,8 @@ import {
 const PORT = Number(process.env.PORT ?? 8080)
 const PI_BIN = join(dirname(fileURLToPath(import.meta.url)), 'node_modules', '.bin', 'pi')
 
-// Max time for a stage execution (ms) — 5 minutes is generous for complex LLM tasks
-const EXECUTE_TIMEOUT_MS = 300_000
+// Max time for a stage execution (ms) — 8 minutes gives clean margin above Gas City's 6 min client timeout
+const EXECUTE_TIMEOUT_MS = 480_000
 // Delay after spawning pi before sending the first command (pi has no startup signal)
 const PI_INIT_DELAY_MS = 200
 const PI_MODEL = process.env.PI_MODEL ?? 'openrouter/openai/gpt-5.4'
@@ -986,6 +986,7 @@ async function handleExecute(req, res) {
 
     stopPi()
     const cleanup = await cleanupWorkDir(workDir)
+    try { unlinkSync('/workspace') } catch {}
     observation.workspaceCleanup = cleanup
     pushObservationEvent(observation, { type: 'execute.workdir_cleanup', ...cleanup })
 
@@ -1004,6 +1005,7 @@ async function handleExecute(req, res) {
   } catch (err) {
     stopPi()
     const cleanup = await cleanupWorkDir(workDir)
+    try { unlinkSync('/workspace') } catch {}
     observation.workspaceCleanup = cleanup
     pushObservationEvent(observation, { type: 'execute.workdir_cleanup', ...cleanup })
     const elapsedMs = Date.now() - t0
