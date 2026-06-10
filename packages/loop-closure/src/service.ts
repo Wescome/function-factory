@@ -183,11 +183,26 @@ export class LoopClosureService {
     if (!raw) throw new Error(`session not found: ${sessionId}`);
     const session = JSON.parse(raw) as Session;
 
-    // Get executionNodeId from the execution bead content
+    // Get executionNodeId from the execution bead content.
+    // When called via CoordinatorDO proxy (beadId as sessionId), no prior recordExecution
+    // bead exists — write the Execution node inline and use it as the anchor.
     const execBead = await this.config.beadGraphDO.getBead(executionBeadId);
     const execContent = execBead?.content as { artifact_graph_execution_id?: string } | undefined;
-    const executionNodeId = execContent?.artifact_graph_execution_id;
-    if (!executionNodeId) throw new Error(`execution bead missing bridge field: ${executionBeadId}`);
+    let executionNodeId = execContent?.artifact_graph_execution_id;
+    if (!executionNodeId) {
+      executionNodeId = generateId('execution');
+      await this.config.artifactGraphDO.upsertNode(executionNodeId, 'Execution', {
+        session_id: sessionId,
+        agent_id:   session.agentId,
+        started:    Date.now(),
+        domain:     'gears',
+      });
+      await this.config.artifactGraphDO.upsertEdge(
+        session.activeSpecificationId,
+        executionNodeId,
+        'governs'
+      );
+    }
 
     // Write ExecutionTrace node + produces edge
     const traceId = generateId('trace');

@@ -191,13 +191,30 @@ export class CoordinatorDO extends DurableObject<Env> {
     const trace  = JSON.parse(resultJson) as ConductingAgentTraceFragment
     const ns     = `factory:${this.orgId}:${this.runId}`
 
+    const artifactGraphStub = this.env.ARTIFACT_GRAPH.get(
+      this.env.ARTIFACT_GRAPH.idFromName(ns)
+    ) as unknown as InstanceType<typeof FactoryArtifactGraphDO>
+
+    const beadGraphStub = this.env.BEAD_GRAPH.get(
+      this.env.BEAD_GRAPH.idFromName(this.orgId)
+    ) as unknown as InstanceType<typeof FactoryBeadGraphDO>
+
+    // Seed synthetic KV session so LoopClosureService.recordOutcome can find it.
+    // beadId doubles as sessionId proxy for this run (per SPEC-FF-GEARS-001 §7b).
+    const activeSpecId = await (artifactGraphStub as any).getActiveSpecification(ns, 'conducting-agent')
+    await this.env.KV.put(`session:${beadId}`, JSON.stringify({
+      sessionId:              beadId,
+      orgId:                  this.orgId,
+      roleId:                 'conducting-agent',
+      agentId,
+      ksRetrievedAt:          Date.now(),
+      activeSpecificationId:  activeSpecId,
+      autonomyFloor:          'EXECUTE_FULL',
+    }), { expirationTtl: 86400 })
+
     const loopClosure = new LoopClosureService({
-      artifactGraphDO: this.env.ARTIFACT_GRAPH.get(
-        this.env.ARTIFACT_GRAPH.idFromName(ns)
-      ) as unknown as InstanceType<typeof FactoryArtifactGraphDO>,
-      beadGraphDO: this.env.BEAD_GRAPH.get(
-        this.env.BEAD_GRAPH.idFromName(this.orgId)
-      ) as unknown as InstanceType<typeof FactoryBeadGraphDO>,
+      artifactGraphDO:   artifactGraphStub,
+      beadGraphDO:       beadGraphStub,
       kvStore:           this.env.KV,
       detectDivergences: factoryDivergenceDetector,
       buildHypothesis:   factoryHypothesisBuilder,
@@ -205,7 +222,7 @@ export class CoordinatorDO extends DurableObject<Env> {
     })
 
     await loopClosure.recordOutcome(
-      beadId,   // used as sessionId proxy within this run
+      beadId,   // sessionId proxy — seeded above
       beadId,   // executionBeadId
       {
         status:        verdict === 'done' ? 'SUCCESS' : 'FAILURE',
@@ -213,8 +230,6 @@ export class CoordinatorDO extends DurableObject<Env> {
         toolCallCount: 0,
       }
     )
-
-    void agentId  // agentId captured in writeAudit; suppress unused param warning
   }
 
   override async fetch(req: Request): Promise<Response> {
