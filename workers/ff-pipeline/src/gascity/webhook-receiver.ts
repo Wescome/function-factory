@@ -219,6 +219,12 @@ export async function handleGasCityWebhook(request: Request, env: PipelineEnv): 
     const maxAmendmentDepth = configuredMaxAmendmentDepth(env)
     if (payload.factory_attempt > maxAmendmentDepth) {
       const incidentId = await writeAmendmentDepthIncident(db, payload, vrId, remediation, receivedAt, maxAmendmentDepth)
+      // Best-effort keepalive stop on halted-amendment path
+      fetch(`${env.GAS_CITY_BASE_URL}/v0/keepalive/stop`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${env.GAS_CITY_BEARER_TOKEN}` },
+        signal: AbortSignal.timeout(5_000),
+      }).catch(() => {})
       return json({
         accepted: true,
         vr_id: vrId,
