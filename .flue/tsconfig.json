@@ -10,8 +10,6 @@
     ],
     "types": ["workers-types/experimental", "node"],
     "paths": {
-      "@flue/runtime": ["./types/flue-runtime.d.ts"],
-      "@flue/runtime/routing": ["./types/flue-runtime.d.ts"],
       "just-bash": ["./types/flue-runtime.d.ts"],
       "valibot": ["./types/flue-runtime.d.ts"],
       "@factory/ff-context": ["../packages/ff-context/src/index.ts"],

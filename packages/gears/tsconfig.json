@@ -6,9 +6,7 @@
     "types": ["@cloudflare/workers-types", "node"],
     "outDir": "./dist",
     "rootDir": ".",
-    "paths": {
-      "@flue/runtime": ["./types/flue-runtime.d.ts"]
-    }
+    "paths": {}
   },
   "include": [
     "src/**/*.ts",

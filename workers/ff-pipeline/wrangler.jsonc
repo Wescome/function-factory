@@ -118,8 +118,7 @@
   // adapters.ts which imports execa, but no CF Worker code path calls those adapters.
   // Alias redirects the esbuild bundle to the CF-safe stub (src/cf-stubs/execa.js).
   "alias": {
-    "execa": "./src/cf-stubs/execa.js",
-    "@flue/runtime": "../../packages/gears/src/flue/runtime-stub.js"
+    "execa": "./src/cf-stubs/execa.js"
   },
 
   "vars": {

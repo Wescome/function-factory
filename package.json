@@ -83,5 +83,11 @@
   "workspaces": [
     "packages/*",
     "workers/*"
-  ]
+  ],
+  "dependencies": {
+    "@flue/cli": "^0.11.0",
+    "@flue/runtime": "^0.11.0",
+    "agents": "0.11.6",
+    "valibot": "^1.4.1"
+  }
 }
