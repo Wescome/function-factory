@@ -51,7 +51,7 @@ const AtomDirective = z.object({
   atom_id:     z.string(),
   description: z.string().optional(),
   tool_set:    z.array(z.string()).optional(),
-  constraints: z.record(z.unknown()).optional(),
+  constraints: z.record(z.string(), z.unknown()).optional(),
 });
 
 const DetectorSpec = z.object({
@@ -150,7 +150,7 @@ export const ArchAmendmentBead = BaseBead.extend({
     repo_id:              z.string(),
     target_bead_id:       z.string(),
     target_type:          z.enum(['arch_decision', 'pattern_trust']),
-    proposed_change:      z.record(z.unknown()),
+    proposed_change:      z.record(z.string(), z.unknown()),
     rationale:            z.string(),
     triggered_by:         z.string(),
     status:               AmendmentStatus,

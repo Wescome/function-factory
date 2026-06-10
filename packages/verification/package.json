@@ -18,7 +18,7 @@
     "@factory/nlah": "workspace:*",
     "@factory/schemas": "workspace:*",
     "yaml": "^2.4.0",
-    "zod": "^3.22.4"
+    "zod": "^4.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

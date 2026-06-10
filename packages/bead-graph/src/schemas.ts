@@ -19,7 +19,7 @@ export const PolicyBead = BaseBead.extend({
   type: z.literal('policy'),
   content: z.object({
     scope:       z.string(),                          // e.g. 'org' | 'role' | 'category'
-    rules:       z.record(z.unknown()),               // domain-specific policy content
+    rules:       z.record(z.string(), z.unknown()),               // domain-specific policy content
     autonomy:    z.enum(['SUGGEST', 'PROPOSE', 'EXECUTE_BOUNDED', 'EXECUTE_FULL']),
     effective_at: z.string(),                         // ISO8601
     expires_at:   z.string().optional(),
@@ -76,7 +76,7 @@ export const OutcomeBead = BaseBead.extend({
     execution_bead_id: z.string(),    // ExecutionBead this closes
     status:            OutcomeStatus,
     summary:           z.string(),
-    metrics:           z.record(z.unknown()).optional(),
+    metrics:           z.record(z.string(), z.unknown()).optional(),
     triggers_amendment: z.boolean(),  // if true, AmendmentBead should follow
     artifact_graph_divergence_id: z.string().optional(), // loop closure: links to Divergence node
   }),
@@ -94,7 +94,7 @@ export const AmendmentBead = BaseBead.extend({
   content: z.object({
     target_bead_id:    z.string(),    // TrustBead or PolicyBead being amended
     target_type:       z.enum(['trust', 'policy']),
-    proposed_change:   z.record(z.unknown()), // JSON patch of content fields
+    proposed_change:   z.record(z.string(), z.unknown()), // JSON patch of content fields
     rationale:         z.string(),
     triggered_by:      z.string(),    // OutcomeBead._id or 'human'
     status:            AmendmentStatus,

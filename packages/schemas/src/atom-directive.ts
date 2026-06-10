@@ -112,6 +112,6 @@ export const AtomDirective = z.object({
   workingDir: z.string().optional(),
 
   /** Environment variables injected into the session. */
-  envVars: z.record(z.string()),
+  envVars: z.record(z.string(), z.string()),
 })
 export type AtomDirective = z.infer<typeof AtomDirective>
