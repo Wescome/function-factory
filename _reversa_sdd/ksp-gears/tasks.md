@@ -319,7 +319,7 @@ The following steps depend on `@factory/gears` being complete but are implemente
 | Step | File | Dependency |
 |------|------|-----------|
 | ~45 | `.flue/workflows/atom-execution.ts` — Conducting Agent as Flue workflow | SPEC-FF-JUSTBASH-001-004; depends on Steps 34–44 |
-| ~46 | `.agent/skills/` → `.agents/skills/` rename | `flue dev` discovers skills (GD-003) |
+| ~46 | `.agent/skills/` → `.agents/skills/` rename | fs: `.agents/skills/` exists, `.agent/skills/` gone (GD-003) — HUMAN DEV CHECK, not agent gate |
 | ~47 | Delete `packages/harness-bridge/`, `packages/runtime/` | `tsc --noEmit` repo-wide |
 | ~48 | Rewrite WEO-7, 8, 9, 12, 15 in Linear | Issues unblocked (GD-004) |
 

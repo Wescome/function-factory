@@ -221,7 +221,7 @@ After `atom-execution.ts` passes `tsc --noEmit`, the following MUST be deleted:
 - `packages/harness-bridge/` — replaced by `@flue/runtime` direct
 - `packages/runtime/` — replaced by `@flue/runtime` direct
 
-The `.agent/skills/` directory MUST be renamed to `.agents/skills/` so `flue dev` discovers skills correctly.
+The `.agent/skills/` directory MUST be renamed to `.agents/skills/` so the `@flue/runtime` skill loader discovers skills at runtime. (`flue dev` is local dev tooling — not an agent gate.)
 
 **MoSCoW:** MUST
 

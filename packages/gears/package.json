@@ -19,7 +19,6 @@
     "@factory/factory-graph": "workspace:*",
     "@factory/loop-closure": "workspace:*",
     "@factory/schemas": "workspace:*",
-    "@flue/cli": "^0.11.0",
     "@flue/runtime": "^0.11.0",
     "zod": "^4.0.0"
   },

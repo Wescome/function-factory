@@ -287,9 +287,9 @@ Key invariants to enforce during implementation:
 **What to implement:**
 Rename directory `.agent/skills/` to `.agents/skills/`. Update any import paths or configuration references that depend on the old directory name.
 
-**Gate:** `flue dev` discovers skills — verify skills appear in `flue dev` output.
+**Gate:** HUMAN DEV CHECK — not an agent gate. `@flue/cli` is local dev tooling only; the coding agent does not run it.
 
-**Done criterion:** Flue dev server reports skill discovery from `.agents/skills/`. No `skills not found` errors.
+**Done criterion:** `.agents/skills/` exists with correct content; `.agent/skills/` (old path) does not exist; `skill_loader.ts` references `.agents/skills`.
 
 **Confidence:** 🟢 SPEC-FF-JUSTBASH-004 Implementation sequence Step 10 — explicit rename requirement.
 
@@ -351,7 +351,7 @@ Update the following Linear issues to reflect the Flue workflow architecture:
 | 7 | `packages/gears/src/index.ts` — barrel | `tsc --noEmit` | 🟢 |
 | 8 | `cloudflare.ts` + `wrangler.jsonc` | `wrangler dev` starts | 🟡 |
 | **45** | `.flue/workflows/atom-execution.ts` | `tsc --noEmit` | 🟢 |
-| **46** | `.agent/skills/` → `.agents/skills/` rename | `flue dev` discovers skills | 🟢 |
+| **46** | `.agent/skills/` → `.agents/skills/` rename | fs: `.agents/skills/` exists, `.agent/skills/` gone, `skill_loader.ts` updated | 🟢 |
 | **47** | Delete `packages/harness-bridge/`, `packages/runtime/` stubs | `tsc --noEmit` repo-wide | 🟢 |
 | **48** | Rewrite WEO-7, 8, 9, 12, 15 in Linear | issues updated | 🟡 |
 
