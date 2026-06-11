@@ -10,13 +10,16 @@
 import {
   createAgent,
   configureProvider,
+  registerProvider,
+  registerApiProvider,
   type FlueContext,
   type FlueHarness,
   type WorkflowRouteHandler,
   type SandboxFactory,
 } from '@flue/runtime'
 import { getSandbox } from '@cloudflare/sandbox'
-import { cfSandboxToSessionEnv } from '@flue/runtime/cloudflare'
+import { cfSandboxToSessionEnv, getCloudflareAIBindingApiProvider } from '@flue/runtime/cloudflare'
+import { InMemoryFs, Bash, bashFactoryToSessionEnv } from '@flue/runtime/internal'
 import { createHash } from 'node:crypto'
 import { AtomDirective } from '@factory/schemas'
 import { PROFILE_BY_ROLE } from '../agents.js'
@@ -59,20 +62,26 @@ export async function run({
   env,
   id,       // workflow run id — used for sandbox identity
 }: FlueContext<AtomExecutionPayload, Env>) {
-  // Route non-CF models through ofox.ai (unified gateway, mirrors providers.ts).
-  // Must run in this isolate before init(agent) freezes the resolved model.
-  // CF-hosted models use the Workers AI binding registered by _entry.ts on isolate boot.
-  const ofox = { baseUrl: 'https://api.ofox.ai/v1', apiKey: env.OFOX_API_KEY } as const
-  configureProvider('anthropic', ofox)
-  configureProvider('openai',    ofox)
+  // Fail-fast guard: a missing DO-env binding otherwise surfaces as a silent
+  // 401 (ofox/cloudflare auth) or a TypeError deep in storeFullOutput. Convert
+  // it into a clear, attributable error at the entry point.
+  if (!env.WORKSPACE_BUCKET)  throw new Error('FlueAtomExecutionWorkflow: WORKSPACE_BUCKET missing from DO env')
+  if (!env.CF_API_TOKEN)      throw new Error('FlueAtomExecutionWorkflow: CF_API_TOKEN missing from DO env')
+  if (!env.ANTHROPIC_API_KEY) throw new Error('FlueAtomExecutionWorkflow: ANTHROPIC_API_KEY missing from DO env')
 
-  // kimi-k2.6 is on CF Workers AI but env.AI.run() returns empty — use REST API.
-  // Same workaround as providers.ts lines 18-44.
-  configureProvider('cloudflare', {
-    baseUrl: 'https://api.cloudflare.com/client/v4/accounts/cb56a846c70a38987f31cf6e2b85cb57/ai/run/',
-    apiKey:  env.CF_API_TOKEN,
-    headers: { Authorization: `Bearer ${env.CF_API_TOKEN}` },
-  })
+  // Route anthropic/openai directly — no gateway.
+  configureProvider('anthropic', { apiKey: env.ANTHROPIC_API_KEY })
+  configureProvider('openai',    { apiKey: env.OPENAI_API_KEY })
+
+  // Register Cloudflare Workers AI binding so cloudflare/* models resolve
+  // via env.AI.run() — no API key required, billed to the CF account.
+  // registerProvider wires model resolution; registerApiProvider wires the executor.
+  // gateway: false bypasses Cloudflare's default AI Gateway. The default gateway
+  // is the suspected component that emits the final inference chunk but never
+  // closes the SSE body, leaving streamCloudflareWorkersAi (and thus
+  // session.skill()) hanging. Routing directly to the Workers AI binding avoids it.
+  registerProvider('cloudflare', { api: 'cloudflare-ai-binding', binding: env.AI as any, gateway: false })
+  registerApiProvider(getCloudflareAIBindingApiProvider())
 
   const { repoId, agentId, workGraphId, workGraphVersion, moleculeId } = payload
 
@@ -130,9 +139,11 @@ async function executeWithRetry(
     const result = await runFlueSession(directive, agentId, workflowId, env, init)
 
     const rawOutput        = result.stdout.slice(0, 4096)
-    const sandboxOutputRef: string | undefined = result.stdout.length > 4096
-      ? await storeFullOutput(result.stdout, directive.directiveId, env)
-      : undefined
+    let sandboxOutputRef: string | undefined = undefined
+    if (result.stdout.length > 4096) {
+      try { sandboxOutputRef = await storeFullOutput(result.stdout, directive.directiveId, env) }
+      catch { /* non-fatal — rawOutput has first 4096 chars */ }
+    }
 
     const success = await evaluateSuccessCondition(directive.successCondition, result, result.harness)
     const outcome: 'success' | 'failure' | 'timeout' = result.timedOut
@@ -188,19 +199,66 @@ async function runFlueSession(
   const needsContainer = directive.permittedTools.includes('git') ||
                          directive.sandboxConfig.persistFilesystem
 
+  // Resolve the working directory once. Both the session env's cwd and the
+  // agent's cwd MUST agree, otherwise relative writes (AGENTS.md) and the
+  // workspace delta scan target the wrong directory (see SPEC-FF-JUSTBASH-004).
+  const cwd          = directive.workingDir ?? '/workspace'
+  const skillContent = directive.envVars['SKILL_CONTENT'] ?? ''
+
+  // Clone repo into container if a URL was supplied. Not every container atom
+  // needs a clone — some just need a persistent filesystem — so skip silently
+  // when REPO_URL is absent.
+  if (needsContainer && directive.envVars['REPO_URL']) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sandbox = getSandbox(env.SANDBOX as any, workflowId)
+    await sandbox.gitCheckout(directive.envVars['REPO_URL'], {
+      branch:    directive.envVars['REPO_BRANCH'] ?? 'main',
+      targetDir: cwd,
+      depth:     1,
+    })
+  }
+
+  // Skill discovery happens AT init(agent) time from <cwd>/.agents/skills/<name>/SKILL.md,
+  // so the skill file must exist BEFORE init() runs — not after.
+  // Container path: the sandbox exists before init(), so write directly into it.
+  if (needsContainer && skillContent) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const skillSandbox = getSandbox(env.SANDBOX as any, workflowId)
+    await skillSandbox.writeFile(
+      `${cwd}/.agents/skills/${directive.skillRef}/SKILL.md`,
+      skillContent,
+    )
+  }
+
   const agent = needsContainer
     ? createAgent<AtomExecutionPayload, Env>(({ id: agentRunId, env: e } = { id: workflowId, env, payload: undefined }) => {
         const sandboxFactory: SandboxFactory = {
           createSessionEnv: ({ id }) =>
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            cfSandboxToSessionEnv(getSandbox(e.SANDBOX as any, id)),
+            cfSandboxToSessionEnv(getSandbox(e.SANDBOX as any, id), cwd),
         }
-        return { profile, sandbox: sandboxFactory, cwd: directive.workingDir ?? '/workspace' }
+        return { profile, sandbox: sandboxFactory, cwd }
       })
-    : createAgent(() => ({
-        profile,
-        cwd: directive.workingDir ?? '/workspace',
-      }))
+    : createAgent(() => {
+        // Virtual path: InMemoryFs is created inside Flue's createDefaultEnv() during
+        // init(). To pre-populate the skill before discovery, provide a custom
+        // SandboxFactory that builds its own InMemoryFs with the skill pre-written.
+        if (!skillContent) return { profile, cwd }
+        const sandboxFactory: SandboxFactory = {
+          createSessionEnv: async () => {
+            const fs = new InMemoryFs()
+            await fs.writeFile(
+              `${cwd}/.agents/skills/${directive.skillRef}/SKILL.md`,
+              skillContent,
+            )
+            return bashFactoryToSessionEnv(() => new Bash({
+              fs,
+              network: { dangerouslyAllowFullInternetAccess: true },
+            }))
+          },
+        }
+        return { profile, sandbox: sandboxFactory, cwd }
+      })
 
   const harness = await init(agent)
 
@@ -214,16 +272,33 @@ async function runFlueSession(
   let stdout   = ''
   let timedOut = false
 
+  // streamCloudflareWorkersAi (@flue/runtime) only resolves session.skill() once
+  // the SSE body fully closes — it deliberately does NOT break on
+  // finish_reason: "stop" because it keeps reading for the trailing usage chunk.
+  // If CF Workers AI / AI Gateway emits the final chunk but never closes the HTTP
+  // body, session.skill() hangs forever and ac.abort() can't rescue a stream the
+  // binding considers already finished. Promise.race against a sleep() timeout is
+  // the guaranteed escape hatch: the AbortController still attempts real
+  // cancellation, but the race ensures the workflow always unblocks.
+  const ac = new AbortController()
+  let response: Awaited<ReturnType<typeof session.skill>> | null = null
+  const timeoutPromise = sleep(directive.timeoutMs).then(() => {
+    timedOut = true
+    ac.abort()
+    return null as typeof response
+  })
   try {
-    const response = await Promise.race([
+    response = await Promise.race([
       session.skill(directive.skillRef, {
-        args: { instruction: directive.instruction },
+        args:   { instruction: directive.instruction },
+        signal: ac.signal,
       }),
-      sleep(directive.timeoutMs).then(() => { timedOut = true; return null }),
+      timeoutPromise,
     ])
     if (response) stdout = response.text ?? ''
   } catch (err) {
-    stdout = String(err)
+    // AbortError when the timeout fires; other errors captured as stdout
+    if (!timedOut) stdout = String(err)
   }
 
   void agentId
@@ -258,8 +333,9 @@ async function evaluateSuccessCondition(
 export async function extractWorkspaceDelta(
   harness:   FlueHarness,
   seedPaths: Set<string>,
+  scanRoot = '/workspace',
 ): Promise<Array<{ virtualPath: string; kind: 'added' | 'deleted'; content?: string }>> {
-  const result   = await harness.shell('find /workspace -type f 2>/dev/null')
+  const result   = await harness.shell(`find ${scanRoot} -type f 2>/dev/null`)
   const allPaths = result.stdout.split('\n').map(p => p.trim()).filter(Boolean)
   const deltas: Array<{ virtualPath: string; kind: 'added' | 'deleted'; content?: string }> = []
 

@@ -23,6 +23,8 @@ function env(overrides: Partial<PipelineEnv> = {}): PipelineEnv {
     ATOM_RESULTS: {} as PipelineEnv['ATOM_RESULTS'],
     GITHUB_APP_ID: '12345',
     GITHUB_APP_PRIVATE_KEY: '-----BEGIN PRIVATE KEY-----\\nAQIDBA==\\n-----END PRIVATE KEY-----',
+    OFOX_API_KEY: 'test-ofox-key',
+    WORKSPACE_BUCKET: {} as PipelineEnv['WORKSPACE_BUCKET'],
     ...overrides,
   }
 }

@@ -24,14 +24,14 @@
   },
   "devDependencies": {
     "@cloudflare/containers": "^0.3.5",
-    "@cloudflare/sandbox": "^0.9.0",
+    "@cloudflare/sandbox": "^0.12.0",
     "@cloudflare/workers-types": "^4.20260527.1",
     "@types/node": "^24.0.0",
     "typescript": "^5.4.0",
     "vitest": "^1.4.0"
   },
   "peerDependencies": {
-    "@cloudflare/sandbox": "^0.9.0"
+    "@cloudflare/sandbox": "^0.12.0"
   },
   "peerDependenciesMeta": {
     "@cloudflare/sandbox": {

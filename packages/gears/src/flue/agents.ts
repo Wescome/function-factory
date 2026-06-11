@@ -23,13 +23,11 @@ export const plannerProfile: AgentProfile = defineAgentProfile({
   instructions: 'You are the Factory planner. Execute the assigned atom instruction.',
 })
 
-// kimi-k2.6 is on Cloudflare Workers AI but env.AI.run() returns empty for kimi.
-// configureProvider('cloudflare', { baseUrl: CF REST URL, apiKey: CF_API_TOKEN })
-// in atom-execution run() routes it through the REST API — same pattern as providers.ts.
 export const coderProfile: AgentProfile = defineAgentProfile({
-  name:         'coder',
-  model:        'cloudflare/kimi-k2.6',
-  instructions: 'You are the Factory coder. Execute the assigned atom instruction.',
+  name:          'coder',
+  model:         'cloudflare/@cf/moonshotai/kimi-k2.6',
+  instructions:  'You are the Factory coder. Execute the assigned atom instruction.',
+  thinkingLevel: 'low',
 })
 
 export const criticProfile: AgentProfile = defineAgentProfile({

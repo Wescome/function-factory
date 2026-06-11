@@ -46,7 +46,7 @@ interface Env {
   D1_AUDIT:       D1Database
   ARTIFACT_GRAPH: DurableObjectNamespace<FactoryArtifactGraphDO>
   BEAD_GRAPH:     DurableObjectNamespace<FactoryBeadGraphDO>
-  KV:             KVNamespace
+  KV_KS:          KVNamespace
 }
 
 export class CoordinatorDO extends DurableObject<Env> {
@@ -94,6 +94,50 @@ export class CoordinatorDO extends DurableObject<Env> {
     this.orgId = orgId
     await this.ctx.storage.put('runId', runId)
     await this.ctx.storage.put('orgId', orgId)
+    // Arm the stale-bead rescue alarm here (not in seedBeads) so repeated
+    // seedBeads() calls cannot push the rescue indefinitely into the future.
+    await this.ctx.storage.setAlarm(Date.now() + 5 * 60 * 1000)
+  }
+
+  /**
+   * Seed the execution beads + dependency edges for a molecule.
+   *
+   * The DO instance *is* the run — runId lives in this.runId (set by initRun()),
+   * so it is intentionally absent from the argument.
+   *
+   * Idempotent: INSERT OR IGNORE on both tables means a retried seed (e.g. after
+   * a transient failure mid-seed) is a no-op for already-inserted rows. The whole
+   * operation runs inside blockConcurrencyWhile so a concurrent claim/next cannot
+   * observe a half-seeded molecule. created_at is captured once so re-seed and
+   * tie-breaking ordering stay deterministic.
+   */
+  async seedBeads(molecule: {
+    moleculeId: string
+    beads: Array<{
+      id:        string
+      gearId:    string
+      nodeId:    string
+      payload:   string    // JSON-serialized AtomDirective
+      dependsOn: string[]  // parent bead IDs
+    }>
+  }): Promise<void> {
+    await this.ctx.blockConcurrencyWhile(async () => {
+      const now = Date.now()
+      for (const bead of molecule.beads) {
+        this.sql.exec(
+          `INSERT OR IGNORE INTO execution_beads
+             (id, molecule_id, gear_id, node_id, status, attempt_count, payload, created_at, updated_at)
+           VALUES (?, ?, ?, ?, 'ready', 0, ?, ?, ?)`,
+          bead.id, molecule.moleculeId, bead.gearId, bead.nodeId, bead.payload, now, now
+        )
+        for (const parentId of bead.dependsOn) {
+          this.sql.exec(
+            `INSERT OR IGNORE INTO bead_edges (parent_id, child_id) VALUES (?, ?)`,
+            parentId, bead.id
+          )
+        }
+      }
+    })
   }
 
   override async alarm(): Promise<void> {
@@ -125,7 +169,7 @@ export class CoordinatorDO extends DurableObject<Env> {
       result, Date.now(), beadId, agentId
     )
     await this.writeAudit(beadId, agentId, 'done')
-    await this.recordOutcome(beadId, agentId, result, 'done')  // Bridge Point 3 (stub in 5a)
+    try { await this.recordOutcome(beadId, agentId, result, 'done') } catch { /* BP3 non-fatal */ }
   }
 
   async failBead(beadId: string, agentId: string, result: string): Promise<void> {
@@ -135,10 +179,15 @@ export class CoordinatorDO extends DurableObject<Env> {
       result, Date.now(), beadId, agentId
     )
     await this.writeAudit(beadId, agentId, 'failed')
-    await this.recordOutcome(beadId, agentId, result, 'failed')  // Bridge Point 3 (stub in 5a)
+    try { await this.recordOutcome(beadId, agentId, result, 'failed') } catch { /* BP3 non-fatal */ }
   }
 
   async getNextReady(moleculeId: string): Promise<ExecutionBead | null> {
+    // Distinguish "no beads seeded yet" from "all beads done". The caller in
+    // atom-execution.ts treats null as run-complete; an unseeded run must fail
+    // visibly rather than masquerade as finished.
+    const count = [...this.sql.exec('SELECT COUNT(*) as n FROM execution_beads WHERE molecule_id = ?', moleculeId)]
+    if ((count[0] as { n: number }).n === 0) throw new Error(`molecule ${moleculeId} has no beads — call seedBeads() before dispatching`)
     const rows = [...this.sql.exec(`
       SELECT b.* FROM execution_beads b
       WHERE b.molecule_id=? AND b.status='ready'
@@ -202,7 +251,7 @@ export class CoordinatorDO extends DurableObject<Env> {
     // Seed synthetic KV session so LoopClosureService.recordOutcome can find it.
     // beadId doubles as sessionId proxy for this run (per SPEC-FF-GEARS-001 §7b).
     const activeSpecId = await (artifactGraphStub as any).getActiveSpecification(ns, 'conducting-agent')
-    await this.env.KV.put(`session:${beadId}`, JSON.stringify({
+    await this.env.KV_KS.put(`session:${beadId}`, JSON.stringify({
       sessionId:              beadId,
       orgId:                  this.orgId,
       roleId:                 'conducting-agent',
@@ -215,7 +264,7 @@ export class CoordinatorDO extends DurableObject<Env> {
     const loopClosure = new LoopClosureService({
       artifactGraphDO:   artifactGraphStub,
       beadGraphDO:       beadGraphStub,
-      kvStore:           this.env.KV,
+      kvStore:           this.env.KV_KS,
       detectDivergences: factoryDivergenceDetector,
       buildHypothesis:   factoryHypothesisBuilder,
       verifyAmendment:   factoryAmendmentVerifier,
@@ -241,6 +290,7 @@ export class CoordinatorDO extends DurableObject<Env> {
       if (url.pathname === '/release') return Response.json(await this.releaseBead(...(await body() as [string, string, string])))
       if (url.pathname === '/fail')    return Response.json(await this.failBead(  ...(await body() as [string, string, string])))
       if (url.pathname === '/next')    return Response.json(await this.getNextReady(await body() as string))
+      if (url.pathname === '/seed')    return Response.json(await this.seedBeads(  await body() as Parameters<typeof this.seedBeads>[0]))
     }
     return new Response('Not found', { status: 404 })
   }

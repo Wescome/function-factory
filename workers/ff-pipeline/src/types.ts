@@ -50,7 +50,7 @@ export interface PipelineEnv {
   TELEMETRY_QUEUE?: Queue
   /** Workers Analytics Engine dataset for Factory metrics */
   FACTORY_METRICS?: AnalyticsEngineDataset
-  OFOX_API_KEY?: string
+  OFOX_API_KEY: string
   CF_API_TOKEN?: string
   OPERATOR_CONTROL_TOKEN?: string
 
@@ -61,7 +61,7 @@ export interface PipelineEnv {
   /** @cloudflare/sandbox binding — activated when container image is deployed */
   SANDBOX?: unknown
   /** R2 bucket for workspace backups */
-  WORKSPACE_BUCKET?: unknown
+  WORKSPACE_BUCKET: R2Bucket
 
   /** GitHub personal access token for PR creation */
   GITHUB_TOKEN?: string

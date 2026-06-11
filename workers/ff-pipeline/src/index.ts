@@ -1417,6 +1417,40 @@ export default {
       return fetchPiContainerDiagnostic(env, '/__pi-container/restart', 'POST')
     }
 
+    // ── Debug: seed a CoordinatorDO molecule directly (e2e atom-execution smoke) ──
+    // The COORDINATOR_DO binding is optional in PipelineEnv, so this route is
+    // guarded by its presence rather than the (non-existent) handler-wide wrapper.
+    if (url.pathname === '/debug/seed-molecule' && request.method === 'POST' && env.COORDINATOR_DO) {
+      const body = await request.json() as {
+        workGraphId:      string
+        workGraphVersion: string
+        repoId:           string
+        moleculeId:       string
+        beads: Array<{
+          id:        string
+          gearId:    string
+          nodeId:    string
+          payload:   string
+          dependsOn: string[]
+        }>
+      }
+      const { createHash } = await import('node:crypto')
+      const runId = createHash('sha256').update(body.workGraphId + body.workGraphVersion).digest('hex')
+      const doId  = env.COORDINATOR_DO.idFromName(`coordinator:${runId}`)
+      const stub  = env.COORDINATOR_DO.get(doId)
+      // initRun first (idempotent)
+      await stub.fetch(new Request('http://do/init', {
+        method: 'POST',
+        body:   JSON.stringify([runId, body.repoId]),
+      }))
+      // then seed beads
+      await stub.fetch(new Request('http://do/seed', {
+        method: 'POST',
+        body:   JSON.stringify({ moleculeId: body.moleculeId, beads: body.beads }),
+      }))
+      return json({ ok: true, runId })
+    }
+
     return new Response('ff-pipeline: POST /trigger-synthesis, POST /synthesis-callback, POST /trigger-harness, POST /dispatch-formula, POST /seed-dispatch-ep, POST /admin/seed-factory-artifacts, POST /__pi-container/execute, GET /run-status/:runId, GET /run-monitor/:runId, GET /run-artifacts/:runId, or use Queue consumer', { status: 404 })
   },
 
