@@ -1,6 +1,6 @@
 /**
  * AtomDirective — substrate-ready dispatch directive produced by the Mediation Agent
- * from a compiled WorkGraph atom.
+ * from a compiled execution-plan atom.
  *
  * SPEC-FF-GEARS-001 §5: adds `skillRef` and `role` fields.
  * SPEC-CONDUCTING-AGENT-001 §1.2 remains canonical for all other fields.
@@ -64,7 +64,7 @@ export const AtomDirective = z.object({
   /** Unique directive identifier — DIRECTIVE-* prefix. */
   directiveId: z.string().min(1),
 
-  /** Unique atom identifier from the WorkGraph (ATOM-* prefix). */
+  /** Unique atom identifier (ATOM-* prefix). */
   atomId: z.string().min(1),
 
   /** Stable atom reference (name@version) for trace correlation. */
@@ -73,13 +73,13 @@ export const AtomDirective = z.object({
   /** Human-readable instruction for the agent. */
   instruction: z.string().min(1),
 
-  /** WorkGraph run identifier scoping this directive. */
+  /** Execution-plan run identifier scoping this directive. */
   runId: z.string().min(1),
 
   /** Repository identifier. */
   repoId: z.string().min(1),
 
-  /** WorkGraph version used to compute runId. */
+  /** Execution-plan version used to compute runId. */
   workGraphVersion: z.string().min(1),
 
   /** Declared skill name — passed to session.skill() at workflow execution.

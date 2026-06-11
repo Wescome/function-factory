@@ -67,13 +67,13 @@ export async function handleKspLoopTest(request: Request, env: PipelineEnv): Pro
     ) as unknown as import('@factory/artifact-graph').ArtifactGraphDOBase<unknown>
 
     const seedSpecId = `spec-factory-${testNs}-v1`
-    await (seedArtifactStub as any).upsertNode(seedSpecId, 'WorkGraph', {
+    await (seedArtifactStub as any).upsertNode(seedSpecId, 'Specification', {
       artifact_id: 'wg-test-001',
       version: 'v1',
       content_hash: 'seed-hash',
       explicitness: 'explicit',
     })
-    log.push(`Seeded WorkGraph node: ${seedSpecId}`)
+    log.push(`Seeded execution-plan node: ${seedSpecId}`)
 
     // ── Seed initial PolicyBead using seedSpecId as bead_id ─────────────────
     // seedSpecId must exist in BOTH artifact graph (node) AND bead graph (bead)

@@ -53,9 +53,9 @@ echo "=== Step 1: Seed molecule ==="
 SEED_BODY=$(WG_ID="$WG_ID" WG_VERSION="$WG_VERSION" REPO_ID="$REPO_ID" \
   MOLECULE_ID="$MOLECULE_ID" BEAD_ID="$BEAD_ID" DIRECTIVE="$DIRECTIVE" node -e '
 const d = {
-  workGraphId:      process.env.WG_ID,
-  workGraphVersion: process.env.WG_VERSION,
-  repoId:           process.env.REPO_ID,
+  graphId:      process.env.WG_ID,
+  graphVersion: process.env.WG_VERSION,
+  repoId:       process.env.REPO_ID,
   moleculeId:       process.env.MOLECULE_ID,
   beads: [{
     id:        process.env.BEAD_ID,

@@ -54,7 +54,7 @@ export const CommitTriageReport = Lineage.extend({
   summary: z.object({
     total_commits: z.number().int().nonnegative(),
     counts_by_classification: z.record(
-      ConventionalCommitType,
+      z.string(),
       z.number().int().nonnegative()
     ),
     commits_with_violations: z.number().int().nonnegative(),

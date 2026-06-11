@@ -1422,8 +1422,8 @@ export default {
     // guarded by its presence rather than the (non-existent) handler-wide wrapper.
     if (url.pathname === '/debug/seed-molecule' && request.method === 'POST' && env.COORDINATOR_DO) {
       const body = await request.json() as {
-        workGraphId:      string
-        workGraphVersion: string
+        graphId:      string   // execution-plan identifier — used to derive the coordinator runId
+        graphVersion: string   // execution-plan version — used to derive the coordinator runId
         repoId:           string
         moleculeId:       string
         beads: Array<{
@@ -1435,7 +1435,7 @@ export default {
         }>
       }
       const { createHash } = await import('node:crypto')
-      const runId = createHash('sha256').update(body.workGraphId + body.workGraphVersion).digest('hex')
+      const runId = createHash('sha256').update(body.graphId + body.graphVersion).digest('hex')
       const doId  = env.COORDINATOR_DO.idFromName(`coordinator:${runId}`)
       const stub  = env.COORDINATOR_DO.get(doId)
       // initRun first (idempotent)
