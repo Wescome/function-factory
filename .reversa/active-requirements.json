@@ -1,7 +1,7 @@
 {
-  "feature-id": "001-ksp-gears-cf-fixes",
-  "feature-dir": "_reversa_forward/001-ksp-gears-cf-fixes",
-  "description": "Fix CF gate failures blocking wrangler dev for ff-flue — CF002, CF004, CF005 (CF001 is architecture gate pending Wes decision)",
-  "source": "_reversa_sdd/gate-diagnostics/cf-diagnosis-ksp-gears.md",
-  "created": "2026-06-10"
+  "feature-id": "002-gears-flue-wiring",
+  "feature-dir": "_reversa_forward/002-gears-flue-wiring",
+  "description": "Wire FlueAtomExecutionWorkflow and FlueRegistry into @factory/gears — wrangler deploy covers everything, ofox.ai routing, no build tool",
+  "source": "_reversa_sdd/ksp-gears/design.md + _reversa_sdd/ksp-flue-workflow/design.md + Architect review 2026-06-11",
+  "created": "2026-06-11"
 }

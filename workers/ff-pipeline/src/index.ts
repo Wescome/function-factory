@@ -10,6 +10,9 @@ export { Sandbox } from '@cloudflare/sandbox'
 export { CoordinatorDO } from '@factory/gears'
 export { FactoryArtifactGraphDO, FactoryBeadGraphDO } from '@factory/factory-graph'
 
+// Flue workflow DO classes — wired through @factory/gears (SPEC-FF-GEARS-001 §1/§3)
+export { FlueAtomExecutionWorkflow, FlueRegistry } from '@factory/gears'
+
 export { ingestSignal } from './stages/ingest-signal'
 export { generateFeedbackSignals } from './stages/generate-feedback'
 export { generatePR } from './stages/generate-pr'
@@ -140,6 +143,14 @@ async function handlePiContainerExecute(request: Request, env: PipelineEnv): Pro
 
 export default {
   async fetch(request: Request, env: PipelineEnv, ctx: ExecutionContext): Promise<Response> {
+    // ── Flue workflow routing — must be first ──
+    // Routes /workflows/atom-execution and /runs/:runId to FlueAtomExecutionWorkflow DO.
+    if (env.FLUE_ATOM_EXECUTION_WORKFLOW) {
+      const { routeAtomExecutionWorkflow } = await import('@factory/gears')
+      const flueRes = await routeAtomExecutionWorkflow(request, env.FLUE_ATOM_EXECUTION_WORKFLOW)
+      if (flueRes) return flueRes
+    }
+
     const url = new URL(request.url)
 
     // ── Diagnostic: deployment/version metadata ──

@@ -9,6 +9,8 @@
 
 export * from './flue/agents.js'
 export * from './flue/sandbox.js'
+export * from './flue/workflows/atom-execution.js'
+export * from './flue/workflows/atom-execution-do.js'
 export * from './gears/types.js'
 export * from './beads/types.js'
 export * from './beads/coordinator-do.js'

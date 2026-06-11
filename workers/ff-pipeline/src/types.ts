@@ -94,6 +94,10 @@ export interface PipelineEnv {
   KV_KS?:          KVNamespace
   D1_AUDIT?:       D1Database
 
+  // ── Flue workflow DO bindings ────────────────────────────────────────────
+  FLUE_ATOM_EXECUTION_WORKFLOW?: DurableObjectNamespace
+  FLUE_REGISTRY?:                DurableObjectNamespace
+
   LEARNING_ENABLED?: string
   LEARNING_OBSERVATIONS_ENABLED?: string
   LEARNING_WRITE_TIMEOUT_MS?: string

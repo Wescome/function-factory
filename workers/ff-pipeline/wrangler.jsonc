@@ -25,7 +25,10 @@
       // KSP layer — @factory/gears (SPEC-FF-GEARS-001 §11)
       { "name": "COORDINATOR_DO",  "class_name": "CoordinatorDO" },
       { "name": "ARTIFACT_GRAPH",  "class_name": "FactoryArtifactGraphDO" },
-      { "name": "BEAD_GRAPH",      "class_name": "FactoryBeadGraphDO" }
+      { "name": "BEAD_GRAPH",      "class_name": "FactoryBeadGraphDO" },
+      // Flue workflow DOs — atom-execution workflow (SPEC-FF-JUSTBASH-004)
+      { "name": "FLUE_ATOM_EXECUTION_WORKFLOW", "class_name": "FlueAtomExecutionWorkflow" },
+      { "name": "FLUE_REGISTRY",                "class_name": "FlueRegistry" }
     ]
   },
   "migrations": [
@@ -35,7 +38,9 @@
     { "tag": "v4", "new_sqlite_classes": ["RunCoordinator"] },
     { "tag": "v5", "new_sqlite_classes": ["PiContainer"] },
     // KSP layer migrations
-    { "tag": "v6", "new_sqlite_classes": ["CoordinatorDO", "FactoryArtifactGraphDO", "FactoryBeadGraphDO"] }
+    { "tag": "v6", "new_sqlite_classes": ["CoordinatorDO", "FactoryArtifactGraphDO", "FactoryBeadGraphDO"] },
+    // Flue workflow layer
+    { "tag": "v7", "new_sqlite_classes": ["FlueAtomExecutionWorkflow", "FlueRegistry"] }
   ],
 
   // Sandbox Container for Coder/Tester execution
