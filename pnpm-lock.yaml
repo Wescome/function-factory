@@ -522,8 +522,8 @@ importers:
         specifier: ^0.3.5
         version: 0.3.5
       '@cloudflare/sandbox':
-        specifier: ^0.9.0
-        version: 0.9.0
+        specifier: ^0.12.0
+        version: 0.12.1
       '@cloudflare/workers-types':
         specifier: ^4.20260527.1
         version: 4.20260527.1
