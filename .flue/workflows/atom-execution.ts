@@ -26,15 +26,15 @@ void (claimHook satisfies typeof claimHook)
 export const route: WorkflowRouteHandler = async (_c, next) => next()
 
 interface Env {
-  COORDINATOR_DO:        DurableObjectNamespace
-  SANDBOX_OUTPUT_BUCKET: R2Bucket
-  // Sandbox DO namespace — typed as unknown to avoid DurableObjectNamespace<Sandbox>
+  COORDINATOR_DO:   DurableObjectNamespace
+  WORKSPACE_BUCKET: R2Bucket
+  // SANDBOX DO namespace — typed as unknown to avoid DurableObjectNamespace<Sandbox>
   // generic mismatch; getSandbox handles the cast internally
-  Sandbox:               unknown
-  ANTHROPIC_API_KEY:     string
-  OPENAI_API_KEY:        string
-  DEEPSEEK_API_KEY:      string
-  GITHUB_TOKEN:          string
+  SANDBOX:          unknown
+  ANTHROPIC_API_KEY: string
+  OPENAI_API_KEY:    string
+  DEEPSEEK_API_KEY:  string
+  GITHUB_TOKEN:      string
 }
 
 interface AtomExecutionPayload {
@@ -171,7 +171,7 @@ async function runFlueSession(
     ? createAgent<AtomExecutionPayload, Env>(({ id: agentRunId, env: e } = { id: workflowId, env }) => ({
         profile,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        sandbox: getSandbox(e.Sandbox as any, agentRunId),
+        sandbox: getSandbox(e.SANDBOX as any, agentRunId),
         cwd:     directive.workingDir ?? '/workspace',
       }))
     : createAgent(() => ({
@@ -269,7 +269,7 @@ export async function extractWorkspaceDelta(
 
 async function storeFullOutput(output: string, directiveId: string, env: Env): Promise<string> {
   const key = `sandbox-output/${directiveId}/${Date.now()}.txt`
-  await env.SANDBOX_OUTPUT_BUCKET.put(key, output)
+  await env.WORKSPACE_BUCKET.put(key, output)
   return `r2://${key}`
 }
 
