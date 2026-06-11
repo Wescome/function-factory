@@ -30,12 +30,9 @@
       { "name": "COORDINATOR_DO",  "class_name": "CoordinatorDO" },
       { "name": "ARTIFACT_GRAPH",  "class_name": "FactoryArtifactGraphDO" },
       { "name": "BEAD_GRAPH",      "class_name": "FactoryBeadGraphDO" },
-      // Flue workflow DOs
-      { "name": "FLUE_ATOM_EXECUTION_WORKFLOW",  "class_name": "FlueAtomExecutionWorkflow" },
-      { "name": "FLUE_FACTORY_BUILD_WORKFLOW",   "class_name": "FlueFactoryBuildWorkflow" },
-      { "name": "FLUE_FACTORY_COMPILE_WORKFLOW", "class_name": "FlueFactoryCompileWorkflow" },
-      { "name": "FLUE_FACTORY_VERIFY_WORKFLOW",  "class_name": "FlueFactoryVerifyWorkflow" },
-      { "name": "FLUE_REGISTRY",                 "class_name": "FlueRegistry" }
+      // Flue workflow DOs — atom-execution is the only specced workflow (SPEC-FF-JUSTBASH-004)
+      { "name": "FLUE_ATOM_EXECUTION_WORKFLOW", "class_name": "FlueAtomExecutionWorkflow" },
+      { "name": "FLUE_REGISTRY",                "class_name": "FlueRegistry" }
     ]
   },
 
@@ -46,7 +43,7 @@
     { "tag": "v4", "new_sqlite_classes": ["RunCoordinator"] },
     { "tag": "v5", "new_sqlite_classes": ["PiContainer"] },
     { "tag": "v6", "new_sqlite_classes": ["CoordinatorDO", "FactoryArtifactGraphDO", "FactoryBeadGraphDO"] },
-    { "tag": "v7", "new_sqlite_classes": ["FlueAtomExecutionWorkflow", "FlueFactoryBuildWorkflow", "FlueFactoryCompileWorkflow", "FlueFactoryVerifyWorkflow", "FlueRegistry"] }
+    { "tag": "v7", "new_sqlite_classes": ["FlueAtomExecutionWorkflow", "FlueRegistry"] }
   ],
 
   "containers": [
