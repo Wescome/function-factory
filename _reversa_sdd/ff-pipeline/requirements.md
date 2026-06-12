@@ -118,6 +118,24 @@ The Worker MUST receive HMAC-SHA256 signed webhook events from Gas City at `POST
 - Priority: **Must**
 - 🟢 CONFIRMADO — `workers/ff-pipeline/src/gascity/webhook-receiver.ts:1-612`
 
+### FR-22: Flue Atom-Execution Workflow Route (Patch 2026-06-11)
+
+**[2026-06-11 new]** The Worker MUST route `POST /workflows/atom-execution` to `routeAtomExecutionWorkflow` from `@factory/gears` (lazy import). `FlueAtomExecutionWorkflow` and `FlueRegistry` are re-exported from `index.ts` for wrangler DO binding registration. The standalone `ff-flue` worker is deleted (ADR-013).
+- Priority: **Must**
+- 🟢 CONFIRMADO — `workers/ff-pipeline/src/index.ts:14,137-138`
+
+### FR-23: WORKSPACE_BUCKET and OFOX_API_KEY Bindings (Patch 2026-06-11)
+
+**[2026-06-11 new]** `PipelineEnv` requires `WORKSPACE_BUCKET: R2Bucket` (run event log, full LLM output storage) and `OFOX_API_KEY: string` (ofox.ai routing key). Both are required bindings; requests to R2-dependent routes return 503 if `WORKSPACE_BUCKET` is unavailable.
+- Priority: **Must**
+- 🟢 CONFIRMADO — `workers/ff-pipeline/src/types.ts`
+
+### FR-24: Queue and Route Handlers with Clean Import Graphs (Patch 2026-06-11)
+
+**[2026-06-11 new]** Queue consumer logic (`queue-handler.ts`) and trigger-synthesis route (`trigger-synthesis-handler.ts`) are extracted from the worker barrel into standalone modules with type-only static imports. All CF-runtime dependencies are loaded lazily via `await import()`. This isolation is required for Node.js test environments (BR-FLUE-06).
+- Priority: **Must**
+- 🟢 CONFIRMADO — `workers/ff-pipeline/src/queue-handler.ts`, `trigger-synthesis-handler.ts`
+
 ---
 
 ## Non-Functional Requirements

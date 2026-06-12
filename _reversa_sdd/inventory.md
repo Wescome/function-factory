@@ -128,7 +128,9 @@ function-factory/
 | Entry Point | Role | Confidence |
 |-------------|------|-----------|
 | `workers/ff-pipeline/src/pipeline.ts` | `FactoryPipeline` — CF Workflow orchestrating all pipeline stages | 🟢 CONFIRMED |
-| `workers/ff-pipeline/src/index.ts` | Worker export root + queue consumer handlers | 🟢 CONFIRMED |
+| `workers/ff-pipeline/src/index.ts` | Worker export root + DO/Workflow binding re-exports; delegates queue and trigger-synthesis to extracted handlers | 🟢 CONFIRMED |
+| `workers/ff-pipeline/src/queue-handler.ts` | **[2026-06-10 new]** Queue consumer logic extracted from barrel — clean import graph (type-only static imports) | 🟢 CONFIRMED |
+| `workers/ff-pipeline/src/trigger-synthesis-handler.ts` | **[2026-06-10 new]** `/trigger-synthesis` route handler extracted from barrel — clean import graph | 🟢 CONFIRMED |
 | `workers/gascity-supervisor/src/index.ts` | `GasCitySupervisor` Container + `FactoryStore` DO + fetch router | 🟢 CONFIRMED |
 | `workers/ff-gates/src/index.ts` | `GatesService` — Coherence Verification via Service Binding | 🟢 CONFIRMED |
 | `workers/ff-gateway/src/index.ts` | HTTP gateway (public-facing) | 🟢 CONFIRMED |
@@ -340,27 +342,18 @@ Consumed by: Mediation Agent DO, Commissioning Agent, Architect Agent DO, `@fact
 
 Complete harness and execution substrate layer. Absorbs three previously separate concerns: Flue wrapping (replaces `@factory/harness-bridge` and Gas City), Execution-Trace Bead Graph (replaces `@factory/runtime` stub), Gear Registry (D1-backed Gear/GearFormula/GearMolecule). Key exports:
 
-- `src/flue/agents.ts` — five Dark Factory `AgentProfile` exports (`plannerProfile`, `coderProfile`, `criticProfile`, `testerProfile`, `verifierProfile`), `PROFILE_BY_ROLE` map
+- `src/flue/agents.ts` — five Dark Factory `AgentProfile` exports (`plannerProfile`, `coderProfile`, `criticProfile`, `testerProfile`, `verifierProfile`), `PROFILE_BY_ROLE` map. **[2026-06-10]** `coderProfile` model updated to `@cf/moonshotai/kimi-k2.6` (correct CF model ID); `thinkingLevel: 'low'`; `gateway: false` (bypasses AI Gateway SSE body-close hang).
 - `src/flue/sandbox.ts` — single `Sandbox` class extending `@cloudflare/sandbox`, four outbound host injectors
-- `src/beads/coordinator-do.ts` — `CoordinatorDO` with `initRun()`, `claimBead()`, `releaseBead()`, `failBead()`, `getNextReady()`, `alarm()` (stalled bead detection); wires `LoopClosureService` Bridge Point 3 in `releaseBead()`/`failBead()`
+- `src/beads/coordinator-do.ts` — **[2026-06-10 updated]** `CoordinatorDO` with `seedBeads()` + `/seed` route, `initRun()` arms stale-bead alarm, `getNextReady()` throws on unseeded molecule, KV_KS binding fix, `recordOutcome()` non-fatal (BP3 HARD GATE not yet cleared)
 - `src/beads/hook.ts` — `claimHook`, `releaseHook`, `failHook`, `getNextReady` consumed by Conducting Agent
+- `src/beads/d1-audit.ts` — **[2026-06-10 new]** D1 bead audit helpers: `insertBeadAudit()`, `queryBeadAudit()`, `BeadAuditRow` interface. Cross-run audit log in `factory-bead-audit` D1 database.
+- `src/flue/workflows/atom-execution.ts` — **[2026-06-10 moved from `.flue/workflows/`]** Flue workflow `run()` logic. Provider wiring: direct Anthropic/OpenAI (ofox bypassed), CF Workers AI binding for kimi-k2.6. `registerProvider + registerApiProvider` for CF Workers AI. `AbortController` + `Promise.race` timeout (real cancellation, not cosmetic). `storeFullOutput` non-fatal.
+- `src/flue/workflows/atom-execution-do.ts` — **[2026-06-10 new]** `FlueAtomExecutionWorkflow` DO class + `FlueRegistry`. Exported from gears barrel and re-exported from `workers/ff-pipeline/src/index.ts` for wrangler DO bindings.
 - `src/gears/` — `GearRegistry` (D1-backed), `GearFormula`, `GearMolecule` types
 
-Retires: `@factory/harness-bridge` (deleted at step 47), `@factory/runtime` stub (deleted at step 47), Gas City dispatch, pi-coding-agent.
+Retires: `@factory/harness-bridge` (deleted at step 47), `@factory/runtime` stub (deleted at step 47), Gas City dispatch, pi-coding-agent, `ff-flue` worker (merged into ff-pipeline + gears, 2026-06-10).
 
----
-
-### .flue/workflows (atom-execution)
-
-| Field | Value |
-|-------|-------|
-| Spec source | SPEC-FF-JUSTBASH-001-004 |
-| Package path | `.flue/workflows/atom-execution.ts` |
-| Cloudflare primitives | **Worker** (Flue workflow replacing CF Worker fetch handler), **R2** (`SANDBOX_OUTPUT_BUCKET` for full output storage), **Container** (Sandbox via `@cloudflare/sandbox`), **DO** (CoordinatorDO stub, via `@factory/gears`) |
-| Implementation steps | Steps 45–48 (SPEC-FF-JUSTBASH-001-004 implementation sequence steps 1–12) |
-| Key dependencies | `@factory/schemas`, `@factory/gears`, `@flue/runtime`, `@cloudflare/sandbox` |
-
-Rewrites the Conducting Agent from a CF Worker fetch handler to a Flue workflow. Required because `ctx.init(agent)` is only available inside a `FlueContext` workflow `run()`. Replaces `POST /execute` with `POST /workflows/atom-execution`. Key behaviors: deterministic `CoordinatorDO` key per WorkGraph execution (`runId = SHA-256(workGraphId + workGraphVersion)`), `directive.role` used directly for `PROFILE_BY_ROLE` selection (deletes `deriveRole()` heuristic), `evaluateSuccessCondition()` now async (supports `file-exists` via `harness.shell()`), workspace delta extraction via VFS diff. `packages/schemas` gains `skillRef` and `role` fields on `AtomDirective`.
+> **[2026-06-10 patch]** Flue atom-execution workflow moved from `.flue/workflows/atom-execution.ts` (standalone worker) into `packages/gears/src/flue/workflows/` (absorbed into gears substrate). Three fabricated workflows deleted — only `atom-execution` is specced. `@flue/runtime` real dep installed (was stub). `zod@^4.0.0` migration across all `@factory/*` packages.
 
 ---
 

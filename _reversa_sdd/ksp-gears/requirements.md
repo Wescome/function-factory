@@ -298,6 +298,36 @@ Package names use `@factory/*` prefix in public exports. All `@koales/*` referen
 
 ---
 
+## Patch 2026-06-11: Flue Atom-Execution Absorbed into Gears
+
+### FR-15: FlueAtomExecutionWorkflow and FlueRegistry Exported from Gears (BR-FLUE-01)
+
+**[2026-06-11 new]** `@factory/gears` exports `FlueAtomExecutionWorkflow` (DO class) and `FlueRegistry`. These are re-exported by `workers/ff-pipeline/src/index.ts` for wrangler DO binding registration. No standalone `ff-flue` worker exists (ADR-013). 🟢 CONFIRMADO
+
+**Acceptance test**: `packages/gears/src/index.ts` exports `FlueAtomExecutionWorkflow` and `FlueRegistry`. `wrangler deploy` registers them as DO bindings via `ff-pipeline`.
+
+### FR-16: seedBeads() Gate Before getNextReady() (BR-FLUE-02)
+
+**[2026-06-11 new]** `CoordinatorDO.getNextReady()` throws if `seedBeads()` + `initRun()` have not been called. The atom-execution workflow must seed the molecule before requesting the next bead. `initRun()` also arms the stale-bead alarm (BR-KSP-16 extended). 🟢 CONFIRMADO
+
+**Acceptance test**: Calling `getNextReady()` on an unseeded DO throws `Error('molecule not seeded')`.
+
+### FR-17: D1 Bead Audit Helpers (d1-audit.ts)
+
+**[2026-06-11 new]** `packages/gears/src/beads/d1-audit.ts` exports `insertBeadAudit(db, row)` and `queryBeadAudit(db, runId)`. `CoordinatorDO.writeAudit()` calls `insertBeadAudit`. Cross-run audit log stored in `factory-bead-audit` D1 database. 🟢 CONFIRMADO
+
+### FR-18: AI Gateway Bypassed for kimi-k2.6 (BR-FLUE-04)
+
+**[2026-06-11 new]** `coderProfile` sets `gateway: false`. The Cloudflare AI Gateway closes SSE response bodies prematurely on kimi-k2.6 text turns, causing stream reads to hang. Direct CF Workers AI binding is required. 🟢 CONFIRMADO
+
+**Updated FR (coderProfile model)**: `coderProfile` model is `@cf/moonshotai/kimi-k2.6` (not `anthropic/claude-opus-4-6`); `thinkingLevel: 'low'`. 🟢 CONFIRMADO
+
+### NFR-08: storeFullOutput Non-Fatal (BR-FLUE-05)
+
+**[2026-06-11 new]** R2 write failures in `storeFullOutput` are non-fatal. The error is logged but must not propagate. R2 unavailability must not cause atom execution failure. 🟡 INFERIDO (guard confirmed, logging behavior inferred from commit message)
+
+---
+
 ## MoSCoW Summary
 
 | ID | Requirement | Priority |
@@ -316,6 +346,10 @@ Package names use `@factory/*` prefix in public exports. All `@koales/*` referen
 | FR-12 | Skill workspace discovery (GD-003) | Should |
 | FR-13 | Delete harness-bridge + runtime stubs | Should |
 | FR-14 | src/index.ts barrel | Must |
+| FR-15 | FlueAtomExecutionWorkflow + FlueRegistry exported | Must |
+| FR-16 | seedBeads() gate before getNextReady() | Must |
+| FR-17 | D1 bead audit helpers (d1-audit.ts) | Must |
+| FR-18 | AI Gateway bypassed for kimi-k2.6 | Must |
 | NFR-01 | Single-writer serialization | Must |
 | NFR-02 | Deterministic runId | Must |
 | NFR-03 | 5-minute stall timeout | Must |
@@ -323,3 +357,4 @@ Package names use `@factory/*` prefix in public exports. All `@koales/*` referen
 | NFR-05 | Fail-closed on missing runId | Must |
 | NFR-06 | Append-only audit table | Must |
 | NFR-07 | @factory/* naming throughout | Should |
+| NFR-08 | storeFullOutput non-fatal | Must |

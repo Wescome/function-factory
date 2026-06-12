@@ -187,9 +187,13 @@ Origin: SPEC-KSP-BEAD-GRAPH-001 §5 (`AmendmentStatus`), SPEC-KSP-LOOP-CLOSURE-0
 
 The `execution_beads` table in `CoordinatorDO` tracks the lifecycle of each bead (work unit) within a WorkGraph execution run. The status field drives the `getNextReady()` dependency-resolution query: a bead is only eligible for dispatch when all parent beads have `status = 'done'`.
 
+**[2026-06-11 updated]** `seedBeads()` / `initRun()` gate added: `CoordinatorDO` must be seeded before beads can be created. `getNextReady()` throws if molecule has not been seeded.
+
 ```mermaid
 stateDiagram-v2
-    [*] --> ready : Bead created (CoordinatorDO.initRun / molecule seed)
+    [*] --> UNSEEDED : CoordinatorDO initialized (no beads yet)
+
+    UNSEEDED --> ready : seedBeads() called\n+ initRun() arms stale-bead alarm\n→ bead rows inserted with status='ready'
 
     ready --> in_progress : claimHook() — atomic CAS\nSET status='in_progress', assigned_to=agentId\nattempt_count+1\n(only transitions if status='ready')
 
@@ -204,12 +208,13 @@ stateDiagram-v2
 ```
 
 **Notes:**
+- **[2026-06-11]** `getNextReady()` throws `Error('molecule not seeded')` if called before `seedBeads()` + `initRun()` (BR-FLUE-02, BR-KSP-16).
 - `claimHook()` uses atomic SQLite CAS: `WHERE id=? AND status='ready'` — only one agent can claim a bead.
 - `getNextReady()` queries for `status='ready'` beads whose all parents have `status='done'` (dependency graph respects execution order).
 - Stalled bead detection: `CoordinatorDO.alarm()` fires every 5 minutes and re-hooks `in_progress` beads with `updated_at < now - 5min` (crashed agent recovery).
 - Both `done` and `failed` trigger `writeAudit()` (D1) and `recordOutcome()` (LoopClosureService Bridge Point 3).
 
-Origin: SPEC-FF-GEARS-001 §7, SPEC-FF-JUSTBASH-003
+Origin: SPEC-FF-GEARS-001 §7, SPEC-FF-JUSTBASH-003; patch 2026-06-11 commit 46b4868
 
 ---
 

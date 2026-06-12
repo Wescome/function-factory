@@ -337,6 +337,59 @@
       "ksp-bead-graph": "2026-06-10",
       "ksp-flue-workflow": "2026-06-10"
     },
+    "writer_patch_2026-06-11": {
+      "completed_at": "2026-06-11",
+      "type": "patch",
+      "trigger": "Flue atom-execution wiring into @factory/gears, ff-flue merger, handler extraction, WORKSPACE_BUCKET/OFOX_API_KEY bindings",
+      "modules_updated": ["ksp-gears", "ff-pipeline"],
+      "files_updated": [
+        "_reversa_sdd/ksp-gears/requirements.md",
+        "_reversa_sdd/ff-pipeline/requirements.md"
+      ],
+      "key_changes": [
+        "ksp-gears: FR-15 FlueAtomExecutionWorkflow+FlueRegistry exported",
+        "ksp-gears: FR-16 seedBeads() gate before getNextReady()",
+        "ksp-gears: FR-17 d1-audit.ts helpers",
+        "ksp-gears: FR-18 AI Gateway bypassed for kimi-k2.6 (gateway:false)",
+        "ksp-gears: NFR-08 storeFullOutput non-fatal",
+        "ksp-gears: coderProfile model updated to @cf/moonshotai/kimi-k2.6",
+        "ff-pipeline: FR-22 Flue atom-execution workflow route",
+        "ff-pipeline: FR-23 WORKSPACE_BUCKET + OFOX_API_KEY required bindings",
+        "ff-pipeline: FR-24 clean import graph handler modules"
+      ]
+    },
+    "detective_patch_2026-06-11": {
+      "completed_at": "2026-06-11",
+      "type": "patch",
+      "trigger": "Flue atom-execution wiring into @factory/gears, ff-flue merger, handler extraction",
+      "new_rules": ["BR-FLUE-01", "BR-FLUE-02", "BR-FLUE-03", "BR-FLUE-04", "BR-FLUE-05", "BR-FLUE-06"],
+      "new_adrs": ["_reversa_sdd/adrs/ADR-013-ff-flue-merged-into-gears-and-ff-pipeline.md"],
+      "state_machines_updated": ["SM-6: ExecutionBead Status — UNSEEDED state + seedBeads() gate added"],
+      "files_updated": [
+        "_reversa_sdd/domain.md",
+        "_reversa_sdd/state-machines.md",
+        "_reversa_sdd/adrs/ADR-013-ff-flue-merged-into-gears-and-ff-pipeline.md"
+      ]
+    },
+    "scout_patch_2026-06-11": {
+      "completed_at": "2026-06-11",
+      "type": "patch",
+      "trigger": "Flue atom-execution wiring into @factory/gears (b8f8ac2, 46b4868), ff-flue merged, zod@^4 migration, queue/trigger-synthesis handler extraction (919364e)",
+      "changes": [
+        "inventory.md: @factory/gears updated with FlueAtomExecutionWorkflow, FlueRegistry, d1-audit.ts, atom-execution.ts, atom-execution-do.ts",
+        "inventory.md: CoordinatorDO seedBeads/initRun/getNextReady/recordOutcome documented",
+        "inventory.md: coderProfile model @cf/moonshotai/kimi-k2.6, thinkingLevel:low, gateway:false",
+        "inventory.md: .flue/workflows section retired — absorbed into packages/gears/src/flue/workflows/",
+        "inventory.md: ff-pipeline queue-handler.ts + trigger-synthesis-handler.ts new entries",
+        "surface.json: ff-pipeline-queue-handler and ff-pipeline-trigger-synthesis-handler modules added",
+        "surface.json: R2 WORKSPACE_BUCKET added to external_integrations",
+        "surface.json: DO SQLite + D1 factory-bead-audit added to database field"
+      ],
+      "files_updated": [
+        "_reversa_sdd/inventory.md",
+        ".reversa/context/surface.json"
+      ]
+    },
     "scout_patch_2026-06-10": {
       "completed_at": "2026-06-10",
       "type": "patch",

@@ -260,3 +260,31 @@ All five steps of Bridge Point 5 (artifact graph Specification, ElucidationArtif
 | Edge uniqueness in artifact graph: `UNIQUE(source, target, rel)` — writing same edge twice is idempotent | SPEC-KSP-ARTIFACT-GRAPH-001 INV-AG-002 |
 | D1 `bead_audit` table is append-only (autoincrement PK, no deletes) | SPEC-FF-GEARS-001 §7 |
 | `@koales/` package scope is provisional — packages live in FF monorepo until cross-product decision | SPEC-KSP-ARCH-001 §3, §10 |
+
+---
+
+## Flue Atom-Execution Rules (Patch 2026-06-11)
+
+**BR-FLUE-01: FlueAtomExecutionWorkflow Lives in @factory/gears**
+The `FlueAtomExecutionWorkflow` DO class and `FlueRegistry` are part of `@factory/gears`, not a standalone worker. `ff-pipeline/index.ts` re-exports them for wrangler DO bindings only. No separate `ff-flue` worker exists.
+- Source: commit b8f8ac2, SPEC-FF-GEARS-001 §3; 🟢 CONFIRMADO
+
+**BR-FLUE-02: seedBeads() Required Before getNextReady()**
+`CoordinatorDO.getNextReady()` throws if `initRun()` has not been called and beads have not been seeded via `seedBeads()`. The caller (atom-execution workflow) must seed the molecule before requesting the next bead.
+- Source: commit 46b4868 (CoordinatorDO seedBeads/initRun gate); 🟢 CONFIRMADO
+
+**BR-FLUE-03: Only atom-execution Workflow Is Specced**
+Three fabricated Flue workflows were deleted (commit 45db2ea). Only `FlueAtomExecutionWorkflow` is specified and deployed. No other Flue workflow classes may be added without a spec.
+- Source: commit 45db2ea; 🟢 CONFIRMADO
+
+**BR-FLUE-04: AI Gateway Must Be Bypassed for kimi-k2.6**
+`coderProfile` sets `gateway: false` to bypass the Cloudflare AI Gateway. The AI Gateway's SSE connection closes the response body prematurely on kimi-k2.6 text turns, causing stream reads to hang. Direct CF Workers AI binding is required.
+- Source: commit 46b4868 (gateway:false bypass); 🟢 CONFIRMADO
+
+**BR-FLUE-05: storeFullOutput Is Non-Fatal**
+Writing the full LLM output to `WORKSPACE_BUCKET` (R2) may fail without aborting the atom execution. The failure is logged but does not propagate. R2 unavailability must not cause execution failures.
+- Source: commit 46b4868; 🟡 INFERIDO (non-fatal guard confirmed, logging behavior inferred)
+
+**BR-FLUE-06: Handler Modules Must Have Clean Import Graphs**
+Queue consumer and route handlers extracted from the barrel (`queue-handler.ts`, `trigger-synthesis-handler.ts`) must use only type-only static imports. All runtime CF-runtime dependencies (`@factory/gears`, `@flue/runtime`, `@cloudflare/*`) must be deferred via `await import()`. This prevents `ERR_UNSUPPORTED_ESM_URL_SCHEME` in Node.js test environments.
+- Source: commit 919364e; 🟢 CONFIRMADO

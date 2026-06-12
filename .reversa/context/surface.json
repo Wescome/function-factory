@@ -58,7 +58,9 @@
     "ksp-loop-closure",
     "ksp-factory-graph",
     "ksp-gears",
-    "ksp-flue-workflow"
+    "ksp-flue-workflow",
+    "ff-pipeline-queue-handler",
+    "ff-pipeline-trigger-synthesis-handler"
   ],
   "entry_points": [
     "workers/ff-pipeline/src/index.ts",
@@ -76,9 +78,10 @@
     "Gas City (external molecule execution platform)",
     "Cloudflare Queues (SYNTHESIS_QUEUE, SYNTHESIS_RESULTS, ATOM_RESULTS, FEEDBACK_QUEUE)",
     "Cloudflare Durable Objects",
-    "Cloudflare Containers (GasCitySupervisor, PiContainer)"
+    "Cloudflare Containers (GasCitySupervisor, PiContainer)",
+    "R2 (WORKSPACE_BUCKET — run event log, full output storage)"
   ],
-  "database": "D1 (Cloudflare) for worker operational state; ArangoDB for artifact store (collections: specs_signals, specs_pressures, specs_capabilities, specs_functions, executable_specifications, lineage_edges, verification_reports, execution_artifacts)",
+  "database": "D1 (Cloudflare) for worker operational state; ArangoDB for artifact store (collections: specs_signals, specs_pressures, specs_capabilities, specs_functions, executable_specifications, lineage_edges, verification_reports, execution_artifacts); DO SQLite (ArtifactGraphDO, BeadGraphDO, CoordinatorDO per run); D1 factory-bead-audit (cross-run bead audit log)",
   "test_frameworks": ["vitest"],
   "test_file_count": 160,
   "source_file_count": 424,
