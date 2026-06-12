@@ -1,128 +1,106 @@
 # Session Handoff — 2026-06-11
 
-## What Was Done This Session
+## Status
 
-### Reversa Diff Re-run — COMPLETE
-- Full diff-driven Reversa re-run on function-factory (post D1 migration)
-- 16 agents, 51 min — SDD updated from 84% → 88% confidence, 5 → 8 modules
-- D1 migration fully reflected: architecture.md, domain.md, inventory.md, code-analysis.md all patched
-- Two CRÍTICO gaps fixed: `dependencies.md` arango-client → db-client; `traverse()` confirmed no production call sites
-- New packages (db-client, ontology-loader, ff-gates, ff-gateway, gascity-supervisor) now fully documented
-
-### KSP Forward Reversa — COMPLETE
-- Full Reversa treatment applied to 7 KSP implementation specs from `/Users/wes/Downloads/ksp-implementation.zip`
-- 19 agents, 37 min — 7 new SDD module folders created at `_reversa_sdd/ksp-*/`
-- Overall KSP SDD confidence: 89%
-- All 52 implementation steps accounted for across tasks.md files
-- All 10 CLAUDE.md critical rules represented in SDD
-
-### KSP Spec Gaps — RESOLVED
-- **Q-11 (CRITICAL):** `@factory/` is authoritative namespace (not `@koales/`). Zero `@koales/` refs in SDD output.
-- **Q-12 (CRITICAL):** `getActiveSpecification` — declared as `abstract` method on `ArtifactGraphDOBase`. Updated in `ksp-artifact-graph/tasks.md` Task 6.
-- **Q-13 (CRITICAL):** `dispositionEventId` — `DispositionEvent` node (§4B.4) must be created in Step 3a of BP5 before `ElucidationArtifact`. Updated in `ksp-loop-closure/tasks.md` Step 25e and `design.md`.
-
-### Agent Roster — COMPLETE
-- 3 new Reversa skills created (cloned from reversa-audit and reversa-inspector):
-  - `/reversa-ts-doctor` — TypeScript compiler error → spec trace → fix proposal
-  - `/reversa-cf-specialist` — CF Workers/DO binding errors → spec section → correction
-  - `/reversa-test-interrogator` — Vitest failures → IMPL_WRONG/TEST_WRONG/SPEC_GAP/CASCADE verdict + Gherkin parity specs
-- Full roster documented at `_reversa_sdd/KSP-IMPLEMENTATION-ROSTER.md`
+Engineer agent deploying abort-fix + thinkingLevel change + e2e run `-012` right now. Check `SendMessage to: 'a989a999afc274a66'`.
 
 ---
 
-## Open Work
+## What was done this session
 
-### P0 — KSP Phase 2 Implementation (NOT STARTED)
+### Gas City cleanup
+Deleted all Gas City and Arango ops scripts from `scripts/ops/`. Only `configure-r2-lifecycle.sh` and `rollback.sh` remain.
 
-**Read first:**
-- `_reversa_sdd/KSP-IMPLEMENTATION-ROSTER.md` — full agent roster + escalation chain
-- `_reversa_sdd/ksp-*/tasks.md` — one per phase (7 files)
+### Flue atom-execution pipeline — every layer proven in production
 
-**Implementation sequence (strict — do not reorder):**
+| Layer | Status |
+|-------|--------|
+| `POST /debug/seed-molecule` → CoordinatorDO | ✅ |
+| `seedBeads()` + `initRun()` on CoordinatorDO | ✅ |
+| `getNextReady()` unseeded-vs-complete guard | ✅ |
+| `POST /workflows/atom-execution` dispatch | ✅ |
+| Flue workflow DO bead claim | ✅ |
+| Agent session init + skill discovery before `init()` | ✅ |
+| CF Workers AI binding `@cf/moonshotai/kimi-k2.6` reached | ✅ |
+| D1_AUDIT `bead_audit` table created in production | ✅ |
 
-| Phase | Package | Steps | Gate |
-|-------|---------|-------|------|
-| 1 | `@factory/artifact-graph` | 1–9 | `tsc --noEmit` + 3 test suites |
-| 2 | `@factory/bead-graph` | 10–20 | `tsc --noEmit` + all tests |
-| 3 | `@factory/ksp-sdk` | 21 | `tsc --noEmit`, zero `@factory/*` imports |
-| 4 | `@factory/loop-closure` | 22–26 | **HARD GATE: all 5 bridge point tests green** |
-| 5 | `packages/factory-graph` | 27–33 | `tsc --noEmit` + detector/verifier unit tests |
-| 6 | `@factory/gears` | 34–44 | `tsc --noEmit` + integration test |
-| 7 | `.flue/workflows` + cleanup | 45–48 | `tsc --noEmit` repo-wide zero errors |
-| 8 | Integration | 49–52 | Deploy to CF paid account, full loop smoke test |
+### Uncommitted code changes
 
-**On any gate failure:** use escalation chain in roster (reversa-ts-doctor / reversa-cf-specialist / reversa-test-interrogator → reversa-audit → reversa-clarify → reversa-reconstructor → HALT).
+**`packages/gears/src/beads/coordinator-do.ts`**
+- `seedBeads()` — idempotent bead + edge insert, `blockConcurrencyWhile`, deterministic timestamps
+- `/seed` HTTP route
+- `initRun()` arms stale-bead alarm (was never armed)
+- `getNextReady()` throws on unseeded molecule
 
-**Spec files location:** `/tmp/ksp-impl/ksp-impl-specs/` (extracted from `/Users/wes/Downloads/ksp-implementation.zip`)
+**`packages/gears/src/flue/workflows/atom-execution.ts`**
+- `cwd` desync fix — `cfSandboxToSessionEnv` now receives `cwd`
+- `gitCheckout` before `init(agent)` for container atoms
+- Skill injection (`SKILL_CONTENT`) before `init()` — pre-seeded `InMemoryFs` for virtual sandbox
+- Provider wiring: direct Anthropic/OpenAI (no ofox), `registerProvider + registerApiProvider` for CF Workers AI binding
+- `storeFullOutput` non-fatal
+- **Timeout fix** (Engineer deploying now): `Promise.race` → `AbortController` + `handle.abort()` on timeout
 
-### P1 — molecule.go source_bead_id fix (gascity repo) — STILL OPEN
+**`packages/gears/src/flue/agents.ts`**
+- `coderProfile` model: `cloudflare/@cf/moonshotai/kimi-k2.6` (correct ID from models.dev)
+- `coderProfile` `thinkingLevel: 'low'` (was defaulting to `"medium"` → 5+ min thinking on trivial tasks)
 
-**File:** `/Users/wes/Developer/gascity/internal/molecule/molecule.go` lines ~263–272 (Attach loop)
-**Fix:**
-```go
-if srcID := root.Metadata["gc.source_bead_id"]; srcID != "" {
-    step.Metadata["gc.source_bead_id"] = srcID
-}
-```
-After fix: rebuild `gc-linux-amd64`, copy to `workers/gascity-supervisor/gc-linux-amd64`, redeploy gascity-supervisor.
+**`packages/gears/package.json`** — `@cloudflare/sandbox` pinned `^0.12.0`
 
-This fixes Gas City live workflow release step: `fidelity_fail_closed` / `orphan_bead 409`.
+**`workers/ff-pipeline/src/index.ts`** — `POST /debug/seed-molecule` added
 
-### Open PRs (still pending)
-- **#74** — 4 agent packages + knowing-state-sdk + AtomDirective schema (`feat/agent-infrastructure-packages`)
-  - Note: these are now superseded by the KSP implementation — the stubs in PR #74 will be replaced
-- **#75** — Linear integration specs (`feat/linear-integration-specs`)
+**`workers/ff-pipeline/src/types.ts`** — `WORKSPACE_BUCKET: R2Bucket`, `OFOX_API_KEY: string` (both required now)
+
+**Deleted** — `.flue/.flue-vite/_entry.ts` + `.flue/.flue-vite.wrangler.jsonc` (competing DO, was breaking secret propagation)
+
+**Added** — `scripts/ops/e2e-atom.sh`, `workers/ff-pipeline/.dev.vars` template
 
 ---
 
-## Key Facts
+## Known broken tests (pre-existing, same root cause)
 
-### SDD State
-- Location: `_reversa_sdd/`
-- Modules: 8 existing ff modules + 7 new KSP modules (15 total)
-- Confidence: ~88% overall, ~89% KSP layer
-- Gate diagnostics output: `_reversa_sdd/gate-diagnostics/` (created on first failure)
-- Roster: `_reversa_sdd/KSP-IMPLEMENTATION-ROSTER.md`
+Six other test files in `workers/ff-pipeline` fail with the identical `ERR_UNSUPPORTED_ESM_URL_SCHEME` / `cloudflare:` protocol error. All were broken **before this session** — confirmed via `git stash`. They all import `./index` and hit the same `@factory/gears` → `@flue/runtime/cloudflare` barrel taint.
 
-### KSP Package Topology (build order — strict)
+| Test file | Status |
+|-----------|--------|
+| `src/diagnostic-routes.test.ts` | broken, pre-existing |
+| `src/dispatch-formula-route.test.ts` | broken, pre-existing |
+| `src/cf-workers.test.ts` (pi-container-execute-route) | broken, pre-existing |
+| `src/pr-outcome-queue.test.ts` | broken, pre-existing |
+| `src/atoms-complete-wiring.test.ts` | broken, pre-existing |
+| `src/cf-gates.test.ts` (smoke-e2e-handler) | broken, pre-existing |
+
+**Fix pattern:** Extract each route/handler into its own module with a clean import graph (type-only imports only), wire `index.ts` to delegate, update test to import the handler directly — exactly what was done for `queue-handler.ts` and `trigger-synthesis-handler.ts` this session.
+
+**Alternative:** Migrate to `@cloudflare/vitest-pool-workers` which natively supports `cloudflare:*` protocol and eliminates the extraction requirement entirely.
+
+---
+
+## Open after e2e passes
+
+1. **Commit everything** — nothing committed this session
+2. **`/runs/:id` pagination** — caps at 100 events, ignores `after=`. Blind past event 99.
+3. **`WORKSPACE_BUCKET.put` in `storeFullOutput`** — throws despite guard passing. Marked non-fatal. Investigate CF R2 scope in DO context.
+4. **`recordOutcome()` in CoordinatorDO** — stub. Phase 3 HARD GATE.
+5. **OFOX_API_KEY** — current code bypasses ofox (direct Anthropic). Anthropic key in worker has zero credits. Either top up or keep direct routing.
+6. **Arango naming debt** — `checkArango` → `checkD1` in `index.ts`
+7. **kimi timeout for real tasks** — `timeoutMs` should be 5–10 min per atom type. Set in WorkGraph compiler when built.
+
+---
+
+## Architecture facts confirmed
+
+- **D1 for `bead_audit`** is intentional — cross-run audit, can't query across DOs
+- **`Promise.race` ≠ cancellation** — must use `AbortController` + `handle.abort()`. Flue's cancel chain is fully wired, just needs arming.
+- **kimi CF model ID** = `@cf/moonshotai/kimi-k2.6` (from models.dev, not `kimi-k2.6`)
+- **`thinkingLevel: 'low'`** is the floor for kimi on CF — `"none"` doesn't exist
+- **Competing `.flue-vite` DO** was root cause of missing secrets in DO env
+
+---
+
+## Deploy
+
+```bash
+cd /Users/wes/Developer/function-factory/workers/ff-pipeline && wrangler deploy
 ```
-@factory/artifact-graph   ← no internal deps
-@factory/bead-graph       ← no internal deps
-@factory/ksp-sdk          ← @factory/bead-graph only (ZERO other @factory/* imports)
-@factory/loop-closure     ← @factory/artifact-graph + @factory/bead-graph
-packages/factory-graph    ← @factory/artifact-graph + @factory/bead-graph + @factory/loop-closure
-@factory/schemas          ← add skillRef + role to AtomDirective (Step 34)
-@factory/gears            ← @factory/schemas + packages/factory-graph + @factory/loop-closure + @flue/runtime
-```
 
-### Resolved Architectural Decisions
-- `@factory/` is the authoritative namespace (not `@koales/`)
-- `ksp-sdk` is the canonical short name (not `knowing-state-sdk`)
-- `getActiveSpecification` is abstract on `ArtifactGraphDOBase`, implemented by `FactoryArtifactGraphDO`
-- `DispositionEvent` node created in BP5 Step 3a before `ElucidationArtifact`
-
-### Infrastructure (unchanged from prior session)
-- D1 database: `ff-factory`, id `6a72d5c3-bcbb-41e3-b29d-d8de5834c3b3`, region ENAM
-- D1 tables: `documents(collection, key, json, created_at)` + `edges`
-- All workers live at `*.koales.workers.dev`
-- Tokens in `/tmp/`: `gc_token.txt`, `gc_supervisor_token.txt`, `gc_hmac_secret.txt`
-
-### SQL Pattern (D1 — never json_each in subqueries)
-```typescript
-// ✅ Correct
-db.queryOne<{ json: string }>(
-  `SELECT json FROM documents WHERE collection='x' AND json_extract(json,'$.field')=? LIMIT 1`,
-  [value]
-).then(row => row ? JSON.parse(row.json) as T : null)
-```
-
-### New Reversa Skills (available for next session)
-- `/reversa-ts-doctor` — `~/.claude/skills/reversa-ts-doctor/SKILL.md`
-- `/reversa-cf-specialist` — `~/.claude/skills/reversa-cf-specialist/SKILL.md`
-- `/reversa-test-interrogator` — `~/.claude/skills/reversa-test-interrogator/SKILL.md`
-
-### Gas City Status (unchanged)
-- Pi-container/gascity coding runtime: **SUNSET** — do not debug
-- Only remaining Gas City fix: molecule.go source_bead_id (P1 above)
-- Smoke test: passes 5/5
-- Live workflow: init ✅ plan ✅ code ✅ verify ✅ release ❌ (blocked on molecule.go fix)
+Production: `https://ff-pipeline.koales.workers.dev`
