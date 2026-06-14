@@ -35,6 +35,8 @@ export interface ConductorEnv {
   DB: D1Database
   LOADER: WorkerLoader
   SANDBOX?: unknown
+  CF_API_TOKEN: string
+  CLOUDFLARE_ACCOUNT_ID: string
 }
 
 function buildSystemPrompt(directive: AtomDirective): string {
@@ -52,13 +54,20 @@ export function buildConductingAgent(
   env: ConductorEnv,
 ): Agent {
   const { modelId } = MODEL_BY_ROLE[directive.role]
+  const model = modelId.startsWith('cloudflare/')
+    ? {
+        id: modelId as `${string}/${string}`,
+        url: `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/ai/v1`,
+        apiKey: env.CF_API_TOKEN,
+      }
+    : modelId
   const safetyModel = 'openai/gpt-4o'
 
   return new Agent({
     id: `conducting-agent-${directive.atomId}`,
     name: `ConductingAgent[${directive.role}]`,
     instructions: buildSystemPrompt(directive),
-    model: modelId,
+    model,
     tools: async () => {
       const workspaceTools = createWorkspaceTools(thinkExecutorDO)
       return {

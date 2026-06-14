@@ -44,6 +44,8 @@ async function evaluateCondition(
       return lastOutput.includes(condition.substring)
     case 'output-matches':
       return new RegExp(condition.pattern).test(lastOutput)
+    case 'always':
+      return true
     case 'composite':
       for (const sub of condition.all) {
         if (!(await evaluateCondition(sub, workspace, lastOutput))) return false

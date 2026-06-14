@@ -31,6 +31,7 @@ export const SuccessConditionBase = z.discriminatedUnion('type', [
 export type SuccessCondition =
   | z.infer<typeof SuccessConditionBase>
   | { type: 'composite'; all: SuccessCondition[] }
+  | { type: 'always' }
 
 export const SuccessCondition: z.ZodType<SuccessCondition> = z.lazy(() =>
   z.discriminatedUnion('type', [
@@ -39,6 +40,7 @@ export const SuccessCondition: z.ZodType<SuccessCondition> = z.lazy(() =>
     z.object({ type: z.literal('output-matches'),  pattern: z.string() }),
     z.object({ type: z.literal('file-exists'),      path: z.string() }),
     z.object({ type: z.literal('composite'),        all: z.array(SuccessCondition) }),
+    z.object({ type: z.literal('always') }),
   ])
 )
 
