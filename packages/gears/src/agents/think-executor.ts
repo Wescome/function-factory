@@ -13,6 +13,7 @@
  */
 
 import { Think, type FiberRecoveryContext } from '@cloudflare/think'
+import { Workspace } from '@cloudflare/shell'
 import { RequestContext } from '@mastra/core/request-context'
 import type { AtomDirective, SuccessCondition } from '@factory/schemas'
 import type { WorkspaceLike } from '@cloudflare/think/tools/workspace'
@@ -246,6 +247,8 @@ export class ThinkExecutor extends Think<Env> {
     if (!directive.runId) {
       throw new Error('AtomDirective.runId is required — CoordinatorDO key would be coordinator:undefined')
     }
+    // /execute-atom bypasses super.fetch(), so Think.onStart() never runs — init workspace manually.
+    if (!this.workspace) this.workspace = new Workspace({ sql: this.ctx.storage.sql, name: () => this.name })
     const coordinatorDO = this.env.COORDINATOR_DO.get(
       this.env.COORDINATOR_DO.idFromName(`coordinator:${directive.runId}`),
     )
