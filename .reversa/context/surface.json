@@ -6,7 +6,7 @@
     "JavaScript": "4%",
     "TOML/YAML/JSON": "2%"
   },
-  "framework": "Cloudflare Workers (WorkflowEntrypoint, DurableObject, Agent, Container)",
+  "framework": "Cloudflare Workers (WorkflowEntrypoint, DurableObject, Agent, Container, @cloudflare/think) + Mastra (@mastra/core Agent, @mastra/memory)",
   "package_manager": "pnpm 9.0.0",
   "node_version": ">=20.0.0",
   "modules": [
@@ -58,7 +58,6 @@
     "ksp-loop-closure",
     "ksp-factory-graph",
     "ksp-gears",
-    "ksp-flue-workflow",
     "ff-pipeline-queue-handler",
     "ff-pipeline-trigger-synthesis-handler"
   ],
@@ -73,7 +72,10 @@
   "external_integrations": [
     "ArangoDB (graph database — artifact store)",
     "D1 (Cloudflare SQLite — worker operational state)",
-    "Cloudflare Workers AI (llama-70b, kimi-k2.6)",
+    "Cloudflare Workers AI (llama-70b, kimi-k2.6) — via @cloudflare/think WorkerLoader + direct binding (kimi-k2.6 bypasses AI Gateway)",
+    "@cloudflare/think (Project Think — durable fiber substrate for ThinkExecutor, runFiber crash recovery)",
+    "@mastra/core Agent + inputProcessors/outputProcessors (ConductingAgent LLM routing, I4 enforcement)",
+    "@mastra/memory + @mastra/cloudflare-d1 (observational memory compressor, D1-backed storage)",
     "GitHub REST API (PR creation, file contexts)",
     "Gas City (external molecule execution platform)",
     "Cloudflare Queues (SYNTHESIS_QUEUE, SYNTHESIS_RESULTS, ATOM_RESULTS, FEEDBACK_QUEUE)",
@@ -81,7 +83,7 @@
     "Cloudflare Containers (GasCitySupervisor, PiContainer)",
     "R2 (WORKSPACE_BUCKET — run event log, full output storage)"
   ],
-  "database": "D1 (Cloudflare) for worker operational state; ArangoDB for artifact store (collections: specs_signals, specs_pressures, specs_capabilities, specs_functions, executable_specifications, lineage_edges, verification_reports, execution_artifacts); DO SQLite (ArtifactGraphDO, BeadGraphDO, CoordinatorDO per run); D1 factory-bead-audit (cross-run bead audit log)",
+  "database": "D1 (Cloudflare) for worker operational state; ArangoDB for artifact store (collections: specs_signals, specs_pressures, specs_capabilities, specs_functions, executable_specifications, lineage_edges, verification_reports, execution_artifacts); DO SQLite (ArtifactGraphDO, BeadGraphDO, CoordinatorDO per run, ThinkExecutor fiber state via @cloudflare/think); D1 factory-bead-audit (cross-run bead audit log); D1 gears-agent-memory (@mastra/cloudflare-d1 observational memory for ConductingAgent)",
   "test_frameworks": ["vitest"],
   "test_file_count": 160,
   "source_file_count": 424,

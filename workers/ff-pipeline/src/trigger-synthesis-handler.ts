@@ -2,17 +2,18 @@
  * HTTP handler for `POST /trigger-synthesis`.
  *
  * Extracted from index.ts so it can be unit-tested without importing the
- * worker's barrel (`./index`), which re-exports Flue DO/Workflow classes from
- * `@factory/gears` / `@factory/factory-graph` plus `@cloudflare/sandbox` and
- * `agents`. Those are prebuilt ESM modules that statically import the
- * `cloudflare:*` protocol; Node's test-time ESM loader rejects that protocol
- * (`ERR_UNSUPPORTED_ESM_URL_SCHEME`), and that rejection happens during native
- * module linking — before any `vi.mock` or Vitest alias can intercept it.
+ * worker's barrel (`./index`), which re-exports DO and Agent classes from
+ * `@factory/gears` / `@factory/factory-graph` (ThinkExecutor, CoordinatorDO,
+ * etc.) and `@cloudflare/sandbox`. Those are prebuilt ESM modules that
+ * statically import the `cloudflare:*` protocol; Node's test-time ESM loader
+ * rejects that protocol (`ERR_UNSUPPORTED_ESM_URL_SCHEME`), and that
+ * rejection happens during native module linking — before any `vi.mock` or
+ * Vitest alias can intercept it.
  *
  * This module keeps a CLEAN import graph: the only static import is a
  * type-only import of `PipelineEnv`. It never touches `@factory/gears`,
- * `@flue/runtime`, `@cloudflare/sandbox`, `agents`, or any `cloudflare:*`
- * module, so the route can be exercised directly under Node.
+ * `@cloudflare/sandbox`, `agents`, or any `cloudflare:*` module, so the
+ * route can be exercised directly under Node.
  */
 
 import type { PipelineEnv } from './types'

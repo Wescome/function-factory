@@ -76,6 +76,10 @@ export const AtomDirective = z.object({
   /** Execution-plan run identifier scoping this directive. */
   runId: z.string().min(1),
 
+  /** Executable specification identifier — used by queue consumers to route
+   *  to the correct AtomExecutor DO via idFromName(`atom-${executableSpecificationId}-${atomId}`). */
+  executableSpecificationId: z.string().min(1),
+
   /** Repository identifier. */
   repoId: z.string().min(1),
 
@@ -107,6 +111,11 @@ export const AtomDirective = z.object({
 
   /** Sandbox configuration. */
   sandboxConfig: SandboxConfig,
+
+  /** Pipeline workflow identifier for routing atom-results events.
+   *  Populated from the queue message body by queue-handler.ts.
+   *  Optional — atom-results consumer falls back to ledger.workflowId when absent or null. */
+  workflowId: z.string().nullable().optional(),
 
   /** Working directory inside sandbox. */
   workingDir: z.string().optional(),

@@ -7,10 +7,11 @@
  * SPEC-FF-GEARS-001 §3
  */
 
-export * from './flue/agents.js'
-export * from './flue/sandbox.js'
-export * from './flue/workflows/atom-execution.js'
-export * from './flue/workflows/atom-execution-do.js'
+export { ThinkExecutor } from './agents/think-executor.js'
+export { buildConductingAgent } from './agents/conducting-agent.js'
+export { MODEL_BY_ROLE } from './agents/models.js'
+export type { RoleName } from './agents/models.js'
+export { ConsentBeadAuditProcessor, ConsentDeniedError } from './processors/consent-bead-audit-processor.js'
 export * from './gears/types.js'
 export * from './beads/types.js'
 export * from './beads/coordinator-do.js'

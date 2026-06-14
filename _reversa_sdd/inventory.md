@@ -336,24 +336,26 @@ Consumed by: Mediation Agent DO, Commissioning Agent, Architect Agent DO, `@fact
 |-------|-------|
 | Spec source | SPEC-FF-GEARS-001 |
 | Package path | `packages/gears/` |
-| Cloudflare primitives | **DO SQLite** (`CoordinatorDO` — one per WorkGraph execution, `runId = SHA-256(workGraphId + workGraphVersion)`), **D1** (cross-run bead audit log), **Container** (Sandbox class extending `@cloudflare/sandbox`), **KV** (via loop-closure), **Worker** (Flue AgentProfiles) |
+| Cloudflare primitives | **DO SQLite** (`CoordinatorDO` — one per WorkGraph execution, `runId = SHA-256(workGraphId + workGraphVersion)`), **D1** (cross-run bead audit log), **Container** (Sandbox class extending `@cloudflare/sandbox`), **KV** (via loop-closure), **WorkerLoader** (`LOADER` binding — required by `@cloudflare/think` `createExecuteTool`) |
 | Implementation steps | Steps 34–44 (SPEC-FF-GEARS-001 §14 steps 1–16, parallel track with KSP packages) |
-| Key dependencies | `@factory/schemas`, `@factory/ksp-sdk`, `@factory/artifact-graph`, `@factory/bead-graph`, `@factory/loop-closure`, `packages/factory-graph`, `@flue/runtime`, `@cloudflare/sandbox` |
+| Key dependencies | `@factory/schemas`, `@factory/ksp-sdk`, `@factory/artifact-graph`, `@factory/bead-graph`, `@factory/loop-closure`, `packages/factory-graph`, `@cloudflare/think`, `@cloudflare/sandbox`, `@mastra/core`, `@mastra/memory`, `@mastra/cloudflare-d1` |
 
-Complete harness and execution substrate layer. Absorbs three previously separate concerns: Flue wrapping (replaces `@factory/harness-bridge` and Gas City), Execution-Trace Bead Graph (replaces `@factory/runtime` stub), Gear Registry (D1-backed Gear/GearFormula/GearMolecule). Key exports:
+Complete harness and execution substrate layer. Absorbs three previously separate concerns: atom execution (replaces `@factory/harness-bridge`, `@flue/runtime`, and Gas City), Execution-Trace Bead Graph (replaces `@factory/runtime` stub), Gear Registry (D1-backed Gear/GearFormula/GearMolecule). Key exports:
 
-- `src/flue/agents.ts` — five Dark Factory `AgentProfile` exports (`plannerProfile`, `coderProfile`, `criticProfile`, `testerProfile`, `verifierProfile`), `PROFILE_BY_ROLE` map. **[2026-06-10]** `coderProfile` model updated to `@cf/moonshotai/kimi-k2.6` (correct CF model ID); `thinkingLevel: 'low'`; `gateway: false` (bypasses AI Gateway SSE body-close hang).
-- `src/flue/sandbox.ts` — single `Sandbox` class extending `@cloudflare/sandbox`, four outbound host injectors
-- `src/beads/coordinator-do.ts` — **[2026-06-10 updated]** `CoordinatorDO` with `seedBeads()` + `/seed` route, `initRun()` arms stale-bead alarm, `getNextReady()` throws on unseeded molecule, KV_KS binding fix, `recordOutcome()` non-fatal (BP3 HARD GATE not yet cleared)
-- `src/beads/hook.ts` — `claimHook`, `releaseHook`, `failHook`, `getNextReady` consumed by Conducting Agent
+- `src/agents/think-executor.ts` — **[2026-06-13 new — Flue retirement ADR-014]** `ThinkExecutor extends Think<Env>`. Durable execution substrate only — does NOT own LLM loop. `executeAtom(directive)` calls `runFiber('atom-execution', ...)`, constructs `ConductingAgent` locally, calls `agent.generate()`, evaluates `successCondition`, then POSTs `/release` or `/fail` to `CoordinatorDO`. DO key: `think-${executableSpecificationId}-${atomId}`. Dispatched by ff-pipeline queue consumer via `POST /execute-atom`.
+- `src/agents/conducting-agent.ts` — **[2026-06-13 new — Flue retirement ADR-014]** `buildConductingAgent()` factory. Mastra `Agent` owning LLM routing (`MODEL_BY_ROLE`), D1-backed observational memory (`@mastra/memory` + `@mastra/cloudflare-d1`), input processors (UnicodeNormalizer, PromptInjectionDetector, ModerationProcessor, PIIDetector), output processors (ConsentBeadAuditProcessor, ToolCallFilter, BatchPartsProcessor, PIIDetector). Tools: `createWorkspaceTools`, `createExecuteTool`, `createSandboxTools`.
+- `src/agents/models.ts` — **[2026-06-13 new]** `MODEL_BY_ROLE` map. planner: `anthropic/claude-opus-4-6`. coder: `cloudflare/@cf/moonshotai/kimi-k2.6` (`bypassGateway: true`, `thinkingLevel: 'low'`). critic/tester/verifier: `openai/gpt-5.5`.
+- `src/processors/consent-bead-audit-processor.ts` — **[2026-06-13 new]** `ConsentBeadAuditProcessor extends BaseProcessor`. I4 fail-closed consent enforcement. Fires at `processOutputStep` boundary (after LLM response, before tool dispatch). POSTs `/consent` to `CoordinatorDO` for every tool call (audit trail). Throws `ConsentDeniedError` if tool not in `directive.permittedTools`.
+- `src/beads/coordinator-do.ts` — **[2026-06-10 updated]** `CoordinatorDO` with `seedBeads()` + `/seed` route, `initRun()` arms stale-bead alarm, `getNextReady()` throws on unseeded molecule, KV_KS binding fix, `recordOutcome()` non-fatal (BP3 HARD GATE not yet cleared). 🔴 GAP: `/consent` route not implemented (called by `ConsentBeadAuditProcessor`). 🔴 GAP: `claimBead` never called by `ThinkExecutor` before execution — `releaseBead`/`failBead` `WHERE assigned_to=?` will silently no-op.
+- `src/beads/hook.ts` — `claimHook`, `releaseHook`, `failHook`, `getNextReady` consumed by ThinkExecutor
 - `src/beads/d1-audit.ts` — **[2026-06-10 new]** D1 bead audit helpers: `insertBeadAudit()`, `queryBeadAudit()`, `BeadAuditRow` interface. Cross-run audit log in `factory-bead-audit` D1 database.
-- `src/flue/workflows/atom-execution.ts` — **[2026-06-10 moved from `.flue/workflows/`]** Flue workflow `run()` logic. Provider wiring: direct Anthropic/OpenAI (ofox bypassed), CF Workers AI binding for kimi-k2.6. `registerProvider + registerApiProvider` for CF Workers AI. `AbortController` + `Promise.race` timeout (real cancellation, not cosmetic). `storeFullOutput` non-fatal.
-- `src/flue/workflows/atom-execution-do.ts` — **[2026-06-10 new]** `FlueAtomExecutionWorkflow` DO class + `FlueRegistry`. Exported from gears barrel and re-exported from `workers/ff-pipeline/src/index.ts` for wrangler DO bindings.
 - `src/gears/` — `GearRegistry` (D1-backed), `GearFormula`, `GearMolecule` types
 
-Retires: `@factory/harness-bridge` (deleted at step 47), `@factory/runtime` stub (deleted at step 47), Gas City dispatch, pi-coding-agent, `ff-flue` worker (merged into ff-pipeline + gears, 2026-06-10).
+Retires: `@factory/harness-bridge` (deleted at step 47), `@factory/runtime` stub (deleted at step 47), Gas City dispatch, pi-coding-agent, `ff-flue` worker (merged into ff-pipeline + gears, 2026-06-10), **`@flue/runtime` + `src/flue/` directory** (deleted 2026-06-13, ADR-014 — replaced by `@cloudflare/think` + `@mastra/core`).
 
 > **[2026-06-10 patch]** Flue atom-execution workflow moved from `.flue/workflows/atom-execution.ts` (standalone worker) into `packages/gears/src/flue/workflows/` (absorbed into gears substrate). Three fabricated workflows deleted — only `atom-execution` is specced. `@flue/runtime` real dep installed (was stub). `zod@^4.0.0` migration across all `@factory/*` packages.
+
+> **[2026-06-13 patch — Flue retirement, ADR-014]** `src/flue/` directory deleted entirely (agents.ts, index.ts, sandbox.ts, workflows/atom-execution.ts, workflows/atom-execution-do.ts). Replaced by: `src/agents/` (ThinkExecutor, ConductingAgent, MODEL_BY_ROLE) and `src/processors/` (ConsentBeadAuditProcessor). `FlueAtomExecutionWorkflow` + `FlueRegistry` DOs retired — wrangler.jsonc v8 migration deletes them from CF migration tracker and registers `ThinkExecutor`. `THINK_EXECUTOR` DO binding + `LOADER` WorkerLoader binding added to wrangler.jsonc.
 
 ---
 
@@ -381,6 +383,7 @@ Phase 4 (serial):    packages/factory-graph    (steps 27–33) ← depends on al
 Phase 5 (parallel):  @factory/gears            (steps 34–44, steps 1–12a independent of KSP)
                      ^^ step 12b requires Phase 3 complete ^^
 
-Phase 6 (serial):    .flue/workflows           (steps 45–48) ← depends on @factory/gears + Phase 3
-                     Delete harness-bridge + runtime (step 47)
+Phase 6 (retired):   .flue/workflows           (steps 45–48) ← RETIRED 2026-06-13 (ADR-014)
+                     Delete harness-bridge + runtime (step 47) ✅ done
+                     Delete @flue/runtime + src/flue/ (2026-06-13) ✅ done
 ```

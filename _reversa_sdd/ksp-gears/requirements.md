@@ -300,31 +300,68 @@ Package names use `@factory/*` prefix in public exports. All `@koales/*` referen
 
 ## Patch 2026-06-11: Flue Atom-Execution Absorbed into Gears
 
-### FR-15: FlueAtomExecutionWorkflow and FlueRegistry Exported from Gears (BR-FLUE-01)
+### FR-15: ~~FlueAtomExecutionWorkflow and FlueRegistry Exported from Gears~~ — SUPERSEDED by ADR-014 (2026-06-13)
 
-**[2026-06-11 new]** `@factory/gears` exports `FlueAtomExecutionWorkflow` (DO class) and `FlueRegistry`. These are re-exported by `workers/ff-pipeline/src/index.ts` for wrangler DO binding registration. No standalone `ff-flue` worker exists (ADR-013). 🟢 CONFIRMADO
+**[2026-06-11 new, 2026-06-13 superseded]** `FlueAtomExecutionWorkflow` and `FlueRegistry` have been deleted. `src/flue/` directory removed entirely. wrangler.jsonc v8 migration deletes these DOs from the CF migration tracker. Replaced by `ThinkExecutor` (FR-15-NEW). 🟢 CONFIRMADO
 
-**Acceptance test**: `packages/gears/src/index.ts` exports `FlueAtomExecutionWorkflow` and `FlueRegistry`. `wrangler deploy` registers them as DO bindings via `ff-pipeline`.
+### FR-15-NEW: ThinkExecutor DO Exported from Gears (ADR-014)
 
-### FR-16: seedBeads() Gate Before getNextReady() (BR-FLUE-02)
+**[2026-06-13 new]** `@factory/gears` exports `ThinkExecutor` (DO class extending `@cloudflare/think` `Think<Env>`). Re-exported by `workers/ff-pipeline/src/index.ts` for wrangler DO binding registration as `THINK_EXECUTOR`. DO naming: `think-${executableSpecificationId}-${atomId}`. Dispatched by ff-pipeline queue consumer via `POST /execute-atom` with `AtomDirective` body. 🟢 CONFIRMADO
 
-**[2026-06-11 new]** `CoordinatorDO.getNextReady()` throws if `seedBeads()` + `initRun()` have not been called. The atom-execution workflow must seed the molecule before requesting the next bead. `initRun()` also arms the stale-bead alarm (BR-KSP-16 extended). 🟢 CONFIRMADO
+**Acceptance test**: `packages/gears/src/agents/think-executor.ts` exports `ThinkExecutor`. `wrangler deploy` registers it as `THINK_EXECUTOR` DO binding via `ff-pipeline` wrangler.jsonc v8 migration.
+
+### FR-16: seedBeads() Gate Before getNextReady() (BR-KSP-16)
+
+**[2026-06-11 new]** `CoordinatorDO.getNextReady()` throws if `seedBeads()` + `initRun()` have not been called. The dispatcher must seed the molecule before requesting the next bead. `initRun()` also arms the stale-bead alarm. 🟢 CONFIRMADO
 
 **Acceptance test**: Calling `getNextReady()` on an unseeded DO throws `Error('molecule not seeded')`.
+
+### FR-16-NEW: ConductingAgent Factory and MODEL_BY_ROLE (ADR-014)
+
+**[2026-06-13 new]** `packages/gears/src/agents/conducting-agent.ts` exports `buildConductingAgent(directive, coordinatorDO, workspace, env)`. Returns a Mastra `Agent` with: `MODEL_BY_ROLE` model routing (`src/agents/models.ts`), D1-backed observational memory (`@mastra/memory` + `@mastra/cloudflare-d1`, storage id: `gears-agent-memory`), input processors (UnicodeNormalizer, PromptInjectionDetector, ModerationProcessor, PIIDetector), output processors (ConsentBeadAuditProcessor, ToolCallFilter, BatchPartsProcessor, PIIDetector), and async tools resolver (workspace tools + execute tool + sandbox tools). 🟢 CONFIRMADO
+
+**MODEL_BY_ROLE bindings** (🟢 CONFIRMADO from `src/agents/models.ts`):
+- `planner`: `anthropic/claude-opus-4-6`
+- `coder`: `cloudflare/@cf/moonshotai/kimi-k2.6`, `bypassGateway: true`, `thinkingLevel: 'low'`
+- `critic`, `tester`, `verifier`: `openai/gpt-5.5`
+
+**Acceptance test**: `buildConductingAgent({ role: 'coder', ... })` returns an Agent whose model is `cloudflare/@cf/moonshotai/kimi-k2.6` with `bypassGateway: true`.
 
 ### FR-17: D1 Bead Audit Helpers (d1-audit.ts)
 
 **[2026-06-11 new]** `packages/gears/src/beads/d1-audit.ts` exports `insertBeadAudit(db, row)` and `queryBeadAudit(db, runId)`. `CoordinatorDO.writeAudit()` calls `insertBeadAudit`. Cross-run audit log stored in `factory-bead-audit` D1 database. 🟢 CONFIRMADO
 
-### FR-18: AI Gateway Bypassed for kimi-k2.6 (BR-FLUE-04)
+### FR-17-NEW: ConsentBeadAuditProcessor (ADR-014, I4 Enforcement)
 
-**[2026-06-11 new]** `coderProfile` sets `gateway: false`. The Cloudflare AI Gateway closes SSE response bodies prematurely on kimi-k2.6 text turns, causing stream reads to hang. Direct CF Workers AI binding is required. 🟢 CONFIRMADO
+**[2026-06-13 new]** `packages/gears/src/processors/consent-bead-audit-processor.ts` exports `ConsentBeadAuditProcessor extends BaseProcessor`. Fires at `processOutputStep` boundary — after LLM response, before tool executor. For every tool call: (1) POSTs audit record to `CoordinatorDO /consent` (🔴 GAP: route not yet implemented — BR-THINK-05); (2) checks `directive.permittedTools` allowlist; (3) throws `ConsentDeniedError` if tool not permitted (fail-closed, I4 invariant). 🟢 CONFIRMADO (logic); 🔴 LACUNA (/consent route)
 
-**Updated FR (coderProfile model)**: `coderProfile` model is `@cf/moonshotai/kimi-k2.6` (not `anthropic/claude-opus-4-6`); `thinkingLevel: 'low'`. 🟢 CONFIRMADO
+**Acceptance test**: Calling `processOutputStep` with a tool call not in `directive.permittedTools` throws `ConsentDeniedError` with `toolName` and `beadId`.
 
-### NFR-08: storeFullOutput Non-Fatal (BR-FLUE-05)
+### FR-18: AI Gateway Bypassed for kimi-k2.6 (BR-THINK-04-MODEL)
 
-**[2026-06-11 new]** R2 write failures in `storeFullOutput` are non-fatal. The error is logged but must not propagate. R2 unavailability must not cause atom execution failure. 🟡 INFERIDO (guard confirmed, logging behavior inferred from commit message)
+**[2026-06-11, updated 2026-06-13]** `MODEL_BY_ROLE.coder` sets `bypassGateway: true` (previously `coderProfile.gateway: false`). The Cloudflare AI Gateway closes SSE response bodies prematurely on kimi-k2.6 text turns, causing stream reads to hang. Direct CF Workers AI binding is required. 🟢 CONFIRMADO
+
+### NFR-08: R2 Write Non-Fatal (inherited from BR-FLUE-05)
+
+**[2026-06-11, updated 2026-06-13]** R2 write failures are non-fatal. The error is logged but must not propagate. R2 unavailability must not cause atom execution failure. Now owned by the `ThinkExecutor`/`ConductingAgent` layer. 🟡 INFERIDO
+
+### NFR-09: @cloudflare/think Runtime Dependency
+
+**[2026-06-13 new]** `ThinkExecutor` depends on `@cloudflare/think` (Cloudflare Project Think). Requires `LOADER` (`WorkerLoader`) binding in wrangler.jsonc for `createExecuteTool`. Requires wrangler.jsonc v8 migration to register `ThinkExecutor` as new DO and delete `FlueAtomExecutionWorkflow`/`FlueRegistry`. 🟢 CONFIRMADO
+
+### NFR-10: Mastra Runtime Dependencies
+
+**[2026-06-13 new]** `ConductingAgent` depends on `@mastra/core` (Agent, processors), `@mastra/memory` (observational memory compressor with `ModelByInputTokens`), and `@mastra/cloudflare-d1` (D1Store). D1 binding `DB` is used for agent memory storage (storage id: `gears-agent-memory`). 🟢 CONFIRMADO
+
+---
+
+## Known Implementation Gaps (2026-06-13)
+
+| Gap | Rule | Fix required |
+|-----|------|-------------|
+| `ThinkExecutor.executeAtom()` never calls `claimHook()` before running | BR-THINK-03 | Add `claimHook(coordinatorDO, directive.atomId, directive.directiveId)` as first step of `executeAtom()` |
+| `CoordinatorDO.fetch()` has no `/consent` route | BR-THINK-05 | Add `/consent` handler to persist `ConsentBead` audit records |
+| No auto-dispatch of next ready bead after completion | 🔴 unspecced | After `releaseHook`/`failHook`, someone must query `getNextReady()` and enqueue next `synthesis-queue` message |
 
 ---
 
@@ -346,10 +383,16 @@ Package names use `@factory/*` prefix in public exports. All `@koales/*` referen
 | FR-12 | Skill workspace discovery (GD-003) | Should |
 | FR-13 | Delete harness-bridge + runtime stubs | Should |
 | FR-14 | src/index.ts barrel | Must |
-| FR-15 | FlueAtomExecutionWorkflow + FlueRegistry exported | Must |
+| FR-15 | ~~FlueAtomExecutionWorkflow + FlueRegistry exported~~ SUPERSEDED | — |
+| FR-15-NEW | ThinkExecutor DO exported from gears (ADR-014) | Must |
 | FR-16 | seedBeads() gate before getNextReady() | Must |
+| FR-16-NEW | ConductingAgent factory + MODEL_BY_ROLE (ADR-014) | Must |
 | FR-17 | D1 bead audit helpers (d1-audit.ts) | Must |
-| FR-18 | AI Gateway bypassed for kimi-k2.6 | Must |
+| FR-17-NEW | ConsentBeadAuditProcessor I4 enforcement (ADR-014) | Must |
+| FR-18 | AI Gateway bypassed for kimi-k2.6 (MODEL_BY_ROLE.coder) | Must |
+| NFR-08 | R2 write non-fatal | Must |
+| NFR-09 | @cloudflare/think + LOADER binding | Must |
+| NFR-10 | @mastra/core + @mastra/memory + @mastra/cloudflare-d1 | Must |
 | NFR-01 | Single-writer serialization | Must |
 | NFR-02 | Deterministic runId | Must |
 | NFR-03 | 5-minute stall timeout | Must |

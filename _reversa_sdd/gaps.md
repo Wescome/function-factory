@@ -245,3 +245,63 @@ After the D1 migration, these statements are superseded. D1 is now the primary s
 **Description:** The table lists `@factory/ksp-sdk (Phase 2)` as importing `ArtifactNode, ArtifactEdge types only`. In practice, `@factory/ksp-sdk` only re-exports from `@factory/bead-graph` — it does not import from `@factory/artifact-graph`. The loop-closure package (not ksp-sdk) uses artifact graph types. The consumer table is slightly inaccurate for ksp-sdk.
 
 **Fix required:** Remove the ksp-sdk row from §4.2 or correct it to note "ksp-sdk does NOT import @factory/artifact-graph; only @factory/loop-closure and @factory/factory-graph do."
+
+---
+
+## Patch 2026-06-13 Gaps (Flue Retirement + New KSP Specs)
+
+### GAP-THINK-01: claimBead Never Called Before ThinkExecutor.executeAtom()
+
+**Severity:** CRÍTICO
+**Location:** `packages/gears/src/agents/think-executor.ts` — `executeAtom()` method
+**Description:** `ThinkExecutor.executeAtom()` does not call `claimHook(coordinatorDO, directive.atomId, directive.directiveId)` before executing. `releaseBead()` and `failBead()` in `CoordinatorDO` use `WHERE id=? AND assigned_to=?`. Since `assigned_to` is NULL (claim never happened), both UPDATE statements silently match 0 rows. The bead stays `ready` forever. The 5-min stale-bead alarm will re-dispatch it, creating an infinite execution loop.
+**Fix required:** Add `await claimHook(coordinatorDO, directive.atomId, directive.directiveId)` as the first step of `executeAtom()`. If claim returns null (bead already claimed by another agent), abort execution.
+- Source: `coordinator-do.ts:154-162` (claimBead), `think-executor.ts:63-112` (no claim); 🟢 CONFIRMADO gap
+
+### GAP-THINK-02: /consent Route Missing in CoordinatorDO
+
+**Severity:** CRÍTICO
+**Location:** `packages/gears/src/beads/coordinator-do.ts` — `fetch()` handler
+**Description:** `ConsentBeadAuditProcessor` POSTs to `CoordinatorDO /consent` for every tool call to write an audit record before checking the `permittedTools` allowlist. The `/consent` route does not exist in `CoordinatorDO.fetch()` — returns 404. The audit trail for tool calls is silently broken. I4 enforcement (ConsentDeniedError) still fires correctly because it's checked after the DO fetch, but no ConsentBead records are persisted.
+**Fix required:** Add `if (url.pathname === '/consent') { ... }` handler to `CoordinatorDO.fetch()` that persists a ConsentBead record (beadId, toolName, toolCallId, timestamp) to the DO's SQLite storage.
+- Source: `consent-bead-audit-processor.ts:44-54` (POST /consent), `coordinator-do.ts:284-296` (no /consent case); 🟢 CONFIRMADO gap
+
+### GAP-THINK-03: No Auto-Dispatch of Next Ready Bead After ThinkExecutor Completes
+
+**Severity:** MODERADO
+**Location:** Queue execution path — no owner
+**Description:** After `ThinkExecutor` completes (releases or fails a bead), nothing queries `CoordinatorDO.getNextReady()` and sends the next `synthesis-queue` message. The old `atom-results` consumer re-dispatches dependent atoms for the legacy `AtomExecutor` path via the completion ledger. The new KSP `ThinkExecutor` path does not publish to `atom-results` and has no equivalent chaining mechanism. Multi-bead molecules stall after the first bead completes.
+**Fix required:** Either (a) `ThinkExecutor` publishes to `atom-results` after completion so the existing ledger-based re-dispatch fires, or (b) a new `coordinator-dispatch` queue consumer polls `getNextReady()` after each bead completion.
+- Source: `queue-handler.ts:166-316` (atom-results consumer, ledger re-dispatch for old path); 🟢 CONFIRMADO gap
+
+### GAP-SOURCE-GRAPH-01: SOURCE_GRAPH DO Binding Not in wrangler.jsonc or PipelineEnv
+
+**Severity:** MODERADO (blocks BP6 wiring)
+**Location:** `workers/ff-pipeline/wrangler.jsonc`, `_reversa_sdd/ff-pipeline/design.md`
+**Description:** SPEC-KSP-LOOP-CLOSURE-001-AMENDMENT-BP6 §8e requires adding a `SOURCE_GRAPH` DO binding to `wrangler.jsonc` and `PipelineEnv` for factory-side wiring of `ingestSpecification`. Neither exists yet. This is a spec-draft gap — the spec is not yet implemented — but must be tracked.
+**Fix required:** Once `SourceGraphDO` is implemented (SPEC-KSP-SOURCE-GRAPH-001), add `{ "name": "SOURCE_GRAPH", "class_name": "SourceGraphDO" }` to `wrangler.jsonc` durable_objects.bindings and corresponding migration tag. Add `SOURCE_GRAPH: DurableObjectNamespace` to PipelineEnv.
+- Source: BP6 amendment §8e; 🟡 INFERIDO (spec-draft, implementation pending)
+
+### GAP-SOURCE-GRAPH-02: tessera-shared Schema Update Is Untracked Architecture Gate
+
+**Severity:** CRÍTICO (blocks SPEC-KSP-SOURCE-GRAPH-001 entirely)
+**Location:** External — `tessera-shared` package in Tessera repo
+**Description:** SPEC-KSP-SOURCE-GRAPH-001 §8 mandates adding SR types (Capability, Initiative, Decision, Thesis, Assumption, Constraint, Option, Risk, Metric, Stakeholder, Dependency, Tradeoff, Evidence) to `NODE_TABLES` + `NodeLabel`, and adding SUPPORTS/CONTRADICTS/CONSTRAINS/etc. to `REL_TYPES` + `RelationshipType` in `tessera-shared`. This is a cross-repo architecture gate in the Tessera repository. No implementation tracking exists in function-factory. Without this, the management adapter cannot use typed labels and the Source Graph stores free-form strings.
+**Fix required:** Create a Tessera-side task (or Linear ticket) for `tessera-shared` schema update. Add prerequisite note to SPEC-KSP-SOURCE-GRAPH-001 implementation plan.
+- Source: SPEC-KSP-SOURCE-GRAPH-001 §8; 🟢 CONFIRMADO prerequisite gap
+
+### GAP-SOURCE-GRAPH-03: Source Graph Requires New D1 Database — Not Yet Provisioned
+
+**Severity:** MODERADO
+**Location:** `workers/ff-pipeline/wrangler.jsonc` — d1_databases
+**Description:** SPEC-KSP-SOURCE-GRAPH-001 §3.1 defines `sg_nodes` and `sg_relationships` tables. These require a new D1 database (separate from `ff-factory` and `factory-bead-audit`). No `source-graph` D1 binding exists in `wrangler.jsonc`. Mixing Source Graph tables into `ff-factory` would violate the 128 MB D1 limit at scale.
+**Fix required:** Provision `wrangler d1 create factory-source-graph` and add `{ "binding": "D1_SOURCE", "database_name": "factory-source-graph", "database_id": "..." }` to wrangler.jsonc.
+- Source: SPEC-KSP-SOURCE-GRAPH-001 §3.1; 🟡 INFERIDO (provisioning not shown in spec, separation is implied by design constraints)
+
+### GAP-BP6-01: SpecificationIngester Type Not Yet in packages/loop-closure
+
+**Severity:** MODERADO (blocks BP6 implementation)
+**Location:** `packages/loop-closure/src/types.ts` (or service.ts)
+**Description:** SPEC-KSP-LOOP-CLOSURE-001-AMENDMENT-BP6 requires adding `SpecificationIngester` type and `ingestSpecification?: SpecificationIngester` field to `LoopClosureConfig`. Neither exists yet in the loop-closure package. `adoptAmendment()` does not call any BP6 hook.
+**Fix required:** Add types (§Config Addition in BP6 spec) and non-fatal call (§Service Addition) to `packages/loop-closure/src/service.ts`.
+- Source: `loop-closure/src/service.ts:344-346` (adoptAmendment exists, BP6 hook missing); 🟢 CONFIRMADO gap

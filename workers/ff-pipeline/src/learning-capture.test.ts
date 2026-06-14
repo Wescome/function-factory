@@ -17,7 +17,7 @@ function env(overrides: Partial<PipelineEnv> = {}): PipelineEnv {
       get: vi.fn(),
     },
     COORDINATOR: {} as PipelineEnv['COORDINATOR'],
-    ATOM_EXECUTOR: {} as PipelineEnv['ATOM_EXECUTOR'],
+    THINK_EXECUTOR: {} as PipelineEnv['THINK_EXECUTOR'],
     SYNTHESIS_QUEUE: {} as PipelineEnv['SYNTHESIS_QUEUE'],
     SYNTHESIS_RESULTS: {} as PipelineEnv['SYNTHESIS_RESULTS'],
     ATOM_RESULTS: {} as PipelineEnv['ATOM_RESULTS'],
@@ -25,6 +25,7 @@ function env(overrides: Partial<PipelineEnv> = {}): PipelineEnv {
     GITHUB_APP_PRIVATE_KEY: '-----BEGIN PRIVATE KEY-----\\nAQIDBA==\\n-----END PRIVATE KEY-----',
     OFOX_API_KEY: 'test-ofox-key',
     WORKSPACE_BUCKET: {} as PipelineEnv['WORKSPACE_BUCKET'],
+    KV_KS: {} as PipelineEnv['KV_KS'],
     ...overrides,
   }
 }

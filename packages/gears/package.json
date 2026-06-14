@@ -7,7 +7,6 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./flue": "./src/flue/index.ts",
     "./beads": "./src/beads/index.ts"
   },
   "scripts": {
@@ -19,19 +18,26 @@
     "@factory/factory-graph": "workspace:*",
     "@factory/loop-closure": "workspace:*",
     "@factory/schemas": "workspace:*",
-    "@flue/runtime": "^0.11.0",
+    "@cloudflare/codemode": "latest",
+    "@cloudflare/shell": "latest",
+    "@cloudflare/think": "latest",
+    "@cloudflare/worker-bundler": "latest",
+    "@mastra/cloudflare-d1": "latest",
+    "@mastra/core": "latest",
+    "@mastra/memory": "latest",
+    "agents": "latest",
     "zod": "^4.0.0"
   },
   "devDependencies": {
     "@cloudflare/containers": "^0.3.5",
-    "@cloudflare/sandbox": "^0.12.0",
+    "@cloudflare/sandbox": "^0.9.0",
     "@cloudflare/workers-types": "^4.20260527.1",
     "@types/node": "^24.0.0",
     "typescript": "^5.4.0",
     "vitest": "^1.4.0"
   },
   "peerDependencies": {
-    "@cloudflare/sandbox": "^0.12.0"
+    "@cloudflare/sandbox": "^0.9.0"
   },
   "peerDependenciesMeta": {
     "@cloudflare/sandbox": {

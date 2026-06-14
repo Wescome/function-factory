@@ -7,7 +7,7 @@ The authoritative agent map lives at `.agent/AGENTS.md`. Read it in full before 
 <!-- tessera:start -->
 # Tessera — Code Intelligence
 
-This project is indexed by Tessera as **function-factory** (15467 symbols, 24286 relationships, 300 execution flows). Use the Tessera MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by Tessera as **function-factory** (19327 symbols, 28964 relationships, 300 execution flows). Use the Tessera MCP tools to understand code, assess impact, and navigate safely.
 
 > If any Tessera tool warns the index is stale, run `npx tessera analyze` in terminal first.
 

@@ -33,8 +33,8 @@ export interface PipelineEnv {
 
   COORDINATOR: DurableObjectNamespace<import('./coordinator/coordinator').SynthesisCoordinator>
 
-  /** v5.1: AtomExecutor DO namespace — one DO per atom for independent lifetimes */
-  ATOM_EXECUTOR: DurableObjectNamespace<import('./coordinator/atom-executor-do').AtomExecutor>
+  /** @deprecated ADR-014: retired in favour of ThinkExecutor. Optional until binding removed from wrangler.jsonc. */
+  ATOM_EXECUTOR?: DurableObjectNamespace<import('./coordinator/atom-executor-do').AtomExecutor>
 
   SYNTHESIS_QUEUE: Queue
 
@@ -88,15 +88,12 @@ export interface PipelineEnv {
   CLAUDE_CODE_CONTAINER?: { fetch: (req: Request) => Promise<Response> }
 
   // ── KSP layer bindings (@factory/gears + factory-graph) ──────────────────
-  COORDINATOR_DO?: DurableObjectNamespace
-  ARTIFACT_GRAPH?: DurableObjectNamespace
-  BEAD_GRAPH?:     DurableObjectNamespace
-  KV_KS?:          KVNamespace
-  D1_AUDIT?:       D1Database
-
-  // ── Flue workflow DO bindings ────────────────────────────────────────────
-  FLUE_ATOM_EXECUTION_WORKFLOW?: DurableObjectNamespace
-  FLUE_REGISTRY?:                DurableObjectNamespace
+  COORDINATOR_DO?:  DurableObjectNamespace
+  ARTIFACT_GRAPH?:  DurableObjectNamespace
+  BEAD_GRAPH?:      DurableObjectNamespace
+  KV_KS:            KVNamespace
+  D1_AUDIT?:        D1Database
+  THINK_EXECUTOR:   DurableObjectNamespace
 
   LEARNING_ENABLED?: string
   LEARNING_OBSERVATIONS_ENABLED?: string

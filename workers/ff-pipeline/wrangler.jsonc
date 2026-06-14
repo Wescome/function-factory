@@ -26,9 +26,7 @@
       { "name": "COORDINATOR_DO",  "class_name": "CoordinatorDO" },
       { "name": "ARTIFACT_GRAPH",  "class_name": "FactoryArtifactGraphDO" },
       { "name": "BEAD_GRAPH",      "class_name": "FactoryBeadGraphDO" },
-      // Flue workflow DOs — atom-execution workflow (SPEC-FF-JUSTBASH-004)
-      { "name": "FLUE_ATOM_EXECUTION_WORKFLOW", "class_name": "FlueAtomExecutionWorkflow" },
-      { "name": "FLUE_REGISTRY",                "class_name": "FlueRegistry" }
+      { "name": "THINK_EXECUTOR",  "class_name": "ThinkExecutor" }
     ]
   },
   "migrations": [
@@ -39,8 +37,10 @@
     { "tag": "v5", "new_sqlite_classes": ["PiContainer"] },
     // KSP layer migrations
     { "tag": "v6", "new_sqlite_classes": ["CoordinatorDO", "FactoryArtifactGraphDO", "FactoryBeadGraphDO"] },
-    // Flue workflow layer
-    { "tag": "v7", "new_sqlite_classes": ["FlueAtomExecutionWorkflow", "FlueRegistry"] }
+    // Registers Flue stubs in CF migration tracker so they can be deleted in v8
+    { "tag": "v7", "new_sqlite_classes": ["FlueAtomExecutionWorkflow", "FlueRegistry"] },
+    // ThinkExecutor — Flue-retirement migration (003-flue-retirement)
+    { "tag": "v8", "new_sqlite_classes": ["ThinkExecutor"], "deleted_classes": ["FlueAtomExecutionWorkflow", "FlueRegistry"] }
   ],
 
   // Sandbox Container for Coder/Tester execution
@@ -98,6 +98,9 @@
 
   // Workers AI binding (fallback provider for task-routing)
   "ai": { "binding": "AI" },
+
+  // WorkerLoader binding — required by @cloudflare/think createExecuteTool (ThinkExecutor)
+  "worker_loaders": [{ "binding": "LOADER" }],
 
   // Worker version identity used to coordinate singleton Container restarts.
   "version_metadata": { "binding": "CF_VERSION_METADATA" },
@@ -157,6 +160,6 @@
   //   HONEYCOMB_API_KEY
   //   KSP layer:
   //   ANTHROPIC_API_KEY  (CoordinatorDO → factoryHypothesisBuilder Claude Opus calls)
-  //   OPENAI_API_KEY     (Flue agent profiles — coderProfile, testerProfile)
-  //   DEEPSEEK_API_KEY   (Flue agent profiles — optional)
+  //   OPENAI_API_KEY     (ThinkExecutor ConductingAgent — safety/memory models)
+  //   DEEPSEEK_API_KEY   (optional)
 }

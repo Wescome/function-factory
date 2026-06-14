@@ -27,6 +27,14 @@ import {
 } from '@factory/factory-graph'
 import type { ExecutionBead } from './types.js'
 
+type ConsentRecord = {
+  id: string
+  bead_id: string
+  tool_name: string
+  tool_call_id?: string
+  timestamp: number
+}
+
 /** Full trace fragment written by the Conducting Agent workflow per execution attempt. */
 export interface ConductingAgentTraceFragment {
   executionId:       string
@@ -84,6 +92,13 @@ export class CoordinatorDO extends DurableObject<Env> {
         parent_id TEXT NOT NULL,
         child_id  TEXT NOT NULL,
         PRIMARY KEY (parent_id, child_id)
+      );
+      CREATE TABLE IF NOT EXISTS consent_audit (
+        id           TEXT PRIMARY KEY,
+        bead_id      TEXT NOT NULL,
+        tool_name    TEXT NOT NULL,
+        tool_call_id TEXT,
+        timestamp    INTEGER NOT NULL
       );
     `)
   }
@@ -194,10 +209,17 @@ export class CoordinatorDO extends DurableObject<Env> {
         AND NOT EXISTS (
           SELECT 1 FROM bead_edges e
           JOIN execution_beads p ON p.id=e.parent_id
-          WHERE e.child_id=b.id AND p.status != 'done'
+          WHERE e.child_id=b.id AND p.status NOT IN ('done', 'failed')
         )
       ORDER BY b.created_at ASC LIMIT 1
     `, moleculeId)]
+    // Design invariant (SM-6 / CONDITION-4):
+    //   'failed' is a terminal state per SDD SM-6. A failed parent bead does NOT
+    //   block downstream siblings — partial molecule execution is intentional so
+    //   non-critical beads can still complete. The atom-results consumer is
+    //   responsible for aggregating partial outcomes and surfacing the failure
+    //   to the caller. If all-or-nothing semantics are needed for a specific
+    //   molecule, the caller must gate on molecule-level status before dispatching.
     return rows.length > 0 ? rows[0] as unknown as ExecutionBead : null
   }
 
@@ -226,6 +248,19 @@ export class CoordinatorDO extends DurableObject<Env> {
   }
 
   /**
+   * GAP-THINK-02: persist consent audit record for I4 enforcement.
+   * consent_audit table is created in migrate().
+   */
+  private async recordConsent(record: ConsentRecord): Promise<{ ok: boolean }> {
+    this.sql.exec(
+      `INSERT INTO consent_audit (id, bead_id, tool_name, tool_call_id, timestamp)
+       VALUES (?, ?, ?, ?, ?)`,
+      record.id, record.bead_id, record.tool_name, record.tool_call_id ?? null, record.timestamp
+    )
+    return { ok: true }
+  }
+
+  /**
    * Gap 1+5: KSP loop closure Bridge Point 3 (Step 5b, Step 41).
    * Wires LoopClosureService to write BuildOutcomeBead and ExecutionTrace node.
    */
@@ -237,7 +272,39 @@ export class CoordinatorDO extends DurableObject<Env> {
   ): Promise<void> {
     if (!this.runId || !this.orgId) return  // initRun() not yet called — skip
 
-    const trace  = JSON.parse(resultJson) as ConductingAgentTraceFragment
+    // Guard: resultJson may be raw LLM text (from ThinkExecutor) rather than a
+    // ConductingAgentTraceFragment. Fall back to a synthetic fragment so BP3
+    // still fires instead of silently swallowing a SyntaxError.
+    let trace: ConductingAgentTraceFragment
+    try {
+      const parsed = JSON.parse(resultJson) as unknown
+      if (
+        typeof parsed !== 'object' ||
+        parsed === null ||
+        typeof (parsed as ConductingAgentTraceFragment).executionId !== 'string'
+      ) {
+        throw new Error('not a ConductingAgentTraceFragment')
+      }
+      trace = parsed as ConductingAgentTraceFragment
+    } catch (parseErr) {
+      console.warn(
+        `[CoordinatorDO] recordOutcome: resultJson is not a ConductingAgentTraceFragment` +
+        ` (beadId=${beadId}); using synthetic fragment. parseErr=${String(parseErr)}`
+      )
+      trace = {
+        executionId:      beadId,
+        directiveId:      beadId,
+        atomRef:          beadId,
+        workGraphVersion: '',
+        repoId:           '',
+        outcome:          verdict === 'done' ? 'success' : 'failure',
+        rawOutput:        resultJson,
+        sandboxOutputRef: undefined,
+        durationMs:       0,
+        attemptNumber:    1,
+        producedAt:       new Date().toISOString(),
+      }
+    }
     const ns     = `factory:${this.orgId}:${this.runId}`
 
     const artifactGraphStub = this.env.ARTIFACT_GRAPH.get(
@@ -250,6 +317,10 @@ export class CoordinatorDO extends DurableObject<Env> {
 
     // Seed synthetic KV session so LoopClosureService.recordOutcome can find it.
     // beadId doubles as sessionId proxy for this run (per SPEC-FF-GEARS-001 §7b).
+    if (!this.env.KV_KS) {
+      console.warn(`[CoordinatorDO] recordOutcome: KV_KS binding is not provisioned — BP3 bridge skipped (beadId=${beadId})`)
+      return
+    }
     const activeSpecId = await (artifactGraphStub as any).getActiveSpecification(ns, 'conducting-agent')
     await this.env.KV_KS.put(`session:${beadId}`, JSON.stringify({
       sessionId:              beadId,
@@ -283,14 +354,32 @@ export class CoordinatorDO extends DurableObject<Env> {
 
   override async fetch(req: Request): Promise<Response> {
     const url  = new URL(req.url)
-    const body = () => req.json<unknown>()
     if (req.method === 'POST') {
-      if (url.pathname === '/init')    return Response.json(await this.initRun(   ...(await body() as [string, string])))
-      if (url.pathname === '/claim')   return Response.json(await this.claimBead( ...(await body() as [string, string])))
-      if (url.pathname === '/release') return Response.json(await this.releaseBead(...(await body() as [string, string, string])))
-      if (url.pathname === '/fail')    return Response.json(await this.failBead(  ...(await body() as [string, string, string])))
-      if (url.pathname === '/next')    return Response.json(await this.getNextReady(await body() as string))
-      if (url.pathname === '/seed')    return Response.json(await this.seedBeads(  await body() as Parameters<typeof this.seedBeads>[0]))
+      const body = await req.json<unknown>()
+      if (url.pathname === '/init')    return Response.json(await this.initRun(   ...(body as [string, string])))
+      if (url.pathname === '/claim')   return Response.json(await this.claimBead( ...(body as [string, string])))
+      if (url.pathname === '/release') return Response.json(await this.releaseBead(...(body as [string, string, string])))
+      if (url.pathname === '/fail')    return Response.json(await this.failBead(  ...(body as [string, string, string])))
+      if (url.pathname === '/next') {
+        try {
+          return Response.json(await this.getNextReady(body as string))
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err)
+          return Response.json({ error: msg }, { status: 422 })
+        }
+      }
+      if (url.pathname === '/seed')    return Response.json(await this.seedBeads(  body as Parameters<typeof this.seedBeads>[0]))
+      if (url.pathname === '/consent') {
+        const raw = body as { beadId: string; toolName: string; toolCallId?: string }
+        const record: ConsentRecord = {
+          id:        crypto.randomUUID(),
+          bead_id:   raw.beadId,
+          tool_name: raw.toolName,
+          timestamp: Date.now(),
+          ...(raw.toolCallId !== undefined ? { tool_call_id: raw.toolCallId } : {}),
+        }
+        return Response.json(await this.recordConsent(record))
+      }
     }
     return new Response('Not found', { status: 404 })
   }

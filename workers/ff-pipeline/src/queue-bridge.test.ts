@@ -69,30 +69,6 @@ vi.mock('@cloudflare/containers', () => ({
   getContainer: () => ({}),
 }))
 
-// ─── Mock @flue/runtime/* (its /cloudflare entry is a prebuilt .mjs that ───
-// statically imports "cloudflare:workers"; Vitest externalizes node_modules
-// .mjs so the cloudflare: alias does not reach it, and Node's ESM loader
-// rejects the protocol. Only the /trigger-synthesis test imports ./index,
-// which re-exports Flue DO/Workflow classes via @factory/gears, so it needs
-// these stubs. The queue tests import ./queue-handler and never touch Flue.
-vi.mock('@flue/runtime/cloudflare', () => ({
-  cfSandboxToSessionEnv: () => ({}),
-  getCloudflareAIBindingApiProvider: () => null,
-}))
-
-vi.mock('@flue/runtime', () => ({
-  defineAgentProfile: () => ({}),
-}))
-
-vi.mock('@flue/runtime/internal', () => ({
-  InMemoryFs: class {},
-  Bash: class {},
-  bashFactoryToSessionEnv: () => ({}),
-  createFlueContext: () => ({}),
-  InMemorySessionStore: class {},
-}))
-
-
 // ─── Shared ArangoDB mock ───
 
 const mockDb = {
@@ -1229,7 +1205,7 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
   describe('v5.1: atom-execute queue messages', () => {
 
-    it('dispatches atom-execute messages to AtomExecutor DO', async () => {
+    it('dispatches atom-execute messages to ThinkExecutor DO', async () => {
       const { queueHandler } = await import('./queue-handler')
       const worker = { queue: queueHandler }
 
@@ -1238,8 +1214,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
       }))
 
       const env = createEnv({
-        ATOM_EXECUTOR: {
-          idFromName: vi.fn(() => 'atom-do-id'),
+        THINK_EXECUTOR: {
+          idFromName: vi.fn(() => 'think-do-id'),
           get: vi.fn(() => ({ fetch: mockDoFetch })),
         },
       })
@@ -1261,29 +1237,30 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       await worker.queue(batch as never, env as never, ctx as never)
 
-      // AtomExecutor DO was called
+      // ThinkExecutor DO was called
       expect(mockDoFetch).toHaveBeenCalledOnce()
       const calls = mockDoFetch.mock.calls as unknown[][]
       const fetchArg = calls[0]![0] as Request
       expect(new URL(fetchArg.url).pathname).toBe('/execute-atom')
 
+      // Body is the atomSpec forwarded verbatim
       const fetchBody = await new Request(fetchArg).json() as Record<string, unknown>
-      expect(fetchBody.atomId).toBe('atom-001')
-      expect(fetchBody.executableSpecificationId).toBe('ES-ATOM')
+      expect(fetchBody.id).toBe('atom-001')
+      expect(fetchBody.description).toBe('Test atom')
 
       // Message acked
       expect(msg.ack).toHaveBeenCalledOnce()
     })
 
-    it('uses idFromName with atom-{executableSpecificationId}-{atomId}', async () => {
+    it('uses idFromName with think-{executableSpecificationId}-{atomId}', async () => {
       const { queueHandler } = await import('./queue-handler')
       const worker = { queue: queueHandler }
 
-      const mockIdFromName = vi.fn(() => 'atom-do-id')
+      const mockIdFromName = vi.fn(() => 'think-do-id')
       const mockDoFetch = vi.fn(async () => new Response('{}'))
 
       const env = createEnv({
-        ATOM_EXECUTOR: {
+        THINK_EXECUTOR: {
           idFromName: mockIdFromName,
           get: vi.fn(() => ({ fetch: mockDoFetch })),
         },
@@ -1306,7 +1283,7 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       await worker.queue(batch as never, env as never, ctx as never)
 
-      expect(mockIdFromName).toHaveBeenCalledWith('atom-ES-NAME-atom-xyz')
+      expect(mockIdFromName).toHaveBeenCalledWith('think-ES-NAME-atom-xyz')
     })
 
     it('retries atom-execute on DO dispatch failure', async () => {
@@ -1316,8 +1293,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
       const mockDoFetch = vi.fn(async () => { throw new Error('DO unavailable') })
 
       const env = createEnv({
-        ATOM_EXECUTOR: {
-          idFromName: vi.fn(() => 'atom-do-id'),
+        THINK_EXECUTOR: {
+          idFromName: vi.fn(() => 'think-do-id'),
           get: vi.fn(() => ({ fetch: mockDoFetch })),
         },
       })
@@ -1351,8 +1328,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
       const mockAtomResultsSend = vi.fn(async () => {})
 
       const env = createEnv({
-        ATOM_EXECUTOR: {
-          idFromName: vi.fn(() => 'atom-do-id'),
+        THINK_EXECUTOR: {
+          idFromName: vi.fn(() => 'think-do-id'),
           get: vi.fn(() => ({ fetch: mockDoFetch })),
         },
         ATOM_RESULTS: { send: mockAtomResultsSend },

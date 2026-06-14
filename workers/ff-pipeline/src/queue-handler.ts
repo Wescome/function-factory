@@ -165,7 +165,7 @@ export async function queueHandler(
 
     // ── atom-results queue: AtomExecutor DO completion → ledger update → Phase 3 ──
     if (batch.queue === 'atom-results') {
-      const { executableSpecificationId, atomId, result, workflowId } = msg.body as {
+      const { executableSpecificationId, atomId, result, workflowId, runId: atomResultRunId } = msg.body as {
         executableSpecificationId: string
         atomId: string
         result: {
@@ -177,6 +177,7 @@ export async function queueHandler(
           retryCount: number
         }
         workflowId: string | null
+        runId?: string
       }
 
       try {
@@ -217,6 +218,7 @@ export async function queueHandler(
               upstreamArtifacts,
               maxRetries: 3,
               dryRun: false,
+              runId: atomResultRunId,
             })
             console.log(`[Agent Call execution] Dispatched dependent atom ${readyAtomId} (deps satisfied)`)
           }
@@ -489,9 +491,9 @@ export async function queueHandler(
     // ── synthesis-queue: dispatch work ──
     const body = msg.body as Record<string, unknown>
 
-    // v5.1: atom-execute messages — dispatch to AtomExecutor DO
+    // v5.1: atom-execute messages — dispatch to ThinkExecutor DO (ADR-014, replaces AtomExecutor)
     if (body.type === 'atom-execute') {
-      const { executableSpecificationId, workflowId, atomId, atomSpec, sharedContext, upstreamArtifacts, maxRetries, dryRun } = body as {
+      const { executableSpecificationId, workflowId, atomId, atomSpec, sharedContext, upstreamArtifacts, maxRetries, dryRun, runId: atomExecuteRunId } = body as {
         executableSpecificationId: string
         workflowId: string
         atomId: string
@@ -500,25 +502,59 @@ export async function queueHandler(
         upstreamArtifacts: Record<string, unknown>
         maxRetries: number
         dryRun: boolean
+        runId?: string
       }
 
       try {
-        const doId = env.ATOM_EXECUTOR.idFromName(`atom-${executableSpecificationId}-${atomId}`)
-        const stub = env.ATOM_EXECUTOR.get(doId)
-        const doPayload = JSON.stringify({
-          atomId, atomSpec, sharedContext, upstreamArtifacts,
-          workflowId, executableSpecificationId, maxRetries: maxRetries ?? 3, dryRun: dryRun ?? false,
-        })
+        const doId = env.THINK_EXECUTOR!.idFromName(`think-${executableSpecificationId}-${atomId}`)
+        const stub = env.THINK_EXECUTOR!.get(doId)
+        const effectiveRunId = atomExecuteRunId
+          ?? (atomSpec as Record<string, unknown>).runId as string | undefined
+
+        if (!effectiveRunId) {
+          console.error(
+            `[queue] atom-execute permanent data defect: runId absent for atom ${atomId} ` +
+            `in ${executableSpecificationId} — ack without retry`
+          )
+          try {
+            if (env.ATOM_RESULTS) {
+              await (env.ATOM_RESULTS as unknown as { send(body: unknown): Promise<void> }).send({
+                executableSpecificationId, atomId,
+                result: {
+                  atomId,
+                  verdict: { decision: 'fail', confidence: 1.0, reason: `Atom dispatch permanent defect: runId absent` },
+                  codeArtifact: null, testReport: null, critiqueReport: null, retryCount: 0,
+                },
+                workflowId,
+                runId: atomExecuteRunId,
+              })
+            }
+          } catch (pubErr) {
+            console.error(`[queue] Failed to publish runId-absent failure for ${atomId}: ${pubErr instanceof Error ? pubErr.message : String(pubErr)}`)
+          }
+          msg.ack()
+          continue
+        }
+        const directiveBody = {
+          ...(atomSpec as Record<string, unknown>),
+          runId: effectiveRunId,
+          executableSpecificationId,
+          workflowId: workflowId ?? null,
+        }
+        const doPayload = JSON.stringify(directiveBody)
 
         // In-process retry: absorb transient DO connectivity blips before burning a queue retry
         let lastDispatchErr: Error | null = null
         for (let attempt = 0; attempt < 2; attempt++) {
           try {
-            await stub.fetch(new Request('https://do/execute-atom', {
+            const doResponse = await stub.fetch(new Request('https://do/execute-atom', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: doPayload,
             }))
+            if (!doResponse.ok) {
+              throw new Error(`ThinkExecutor returned ${doResponse.status}: ${await doResponse.text().catch(() => '')}`)
+            }
             lastDispatchErr = null
             break
           } catch (fetchErr) {
@@ -559,6 +595,7 @@ export async function queueHandler(
                   codeArtifact: null, testReport: null, critiqueReport: null, retryCount: 0,
                 },
                 workflowId,
+                runId: atomExecuteRunId,
               })
             }
           } catch (pubErr) {

@@ -1,0 +1,12 @@
+{"action":"T001-T002","status":"done","gate":"gears-typecheck","files":["/Users/wes/Developer/function-factory/packages/gears/src/agents/think-executor.ts"]}
+{"action":"T003-T004","status":"done","gate":"gears-typecheck","files":["/Users/wes/Developer/function-factory/packages/gears/src/beads/coordinator-do.ts"]}
+{"action":"T005-T006","status":"done","gate":"ff-pipeline-typecheck","files":["/Users/wes/Developer/function-factory/workers/ff-pipeline/src/queue-handler.ts"]}
+{"action":"T007","status":"failed","gate":"repo-wide-typecheck"}
+{"action":"T007","status":"halted","gate":"architect-review","rounds":3}
+{"action":"T007-continuation","status":"halted","rounds":3}
+{"action":"T007-continuation","status":"halted","rounds":4}
+{"action":"T007-continuation","status":"halted","rounds":5}
+{"action":"T007-continuation","status":"halted","rounds":6}
+{"action":"T007-final","status":"done","verdict":"APPROVED"}
+{"action":"deploy-smoke","status":"done","notes":"wrangler deploy + seed-molecule smoke test"}
+{"action":"e2e-smoke","status":"done","notes":"queue dispatch + D1 audit verify"}

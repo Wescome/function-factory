@@ -1,7 +1,7 @@
 # Design — ff-pipeline
 
 > Unit: ff-pipeline (FactoryPipeline Workflow)
-> Phase 4 · Writer · Updated 2026-06-10 (PATCH — Gas City era, D1 migration)
+> Phase 4 · Writer · Updated 2026-06-13 (PATCH — Flue retirement, ADR-014, wrangler v8 migration)
 
 ---
 
@@ -171,10 +171,11 @@ Gas City containers need a non-empty `git diff --cached` before agents write fil
 ```typescript
 interface PipelineEnv {
   DB: D1Database                    // Cloudflare D1 — primary data store
+  D1_AUDIT: D1Database              // factory-bead-audit — cross-run bead audit log
   GAS_CITY?: Fetcher                // gascity-supervisor service binding
   GATES: { evaluateCoherenceVerification(es): Promise<CoherenceVerificationReport> }
   FACTORY_PIPELINE: { create, get } // Workflow self-binding
-  WORKSPACE_BUCKET?: unknown        // R2 for skeleton tarballs
+  WORKSPACE_BUCKET?: unknown        // R2 for run event log + full output
   GITHUB_TOKEN?: string
   GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY
   GAS_CITY_MAX_AMENDMENT_DEPTH?     // default 3
@@ -183,6 +184,13 @@ interface PipelineEnv {
   GAS_CITY_RECURRING_INCIDENT_THRESHOLD? // default 3
   LEARNING_ENABLED?, LEARNING_OBSERVATIONS_ENABLED?
   LEARNING_WRITE_TIMEOUT_MS?        // default 500ms
+  // KSP layer DOs (SPEC-FF-GEARS-001 §11):
+  COORDINATOR_DO: DurableObjectNamespace   // CoordinatorDO — one per WorkGraph execution
+  ARTIFACT_GRAPH: DurableObjectNamespace  // FactoryArtifactGraphDO
+  BEAD_GRAPH: DurableObjectNamespace      // FactoryBeadGraphDO
+  THINK_EXECUTOR: DurableObjectNamespace  // ThinkExecutor — [2026-06-13 new, ADR-014]
+  KV_KS: KVNamespace                      // knowing-state hot cache
+  LOADER: WorkerLoader                    // required by @cloudflare/think createExecuteTool [2026-06-13 new]
   // ArangoDB kept for legacy agent context reads:
   ARANGO_URL, ARANGO_DATABASE, ARANGO_JWT, FF_ARANGO?
 }
@@ -241,3 +249,42 @@ interface PipelineEnv {
 | `consultation_requests` | crp: createCRP |
 | `learning_run_transcripts`, `learning_observations` | learning-capture |
 | `hot_config`, `config_aliases`, `config_routing`, `config_model_capabilities` | seedHotConfig |
+
+---
+
+## Patch 2026-06-13: Wrangler v8 Migration — Flue Retirement (ADR-014)
+
+### DO Migration History
+
+| Tag | Action | Classes |
+|-----|--------|---------|
+| v1 | new_sqlite_classes | SynthesisCoordinator |
+| v2 | new_sqlite_classes | Sandbox |
+| v3 | new_sqlite_classes | AtomExecutor |
+| v4 | new_sqlite_classes | RunCoordinator |
+| v5 | new_sqlite_classes | PiContainer |
+| v6 | new_sqlite_classes | CoordinatorDO, FactoryArtifactGraphDO, FactoryBeadGraphDO |
+| v7 | new_sqlite_classes | FlueAtomExecutionWorkflow, FlueRegistry (registered so v8 can delete them) |
+| **v8** | new_sqlite_classes: **ThinkExecutor** · deleted_classes: **FlueAtomExecutionWorkflow, FlueRegistry** | ADR-014 |
+
+🟢 CONFIRMADO — `workers/ff-pipeline/wrangler.jsonc` migrations array, confirmed 2026-06-13.
+
+### New Bindings (v8+)
+
+| Binding | Type | Purpose |
+|---------|------|---------|
+| `THINK_EXECUTOR` | DurableObjectNamespace | ThinkExecutor DO — atom execution substrate (ADR-014) |
+| `LOADER` | WorkerLoader | Required by `@cloudflare/think` `createExecuteTool` for dynamic worker loading |
+
+### Retired Bindings
+
+| Binding | Retired | Reason |
+|---------|---------|--------|
+| `FlueAtomExecutionWorkflow` DO | 2026-06-13 | ADR-014 — replaced by ThinkExecutor |
+| `FlueRegistry` DO | 2026-06-13 | ADR-014 — replaced by ThinkExecutor |
+
+### FR-24: THINK_EXECUTOR Queue Dispatch Path
+
+**[2026-06-13 new]** `ff-pipeline` queue consumer routes `synthesis-queue` messages with `type: 'atom-execute'` to `ThinkExecutor` DO at `POST /execute-atom`. DO key: `think-${executableSpecificationId}-${atomId}`. Two in-process retry attempts before burning a queue retry. On dispatch failure after 6 attempts: ingest `infra:atom-dispatch-failure` signal + publish failure result to `atom-results` queue. 🟢 CONFIRMADO
+
+🔴 **GAP**: No auto-dispatch of next ready bead after `ThinkExecutor` completes. The old `atom-results` consumer re-dispatches dependent atoms for the old `AtomExecutor` path. The new `ThinkExecutor` path has no equivalent chaining mechanism.

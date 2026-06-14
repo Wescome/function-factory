@@ -1,6 +1,6 @@
 # State Machines — function-factory
 
-> Phase 3 · Detective · Generated 2026-06-08 · Updated 2026-06-10 (KSP forward run)
+> Phase 3 · Detective · Generated 2026-06-08 · Updated 2026-06-13 (SM-1 Gas City era, SM-6 ADR-014 gaps)
 
 ---
 
@@ -8,38 +8,51 @@
 
 The `FactoryPipeline` Workflow produces a `PipelineResult.status` string on every terminal path.
 
+**[2026-06-13 updated — Gas City era, ADR-009]** The synthesis queue path (`awaiting_synthesis`, `awaiting_atoms`, `final`) has been removed. The pipeline now terminates immediately at `dispatched` after Gas City formula dispatch. The `harness` path (legacy) returns `harness-removed` immediately without executing any pipeline logic.
+
 ```mermaid
 stateDiagram-v2
     [*] --> ingesting : Signal received
+
     ingesting --> synthesizing_pressure : Signal ingested
     synthesizing_pressure --> mapping_capability : Pressure synthesized
     mapping_capability --> proposing_function : Capability mapped
-    proposing_function --> awaiting_approval : Proposal created (birthGate >= 0.5)
-    proposing_function --> [*] : birthGate < 0.5 — throws error
 
-    awaiting_approval --> reviewing : approved (or auto-approved)
-    awaiting_approval --> rejected : rejected by architect
-    rejected --> [*] : status=rejected
+    proposing_function --> [*] : birthGate < 0.5 — throws, pipeline fails
+    proposing_function --> awaiting_approval : Proposal created (birthGate >= 0.5)
+
+    awaiting_approval --> reviewing : approved / auto-approved
+    awaiting_approval --> [*] : rejected — status=rejected
 
     reviewing --> crystallizing : semantic review complete
     crystallizing --> compiling : anchors crystallized
+
+    compiling --> [*] : block escalation — status=synthesis:intent-violation
     compiling --> coherence_check : compile passes complete
-    compiling --> [*] : status=synthesis:intent-violation (block escalation)
 
-    coherence_check --> enqueue_synthesis : passed
     coherence_check --> [*] : status=coherence-verification-failed
+    coherence_check --> building_skeleton : passed
 
-    enqueue_synthesis --> awaiting_synthesis : queued to SYNTHESIS_QUEUE
-    awaiting_synthesis --> awaiting_atoms : verdict=dispatched
-    awaiting_synthesis --> final : verdict=pass|fail|other
+    building_skeleton --> dispatch_formula : skeleton built, execution packet built
+    dispatch_formula --> [*] : outcome != dispatched — status=dispatch-failed
+    dispatch_formula --> [*] : outcome = dispatched — status=dispatched ✅
 
-    awaiting_atoms --> final : atoms-complete event
-    awaiting_atoms --> [*] : status=synthesis-timeout
-
-    final --> [*] : status=synthesis-passed | synthesis-failed | synthesis-interrupt
+    note right of dispatch_formula
+      Pipeline terminates here (Gas City era).
+      No waitForEvent('synthesis-complete').
+      No waitForEvent('atoms-complete').
+      ADR-009 gate 6 permanently removed those steps.
+    end note
 ```
 
-Origin: `workers/ff-pipeline/src/pipeline.ts` (all terminal return paths)
+**Removed paths (pre-Gas City, no longer present in code):**
+- `enqueue_synthesis → awaiting_synthesis → awaiting_atoms → final` — deleted by ADR-009
+- `status=synthesis-passed | synthesis-failed | synthesis-interrupt` — unreachable
+- `status=synthesis-timeout` — unreachable
+
+**Legacy harness path:** Any `PipelineParams` with `harnessKey` set returns `status: 'harness-removed'` immediately without entering any pipeline steps (fast short-circuit, not shown above).
+
+Origin: `workers/ff-pipeline/src/pipeline.ts` (all terminal return paths) · ADR-009
 
 ---
 
@@ -189,32 +202,38 @@ The `execution_beads` table in `CoordinatorDO` tracks the lifecycle of each bead
 
 **[2026-06-11 updated]** `seedBeads()` / `initRun()` gate added: `CoordinatorDO` must be seeded before beads can be created. `getNextReady()` throws if molecule has not been seeded.
 
+**[2026-06-13 updated — ADR-014 gaps]** Two implementation gaps identified in the ThinkExecutor execution path:
+- 🔴 **GAP-1 (BR-THINK-03):** `ThinkExecutor.executeAtom()` never calls `claimBead()` before running. `releaseBead()`/`failBead()` both use `WHERE assigned_to = agentId` — since `assigned_to` is NULL (claim never happened), both UPDATEs silently match 0 rows. Bead stays `ready` and the stale-bead alarm re-dispatches it in a loop.
+- 🔴 **GAP-2 (BR-THINK-05):** `ConsentBeadAuditProcessor` POSTs `/consent` to `CoordinatorDO` for every tool call. The `/consent` route does not exist in the DO — returns 404. Audit trail for tool calls is broken; I4 enforcement (ConsentDeniedError) still fires correctly.
+
 ```mermaid
 stateDiagram-v2
     [*] --> UNSEEDED : CoordinatorDO initialized (no beads yet)
 
     UNSEEDED --> ready : seedBeads() called\n+ initRun() arms stale-bead alarm\n→ bead rows inserted with status='ready'
 
-    ready --> in_progress : claimHook() — atomic CAS\nSET status='in_progress', assigned_to=agentId\nattempt_count+1\n(only transitions if status='ready')
+    ready --> in_progress : claimHook() — atomic CAS\nSET status='in_progress', assigned_to=agentId\nattempt_count+1\n(only transitions if status='ready')\n⚠ GAP: ThinkExecutor never calls claimHook
 
-    in_progress --> done : releaseBead()\nSET status='done', result=JSON\n→ writeAudit() → D1 bead_audit row\n→ recordOutcome() → LoopClosureService Bridge Point 3
+    in_progress --> done : releaseBead()\nSET status='done', result=JSON\n→ writeAudit() → D1 bead_audit row\n→ recordOutcome() → LoopClosureService Bridge Point 3\n⚠ GAP: WHERE assigned_to=? silently no-ops if claim skipped
 
-    in_progress --> failed : failBead()\nSET status='failed', result=JSON\n→ writeAudit() → D1 bead_audit row\n→ recordOutcome() → LoopClosureService Bridge Point 3
+    in_progress --> failed : failBead()\nSET status='failed', result=JSON\n→ writeAudit() → D1 bead_audit row\n→ recordOutcome() → LoopClosureService Bridge Point 3\n⚠ GAP: WHERE assigned_to=? silently no-ops if claim skipped
 
-    in_progress --> ready : CoordinatorDO.alarm() fires (stalled bead)\nSET status='ready', assigned_to=NULL\n(agent crashed or timed out — re-hook)
+    in_progress --> ready : CoordinatorDO.alarm() fires (stalled bead)\nSET status='ready', assigned_to=NULL\n(agent crashed or timed out — re-hook)\n⚠ GAP: bead never leaves 'ready' if claim is missing
 
     done --> [*] : Terminal
     failed --> [*] : Terminal
 ```
 
 **Notes:**
-- **[2026-06-11]** `getNextReady()` throws `Error('molecule not seeded')` if called before `seedBeads()` + `initRun()` (BR-FLUE-02, BR-KSP-16).
+- **[2026-06-11]** `getNextReady()` throws `Error('molecule not seeded')` if called before `seedBeads()` + `initRun()` (BR-KSP-16).
 - `claimHook()` uses atomic SQLite CAS: `WHERE id=? AND status='ready'` — only one agent can claim a bead.
 - `getNextReady()` queries for `status='ready'` beads whose all parents have `status='done'` (dependency graph respects execution order).
 - Stalled bead detection: `CoordinatorDO.alarm()` fires every 5 minutes and re-hooks `in_progress` beads with `updated_at < now - 5min` (crashed agent recovery).
 - Both `done` and `failed` trigger `writeAudit()` (D1) and `recordOutcome()` (LoopClosureService Bridge Point 3).
+- **[2026-06-13]** 🔴 GAP: `ThinkExecutor` (ADR-014 replacement for FlueAtomExecutionWorkflow) does not call `claimHook()` before executing. Fix: add `claimHook(coordinatorDO, directive.atomId, directive.directiveId)` as first step of `executeAtom()`.
+- **[2026-06-13]** 🔴 GAP: `CoordinatorDO.fetch()` has no `/consent` route. Fix: add `if (url.pathname === '/consent') ...` handler to persist `ConsentBead` audit records.
 
-Origin: SPEC-FF-GEARS-001 §7, SPEC-FF-JUSTBASH-003; patch 2026-06-11 commit 46b4868
+Origin: SPEC-FF-GEARS-001 §7, SPEC-FF-JUSTBASH-003; patch 2026-06-11 commit 46b4868; patch 2026-06-13 ADR-014
 
 ---
 

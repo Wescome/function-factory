@@ -7,11 +7,8 @@ export { PiContainer } from './coordinator/pi-container'
 export { Sandbox } from '@cloudflare/sandbox'
 
 // KSP layer — @factory/gears + factory-graph DOs
-export { CoordinatorDO } from '@factory/gears'
+export { CoordinatorDO, ThinkExecutor } from '@factory/gears'
 export { FactoryArtifactGraphDO, FactoryBeadGraphDO } from '@factory/factory-graph'
-
-// Flue workflow DO classes — wired through @factory/gears (SPEC-FF-GEARS-001 §1/§3)
-export { FlueAtomExecutionWorkflow, FlueRegistry } from '@factory/gears'
 
 export { ingestSignal } from './stages/ingest-signal'
 export { generateFeedbackSignals } from './stages/generate-feedback'
@@ -131,14 +128,6 @@ async function handlePiContainerExecute(request: Request, env: PipelineEnv): Pro
 
 export default {
   async fetch(request: Request, env: PipelineEnv, ctx: ExecutionContext): Promise<Response> {
-    // ── Flue workflow routing — must be first ──
-    // Routes /workflows/atom-execution and /runs/:runId to FlueAtomExecutionWorkflow DO.
-    if (env.FLUE_ATOM_EXECUTION_WORKFLOW) {
-      const { routeAtomExecutionWorkflow } = await import('@factory/gears')
-      const flueRes = await routeAtomExecutionWorkflow(request, env.FLUE_ATOM_EXECUTION_WORKFLOW)
-      if (flueRes) return flueRes
-    }
-
     const url = new URL(request.url)
 
     // ── Diagnostic: deployment/version metadata ──
@@ -372,9 +361,8 @@ export default {
     // ── Synthesis trigger: external route that bridges Workflow <-> DO ──
     if (url.pathname === '/trigger-synthesis' && request.method === 'POST') {
       // Route body lives in ./trigger-synthesis-handler so it can be unit-tested
-      // without importing this barrel (which re-exports Flue DO/Workflow classes
-      // that statically pull in cloudflare:* protocol modules). See
-      // trigger-synthesis-handler.ts.
+      // without importing this barrel (which re-exports DO classes that statically
+      // pull in cloudflare:* protocol modules). See trigger-synthesis-handler.ts.
       return handleTriggerSynthesis(request, env, ctx)
     }
 

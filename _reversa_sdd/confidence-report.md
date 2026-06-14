@@ -368,3 +368,91 @@
 2. **C4 diagrams** — Both c4-context.md and c4-containers.md show ArangoDB as primary artifact store. Needs update to reflect D1-primary architecture.
 3. **Pi-container dispatch protocol** — The exact format of Formula dispatch to Gas City (Q-07) remains unconfirmed from source.
 4. **Task routing model assignments** — Q-05 remains open; which LLM model handles which task kind is not confirmed in the SDD.
+
+---
+
+---
+
+# Patch 2026-06-13 Confidence Report (Flue Retirement + New KSP Specs)
+
+> Added by: Reviewer patch 2026-06-13 · Scope: ksp-gears, ff-pipeline, domain.md, state-machines.md, 3 new KSP specs
+
+## Summary
+
+| Metric | Value |
+|--------|-------|
+| Modules reviewed (this patch) | 4 (ksp-gears, ff-pipeline/design, domain.md, state-machines.md) |
+| New specs verified | 3 (SPEC-KSP-SOURCE-GRAPH-001, SPEC-KSP-LOOP-CLOSURE-001-AMENDMENT-BP6, SPEC-KSP-PRINCIPLES-ACCUMULATION-001) |
+| New gaps found | 7 (GAP-THINK-01..03, GAP-SOURCE-GRAPH-01..03, GAP-BP6-01) |
+| New questions for Wes | 0 (all gaps are CONFIRMADO from code or spec-draft pending) |
+| Reclassifications | 0 (no prior 🟡 claims overturned; new claims classified from scratch) |
+| ksp-flue-workflow module status | **RETIRED** — module deleted (ADR-014), SDD remains as historical record |
+
+---
+
+## Per-Module Delta (2026-06-13 patch)
+
+### ksp-gears — @factory/gears (UPDATED)
+
+| Artifact | 🟢 | 🟡 | 🔴 | Notes |
+|----------|-----|-----|-----|-------|
+| requirements.md (patch) | FR-15-NEW, FR-16-NEW, FR-17-NEW, NFR-09, NFR-10 = 🟢 | 0 | 0 | All new FRs confirmed from think-executor.ts, conducting-agent.ts, consent-bead-audit-processor.ts |
+| Known gaps table | GAP-THINK-01 (claimBead) = 🟢; GAP-THINK-02 (/consent) = 🟢; GAP-THINK-03 (no chaining) = 🟢 | 0 | 0 | All three gaps confirmed from code — not inferences |
+| **Delta confidence** | **+5 new claims, all 🟢** | — | — | Prior 91% maintained |
+
+**Reclassifications:** None. FR-15 superseded to 🔴 (deleted code) is not a reclassification — FR-15-NEW replaces it.
+**Critical note:** The prior `ksp-flue-workflow` section in the confidence report is now stale. That module's SDD is archived/historical; the phase label "Phase 6" in CLAUDE.md is retired.
+
+---
+
+### ff-pipeline (UPDATED — design.md only)
+
+| Artifact | 🟢 | 🟡 | 🔴 | Notes |
+|----------|-----|-----|-----|-------|
+| design.md PipelineEnv patch | THINK_EXECUTOR, LOADER bindings = 🟢 | 0 | 0 | Confirmed from wrangler.jsonc bindings |
+| v8 migration table | All 3 rows (new/deleted classes) = 🟢 | 0 | 0 | Confirmed from wrangler.jsonc migrations array |
+| FR-24 (THINK_EXECUTOR dispatch path) | 🟢 | 0 | GAP-THINK-03 | Queue dispatch confirmed; bead chaining gap noted |
+| **Delta confidence** | **+8 new claims, all 🟢; 1 confirmed gap** | — | — | Prior 97% maintained for requirements; design now 97% |
+
+---
+
+### New KSP Specs Coverage
+
+| Spec | Domain entry | State machine impact | Gaps found |
+|------|-------------|---------------------|-----------|
+| SPEC-KSP-SOURCE-GRAPH-001 | BR-SOURCE-GRAPH-01..04 added to domain.md | None (no new state machine yet) | GAP-SOURCE-GRAPH-01 (binding missing), GAP-SOURCE-GRAPH-02 (tessera-shared schema gate), GAP-SOURCE-GRAPH-03 (D1 not provisioned) |
+| SPEC-KSP-LOOP-CLOSURE-001-AMENDMENT-BP6 | INV-LC-007, INV-LC-008 noted in domain.md | None | GAP-BP6-01 (SpecificationIngester not implemented) |
+| SPEC-KSP-PRINCIPLES-ACCUMULATION-001 | Cross-spec principles added to domain.md | None | None beyond SOURCE-GRAPH deps |
+
+**All three specs are Draft status.** None have implementation artifacts in the codebase yet (expected). Gaps are spec-prerequisites, not implementation failures.
+
+---
+
+## Updated Gap Severity Summary (cumulative)
+
+| ID | Severity | Status |
+|----|---------|--------|
+| GAP-THINK-01 (claimBead never called) | CRÍTICO | Open — blocks smoke test |
+| GAP-THINK-02 (/consent route missing) | CRÍTICO | Open — blocks audit trail |
+| GAP-THINK-03 (no bead chaining) | MODERADO | Open — blocks multi-bead molecules |
+| GAP-SOURCE-GRAPH-02 (tessera-shared gate) | CRÍTICO | Open — cross-repo architecture gate |
+| GAP-SOURCE-GRAPH-01 (binding missing) | MODERADO | Open — pending SourceGraphDO implementation |
+| GAP-SOURCE-GRAPH-03 (D1 not provisioned) | MODERADO | Open — pending provisioning |
+| GAP-BP6-01 (SpecificationIngester missing) | MODERADO | Open — pending BP6 implementation |
+
+**All new gaps are CONFIRMADO (🟢) from code or spec — no inferential gaps introduced this patch.**
+
+---
+
+## Overall Confidence (Post 2026-06-13 Patch)
+
+Prior aggregate: ~88% (8 core units) · ~89% (7 KSP units)
+
+Post-patch: **No regression.** New claims are all 🟢. Gaps are new implementation gaps (not spec accuracy gaps). The ksp-flue-workflow module is archived/retired — its SDD remains accurate as a historical record of the deleted code.
+
+**Combined overall SDD confidence: ~88–89%** (maintained)
+
+**Top actionable items before next smoke test:**
+1. Fix GAP-THINK-01: add `claimHook()` call at start of `ThinkExecutor.executeAtom()` → `think-executor.ts`
+2. Fix GAP-THINK-02: add `/consent` handler to `CoordinatorDO.fetch()` → `coordinator-do.ts`
+3. Fix GAP-THINK-03: wire bead chaining after ThinkExecutor completion → `queue-handler.ts`

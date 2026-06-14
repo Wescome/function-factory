@@ -8,7 +8,9 @@
 
 ## 1. Purpose and Scope
 
-`@factory/gears` is the **complete harness and execution substrate** for the Function Factory. It wraps the Flue runtime, hosts the per-run execution-trace bead store (CoordinatorDO), provides the typed gear registry vocabulary, and distributes agent skills. Consumers never import `@flue/runtime` or `@cloudflare/sandbox` directly.
+`@factory/gears` is the **complete harness and execution substrate** for the Function Factory. It hosts the per-run execution-trace bead store (`CoordinatorDO`), provides the durable atom executor (`ThinkExecutor extends Think<Env>`), the LLM orchestration layer (`buildConductingAgent` → Mastra `Agent`), the I4 enforcement processor (`ConsentBeadAuditProcessor`), and the typed gear registry vocabulary. Consumers never import `@cloudflare/think`, `@mastra/core`, or `@cloudflare/sandbox` directly.
+
+`@flue/runtime` was fully retired as of 2026-06-12 (ADR-014). The new substrate is 100% Cloudflare-native: `@cloudflare/think` (durable fiber), `@cloudflare/shell` (workspace), `@cloudflare/codemode` (Dynamic Worker isolate), `@cloudflare/sandbox` (Container), `@mastra/core` (LLM orchestration), `@mastra/memory` + `@mastra/cloudflare-d1` (D1-backed observational memory).
 
 This is a Phase 4 package in the KSP build order. It depends on `@factory/artifact-graph`, `@factory/bead-graph`, `@factory/loop-closure`, and `@factory/factory-graph` being built and tested first.
 
@@ -20,11 +22,13 @@ This is a Phase 4 package in the KSP build order. It depends on `@factory/artifa
 packages/gears/
 ├── package.json
 └── src/
-    ├── index.ts                         Public barrel — re-exports flue, gears, beads
-    ├── flue/
-    │   ├── agents.ts                    Five Dark Factory role AgentProfiles + PROFILE_BY_ROLE
-    │   ├── sandbox.ts                   Sandbox class + outbound host injectors (GD-005)
-    │   └── observe.ts                   observe() → Execution-Trace telemetry (future)
+    ├── index.ts                         Public barrel — re-exports agents, processors, gears, beads
+    ├── agents/
+    │   ├── models.ts                    MODEL_BY_ROLE: role → Mastra-compatible model config
+    │   ├── conducting-agent.ts          buildConductingAgent() → Mastra Agent (LLM loop)
+    │   └── think-executor.ts           ThinkExecutor extends Think<Env> (durable substrate)
+    ├── processors/
+    │   └── consent-bead-audit-processor.ts  ConsentBeadAuditProcessor (I4 enforcement)
     ├── gears/
     │   ├── types.ts                     Gear, GearFormula, GearMolecule Zod schemas
     │   ├── registry.ts                  GearRegistry: D1-backed gear store
@@ -49,7 +53,7 @@ packages/gears/
         └── factory-native/
 ```
 
-**Note**: `hooks.ts` (plural) does not exist. `extend` and `scheduleEvery` are not Flue APIs. I2 enforcement and stalled bead detection are both in `CoordinatorDO.alarm()`.
+**Note**: `src/flue/` was deleted entirely in 003-flue-retirement (2026-06-12). `hooks.ts` (plural) does not exist. I2 enforcement and stalled bead detection are both in `CoordinatorDO.alarm()`.
 
 ---
 
@@ -58,9 +62,10 @@ packages/gears/
 | File | Responsibility |
 |------|---------------|
 | `src/index.ts` | Public barrel. Consumers import from `@factory/gears`. Never internal paths. |
-| `src/flue/agents.ts` | Five `AgentProfile` exports via `defineAgentProfile`. `PROFILE_BY_ROLE` constant map. No `deriveRole()`. |
-| `src/flue/sandbox.ts` | `Sandbox extends BaseSandbox`. `static outboundByHost` with four host injectors. |
-| `src/flue/observe.ts` | `observe()` wrapper for Execution-Trace telemetry. Placeholder for telemetry integration. |
+| `src/agents/models.ts` | `MODEL_BY_ROLE` map: role → Mastra-compatible model config. `RoleName` type. Replaces retired `PROFILE_BY_ROLE` from `@flue/runtime`. |
+| `src/agents/conducting-agent.ts` | `buildConductingAgent(directive, coordinatorDO, workspace, env)` → Mastra `Agent`. Owns model, tools resolver, processors, memory. |
+| `src/agents/think-executor.ts` | `ThinkExecutor extends Think<Env>`. Owns durable fiber (`runFiber()`), workspace, sandbox. No LLM loop. HTTP route `/execute-atom`. |
+| `src/processors/consent-bead-audit-processor.ts` | `ConsentBeadAuditProcessor extends BaseProcessor`. I4 enforcement: writes `ConsentBead`, throws `ConsentDeniedError` on denied tool. |
 | `src/gears/types.ts` | Zod schemas: `Gear`, `GearFormula`, `GearMolecule`. Exported types. |
 | `src/beads/types.ts` | `ExecutionBead` Zod schema (maps to `execution_beads` SQLite row). `ExecutionBeadStatus` enum. |
 | `src/beads/coordinator-do.ts` | `CoordinatorDO extends DurableObject`. DO SQLite schema migration, `initRun`, `claimBead`, `releaseBead`, `failBead`, `getNextReady`, `alarm`, `writeAudit`, `recordOutcome`, HTTP fetch handler. |
@@ -187,7 +192,7 @@ static outboundByHost = {
 | `D1Database` (`D1_AUDIT`) | `CoordinatorDO.writeAudit()` | Cross-run append-only audit log. D1 is shared across all DO instances; DO SQLite is per-DO only. |
 | `@cloudflare/sandbox` extension | `Sandbox` class | Wraps agent execution in Cloudflare Container Sandbox for outbound host-gated calls. |
 | `DurableObjectNamespace` | `ARTIFACT_GRAPH`, `BEAD_GRAPH`, `COORDINATOR_DO` | Namespaced DO routing for multi-org, multi-run isolation. |
-| `KVNamespace` | `KV` binding in `Env` | Hot cache for knowing-state retrieval by `LoopClosureService`. |
+| `KVNamespace` | `KV_KS` binding in `Env` | Hot cache for knowing-state retrieval by `LoopClosureService`. |
 
 ---
 
@@ -197,19 +202,19 @@ static outboundByHost = {
 
 | Package | Relationship | Detail |
 |---------|-------------|--------|
-| `@factory/schemas` | DEPENDENCY | `RoleName`, `RoleModelBinding`, `ToolPolicy`, `AtomDirective`. Never inverted. |
+| `@factory/schemas` | DEPENDENCY | `RoleName`, `AtomDirective`, `SuccessCondition`. Never inverted. |
 | `@factory/loop-closure` | DEPENDENCY | `LoopClosureService` instantiated in `CoordinatorDO.recordOutcome()` — Bridge Point 3. |
 | `@factory/factory-graph` | DEPENDENCY | `FactoryArtifactGraphDO`, `FactoryBeadGraphDO`, `factoryDivergenceDetector`, `factoryHypothesisBuilder`, `factoryAmendmentVerifier` — used in `recordOutcome()`. |
-| `@flue/runtime` | WRAPPED | `defineAgentProfile`, `AgentProfile`. Consumers never import this directly. |
-| `@cloudflare/sandbox` | WRAPPED | `Sandbox` base class. Consumers never import this directly. |
+| `@cloudflare/think` | SUBSTRATE | `Think<Env>` base class for `ThinkExecutor`. `WorkspaceLike`. Consumers never import this directly. |
+| `@mastra/core` | ORCHESTRATION | `Agent`, `BaseProcessor`, `RequestContext`. LLM orchestration. Consumers never import directly. |
+| `@mastra/memory` + `@mastra/cloudflare-d1` | MEMORY | D1-backed observational memory for `ConductingAgent`. |
+| `@cloudflare/sandbox` | WRAPPED | Sandbox binding for tool executor. Consumers never import directly. |
 
 ### What Calls @factory/gears
 
 | Package | Role |
 |---------|------|
-| `@factory/conducting-agent` | Claims bead hook, runs Flue workflow, releases hook. Sole hook API consumer. |
-| `.flue/workflows/atom-execution.ts` | Calls `initRun`, `getNextReady`, and the hook API via stub. |
-| `cloudflare.ts` (project root) | Exports `Sandbox` and `CoordinatorDO` for `wrangler.jsonc` migration. |
+| `workers/ff-pipeline` | Exports `ThinkExecutor`, `CoordinatorDO` from `index.ts` for wrangler DO binding registration. Queue consumer POSTs `AtomDirective` to `ThinkExecutor` at `/execute-atom`. |
 
 ### What @factory/gears is Independent Of
 
@@ -280,7 +285,7 @@ interface Env {
   D1_AUDIT:       D1Database                                // Cross-run compliance log
   ARTIFACT_GRAPH: DurableObjectNamespace<FactoryArtifactGraphDO>  // KSP artifact graph
   BEAD_GRAPH:     DurableObjectNamespace<FactoryBeadGraphDO>      // KSP bead graph
-  KV:             KVNamespace                               // KSP hot cache
+  KV_KS:          KVNamespace                               // KSP hot cache
   // Agent outbound calls (injected by Sandbox):
   ANTHROPIC_API_KEY: string
   OPENAI_API_KEY:    string
@@ -291,45 +296,50 @@ interface Env {
 
 ---
 
-## 9. cloudflare.ts and wrangler.jsonc
+## 9. ff-pipeline/index.ts and wrangler.jsonc
 
-### cloudflare.ts (project root)
+### ff-pipeline/index.ts DO exports
 
 ```typescript
-export { Sandbox }       from '@factory/gears/flue'
-export { CoordinatorDO } from '@factory/gears/beads'
+export { CoordinatorDO, ThinkExecutor } from '@factory/gears'
 export { MediationAgentDO } from '@factory/mediation-agent'
 export { ArchitectAgentDO }  from '@factory/architect-agent'
+// KSP graph DOs...
 ```
 
-### wrangler.jsonc additions
+`Sandbox` export removed (ADR-014). `ThinkExecutor` replaces `FlueAtomExecutionWorkflow` / `FlueRegistry` (retired).
+
+### wrangler.jsonc additions (post ADR-014)
 
 ```jsonc
 {
   "migrations": [{
     "tag": "v1",
     "new_sqlite_classes": [
-      "MediationAgentDO", "ArchitectAgentDO", "CoordinatorDO", "Sandbox",
+      "MediationAgentDO", "ArchitectAgentDO", "CoordinatorDO",
       "FactoryArtifactGraphDO", "FactoryBeadGraphDO"
     ]
+  }, {
+    "tag": "v2",
+    "new_sqlite_classes": ["ThinkExecutor"]
   }],
-  "containers": [
-    { "class_name": "Sandbox", "image": "./Dockerfile", "max_instances": 10 }
-  ],
   "durable_objects": {
     "bindings": [
       { "name": "MEDIATION_AGENT",  "class_name": "MediationAgentDO" },
       { "name": "COORDINATOR_DO",   "class_name": "CoordinatorDO" },
+      { "name": "THINK_EXECUTOR",   "class_name": "ThinkExecutor" },
       { "name": "ARTIFACT_GRAPH",   "class_name": "FactoryArtifactGraphDO" },
-      { "name": "BEAD_GRAPH",       "class_name": "FactoryBeadGraphDO" },
-      { "name": "Sandbox",          "class_name": "Sandbox" }
+      { "name": "BEAD_GRAPH",       "class_name": "FactoryBeadGraphDO" }
     ]
   },
+  "worker_loaders": [{ "binding": "LOADER" }],
   "kv_namespaces": [
-    { "binding": "KV", "id": "<provision>" }
+    { "binding": "KV_KS", "id": "<provision>" }
   ],
   "d1_databases": [
     { "binding": "D1_AUDIT", "database_name": "factory-bead-audit",
+      "database_id": "<provision>" },
+    { "binding": "DB", "database_name": "factory-mastra-memory",
       "database_id": "<provision>" }
   ]
 }

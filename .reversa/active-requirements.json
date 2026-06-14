@@ -1,7 +1,10 @@
 {
-  "feature-id": "002-gears-flue-wiring",
-  "feature-dir": "_reversa_forward/002-gears-flue-wiring",
-  "description": "Wire FlueAtomExecutionWorkflow and FlueRegistry into @factory/gears — wrangler deploy covers everything, ofox.ai routing, no build tool",
-  "source": "_reversa_sdd/ksp-gears/design.md + _reversa_sdd/ksp-flue-workflow/design.md + Architect review 2026-06-11",
-  "created": "2026-06-11"
+  "schema-version": 1,
+  "feature-dir": "_reversa_forward/003-flue-retirement",
+  "feature-id": "003",
+  "short-name": "flue-retirement",
+  "started-at": "2026-06-12T00:00:00Z",
+  "current-stage": "requirements",
+  "stages-completed": [],
+  "paused-features": []
 }

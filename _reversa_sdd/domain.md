@@ -263,28 +263,66 @@ All five steps of Bridge Point 5 (artifact graph Specification, ElucidationArtif
 
 ---
 
-## Flue Atom-Execution Rules (Patch 2026-06-11)
+## Flue Atom-Execution Rules (Patch 2026-06-11) — ⚠️ SUPERSEDED by ADR-014 (2026-06-13)
 
-**BR-FLUE-01: FlueAtomExecutionWorkflow Lives in @factory/gears**
-The `FlueAtomExecutionWorkflow` DO class and `FlueRegistry` are part of `@factory/gears`, not a standalone worker. `ff-pipeline/index.ts` re-exports them for wrangler DO bindings only. No separate `ff-flue` worker exists.
-- Source: commit b8f8ac2, SPEC-FF-GEARS-001 §3; 🟢 CONFIRMADO
+> **ADR-014 (2026-06-13)** retired `@flue/runtime` and the `src/flue/` directory entirely. BR-FLUE-01..05 are superseded. BR-FLUE-04 and BR-FLUE-06 survive as inherited rules under the new ThinkExecutor/ConductingAgent layer (see BR-THINK-* below).
 
-**BR-FLUE-02: seedBeads() Required Before getNextReady()**
-`CoordinatorDO.getNextReady()` throws if `initRun()` has not been called and beads have not been seeded via `seedBeads()`. The caller (atom-execution workflow) must seed the molecule before requesting the next bead.
-- Source: commit 46b4868 (CoordinatorDO seedBeads/initRun gate); 🟢 CONFIRMADO
+**BR-FLUE-01: FlueAtomExecutionWorkflow Lives in @factory/gears** ~~SUPERSEDED — FlueAtomExecutionWorkflow and FlueRegistry deleted (wrangler v8 migration, ADR-014)~~
+- Source: commit b8f8ac2; superseded 2026-06-13
 
-**BR-FLUE-03: Only atom-execution Workflow Is Specced**
-Three fabricated Flue workflows were deleted (commit 45db2ea). Only `FlueAtomExecutionWorkflow` is specified and deployed. No other Flue workflow classes may be added without a spec.
-- Source: commit 45db2ea; 🟢 CONFIRMADO
+**BR-FLUE-02: seedBeads() Required Before getNextReady()** → Absorbed into BR-KSP-16 (unchanged)
+- Source: commit 46b4868; rule unchanged, Flue reference removed
 
-**BR-FLUE-04: AI Gateway Must Be Bypassed for kimi-k2.6**
-`coderProfile` sets `gateway: false` to bypass the Cloudflare AI Gateway. The AI Gateway's SSE connection closes the response body prematurely on kimi-k2.6 text turns, causing stream reads to hang. Direct CF Workers AI binding is required.
-- Source: commit 46b4868 (gateway:false bypass); 🟢 CONFIRMADO
+**BR-FLUE-03: Only atom-execution Workflow Is Specced** ~~SUPERSEDED — atom-execution workflow itself retired; ThinkExecutor DO replaces it~~
+- Source: commit 45db2ea; superseded 2026-06-13 (ADR-014)
 
-**BR-FLUE-05: storeFullOutput Is Non-Fatal**
-Writing the full LLM output to `WORKSPACE_BUCKET` (R2) may fail without aborting the atom execution. The failure is logged but does not propagate. R2 unavailability must not cause execution failures.
-- Source: commit 46b4868; 🟡 INFERIDO (non-fatal guard confirmed, logging behavior inferred)
+**BR-FLUE-04: AI Gateway Must Be Bypassed for kimi-k2.6** → Inherited as BR-THINK-04-MODEL (still applies — `bypassGateway: true` in `MODEL_BY_ROLE.coder`)
+- Source: commit 46b4868; rule survives ADR-014, moved to `src/agents/models.ts`
 
-**BR-FLUE-06: Handler Modules Must Have Clean Import Graphs**
-Queue consumer and route handlers extracted from the barrel (`queue-handler.ts`, `trigger-synthesis-handler.ts`) must use only type-only static imports. All runtime CF-runtime dependencies (`@factory/gears`, `@flue/runtime`, `@cloudflare/*`) must be deferred via `await import()`. This prevents `ERR_UNSUPPORTED_ESM_URL_SCHEME` in Node.js test environments.
-- Source: commit 919364e; 🟢 CONFIRMADO
+**BR-FLUE-05: storeFullOutput Is Non-Fatal** ~~SUPERSEDED — R2 write non-fatality now owned by ThinkExecutor/ConductingAgent layer~~
+- Source: commit 46b4868; superseded 2026-06-13
+
+**BR-FLUE-06: Handler Modules Must Have Clean Import Graphs** → Still active and unchanged
+- Source: commit 919364e; 🟢 CONFIRMADO — extends to all new `src/agents/` and `src/processors/` modules
+
+---
+
+## ThinkExecutor / ConductingAgent Rules (Patch 2026-06-13 — ADR-014)
+
+> Source: ADR-014, `packages/gears/src/agents/`, `packages/gears/src/processors/`
+
+**BR-THINK-01: ThinkExecutor Owns Durability Substrate Only — No LLM Loop**
+`ThinkExecutor extends Think<Env>` is responsible exclusively for `runFiber()` crash recovery, workspace primitives (`WorkspaceLike`), and sandbox binding. It does NOT own an LLM loop. The Mastra `ConductingAgent` is constructed locally inside `runFiber()` and owns all model routing and processor chains. This separation ensures Mastra's processor chain (I4 enforcement) is never bypassed.
+- Source: ADR-014 §Decision; 🟢 CONFIRMADO
+
+**BR-THINK-02: ConductingAgent Is a Mastra Agent — Owns I4 Processor Chain**
+`ConductingAgent` is a Mastra `Agent` (`@mastra/core`). It owns: `MODEL_BY_ROLE` model routing, `inputProcessors` (UnicodeNormalizer, PromptInjectionDetector, ModerationProcessor, PIIDetector), `outputProcessors` (ConsentBeadAuditProcessor, ToolCallFilter, BatchPartsProcessor, PIIDetector), and D1-backed observational memory. No LLM call may bypass this processor chain.
+- Source: ADR-014 §Why Option B; 🟢 CONFIRMADO
+
+**BR-THINK-03: claimBead Must Be Called Before executeAtom** 🔴 GAP — NOT CURRENTLY IMPLEMENTED
+`CoordinatorDO.claimBead(beadId, agentId)` must be called before `ThinkExecutor.executeAtom()` begins. `releaseBead()` and `failBead()` use `WHERE id=? AND assigned_to=?` — if `claimBead` was not called first, `assigned_to` is NULL and both UPDATE statements silently match 0 rows. The bead stays `ready` forever; the stale-bead alarm will re-dispatch it in a loop.
+- Source: `coordinator-do.ts` lines 165-183, `think-executor.ts` lines 63-112; 🔴 LACUNA
+
+**BR-THINK-04: ConsentBeadAuditProcessor Is Fail-Closed**
+`ConsentBeadAuditProcessor` fires at `processOutputStep` — after the LLM response, before the tool executor is reached. For every tool call, it first writes an audit record to `CoordinatorDO /consent`, then checks `directive.permittedTools`. If the tool is not in the allowlist, it throws `ConsentDeniedError`. The tool executor is never reached for denied calls (I4 invariant).
+- Source: `processors/consent-bead-audit-processor.ts`; 🟢 CONFIRMADO (logic confirmed; /consent route gap documented in BR-THINK-05)
+
+**BR-THINK-05: /consent Route Required in CoordinatorDO** 🔴 GAP — NOT CURRENTLY IMPLEMENTED
+`ConsentBeadAuditProcessor` POSTs to `CoordinatorDO /consent` for every tool call. This route is not implemented in `coordinator-do.ts` — the POST returns 404. The audit record write silently fails. This breaks the I4 audit trail without breaking tool execution (the ConsentDeniedError path still fires).
+- Source: `coordinator-do.ts` fetch handler (no `/consent` case); 🔴 LACUNA
+
+---
+
+## New KSP Specs (Added 2026-06-11)
+
+**SPEC-KSP-SOURCE-GRAPH-001: CF-Native Tessera Graph**
+D1 + Vectorize + Workflow + DO implementation of the Source Graph. Stores SR types (Capability, Initiative, Decision, Thesis, Assumption, Constraint, Option, Risk, Metric, Stakeholder, Dependency, Tradeoff, Evidence) as first-class NodeLabel/RelType in `tessera-shared`. Prerequisites: tessera-shared schema update + management adapter update.
+- Status: Spec written, not yet implemented; 🟡 INFERIDO
+
+**SPEC-KSP-LOOP-CLOSURE-001-AMENDMENT-BP6: Bridge Point 6 — SpecificationIngester Injectable**
+Amendment adoption triggers non-fatal Source Graph ingest via injectable `SpecificationIngester`. Fires after KV invalidation (BP5 step 5). Non-fatal — ingest failure does not block amendment adoption.
+- Status: Amendment to existing spec; 🟡 INFERIDO
+
+**SPEC-KSP-PRINCIPLES-ACCUMULATION-001: Architecture Principles Accumulation Store**
+RAG pipeline: PDF books → Mastra RAG → LLM extraction → `deliberation-workspace.json` → management adapter → Source Graph. No custom adapters. Uses `@factory/loop-closure` LoopClosureService for ingestion.
+- Status: Spec written, not yet implemented; 🟡 INFERIDO
