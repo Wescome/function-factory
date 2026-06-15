@@ -18,6 +18,7 @@ import { Think } from '@cloudflare/think'
 import { Workspace } from '@cloudflare/shell'
 import type { Session, SkillSource } from '@cloudflare/think'
 import type { Env } from './env.js'
+import { emitSubscriptionEvent } from '@factory/subscription-buffer'
 import { resolveSkillRefs } from './skill-registry.js'
 import {
   CommissioningSignalSchema,
@@ -82,6 +83,25 @@ export class CommissioningAgentDO extends Think<Env> {
     const n = this.name ?? ''
     const prefix = 'commissioning-agent:'
     return n.startsWith(prefix) ? n.slice(prefix.length) : n || 'unknown'
+  }
+
+  // ── Subscription event helper ────────────────────────────────────────────────
+
+  private emitCA(
+    sessionId: string,
+    kind: string,
+    payload: Record<string, unknown>,
+    terminal = false,
+  ): void {
+    if (!this.env.SUB_BUFFER || !this.env.SUB_BUFFER_PRODUCER_SECRET) return
+    void emitSubscriptionEvent(this.env.SUB_BUFFER, this.env.SUB_BUFFER_PRODUCER_SECRET, {
+      sessionId,
+      stream: 'sessionEvents',
+      kind,
+      payload,
+      occurredAt: Date.now(),
+      terminal,
+    })
   }
 
   // ── Think<Env> overrides ────────────────────────────────────────────────────
@@ -196,6 +216,11 @@ export class CommissioningAgentDO extends Think<Env> {
       })
     }
     const signal = parse.data
+    // Use dispositionEventId as per-commission sessionId for subscription events
+    const caSessionId = signal.dispositionEventId
+
+    // Emit SESSION_SUBMITTED on incoming signal
+    this.emitCA(caSessionId, 'SESSION_SUBMITTED', { orgId: this.orgId, dispositionEventId: signal.dispositionEventId })
 
     // Persist domain profile before phase execution
     await this.persistSessionContext({
@@ -226,10 +251,15 @@ export class CommissioningAgentDO extends Think<Env> {
       return jsonResponse({ status: 'rejected', reason: 'deliberation-failed' })
     }
 
+    // Emit CANDIDATE_SET_BUILT after deliberation succeeds
+    this.emitCA(caSessionId, 'CANDIDATE_SET_BUILT', { orgId: this.orgId })
+
     // Human approval gate (per SPEC-FF-ILAYER-EXEC-001 §1)
     // In v1 the gateway enforces this — the DO logs it as advisory.
     if (signal.requireHumanApproval) {
       console.log(`[CommissioningAgentDO:${this.orgId}] human approval gate — not enforced by DO in v1`)
+      // Emit APPROVAL_GRANTED (advisory in v1 — gateway enforces in production)
+      this.emitCA(caSessionId, 'APPROVAL_GRANTED', { orgId: this.orgId, advisory: true })
     }
 
     // ── Phase 3: WorkGraph Authoring ──
@@ -249,6 +279,10 @@ export class CommissioningAgentDO extends Think<Env> {
     const mediationId = this.env.MEDIATION_AGENT.idFromName(`mediation-agent:${this.orgId}`)
     const mediationStub = this.env.MEDIATION_AGENT.get(mediationId)
     let commissionResp: Response
+
+    // Emit COMPILATION_STARTED before calling Mediation Agent
+    this.emitCA(caSessionId, 'COMPILATION_STARTED', { orgId: this.orgId, workGraphId: workGraph.id })
+
     try {
       commissionResp = await mediationStub.fetch(
         new Request('https://mediation-agent/commission', {
@@ -263,10 +297,19 @@ export class CommissioningAgentDO extends Think<Env> {
       )
     } catch (err) {
       await this.setPhase('idle')
+      const errMsg = err instanceof Error ? err.message : String(err)
+      this.emitCA(caSessionId, 'COMPILATION_FAILED', { orgId: this.orgId, reason: errMsg })
       return jsonResponse(
-        { status: 'commission-failed', error: err instanceof Error ? err.message : String(err) },
+        { status: 'commission-failed', error: errMsg },
         500,
       )
+    }
+
+    // Emit COMPILATION_COMPLETE or COMPILATION_FAILED based on response
+    if (commissionResp.ok) {
+      this.emitCA(caSessionId, 'COMPILATION_COMPLETE', { orgId: this.orgId, workGraphId: workGraph.id })
+    } else {
+      this.emitCA(caSessionId, 'COMPILATION_FAILED', { orgId: this.orgId, status: commissionResp.status })
     }
 
     // ── Signal DreamDO ──
@@ -289,6 +332,9 @@ export class CommissioningAgentDO extends Think<Env> {
     await this.ctx.storage.setAlarm(Date.now() + ALARM_INTERVAL_MS)
 
     await this.setPhase('idle')
+    // Emit MONITORED (terminal) on session complete
+    this.emitCA(caSessionId, 'MONITORED', { orgId: this.orgId }, true)
+
     // Proxy the mediation agent response
     const commissionBody = await commissionResp.text()
     return new Response(commissionBody, {
@@ -307,6 +353,8 @@ export class CommissioningAgentDO extends Think<Env> {
       )
     }
     const divergence = parse.data
+    // Use runId from divergence notification as sessionId for subscription events
+    const divSessionId = divergence.runId
 
     await this.persistSessionContext({
       currentPhase: 'hypothesis-formation',
@@ -345,6 +393,13 @@ export class CommissioningAgentDO extends Think<Env> {
 
     // Persist Amendment to ArtifactGraphDO
     await this.writeAmendmentToArtifactGraph(amendment)
+
+    // Emit AMENDMENT_PROPOSED after amendment is written
+    this.emitCA(divSessionId, 'AMENDMENT_PROPOSED', {
+      amendmentId: amendment.id,
+      divergenceId: divergence.divergenceId,
+      specificationId: divergence.specificationId,
+    })
 
     await this.setPhase('idle')
     return jsonResponse({ status: 'proposed', amendmentId: amendment.id })

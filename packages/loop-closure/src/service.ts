@@ -13,6 +13,7 @@ import {
   addSpecificationBridge,
 } from './bridge-fields.js';
 import type { AnyBead } from '@factory/bead-graph';
+import { emitSubscriptionEvent } from '@factory/subscription-buffer';
 
 // ── ID generation ─────────────────────────────────────────────────────────
 
@@ -51,6 +52,28 @@ function buildAuditBead(
 
 export class LoopClosureService {
   constructor(private readonly config: LoopClosureConfig) {}
+
+  // ── Subscription event helper ─────────────────────────────────────────────
+
+  private emitEvent(
+    sessionId: string,
+    stream: 'sessionEvents' | 'artifactWrites' | 'beadUpdates',
+    kind: string,
+    payload: Record<string, unknown>,
+    options: { runId?: string; assemblyId?: string; terminal?: boolean } = {},
+  ): void {
+    if (!this.config.subBuffer || !this.config.subBufferSecret) return
+    void emitSubscriptionEvent(this.config.subBuffer, this.config.subBufferSecret, {
+      sessionId,
+      stream,
+      kind,
+      payload,
+      occurredAt: Date.now(),
+      ...(options.runId      !== undefined ? { runId:      options.runId      } : {}),
+      ...(options.assemblyId !== undefined ? { assemblyId: options.assemblyId } : {}),
+      ...(options.terminal   !== undefined ? { terminal:   options.terminal   } : {}),
+    })
+  }
 
   // ── Bridge Point 1: openSession ─────────────────────────────────────────
 
@@ -214,6 +237,25 @@ export class LoopClosureService {
     });
     await this.config.artifactGraphDO.upsertEdge(executionNodeId, traceId, 'produces');
 
+    // Emit ARTIFACT_WRITTEN for the ExecutionTrace node
+    this.emitEvent(
+      sessionId,
+      'artifactWrites',
+      'ARTIFACT_WRITTEN',
+      { artifactId: traceId, kind: 'ExecutionTrace', r2Path: null },
+      { runId: sessionId },
+    )
+
+    // Emit EXECUTION_COMPLETE / EXECUTION_FAILED after trace is written
+    const isSuccess = outcome.status === 'SUCCESS'
+    this.emitEvent(
+      sessionId,
+      'sessionEvents',
+      isSuccess ? 'EXECUTION_COMPLETE' : 'EXECUTION_FAILED',
+      { traceId, status: outcome.status, summary: outcome.summary.slice(0, 200) },
+      { runId: sessionId, terminal: isSuccess },
+    )
+
     // 2. Detect divergences
     const divergences = await this.config.detectDivergences(
       traceId,
@@ -234,6 +276,15 @@ export class LoopClosureService {
       });
       await this.config.artifactGraphDO.upsertEdge(traceId, divergenceId, 'evidences');
       await this.config.artifactGraphDO.upsertEdge(traceId, session.activeSpecificationId, 'diverges_from');
+
+      // Emit DIVERGENCE_DETECTED
+      this.emitEvent(
+        sessionId,
+        'sessionEvents',
+        'DIVERGENCE_DETECTED',
+        { divergenceId, atomId: executionNodeId, hypothesisId: session.activeSpecificationId },
+        { runId: sessionId },
+      )
 
       // Push DivergenceNotification to CommissioningAgentDO (non-fatal)
       if (this.config.commissioningAgentDO) {
@@ -318,6 +369,14 @@ export class LoopClosureService {
       'proposes_modification_of'
     );
 
+    // Emit ARTIFACT_WRITTEN for the Amendment node
+    this.emitEvent(
+      `system-${orgId}`,
+      'artifactWrites',
+      'ARTIFACT_WRITTEN',
+      { artifactId: amendmentNodeId, kind: 'Amendment', r2Path: null },
+    )
+
     // 4. Annotate amendment bead content with bridge field
     const amendmentBeadContent = addAmendmentBridge(
       {
@@ -349,6 +408,19 @@ export class LoopClosureService {
       buildAuditBead(amendmentBead, `system-${orgId}`)
     );
 
+    // Emit AMENDMENT_PROPOSED
+    this.emitEvent(
+      `system-${orgId}`,
+      'sessionEvents',
+      'AMENDMENT_PROPOSED',
+      {
+        amendmentId: amendmentNodeId,
+        atomId:      hypothesis.targetBeadId,
+        hypothesisId: hypothesisNodeId,
+        status:      'CANDIDATE',
+      },
+    )
+
     return { amendmentId: amendmentNodeId, amendmentBeadId };
   }
 
@@ -376,7 +448,26 @@ export class LoopClosureService {
     await this.config.artifactGraphDO.upsertEdge(vpId, verdictId, 'produces_verdict');
     await this.config.artifactGraphDO.upsertEdge(amendmentId, vpId, 'subject_to');
 
+    // Emit VERIFICATION_PRODUCED (FIDELITY check) — uses amendmentBeadId as sessionId proxy
+    this.emitEvent(
+      amendmentBeadId,
+      'sessionEvents',
+      'VERIFICATION_PRODUCED',
+      {
+        kind:            'FIDELITY',
+        passed:          verificationResult.passed,
+        verdictSummary:  verificationResult.gate,
+      },
+    )
+
     if (!verificationResult.passed) {
+      // Emit AMENDMENT_REJECTED
+      this.emitEvent(
+        amendmentBeadId,
+        'sessionEvents',
+        'AMENDMENT_REJECTED',
+        { amendmentId, status: 'REJECTED' },
+      )
       return { rejected: true };
     }
 
@@ -404,6 +495,14 @@ export class LoopClosureService {
     });
     await this.config.artifactGraphDO.upsertEdge(newSpecId, priorBeadId, 'version_of');
     await this.config.artifactGraphDO.upsertEdge(amendmentId, newSpecId, 'if_adopted_produces');
+
+    // Emit ARTIFACT_WRITTEN for the new Specification node
+    this.emitEvent(
+      amendmentBeadId,
+      'artifactWrites',
+      'ARTIFACT_WRITTEN',
+      { artifactId: newSpecId, kind: 'Specification', r2Path: null },
+    )
 
     // Step 3a: Write DispositionEvent node (Q-13 resolution — must precede ElucidationArtifact)
     const dispositionEventId = generateId('disposition-event');
@@ -494,6 +593,14 @@ export class LoopClosureService {
       approvedAmendBead,
       buildAuditBead(approvedAmendBead, `adoption-${amendmentId}`)
     );
+
+    // Emit AMENDMENT_ADOPTED
+    this.emitEvent(
+      amendmentBeadId,
+      'sessionEvents',
+      'AMENDMENT_ADOPTED',
+      { amendmentId, status: 'ADOPTED' },
+    )
 
     return { newSpecId, newBeadId };
   }

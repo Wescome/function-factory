@@ -25,6 +25,7 @@ import {
   FactoryArtifactGraphDO,
   FactoryBeadGraphDO,
 } from '@factory/factory-graph'
+import { emitSubscriptionEvent } from '@factory/subscription-buffer'
 import type { ExecutionBead } from './types.js'
 
 type ConsentRecord = {
@@ -58,6 +59,8 @@ interface Env {
   KV_KS:          KVNamespace
   MEDIATION_AGENT: DurableObjectNamespace  // POST /complete on run termination
   DREAM_DO?:       DurableObjectNamespace  // optional Dream notification hook
+  SUB_BUFFER?:                 DurableObjectNamespace
+  SUB_BUFFER_PRODUCER_SECRET?: string
 }
 
 export class CoordinatorDO extends DurableObject<Env> {
@@ -75,6 +78,42 @@ export class CoordinatorDO extends DurableObject<Env> {
       this.orgId  = (await ctx.storage.get<string>('orgId'))  ?? ''
       this.repoId = (await ctx.storage.get<string>('repoId')) ?? ''
       this.migrate()
+    })
+  }
+
+  // ── Subscription event helper ─────────────────────────────────────────────
+
+  private get _sessionId(): string {
+    return (this.ctx.id.name ?? '').replace(/^coordinator:/, '')
+  }
+
+  private emit(kind: string, payload: Record<string, unknown>, terminal = false): void {
+    if (!this.env.SUB_BUFFER || !this.env.SUB_BUFFER_PRODUCER_SECRET) return
+    const sessionId = this._sessionId
+    void emitSubscriptionEvent(this.env.SUB_BUFFER, this.env.SUB_BUFFER_PRODUCER_SECRET, {
+      sessionId,
+      stream: 'sessionEvents',
+      kind,
+      runId: sessionId,
+      payload,
+      occurredAt: Date.now(),
+      terminal,
+    })
+  }
+
+  private emitBeadUpdate(
+    atomId: string,
+    status: 'in_progress' | 'done' | 'failed' | 'ready',
+  ): void {
+    if (!this.env.SUB_BUFFER || !this.env.SUB_BUFFER_PRODUCER_SECRET) return
+    const sessionId = this._sessionId
+    void emitSubscriptionEvent(this.env.SUB_BUFFER, this.env.SUB_BUFFER_PRODUCER_SECRET, {
+      sessionId,
+      stream: 'beadUpdates',
+      kind: 'BEAD_UPDATE',
+      runId: sessionId,
+      payload: { atomId, status },
+      occurredAt: Date.now(),
     })
   }
 
@@ -165,11 +204,20 @@ export class CoordinatorDO extends DurableObject<Env> {
   override async alarm(): Promise<void> {
     const staleMs = 5 * 60 * 1000
     const cutoff  = Date.now() - staleMs
+    // Capture rescued beads before the update so we can emit per-bead events
+    const rescuedRows = [...this.sql.exec(
+      `SELECT id FROM execution_beads WHERE status='in_progress' AND updated_at < ?`,
+      cutoff
+    )] as Array<{ id: string }>
     this.sql.exec(
       `UPDATE execution_beads SET status='ready', assigned_to=NULL, updated_at=?
        WHERE status='in_progress' AND updated_at < ?`,
       Date.now(), cutoff
     )
+    for (const row of rescuedRows) {
+      this.emit('BEAD_RESCUED', { atomId: row.id })
+      this.emitBeadUpdate(row.id, 'ready')
+    }
     // Only re-arm if there are still non-terminal beads.
     const activeRows = [...this.sql.exec(
       `SELECT COUNT(*) AS n FROM execution_beads WHERE status NOT IN ('done','failed')`
@@ -191,15 +239,23 @@ export class CoordinatorDO extends DurableObject<Env> {
        RETURNING *`,
       agentId, Date.now(), beadId
     )]
+    if (rows.length > 0) {
+      this.emit('BEAD_CLAIMED', { atomId: beadId, agentId, runId: this._sessionId })
+      this.emitBeadUpdate(beadId, 'in_progress')
+    }
     return rows.length > 0 ? rows[0] as unknown as ExecutionBead : null
   }
 
   async releaseBead(beadId: string, agentId: string, result: string): Promise<void> {
+    const startMs = Date.now()
     this.sql.exec(
       `UPDATE execution_beads SET status='done', result=?, updated_at=?
        WHERE id=? AND assigned_to=?`,
-      result, Date.now(), beadId, agentId
+      result, startMs, beadId, agentId
     )
+    const durationMs = Date.now() - startMs
+    this.emit('BEAD_RELEASED', { atomId: beadId, agentId, durationMs })
+    this.emitBeadUpdate(beadId, 'done')
     await this.writeAudit(beadId, agentId, 'done')
     try { await this.recordOutcome(beadId, agentId, result, 'done') } catch { /* BP3 non-fatal */ }
     try { await this.checkRunComplete() } catch { /* non-fatal */ }
@@ -211,6 +267,8 @@ export class CoordinatorDO extends DurableObject<Env> {
        WHERE id=? AND assigned_to=?`,
       result, Date.now(), beadId, agentId
     )
+    this.emit('BEAD_FAILED', { atomId: beadId, agentId, errorCode: result })
+    this.emitBeadUpdate(beadId, 'failed')
     await this.writeAudit(beadId, agentId, 'failed')
     try { await this.recordOutcome(beadId, agentId, result, 'failed') } catch { /* BP3 non-fatal */ }
     try { await this.checkRunComplete() } catch { /* non-fatal */ }
@@ -473,7 +531,7 @@ export class CoordinatorDO extends DurableObject<Env> {
       if (url.pathname === '/seed')     return Response.json(await this.seedBeads(  body as Parameters<typeof this.seedBeads>[0]))
       if (url.pathname === '/complete') return Response.json(await this.handleComplete(body as { moleculeId?: string }))
       if (url.pathname === '/consent') {
-        const raw = body as { beadId: string; toolName: string; toolCallId?: string }
+        const raw = body as { beadId: string; toolName: string; toolCallId?: string; verdict?: string }
         const record: ConsentRecord = {
           id:        crypto.randomUUID(),
           bead_id:   raw.beadId,
@@ -481,7 +539,15 @@ export class CoordinatorDO extends DurableObject<Env> {
           timestamp: Date.now(),
           ...(raw.toolCallId !== undefined ? { tool_call_id: raw.toolCallId } : {}),
         }
-        return Response.json(await this.recordConsent(record))
+        const result = await this.recordConsent(record)
+        if (raw.verdict === 'denied') {
+          this.emit('CONSENT_BEAD_DENIED', {
+            beadId:     raw.beadId,
+            toolName:   raw.toolName,
+            toolCallId: raw.toolCallId ?? null,
+          })
+        }
+        return Response.json(result)
       }
     }
     return new Response('Not found', { status: 404 })

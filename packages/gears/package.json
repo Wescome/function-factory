@@ -18,6 +18,7 @@
     "@factory/factory-graph": "workspace:*",
     "@factory/loop-closure": "workspace:*",
     "@factory/schemas": "workspace:*",
+    "@factory/subscription-buffer": "workspace:*",
     "@cloudflare/codemode": "latest",
     "@cloudflare/shell": "latest",
     "@cloudflare/think": "latest",

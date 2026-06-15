@@ -34,6 +34,9 @@ export interface LoopClosureConfig {
    * Non-fatal if absent or if the push fails.
    */
   commissioningAgentDO?: DurableObjectNamespace;
+  /** Optional subscription-buffer binding for live event fan-out. Fire-and-forget. */
+  subBuffer?:       DurableObjectNamespace;
+  subBufferSecret?: string;
 }
 
 // Session state (stored in KV)

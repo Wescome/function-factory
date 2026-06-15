@@ -20,6 +20,7 @@
 import { DurableObject } from 'cloudflare:workers'
 import type { CoordinatorDO } from '@factory/gears'
 import type { FactoryArtifactGraphDO, FactoryBeadGraphDO } from '@factory/factory-graph'
+import { emitSubscriptionEvent } from '@factory/subscription-buffer'
 import { migrate, META_KEYS } from './db/schema.js'
 import { runCompileSequence, CompileError } from './compile/compile-sequence.js'
 import type {
@@ -45,6 +46,10 @@ export interface Env {
 
   // KV
   KV_KS: KVNamespace
+
+  // Subscription buffer (optional)
+  SUB_BUFFER?:                 DurableObjectNamespace
+  SUB_BUFFER_PRODUCER_SECRET?: string
 }
 
 export class MediationAgentDO extends DurableObject<Env> {
@@ -55,6 +60,27 @@ export class MediationAgentDO extends DurableObject<Env> {
     this.sql = ctx.storage.sql
     ctx.blockConcurrencyWhile(async () => {
       migrate(this.sql)
+    })
+  }
+
+  // ── Subscription event helper ─────────────────────────────────────────
+
+  private emitMA(
+    sessionId: string,
+    stream: 'sessionEvents' | 'artifactWrites',
+    kind: string,
+    payload: Record<string, unknown>,
+    options: { runId?: string; terminal?: boolean } = {},
+  ): void {
+    if (!this.env.SUB_BUFFER || !this.env.SUB_BUFFER_PRODUCER_SECRET) return
+    void emitSubscriptionEvent(this.env.SUB_BUFFER, this.env.SUB_BUFFER_PRODUCER_SECRET, {
+      sessionId,
+      stream,
+      kind,
+      payload,
+      occurredAt: Date.now(),
+      ...(options.runId    !== undefined ? { runId:    options.runId    } : {}),
+      ...(options.terminal !== undefined ? { terminal: options.terminal } : {}),
     })
   }
 
@@ -148,6 +174,22 @@ export class MediationAgentDO extends DurableObject<Env> {
       this.setMetaValue(META_KEYS.atomCount, String(atomCount))
       this.setLifecycle('SEEDED')
 
+      // Emit VERIFICATION_PRODUCED (COHERENCE check passed) — step 4 succeeded
+      this.emitMA(body.runId, 'sessionEvents', 'VERIFICATION_PRODUCED', {
+        kind:           'COHERENCE',
+        passed:         true,
+        verdictSummary: 'all coherence checks passed',
+      }, { runId: body.runId })
+
+      // Emit ARTIFACT_WRITTEN for each AtomDirective node written in step 6
+      for (const [atomId] of result.directives) {
+        this.emitMA(body.runId, 'artifactWrites', 'ARTIFACT_WRITTEN', {
+          artifactId: `ATOM-DIRECTIVE-${atomId}`,
+          kind:       'AtomDirective',
+          r2Path:     null,
+        }, { runId: body.runId })
+      }
+
       const response: CommissionResponse = {
         status:           'seeded',
         runId:            body.runId,
@@ -160,6 +202,14 @@ export class MediationAgentDO extends DurableObject<Env> {
       this.setLifecycle('FAILED')
 
       if (err instanceof CompileError) {
+        // Emit VERIFICATION_PRODUCED (COHERENCE check failed) when it's a coherence error
+        if (err.reason === 'coherence_failure') {
+          this.emitMA(body.runId, 'sessionEvents', 'VERIFICATION_PRODUCED', {
+            kind:           'COHERENCE',
+            passed:         false,
+            failedCriteria: err.message,
+          }, { runId: body.runId })
+        }
         const response: CommissionResponse = {
           status:  'failed',
           reason:  err.reason,

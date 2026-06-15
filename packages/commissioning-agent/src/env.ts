@@ -30,4 +30,8 @@ export interface Env {
   LINEAR_API_KEY: string // secret
   FF_AGENT_SIGNING_KEY: string // WGSP envelope signing
   ENVIRONMENT: string
+
+  // ── Subscription buffer (optional) ───────────────────────────────────────
+  SUB_BUFFER?:                 DurableObjectNamespace
+  SUB_BUFFER_PRODUCER_SECRET?: string
 }

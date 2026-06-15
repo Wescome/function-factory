@@ -17,6 +17,7 @@
     "@factory/factory-graph": "workspace:*",
     "@factory/gears": "workspace:*",
     "@factory/schemas": "workspace:*",
+    "@factory/subscription-buffer": "workspace:*",
     "zod": "^4.0.0"
   },
   "devDependencies": {

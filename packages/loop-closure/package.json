@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "@factory/artifact-graph": "workspace:*",
-    "@factory/bead-graph": "workspace:*"
+    "@factory/bead-graph": "workspace:*",
+    "@factory/subscription-buffer": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.4.0",

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@factory/schemas": "workspace:*",
+    "@factory/subscription-buffer": "workspace:*",
     "@cloudflare/shell": "latest",
     "@cloudflare/think": "latest",
     "zod": "^4.0.0"
