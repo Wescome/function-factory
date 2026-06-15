@@ -1,0 +1,48 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "linear-bridge",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-01-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // KV Namespaces
+  "kv_namespaces": [
+    {
+      "binding": "BRIDGE_KV",
+      "id": "REPLACE_WITH_BRIDGE_KV_ID",
+      "preview_id": "REPLACE_WITH_BRIDGE_KV_PREVIEW_ID"
+    }
+  ],
+
+  // Durable Object Bindings
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "ARTIFACT_GRAPH",
+        "class_name": "ArtifactGraphDO",
+        "script_name": "ff-artifact-graph"
+      },
+      {
+        "name": "APPROVAL_FLOW_DO",
+        "class_name": "ApprovalFlowDO"
+      }
+    ]
+  },
+
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_classes": ["ApprovalFlowDO"]
+    }
+  ],
+
+  "vars": {
+    "ENVIRONMENT": "production"
+  }
+
+  // Secrets (set via `wrangler secret put`):
+  //   LINEAR_WEBHOOK_SECRET   — raw string Linear webhook signing secret
+  //   LINEAR_API_KEY          — Linear personal API key (Bearer token for GraphQL)
+  //   WEOPS_SIGNING_KEY       — base64-encoded HMAC-SHA256 raw bytes (shared with ff-gateway)
+  //   WEOPS_GATEWAY_URL       — e.g. https://ff-gateway.koales.workers.dev
+}
