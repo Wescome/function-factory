@@ -237,7 +237,9 @@ export class SubscriptionEventBufferDO extends DurableObject<Env> {
     }
 
     const events = this.fetchEvents(lastSeq, streams, null, null)
-    return Response.json(events)
+    const tipSeq = events.length > 0 ? events[events.length - 1]!.seq : lastSeq
+    const terminal = events.some(e => e.terminal)
+    return Response.json({ rows: events, tip_seq: tipSeq, terminal })
   }
 
   // ── GET /head ──────────────────────────────────────────────────────────

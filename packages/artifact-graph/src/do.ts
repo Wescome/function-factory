@@ -113,12 +113,65 @@ export abstract class ArtifactGraphDOBase<Env> extends DurableObject<Env> {
       return this.handleAppend(request);
     }
 
+    // GET /nodes?kind={kind} — return governance nodes, aliased to GraphNode shape
+    if (method === 'GET' && pathname === '/nodes') {
+      return this.handleGetNodes(url);
+    }
+
     // GET /query/hypothesis
     if (method === 'GET' && pathname === '/query/hypothesis') {
       return this.handleQueryHypothesis(url);
     }
 
     return jsonErr({ ok: false, error: 'not found' }, 404);
+  }
+
+  private handleGetNodes(url: URL): Response {
+    // factory-graphql ArtifactGraphDataSource expects GraphNode shape:
+    //   { id, nodeType, namespace, data, created_at, updated_at }
+    // The nodes table stores:
+    //   id, type, ns, data (JSON string), created (epoch ms), updated (epoch ms)
+    // We alias at the SQL layer so the response matches what the consumer expects.
+    const kind = url.searchParams.get('kind');
+    const bindings: unknown[] = [this.config.namespace];
+    let sql: string;
+    if (kind !== null && kind !== '') {
+      sql = `SELECT id,
+                    type        AS nodeType,
+                    ns          AS namespace,
+                    data,
+                    created     AS created_at,
+                    updated     AS updated_at
+             FROM nodes
+             WHERE ns = ? AND type = ?
+             ORDER BY created DESC`;
+      bindings.push(kind);
+    } else {
+      sql = `SELECT id,
+                    type        AS nodeType,
+                    ns          AS namespace,
+                    data,
+                    created     AS created_at,
+                    updated     AS updated_at
+             FROM nodes
+             WHERE ns = ?
+             ORDER BY created DESC`;
+    }
+    const rows = [...this.sql.exec(sql, ...bindings)].map(r => {
+      const row = r as Record<string, unknown>;
+      return {
+        id:        row['id'],
+        nodeType:  row['nodeType'],
+        namespace: row['namespace'],
+        // data is stored as a JSON string — parse it for the consumer
+        data:      typeof row['data'] === 'string'
+                     ? (JSON.parse(row['data'] as string) as Record<string, unknown>)
+                     : (row['data'] as Record<string, unknown>),
+        created_at: row['created_at'],
+        updated_at: row['updated_at'],
+      };
+    });
+    return jsonOk(rows);
   }
 
   private async handleAppend(request: Request): Promise<Response> {

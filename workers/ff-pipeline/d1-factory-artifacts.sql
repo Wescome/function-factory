@@ -65,3 +65,31 @@ CREATE INDEX IF NOT EXISTS idx_wgmb_repo
 -- Lookup by WorkGraph document identity (distinct from version string)
 CREATE INDEX IF NOT EXISTS idx_wgmb_work_graph_id
   ON workgraph_milestone_bindings (work_graph_id);
+
+-- artifacts: artifact metadata store
+-- Used by: factory-graphql worker (DB binding)
+CREATE TABLE IF NOT EXISTS artifacts (
+  id            TEXT    NOT NULL PRIMARY KEY,
+  session_id    TEXT    NOT NULL,
+  kind          TEXT    NOT NULL,
+  content_ref   TEXT,
+  content_hash  TEXT,
+  created_at    TEXT    NOT NULL DEFAULT (datetime('now')),
+  metadata      TEXT    -- JSON string
+);
+CREATE INDEX IF NOT EXISTS idx_artifacts_session
+  ON artifacts (session_id, kind);
+
+-- artifact_edges: lineage graph edges
+-- Used by: factory-graphql worker (DB binding), recursive CTE in getLineageEdges
+CREATE TABLE IF NOT EXISTS artifact_edges (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  source_id   TEXT    NOT NULL,
+  target_id   TEXT    NOT NULL,
+  rel         TEXT    NOT NULL DEFAULT '',
+  props       TEXT                              -- JSON string
+);
+CREATE INDEX IF NOT EXISTS idx_artifact_edges_source
+  ON artifact_edges (source_id);
+CREATE INDEX IF NOT EXISTS idx_artifact_edges_target
+  ON artifact_edges (target_id);

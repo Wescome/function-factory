@@ -1013,6 +1013,22 @@ importers:
         specifier: ^4.99.0
         version: 4.99.0(@cloudflare/workers-types@4.20260527.1)
 
+  workers/factory-subscription-buffer:
+    dependencies:
+      '@factory/subscription-buffer':
+        specifier: workspace:*
+        version: link:../../packages/subscription-buffer
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^4.20260101.0
+        version: 4.20260527.1
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+      wrangler:
+        specifier: ^4.0.0
+        version: 4.99.0(@cloudflare/workers-types@4.20260527.1)
+
   workers/ff-arango:
     dependencies:
       '@cloudflare/containers':

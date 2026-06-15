@@ -110,3 +110,38 @@ CREATE INDEX IF NOT EXISTS idx_hs_produced_at
 -- Per-lifecycle-state history query
 CREATE INDEX IF NOT EXISTS idx_hs_lifecycle_state
   ON health_snapshots (factory_lifecycle_state, produced_at DESC);
+
+-- session_state: pipeline run lifecycle
+-- Used by: factory-graphql worker (FACTORY_OPS_DB binding)
+CREATE TABLE IF NOT EXISTS session_state (
+  session_id            TEXT    NOT NULL PRIMARY KEY,
+  assembly_id           TEXT    NOT NULL,
+  work_order_id         TEXT,
+  status                TEXT    NOT NULL DEFAULT 'SUBMITTED',
+  created_at            TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at            TEXT    NOT NULL DEFAULT (datetime('now')),
+  run_id                TEXT,
+  org_id                TEXT,
+  intent_spec_id        TEXT,
+  intent_spec_version   TEXT,
+  intent_spec_domain    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_session_state_assembly
+  ON session_state (assembly_id, status);
+CREATE INDEX IF NOT EXISTS idx_session_state_work_order
+  ON session_state (work_order_id);
+
+-- verification_reports: coherence / fidelity check outcomes
+-- Used by: factory-graphql worker (FACTORY_OPS_DB binding)
+CREATE TABLE IF NOT EXISTS verification_reports (
+  report_id     TEXT    NOT NULL PRIMARY KEY,
+  session_id    TEXT    NOT NULL,
+  kind          TEXT    NOT NULL,  -- COHERENCE | FIDELITY
+  verdict       TEXT    NOT NULL DEFAULT '',
+  score         REAL,
+  notes         TEXT,
+  produced_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+  artifact_id   TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_verification_session
+  ON verification_reports (session_id);

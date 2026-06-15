@@ -499,6 +499,14 @@ export class CoordinatorDO extends DurableObject<Env> {
       detectDivergences: factoryDivergenceDetector,
       buildHypothesis:   factoryHypothesisBuilder,
       verifyAmendment:   factoryAmendmentVerifier,
+      // exactOptionalPropertyTypes: never pass `undefined` for optional fields —
+      // spread the binding only when it is actually present.
+      ...(this.env.SUB_BUFFER !== undefined
+        ? { subBuffer: this.env.SUB_BUFFER }
+        : {}),
+      ...(this.env.SUB_BUFFER_PRODUCER_SECRET !== undefined
+        ? { subBufferSecret: this.env.SUB_BUFFER_PRODUCER_SECRET }
+        : {}),
     })
 
     await loopClosure.recordOutcome(
@@ -550,6 +558,21 @@ export class CoordinatorDO extends DurableObject<Env> {
         return Response.json(result)
       }
     }
+    if (req.method === 'GET') {
+      // GET /beads — return all execution_beads for this CoordinatorDO instance
+      if (url.pathname === '/beads') {
+        const rows = [...this.sql.exec(`SELECT * FROM execution_beads ORDER BY created_at ASC`)]
+        return Response.json(rows)
+      }
+
+      // GET /amendments — amendments are stored in ArtifactGraphDO, not CoordinatorDO.
+      // CoordinatorDO only has execution_beads, bead_edges, and consent_audit tables.
+      // Return empty array; the caller (CoordinatorDataSource) handles [] gracefully.
+      if (url.pathname === '/amendments') {
+        return Response.json([])
+      }
+    }
+
     return new Response('Not found', { status: 404 })
   }
 }

@@ -26,7 +26,9 @@
       { "name": "COORDINATOR_DO",  "class_name": "CoordinatorDO" },
       { "name": "ARTIFACT_GRAPH",  "class_name": "FactoryArtifactGraphDO" },
       { "name": "BEAD_GRAPH",      "class_name": "FactoryBeadGraphDO" },
-      { "name": "THINK_EXECUTOR",  "class_name": "ThinkExecutor" }
+      { "name": "THINK_EXECUTOR",  "class_name": "ThinkExecutor" },
+      // Subscription buffer — per-session WebSocket fan-out + replay (ADR-0016)
+      { "name": "SUB_BUFFER", "class_name": "SubscriptionEventBufferDO", "script_name": "factory-subscription-buffer" }
     ]
   },
   "migrations": [
@@ -163,4 +165,5 @@
   //   ANTHROPIC_API_KEY  (CoordinatorDO → factoryHypothesisBuilder Claude Opus calls)
   //   OPENAI_API_KEY     (ThinkExecutor ConductingAgent — safety/memory models)
   //   DEEPSEEK_API_KEY   (optional)
+  //   SUB_BUFFER_PRODUCER_SECRET (CoordinatorDO → SubscriptionEventBufferDO HMAC auth — §5.2)
 }

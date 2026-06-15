@@ -22,6 +22,13 @@ interface ReplayEvent {
   terminal?: boolean
 }
 
+/** Response envelope from `GET /replay` (matches buffer-do.ts handleReplay contract). */
+interface ReplayResponse {
+  rows:     ReplayEvent[]
+  tip_seq:  number
+  terminal: boolean
+}
+
 /** Internal yield shape for pollBufferDO. seq=-1 signals REPLAY_UNAVAILABLE. */
 interface PollEvent {
   seq:     number
@@ -96,7 +103,10 @@ async function* pollBufferDO(
     try {
       const res = await stub.fetch(new Request(url.toString()))
       if (res.ok) {
-        events = (await res.json()) as ReplayEvent[]
+        const body = (await res.json()) as ReplayResponse
+        events = body.rows
+        // Respect terminal flag from the envelope even if no per-row terminal set
+        if (body.terminal) terminal = true
       }
     } catch {
       // DO temporarily unavailable — retry next poll cycle.

@@ -14,7 +14,9 @@
       { "name": "MEDIATION_AGENT",  "class_name": "MediationAgentDO",       "script_name": "ff-mediation-agent" },
       { "name": "ARTIFACT_GRAPH",   "class_name": "FactoryArtifactGraphDO", "script_name": "ff-pipeline" },
       { "name": "DREAM_DO",         "class_name": "DreamDO",                "script_name": "ff-dream" },
-      { "name": "COORDINATOR_DO",   "class_name": "CoordinatorDO",          "script_name": "ff-pipeline" }
+      { "name": "COORDINATOR_DO",   "class_name": "CoordinatorDO",          "script_name": "ff-pipeline" },
+      // Subscription buffer — per-session WebSocket fan-out + replay (ADR-0016)
+      { "name": "SUB_BUFFER", "class_name": "SubscriptionEventBufferDO", "script_name": "factory-subscription-buffer" }
     ]
   },
 
@@ -44,4 +46,5 @@
   // Secrets (set via `wrangler secret put`):
   //   LINEAR_API_KEY       — Linear personal access token
   //   FF_AGENT_SIGNING_KEY — WGSP envelope signing key
+  //   SUB_BUFFER_PRODUCER_SECRET — SubscriptionEventBufferDO HMAC auth (§5.2)
 }
