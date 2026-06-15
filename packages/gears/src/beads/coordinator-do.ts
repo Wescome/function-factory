@@ -536,6 +536,18 @@ export class CoordinatorDO extends DurableObject<Env> {
           return Response.json({ error: msg }, { status: 422 })
         }
       }
+      if (url.pathname === '/next-ready') {
+        // GAP-THINK-03: return ALL ready beads for this run (run-scoped, no argument).
+        // The DO instance IS the run — coordinator:{runId} — so no moleculeId needed.
+        const rows = [...this.sql.exec(
+          `SELECT id, payload AS atomSpec FROM execution_beads WHERE status='ready' ORDER BY created_at ASC`
+        )] as Array<{ id: string; atomSpec: string | null }>
+        const beads = rows.map(r => ({
+          id:       r.id,
+          atomSpec: r.atomSpec ? JSON.parse(r.atomSpec) : null,
+        }))
+        return Response.json(beads)
+      }
       if (url.pathname === '/seed')     return Response.json(await this.seedBeads(  body as Parameters<typeof this.seedBeads>[0]))
       if (url.pathname === '/complete') return Response.json(await this.handleComplete(body as { moleculeId?: string }))
       if (url.pathname === '/consent') {

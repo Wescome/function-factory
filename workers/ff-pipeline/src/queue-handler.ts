@@ -564,6 +564,41 @@ export async function queueHandler(
         }
         if (lastDispatchErr) throw lastDispatchErr
 
+        // GAP-THINK-03: after ThinkExecutor accepts the atom, chain any newly-ready beads.
+        if (env.COORDINATOR_DO && env.SYNTHESIS_QUEUE && effectiveRunId) {
+          try {
+            const coordId = env.COORDINATOR_DO.idFromName(`coordinator:${effectiveRunId}`)
+            const coordStub = env.COORDINATOR_DO.get(coordId)
+            const nextRes = await coordStub.fetch(new Request('https://do/next-ready', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(effectiveRunId),
+            }))
+            if (nextRes.ok) {
+              const nextBeads = await nextRes.json() as Array<{ id: string; atomSpec: unknown }>
+              for (const bead of nextBeads) {
+                await (env.SYNTHESIS_QUEUE as Queue).send({
+                  type: 'atom-execute',
+                  runId: effectiveRunId,
+                  executableSpecificationId,
+                  workflowId,
+                  atomId: bead.id,
+                  atomSpec: bead.atomSpec,
+                  maxRetries: 3,
+                })
+              }
+              if (nextBeads.length > 0) {
+                console.log(`[queue] atom-execute chained ${nextBeads.length} ready bead(s) for run ${effectiveRunId}`)
+              }
+            } else {
+              console.warn(`[queue] CoordinatorDO /next-ready returned ${nextRes.status} for run ${effectiveRunId}`)
+            }
+          } catch (chainErr) {
+            // Non-fatal: chaining failure should not cause the current atom dispatch to retry.
+            console.error(`[queue] bead-chaining failed for run ${effectiveRunId}: ${chainErr instanceof Error ? chainErr.message : String(chainErr)}`)
+          }
+        }
+
         msg.ack()
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err)
