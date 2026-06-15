@@ -21,6 +21,12 @@ export const FACTORY_NODE_TYPES = [
   // Runtime governance
   'AtomDirective',     // compiled substrate-ready directive (per WorkGraph atom)
   'TraceFragment',     // per-atom execution result
+
+  // Governance records (append-only, written via POST /append)
+  'RejectionRecord',        // ff-linear-bridge rejection flow
+  'ConsolidationReport',    // Dream DO alarm() consolidation output
+  'VerdictClosureRecord',   // CommissioningAgentDO cycle reconciliation
+  'IssueBindingEvent',      // Linear issue ↔ artifact binding event (shape TBD)
 ] as const;
 
 export type FactoryNodeType = (typeof FACTORY_NODE_TYPES)[number];

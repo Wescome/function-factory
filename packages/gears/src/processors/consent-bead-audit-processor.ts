@@ -62,7 +62,9 @@ export class ConsentBeadAuditProcessor extends BaseProcessor<'consent-bead-audit
       }
 
       // I4 fail-closed: throw before the tool executor is reached.
-      if (!this.directive.permittedTools.includes(toolCall.toolName)) {
+      // v2.0: permittedTools is deprecated-optional; canonical source is toolPolicy.permittedTools.
+      const permittedTools = this.directive.permittedTools ?? this.directive.toolPolicy.permittedTools
+      if (!permittedTools.includes(toolCall.toolName)) {
         throw new ConsentDeniedError(toolCall.toolName, this.directive.atomId)
       }
     }

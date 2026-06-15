@@ -28,7 +28,8 @@ interface Env extends ConductorEnv {
 }
 
 function buildAtomPrompt(directive: AtomDirective): string {
-  return directive.instruction
+  // v2.0: `instructions` is canonical; v1 `instruction` is the deprecated alias.
+  return directive.instructions ?? directive.instruction ?? ''
 }
 
 async function evaluateCondition(
@@ -286,7 +287,8 @@ export class ThinkExecutor extends Think<Env> {
           {
             memory: {
               thread: directive.runId,
-              resource: directive.repoId,
+              // v1 deprecated field; omit entirely when absent (exactOptionalPropertyTypes).
+              ...(directive.repoId !== undefined && { resource: directive.repoId }),
             },
             requestContext: new RequestContext([['directive', directive]]),
           },
@@ -295,8 +297,9 @@ export class ThinkExecutor extends Think<Env> {
         lastOutput = typeof result.text === 'string' ? result.text : ''
       })
 
+      // v2.0: successCondition is deprecated-optional; default to 'always' when absent.
       const succeeded = await evaluateCondition(
-        directive.successCondition,
+        directive.successCondition ?? { type: 'always' },
         this.workspace,
         lastOutput,
       )

@@ -1,5 +1,6 @@
 import { ArtifactGraphDOBase } from '@factory/artifact-graph';
 import { v00Base } from '@factory/artifact-graph/migrations/v00_base';
+import { v01HypothesisIndex } from '@factory/artifact-graph/migrations/v01_hypothesis_index';
 import type { DomainConfig } from '@factory/artifact-graph';
 import { FACTORY_NODE_TYPES, FACTORY_REL_TYPES } from './types.js';
 
@@ -26,7 +27,7 @@ const FACTORY_CONFIG: DomainConfig = {
 
 export class FactoryArtifactGraphDO extends ArtifactGraphDOBase<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
-    super(ctx, env, FACTORY_CONFIG, [v00Base]);
+    super(ctx, env, FACTORY_CONFIG, [v00Base, v01HypothesisIndex]);
   }
 
   /**

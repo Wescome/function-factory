@@ -13,6 +13,22 @@ import type {
   DomainConfig,
 } from './types.js';
 
+// ── HTTP route helpers ────────────────────────────────────────────────────
+
+function jsonOk(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+function jsonErr(body: unknown, status: number): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
 export abstract class ArtifactGraphDOBase<Env> extends DurableObject<Env> {
   protected sql: SqlStorage;
   protected config: DomainConfig;
@@ -78,6 +94,91 @@ export abstract class ArtifactGraphDOBase<Env> extends DurableObject<Env> {
     return Q.collectLineageIds(this.sql, anyNodeId, rel);
   }
 
+  // ── HTTP fetch handler ────────────────────────────────────────────────────
+
+  /**
+   * HTTP surface for ArtifactGraphDO.
+   *
+   * Routes:
+   *   POST /append              — append-only governance node write
+   *   GET  /query/hypothesis    — filter Hypothesis nodes
+   */
+  override async fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    const { pathname } = url;
+    const method = request.method.toUpperCase();
+
+    // POST /append
+    if (method === 'POST' && pathname === '/append') {
+      return this.handleAppend(request);
+    }
+
+    // GET /query/hypothesis
+    if (method === 'GET' && pathname === '/query/hypothesis') {
+      return this.handleQueryHypothesis(url);
+    }
+
+    return jsonErr({ ok: false, error: 'not found' }, 404);
+  }
+
+  private async handleAppend(request: Request): Promise<Response> {
+    let body: { node?: Record<string, unknown> };
+    try {
+      body = await request.json() as { node?: Record<string, unknown> };
+    } catch {
+      return jsonErr({ ok: false, error: 'invalid JSON body' }, 400);
+    }
+
+    const node = body.node;
+    if (!node || typeof node !== 'object') {
+      return jsonErr({ ok: false, error: 'missing required field: node' }, 400);
+    }
+    if (typeof node['id'] !== 'string' || !node['id']) {
+      return jsonErr({ ok: false, error: 'missing required field: id' }, 400);
+    }
+    if (typeof node['nodeType'] !== 'string' || !node['nodeType']) {
+      return jsonErr({ ok: false, error: 'missing required field: nodeType' }, 400);
+    }
+
+    const id = node['id'] as string;
+    const nodeType = node['nodeType'] as string;
+
+    // Append-only: reject if node already exists
+    const existing = Q.getNode(this.sql, id);
+    if (existing !== null) {
+      return jsonErr({ ok: false, error: 'node already exists', id }, 409);
+    }
+
+    // Store all fields except nodeType in the data blob
+    const { nodeType: _stripped, ...dataFields } = node;
+    void _stripped; // suppress unused warning
+
+    Q.upsertNode(this.sql, id, nodeType, this.config.namespace, dataFields as Record<string, unknown>);
+    return jsonOk({ ok: true, id });
+  }
+
+  private handleQueryHypothesis(url: URL): Response {
+    const params: Q.HypothesisFilterParams = { ns: this.config.namespace };
+
+    const status = url.searchParams.get('status');
+    if (status !== null) params.status = status;
+
+    const severity = url.searchParams.get('severity');
+    if (severity !== null) params.severity = severity;
+
+    const surfaced = url.searchParams.get('surfaced');
+    if (surfaced !== null) params.surfaced = surfaced === 'true';
+
+    const cycleCountGte = url.searchParams.get('surfacedCycleCount_gte');
+    if (cycleCountGte !== null) {
+      const n = parseInt(cycleCountGte, 10);
+      if (!isNaN(n)) params.surfacedCycleCountGte = n;
+    }
+
+    const nodes = Q.queryHypothesisByFilters(this.sql, params);
+    return jsonOk(nodes);
+  }
+
   // ── Abstract method for domain instantiation ─────────────────────────────
 
   /**
@@ -114,7 +215,9 @@ export {
   walkLineageForward,
   walkBoundedPath,
   collectLineageIds,
+  queryHypothesisByFilters,
 } from './queries.js';
+export type { HypothesisFilterParams } from './queries.js';
 
 export { CORE_NODE_TYPES, CORE_REL_TYPES } from './types.js';
 export type { CoreNodeType, CoreRelType } from './types.js';

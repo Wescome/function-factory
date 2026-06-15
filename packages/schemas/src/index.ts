@@ -28,6 +28,9 @@ export * from "./_attic/trellis-canonical-json.js"
 export * from "./function-job.js"
 export * from "./atom-directive.js"
 export * from "./gear-types.js"
+export * from "./weops-disposition-token.js"
+export * from "./wgsp-envelope.js"
+export * from "./weops-signals.js"
 export {
   CoherenceVerificationReport,
   FidelityVerificationReport,

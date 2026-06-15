@@ -236,6 +236,54 @@ export function walkBoundedPath(
   });
 }
 
+// ── Hypothesis filter query ────────────────────────────────────────────────
+
+export interface HypothesisFilterParams {
+  ns: string;
+  status?: string;
+  severity?: string;
+  /** Filter by data.surfacedToLinear boolean */
+  surfaced?: boolean;
+  /** Filter: data.surfacedCycleCount >= this value */
+  surfacedCycleCountGte?: number;
+}
+
+/**
+ * Query Hypothesis nodes using SQLite json_extract() for server-side filtering.
+ * All params are optional and ANDed together when provided.
+ */
+export function queryHypothesisByFilters(
+  sql: SqlStorage,
+  params: HypothesisFilterParams,
+  limit = 200,
+  offset = 0
+): ArtifactNode[] {
+  const conditions: string[] = ['ns = ?', "type = 'Hypothesis'"];
+  const bindings: unknown[] = [params.ns];
+
+  if (params.status !== undefined) {
+    conditions.push("json_extract(data, '$.status') = ?");
+    bindings.push(params.status);
+  }
+  if (params.severity !== undefined) {
+    conditions.push("json_extract(data, '$.severity') = ?");
+    bindings.push(params.severity);
+  }
+  if (params.surfaced !== undefined) {
+    // SQLite stores JSON booleans as 1/0 integers via json_extract
+    conditions.push("json_extract(data, '$.surfacedToLinear') = ?");
+    bindings.push(params.surfaced ? 1 : 0);
+  }
+  if (params.surfacedCycleCountGte !== undefined) {
+    conditions.push("CAST(json_extract(data, '$.surfacedCycleCount') AS INTEGER) >= ?");
+    bindings.push(params.surfacedCycleCountGte);
+  }
+
+  bindings.push(limit, offset);
+  const query = `SELECT * FROM nodes WHERE ${conditions.join(' AND ')} ORDER BY created DESC LIMIT ? OFFSET ?`;
+  return [...sql.exec(query, ...bindings)].map(r => toNode(r as Record<string, unknown>));
+}
+
 // ── Generic traversal contract 3: Bi-directional lineage collect ──────────
 
 /**

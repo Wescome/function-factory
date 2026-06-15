@@ -41,9 +41,9 @@ export interface ConductorEnv {
 
 function buildSystemPrompt(directive: AtomDirective): string {
   return [
-    `You are a ${directive.role} agent executing atom '${directive.atomRef}'.`,
+    `You are a ${directive.role ?? 'agent'} executing atom '${directive.atomRef ?? directive.atomId}'.`,
     '',
-    directive.instruction,
+    directive.instruction ?? directive.instructions,
   ].join('\n')
 }
 
@@ -53,7 +53,10 @@ export function buildConductingAgent(
   thinkExecutorDO: WorkspaceLike,
   env: ConductorEnv,
 ): Agent {
-  const { modelId } = MODEL_BY_ROLE[directive.role]
+  // v2.0: directive.model is the canonical model id; v1 fallback via MODEL_BY_ROLE[role].
+  const modelId = directive.role !== undefined
+    ? MODEL_BY_ROLE[directive.role].modelId
+    : directive.model
   const model = modelId.startsWith('cloudflare/')
     ? {
         id: modelId as `${string}/${string}`,
@@ -65,7 +68,7 @@ export function buildConductingAgent(
 
   return new Agent({
     id: `conducting-agent-${directive.atomId}`,
-    name: `ConductingAgent[${directive.role}]`,
+    name: `ConductingAgent[${directive.role ?? 'agent'}]`,
     instructions: buildSystemPrompt(directive),
     model,
     tools: async () => {

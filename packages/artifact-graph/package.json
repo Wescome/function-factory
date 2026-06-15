@@ -10,7 +10,8 @@
     "./types": "./src/types.ts",
     "./queries": "./src/queries.ts",
     "./migrate": "./src/migrate.ts",
-    "./migrations/v00_base": "./migrations/v00_base.ts"
+    "./migrations/v00_base": "./migrations/v00_base.ts",
+    "./migrations/v01_hypothesis_index": "./migrations/v01_hypothesis_index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
