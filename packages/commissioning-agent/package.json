@@ -1,0 +1,25 @@
+{
+  "name": "@factory/commissioning-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "lint": "echo 'lint: TODO'"
+  },
+  "dependencies": {
+    "@factory/schemas": "workspace:*",
+    "@cloudflare/shell": "latest",
+    "@cloudflare/think": "latest",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260527.1",
+    "@types/node": "^24.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.4.0"
+  }
+}
