@@ -3,6 +3,7 @@ import { typeDefs } from './schema.js'
 import { sessionResolvers } from './resolvers/session.js'
 import { artifactResolvers } from './resolvers/artifact.js'
 import { beadResolvers } from './resolvers/beads.js'
+import { subscriptionResolvers } from './resolvers/subscriptions.js'
 import { CoordinatorDataSource } from './data-sources/coordinator.js'
 import { ArtifactGraphDataSource } from './data-sources/artifact-graph.js'
 import { D1DataSource } from './data-sources/d1.js'
@@ -38,21 +39,9 @@ const schema = createSchema<MergedContext>({
     ExecutionBead:   beadResolvers.ExecutionBead,
     Amendment:       beadResolvers.Amendment,
 
-    // Subscription stubs — Phase 4 (ADR-0016) wires the real resolvers.
-    Subscription: {
-      sessionEvents: {
-        subscribe: async function* () { yield null },
-        resolve: () => null,
-      },
-      artifactWrites: {
-        subscribe: async function* () { yield null },
-        resolve: () => null,
-      },
-      beadUpdates: {
-        subscribe: async function* () { yield null },
-        resolve: () => null,
-      },
-    },
+    // Subscription resolvers — Phase 4 (ADR-0016), SSE via async generators.
+    // Polls SubscriptionEventBufferDO via KV liveness probe + GET /replay.
+    Subscription: subscriptionResolvers.Subscription,
   },
 })
 
