@@ -74,6 +74,7 @@ export async function runHypothesisFormation(
           producedAt: new Date().toISOString(),
           surfaced: false,
           surfacedAt: null,
+          surfacedCycleCount: 0,
         }
         return hyp
       }

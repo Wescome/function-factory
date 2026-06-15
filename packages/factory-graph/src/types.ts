@@ -182,4 +182,5 @@ export interface TraceFragmentData {
   outcome:            string;
   attempts_exhausted: boolean;
   detector_firings:   DetectorFiringData[];
+  commitSha?:         string;
 }

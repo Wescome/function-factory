@@ -27,6 +27,13 @@ export interface LoopClosureConfig {
   detectDivergences: DivergenceDetector;
   buildHypothesis:   HypothesisBuilder;
   verifyAmendment:   AmendmentVerifier;
+  /**
+   * Optional CommissioningAgent DO namespace.
+   * When provided, recordOutcome() will push DivergenceNotifications to the CA
+   * so hypothesis-formation is triggered immediately on divergence detection.
+   * Non-fatal if absent or if the push fails.
+   */
+  commissioningAgentDO?: DurableObjectNamespace;
 }
 
 // Session state (stored in KV)

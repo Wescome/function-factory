@@ -1,0 +1,38 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ff-architect-agent",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-01-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Durable Objects
+  "durable_objects": {
+    "bindings": [
+      // ArchitectAgentDO — I-layer Factory governance singleton
+      { "name": "ARCHITECT_AGENT", "class_name": "ArchitectAgentDO" },
+      // FactoryArtifactGraphDO — lineage + audit writes (replaces all ArangoDB collection writes)
+      // Key pattern: 'artifact-graph:factory' (singleton factory graph)
+      { "name": "ARTIFACT_GRAPH", "class_name": "FactoryArtifactGraphDO", "script_name": "ff-pipeline" }
+    ]
+  },
+
+  // Migrations — ArchitectAgentDO requires SQLite storage
+  // No D1 binding needed — ArchitectAgentDO is a singleton; its own SQLite is authoritative.
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["ArchitectAgentDO"] }
+  ],
+
+  "vars": {
+    "ENVIRONMENT": "development",
+    "WEOPS_GATEWAY_URL": "https://ff-gateway.koales.workers.dev",
+    "HARNESS_BRIDGE_URL": "https://ff-pipeline.koales.workers.dev",
+    "COMPILER_URL": "https://ff-compiler.koales.workers.dev",
+    "ANOMALY_SCAN_INTERVAL_MS": "900000",
+    "PATCH_PROPAGATION_TIMEOUT_MS": "1800000",
+    "CRD_RESOLUTION_TIMEOUT_MS": "600000"
+  }
+
+  // Secrets (wrangler secret put):
+  //   OPERATOR_CONTROL_TOKEN   — bearer token for WeOps gateway calls
+  //   FF_AGENT_SIGNING_KEY     — envelope signing (shared with CommissioningAgentDO)
+}

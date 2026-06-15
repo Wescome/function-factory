@@ -96,6 +96,28 @@ importers:
         specifier: ^1.4.0
         version: 1.6.1(@types/node@24.12.2)(lightningcss@1.32.0)
 
+  packages/architect-agent:
+    dependencies:
+      '@factory/schemas':
+        specifier: workspace:*
+        version: link:../schemas
+      zod:
+        specifier: ^4.0.0
+        version: 4.4.3
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^4.20260527.1
+        version: 4.20260527.1
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.12.2
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.4.0
+        version: 1.6.1(@types/node@24.12.2)(lightningcss@1.32.0)
+
   packages/architecture-candidates:
     dependencies:
       '@factory/schemas':
@@ -631,6 +653,31 @@ importers:
         specifier: ^1.4.0
         version: 1.6.1(@types/node@24.12.2)(lightningcss@1.32.0)
 
+  packages/linear-sync:
+    dependencies:
+      '@factory/factory-graph':
+        specifier: workspace:*
+        version: link:../factory-graph
+      '@factory/schemas':
+        specifier: workspace:*
+        version: link:../schemas
+      zod:
+        specifier: ^4.0.0
+        version: 4.4.3
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^4.20260527.1
+        version: 4.20260527.1
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.12.2
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.4.0
+        version: 1.6.1(@types/node@24.12.2)(lightningcss@1.32.0)
+
   packages/literate-tools:
     dependencies:
       '@factory/schemas':
@@ -891,6 +938,22 @@ importers:
         specifier: ^1.4.0
         version: 1.6.1(@types/node@20.19.39)(lightningcss@1.32.0)
 
+  workers/dream-do:
+    dependencies:
+      zod:
+        specifier: ^4.0.0
+        version: 4.4.3
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^4.20260101.0
+        version: 4.20260527.1
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+      wrangler:
+        specifier: ^4.0.0
+        version: 4.99.0(@cloudflare/workers-types@4.20260527.1)
+
   workers/ff-arango:
     dependencies:
       '@cloudflare/containers':
@@ -906,6 +969,25 @@ importers:
       wrangler:
         specifier: ^4.0.0
         version: 4.92.0(@cloudflare/workers-types@4.20260527.1)
+
+  workers/ff-architect-agent:
+    dependencies:
+      '@factory/architect-agent':
+        specifier: workspace:*
+        version: link:../../packages/architect-agent
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^4.20260527.1
+        version: 4.20260527.1
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.12.2
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+      wrangler:
+        specifier: ^4.0.0
+        version: 4.99.0(@cloudflare/workers-types@4.20260527.1)
 
   workers/ff-gates:
     dependencies:
@@ -11547,7 +11629,7 @@ snapshots:
     dependencies:
       '@img/colour': 1.1.0
       detect-libc: 2.1.2
-      semver: 7.7.4
+      semver: 7.8.4
     optionalDependencies:
       '@img/sharp-darwin-arm64': 0.34.5
       '@img/sharp-darwin-x64': 0.34.5

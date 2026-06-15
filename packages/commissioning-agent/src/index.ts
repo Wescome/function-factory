@@ -38,7 +38,9 @@ import {
   runHypothesisFormation,
   runAmendmentProposal,
 } from './phases/index.js'
-import { getCycleContext } from './cycle-awareness.js'
+import { getCycleContext, invalidateCycleCache } from './cycle-awareness.js'
+import { deriveAdvisoryMetrics, buildHealthSyncRequest, pushHealthDocument } from './health-document.js'
+import { buildAdvisoryHypothesisSyncRequest } from './advisory-hypothesis-sync.js'
 import { BUNDLED_SKILLS } from './bundled-skills-manifest.js'
 
 const ALARM_INTERVAL_MS = 6 * 60 * 60 * 1000 // 6 hours
@@ -485,13 +487,13 @@ export class CommissioningAgentDO extends Think<Env> {
   override async alarm(): Promise<void> {
     const ctx = await this.restoreSessionContext()
 
-    // Do not re-arm or run if a phase is active
+    // Do not surface advisories if a phase is active — re-arm and return
     if (ctx.currentPhase !== 'idle') {
       await this.ctx.storage.setAlarm(Date.now() + ALARM_INTERVAL_MS)
       return
     }
 
-    // Step 1: get cycle context
+    // Step 1: get cycle context (non-fatal)
     let cycle: CycleContext | null = null
     try {
       cycle = await getCycleContext(this.env.LINEAR_TEAM_ID, this.env.FACTORY_LINEAR_KV, this.env.LINEAR_API_KEY)
@@ -500,7 +502,8 @@ export class CommissioningAgentDO extends Think<Env> {
     }
 
     // Step 2: load pending advisory hypotheses
-    const pending = await this.loadPendingAdvisoryHypotheses()
+    const allHypotheses = await this.loadAllHypotheses()
+    const pending = allHypotheses.filter((h) => h.severity === 'advisory' && !h.surfaced)
 
     // Step 3: surface advisories when in last 2 days of cycle (or no cycle)
     for (const hyp of pending) {
@@ -510,9 +513,16 @@ export class CommissioningAgentDO extends Think<Env> {
       }
     }
 
-    // Step 4: cycle-end reconciliation
+    // Step 4: push health document to LinearSyncService (non-fatal)
+    const metrics = deriveAdvisoryMetrics(allHypotheses)
+    const healthRequest = buildHealthSyncRequest(this.orgId, ctx, cycle, metrics)
+    await pushHealthDocument(this.env.LINEAR_SYNC_URL, healthRequest)
+
+    // Step 5: cycle-end reconciliation + cache invalidation
     if (cycle?.isCycleEnd) {
       await this.runCycleReconciliation(cycle)
+      // Invalidate KV cache so next alarm picks up the fresh cycle
+      await invalidateCycleCache(this.env.LINEAR_TEAM_ID, this.env.FACTORY_LINEAR_KV)
     }
 
     // Re-arm alarm
@@ -521,13 +531,17 @@ export class CommissioningAgentDO extends Think<Env> {
 
   // ── Alarm helpers ─────────────────────────────────────────────────────────────
 
-  private async loadPendingAdvisoryHypotheses(): Promise<HypothesisNode[]> {
+  /**
+   * Load all hypothesis nodes for this org from ArtifactGraphDO.
+   * Returns empty array on failure (non-fatal).
+   */
+  private async loadAllHypotheses(): Promise<HypothesisNode[]> {
     try {
       const artifactId = this.env.ARTIFACT_GRAPH.idFromName(`artifact-graph:${this.orgId}`)
       const stub = this.env.ARTIFACT_GRAPH.get(artifactId)
       const resp = await stub.fetch(
         new Request(
-          'https://artifact-graph/query/hypothesis?status=CANDIDATE&severity=advisory&surfaced=false',
+          'https://artifact-graph/query/hypothesis?status=CANDIDATE',
         ),
       )
       if (!resp.ok) return []
@@ -542,15 +556,11 @@ export class CommissioningAgentDO extends Think<Env> {
     cycle: CycleContext | null,
   ): Promise<void> {
     try {
+      const syncRequest = buildAdvisoryHypothesisSyncRequest(this.orgId, hyp, cycle)
       await fetch(`${this.env.LINEAR_SYNC_URL}/sync/advisory-hypothesis`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orgId: this.orgId,
-          hypothesis: hyp,
-          cycleContext: cycle,
-          surfacedAt: new Date().toISOString(),
-        }),
+        body: JSON.stringify(syncRequest),
       })
     } catch (err) {
       console.warn('[CommissioningAgentDO] surfaceAdvisoryHypothesis failed:', err)
@@ -590,13 +600,13 @@ export class CommissioningAgentDO extends Think<Env> {
     }
   }
 
-  private async findRecurringAdvisories(minCycles: number): Promise<HypothesisNode[]> {
+  private async findRecurringAdvisories(minSurfacedCycleCount: number): Promise<HypothesisNode[]> {
     try {
       const artifactId = this.env.ARTIFACT_GRAPH.idFromName(`artifact-graph:${this.orgId}`)
       const stub = this.env.ARTIFACT_GRAPH.get(artifactId)
       const resp = await stub.fetch(
         new Request(
-          `https://artifact-graph/query/hypothesis?status=CANDIDATE&severity=advisory&minCycles=${minCycles}`,
+          `https://artifact-graph/query/hypothesis?status=CANDIDATE&severity=advisory&minSurfacedCycleCount=${minSurfacedCycleCount}`,
         ),
       )
       if (!resp.ok) return []

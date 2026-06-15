@@ -129,6 +129,8 @@ export interface HypothesisNode {
   producedAt: string
   surfaced: boolean
   surfacedAt: string | null
+  /** Number of Linear cycles this advisory has been surfaced in without resolution. */
+  surfacedCycleCount: number
 }
 
 export interface Amendment {
@@ -145,6 +147,8 @@ export interface CycleContext {
   cycleName: string
   startDate: string
   endDate: string
+  /** Fractional days remaining until cycle end. Negative when cycle has ended. */
+  daysRemaining: number
   isLastTwoDays: boolean
   isCycleEnd: boolean
   teamId: string

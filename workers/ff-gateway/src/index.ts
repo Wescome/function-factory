@@ -24,14 +24,20 @@
  *   POST /approve/:id       → send approval event to paused Workflow
  *   GET  /pipeline/:id      → Workflow instance status
  *
+ * Phase 4 routes (WeOps signals layer):
+ *   POST /signals           → inbound We→I; JWT validation + routing to CA/Architect DO
+ *   POST /escalations       → outbound I→We; WGSP envelope verification + forward/KV buffer
+ *   POST /vcrs              → outbound I→We; WGSP envelope verification + forward/KV buffer
+ *
  * Future phases add:
  *   POST /webhook/ci-result → CI feedback (Phase 7)
  */
 
-import type { GatewayEnv } from './env'
+import type { GatewayEnv } from './env.js'
+import { handleSignals, handleEscalations, handleVcrs } from './signals-handler.js'
 
 // Re-export QueryService as named entrypoint for Service Binding
-export { default as QueryService } from './query'
+export { default as QueryService } from './query.js'
 
 export default {
   async fetch(request: Request, env: GatewayEnv): Promise<Response> {
@@ -188,6 +194,20 @@ export default {
         return json(status)
       }
 
+      // ── WeOps signals layer (Phase 4) ──
+
+      if (method === 'POST' && path === '/signals') {
+        return handleSignals(request, env)
+      }
+
+      if (method === 'POST' && path === '/escalations') {
+        return handleEscalations(request, env)
+      }
+
+      if (method === 'POST' && path === '/vcrs') {
+        return handleVcrs(request, env)
+      }
+
       // ── 404 ──
       return json({
         error: 'Not found',
@@ -207,6 +227,9 @@ export default {
           'POST /pipeline',
           'POST /approve/:id',
           'GET  /pipeline/:id',
+          'POST /signals',
+          'POST /escalations',
+          'POST /vcrs',
         ],
       }, 404)
 

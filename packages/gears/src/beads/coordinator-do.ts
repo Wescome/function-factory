@@ -48,6 +48,7 @@ export interface ConductingAgentTraceFragment {
   durationMs:        number
   attemptNumber:     number
   producedAt:        string
+  commitSha?:        string   // undefined if no git permission or no commit made
 }
 
 interface Env {
@@ -55,20 +56,24 @@ interface Env {
   ARTIFACT_GRAPH: DurableObjectNamespace<FactoryArtifactGraphDO>
   BEAD_GRAPH:     DurableObjectNamespace<FactoryBeadGraphDO>
   KV_KS:          KVNamespace
+  MEDIATION_AGENT: DurableObjectNamespace  // POST /complete on run termination
+  DREAM_DO?:       DurableObjectNamespace  // optional Dream notification hook
 }
 
 export class CoordinatorDO extends DurableObject<Env> {
-  private sql:   SqlStorage
-  private runId: string = ''
-  private orgId: string = ''
+  private sql:    SqlStorage
+  private runId:  string = ''
+  private orgId:  string = ''
+  private repoId: string = ''
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
     this.sql = ctx.storage.sql
     ctx.blockConcurrencyWhile(async () => {
-      // Restore persisted runId/orgId if DO was evicted
-      this.runId = (await ctx.storage.get<string>('runId')) ?? ''
-      this.orgId = (await ctx.storage.get<string>('orgId')) ?? ''
+      // Restore persisted runId/orgId/repoId if DO was evicted
+      this.runId  = (await ctx.storage.get<string>('runId'))  ?? ''
+      this.orgId  = (await ctx.storage.get<string>('orgId'))  ?? ''
+      this.repoId = (await ctx.storage.get<string>('repoId')) ?? ''
       this.migrate()
     })
   }
@@ -104,11 +109,13 @@ export class CoordinatorDO extends DurableObject<Env> {
   }
 
   /** Called once from atom-execution.ts before first claimBead() (Gap 6). */
-  async initRun(runId: string, orgId: string): Promise<void> {
-    this.runId = runId
-    this.orgId = orgId
-    await this.ctx.storage.put('runId', runId)
-    await this.ctx.storage.put('orgId', orgId)
+  async initRun(runId: string, orgId: string, repoId?: string): Promise<void> {
+    this.runId  = runId
+    this.orgId  = orgId
+    this.repoId = repoId ?? orgId  // fall back to orgId if repoId not supplied (1:1 systems)
+    await this.ctx.storage.put('runId',  runId)
+    await this.ctx.storage.put('orgId',  orgId)
+    await this.ctx.storage.put('repoId', this.repoId)
     // Arm the stale-bead rescue alarm here (not in seedBeads) so repeated
     // seedBeads() calls cannot push the rescue indefinitely into the future.
     await this.ctx.storage.setAlarm(Date.now() + 5 * 60 * 1000)
@@ -163,7 +170,17 @@ export class CoordinatorDO extends DurableObject<Env> {
        WHERE status='in_progress' AND updated_at < ?`,
       Date.now(), cutoff
     )
-    await this.ctx.storage.setAlarm(Date.now() + staleMs)
+    // Only re-arm if there are still non-terminal beads.
+    const activeRows = [...this.sql.exec(
+      `SELECT COUNT(*) AS n FROM execution_beads WHERE status NOT IN ('done','failed')`
+    )]
+    const active = (activeRows[0] as { n: number }).n
+    if (active > 0) {
+      await this.ctx.storage.setAlarm(Date.now() + staleMs)
+    } else if (this.runId) {
+      // Race-safety: if checkRunComplete() hasn't fired yet for some reason, drive it now.
+      try { await this.checkRunComplete() } catch { /* non-fatal */ }
+    }
   }
 
   async claimBead(beadId: string, agentId: string): Promise<ExecutionBead | null> {
@@ -185,6 +202,7 @@ export class CoordinatorDO extends DurableObject<Env> {
     )
     await this.writeAudit(beadId, agentId, 'done')
     try { await this.recordOutcome(beadId, agentId, result, 'done') } catch { /* BP3 non-fatal */ }
+    try { await this.checkRunComplete() } catch { /* non-fatal */ }
   }
 
   async failBead(beadId: string, agentId: string, result: string): Promise<void> {
@@ -195,6 +213,7 @@ export class CoordinatorDO extends DurableObject<Env> {
     )
     await this.writeAudit(beadId, agentId, 'failed')
     try { await this.recordOutcome(beadId, agentId, result, 'failed') } catch { /* BP3 non-fatal */ }
+    try { await this.checkRunComplete() } catch { /* non-fatal */ }
   }
 
   async getNextReady(moleculeId: string): Promise<ExecutionBead | null> {
@@ -221,6 +240,89 @@ export class CoordinatorDO extends DurableObject<Env> {
     //   to the caller. If all-or-nothing semantics are needed for a specific
     //   molecule, the caller must gate on molecule-level status before dispatching.
     return rows.length > 0 ? rows[0] as unknown as ExecutionBead : null
+  }
+
+  /**
+   * GAP-006: Check whether all beads for this run are in a terminal state.
+   * If so, cancel the rescue alarm, call POST /complete on MediationAgentDO,
+   * and fire an optional Dream notification (non-fatal if absent or failing).
+   */
+  private async checkRunComplete(): Promise<void> {
+    if (!this.runId) return
+
+    const rows = [...this.sql.exec(`
+      SELECT
+        COUNT(*) FILTER (WHERE status NOT IN ('done','failed')) AS active_count,
+        COUNT(*) FILTER (WHERE status = 'failed')               AS failed_count,
+        GROUP_CONCAT(id) FILTER (WHERE status = 'failed')       AS failed_ids
+      FROM execution_beads
+    `)]
+    const row = rows[0] as { active_count: number; failed_count: number; failed_ids: string | null }
+    if (row.active_count > 0) return  // still executing
+
+    // Cancel rescue alarm — no point rescuing a completed run.
+    await this.ctx.storage.deleteAlarm()
+
+    const outcome: 'all_done' | 'partial_failure' = row.failed_count > 0 ? 'partial_failure' : 'all_done'
+    const failedAtomIds = row.failed_ids ? row.failed_ids.split(',') : []
+
+    // Notify MediationAgentDO (spec SEEDED → COMPLETE transition).
+    const repoId = this.repoId || this.orgId
+    const mediationStub = this.env.MEDIATION_AGENT.get(
+      this.env.MEDIATION_AGENT.idFromName(`mediation-agent:${repoId}`)
+    )
+    try {
+      await mediationStub.fetch('https://do/complete', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ runId: this.runId, outcome, failedAtomIds }),
+      })
+    } catch (err) {
+      // Non-fatal: MediationAgentDO can reconcile via /health poll.
+      console.error(`[CoordinatorDO] POST /complete to MediationAgentDO failed: runId=${this.runId}`, err)
+    }
+
+    // Optional Dream notification hook — present only when DREAM_DO binding is provisioned.
+    if (this.env.DREAM_DO) {
+      try {
+        const dreamStub = this.env.DREAM_DO.get(
+          this.env.DREAM_DO.idFromName(`dream:${repoId}`)
+        )
+        await dreamStub.fetch('https://do/notify', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ event: 'run_complete', runId: this.runId, outcome, failedAtomIds }),
+        })
+      } catch (err) {
+        // Non-fatal: Dream is a side-channel notification, not a required gate.
+        console.warn(`[CoordinatorDO] Dream notification failed: runId=${this.runId}`, err)
+      }
+    }
+  }
+
+  /**
+   * GAP-006: HTTP entry point for /complete.
+   * Marks all remaining non-terminal molecule beads as done (idempotent cleanup),
+   * records a completion timestamp, and drives checkRunComplete().
+   * Called by external orchestrators that want to force-close a run.
+   */
+  private async handleComplete(body: { moleculeId?: string }): Promise<{ ok: boolean; completedAt: number }> {
+    const completedAt = Date.now()
+    if (body.moleculeId) {
+      this.sql.exec(
+        `UPDATE execution_beads SET status='done', updated_at=?
+         WHERE molecule_id=? AND status NOT IN ('done','failed')`,
+        completedAt, body.moleculeId
+      )
+    } else {
+      this.sql.exec(
+        `UPDATE execution_beads SET status='done', updated_at=?
+         WHERE status NOT IN ('done','failed')`,
+        completedAt
+      )
+    }
+    await this.checkRunComplete()
+    return { ok: true, completedAt }
   }
 
   /**
@@ -368,7 +470,8 @@ export class CoordinatorDO extends DurableObject<Env> {
           return Response.json({ error: msg }, { status: 422 })
         }
       }
-      if (url.pathname === '/seed')    return Response.json(await this.seedBeads(  body as Parameters<typeof this.seedBeads>[0]))
+      if (url.pathname === '/seed')     return Response.json(await this.seedBeads(  body as Parameters<typeof this.seedBeads>[0]))
+      if (url.pathname === '/complete') return Response.json(await this.handleComplete(body as { moleculeId?: string }))
       if (url.pathname === '/consent') {
         const raw = body as { beadId: string; toolName: string; toolCallId?: string }
         const record: ConsentRecord = {

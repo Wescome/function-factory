@@ -31,6 +31,7 @@ export type TaskKind =
   | 'tester'
   | 'verifier'
   | 'governor'
+  | 'consolidation'
 
 export type Provider =
   | 'deepseek'
@@ -79,6 +80,7 @@ const CF_70B: RouteTarget = { provider: 'cloudflare', model: '@cf/meta/llama-3.3
 const CF_KIMI_K26: RouteTarget = { provider: 'cloudflare', model: '@cf/moonshotai/kimi-k2.6' }
 const CF_GPT_OSS: RouteTarget = { provider: 'cloudflare', model: '@cf/openai/gpt-oss-120b' }
 const DEEPSEEK_PRO: RouteTarget = { provider: 'deepseek', model: 'deepseek-v4-pro' }
+const DEEPSEEK_FLASH: RouteTarget = { provider: 'deepseek', model: 'deepseek-v3-flash' }
 const GEMINI_PRO: RouteTarget = { provider: 'google', model: 'gemini-3.1-pro-preview' }
 
 // ── Default config ──
@@ -109,6 +111,9 @@ export const DEFAULT_CONFIG: RoutingConfig = {
     { kind: 'verifier', primary: CF_KIMI_K26, fallback: CF_70B },
     // Governor: gpt-oss-120b (reasoning separation + schema compliance)
     { kind: 'governor', primary: CF_GPT_OSS, fallback: CF_KIMI_K26 },
+    // Consolidation: DeepSeek Flash (cheap validation tier — DreamDO Phase 2 LLM)
+    // Mirrors Hermes curator aux-model routing. Fallback: llama-70b (Workers AI zero cost)
+    { kind: 'consolidation', primary: DEEPSEEK_FLASH, fallback: CF_70B },
   ],
   default: CF_70B,
 }

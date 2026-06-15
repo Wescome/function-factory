@@ -30,6 +30,7 @@ import { createSandboxTools } from '@cloudflare/think/tools/sandbox'
 import type { AtomDirective } from '@factory/schemas'
 import { MODEL_BY_ROLE } from './models.js'
 import { ConsentBeadAuditProcessor } from '../processors/consent-bead-audit-processor.js'
+import { CommitTracingProcessor } from '../processors/commit-tracing-processor.js'
 
 export interface ConductorEnv {
   DB: D1Database
@@ -108,6 +109,9 @@ export function buildConductingAgent(
       // output steps, making it a no-op at this position. If ConsentBead
       // threw, execution never reaches the tool executor regardless.
       new ToolCallFilter() as unknown as OutputProcessorOrWorkflow,
+      // GAP-014: observe git commit tool calls; SHA extracted post-generate()
+      // by ThinkExecutor via commitTracingProcessor.extractCommitSha().
+      new CommitTracingProcessor(directive, thinkExecutorDO) as unknown as OutputProcessorOrWorkflow,
       new BatchPartsProcessor(),
       new PIIDetector({ model: safetyModel }),
     ],

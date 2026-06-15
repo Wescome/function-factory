@@ -234,6 +234,17 @@ export class LoopClosureService {
       });
       await this.config.artifactGraphDO.upsertEdge(traceId, divergenceId, 'evidences');
       await this.config.artifactGraphDO.upsertEdge(traceId, session.activeSpecificationId, 'diverges_from');
+
+      // Push DivergenceNotification to CommissioningAgentDO (non-fatal)
+      if (this.config.commissioningAgentDO) {
+        void this._pushDivergenceToCA(
+          this.config.commissioningAgentDO,
+          session.orgId,
+          divergenceId,
+          session.activeSpecificationId,
+          sessionId,
+        );
+      }
     }
 
     // 4. Annotate outcome content with divergence bridge field
@@ -485,5 +496,39 @@ export class LoopClosureService {
     );
 
     return { newSpecId, newBeadId };
+  }
+
+  // ── Internal helpers ──────────────────────────────────────────────────────
+
+  /**
+   * Push a DivergenceNotification to CommissioningAgentDO POST /divergence.
+   * Non-fatal — failures are logged but never surfaced to the caller.
+   * The DO is addressed by name: `commissioning-agent:{orgId}`.
+   */
+  private async _pushDivergenceToCA(
+    caNamespace:      DurableObjectNamespace,
+    orgId:            string,
+    divergenceId:     string,
+    specificationId:  string,
+    runId:            string,
+  ): Promise<void> {
+    try {
+      const id   = caNamespace.idFromName(`commissioning-agent:${orgId}`);
+      const stub = caNamespace.get(id);
+      const resp = await stub.fetch(
+        new Request('https://commissioning-agent/divergence', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ divergenceId, specificationId, runId }),
+        }),
+      );
+      if (!resp.ok) {
+        console.warn(
+          `[LoopClosureService] CA /divergence push failed: HTTP ${resp.status} for org ${orgId}`,
+        );
+      }
+    } catch (err) {
+      console.warn(`[LoopClosureService] CA /divergence push error for org ${orgId}:`, err);
+    }
   }
 }
