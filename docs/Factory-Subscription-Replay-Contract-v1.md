@@ -351,15 +351,15 @@ And update §6 Open Questions:
 
 ---
 
-## §9 — Architecture Gates (require Wes to clear)
+## §9 — Architecture Gates
 
-> Per AUTHORITY: GUV/Architect flags gates; only the principal clears them.
+> All gates cleared 2026-06-15.
 
-- **[GATE-SUB-1] TTL window values.** 30-min sliding live window + 5-min terminal grace are proposed defaults grounded in "sessions run minutes" and the KV 1-day ceiling. If real session durations exceed ~25 min of inter-event silence, raise the live window. **Decision: accept 30/5 or set explicit values.**
-- **[GATE-SUB-2] Producer authentication mechanism.** Shared-secret HMAC (`SUB_BUFFER_PRODUCER_SECRET`) vs. typed service bindings from every producer to the buffer DO class. Shared-secret is recommended for loose coupling; service bindings are stricter but couple every producer to the buffer's class. **Decision required before the `/event` route is built.**
-- **[GATE-SUB-3] Assembly-wide fan-out merge location.** `artifactWrites(assemblyId)` spanning multiple sessions is merged in the `factory-graphql` Worker (§4.3). Alternative: a per-assembly index DO that itself fans out. Worker-merge is simpler and recommended; an index DO is warranted only if assemblies routinely run many concurrent sessions. **Decision affects whether a new per-assembly DO is introduced.**
-- **[GATE-SUB-4] Reconciliation depth (§5.3).** Whether the on-connect reconciliation cross-checks the full requested range against durable sources (stronger faithfulness, more D1/DO reads) or trusts the fire-and-forget projection for the live window and only reconciles on TTL-fallback. **Decision is a correctness/cost tradeoff.**
-- **[GATE-SUB-5] Relationship to ADR-0014 D1 isolation.** When per-assembly D1 sharding is eventually triggered (ADR-0014), the durable-replay fallback resolver in §3.4/§3.5 must select the correct shard binding by `assembly_id`. This spec assumes shared D1 (shard-0) today; flagged so the two specs stay consistent. **No action now; tracked dependency.**
+- **[GATE-SUB-1] TTL window values. CLOSED.** 30-min sliding live window + 5-min terminal grace accepted.
+- **[GATE-SUB-2] Producer authentication. CLOSED.** Shared-secret HMAC (`SUB_BUFFER_PRODUCER_SECRET`) accepted. Loose coupling — producers bind a namespace + secret, no typed class reference required.
+- **[GATE-SUB-3] Assembly-wide fan-out merge. CLOSED.** Worker merge accepted — `factory-graphql` Worker opens internal `/ws` connections per active session buffer and merges. No per-assembly index DO.
+- **[GATE-SUB-4] Reconciliation depth. CLOSED.** Trust the fire-and-forget projection for the live window; reconcile against durable sources only on TTL-fallback reconnect.
+- **[GATE-SUB-5] ADR-0014 D1 isolation. DEFERRED.** No action now. Tracked dependency — fallback resolver must select shard by `assembly_id` when ADR-0014 trigger fires.
 
 ---
 
