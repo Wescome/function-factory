@@ -1,0 +1,6 @@
+version: v2
+plugins:
+  - remote: buf.build/connectrpc/es
+    out: ../workers/factory-gateway/src/gen
+  - remote: buf.build/bufbuild/es
+    out: ../workers/factory-gateway/src/gen

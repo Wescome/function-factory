@@ -1,0 +1,37 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "factory-gateway",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-01-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Durable Object bindings — external scripts (not deployed in this Worker)
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "COMMISSIONING_AGENT",
+        "class_name": "CommissioningAgentDO",
+        "script_name": "ff-commissioning-agent"
+      },
+      {
+        "name": "SUB_BUFFER",
+        "class_name": "SubscriptionEventBufferDO",
+        "script_name": "factory-subscription-buffer"
+      }
+    ]
+  },
+
+  // KV namespace — SubscriptionEventBufferDO liveness shadow
+  // Provision: wrangler kv namespace create SUB_BUFFER_KV
+  "kv_namespaces": [
+    { "binding": "SUB_BUFFER_KV", "id": "placeholder" }
+  ],
+
+  "vars": {
+    "PDP_URL": ""
+  }
+
+  // Secrets (set via `wrangler secret put`):
+  //   WEOPS_SIGNING_KEY  — HMAC-SHA256 key for WGSP envelope verification (base64)
+  //   PDP_API_KEY        — Bearer token for WeOps Kernel PDP calls
+}
