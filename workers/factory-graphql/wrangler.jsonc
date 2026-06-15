@@ -1,0 +1,28 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "factory-graphql",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-01-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  "durable_objects": {
+    "bindings": [
+      { "name": "COORDINATOR_DO", "class_name": "CoordinatorDO", "script_name": "ff-pipeline" },
+      { "name": "ARTIFACT_GRAPH", "class_name": "FactoryArtifactGraphDO", "script_name": "ff-pipeline" },
+      { "name": "SUB_BUFFER", "class_name": "SubscriptionEventBufferDO", "script_name": "factory-subscription-buffer" }
+    ]
+  },
+
+  "d1_databases": [
+    { "binding": "DB", "database_name": "ff-factory", "database_id": "placeholder" },
+    { "binding": "FACTORY_OPS_DB", "database_name": "factory-ops", "database_id": "placeholder" }
+  ],
+
+  "kv_namespaces": [
+    { "binding": "SUB_BUFFER_KV", "id": "placeholder" }
+  ],
+
+  "r2_buckets": [
+    { "binding": "ARTIFACT_BLOBS", "bucket_name": "factory-blobs" }
+  ]
+}
