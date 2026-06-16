@@ -13,7 +13,7 @@
   "dependencies": {
     "@factory/schemas": "workspace:*",
     "@factory/subscription-buffer": "workspace:*",
-    "@ai-sdk/anthropic": "^3.0.0",
+    "@ai-sdk/openai": "^3.0.0",
     "@cloudflare/shell": "latest",
     "@cloudflare/think": "latest",
     "ai": "^6.0.0",

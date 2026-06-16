@@ -27,7 +27,7 @@ export interface Env {
   LINEAR_TEAM_ID: string
   LINEAR_API_KEY: string // secret
   FF_AGENT_SIGNING_KEY: string // WGSP envelope signing
-  ANTHROPIC_API_KEY: string
+  OFOX_API_KEY: string  // OpenAI-compatible gateway (https://api.ofox.ai/v1)
   ENVIRONMENT: string
 
   // ── Subscription buffer (optional) ───────────────────────────────────────
