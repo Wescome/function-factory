@@ -28,9 +28,6 @@ export interface Env {
   LINEAR_API_KEY: string // secret
   FF_AGENT_SIGNING_KEY: string // WGSP envelope signing
   ENVIRONMENT: string
-  AI: Ai
-  CF_API_TOKEN: string
-  CLOUDFLARE_ACCOUNT_ID: string
 
   // ── Subscription buffer (optional) ───────────────────────────────────────
   SUB_BUFFER?:                 DurableObjectNamespace

@@ -45,12 +45,10 @@
     "ENVIRONMENT": "development",
     "LINEAR_TEAM_ID": "8b9ba524-28fa-457f-adfc-e4f2452d3aa0",
     "LINEAR_SYNC_URL": "https://ff-linear-sync.koales.workers.dev",
-    "CLOUDFLARE_ACCOUNT_ID": "cb56a846c70a38987f31cf6e2b85cb57"
   }
 
   // Secrets (set via `wrangler secret put`):
   //   LINEAR_API_KEY       — Linear personal access token
   //   FF_AGENT_SIGNING_KEY — WGSP envelope signing key
   //   SUB_BUFFER_PRODUCER_SECRET — SubscriptionEventBufferDO HMAC auth (§5.2)
-  //   CF_API_TOKEN           — Cloudflare API token for AI Gateway
 }
