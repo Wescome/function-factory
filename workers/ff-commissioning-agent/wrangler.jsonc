@@ -51,4 +51,5 @@
   //   LINEAR_API_KEY       — Linear personal access token
   //   FF_AGENT_SIGNING_KEY — WGSP envelope signing key
   //   SUB_BUFFER_PRODUCER_SECRET — SubscriptionEventBufferDO HMAC auth (§5.2)
+  //   ANTHROPIC_API_KEY    — Anthropic API key for direct model calls (CA phases 1-5)
 }

@@ -27,6 +27,7 @@ export interface Env {
   LINEAR_TEAM_ID: string
   LINEAR_API_KEY: string // secret
   FF_AGENT_SIGNING_KEY: string // WGSP envelope signing
+  ANTHROPIC_API_KEY: string
   ENVIRONMENT: string
 
   // ── Subscription buffer (optional) ───────────────────────────────────────

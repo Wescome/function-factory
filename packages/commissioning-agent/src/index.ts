@@ -45,7 +45,7 @@ import { buildAdvisoryHypothesisSyncRequest } from './advisory-hypothesis-sync.j
 import { BUNDLED_SKILLS } from './bundled-skills-manifest.js'
 import { generateText } from 'ai'
 import type { LanguageModel } from 'ai'
-import { gateway } from '@ai-sdk/gateway'
+import { createAnthropic } from '@ai-sdk/anthropic'
 
 const ALARM_INTERVAL_MS = 6 * 60 * 60 * 1000 // 6 hours
 
@@ -68,6 +68,15 @@ CREATE TABLE IF NOT EXISTS session_context (
 export class CommissioningAgentDO extends Think<Env> {
   /** Cached session context — reloaded from SQLite on each handler entry. */
   private _sessionCtx: SessionContext | null = null
+
+  private _anthropic: ReturnType<typeof createAnthropic> | null = null
+
+  private get anthropic(): ReturnType<typeof createAnthropic> {
+    if (!this._anthropic) {
+      this._anthropic = createAnthropic({ apiKey: this.env.ANTHROPIC_API_KEY })
+    }
+    return this._anthropic
+  }
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
@@ -110,7 +119,7 @@ export class CommissioningAgentDO extends Think<Env> {
   // ── Think<Env> overrides ────────────────────────────────────────────────────
 
   override getModel(): LanguageModel {
-    return gateway('anthropic/claude-sonnet-4-6')
+    return this.anthropic('claude-sonnet-4-6')
   }
 
   override getSystemPrompt(): string {
@@ -177,7 +186,7 @@ export class CommissioningAgentDO extends Think<Env> {
     const ctx = await this.restoreSessionContext()
     // Hypothesis-formation requires Claude Opus (CA-INV-003)
     if (ctx.currentPhase === 'hypothesis-formation') {
-      return { model: gateway('anthropic/claude-opus-4-6') }
+      return { model: this.anthropic('claude-opus-4-6') }
     }
   }
 
