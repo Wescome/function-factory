@@ -13,16 +13,48 @@
 
 import type { CommissioningSignal, CandidateSet, WorkGraph, DomainConstraint } from '../schemas.js'
 
-function validateAgainstConstraints(
+async function validateAgainstConstraints(
   workGraph: WorkGraph,
   blockingConstraints: DomainConstraint[],
-): { valid: boolean; violations: string[] } {
-  // TODO(GAP-008): implement semantic constraint checking via LLM
-  // For now, structural validation only — the workgraph-authoring prompt
-  // instructs the LLM to honour blocking constraints during authoring.
-  void workGraph
-  void blockingConstraints
-  return { valid: true, violations: [] }
+  generate: (prompt: string) => Promise<{ text: string }>,
+): Promise<{ valid: boolean; violations: string[] }> {
+  if (blockingConstraints.length === 0) {
+    return { valid: true, violations: [] }
+  }
+
+  const constraintLines = blockingConstraints
+    .map((c) => `[${c.id}] ${c.description}`)
+    .join('\n')
+  const workGraphJson = JSON.stringify(workGraph, null, 2)
+
+  const prompt = [
+    `Does this WorkGraph JSON violate any of the following blocking constraints?`,
+    ``,
+    `Constraints:`,
+    constraintLines,
+    ``,
+    `WorkGraph:`,
+    workGraphJson,
+    ``,
+    `Respond with JSON only: {"valid": boolean, "violations": string[]}`,
+  ].join('\n')
+
+  try {
+    const result = await generate(prompt)
+    const jsonMatch = result.text.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) {
+      // TODO-strict: tighten to fail-closed once prompt reliability is confirmed
+      return { valid: true, violations: [] }
+    }
+    const parsed = JSON.parse(jsonMatch[0]) as { valid: boolean; violations: string[] }
+    return {
+      valid: typeof parsed.valid === 'boolean' ? parsed.valid : true,
+      violations: Array.isArray(parsed.violations) ? parsed.violations : [],
+    }
+  } catch {
+    // TODO-strict: tighten to fail-closed once prompt reliability is confirmed
+    return { valid: true, violations: [] }
+  }
 }
 
 export async function runWorkGraphAuthoring(
@@ -101,7 +133,7 @@ export async function runWorkGraphAuthoring(
   if (!workGraph) return null
 
   // Validate blocking constraints (CA-INV-003)
-  const { valid, violations } = validateAgainstConstraints(workGraph, blockingConstraints)
+  const { valid, violations } = await validateAgainstConstraints(workGraph, blockingConstraints, generate)
   if (!valid) {
     console.warn('[workgraph-authoring] WorkGraph violates blocking constraints:', violations)
     return null

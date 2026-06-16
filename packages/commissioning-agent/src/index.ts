@@ -43,6 +43,9 @@ import { getCycleContext, invalidateCycleCache } from './cycle-awareness.js'
 import { deriveAdvisoryMetrics, buildHealthSyncRequest, pushHealthDocument } from './health-document.js'
 import { buildAdvisoryHypothesisSyncRequest } from './advisory-hypothesis-sync.js'
 import { BUNDLED_SKILLS } from './bundled-skills-manifest.js'
+import { generateText } from 'ai'
+import type { LanguageModel } from 'ai'
+import { gateway } from '@ai-sdk/gateway'
 
 const ALARM_INTERVAL_MS = 6 * 60 * 60 * 1000 // 6 hours
 
@@ -106,12 +109,8 @@ export class CommissioningAgentDO extends Think<Env> {
 
   // ── Think<Env> overrides ────────────────────────────────────────────────────
 
-  override getModel() {
-    // Model resolved at runtime — the CA uses the default org model.
-    // Hypothesis-formation phases override via beforeTurn() using the stored phase.
-    // We return a placeholder that satisfies the type; the actual model string
-    // is configured in the wrapping worker's ai-sdk model factory.
-    return 'anthropic/claude-sonnet-4-5' as never
+  override getModel(): LanguageModel {
+    return gateway('anthropic/claude-sonnet-4-6')
   }
 
   override getSystemPrompt(): string {
@@ -178,9 +177,7 @@ export class CommissioningAgentDO extends Think<Env> {
     const ctx = await this.restoreSessionContext()
     // Hypothesis-formation requires Claude Opus (CA-INV-003)
     if (ctx.currentPhase === 'hypothesis-formation') {
-      return {
-        model: 'anthropic/claude-opus-4-5' as never,
-      }
+      return { model: gateway('anthropic/claude-opus-4-6') }
     }
   }
 
@@ -310,22 +307,6 @@ export class CommissioningAgentDO extends Think<Env> {
       this.emitCA(caSessionId, 'COMPILATION_COMPLETE', { orgId: this.orgId, workGraphId: workGraph.id })
     } else {
       this.emitCA(caSessionId, 'COMPILATION_FAILED', { orgId: this.orgId, status: commissionResp.status })
-    }
-
-    // ── Signal DreamDO ──
-    try {
-      const dreamId = this.env.DREAM_DO.idFromName('factory-singleton')
-      const dreamStub = this.env.DREAM_DO.get(dreamId)
-      await dreamStub.fetch(
-        new Request('https://dream-do/increment', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orgId: this.orgId, workGraphId: workGraph.id }),
-        }),
-      )
-    } catch (err) {
-      // Non-fatal — DreamDO increment failure should not block commission
-      console.warn(`[CommissioningAgentDO:${this.orgId}] DreamDO increment failed:`, err)
     }
 
     // Arm 6h alarm for cycle advisory surfacing (first commission only)
@@ -728,12 +709,9 @@ export class CommissioningAgentDO extends Think<Env> {
    * Each call creates an ephemeral fiber that resolves to the model's text.
    */
   private async _generateText(prompt: string): Promise<{ text: string }> {
-    let text = ''
-    await this.runFiber(`ca-generate-${Date.now()}`, async () => {
-      // Think's chat() is the primary interface. For programmatic generation we
-      // use a minimal prompt-to-text approach: write to session, wait for response.
-      // This is a simplified bridge — full Mastra integration is GAP-008.
-      text = prompt // placeholder: returns the prompt until GAP-008 LLM wiring
+    const { text } = await generateText({
+      model: this.getModel(),
+      prompt,
     })
     return { text }
   }

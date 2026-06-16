@@ -13,8 +13,10 @@
   "dependencies": {
     "@factory/schemas": "workspace:*",
     "@factory/subscription-buffer": "workspace:*",
+    "@ai-sdk/gateway": "^3.0.0",
     "@cloudflare/shell": "latest",
     "@cloudflare/think": "latest",
+    "ai": "^6.0.0",
     "zod": "^4.0.0"
   },
   "devDependencies": {

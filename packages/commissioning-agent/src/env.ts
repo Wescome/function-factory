@@ -13,8 +13,6 @@ export interface Env {
   MEDIATION_AGENT: DurableObjectNamespace // POST /commission target
   COORDINATOR_DO: DurableObjectNamespace // read-only for bead state
   ARTIFACT_GRAPH: DurableObjectNamespace // ArtifactGraphDO — hypothesis/amendment nodes
-  DREAM_DO: DurableObjectNamespace // POST /increment on commission
-
   // ── Storage ───────────────────────────────────────────────────────────────
   DB: D1Database // cross-run audit (D1_AUDIT pattern)
 
@@ -30,6 +28,9 @@ export interface Env {
   LINEAR_API_KEY: string // secret
   FF_AGENT_SIGNING_KEY: string // WGSP envelope signing
   ENVIRONMENT: string
+  AI: Ai
+  CF_API_TOKEN: string
+  CLOUDFLARE_ACCOUNT_ID: string
 
   // ── Subscription buffer (optional) ───────────────────────────────────────
   SUB_BUFFER?:                 DurableObjectNamespace
