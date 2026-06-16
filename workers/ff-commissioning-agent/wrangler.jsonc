@@ -43,7 +43,7 @@
 
   "vars": {
     "ENVIRONMENT": "development",
-    "LINEAR_TEAM_ID": "<linear-team-id>",
+    "LINEAR_TEAM_ID": "8b9ba524-28fa-457f-adfc-e4f2452d3aa0",
     "LINEAR_SYNC_URL": "https://ff-linear-sync.koales.workers.dev",
     "CLOUDFLARE_ACCOUNT_ID": "cb56a846c70a38987f31cf6e2b85cb57"
   }
