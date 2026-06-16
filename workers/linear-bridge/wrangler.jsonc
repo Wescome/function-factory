@@ -9,8 +9,7 @@
   "kv_namespaces": [
     {
       "binding": "BRIDGE_KV",
-      "id": "REPLACE_WITH_BRIDGE_KV_ID",
-      "preview_id": "REPLACE_WITH_BRIDGE_KV_PREVIEW_ID"
+      "id": "a9e266faa8de4136bc8bd7348bdd08d5"
     }
   ],
 
@@ -19,8 +18,8 @@
     "bindings": [
       {
         "name": "ARTIFACT_GRAPH",
-        "class_name": "ArtifactGraphDO",
-        "script_name": "ff-artifact-graph"
+        "class_name": "FactoryArtifactGraphDO",
+        "script_name": "ff-pipeline"
       },
       {
         "name": "APPROVAL_FLOW_DO",
@@ -37,7 +36,8 @@
   ],
 
   "vars": {
-    "ENVIRONMENT": "production"
+    "ENVIRONMENT": "production",
+    "WEOPS_GATEWAY_URL": "https://ff-gateway.koales.workers.dev"
   }
 
   // Secrets (set via `wrangler secret put`):
