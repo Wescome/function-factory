@@ -1,0 +1,36 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ff-linear-sync",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-01-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Cross-worker DO binding — ArtifactGraphDO in ff-pipeline
+  "durable_objects": {
+    "bindings": [
+      { "name": "ARTIFACT_GRAPH", "class_name": "FactoryArtifactGraphDO", "script_name": "ff-pipeline" }
+    ]
+  },
+
+  // D1 Databases
+  "d1_databases": [
+    // FACTORY_ARTIFACTS_DB: linear_bindings, workgraph_milestone_bindings
+    { "binding": "FACTORY_ARTIFACTS_DB", "database_name": "ff-factory", "database_id": "6a72d5c3-bcbb-41e3-b29d-d8de5834c3b3" },
+    // FACTORY_OPS_DB: health_snapshots, linear_sync_errors
+    { "binding": "FACTORY_OPS_DB", "database_name": "ff-factory", "database_id": "6a72d5c3-bcbb-41e3-b29d-d8de5834c3b3" }
+  ],
+
+  // KV Namespaces
+  "kv_namespaces": [
+    // FACTORY_LINEAR_KV: doc IDs, label/state caches, cycle cache (shared with ff-commissioning-agent)
+    { "binding": "FACTORY_LINEAR_KV", "id": "9c512bae149449aeac515e5d9083e21e" }
+  ],
+
+  "vars": {
+    "LINEAR_TEAM_ID": "8b9ba524-28fa-457f-adfc-e4f2452d3aa0",
+    "LINEAR_PROJECT_ID": "548c3b75-6bc7-4617-83ec-67a58fdfc50c"
+  }
+
+  // Secrets (set via wrangler secret put):
+  //   LINEAR_API_KEY — Linear personal access token
+}
