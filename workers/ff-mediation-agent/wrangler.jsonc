@@ -1,0 +1,33 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ff-mediation-agent",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-01-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "durable_objects": {
+    "bindings": [
+      { "name": "MEDIATION_AGENT", "class_name": "MediationAgentDO" },
+      { "name": "COORDINATOR_DO",  "class_name": "CoordinatorDO",          "script_name": "ff-pipeline" },
+      { "name": "ARTIFACT_GRAPH",  "class_name": "FactoryArtifactGraphDO", "script_name": "ff-pipeline" },
+      { "name": "BEAD_GRAPH",      "class_name": "FactoryBeadGraphDO",      "script_name": "ff-pipeline" },
+      { "name": "SUB_BUFFER", "class_name": "SubscriptionEventBufferDO", "script_name": "factory-subscription-buffer" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["MediationAgentDO"] }
+  ],
+  "d1_databases": [
+    { "binding": "D1_AUDIT", "database_name": "factory-bead-audit", "database_id": "128d4b98-585a-4de9-abcc-98b7d78691b4" }
+  ],
+  "kv_namespaces": [
+    { "binding": "KV_KS", "id": "9fe793fc61174920b8030ac1d06cfd8c" }
+  ],
+  "queues": {
+    "producers": [
+      { "binding": "ATOM_EXECUTION_QUEUE", "queue": "atom-execution-queue" }
+    ]
+  },
+  "vars": {
+    "ENVIRONMENT": "development"
+  }
+}

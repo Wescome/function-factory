@@ -26,7 +26,7 @@
     "@mastra/cloudflare-d1": "latest",
     "@mastra/core": "latest",
     "@mastra/memory": "latest",
-    "agents": "latest",
+    "agents": "^0.16.0",
     "zod": "^4.0.0"
   },
   "devDependencies": {

@@ -13,7 +13,6 @@
       // Cross-worker DO bindings
       { "name": "MEDIATION_AGENT",  "class_name": "MediationAgentDO",       "script_name": "ff-mediation-agent" },
       { "name": "ARTIFACT_GRAPH",   "class_name": "FactoryArtifactGraphDO", "script_name": "ff-pipeline" },
-      { "name": "DREAM_DO",         "class_name": "DreamDO",                "script_name": "ff-dream" },
       { "name": "COORDINATOR_DO",   "class_name": "CoordinatorDO",          "script_name": "ff-pipeline" },
       // Subscription buffer — per-session WebSocket fan-out + replay (ADR-0016)
       { "name": "SUB_BUFFER", "class_name": "SubscriptionEventBufferDO", "script_name": "factory-subscription-buffer" }
@@ -33,7 +32,7 @@
   // KV namespaces
   "kv_namespaces": [
     // FACTORY_LINEAR_KV: cycle context cache (1h TTL) — provision: wrangler kv namespace create FACTORY_LINEAR_KV
-    { "binding": "FACTORY_LINEAR_KV", "id": "<provision-factory-linear-kv-id>" },
+    { "binding": "FACTORY_LINEAR_KV", "id": "9c512bae149449aeac515e5d9083e21e" },
     { "binding": "KV_KS", "id": "9fe793fc61174920b8030ac1d06cfd8c" }
   ],
 
