@@ -10,3 +10,4 @@
 {"action":"T007-final","status":"done","verdict":"APPROVED"}
 {"action":"deploy-smoke","status":"done","notes":"wrangler deploy + seed-molecule smoke test"}
 {"action":"e2e-smoke","status":"done","notes":"queue dispatch + D1 audit verify"}
+{"action":"deploy-smoke","status":"done","notes":"wrangler deploy + seed-molecule smoke test"}
