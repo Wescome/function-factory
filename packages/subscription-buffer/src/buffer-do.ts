@@ -86,6 +86,15 @@ interface EventRow {
 
 export class SubscriptionEventBufferDO extends DurableObject<Env> {
   private readonly sql: SqlStorage
+  private _producerSecret: string | undefined
+
+  /** Lazy-read and cache SUB_BUFFER_PRODUCER_SECRET (DO constructors cannot be async). */
+  private async getProducerSecret(): Promise<string> {
+    if (this._producerSecret === undefined) {
+      this._producerSecret = await this.env.SUB_BUFFER_PRODUCER_SECRET.get()
+    }
+    return this._producerSecret
+  }
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
@@ -121,6 +130,9 @@ export class SubscriptionEventBufferDO extends DurableObject<Env> {
     if (req.method === 'POST' && url.pathname === '/terminate') {
       return this.handleTerminate()
     }
+    if (req.method === 'POST' && url.pathname === '/open') {
+      return this.handleOpen(req)
+    }
     return new Response('Not found', { status: 404 })
   }
 
@@ -136,7 +148,7 @@ export class SubscriptionEventBufferDO extends DurableObject<Env> {
 
     // HMAC auth
     const valid = await verifyProducerToken(
-      this.env.SUB_BUFFER_PRODUCER_SECRET,
+      await this.getProducerSecret(),
       body.sessionId,
       body.producerToken
     )
@@ -256,6 +268,29 @@ export class SubscriptionEventBufferDO extends DurableObject<Env> {
       terminal:      meta.terminal_at !== null,
       last_write_at: meta.last_write_at,
     })
+  }
+
+  // ── POST /open ─────────────────────────────────────────────────────────
+
+  private async handleOpen(req: Request): Promise<Response> {
+    let body: { sessionId?: unknown }
+    try {
+      body = await req.json<{ sessionId?: unknown }>()
+    } catch {
+      return new Response('Bad request: invalid JSON', { status: 400 })
+    }
+
+    const sessionId = typeof body.sessionId === 'string' ? body.sessionId : null
+    if (!sessionId) {
+      return new Response('Bad request: missing sessionId', { status: 400 })
+    }
+
+    // Insert-if-absent: initializes buffer_meta for this session
+    this.readMeta(sessionId)
+    // Seed KV liveness: write tip_seq:0 so the session is discoverable immediately
+    await this.refreshKvShadow(sessionId, 0, false)
+
+    return Response.json({ ok: true })
   }
 
   // ── POST /terminate ────────────────────────────────────────────────────

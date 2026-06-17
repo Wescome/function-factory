@@ -149,21 +149,14 @@
     "GAS_CITY_DISPATCH_STALE_MINUTES": "60",
     "GAS_CITY_RECURRING_INCIDENT_THRESHOLD": "3",
     "CLOUDFLARE_ACCOUNT_ID": "cb56a846c70a38987f31cf6e2b85cb57"
-  }
+  },
 
-  // Secrets (set via `wrangler secret put`):
-  //   [DEPRECATED] ARANGO_URL       — ArangoDB removed; use D1 (DB binding)
-  //   [DEPRECATED] ARANGO_JWT       — ArangoDB removed; use D1 (DB binding)
-  //   [DEPRECATED] ARANGO_USERNAME  — ArangoDB removed; use D1 (DB binding)
-  //   [DEPRECATED] ARANGO_PASSWORD  — ArangoDB removed; use D1 (DB binding)
-  //   [DEPRECATED] ARANGO_DATABASE  — ArangoDB removed; use D1 (DB binding)
-  //   OFOX_API_KEY, CF_API_TOKEN, GITHUB_TOKEN, OPERATOR_CONTROL_TOKEN
-  //   GAS_CITY_BEARER_TOKEN  (shared with GC_SUPERVISOR_TOKEN on gascity-supervisor)
-  //   GAS_CITY_HMAC_SECRET_V1 (shared with Gas City webhook signer)
-  //   HONEYCOMB_API_KEY
-  //   KSP layer:
-  //   ANTHROPIC_API_KEY  (CoordinatorDO → factoryHypothesisBuilder Claude Opus calls)
-  //   OPENAI_API_KEY     (ThinkExecutor ConductingAgent — safety/memory models)
-  //   DEEPSEEK_API_KEY   (optional)
-  //   SUB_BUFFER_PRODUCER_SECRET (CoordinatorDO → SubscriptionEventBufferDO HMAC auth — §5.2)
+  // Secrets sourced from CF Secrets Store (store_id: 5f51936ccef540ce825687d0afe96373).
+  "secrets_store_secrets": [
+    { "binding": "OFOX_API_KEY",               "secret_name": "OFOX_API_KEY",               "store_id": "5f51936ccef540ce825687d0afe96373" },
+    { "binding": "OPENAI_API_KEY",             "secret_name": "OPENAI_API_KEY",              "store_id": "5f51936ccef540ce825687d0afe96373" },
+    { "binding": "SUB_BUFFER_PRODUCER_SECRET", "secret_name": "SUB_BUFFER_PRODUCER_SECRET",  "store_id": "5f51936ccef540ce825687d0afe96373" },
+    { "binding": "WEOPS_SIGNING_KEY",          "secret_name": "WEOPS_SIGNING_KEY",           "store_id": "5f51936ccef540ce825687d0afe96373" },
+    { "binding": "GITHUB_TOKEN",               "secret_name": "GITHUB_TOKEN",                "store_id": "5f51936ccef540ce825687d0afe96373" }
+  ]
 }

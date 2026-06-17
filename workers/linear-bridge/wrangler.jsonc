@@ -38,11 +38,11 @@
   "vars": {
     "ENVIRONMENT": "production",
     "WEOPS_GATEWAY_URL": "https://ff-gateway.koales.workers.dev"
-  }
+  },
 
-  // Secrets (set via `wrangler secret put`):
-  //   LINEAR_WEBHOOK_SECRET   — raw string Linear webhook signing secret
-  //   LINEAR_API_KEY          — Linear personal API key (Bearer token for GraphQL)
-  //   WEOPS_SIGNING_KEY       — base64-encoded HMAC-SHA256 raw bytes (shared with ff-gateway)
-  //   WEOPS_GATEWAY_URL       — e.g. https://ff-gateway.koales.workers.dev
+  "secrets_store_secrets": [
+    { "binding": "LINEAR_WEBHOOK_SECRET", "store_id": "5f51936ccef540ce825687d0afe96373", "secret_name": "LINEAR_WEBHOOK_SECRET" },
+    { "binding": "LINEAR_API_KEY", "store_id": "5f51936ccef540ce825687d0afe96373", "secret_name": "LINEAR_API_KEY" },
+    { "binding": "WEOPS_SIGNING_KEY", "store_id": "5f51936ccef540ce825687d0afe96373", "secret_name": "WEOPS_SIGNING_KEY" }
+  ]
 }

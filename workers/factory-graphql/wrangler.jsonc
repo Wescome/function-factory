@@ -14,12 +14,12 @@
   },
 
   "d1_databases": [
-    { "binding": "DB", "database_name": "ff-factory", "database_id": "placeholder" },
-    { "binding": "FACTORY_OPS_DB", "database_name": "factory-ops", "database_id": "placeholder" }
+    { "binding": "DB", "database_name": "ff-factory", "database_id": "6a72d5c3-bcbb-41e3-b29d-d8de5834c3b3" },
+    { "binding": "FACTORY_OPS_DB", "database_name": "factory-ops", "database_id": "d8f16a3e-900d-41e1-b62c-ddc3e886673d" }
   ],
 
   "kv_namespaces": [
-    { "binding": "SUB_BUFFER_KV", "id": "placeholder" }
+    { "binding": "SUB_BUFFER_KV", "id": "d7176cd90477444285b52c5e39f64e63" }
   ],
 
   "r2_buckets": [

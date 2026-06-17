@@ -34,9 +34,11 @@ export interface Env {
 
   ENVIRONMENT: string
 
-  // ── Secrets (wrangler secret put) ────────────────────────────────────────
-  /** Bearer token for WeOps gateway calls */
-  OPERATOR_CONTROL_TOKEN: string
-  /** Envelope signing key (shared with CommissioningAgentDO) */
-  FF_AGENT_SIGNING_KEY: string
+  // ── Secrets Store bindings ────────────────────────────────────────────────
+  /** Bearer token for WeOps gateway calls.
+   *  Bound via secrets_store_secrets — use .get() to retrieve the value. */
+  OPERATOR_CONTROL_TOKEN: SecretsStoreSecret
+  /** Envelope signing key (shared with CommissioningAgentDO).
+   *  Bound via secrets_store_secrets — use .get() to retrieve the value. */
+  FF_AGENT_SIGNING_KEY: SecretsStoreSecret
 }

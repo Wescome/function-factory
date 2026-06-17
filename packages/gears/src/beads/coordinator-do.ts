@@ -60,7 +60,7 @@ interface Env {
   MEDIATION_AGENT: DurableObjectNamespace  // POST /complete on run termination
   DREAM_DO?:       DurableObjectNamespace  // optional Dream notification hook
   SUB_BUFFER?:                 DurableObjectNamespace
-  SUB_BUFFER_PRODUCER_SECRET?: string
+  SUB_BUFFER_PRODUCER_SECRET?: SecretsStoreSecret
 }
 
 export class CoordinatorDO extends DurableObject<Env> {
@@ -68,6 +68,7 @@ export class CoordinatorDO extends DurableObject<Env> {
   private runId:  string = ''
   private orgId:  string = ''
   private repoId: string = ''
+  private _subBufferProducerSecret: string | undefined
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
@@ -87,10 +88,22 @@ export class CoordinatorDO extends DurableObject<Env> {
     return (this.ctx.id.name ?? '').replace(/^coordinator:/, '')
   }
 
-  private emit(kind: string, payload: Record<string, unknown>, terminal = false): void {
-    if (!this.env.SUB_BUFFER || !this.env.SUB_BUFFER_PRODUCER_SECRET) return
+  // ── Secret getter (lazy-cached, Pattern B) ────────────────────────────────
+
+  private async getSubBufferProducerSecret(): Promise<string | undefined> {
+    if (!this.env.SUB_BUFFER_PRODUCER_SECRET) return undefined
+    if (this._subBufferProducerSecret === undefined) {
+      this._subBufferProducerSecret = await this.env.SUB_BUFFER_PRODUCER_SECRET.get()
+    }
+    return this._subBufferProducerSecret
+  }
+
+  private async emit(kind: string, payload: Record<string, unknown>, terminal = false): Promise<void> {
+    if (!this.env.SUB_BUFFER) return
+    const secret = await this.getSubBufferProducerSecret()
+    if (!secret) return
     const sessionId = this._sessionId
-    void emitSubscriptionEvent(this.env.SUB_BUFFER, this.env.SUB_BUFFER_PRODUCER_SECRET, {
+    void emitSubscriptionEvent(this.env.SUB_BUFFER, secret, {
       sessionId,
       stream: 'sessionEvents',
       kind,
@@ -101,13 +114,15 @@ export class CoordinatorDO extends DurableObject<Env> {
     })
   }
 
-  private emitBeadUpdate(
+  private async emitBeadUpdate(
     atomId: string,
     status: 'in_progress' | 'done' | 'failed' | 'ready',
-  ): void {
-    if (!this.env.SUB_BUFFER || !this.env.SUB_BUFFER_PRODUCER_SECRET) return
+  ): Promise<void> {
+    if (!this.env.SUB_BUFFER) return
+    const secret = await this.getSubBufferProducerSecret()
+    if (!secret) return
     const sessionId = this._sessionId
-    void emitSubscriptionEvent(this.env.SUB_BUFFER, this.env.SUB_BUFFER_PRODUCER_SECRET, {
+    void emitSubscriptionEvent(this.env.SUB_BUFFER, secret, {
       sessionId,
       stream: 'beadUpdates',
       kind: 'BEAD_UPDATE',
@@ -215,8 +230,8 @@ export class CoordinatorDO extends DurableObject<Env> {
       Date.now(), cutoff
     )
     for (const row of rescuedRows) {
-      this.emit('BEAD_RESCUED', { atomId: row.id })
-      this.emitBeadUpdate(row.id, 'ready')
+      void this.emit('BEAD_RESCUED', { atomId: row.id })
+      void this.emitBeadUpdate(row.id, 'ready')
     }
     // Only re-arm if there are still non-terminal beads.
     const activeRows = [...this.sql.exec(
@@ -240,8 +255,8 @@ export class CoordinatorDO extends DurableObject<Env> {
       agentId, Date.now(), beadId
     )]
     if (rows.length > 0) {
-      this.emit('BEAD_CLAIMED', { atomId: beadId, agentId, runId: this._sessionId })
-      this.emitBeadUpdate(beadId, 'in_progress')
+      void this.emit('BEAD_CLAIMED', { atomId: beadId, agentId, runId: this._sessionId })
+      void this.emitBeadUpdate(beadId, 'in_progress')
     }
     return rows.length > 0 ? rows[0] as unknown as ExecutionBead : null
   }
@@ -254,8 +269,8 @@ export class CoordinatorDO extends DurableObject<Env> {
       result, startMs, beadId, agentId
     )
     const durationMs = Date.now() - startMs
-    this.emit('BEAD_RELEASED', { atomId: beadId, agentId, durationMs })
-    this.emitBeadUpdate(beadId, 'done')
+    void this.emit('BEAD_RELEASED', { atomId: beadId, agentId, durationMs })
+    void this.emitBeadUpdate(beadId, 'done')
     await this.writeAudit(beadId, agentId, 'done')
     try { await this.recordOutcome(beadId, agentId, result, 'done') } catch { /* BP3 non-fatal */ }
     try { await this.checkRunComplete() } catch { /* non-fatal */ }
@@ -267,8 +282,8 @@ export class CoordinatorDO extends DurableObject<Env> {
        WHERE id=? AND assigned_to=?`,
       result, Date.now(), beadId, agentId
     )
-    this.emit('BEAD_FAILED', { atomId: beadId, agentId, errorCode: result })
-    this.emitBeadUpdate(beadId, 'failed')
+    void this.emit('BEAD_FAILED', { atomId: beadId, agentId, errorCode: result })
+    void this.emitBeadUpdate(beadId, 'failed')
     await this.writeAudit(beadId, agentId, 'failed')
     try { await this.recordOutcome(beadId, agentId, result, 'failed') } catch { /* BP3 non-fatal */ }
     try { await this.checkRunComplete() } catch { /* non-fatal */ }
@@ -492,6 +507,7 @@ export class CoordinatorDO extends DurableObject<Env> {
       autonomyFloor:          'EXECUTE_FULL',
     }), { expirationTtl: 86400 })
 
+    const resolvedSubBufferSecret = await this.getSubBufferProducerSecret()
     const loopClosure = new LoopClosureService({
       artifactGraphDO:   artifactGraphStub,
       beadGraphDO:       beadGraphStub,
@@ -504,8 +520,8 @@ export class CoordinatorDO extends DurableObject<Env> {
       ...(this.env.SUB_BUFFER !== undefined
         ? { subBuffer: this.env.SUB_BUFFER }
         : {}),
-      ...(this.env.SUB_BUFFER_PRODUCER_SECRET !== undefined
-        ? { subBufferSecret: this.env.SUB_BUFFER_PRODUCER_SECRET }
+      ...(resolvedSubBufferSecret !== undefined
+        ? { subBufferSecret: resolvedSubBufferSecret }
         : {}),
     })
 
@@ -561,7 +577,7 @@ export class CoordinatorDO extends DurableObject<Env> {
         }
         const result = await this.recordConsent(record)
         if (raw.verdict === 'denied') {
-          this.emit('CONSENT_BEAD_DENIED', {
+          void this.emit('CONSENT_BEAD_DENIED', {
             beadId:     raw.beadId,
             toolName:   raw.toolName,
             toolCallId: raw.toolCallId ?? null,

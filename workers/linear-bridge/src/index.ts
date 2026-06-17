@@ -25,7 +25,7 @@
  * Re-export ApprovalFlowDO for Durable Object binding.
  */
 
-import type { Env, LinearWebhookPayload } from './types.js'
+import type { Env, LinearWebhookPayload, ResolvedSecrets } from './types.js'
 import { verifyLinearSignature } from './webhook-verifier.js'
 import { parseDispositionComment, hasDispositionLine } from './disposition-parser.js'
 import { checkAuthority } from './authority-registry.js'
@@ -56,7 +56,7 @@ function json(data: unknown, status = 200): Response {
 
 // ─── Webhook handler ─────────────────────────────────────────────────────────
 
-async function handleWebhook(request: Request, env: Env): Promise<Response> {
+async function handleWebhook(request: Request, env: Env, secrets: ResolvedSecrets): Promise<Response> {
   // Read raw body once — needed for HMAC verification.
   const rawBody = await request.text()
 
@@ -70,7 +70,7 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
     return json({ error: 'Missing Linear-Signature header' }, 401)
   }
 
-  const signatureValid = await verifyLinearSignature(rawBody, signature, env.LINEAR_WEBHOOK_SECRET)
+  const signatureValid = await verifyLinearSignature(rawBody, signature, secrets.linearWebhookSecret)
   if (!signatureValid) {
     await logSecurityEvent(env.BRIDGE_KV, {
       subtype: 'InvalidWebhookSignature',
@@ -119,7 +119,7 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
       commentId,
     })
     await createComment(
-      env.LINEAR_API_KEY,
+      secrets.linearApiKey,
       linearIssueId,
       `**Bridge Error:** Could not parse DISPOSITION comment: ${parseResult.reason}`,
     )
@@ -146,7 +146,7 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
       detail: authorityResult.reason ?? 'not permitted',
     })
     await createComment(
-      env.LINEAR_API_KEY,
+      secrets.linearApiKey,
       linearIssueId,
       `**Bridge:** Disposition rejected — ${authorityResult.reason ?? 'insufficient authority'}.`,
     )
@@ -167,6 +167,7 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
       linearUserId,
       cancelledStateId,
       env,
+      secrets.linearApiKey,
     )
 
     if (!rejectionResult.ok) {
@@ -198,7 +199,7 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
         detail: overrideResult.reason,
       })
       await createComment(
-        env.LINEAR_API_KEY,
+        secrets.linearApiKey,
         linearIssueId,
         `**Bridge:** ${overrideResult.reason}`,
       )
@@ -207,7 +208,7 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
 
     if (overrideResult.state === 'PENDING_SECOND_APPROVAL') {
       await createComment(
-        env.LINEAR_API_KEY,
+        secrets.linearApiKey,
         linearIssueId,
         `**Bridge:** Override disposition received from \`${linearUserId}\`. Awaiting second approval from a different authority. This request expires at ${overrideResult.pending.expiresAt}.`,
       )
@@ -255,7 +256,7 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
       repoId,
     })
     await createComment(
-      env.LINEAR_API_KEY,
+      secrets.linearApiKey,
       linearIssueId,
       `**Bridge Error:** Could not record elucidation artifact. Disposition not forwarded (A9 enforcement). Error: ${elcResult.error}`,
     )
@@ -273,7 +274,7 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
         dispositionEventId: elcNodeId,
         elucidationArtifactId: elcNodeId,
       },
-      env.WEOPS_SIGNING_KEY,
+      secrets.weopsSigningKey,
       env.BRIDGE_KV,
     )
   } catch (err) {
@@ -304,7 +305,7 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
       signalType: signal.signalType,
     })
     await createComment(
-      env.LINEAR_API_KEY,
+      secrets.linearApiKey,
       linearIssueId,
       `**Bridge Error:** Disposition recorded but gateway delivery failed: ${deliveryResult.error}`,
     )
@@ -319,7 +320,7 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
     `Issued at: ${new Date().toISOString()}`,
   ].join('\n')
 
-  await createComment(env.LINEAR_API_KEY, linearIssueId, successComment)
+  await createComment(secrets.linearApiKey, linearIssueId, successComment)
 
   return json({
     ok: true,
@@ -336,9 +337,17 @@ export default {
     const url = new URL(request.url)
     const method = request.method
 
+    // Resolve all secrets once at the top of the fetch handler.
+    // Never call .get() in hot loops or inner functions.
+    const secrets: ResolvedSecrets = {
+      linearWebhookSecret: await env.LINEAR_WEBHOOK_SECRET.get(),
+      linearApiKey: await env.LINEAR_API_KEY.get(),
+      weopsSigningKey: await env.WEOPS_SIGNING_KEY.get(),
+    }
+
     try {
       if (method === 'POST' && url.pathname === '/webhook') {
-        return handleWebhook(request, env)
+        return handleWebhook(request, env, secrets)
       }
 
       if (method === 'GET' && url.pathname === '/health') {

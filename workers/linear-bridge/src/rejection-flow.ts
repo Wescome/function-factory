@@ -13,6 +13,8 @@ import type { RejectionRecord, Env } from './types.js'
 import type { ParsedDisposition } from './types.js'
 import { createComment, updateIssueState } from './linear-client.js'
 
+// Note: env is retained for DO + KV bindings. Resolved secret strings are passed explicitly.
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface RejectionFlowSuccess {
@@ -47,7 +49,8 @@ export type RejectionFlowResult = RejectionFlowSuccess | RejectionFlowFailure
  * @param linearCommentId  Linear comment ID that triggered the rejection
  * @param rejectedBy       Linear user ID of the authority rejecting
  * @param cancelledStateId Linear workflow state ID for "Cancelled"
- * @param env              Worker env (for DO + Linear API access)
+ * @param env              Worker env (for DO + KV bindings)
+ * @param linearApiKey     Resolved LINEAR_API_KEY secret string
  */
 export async function executeRejectionFlow(
   parsed: ParsedDisposition,
@@ -58,6 +61,7 @@ export async function executeRejectionFlow(
   rejectedBy: string,
   cancelledStateId: string,
   env: Env,
+  linearApiKey: string,
 ): Promise<RejectionFlowResult> {
   const nodeId = `REJ-BRIDGE-${escalationId}-${Date.now()}`
   const rejectedAt = new Date().toISOString()
@@ -108,14 +112,14 @@ export async function executeRejectionFlow(
     `Escalation: ${escalationId}`,
   ].join('\n')
 
-  const commentResult = await createComment(env.LINEAR_API_KEY, linearIssueId, commentBody)
+  const commentResult = await createComment(linearApiKey, linearIssueId, commentBody)
   if (!commentResult.ok) {
     console.error('rejection-flow: failed to post rejection comment:', commentResult.error)
     // Non-fatal: continue.
   }
 
   // Move Linear issue to cancelled state.
-  const stateResult = await updateIssueState(env.LINEAR_API_KEY, linearIssueId, cancelledStateId)
+  const stateResult = await updateIssueState(linearApiKey, linearIssueId, cancelledStateId)
   if (!stateResult.ok) {
     console.error('rejection-flow: failed to update issue state to cancelled:', stateResult.error)
     return { ok: false, error: `rejection recorded but issue state update failed: ${stateResult.error}` }

@@ -18,12 +18,12 @@ export { SubscriptionEventBufferDO }
 interface Env {
   SUBSCRIPTION_EVENT_BUFFER: DurableObjectNamespace
   SUB_BUFFER_KV: KVNamespace
-  SUB_BUFFER_PRODUCER_SECRET: string
+  SUB_BUFFER_PRODUCER_SECRET: SecretsStoreSecret
 }
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
-function checkAuth(req: Request, env: Env): Response | null {
+async function checkAuth(req: Request, env: Env): Promise<Response | null> {
   const auth = req.headers.get('Authorization') ?? ''
   if (!auth.startsWith('Bearer ')) {
     return new Response(JSON.stringify({ error: 'missing authorization' }), {
@@ -32,7 +32,8 @@ function checkAuth(req: Request, env: Env): Response | null {
     })
   }
   const token = auth.slice('Bearer '.length)
-  if (token !== env.SUB_BUFFER_PRODUCER_SECRET) {
+  const secret = await env.SUB_BUFFER_PRODUCER_SECRET.get()
+  if (token !== secret) {
     return new Response(JSON.stringify({ error: 'forbidden' }), {
       status: 403,
       headers: { 'Content-Type': 'application/json' },
@@ -96,7 +97,7 @@ export default {
 
     // All /buffer/* routes
     if (url.pathname.startsWith('/buffer/')) {
-      const authErr = checkAuth(req, env)
+      const authErr = await checkAuth(req, env)
       if (authErr) return authErr
 
       const parsed = parseBufferPath(url)

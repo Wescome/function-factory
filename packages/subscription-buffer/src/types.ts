@@ -45,5 +45,5 @@ export interface BufferMeta {
 /** Cloudflare Worker environment bindings for the SubscriptionEventBuffer DO. */
 export interface Env {
   SUB_BUFFER_KV:              KVNamespace
-  SUB_BUFFER_PRODUCER_SECRET: string
+  SUB_BUFFER_PRODUCER_SECRET: SecretsStoreSecret
 }

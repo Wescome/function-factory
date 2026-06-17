@@ -21,8 +21,10 @@
   // Provision: wrangler kv namespace create SUB_BUFFER_KV
   "kv_namespaces": [
     { "binding": "SUB_BUFFER_KV", "id": "d7176cd90477444285b52c5e39f64e63" }
-  ]
+  ],
 
-  // Secrets (set via `wrangler secret put`):
-  //   SUB_BUFFER_PRODUCER_SECRET — HMAC secret for producer token verification (§5.2)
+  // Secrets Store — HMAC secrets for token verification
+  "secrets_store_secrets": [
+    { "binding": "SUB_BUFFER_PRODUCER_SECRET", "store_id": "5f51936ccef540ce825687d0afe96373", "secret_name": "SUB_BUFFER_PRODUCER_SECRET" }
+  ]
 }

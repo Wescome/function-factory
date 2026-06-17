@@ -199,6 +199,13 @@ function extractWorkOrderId(envelope: WGSPEnvelopeProto): string {
 
 // ─── RPC handlers ─────────────────────────────────────────────────────────────
 
+// ─── Resolved secrets (plain strings) ────────────────────────────────────────
+
+interface ResolvedSecrets {
+  weopsSigningKey: string
+  pdpApiKey: string
+}
+
 /**
  * POST /weops.factory.v1.FactoryGateway/SubmitSession
  *
@@ -207,7 +214,7 @@ function extractWorkOrderId(envelope: WGSPEnvelopeProto): string {
  * 3. Route to Commissioning Agent DO.
  * 4. Stream SessionEvents back from SubscriptionEventBufferDO.
  */
-async function handleSubmitSession(request: Request, env: Env): Promise<Response> {
+async function handleSubmitSession(request: Request, env: Env, secrets: ResolvedSecrets): Promise<Response> {
   let body: unknown
   try {
     body = await request.json()
@@ -231,8 +238,8 @@ async function handleSubmitSession(request: Request, env: Env): Promise<Response
   // 2. Check PDP permit
   const sessionId = extractSessionId(envelopeRaw)
   const pdp = await checkPermit(
-    env.PDP_URL,
-    env.PDP_API_KEY,
+    env.PDP,
+    secrets.pdpApiKey,
     sessionId,
     envelopeRaw.actor_type,
     envelopeRaw.purpose_id,
@@ -470,11 +477,17 @@ async function handleResumeStream(request: Request, env: Env): Promise<Response>
 
 // ─── Main dispatch ────────────────────────────────────────────────────────────
 
-const ROUTES: Record<string, (req: Request, env: Env) => Promise<Response>> = {
-  '/weops.factory.v1.FactoryGateway/SubmitSession': handleSubmitSession,
+type SimpleHandler = (req: Request, env: Env) => Promise<Response>
+type SecretsHandler = (req: Request, env: Env, secrets: ResolvedSecrets) => Promise<Response>
+
+const SIMPLE_ROUTES: Record<string, SimpleHandler> = {
   '/weops.factory.v1.FactoryGateway/CancelSession': handleCancelSession,
   '/weops.factory.v1.FactoryGateway/AcknowledgeReview': handleAcknowledgeReview,
   '/weops.factory.v1.FactoryGateway/ResumeStream': handleResumeStream,
+}
+
+const SECRETS_ROUTES: Record<string, SecretsHandler> = {
+  '/weops.factory.v1.FactoryGateway/SubmitSession': handleSubmitSession,
 }
 
 export default {
@@ -485,19 +498,35 @@ export default {
     }
 
     const url = new URL(request.url)
-    const handler = ROUTES[url.pathname]
 
-    if (!handler) {
-      return unaryErr(
-        connectError(Code.Unimplemented, `unknown method: ${url.pathname}`),
-      )
+    // Resolve Secrets Store bindings once at the top of the fetch handler (Pattern A).
+    // Only resolve when a route that needs secrets is matched, but since resolution
+    // is cheap and centralised here, we resolve eagerly for all requests.
+    const secrets: ResolvedSecrets = {
+      weopsSigningKey: await env.WEOPS_SIGNING_KEY.get(),
+      pdpApiKey: await env.PDP_API_KEY.get(),
     }
 
-    try {
-      return await handler(request, env)
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err)
-      return unaryErr(connectError(Code.Internal, `internal error: ${message}`))
+    const secretsHandler = SECRETS_ROUTES[url.pathname]
+    if (secretsHandler) {
+      try {
+        return await secretsHandler(request, env, secrets)
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err)
+        return unaryErr(connectError(Code.Internal, `internal error: ${message}`))
+      }
     }
+
+    const simpleHandler = SIMPLE_ROUTES[url.pathname]
+    if (simpleHandler) {
+      try {
+        return await simpleHandler(request, env)
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err)
+        return unaryErr(connectError(Code.Internal, `internal error: ${message}`))
+      }
+    }
+
+    return unaryErr(connectError(Code.Unimplemented, `unknown method: ${url.pathname}`))
   },
 }

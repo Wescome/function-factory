@@ -8,7 +8,7 @@
  *   SUB_BUFFER           — DO namespace; reads SessionEvents for streaming.
  *   SUB_BUFFER_KV        — KV namespace; liveness probe for SubscriptionEventBufferDO.
  *   WEOPS_SIGNING_KEY    — WGSP envelope HMAC-SHA256 verification key (base64).
- *   PDP_URL              — WeOps Kernel PDP endpoint (e.g. https://pdp.weops.internal).
+ *   PDP                  — Service binding to factory-pdp worker (replaces PDP_URL).
  *   PDP_API_KEY          — Bearer token for PDP calls (secret).
  */
 export interface Env {
@@ -21,12 +21,12 @@ export interface Env {
   /** KV namespace used to check liveness of a SubscriptionEventBufferDO instance. */
   SUB_BUFFER_KV: KVNamespace
 
-  /** HMAC-SHA256 WGSP signing key, base64-encoded raw bytes. */
-  WEOPS_SIGNING_KEY: string
+  /** HMAC-SHA256 WGSP signing key, base64-encoded raw bytes. Sourced from CF Secrets Store. */
+  WEOPS_SIGNING_KEY: SecretsStoreSecret
 
-  /** WeOps Kernel Policy Decision Point URL. */
-  PDP_URL: string
+  /** Service binding to factory-pdp worker. */
+  PDP: Fetcher
 
-  /** Bearer token for authenticating PDP requests. */
-  PDP_API_KEY: string
+  /** Bearer token for authenticating PDP requests. Sourced from CF Secrets Store. */
+  PDP_API_KEY: SecretsStoreSecret
 }

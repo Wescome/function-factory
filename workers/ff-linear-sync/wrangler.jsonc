@@ -29,8 +29,10 @@
   "vars": {
     "LINEAR_TEAM_ID": "8b9ba524-28fa-457f-adfc-e4f2452d3aa0",
     "LINEAR_PROJECT_ID": "548c3b75-6bc7-4617-83ec-67a58fdfc50c"
-  }
+  },
 
-  // Secrets (set via wrangler secret put):
-  //   LINEAR_API_KEY — Linear personal access token
+  // CF Secrets Store bindings
+  "secrets_store_secrets": [
+    { "binding": "LINEAR_API_KEY", "store_id": "5f51936ccef540ce825687d0afe96373", "secret_name": "LINEAR_API_KEY" }
+  ]
 }

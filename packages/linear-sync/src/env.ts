@@ -10,9 +10,9 @@
 
 export interface Env {
   // ── Secrets / vars ────────────────────────────────────────────────────────
-  LINEAR_API_KEY: string      // Linear service-account API key (no "Bearer" prefix needed)
-  LINEAR_TEAM_ID: string      // Linear team UUID
-  LINEAR_PROJECT_ID: string   // Linear project UUID
+  LINEAR_API_KEY: SecretsStoreSecret  // Linear service-account API key (no "Bearer" prefix needed)
+  LINEAR_TEAM_ID: string              // Linear team UUID
+  LINEAR_PROJECT_ID: string           // Linear project UUID
 
   // ── Durable Object namespaces ─────────────────────────────────────────────
   ARTIFACT_GRAPH: DurableObjectNamespace  // ArtifactGraphDO for IssueBindingEvent writes

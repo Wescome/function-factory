@@ -8,7 +8,7 @@
  * actor is permitted to submit the given purpose.
  *
  * Protocol:
- *   POST {pdpUrl}/evaluate
+ *   POST https://pdp/evaluate  (via CF service binding Fetcher)
  *   Authorization: Bearer {apiKey}
  *   Body: { session_id, actor_type, purpose_id }
  *
@@ -31,7 +31,7 @@ export interface PdpResult {
  * Always resolves (never throws).  Errors and timeouts are mapped to DENY.
  */
 export async function checkPermit(
-  pdpUrl: string,
+  pdp: Fetcher,
   apiKey: string,
   sessionId: string,
   actorType: string,
@@ -41,7 +41,7 @@ export async function checkPermit(
   const timeoutId = setTimeout(() => controller.abort(), 3_000)
 
   try {
-    const response = await fetch(`${pdpUrl}/evaluate`, {
+    const response = await pdp.fetch(`https://pdp/evaluate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

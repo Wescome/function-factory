@@ -55,6 +55,24 @@ const ANOMALY_THRESHOLDS = {
 // ── ArchitectAgentDO ──────────────────────────────────────────────────────────
 
 export class ArchitectAgentDO extends DurableObject<Env> {
+  // ── Secrets Store cache (DO constructors cannot be async) ────────────────
+  private _signingKey: string | null = null
+  private _operatorControlToken: string | null = null
+
+  private async signingKey(): Promise<string> {
+    if (this._signingKey === null) {
+      this._signingKey = await this.env.FF_AGENT_SIGNING_KEY.get()
+    }
+    return this._signingKey
+  }
+
+  private async operatorControlToken(): Promise<string> {
+    if (this._operatorControlToken === null) {
+      this._operatorControlToken = await this.env.OPERATOR_CONTROL_TOKEN.get()
+    }
+    return this._operatorControlToken
+  }
+
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
 

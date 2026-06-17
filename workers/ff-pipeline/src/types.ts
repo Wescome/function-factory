@@ -54,6 +54,10 @@ export interface PipelineEnv {
   CF_API_TOKEN?: string
   OPERATOR_CONTROL_TOKEN?: string
 
+  // Secrets Store bindings (store_id: 5f51936ccef540ce825687d0afe96373)
+  SUB_BUFFER_PRODUCER_SECRET?: string
+  WEOPS_SIGNING_KEY?: string
+
   AI?: {
     run(model: string, input: Record<string, unknown>): Promise<{ response: string }>
   }

@@ -30,9 +30,11 @@
     "ANOMALY_SCAN_INTERVAL_MS": "900000",
     "PATCH_PROPAGATION_TIMEOUT_MS": "1800000",
     "CRD_RESOLUTION_TIMEOUT_MS": "600000"
-  }
+  },
 
-  // Secrets (wrangler secret put):
-  //   OPERATOR_CONTROL_TOKEN   — bearer token for WeOps gateway calls
-  //   FF_AGENT_SIGNING_KEY     — envelope signing (shared with CommissioningAgentDO)
+  // Secrets Store bindings
+  "secrets_store_secrets": [
+    { "binding": "FF_AGENT_SIGNING_KEY", "store_id": "5f51936ccef540ce825687d0afe96373", "secret_name": "FF_AGENT_SIGNING_KEY" },
+    { "binding": "OPERATOR_CONTROL_TOKEN", "store_id": "5f51936ccef540ce825687d0afe96373", "secret_name": "OPERATOR_CONTROL_TOKEN" }
+  ]
 }

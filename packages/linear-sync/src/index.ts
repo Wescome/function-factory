@@ -172,7 +172,8 @@ export default {
       return jsonResponse({ error: 'Invalid JSON body' }, 400)
     }
 
-    const client = new LinearClient(env.LINEAR_API_KEY)
+    const secrets = { linearApiKey: await env.LINEAR_API_KEY.get() }
+    const client = new LinearClient(secrets.linearApiKey)
     const { labelCache, stateCache } = await buildCaches(env, client)
 
     try {
@@ -268,7 +269,8 @@ export default {
    * Triggered by the wrangler cron schedule.
    */
   async scheduled(_controller: ScheduledController, env: Env, _ctx: ExecutionContext): Promise<void> {
-    const client = new LinearClient(env.LINEAR_API_KEY)
+    const secrets = { linearApiKey: await env.LINEAR_API_KEY.get() }
+    const client = new LinearClient(secrets.linearApiKey)
 
     // Read the latest health snapshot from D1 and push to history doc
     const latest = await env.FACTORY_OPS_DB

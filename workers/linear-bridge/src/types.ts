@@ -137,11 +137,11 @@ export interface LinearWebhookPayload {
 // ─── Env ─────────────────────────────────────────────────────────────────────
 
 export interface Env {
-  // Secrets (wrangler secret put)
-  LINEAR_WEBHOOK_SECRET: string   // raw string — NOT base64; used with TextEncoder
-  LINEAR_API_KEY: string          // Linear personal API key for GraphQL
-  WEOPS_SIGNING_KEY: string       // base64-encoded HMAC-SHA256 raw bytes — matches ff-gateway
-  WEOPS_GATEWAY_URL: string       // e.g. https://ff-gateway.koales.workers.dev
+  // Secrets (Cloudflare Secrets Store — must be awaited via .get())
+  LINEAR_WEBHOOK_SECRET: SecretsStoreSecret   // raw string — NOT base64; used with TextEncoder
+  LINEAR_API_KEY: SecretsStoreSecret          // Linear personal API key for GraphQL
+  WEOPS_SIGNING_KEY: SecretsStoreSecret       // base64-encoded HMAC-SHA256 raw bytes — matches ff-gateway
+  WEOPS_GATEWAY_URL: string                   // e.g. https://ff-gateway.koales.workers.dev
 
   // KV Binding
   BRIDGE_KV: KVNamespace          // authority-registry, pending-override:*, jti:*, audit
@@ -149,4 +149,11 @@ export interface Env {
   // Durable Object Bindings
   ARTIFACT_GRAPH: DurableObjectNamespace    // ArtifactGraphDO — per-repo
   APPROVAL_FLOW_DO: DurableObjectNamespace  // ApprovalFlowDO — per-escalation
+}
+
+/** Resolved secret strings — obtained by awaiting env.SECRET.get() once at the top of fetch(). */
+export interface ResolvedSecrets {
+  linearWebhookSecret: string
+  linearApiKey: string
+  weopsSigningKey: string
 }
