@@ -26,6 +26,7 @@ import {
   WorkspaceWriteSchema,
 } from './schemas.js'
 import type {
+  CommissioningSignal,
   DomainProfile,
   Phase,
   SessionContext,
@@ -69,13 +70,61 @@ export class CommissioningAgentDO extends Think<Env> {
   /** Cached session context — reloaded from SQLite on each handler entry. */
   private _sessionCtx: SessionContext | null = null
 
+  // ── Secrets Store cache (DO constructors cannot be async) ─────────────────
+  private _ofoxApiKey:               string | null = null
+  private _linearApiKey:             string | null = null
+  private _ffAgentSigningKey:        string | null = null
+  private _subBufferProducerSecret:  string | null = null
+
+  private async getOfoxApiKey(): Promise<string> {
+    if (this._ofoxApiKey === null) {
+      this._ofoxApiKey = await this.env.OFOX_API_KEY.get()
+    }
+    return this._ofoxApiKey
+  }
+
+  private async getLinearApiKey(): Promise<string> {
+    if (this._linearApiKey === null) {
+      this._linearApiKey = await this.env.LINEAR_API_KEY.get()
+    }
+    return this._linearApiKey
+  }
+
+  private async getFfAgentSigningKey(): Promise<string> {
+    if (this._ffAgentSigningKey === null) {
+      this._ffAgentSigningKey = await this.env.FF_AGENT_SIGNING_KEY.get()
+    }
+    return this._ffAgentSigningKey
+  }
+
+  private async getSubBufferProducerSecret(): Promise<string | null> {
+    if (!this.env.SUB_BUFFER_PRODUCER_SECRET) return null
+    if (this._subBufferProducerSecret === null) {
+      this._subBufferProducerSecret = await this.env.SUB_BUFFER_PRODUCER_SECRET.get()
+    }
+    return this._subBufferProducerSecret
+  }
+
   private _ofox: ReturnType<typeof createOpenAI> | null = null
 
+  /**
+   * Returns the cached OpenAI-compatible client.
+   * IMPORTANT: call ensureOfoxReady() (async) before any code path that
+   * reaches getModel(), so _ofoxApiKey is populated before this is invoked.
+   */
   private get ofox(): ReturnType<typeof createOpenAI> {
     if (!this._ofox) {
-      this._ofox = createOpenAI({ baseURL: 'https://api.ofox.ai/v1', apiKey: this.env.OFOX_API_KEY })
+      if (this._ofoxApiKey === null) {
+        throw new Error('CommissioningAgentDO: OFOX_API_KEY not yet resolved — call ensureOfoxReady() first')
+      }
+      this._ofox = createOpenAI({ baseURL: 'https://api.ofox.ai/v1', apiKey: this._ofoxApiKey })
     }
     return this._ofox
+  }
+
+  /** Eagerly resolves OFOX_API_KEY so that the synchronous getModel() path is safe. */
+  private async ensureOfoxReady(): Promise<void> {
+    await this.getOfoxApiKey()
   }
 
   constructor(ctx: DurableObjectState, env: Env) {
@@ -106,20 +155,24 @@ export class CommissioningAgentDO extends Think<Env> {
     terminal = false,
   ): void {
     if (!this.env.SUB_BUFFER || !this.env.SUB_BUFFER_PRODUCER_SECRET) return
-    void emitSubscriptionEvent(this.env.SUB_BUFFER, this.env.SUB_BUFFER_PRODUCER_SECRET, {
-      sessionId,
-      stream: 'sessionEvents',
-      kind,
-      payload,
-      occurredAt: Date.now(),
-      terminal,
-    })
+    void (async () => {
+      const secret = await this.getSubBufferProducerSecret()
+      if (!secret) return
+      void emitSubscriptionEvent(this.env.SUB_BUFFER!, secret, {
+        sessionId,
+        stream: 'sessionEvents',
+        kind,
+        payload,
+        occurredAt: Date.now(),
+        terminal,
+      })
+    })()
   }
 
   // ── Think<Env> overrides ────────────────────────────────────────────────────
 
   override getModel(): LanguageModel {
-    return this.ofox('anthropic/claude-sonnet-4-6')
+    return this.ofox('anthropic/claude-sonnet-4.6')
   }
 
   override getSystemPrompt(): string {
@@ -186,7 +239,7 @@ export class CommissioningAgentDO extends Think<Env> {
     const ctx = await this.restoreSessionContext()
     // Hypothesis-formation requires Claude Opus (CA-INV-003)
     if (ctx.currentPhase === 'hypothesis-formation') {
-      return { model: this.ofox('anthropic/claude-opus-4-6') }
+      return { model: this.ofox('anthropic/claude-opus-4.6') }
     }
   }
 
@@ -207,6 +260,13 @@ export class CommissioningAgentDO extends Think<Env> {
       }
     }
 
+    if (request.method === 'GET') {
+      const signalStatusMatch = url.pathname.match(/^\/signal\/(.+)$/)
+      if (signalStatusMatch) {
+        return this.handleSignalStatus()
+      }
+    }
+
     return super.fetch(request)
   }
 
@@ -222,18 +282,70 @@ export class CommissioningAgentDO extends Think<Env> {
       })
     }
     const signal = parse.data
-    // Use dispositionEventId as per-commission sessionId for subscription events
-    const caSessionId = signal.dispositionEventId
+    // Use sessionId (gateway-minted streaming identity) for subscription events
+    const caSessionId = signal.sessionId
 
     // Emit SESSION_SUBMITTED on incoming signal
     this.emitCA(caSessionId, 'SESSION_SUBMITTED', { orgId: this.orgId, dispositionEventId: signal.dispositionEventId })
 
-    // Persist domain profile before phase execution
+    // Seed KV liveness: hint the SubscriptionEventBufferDO to init its meta + KV shadow
+    // before the first event arrives. Fire-and-forget — not a gate.
+    if (this.env.SUB_BUFFER) {
+      const subBufId = this.env.SUB_BUFFER.idFromName(`sub-buffer:${caSessionId}`)
+      const subBufStub = this.env.SUB_BUFFER.get(subBufId)
+      void subBufStub.fetch(
+        new Request('https://do/open', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: caSessionId }),
+        }),
+      )
+    }
+
+    // Persist domain profile and initial phase before arming alarm
     await this.persistSessionContext({
       currentPhase: 'pattern-appraisal',
       domainProfile: signal.domainProfile,
       lastSignalAt: new Date().toISOString(),
     })
+
+    // Clear any stale terminal result from a prior session so the poller does
+    // not immediately return stale state for this new commission.
+    await this.ctx.storage.delete('commission-result')
+
+    // Persist signal for the alarm to pick up; set alarm-kind to disambiguate
+    // from the 6h cycle-advisory alarm.
+    await this.ctx.storage.put('pending-signal', JSON.stringify(signal))
+    await this.ctx.storage.put('alarm-kind', 'process-signal')
+
+    // Arm alarm immediately — LLM chain runs in alarm(), not inline.
+    await this.ctx.storage.setAlarm(Date.now() + 50)
+
+    // Return 202 Accepted — client polls GET /signal/{sessionId} for terminal status.
+    return new Response(
+      JSON.stringify({
+        status: 'commissioned',
+        sessionId: caSessionId,
+        poll: `/agents/commissioning/${this.orgId}/signal/${caSessionId}`,
+      }),
+      { status: 202, headers: { 'Content-Type': 'application/json' } },
+    )
+  }
+
+  // ── GET /signal/:sessionId — poll for commissioning terminal status ──────────
+
+  private async handleSignalStatus(): Promise<Response> {
+    const ctx = await this.restoreSessionContext()
+    const resultJson = await this.ctx.storage.get<string>('commission-result')
+    const result = resultJson ? (JSON.parse(resultJson) as Record<string, unknown>) : null
+    return jsonResponse({ phase: ctx.currentPhase, result })
+  }
+
+  // ── _runSignalChain — LLM phases + Mediation commission (called from alarm) ──
+
+  private async _runSignalChain(signal: CommissioningSignal): Promise<void> {
+    await this.ensureOfoxReady()
+    const caSessionId = signal.sessionId
 
     // ── Phase 1: Pattern Appraisal ──
     await this.setPhase('pattern-appraisal')
@@ -243,7 +355,12 @@ export class CommissioningAgentDO extends Think<Env> {
     )
     if (!appraisal.matches) {
       await this.setPhase('idle')
-      return jsonResponse({ status: 'archived', reason: appraisal.reason })
+      await this.ctx.storage.put(
+        'commission-result',
+        JSON.stringify({ status: 'archived', reason: appraisal.reason, completedAt: new Date().toISOString() }),
+      )
+      this.emitCA(caSessionId, 'MONITORED', { orgId: this.orgId }, true)
+      return
     }
 
     // ── Phase 2: Deliberation ──
@@ -254,7 +371,12 @@ export class CommissioningAgentDO extends Think<Env> {
     )
     if (!candidateSet) {
       await this.setPhase('idle')
-      return jsonResponse({ status: 'rejected', reason: 'deliberation-failed' })
+      await this.ctx.storage.put(
+        'commission-result',
+        JSON.stringify({ status: 'rejected', reason: 'deliberation-failed', completedAt: new Date().toISOString() }),
+      )
+      this.emitCA(caSessionId, 'MONITORED', { orgId: this.orgId }, true)
+      return
     }
 
     // Emit CANDIDATE_SET_BUILT after deliberation succeeds
@@ -278,13 +400,38 @@ export class CommissioningAgentDO extends Think<Env> {
     )
     if (!workGraph) {
       await this.setPhase('idle')
-      return jsonResponse({ status: 'rejected', reason: 'workgraph-authoring-failed' })
+      await this.ctx.storage.put(
+        'commission-result',
+        JSON.stringify({ status: 'rejected', reason: 'workgraph-authoring-failed', completedAt: new Date().toISOString() }),
+      )
+      this.emitCA(caSessionId, 'MONITORED', { orgId: this.orgId }, true)
+      return
     }
 
     // ── Commission: POST to Mediation Agent ──
     const mediationId = this.env.MEDIATION_AGENT.idFromName(`mediation-agent:${this.orgId}`)
     const mediationStub = this.env.MEDIATION_AGENT.get(mediationId)
     let commissionResp: Response
+
+    // Derive deterministic runId via SHA-256(orgId + workGraph.id + dispositionEventId)
+    // R2 (SPEC-FF-CA-MEDIATION-ADAPTER-001): runId is derived, never received from outside.
+    const runIdInput = new TextEncoder().encode(`${this.orgId}:${workGraph.id}:${signal.dispositionEventId}`)
+    const runIdHashBuf = await crypto.subtle.digest('SHA-256', runIdInput)
+    const runIdHex = Array.from(new Uint8Array(runIdHashBuf))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')
+    const runId = `RUN-${runIdHex}`
+
+    // Build typed CommissionRequest (R1 — SPEC-FF-CA-MEDIATION-ADAPTER-001)
+    const commissionRequest = {
+      runId,
+      orgId: this.orgId,
+      workGraphId: workGraph.id,
+      workGraphVersion: workGraph.producedAt,
+      eluciationArtifactId: signal.elucidationArtifactId,  // note: misspelled target key matches Mediation contract
+      d1ArtifactRefs: [] as string[],  // v1: WorkGraph not yet persisted to D1
+      dispositionEventId: signal.dispositionEventId,
+    }
 
     // Emit COMPILATION_STARTED before calling Mediation Agent
     this.emitCA(caSessionId, 'COMPILATION_STARTED', { orgId: this.orgId, workGraphId: workGraph.id })
@@ -294,21 +441,20 @@ export class CommissioningAgentDO extends Think<Env> {
         new Request('https://mediation-agent/commission', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            workGraph,
-            orgId: this.orgId,
-            dispositionEventId: signal.dispositionEventId,
-          }),
+          body: JSON.stringify(commissionRequest),
         }),
       )
     } catch (err) {
-      await this.setPhase('idle')
       const errMsg = err instanceof Error ? err.message : String(err)
       this.emitCA(caSessionId, 'COMPILATION_FAILED', { orgId: this.orgId, reason: errMsg })
-      return jsonResponse(
-        { status: 'commission-failed', error: errMsg },
-        500,
+      // Write terminal result before setting idle — poller must not see idle + no result.
+      await this.ctx.storage.put(
+        'commission-result',
+        JSON.stringify({ status: 'commission-failed', error: errMsg, completedAt: new Date().toISOString() }),
       )
+      await this.setPhase('idle')
+      this.emitCA(caSessionId, 'MONITORED', { orgId: this.orgId }, true)
+      return
     }
 
     // Emit COMPILATION_COMPLETE or COMPILATION_FAILED based on response
@@ -318,22 +464,37 @@ export class CommissioningAgentDO extends Think<Env> {
       this.emitCA(caSessionId, 'COMPILATION_FAILED', { orgId: this.orgId, status: commissionResp.status })
     }
 
+    // Parse mediation response for terminal result record
+    let mediationBody: Record<string, unknown> = {}
+    try {
+      mediationBody = (await commissionResp.json()) as Record<string, unknown>
+    } catch {
+      // non-JSON response — swallow and continue
+    }
+
+    // Write terminal result before setting idle — poller must not see idle + no result.
+    await this.ctx.storage.put(
+      'commission-result',
+      JSON.stringify({
+        status: commissionResp.ok ? (mediationBody.status ?? 'seeded') : 'commission-failed',
+        runId: mediationBody.runId ?? runId,
+        atomCount: mediationBody.atomCount,
+        workGraphVersion: workGraph.producedAt,
+        reason: commissionResp.ok ? undefined : String(mediationBody.error ?? commissionResp.status),
+        completedAt: new Date().toISOString(),
+      }),
+    )
+
     // Arm 6h alarm for cycle advisory surfacing (first commission only)
     await this.ctx.storage.setAlarm(Date.now() + ALARM_INTERVAL_MS)
 
     await this.setPhase('idle')
     // Emit MONITORED (terminal) on session complete
     this.emitCA(caSessionId, 'MONITORED', { orgId: this.orgId }, true)
-
-    // Proxy the mediation agent response
-    const commissionBody = await commissionResp.text()
-    return new Response(commissionBody, {
-      status: commissionResp.status,
-      headers: { 'Content-Type': 'application/json' },
-    })
   }
 
   private async handleDivergence(request: Request): Promise<Response> {
+    await this.ensureOfoxReady()
     const body = await request.json()
     const parse = DivergenceNotificationSchema.safeParse(body)
     if (!parse.success) {
@@ -527,9 +688,46 @@ export class CommissioningAgentDO extends Think<Env> {
       .join('\n')
   }
 
-  // ── alarm() — cycle-boundary advisory surfacing ───────────────────────────────
+  // ── alarm() — dispatches on alarm-kind: 'process-signal' | cycle-advisory ────
 
   override async alarm(): Promise<void> {
+    // Read and immediately clear alarm-kind so a crash during processing does
+    // not accidentally re-trigger the signal path on the next alarm.
+    const alarmKind = await this.ctx.storage.get<string>('alarm-kind')
+    await this.ctx.storage.delete('alarm-kind')
+
+    if (alarmKind === 'process-signal') {
+      // ── Process-signal path: run LLM chain from stored pending-signal ──
+      const signalJson = await this.ctx.storage.get<string>('pending-signal')
+      await this.ctx.storage.delete('pending-signal')
+      if (!signalJson) {
+        console.warn('[CommissioningAgentDO] alarm(process-signal): pending-signal missing — skipping')
+        return
+      }
+      let signal: CommissioningSignal
+      try {
+        signal = JSON.parse(signalJson) as CommissioningSignal
+      } catch (err) {
+        console.error('[CommissioningAgentDO] alarm(process-signal): failed to parse pending-signal:', err)
+        return
+      }
+      try {
+        await this._runSignalChain(signal)
+      } catch (err) {
+        // Unhandled chain failure — write a terminal error record so the poller
+        // does not hang indefinitely waiting for a result that will never arrive.
+        console.error('[CommissioningAgentDO] alarm(process-signal): _runSignalChain threw:', err)
+        const errMsg = err instanceof Error ? err.message : String(err)
+        await this.ctx.storage.put(
+          'commission-result',
+          JSON.stringify({ status: 'commission-failed', error: errMsg, completedAt: new Date().toISOString() }),
+        )
+        await this.setPhase('idle')
+      }
+      return
+    }
+
+    // ── Cycle-advisory path (existing logic) ─────────────────────────────────
     const ctx = await this.restoreSessionContext()
 
     // Do not surface advisories if a phase is active — re-arm and return
@@ -541,7 +739,7 @@ export class CommissioningAgentDO extends Think<Env> {
     // Step 1: get cycle context (non-fatal)
     let cycle: CycleContext | null = null
     try {
-      cycle = await getCycleContext(this.env.LINEAR_TEAM_ID, this.env.FACTORY_LINEAR_KV, this.env.LINEAR_API_KEY)
+      cycle = await getCycleContext(this.env.LINEAR_TEAM_ID, this.env.FACTORY_LINEAR_KV, await this.getLinearApiKey())
     } catch (err) {
       console.warn('[CommissioningAgentDO] getCycleContext failed:', err)
     }
@@ -721,6 +919,7 @@ export class CommissioningAgentDO extends Think<Env> {
     const { text } = await generateText({
       model: this.getModel(),
       prompt,
+      maxRetries: 0,
     })
     return { text }
   }

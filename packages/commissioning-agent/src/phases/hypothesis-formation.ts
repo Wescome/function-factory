@@ -11,7 +11,7 @@
 import type { DivergenceNotification, HypothesisNode } from '../schemas.js'
 
 /** The author model for hypothesis formation — Claude Opus (CA-INV-003). */
-const HYPOTHESIS_AUTHOR_MODEL = 'anthropic/claude-opus-4-5'
+const HYPOTHESIS_AUTHOR_MODEL = 'anthropic/claude-opus-4.5'
 
 export async function runHypothesisFormation(
   generate: (prompt: string) => Promise<{ text: string }>,

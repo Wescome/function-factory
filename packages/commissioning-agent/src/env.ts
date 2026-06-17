@@ -25,12 +25,16 @@ export interface Env {
 
   // ── Secrets / vars ────────────────────────────────────────────────────────
   LINEAR_TEAM_ID: string
-  LINEAR_API_KEY: string // secret
-  FF_AGENT_SIGNING_KEY: string // WGSP envelope signing
-  OFOX_API_KEY: string  // OpenAI-compatible gateway (https://api.ofox.ai/v1)
+  /** Secrets Store binding — call .get() to retrieve the value. */
+  LINEAR_API_KEY: SecretsStoreSecret
+  /** Secrets Store binding — call .get() to retrieve the value. */
+  FF_AGENT_SIGNING_KEY: SecretsStoreSecret
+  /** Secrets Store binding — call .get() to retrieve the value. */
+  OFOX_API_KEY: SecretsStoreSecret
   ENVIRONMENT: string
 
   // ── Subscription buffer (optional) ───────────────────────────────────────
   SUB_BUFFER?:                 DurableObjectNamespace
-  SUB_BUFFER_PRODUCER_SECRET?: string
+  /** Secrets Store binding — call .get() to retrieve the value. */
+  SUB_BUFFER_PRODUCER_SECRET?: SecretsStoreSecret
 }
