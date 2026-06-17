@@ -5,7 +5,7 @@
  * Attributes fault. Claude Opus required as authorModelId (CA-INV-003 —
  * ResourceBudgetBead allowlist enforced).
  *
- * Active skills: bundled:factory-authoring-core + bundled:{vertical}-fault-attribution
+ * Active skills: bundled:factory-authoring-core + bundled:fault-attribution
  */
 
 import type { DivergenceNotification, HypothesisNode } from '../schemas.js'
@@ -17,19 +17,17 @@ export async function runHypothesisFormation(
   generate: (prompt: string) => Promise<{ text: string }>,
   divergence: DivergenceNotification,
   orgId: string,
-  vertical: string,
 ): Promise<HypothesisNode | null> {
   const prompt = [
     `You are performing hypothesis formation for a Divergence notification.`,
     ``,
     `Org: ${orgId}`,
-    `Vertical: ${vertical}`,
     `Divergence ID: ${divergence.divergenceId}`,
     `Specification ID: ${divergence.specificationId}`,
     `Run ID: ${divergence.runId}`,
     ``,
     `Attribute the fault to ONE of:`,
-    `  - SPECIFICATION_GAP: the WorkGraph did not capture a required behaviour`,
+    `  - SPECIFICATION_GAP: the IntentSpecification (IS-*) did not capture a required behaviour`,
     `  - TOOLING_FAILURE: a permitted tool produced incorrect output`,
     `  - INVARIANT_MISMATCH: the atom's INV-* binding does not match the actual execution constraint`,
     `  - ENVIRONMENTAL: external dependency failure outside Factory scope`,

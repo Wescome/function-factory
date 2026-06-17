@@ -39,18 +39,16 @@ const jwt = hdr + '.' + claims + '.' + sig
 
 console.log('\n→ POST ' + GATEWAY + '/signals')
 console.log('  orgId: ' + ORG_ID + '  dispositionEventId: ' + DISPOSITION_ID)
-console.log('  vertical: gtm-engineering (P1 — Pipeline Conversion Drop)')
+console.log('  repoId: function-factory (bootstrap)')
 
 const res = await httpPost(GATEWAY + '/signals', { Authorization: 'Bearer ' + jwt }, {
   signalType: 'CommissioningSignal',
-  repoId: ORG_ID,
+  repoId: 'function-factory',
   workGraphId: WG_ID,
   workGraphVersion: 'v1',
   dispositionEventId: DISPOSITION_ID,
   elucidationArtifactId: DISPOSITION_ID,
   issuedAt: new Date().toISOString(),
-  vertical: 'gtm-engineering',
-  orgContext: 'B2B SaaS sales org — MQL-to-SQL conversion fell from 18% to 12% over the past 30 days. SQL-to-close held at 22%. Team size 45 AEs.',
 })
 
 console.log('  gateway status: ' + res.status)

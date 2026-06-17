@@ -1,46 +1,19 @@
 /**
  * @factory/commissioning-agent — Zod schemas
  *
- * DomainProfile, CommissioningSignal, DivergenceNotification.
+ * CommissioningSignal, DivergenceNotification.
  */
 
 import { z } from 'zod'
-
-// ── DomainProfile ─────────────────────────────────────────────────────────────
-
-export const DomainConstraintSchema = z.object({
-  id: z.string().min(1), // CONS-{nanoid}
-  description: z.string().min(1),
-  severity: z.enum(['blocking', 'advisory']),
-})
-export type DomainConstraint = z.infer<typeof DomainConstraintSchema>
-
-export const VerticalSchema = z.enum([
-  'gtm-engineering',
-  'healthcare-operations',
-  'comeflow-commerce',
-  'fintech-compliance',
-  'generic',
-])
-export type Vertical = z.infer<typeof VerticalSchema>
-
-export const DomainProfileSchema = z.object({
-  vertical: VerticalSchema,
-  orgContext: z.string(), // free-form org description for soul block
-  constraints: z.array(DomainConstraintSchema),
-  additionalSkillRefs: z.array(z.string()).optional(),
-  version: z.string().default('1.0'),
-})
-export type DomainProfile = z.infer<typeof DomainProfileSchema>
 
 // ── CommissioningSignal ───────────────────────────────────────────────────────
 
 export const CommissioningSignalSchema = z.object({
   sessionId: z.string(),
   orgId: z.string().min(1),
+  repoId: z.string().min(1),
   workGraphId: z.string().optional(), // if pre-specified by We-layer (WG-*)
   workGraphVersion: z.string().optional(),
-  domainProfile: DomainProfileSchema,
   dispositionEventId: z.string().min(1), // ELC-* ref (A9)
   elucidationArtifactId: z.string().min(1),
   issuedAt: z.string().min(1),
@@ -69,52 +42,63 @@ export type WorkspaceWrite = z.infer<typeof WorkspaceWriteSchema>
 
 export type Phase =
   | 'idle'
-  | 'pattern-appraisal'
-  | 'deliberation'
-  | 'workgraph-authoring'
-  | 'hypothesis-formation'
-  | 'amendment-proposal'
+  | 'commissioning'         // workflow running (steps 1–5)
+  | 'suspended-approval'    // step 6 suspend()
+  | 'hypothesis-formation'  // /divergence handler active
+  | 'amendment-proposal'    // amendment handler active
 
 export interface SessionContext {
   orgId: string
   currentPhase: Phase
-  domainProfile: DomainProfile
-  activeRunId: string | null
+  activeRunId: string | null    // Mastra workflow run ID
+  isNodeId: string | null       // IS-* set after step 5 completes
   lastSignalAt: string | null
   lastDivergenceAt: string | null
   updatedAt: string
 }
 
-// ── Phase runner result types ─────────────────────────────────────────────────
+// ── Compiler pass output types ────────────────────────────────────────────────
 
-export interface PatternAppraisalResult {
-  matches: boolean
-  reason: string
-  patternId?: string | undefined
-}
+export const PressureArtifactSchema = z.object({
+  id: z.string().regex(/^PRS-/),
+  kind: z.literal('pressure'),
+  title: z.string().min(1),
+  description: z.string().min(1),
+  priority: z.enum(['critical', 'high', 'medium', 'low']),
+  category: z.string().min(1),
+  sourceSignalId: z.string().min(1),
+  evidence: z.array(z.string()),
+  orgId: z.string().min(1),
+  sessionId: z.string().min(1),
+})
+export type PressureArtifact = z.infer<typeof PressureArtifactSchema>
 
-export interface CandidateSet {
-  candidates: Array<{
-    id: string
-    description: string
-    score: number
-    feasible: boolean
-  }>
-  nominated: string // id of nominated candidate
-  nominationReason: string
-}
+export const CapabilityArtifactSchema = z.object({
+  id: z.string().regex(/^BC-/),
+  kind: z.literal('capability'),
+  title: z.string().min(1),
+  description: z.string().min(1),
+  gapAnalysis: z.string().min(1),
+  sourcePressureId: z.string().min(1),
+  orgId: z.string().min(1),
+  sessionId: z.string().min(1),
+})
+export type CapabilityArtifact = z.infer<typeof CapabilityArtifactSchema>
 
-export interface WorkGraph {
-  id: string // WG-*
-  orgId: string
-  dispositionEventId: string
-  producedBy: string // CommissioningAgentDO:{orgId}
-  producedAt: string
-  pressure: unknown
-  capability: unknown
-  functionProposal: unknown
-  prd: unknown
-}
+export const FunctionProposalSchema = z.object({
+  id: z.string().regex(/^FP-/),
+  kind: z.literal('function-proposal'),
+  title: z.string().min(1),
+  description: z.string().min(1),
+  rationale: z.string().min(1),
+  successCriteria: z.array(z.string()).min(1),
+  sourceCapabilityId: z.string().min(1),
+  orgId: z.string().min(1),
+  sessionId: z.string().min(1),
+})
+export type FunctionProposal = z.infer<typeof FunctionProposalSchema>
+
+// ── Hypothesis / Amendment ────────────────────────────────────────────────────
 
 export interface HypothesisNode {
   id: string // HYP-*
@@ -137,7 +121,7 @@ export interface HypothesisNode {
 export interface Amendment {
   id: string // AMD-*
   hypothesisId: string
-  workGraphId: string | null
+  specificationId: string | null   // was workGraphId (WorkGraph is retired)
   proposedChange: unknown
   status: 'CANDIDATE' | 'ACCEPTED' | 'REJECTED'
   producedAt: string

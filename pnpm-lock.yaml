@@ -248,24 +248,30 @@ importers:
 
   packages/commissioning-agent:
     dependencies:
-      '@ai-sdk/openai':
-        specifier: ^3.0.0
-        version: 3.0.71(zod@4.4.3)
       '@cloudflare/shell':
         specifier: latest
         version: 0.4.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ai@6.0.168(zod@4.4.3))(zod@4.4.3)
-      '@cloudflare/think':
-        specifier: latest
-        version: 0.9.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(agents@0.16.0(@babel/core@7.29.0)(@babel/runtime@7.29.2)(@cloudflare/workers-types@4.20260527.1)(ai@6.0.168(zod@4.4.3))(chat@4.30.0(ai@6.0.168(zod@4.4.3))(zod@4.4.3))(react@19.2.5)(rolldown@1.0.3)(vite@8.0.16(@types/node@24.12.2)(esbuild@0.28.1)(tsx@4.21.0)(yaml@2.9.0))(zod@4.4.3))(ai@6.0.168(zod@4.4.3))(vite@8.0.16(@types/node@24.12.2)(esbuild@0.28.1)(tsx@4.21.0)(yaml@2.9.0))(zod@4.4.3)
+      '@factory/factory-graph':
+        specifier: workspace:*
+        version: link:../factory-graph
+      '@factory/gears':
+        specifier: workspace:*
+        version: link:../gears
       '@factory/schemas':
         specifier: workspace:*
         version: link:../schemas
       '@factory/subscription-buffer':
         specifier: workspace:*
         version: link:../subscription-buffer
-      ai:
-        specifier: ^6.0.0
-        version: 6.0.168(zod@4.4.3)
+      '@mastra/cloudflare-d1':
+        specifier: 1.0.6
+        version: 1.0.6(@mastra/core@1.42.0(@bufbuild/protobuf@2.12.0)(@cfworker/json-schema@4.1.1)(ai@6.0.168(zod@4.4.3))(express@5.2.1)(zod@4.4.3))
+      '@mastra/core':
+        specifier: 1.42.0
+        version: 1.42.0(@bufbuild/protobuf@2.12.0)(@cfworker/json-schema@4.1.1)(ai@6.0.168(zod@4.4.3))(express@5.2.1)(zod@4.4.3)
+      '@mastra/memory':
+        specifier: 1.20.3
+        version: 1.20.3(@mastra/core@1.42.0(@bufbuild/protobuf@2.12.0)(@cfworker/json-schema@4.1.1)(ai@6.0.168(zod@4.4.3))(express@5.2.1)(zod@4.4.3))(zod@4.4.3)
       zod:
         specifier: ^4.0.0
         version: 4.4.3
@@ -1279,12 +1285,6 @@ packages:
     peerDependencies:
       zod: ^4.0.0
 
-  '@ai-sdk/openai@3.0.71':
-    resolution: {integrity: sha512-j6eBAa5oHFZ4U5CxpIV3T4zXNM/BviodNCZCL1qHkA4aqkwK9iQ18TWYz2DZcXpw4BO5pikKzqpXORxb1EnZGA==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      zod: ^4.0.0
-
   '@ai-sdk/provider-utils@3.0.25':
     resolution: {integrity: sha512-CvsRu+32Y8a167s+lrIBtsybvgTHp8j9y+6BeTvLeoW3Q+okw/b4CnNUFOLIXsRaKHQKAH+IHNJPYWywfpw0LA==}
     engines: {node: '>=18'}
@@ -1299,12 +1299,6 @@ packages:
 
   '@ai-sdk/provider-utils@4.0.27':
     resolution: {integrity: sha512-ubkAJ+xODouwtmN1tYlvTPphH1hPOBfZaEQe8U7skGvFAnIRs9PPpsq57bC2+Ky/MB4yzhd6YOsxTAx9sGpazw==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      zod: ^4.0.0
-
-  '@ai-sdk/provider-utils@4.0.29':
-    resolution: {integrity: sha512-uhukHaCBvqkwBHkT8C2PrnqKTCoLn3pdHXqtcR9I8ErH+flbzgW4o7VHSNIup9LRu+WBvZIZDQLsx6rwl2tiOA==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^4.0.0
@@ -1880,21 +1874,6 @@ packages:
     peerDependencies:
       '@chat-adapter/telegram': ^4.29.0
       agents: '>=0.14.0 <1.0.0'
-      ai: ^6.0.182
-      vite: '>=6 <9'
-      zod: ^4.0.0
-    peerDependenciesMeta:
-      '@chat-adapter/telegram':
-        optional: true
-      vite:
-        optional: true
-
-  '@cloudflare/think@0.9.0':
-    resolution: {integrity: sha512-asqO41zY0HQ7m4MYuVxY06vcNGvLWXUpMd2lEK4bTpenAP6mtEPaJ404dy90g2D9m8LiL0nDoJPr9rGE+5K2Hg==}
-    hasBin: true
-    peerDependencies:
-      '@chat-adapter/telegram': ^4.29.0
-      agents: '>=0.16.0 <1.0.0'
       ai: ^6.0.182
       vite: '>=6 <9'
       zod: ^4.0.0
@@ -4460,10 +4439,6 @@ packages:
     resolution: {integrity: sha512-t3FjXy942OvYW62rPzJjvzzqQeWzM+uT5EJKABSGNKffbloq+oMkJn/gx5KU2FC//cpQbNt1SbBfGrOkdT8XVg==}
     hasBin: true
 
-  create-think@0.0.4:
-    resolution: {integrity: sha512-BJGn7DJy23rzn0y5z8mJ/ycgPho/wiPk8QjPACSE7A3XJzf1RbzKoKNfTCiHqq61a+mhOUBgWnuBnHoIJyTWOg==}
-    hasBin: true
-
   cron-schedule@6.0.0:
     resolution: {integrity: sha512-BoZaseYGXOo5j5HUwTaegIog3JJbuH4BbrY9A1ArLjXpy+RWb3mV28F/9Gv1dDA7E2L8kngWva4NWisnLTyfgQ==}
     engines: {node: '>=20'}
@@ -6740,12 +6715,6 @@ snapshots:
       '@vercel/oidc': 3.2.0
       zod: 4.4.3
 
-  '@ai-sdk/openai@3.0.71(zod@4.4.3)':
-    dependencies:
-      '@ai-sdk/provider': 3.0.10
-      '@ai-sdk/provider-utils': 4.0.29(zod@4.4.3)
-      zod: 4.4.3
-
   '@ai-sdk/provider-utils@3.0.25(zod@4.4.3)':
     dependencies:
       '@ai-sdk/provider': 2.0.3
@@ -6761,13 +6730,6 @@ snapshots:
       zod: 4.4.3
 
   '@ai-sdk/provider-utils@4.0.27(zod@4.4.3)':
-    dependencies:
-      '@ai-sdk/provider': 3.0.10
-      '@standard-schema/spec': 1.1.0
-      eventsource-parser: 3.0.8
-      zod: 4.4.3
-
-  '@ai-sdk/provider-utils@4.0.29(zod@4.4.3)':
     dependencies:
       '@ai-sdk/provider': 3.0.10
       '@standard-schema/spec': 1.1.0
@@ -7764,26 +7726,6 @@ snapshots:
       aywson: 0.0.16
       chat: 4.30.0(ai@6.0.168(zod@4.4.3))(zod@4.4.3)
       create-think: 0.0.3
-      just-bash: 3.0.1
-      smol-toml: 1.6.1
-      yargs: 18.0.0
-      zod: 4.4.3
-    optionalDependencies:
-      vite: 8.0.16(@types/node@24.12.2)(esbuild@0.28.1)(tsx@4.21.0)(yaml@2.9.0)
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - '@tanstack/ai'
-      - supports-color
-
-  '@cloudflare/think@0.9.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(agents@0.16.0(@babel/core@7.29.0)(@babel/runtime@7.29.2)(@cloudflare/workers-types@4.20260527.1)(ai@6.0.168(zod@4.4.3))(chat@4.30.0(ai@6.0.168(zod@4.4.3))(zod@4.4.3))(react@19.2.5)(rolldown@1.0.3)(vite@8.0.16(@types/node@24.12.2)(esbuild@0.28.1)(tsx@4.21.0)(yaml@2.9.0))(zod@4.4.3))(ai@6.0.168(zod@4.4.3))(vite@8.0.16(@types/node@24.12.2)(esbuild@0.28.1)(tsx@4.21.0)(yaml@2.9.0))(zod@4.4.3)':
-    dependencies:
-      '@cloudflare/codemode': 0.4.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ai@6.0.168(zod@4.4.3))(zod@4.4.3)
-      '@cloudflare/shell': 0.4.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ai@6.0.168(zod@4.4.3))(zod@4.4.3)
-      agents: 0.16.0(@babel/core@7.29.0)(@babel/runtime@7.29.2)(@cloudflare/workers-types@4.20260527.1)(ai@6.0.168(zod@4.4.3))(chat@4.30.0(ai@6.0.168(zod@4.4.3))(zod@4.4.3))(react@19.2.5)(rolldown@1.0.3)(vite@8.0.16(@types/node@24.12.2)(esbuild@0.28.1)(tsx@4.21.0)(yaml@2.9.0))(zod@4.4.3)
-      ai: 6.0.168(zod@4.4.3)
-      aywson: 0.0.16
-      chat: 4.30.0(ai@6.0.168(zod@4.4.3))(zod@4.4.3)
-      create-think: 0.0.4
       just-bash: 3.0.1
       smol-toml: 1.6.1
       yargs: 18.0.0
@@ -10153,8 +10095,6 @@ snapshots:
       yargs: 18.0.0
     transitivePeerDependencies:
       - supports-color
-
-  create-think@0.0.4: {}
 
   cron-schedule@6.0.0: {}
 

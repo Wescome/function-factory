@@ -1,7 +1,7 @@
 /**
  * Phase 5 — Amendment Proposal
  *
- * Calls LoopClosureService.proposeAmendment(). Proposes a targeted WorkGraph
+ * Calls LoopClosureService.proposeAmendment(). Proposes a targeted specification
  * amendment grounded in the Hypothesis fault attribution.
  * Amendment.status = CANDIDATE until Mastra eval T4 Verdict.
  *
@@ -16,7 +16,7 @@ export async function runAmendmentProposal(
   orgId: string,
 ): Promise<Amendment | null> {
   const prompt = [
-    `You are proposing a WorkGraph amendment based on a Hypothesis.`,
+    `You are proposing a specification amendment based on a Hypothesis.`,
     ``,
     `Org: ${orgId}`,
     `Hypothesis ID: ${hypothesis.id}`,
@@ -25,7 +25,7 @@ export async function runAmendmentProposal(
     `Evidence chain: ${hypothesis.evidenceChain}`,
     `Amendment scope: ${hypothesis.amendmentScope}`,
     ``,
-    `Propose a targeted, minimal amendment to the WorkGraph that addresses the`,
+    `Propose a targeted, minimal amendment to the specification that addresses the`,
     `attributed fault. The amendment must be grounded in the Hypothesis fault`,
     `attribution — do not propose changes outside the stated amendment scope.`,
     ``,
@@ -35,7 +35,7 @@ export async function runAmendmentProposal(
     `{`,
     `  "id": "AMD-{nanoid}",`,
     `  "hypothesisId": "${hypothesis.id}",`,
-    `  "workGraphId": null,`,
+    `  "specificationId": null,`,
     `  "proposedChange": {`,
     `    "type": "...",`,
     `    "target": "...",`,
@@ -56,7 +56,7 @@ export async function runAmendmentProposal(
         const amendment: Amendment = {
           id: typeof raw.id === 'string' ? raw.id : `AMD-${crypto.randomUUID().slice(0, 8)}`,
           hypothesisId: hypothesis.id,
-          workGraphId: typeof raw.workGraphId === 'string' ? raw.workGraphId : null,
+          specificationId: typeof raw.specificationId === 'string' ? raw.specificationId : null,
           proposedChange: raw.proposedChange,
           status: 'CANDIDATE',
           producedAt: new Date().toISOString(),

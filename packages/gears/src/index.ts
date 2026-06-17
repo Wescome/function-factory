@@ -9,6 +9,8 @@
 
 export { ThinkExecutor } from './agents/think-executor.js'
 export { buildConductingAgent } from './agents/conducting-agent.js'
+export { buildPlannerAgent } from './agents/planner-agent.js'
+export type { PlannerAgentEnv } from './agents/planner-agent.js'
 export { MODEL_BY_ROLE } from './agents/models.js'
 export type { RoleName } from './agents/models.js'
 export { ConsentBeadAuditProcessor, ConsentDeniedError } from './processors/consent-bead-audit-processor.js'

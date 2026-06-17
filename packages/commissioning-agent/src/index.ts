@@ -1,1016 +1,249 @@
 /**
  * @factory/commissioning-agent — CommissioningAgentDO
  *
- * Durable Object that orchestrates the I-layer commissioning lifecycle.
- * Extends Think<Env> for workspace access and LLM session management.
+ * Thin DurableObject stub per CA-INV-001.
+ * No alarm handler. No phase state machine. No LLM loop.
+ * Mastra workflow (ca-compiler-workflow) owns lifecycle state.
  *
  * Endpoint contracts:
- *   POST /signal             — CommissioningSignal → phases 1-3 → Mediation Agent
- *   POST /divergence         — DivergenceNotification → phases 4-5 → Amendment
- *   POST /workspace/write    — inject T2 spec skills before /signal
+ *   POST /signal             — CommissioningSignal → create Mastra run → 202 { sessionId, runId }
+ *   GET  /signal/:sessionId  — rehydrate run from D1 → { phase, status, isNodeId? }
+ *   POST /divergence         — DivergenceNotification → resume suspended run or hypothesis-formation
  *
- * Phase flow:
- *   pattern-appraisal → deliberation → workgraph-authoring (signal path)
- *   hypothesis-formation → amendment-proposal (divergence path)
+ * CA-INV-001: DO is a thin stub.
+ * CA-INV-007: human approval suspension is workflow.suspend(); DO does not implement its own.
  */
 
-import { Think } from '@cloudflare/think'
-import { Workspace } from '@cloudflare/shell'
-import type { Session, SkillSource } from '@cloudflare/think'
+import { DurableObject } from 'cloudflare:workers'
+import { RequestContext } from '@mastra/core/di'
+import type { Agent } from '@mastra/core/agent'
+import { buildPlannerAgent } from '@factory/gears'
+import type { PlannerAgentEnv } from '@factory/gears'
 import type { Env } from './env.js'
-import { emitSubscriptionEvent } from '@factory/subscription-buffer'
-import { resolveSkillRefs } from './skill-registry.js'
 import {
   CommissioningSignalSchema,
   DivergenceNotificationSchema,
-  WorkspaceWriteSchema,
 } from './schemas.js'
-import type {
-  CommissioningSignal,
-  DomainProfile,
-  Phase,
-  SessionContext,
-  HypothesisNode,
-  CycleContext,
-} from './schemas.js'
+import type { Phase } from './schemas.js'
+import { caCompilerWorkflow } from './workflow/ca-compiler-workflow.js'
 import {
-  runPatternAppraisal,
-  runDeliberation,
-  runWorkGraphAuthoring,
   runHypothesisFormation,
   runAmendmentProposal,
 } from './phases/index.js'
-import { getCycleContext, invalidateCycleCache } from './cycle-awareness.js'
-import { deriveAdvisoryMetrics, buildHealthSyncRequest, pushHealthDocument } from './health-document.js'
-import { buildAdvisoryHypothesisSyncRequest } from './advisory-hypothesis-sync.js'
-import { BUNDLED_SKILLS } from './bundled-skills-manifest.js'
-import { generateText } from 'ai'
-import type { LanguageModel } from 'ai'
-import { createOpenAI } from '@ai-sdk/openai'
 
-const ALARM_INTERVAL_MS = 6 * 60 * 60 * 1000 // 6 hours
+// ── Sessions SQLite DDL ────────────────────────────────────────────────────────
 
-// ── Session context SQLite DDL ─────────────────────────────────────────────────
-
-const SESSION_CONTEXT_DDL = `
-CREATE TABLE IF NOT EXISTS session_context (
-  org_id              TEXT PRIMARY KEY,
-  current_phase       TEXT NOT NULL DEFAULT 'idle',
-  domain_profile      TEXT NOT NULL DEFAULT '{"vertical":"generic","orgContext":"","constraints":[],"version":"1.0"}',
-  active_run_id       TEXT,
-  last_signal_at      TEXT,
-  last_divergence_at  TEXT,
-  updated_at          TEXT NOT NULL
-);
+const SESSIONS_DDL = `
+CREATE TABLE IF NOT EXISTS sessions (
+  sessionId   TEXT PRIMARY KEY,
+  runId       TEXT NOT NULL,
+  orgId       TEXT NOT NULL,
+  isNodeId    TEXT,
+  createdAt   TEXT NOT NULL
+)
 `
 
 // ── CommissioningAgentDO ──────────────────────────────────────────────────────
 
-export class CommissioningAgentDO extends Think<Env> {
-  /** Cached session context — reloaded from SQLite on each handler entry. */
-  private _sessionCtx: SessionContext | null = null
-
-  // ── Secrets Store cache (DO constructors cannot be async) ─────────────────
-  private _ofoxApiKey:               string | null = null
-  private _linearApiKey:             string | null = null
-  private _ffAgentSigningKey:        string | null = null
-  private _subBufferProducerSecret:  string | null = null
-
-  private async getOfoxApiKey(): Promise<string> {
-    if (this._ofoxApiKey === null) {
-      this._ofoxApiKey = await this.env.OFOX_API_KEY.get()
-    }
-    return this._ofoxApiKey
-  }
-
-  private async getLinearApiKey(): Promise<string> {
-    if (this._linearApiKey === null) {
-      this._linearApiKey = await this.env.LINEAR_API_KEY.get()
-    }
-    return this._linearApiKey
-  }
-
-  private async getFfAgentSigningKey(): Promise<string> {
-    if (this._ffAgentSigningKey === null) {
-      this._ffAgentSigningKey = await this.env.FF_AGENT_SIGNING_KEY.get()
-    }
-    return this._ffAgentSigningKey
-  }
-
-  private async getSubBufferProducerSecret(): Promise<string | null> {
-    if (!this.env.SUB_BUFFER_PRODUCER_SECRET) return null
-    if (this._subBufferProducerSecret === null) {
-      this._subBufferProducerSecret = await this.env.SUB_BUFFER_PRODUCER_SECRET.get()
-    }
-    return this._subBufferProducerSecret
-  }
-
-  private _ofox: ReturnType<typeof createOpenAI> | null = null
-
-  /**
-   * Returns the cached OpenAI-compatible client.
-   * IMPORTANT: call ensureOfoxReady() (async) before any code path that
-   * reaches getModel(), so _ofoxApiKey is populated before this is invoked.
-   */
-  private get ofox(): ReturnType<typeof createOpenAI> {
-    if (!this._ofox) {
-      if (this._ofoxApiKey === null) {
-        throw new Error('CommissioningAgentDO: OFOX_API_KEY not yet resolved — call ensureOfoxReady() first')
-      }
-      this._ofox = createOpenAI({ baseURL: 'https://api.ofox.ai/v1', apiKey: this._ofoxApiKey })
-    }
-    return this._ofox
-  }
-
-  /** Eagerly resolves OFOX_API_KEY so that the synchronous getModel() path is safe. */
-  private async ensureOfoxReady(): Promise<void> {
-    await this.getOfoxApiKey()
-  }
+export class CommissioningAgentDO extends DurableObject<Env> {
+  private sql: SqlStorage
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
-    // Ensure workspace is backed by DO SQLite (Think default)
-    this.workspace = new Workspace({ sql: ctx.storage.sql, name: () => this.name })
-    // Initialize session_context table synchronously via blockConcurrencyWhile
+    this.sql = ctx.storage.sql
     void ctx.blockConcurrencyWhile(async () => {
-      ctx.storage.sql.exec(SESSION_CONTEXT_DDL)
+      this.sql.exec(SESSIONS_DDL)
     })
-  }
-
-  // ── orgId ───────────────────────────────────────────────────────────────────
-
-  private get orgId(): string {
-    // DO is stubbed: idFromName('commissioning-agent:{orgId}')
-    const n = this.name ?? ''
-    const prefix = 'commissioning-agent:'
-    return n.startsWith(prefix) ? n.slice(prefix.length) : n || 'unknown'
-  }
-
-  // ── Subscription event helper ────────────────────────────────────────────────
-
-  private emitCA(
-    sessionId: string,
-    kind: string,
-    payload: Record<string, unknown>,
-    terminal = false,
-  ): void {
-    if (!this.env.SUB_BUFFER || !this.env.SUB_BUFFER_PRODUCER_SECRET) return
-    void (async () => {
-      const secret = await this.getSubBufferProducerSecret()
-      if (!secret) return
-      void emitSubscriptionEvent(this.env.SUB_BUFFER!, secret, {
-        sessionId,
-        stream: 'sessionEvents',
-        kind,
-        payload,
-        occurredAt: Date.now(),
-        terminal,
-      })
-    })()
-  }
-
-  // ── Think<Env> overrides ────────────────────────────────────────────────────
-
-  override getModel(): LanguageModel {
-    return this.ofox('anthropic/claude-sonnet-4.6')
-  }
-
-  override getSystemPrompt(): string {
-    return this._buildSoulPrompt(
-      (this._sessionCtx?.domainProfile ?? {
-        vertical: 'generic',
-        orgContext: '',
-        constraints: [],
-        version: '1.0',
-      }) as DomainProfile,
-    )
-  }
-
-  override async configureSession(session: Session): Promise<Session> {
-    const ctx = await this.restoreSessionContext()
-    const profile = ctx.domainProfile
-
-    return session
-      .withContext('org-context', {
-        description: 'Organisation context for this commissioning session',
-        maxTokens: 800,
-        provider: {
-          get: async () =>
-            `Vertical: ${profile.vertical}\nOrg: ${profile.orgContext || '(not set)'}`,
-        },
-      })
-      .withContext('domain-constraints', {
-        description: 'Domain constraints for this commissioning session',
-        maxTokens: 1200,
-        provider: {
-          get: async () => {
-            if (profile.constraints.length === 0) return 'No domain constraints.'
-            return profile.constraints
-              .map((c) => `[${c.severity.toUpperCase()}] ${c.id}: ${c.description}`)
-              .join('\n')
-          },
-        },
-      })
-  }
-
-  override async getSkills(): Promise<SkillSource[]> {
-    const ctx = await this.restoreSessionContext()
-    const phase = ctx.currentPhase
-    const profile = ctx.domainProfile
-
-    const refs = resolveSkillRefs(
-      profile.vertical,
-      phase === 'idle' ? 'pattern-appraisal' : phase,
-      profile.additionalSkillRefs ?? [],
-    )
-
-    // Build an in-memory SkillSource from bundled refs
-    const bundledRefs = refs.filter((r) => r.startsWith('bundled:'))
-    const bundledSource = buildBundledSkillSource(bundledRefs)
-
-    // workspace: refs are served from the Think workspace filesystem
-    const workspaceRefs = refs.filter((r) => r.startsWith('workspace:'))
-    const workspaceSource = buildWorkspaceSkillSource(workspaceRefs, this.workspace)
-
-    return [bundledSource, workspaceSource]
-  }
-
-  override async beforeTurn(_ctx: import('@cloudflare/think').TurnContext): Promise<import('@cloudflare/think').TurnConfig | void> {
-    const ctx = await this.restoreSessionContext()
-    // Hypothesis-formation requires Claude Opus (CA-INV-003)
-    if (ctx.currentPhase === 'hypothesis-formation') {
-      return { model: this.ofox('anthropic/claude-opus-4.6') }
-    }
   }
 
   // ── fetch router ─────────────────────────────────────────────────────────────
 
   override async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url)
+    const { pathname } = url
 
-    if (request.method === 'POST') {
-      if (url.pathname === '/signal') {
-        return this.handleSignal(request)
-      }
-      if (url.pathname === '/divergence') {
-        return this.handleDivergence(request)
-      }
-      if (url.pathname === '/workspace/write') {
-        return this.handleWorkspaceWrite(request)
-      }
+    if (request.method === 'POST' && pathname === '/signal') {
+      return this.handleSignal(request)
     }
 
-    if (request.method === 'GET') {
-      const signalStatusMatch = url.pathname.match(/^\/signal\/(.+)$/)
-      if (signalStatusMatch) {
-        return this.handleSignalStatus()
-      }
+    if (request.method === 'GET' && pathname.startsWith('/signal/')) {
+      const sessionId = pathname.slice('/signal/'.length)
+      return this.handlePoll(sessionId)
     }
 
-    return super.fetch(request)
+    if (request.method === 'POST' && pathname === '/divergence') {
+      return this.handleDivergence(request)
+    }
+
+    return new Response('not found', { status: 404 })
   }
 
-  // ── Endpoint handlers ────────────────────────────────────────────────────────
+  // ── POST /signal ──────────────────────────────────────────────────────────────
 
   private async handleSignal(request: Request): Promise<Response> {
-    const body = await request.json()
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      return jsonError('invalid-json', 400)
+    }
+
     const parse = CommissioningSignalSchema.safeParse(body)
     if (!parse.success) {
-      return new Response(JSON.stringify({ error: 'invalid-signal', issues: parse.error.issues }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return jsonError('invalid-signal', 400, parse.error.issues)
     }
     const signal = parse.data
-    // Use sessionId (gateway-minted streaming identity) for subscription events
-    const caSessionId = signal.sessionId
 
-    // Emit SESSION_SUBMITTED on incoming signal
-    this.emitCA(caSessionId, 'SESSION_SUBMITTED', { orgId: this.orgId, dispositionEventId: signal.dispositionEventId })
+    // Build RequestContext so workflow steps can access Cloudflare bindings
+    const rc = new RequestContext<{ env: Env }>([['env', this.env]])
 
-    // Seed KV liveness: hint the SubscriptionEventBufferDO to init its meta + KV shadow
-    // before the first event arrives. Fire-and-forget — not a gate.
-    if (this.env.SUB_BUFFER) {
-      const subBufId = this.env.SUB_BUFFER.idFromName(`sub-buffer:${caSessionId}`)
-      const subBufStub = this.env.SUB_BUFFER.get(subBufId)
-      void subBufStub.fetch(
-        new Request('https://do/open', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId: caSessionId }),
-        }),
-      )
-    }
-
-    // Persist domain profile and initial phase before arming alarm
-    await this.persistSessionContext({
-      currentPhase: 'pattern-appraisal',
-      domainProfile: signal.domainProfile,
-      lastSignalAt: new Date().toISOString(),
+    // Create run and start async (fire-and-forget) — returns immediately with runId
+    const run = await caCompilerWorkflow.createRun()
+    const { runId } = await run.startAsync({
+      inputData: signal,
+      requestContext: rc,
     })
 
-    // Clear any stale terminal result from a prior session so the poller does
-    // not immediately return stale state for this new commission.
-    await this.ctx.storage.delete('commission-result')
-
-    // Persist signal for the alarm to pick up; set alarm-kind to disambiguate
-    // from the 6h cycle-advisory alarm.
-    await this.ctx.storage.put('pending-signal', JSON.stringify(signal))
-    await this.ctx.storage.put('alarm-kind', 'process-signal')
-
-    // Arm alarm immediately — LLM chain runs in alarm(), not inline.
-    await this.ctx.storage.setAlarm(Date.now() + 50)
-
-    // Return 202 Accepted — client polls GET /signal/{sessionId} for terminal status.
-    return new Response(
-      JSON.stringify({
-        status: 'commissioned',
-        sessionId: caSessionId,
-        poll: `/agents/commissioning/${this.orgId}/signal/${caSessionId}`,
-      }),
-      { status: 202, headers: { 'Content-Type': 'application/json' } },
-    )
-  }
-
-  // ── GET /signal/:sessionId — poll for commissioning terminal status ──────────
-
-  private async handleSignalStatus(): Promise<Response> {
-    const ctx = await this.restoreSessionContext()
-    const resultJson = await this.ctx.storage.get<string>('commission-result')
-    const result = resultJson ? (JSON.parse(resultJson) as Record<string, unknown>) : null
-    return jsonResponse({ phase: ctx.currentPhase, result })
-  }
-
-  // ── _runSignalChain — LLM phases + Mediation commission (called from alarm) ──
-
-  private async _runSignalChain(signal: CommissioningSignal): Promise<void> {
-    await this.ensureOfoxReady()
-    const caSessionId = signal.sessionId
-
-    // ── Phase 1: Pattern Appraisal ──
-    await this.setPhase('pattern-appraisal')
-    const appraisal = await runPatternAppraisal(
-      (prompt) => this._generateText(prompt),
-      signal,
-    )
-    if (!appraisal.matches) {
-      await this.setPhase('idle')
-      await this.ctx.storage.put(
-        'commission-result',
-        JSON.stringify({ status: 'archived', reason: appraisal.reason, completedAt: new Date().toISOString() }),
-      )
-      this.emitCA(caSessionId, 'MONITORED', { orgId: this.orgId }, true)
-      return
-    }
-
-    // ── Phase 2: Deliberation ──
-    await this.setPhase('deliberation')
-    const candidateSet = await runDeliberation(
-      (prompt) => this._generateText(prompt),
-      signal,
-    )
-    if (!candidateSet) {
-      await this.setPhase('idle')
-      await this.ctx.storage.put(
-        'commission-result',
-        JSON.stringify({ status: 'rejected', reason: 'deliberation-failed', completedAt: new Date().toISOString() }),
-      )
-      this.emitCA(caSessionId, 'MONITORED', { orgId: this.orgId }, true)
-      return
-    }
-
-    // Emit CANDIDATE_SET_BUILT after deliberation succeeds
-    this.emitCA(caSessionId, 'CANDIDATE_SET_BUILT', { orgId: this.orgId })
-
-    // Human approval gate (per SPEC-FF-ILAYER-EXEC-001 §1)
-    // In v1 the gateway enforces this — the DO logs it as advisory.
-    if (signal.requireHumanApproval) {
-      console.log(`[CommissioningAgentDO:${this.orgId}] human approval gate — not enforced by DO in v1`)
-      // Emit APPROVAL_GRANTED (advisory in v1 — gateway enforces in production)
-      this.emitCA(caSessionId, 'APPROVAL_GRANTED', { orgId: this.orgId, advisory: true })
-    }
-
-    // ── Phase 3: WorkGraph Authoring ──
-    await this.setPhase('workgraph-authoring')
-    const workGraph = await runWorkGraphAuthoring(
-      (prompt) => this._generateText(prompt),
-      signal,
-      candidateSet,
-      this.orgId,
-    )
-    if (!workGraph) {
-      await this.setPhase('idle')
-      await this.ctx.storage.put(
-        'commission-result',
-        JSON.stringify({ status: 'rejected', reason: 'workgraph-authoring-failed', completedAt: new Date().toISOString() }),
-      )
-      this.emitCA(caSessionId, 'MONITORED', { orgId: this.orgId }, true)
-      return
-    }
-
-    // ── Commission: POST to Mediation Agent ──
-    const mediationId = this.env.MEDIATION_AGENT.idFromName(`mediation-agent:${this.orgId}`)
-    const mediationStub = this.env.MEDIATION_AGENT.get(mediationId)
-    let commissionResp: Response
-
-    // Derive deterministic runId via SHA-256(orgId + workGraph.id + dispositionEventId)
-    // R2 (SPEC-FF-CA-MEDIATION-ADAPTER-001): runId is derived, never received from outside.
-    const runIdInput = new TextEncoder().encode(`${this.orgId}:${workGraph.id}:${signal.dispositionEventId}`)
-    const runIdHashBuf = await crypto.subtle.digest('SHA-256', runIdInput)
-    const runIdHex = Array.from(new Uint8Array(runIdHashBuf))
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('')
-    const runId = `RUN-${runIdHex}`
-
-    // Build typed CommissionRequest (R1 — SPEC-FF-CA-MEDIATION-ADAPTER-001)
-    const commissionRequest = {
+    // Persist sessionId → runId in SQLite so we can rehydrate later
+    this.sql.exec(
+      `INSERT OR REPLACE INTO sessions (sessionId, runId, orgId, isNodeId, createdAt)
+       VALUES (?, ?, ?, NULL, ?)`,
+      signal.sessionId,
       runId,
-      orgId: this.orgId,
-      workGraphId: workGraph.id,
-      workGraphVersion: workGraph.producedAt,
-      eluciationArtifactId: signal.elucidationArtifactId,  // note: misspelled target key matches Mediation contract
-      d1ArtifactRefs: [] as string[],  // v1: WorkGraph not yet persisted to D1
-      dispositionEventId: signal.dispositionEventId,
-    }
-
-    // Emit COMPILATION_STARTED before calling Mediation Agent
-    this.emitCA(caSessionId, 'COMPILATION_STARTED', { orgId: this.orgId, workGraphId: workGraph.id })
-
-    try {
-      commissionResp = await mediationStub.fetch(
-        new Request('https://mediation-agent/commission', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(commissionRequest),
-        }),
-      )
-    } catch (err) {
-      const errMsg = err instanceof Error ? err.message : String(err)
-      this.emitCA(caSessionId, 'COMPILATION_FAILED', { orgId: this.orgId, reason: errMsg })
-      // Write terminal result before setting idle — poller must not see idle + no result.
-      await this.ctx.storage.put(
-        'commission-result',
-        JSON.stringify({ status: 'commission-failed', error: errMsg, completedAt: new Date().toISOString() }),
-      )
-      await this.setPhase('idle')
-      this.emitCA(caSessionId, 'MONITORED', { orgId: this.orgId }, true)
-      return
-    }
-
-    // Emit COMPILATION_COMPLETE or COMPILATION_FAILED based on response
-    if (commissionResp.ok) {
-      this.emitCA(caSessionId, 'COMPILATION_COMPLETE', { orgId: this.orgId, workGraphId: workGraph.id })
-    } else {
-      this.emitCA(caSessionId, 'COMPILATION_FAILED', { orgId: this.orgId, status: commissionResp.status })
-    }
-
-    // Parse mediation response for terminal result record
-    let mediationBody: Record<string, unknown> = {}
-    try {
-      mediationBody = (await commissionResp.json()) as Record<string, unknown>
-    } catch {
-      // non-JSON response — swallow and continue
-    }
-
-    // Write terminal result before setting idle — poller must not see idle + no result.
-    await this.ctx.storage.put(
-      'commission-result',
-      JSON.stringify({
-        status: commissionResp.ok ? (mediationBody.status ?? 'seeded') : 'commission-failed',
-        runId: mediationBody.runId ?? runId,
-        atomCount: mediationBody.atomCount,
-        workGraphVersion: workGraph.producedAt,
-        reason: commissionResp.ok ? undefined : String(mediationBody.error ?? commissionResp.status),
-        completedAt: new Date().toISOString(),
-      }),
+      signal.orgId,
+      new Date().toISOString(),
     )
 
-    // Arm 6h alarm for cycle advisory surfacing (first commission only)
-    await this.ctx.storage.setAlarm(Date.now() + ALARM_INTERVAL_MS)
-
-    await this.setPhase('idle')
-    // Emit MONITORED (terminal) on session complete
-    this.emitCA(caSessionId, 'MONITORED', { orgId: this.orgId }, true)
+    return jsonResponse({ sessionId: signal.sessionId, runId }, 202)
   }
 
-  private async handleDivergence(request: Request): Promise<Response> {
-    await this.ensureOfoxReady()
-    const body = await request.json()
-    const parse = DivergenceNotificationSchema.safeParse(body)
-    if (!parse.success) {
-      return new Response(
-        JSON.stringify({ error: 'invalid-divergence', issues: parse.error.issues }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } },
-      )
-    }
-    const divergence = parse.data
-    // Use runId from divergence notification as sessionId for subscription events
-    const divSessionId = divergence.runId
+  // ── GET /signal/:sessionId ─────────────────────────────────────────────────────
 
-    await this.persistSessionContext({
-      currentPhase: 'hypothesis-formation',
-      lastDivergenceAt: new Date().toISOString(),
-    })
-
-    const ctx = await this.restoreSessionContext()
-
-    // ── Phase 4: Hypothesis Formation (Claude Opus) ──
-    await this.setPhase('hypothesis-formation')
-    const hypothesis = await runHypothesisFormation(
-      (prompt) => this._generateText(prompt),
-      divergence,
-      this.orgId,
-      ctx.domainProfile.vertical,
-    )
-    if (!hypothesis) {
-      await this.setPhase('idle')
-      return jsonResponse({ status: 'failed', reason: 'hypothesis-formation-failed' }, 500)
-    }
-
-    // Persist Hypothesis to ArtifactGraphDO
-    await this.writeHypothesisToArtifactGraph(hypothesis)
-
-    // ── Phase 5: Amendment Proposal ──
-    await this.setPhase('amendment-proposal')
-    const amendment = await runAmendmentProposal(
-      (prompt) => this._generateText(prompt),
-      hypothesis,
-      this.orgId,
-    )
-    if (!amendment) {
-      await this.setPhase('idle')
-      return jsonResponse({ status: 'failed', reason: 'amendment-proposal-failed' }, 500)
-    }
-
-    // Persist Amendment to ArtifactGraphDO
-    await this.writeAmendmentToArtifactGraph(amendment)
-
-    // Emit AMENDMENT_PROPOSED after amendment is written
-    this.emitCA(divSessionId, 'AMENDMENT_PROPOSED', {
-      amendmentId: amendment.id,
-      divergenceId: divergence.divergenceId,
-      specificationId: divergence.specificationId,
-    })
-
-    await this.setPhase('idle')
-    return jsonResponse({ status: 'proposed', amendmentId: amendment.id })
-  }
-
-  private async handleWorkspaceWrite(request: Request): Promise<Response> {
-    const body = await request.json()
-    const parse = WorkspaceWriteSchema.safeParse(body)
-    if (!parse.success) {
-      return new Response(
-        JSON.stringify({ error: 'invalid-body', issues: parse.error.issues }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } },
-      )
-    }
-    const { path, content } = parse.data
-    await this.workspace.writeFile(path, content)
-    return jsonResponse({ status: 'written' })
-  }
-
-  // ── Phase transition ──────────────────────────────────────────────────────────
-
-  private async setPhase(phase: Phase): Promise<void> {
-    await this.persistSessionContext({ currentPhase: phase })
-  }
-
-  // ── SQLite session context ────────────────────────────────────────────────────
-
-  private async restoreSessionContext(): Promise<SessionContext> {
-    if (this._sessionCtx) return this._sessionCtx
-
-    const rows = this.ctx.storage.sql
-      .exec<{
-        org_id: string
-        current_phase: string
-        domain_profile: string
-        active_run_id: string | null
-        last_signal_at: string | null
-        last_divergence_at: string | null
-        updated_at: string
-      }>('SELECT * FROM session_context WHERE org_id = ?', this.orgId)
-      .toArray()
+  private async handlePoll(sessionId: string): Promise<Response> {
+    type SessionRow = { sessionId: string; runId: string; orgId: string; isNodeId: string | null }
+    const rows = [...this.sql.exec<SessionRow>(
+      'SELECT sessionId, runId, orgId, isNodeId FROM sessions WHERE sessionId = ?',
+      sessionId,
+    )]
 
     if (rows.length === 0) {
-      const defaultCtx: SessionContext = {
-        orgId: this.orgId,
-        currentPhase: 'idle',
-        domainProfile: {
-          vertical: 'generic',
-          orgContext: '',
-          constraints: [],
-          version: '1.0',
-        },
-        activeRunId: null,
-        lastSignalAt: null,
-        lastDivergenceAt: null,
-        updatedAt: new Date().toISOString(),
-      }
-      this._sessionCtx = defaultCtx
-      return defaultCtx
+      return jsonError('session-not-found', 404)
     }
 
-    const row = rows[0]
-    if (!row) {
-      throw new Error('unexpected: rows.length > 0 but rows[0] is undefined')
-    }
-    const ctx: SessionContext = {
-      orgId: row.org_id,
-      currentPhase: row.current_phase as Phase,
-      domainProfile: JSON.parse(row.domain_profile) as DomainProfile,
-      activeRunId: row.active_run_id,
-      lastSignalAt: row.last_signal_at,
-      lastDivergenceAt: row.last_divergence_at,
-      updatedAt: row.updated_at,
-    }
-    this._sessionCtx = ctx
-    return ctx
-  }
-
-  private async persistSessionContext(patch: Partial<SessionContext>): Promise<void> {
-    const current = await this.restoreSessionContext()
-    const updated: SessionContext = { ...current, ...patch, updatedAt: new Date().toISOString() }
-    this._sessionCtx = updated
-
-    this.ctx.storage.sql.exec(
-      `INSERT INTO session_context
-         (org_id, current_phase, domain_profile, active_run_id, last_signal_at, last_divergence_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(org_id) DO UPDATE SET
-         current_phase      = excluded.current_phase,
-         domain_profile     = excluded.domain_profile,
-         active_run_id      = excluded.active_run_id,
-         last_signal_at     = excluded.last_signal_at,
-         last_divergence_at = excluded.last_divergence_at,
-         updated_at         = excluded.updated_at`,
-      updated.orgId,
-      updated.currentPhase,
-      JSON.stringify(updated.domainProfile),
-      updated.activeRunId,
-      updated.lastSignalAt,
-      updated.lastDivergenceAt,
-      updated.updatedAt,
-    )
-  }
-
-  // ── Soul prompt builder ───────────────────────────────────────────────────────
-
-  private _buildSoulPrompt(profile: DomainProfile): string {
-    const blocking = profile.constraints
-      .filter((c) => c.severity === 'blocking')
-      .map((c) => `  - [${c.id}] ${c.description}`)
-    const advisory = profile.constraints
-      .filter((c) => c.severity === 'advisory')
-      .map((c) => `  - [${c.id}] ${c.description}`)
-
-    return [
-      `You are CommissioningAgentDO for organisation "${this.orgId}".`,
-      `You produce governance artifacts for the Function Factory I-layer.`,
-      ``,
-      `Vertical: ${profile.vertical}`,
-      profile.orgContext ? `Organisation context: ${profile.orgContext}` : '',
-      ``,
-      blocking.length > 0
-        ? `Blocking constraints (MUST NOT be violated):\n${blocking.join('\n')}`
-        : '',
-      advisory.length > 0 ? `Advisory constraints:\n${advisory.join('\n')}` : '',
-      ``,
-      `Every artifact you produce MUST carry:`,
-      `  - producedBy: CommissioningAgentDO:${this.orgId}`,
-      `  - producedAt: (ISO timestamp)`,
-      ``,
-      `Never assume unstated constraints. When a constraint is ambiguous, surface it as advisory.`,
-      `Never propose WorkGraph amendments without fault attribution grounded in Divergence evidence.`,
-    ]
-      .filter((l) => l !== '')
-      .join('\n')
-  }
-
-  // ── alarm() — dispatches on alarm-kind: 'process-signal' | cycle-advisory ────
-
-  override async alarm(): Promise<void> {
-    // Read and immediately clear alarm-kind so a crash during processing does
-    // not accidentally re-trigger the signal path on the next alarm.
-    const alarmKind = await this.ctx.storage.get<string>('alarm-kind')
-    await this.ctx.storage.delete('alarm-kind')
-
-    if (alarmKind === 'process-signal') {
-      // ── Process-signal path: run LLM chain from stored pending-signal ──
-      const signalJson = await this.ctx.storage.get<string>('pending-signal')
-      await this.ctx.storage.delete('pending-signal')
-      if (!signalJson) {
-        console.warn('[CommissioningAgentDO] alarm(process-signal): pending-signal missing — skipping')
-        return
-      }
-      let signal: CommissioningSignal
-      try {
-        signal = JSON.parse(signalJson) as CommissioningSignal
-      } catch (err) {
-        console.error('[CommissioningAgentDO] alarm(process-signal): failed to parse pending-signal:', err)
-        return
-      }
-      try {
-        await this._runSignalChain(signal)
-      } catch (err) {
-        // Unhandled chain failure — write a terminal error record so the poller
-        // does not hang indefinitely waiting for a result that will never arrive.
-        console.error('[CommissioningAgentDO] alarm(process-signal): _runSignalChain threw:', err)
-        const errMsg = err instanceof Error ? err.message : String(err)
-        await this.ctx.storage.put(
-          'commission-result',
-          JSON.stringify({ status: 'commission-failed', error: errMsg, completedAt: new Date().toISOString() }),
-        )
-        await this.setPhase('idle')
-      }
-      return
-    }
-
-    // ── Cycle-advisory path (existing logic) ─────────────────────────────────
-    const ctx = await this.restoreSessionContext()
-
-    // Do not surface advisories if a phase is active — re-arm and return
-    if (ctx.currentPhase !== 'idle') {
-      await this.ctx.storage.setAlarm(Date.now() + ALARM_INTERVAL_MS)
-      return
-    }
-
-    // Step 1: get cycle context (non-fatal)
-    let cycle: CycleContext | null = null
-    try {
-      cycle = await getCycleContext(this.env.LINEAR_TEAM_ID, this.env.FACTORY_LINEAR_KV, await this.getLinearApiKey())
-    } catch (err) {
-      console.warn('[CommissioningAgentDO] getCycleContext failed:', err)
-    }
-
-    // Step 2: load pending advisory hypotheses
-    const allHypotheses = await this.loadAllHypotheses()
-    const pending = allHypotheses.filter((h) => h.severity === 'advisory' && !h.surfaced)
-
-    // Step 3: surface advisories when in last 2 days of cycle (or no cycle)
-    for (const hyp of pending) {
-      if (!cycle || cycle.isLastTwoDays) {
-        await this.surfaceAdvisoryHypothesis(hyp, cycle)
-        await this.markHypothesisSurfaced(hyp.id)
-      }
-    }
-
-    // Step 4: push health document to LinearSyncService (non-fatal)
-    const metrics = deriveAdvisoryMetrics(allHypotheses)
-    const healthRequest = buildHealthSyncRequest(this.orgId, ctx, cycle, metrics)
-    await pushHealthDocument(this.env.LINEAR_SYNC_URL, healthRequest)
-
-    // Step 5: cycle-end reconciliation + cache invalidation
-    if (cycle?.isCycleEnd) {
-      await this.runCycleReconciliation(cycle)
-      // Invalidate KV cache so next alarm picks up the fresh cycle
-      await invalidateCycleCache(this.env.LINEAR_TEAM_ID, this.env.FACTORY_LINEAR_KV)
-    }
-
-    // Re-arm alarm
-    await this.ctx.storage.setAlarm(Date.now() + ALARM_INTERVAL_MS)
-  }
-
-  // ── Alarm helpers ─────────────────────────────────────────────────────────────
-
-  /**
-   * Load all hypothesis nodes for this org from ArtifactGraphDO.
-   * Returns empty array on failure (non-fatal).
-   */
-  private async loadAllHypotheses(): Promise<HypothesisNode[]> {
-    try {
-      const artifactId = this.env.ARTIFACT_GRAPH.idFromName(`artifact-graph:${this.orgId}`)
-      const stub = this.env.ARTIFACT_GRAPH.get(artifactId)
-      const resp = await stub.fetch(
-        new Request(
-          'https://artifact-graph/query/hypothesis?status=CANDIDATE',
-        ),
-      )
-      if (!resp.ok) return []
-      return (await resp.json()) as HypothesisNode[]
-    } catch {
-      return []
-    }
-  }
-
-  private async surfaceAdvisoryHypothesis(
-    hyp: HypothesisNode,
-    cycle: CycleContext | null,
-  ): Promise<void> {
-    try {
-      const syncRequest = buildAdvisoryHypothesisSyncRequest(this.orgId, hyp, cycle)
-      await fetch(`${this.env.LINEAR_SYNC_URL}/sync/advisory-hypothesis`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(syncRequest),
-      })
-    } catch (err) {
-      console.warn('[CommissioningAgentDO] surfaceAdvisoryHypothesis failed:', err)
-    }
-  }
-
-  private async runCycleReconciliation(cycle: CycleContext): Promise<void> {
-    // Label carried-over open advisory Linear issues and append VerdictClosureRecord
-    try {
-      const recurring = await this.findRecurringAdvisories(2)
-      if (recurring.length > 0) {
-        // Notify Architect Agent DO of recurring advisories
-        console.log(
-          `[CommissioningAgentDO:${this.orgId}] cycle ${cycle.cycleName}: ${recurring.length} recurring advisories`,
-          recurring.map((h) => h.id),
-        )
-      }
-
-      // Append VerdictClosureRecord to ArtifactGraphDO
-      const artifactId = this.env.ARTIFACT_GRAPH.idFromName(`artifact-graph:${this.orgId}`)
-      const stub = this.env.ARTIFACT_GRAPH.get(artifactId)
-      await stub.fetch(
-        new Request('https://artifact-graph/verdict-closure-record', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            orgId: this.orgId,
-            cycleId: cycle.cycleId,
-            cycleName: cycle.cycleName,
-            recurringAdvisoryCount: recurring.length,
-            reconciledAt: new Date().toISOString(),
-          }),
-        }),
-      )
-    } catch (err) {
-      console.warn('[CommissioningAgentDO] runCycleReconciliation failed:', err)
-    }
-  }
-
-  private async findRecurringAdvisories(minSurfacedCycleCount: number): Promise<HypothesisNode[]> {
-    try {
-      const artifactId = this.env.ARTIFACT_GRAPH.idFromName(`artifact-graph:${this.orgId}`)
-      const stub = this.env.ARTIFACT_GRAPH.get(artifactId)
-      const resp = await stub.fetch(
-        new Request(
-          `https://artifact-graph/query/hypothesis?status=CANDIDATE&severity=advisory&minSurfacedCycleCount=${minSurfacedCycleCount}`,
-        ),
-      )
-      if (!resp.ok) return []
-      return (await resp.json()) as HypothesisNode[]
-    } catch {
-      return []
-    }
-  }
-
-  private async markHypothesisSurfaced(hypothesisId: string): Promise<void> {
-    try {
-      const artifactId = this.env.ARTIFACT_GRAPH.idFromName(`artifact-graph:${this.orgId}`)
-      const stub = this.env.ARTIFACT_GRAPH.get(artifactId)
-      await stub.fetch(
-        new Request(`https://artifact-graph/hypothesis/${hypothesisId}/mark-surfaced`, {
-          method: 'POST',
-        }),
-      )
-    } catch (err) {
-      console.warn(`[CommissioningAgentDO] markHypothesisSurfaced(${hypothesisId}) failed:`, err)
-    }
-  }
-
-  // ── ArtifactGraph helpers ─────────────────────────────────────────────────────
-
-  private async writeHypothesisToArtifactGraph(hyp: HypothesisNode): Promise<void> {
-    try {
-      const artifactId = this.env.ARTIFACT_GRAPH.idFromName(`artifact-graph:${this.orgId}`)
-      const stub = this.env.ARTIFACT_GRAPH.get(artifactId)
-      await stub.fetch(
-        new Request('https://artifact-graph/hypothesis', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(hyp),
-        }),
-      )
-    } catch (err) {
-      console.warn('[CommissioningAgentDO] writeHypothesisToArtifactGraph failed:', err)
-    }
-  }
-
-  private async writeAmendmentToArtifactGraph(
-    amendment: import('./schemas.js').Amendment,
-  ): Promise<void> {
-    try {
-      const artifactId = this.env.ARTIFACT_GRAPH.idFromName(`artifact-graph:${this.orgId}`)
-      const stub = this.env.ARTIFACT_GRAPH.get(artifactId)
-      await stub.fetch(
-        new Request('https://artifact-graph/amendment', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(amendment),
-        }),
-      )
-    } catch (err) {
-      console.warn('[CommissioningAgentDO] writeAmendmentToArtifactGraph failed:', err)
-    }
-  }
-
-  // ── Internal text generation shim ────────────────────────────────────────────
-  /**
-   * Thin adapter so phase runners can call `generate(prompt)` without needing
-   * direct access to the Think session API. Uses `runFiber` for durability.
-   * Each call creates an ephemeral fiber that resolves to the model's text.
-   */
-  private async _generateText(prompt: string): Promise<{ text: string }> {
-    const { text } = await generateText({
-      model: this.getModel(),
-      prompt,
-      maxRetries: 0,
+    const row = rows[0]!
+    const state = await caCompilerWorkflow.getWorkflowRunById(row.runId, {
+      fields: ['result'],
     })
-    return { text }
+
+    const phase = state ? mapRunStatusToPhase(state.status) : 'idle'
+    const isNodeId = row.isNodeId ?? null
+
+    return jsonResponse({
+      sessionId,
+      runId: row.runId,
+      phase,
+      status: 'ok',
+      isNodeId,
+    })
   }
-}
 
-// ── Skill source builders ──────────────────────────────────────────────────────
+  // ── POST /divergence ──────────────────────────────────────────────────────────
 
-/**
- * Build an in-memory SkillSource from bundled .md files.
- * Only serves refs that have content in the BUNDLED_SKILLS map.
- */
-function buildBundledSkillSource(refs: string[]): SkillSource {
-  const skillNames = refs
-    .filter((r) => r.startsWith('bundled:'))
-    .map((r) => r.slice('bundled:'.length))
+  private async handleDivergence(request: Request): Promise<Response> {
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      return jsonError('invalid-json', 400)
+    }
 
-  return {
-    id: 'bundled-skills',
-    fingerprint: skillNames.sort().join(','),
-    async list() {
-      return skillNames
-        .map((name) => {
-          const content = BUNDLED_SKILLS[name]
-          if (!content) return null
-          return { name, description: `Bundled skill: ${name}`, sourceId: 'bundled-skills' }
+    const parse = DivergenceNotificationSchema.safeParse(body)
+    if (!parse.success) {
+      return jsonError('invalid-divergence', 400, parse.error.issues)
+    }
+    const notification = parse.data
+
+    // Look up session by runId
+    type SessionRow = { sessionId: string; runId: string; orgId: string; isNodeId: string | null }
+    const rows = [...this.sql.exec<SessionRow>(
+      'SELECT sessionId, runId, orgId, isNodeId FROM sessions WHERE runId = ?',
+      notification.runId,
+    )]
+
+    if (rows.length > 0) {
+      const row = rows[0]!
+      const state = await caCompilerWorkflow.getWorkflowRunById(row.runId)
+
+      if (state?.status === 'suspended') {
+        // Resume the suspended workflow
+        const rc = new RequestContext<{ env: Env }>([['env', this.env]])
+
+        // Re-create the run object to get a handle for resume
+        const run = await caCompilerWorkflow.createRun({ runId: row.runId })
+        void run.resumeAsync({
+          resumeData: notification,
+          step: 'human-approval-gate',
+          requestContext: rc,
         })
-        .filter((d): d is NonNullable<typeof d> => d !== null)
-    },
-    async load(name: string) {
-      const content = BUNDLED_SKILLS[name]
-      if (!content) return null
-      return {
-        name,
-        description: `Bundled skill: ${name}`,
-        body: content,
-        rawContent: content,
-        sourceId: 'bundled-skills',
+
+        return jsonResponse({ status: 'acknowledged', action: 'resumed' }, 202)
       }
-    },
+    }
+
+    // No suspended workflow — run hypothesis-formation handler directly
+    const orgId = rows.length > 0 ? rows[0]!.orgId : notification.runId
+
+    // CA-INV-005: all LLM calls go through buildPlannerAgent.
+    const plannerEnv: PlannerAgentEnv = {
+      DB: this.env.DB,
+      CLOUDFLARE_ACCOUNT_ID: this.env.CLOUDFLARE_ACCOUNT_ID,
+      CF_API_TOKEN: await this.env.CF_API_TOKEN.get(),
+    }
+    const plannerAgent = buildPlannerAgent('planner', plannerEnv)
+    const generate = async (prompt: string): Promise<{ text: string }> => {
+      const result = await plannerAgent.generate(prompt)
+      return { text: result.text ?? '' }
+    }
+
+    const hypothesis = await runHypothesisFormation(generate, notification, orgId)
+
+    if (!hypothesis) {
+      return jsonError('hypothesis-formation-failed', 500)
+    }
+
+    const amendment = await runAmendmentProposal(generate, hypothesis, orgId)
+
+    if (!amendment) {
+      return jsonError('amendment-proposal-failed', 500)
+    }
+
+    return jsonResponse({ status: 'acknowledged', amendmentId: amendment.id }, 202)
   }
 }
 
-/**
- * Build a SkillSource that loads workspace: prefixed skills from the
- * Think workspace filesystem (.agents/skills/{name}/SKILL.md).
- */
-function buildWorkspaceSkillSource(
-  refs: string[],
-  workspace: import('@cloudflare/think').WorkspaceLike,
-): SkillSource {
-  const skillNames = refs
-    .filter((r) => r.startsWith('workspace:'))
-    .map((r) => r.slice('workspace:'.length))
+// ── Status → Phase mapping ────────────────────────────────────────────────────
 
-  return {
-    id: 'workspace-skills',
-    fingerprint: `ws:${skillNames.sort().join(',')}`,
-    async list() {
-      return skillNames.map((name) => ({
-        name,
-        description: `Workspace skill: ${name}`,
-        sourceId: 'workspace-skills',
-      }))
-    },
-    async load(name: string) {
-      if (!skillNames.includes(name)) return null
-      const paths = [
-        `.agents/skills/${name}/SKILL.md`,
-        `/spec/skills/${name}/SKILL.md`, // T2 injected via /workspace/write
-      ]
-      for (const p of paths) {
-        const content = await workspace.readFile(p)
-        if (content) {
-          return {
-            name,
-            description: `Workspace skill: ${name}`,
-            body: content,
-            rawContent: content,
-            sourceId: 'workspace-skills',
-          }
-        }
-      }
-      return null
-    },
+function mapRunStatusToPhase(status: string): Phase {
+  switch (status) {
+    case 'suspended': return 'suspended-approval'
+    case 'running':   return 'commissioning'
+    case 'success':   return 'idle'
+    case 'failed':    return 'idle'
+    default:          return 'idle'
   }
 }
 
-// ── JSON response helper ──────────────────────────────────────────────────────
+// ── Response helpers ──────────────────────────────────────────────────────────
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
+function jsonError(error: string, status: number, details?: unknown): Response {
+  return new Response(JSON.stringify({ error, ...(details !== undefined ? { details } : {}) }), {
     status,
     headers: { 'Content-Type': 'application/json' },
   })

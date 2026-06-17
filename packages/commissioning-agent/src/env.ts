@@ -25,12 +25,13 @@ export interface Env {
 
   // ── Secrets / vars ────────────────────────────────────────────────────────
   LINEAR_TEAM_ID: string
+  CLOUDFLARE_ACCOUNT_ID: string
   /** Secrets Store binding — call .get() to retrieve the value. */
   LINEAR_API_KEY: SecretsStoreSecret
   /** Secrets Store binding — call .get() to retrieve the value. */
   FF_AGENT_SIGNING_KEY: SecretsStoreSecret
   /** Secrets Store binding — call .get() to retrieve the value. */
-  OFOX_API_KEY: SecretsStoreSecret
+  CF_API_TOKEN: SecretsStoreSecret
   ENVIRONMENT: string
 
   // ── Subscription buffer (optional) ───────────────────────────────────────

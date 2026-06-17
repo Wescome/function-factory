@@ -13,10 +13,12 @@
   "dependencies": {
     "@factory/schemas": "workspace:*",
     "@factory/subscription-buffer": "workspace:*",
-    "@ai-sdk/openai": "^3.0.0",
+    "@factory/gears": "workspace:*",
+    "@factory/factory-graph": "workspace:*",
     "@cloudflare/shell": "latest",
-    "@cloudflare/think": "latest",
-    "ai": "^6.0.0",
+    "@mastra/core": "1.42.0",
+    "@mastra/cloudflare-d1": "1.0.6",
+    "@mastra/memory": "1.20.3",
     "zod": "^4.0.0"
   },
   "devDependencies": {

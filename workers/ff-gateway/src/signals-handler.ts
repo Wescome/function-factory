@@ -308,23 +308,16 @@ async function routeSignal(
       caStub = env.COMMISSIONING_AGENT.get(env.COMMISSIONING_AGENT.idFromName(`commissioning-agent:${orgId}`))
       caPath = '/signal'
       // R6 — translate InboundSignal → CA CommissioningSignalSchema body.
-      // signalType and repoId are dropped; domainProfile is v1 default (R4).
-      // TODO-1 (production): load domainProfile from resolveDomainProfile(orgId, env).
       translatedBody = {
-        sessionId:              signal.dispositionEventId,  // R3: unique per A9 disposition
-        orgId,                                              // R2
+        sessionId:              signal.dispositionEventId,
+        orgId,
+        repoId:                 signal.repoId,
         workGraphId:            signal.workGraphId,
         workGraphVersion:       signal.workGraphVersion,
-        domainProfile: {                                    // R4: v1 default
-          vertical:    (signal.vertical ?? 'generic') as typeof signal.vertical,
-          orgContext:  signal.orgContext ?? signal.repoId,
-          constraints: [],
-          version:     '1.0',
-        },
         dispositionEventId:     signal.dispositionEventId,
         elucidationArtifactId:  signal.elucidationArtifactId,
         issuedAt:               signal.issuedAt,
-        requireHumanApproval:   true,                      // R5
+        requireHumanApproval:   true,
       }
       break
     }

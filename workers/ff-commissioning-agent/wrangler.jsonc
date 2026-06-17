@@ -45,6 +45,7 @@
     "ENVIRONMENT": "development",
     "LINEAR_TEAM_ID": "8b9ba524-28fa-457f-adfc-e4f2452d3aa0",
     "LINEAR_SYNC_URL": "https://ff-linear-sync.koales.workers.dev",
+    "CLOUDFLARE_ACCOUNT_ID": "cb56a846c70a38987f31cf6e2b85cb57"
   },
 
   // Secrets — CF Secrets Store (store: 5f51936ccef540ce825687d0afe96373)
@@ -52,6 +53,6 @@
     { "binding": "LINEAR_API_KEY",            "store_id": "5f51936ccef540ce825687d0afe96373", "secret_name": "LINEAR_API_KEY" },
     { "binding": "FF_AGENT_SIGNING_KEY",       "store_id": "5f51936ccef540ce825687d0afe96373", "secret_name": "FF_AGENT_SIGNING_KEY" },
     { "binding": "SUB_BUFFER_PRODUCER_SECRET", "store_id": "5f51936ccef540ce825687d0afe96373", "secret_name": "SUB_BUFFER_PRODUCER_SECRET" },
-    { "binding": "OFOX_API_KEY",               "store_id": "5f51936ccef540ce825687d0afe96373", "secret_name": "OFOX_API_KEY" }
+    { "binding": "CF_API_TOKEN",               "store_id": "5f51936ccef540ce825687d0afe96373", "secret_name": "CF_API_TOKEN" }
   ]
 }
