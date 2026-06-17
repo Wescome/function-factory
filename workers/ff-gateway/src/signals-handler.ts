@@ -255,28 +255,91 @@ async function validateJwt(
 
 // ─── Signal routing ───────────────────────────────────────────────────────────
 
+/**
+ * Derive orgId from repoId per R2:
+ * - Strip the literal prefix 'repo:' if present; use the remainder.
+ * - Otherwise use repoId verbatim.
+ * - Returns { ok: true, orgId } or { ok: false, error } on invalid input.
+ *
+ * TODO-1 (production): replace with resolveOrgId(repoId, env) backed by KV/D1
+ * org-profile store so identity is not inferred from string shape.
+ */
+function resolveOrgId(repoId: string): { ok: true; orgId: string } | { ok: false; error: string } {
+  const orgId = repoId.startsWith('repo:') ? repoId.slice('repo:'.length) : repoId
+  if (orgId === '') {
+    return { ok: false, error: `cannot derive orgId from repoId: stripping 'repo:' prefix yields empty string` }
+  }
+  if (/[/\s]/.test(orgId)) {
+    return { ok: false, error: `cannot derive orgId from repoId: '${orgId}' contains '/' or whitespace — not URL-path-safe` }
+  }
+  return { ok: true, orgId }
+}
+
 async function routeSignal(
   signal: import('@factory/schemas/weops-signals').InboundSignal,
   env: GatewayEnv,
 ): Promise<Response> {
-  const ca = env.COMMISSIONING_AGENT_URL
-  const arch = env.ARCHITECT_AGENT_DO_URL
+  const arch = (env.ARCHITECT_AGENT_DO_URL ?? '').replace(/\/+$/, '')
 
   // Check required bindings exist before attempting fetch.
   function missingBinding(name: string): Response {
     return json({ error: `503 Service Unavailable: binding '${name}' not configured` }, 503)
   }
 
-  let targetUrl: string
+  let targetUrl: string | undefined
+  // caStub is set for signals routed to a Commissioning Agent DO instance.
+  let caStub: DurableObjectStub | undefined
+  // caPath is the path appended to the DO stub's fetch URL when caStub is used.
+  let caPath: string | undefined
+  // translatedBody defaults to the raw signal; overridden for CA-bound signals
+  // that require shape translation (R6).
+  let translatedBody: unknown = signal
+
   switch (signal.signalType) {
-    case 'CommissioningSignal':
-      if (!ca) return missingBinding('COMMISSIONING_AGENT_URL')
-      targetUrl = `${ca}/commission`
+    case 'CommissioningSignal': {
+      if (!env.COMMISSIONING_AGENT) return missingBinding('COMMISSIONING_AGENT')
+      // R2 — derive orgId from repoId (strip 'repo:' prefix; v1 convenience).
+      const orgIdResult = resolveOrgId(signal.repoId)
+      if (!orgIdResult.ok) {
+        return json({ error: orgIdResult.error }, 400)
+      }
+      const { orgId } = orgIdResult
+      // R1 — correct target route via DO stub.
+      caStub = env.COMMISSIONING_AGENT.get(env.COMMISSIONING_AGENT.idFromName(`commissioning-agent:${orgId}`))
+      caPath = '/signal'
+      // R6 — translate InboundSignal → CA CommissioningSignalSchema body.
+      // signalType and repoId are dropped; domainProfile is v1 default (R4).
+      // TODO-1 (production): load domainProfile from resolveDomainProfile(orgId, env).
+      translatedBody = {
+        sessionId:              signal.dispositionEventId,  // R3: unique per A9 disposition
+        orgId,                                              // R2
+        workGraphId:            signal.workGraphId,
+        workGraphVersion:       signal.workGraphVersion,
+        domainProfile: {                                    // R4: v1 default
+          vertical:    (signal.vertical ?? 'generic') as typeof signal.vertical,
+          orgContext:  signal.orgContext ?? signal.repoId,
+          constraints: [],
+          version:     '1.0',
+        },
+        dispositionEventId:     signal.dispositionEventId,
+        elucidationArtifactId:  signal.elucidationArtifactId,
+        issuedAt:               signal.issuedAt,
+        requireHumanApproval:   true,                      // R5
+      }
       break
-    case 'ResumeSignal':
-      if (!ca) return missingBinding('COMMISSIONING_AGENT_URL')
-      targetUrl = `${ca}/resume`
+    }
+    case 'ResumeSignal': {
+      if (!env.COMMISSIONING_AGENT) return missingBinding('COMMISSIONING_AGENT')
+      // R7 — correct target route; body passes through as-is (v1).
+      const orgIdResult = resolveOrgId(signal.repoId)
+      if (!orgIdResult.ok) {
+        return json({ error: orgIdResult.error }, 400)
+      }
+      caStub = env.COMMISSIONING_AGENT.get(env.COMMISSIONING_AGENT.idFromName(`commissioning-agent:${orgIdResult.orgId}`))
+      caPath = '/resume'
+      // TODO-2: DO must implement /resume handler
       break
+    }
     case 'PatchAuthSignal':
       if (!arch) return missingBinding('ARCHITECT_AGENT_DO_URL')
       targetUrl = `${arch}/patch`
@@ -287,8 +350,15 @@ async function routeSignal(
       break
     case 'OverrideSignal':
       if (signal.targetRepoId) {
-        if (!ca) return missingBinding('COMMISSIONING_AGENT_URL')
-        targetUrl = `${ca}/override`
+        if (!env.COMMISSIONING_AGENT) return missingBinding('COMMISSIONING_AGENT')
+        // R7 — correct target route for per-org override via DO stub.
+        const orgIdResult = resolveOrgId(signal.targetRepoId)
+        if (!orgIdResult.ok) {
+          return json({ error: orgIdResult.error }, 400)
+        }
+        caStub = env.COMMISSIONING_AGENT.get(env.COMMISSIONING_AGENT.idFromName(`commissioning-agent:${orgIdResult.orgId}`))
+        caPath = '/override'
+        // TODO-2: DO must implement /override handler
       } else {
         if (!arch) return missingBinding('ARCHITECT_AGENT_DO_URL')
         targetUrl = `${arch}/override`
@@ -298,29 +368,50 @@ async function routeSignal(
 
   let resp: Response
   try {
-    resp = await fetch(targetUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(signal),
-    })
+    if (caStub !== undefined) {
+      resp = await caStub.fetch(`https://do${caPath}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(translatedBody),
+      })
+    } else {
+      resp = await fetch(targetUrl!, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(translatedBody),
+      })
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    console.error(`Signal routing fetch failed to ${targetUrl}:`, msg)
+    const dest = caStub !== undefined ? `DO commissioning-agent${caPath}` : targetUrl
+    console.error(`Signal routing fetch failed to ${dest}:`, msg)
     return json({ error: `503 Service Unavailable: downstream unreachable — ${msg}` }, 503)
   }
 
   if (!resp.ok) {
     const body = await resp.text()
-    console.error(`Signal routing: downstream ${targetUrl} returned ${resp.status}: ${body}`)
+    const dest = caStub !== undefined ? `DO commissioning-agent${caPath}` : targetUrl
+    console.error(`Signal routing: downstream ${dest} returned ${resp.status}: ${body}`)
     return json({ error: `503 Service Unavailable: downstream returned ${resp.status}` }, 503)
   }
 
   return resp
 }
 
+// ─── Resolved secrets (pre-fetched from Secrets Store in fetch handler) ──────
+
+export interface GatewaySecrets {
+  weopsSigningKey: string
+  ffAgentSigningKey: string
+}
+
 // ─── POST /signals ────────────────────────────────────────────────────────────
 
-export async function handleSignals(request: Request, env: GatewayEnv): Promise<Response> {
+export async function handleSignals(
+  request: Request,
+  env: GatewayEnv,
+  secrets: GatewaySecrets,
+): Promise<Response> {
   // Parse body first so we know the signalType for scope checking.
   let rawBody: unknown
   try {
@@ -349,7 +440,7 @@ export async function handleSignals(request: Request, env: GatewayEnv): Promise<
   const authHeader = request.headers.get('Authorization')
   const validationResult = await validateJwt(
     authHeader,
-    env.WEOPS_SIGNING_KEY,
+    secrets.weopsSigningKey,
     env.KV_REPLAY,
     signalType,
     signalDispositionEventId,
@@ -397,7 +488,11 @@ export async function handleSignals(request: Request, env: GatewayEnv): Promise<
 
 // ─── POST /escalations ────────────────────────────────────────────────────────
 
-export async function handleEscalations(request: Request, env: GatewayEnv): Promise<Response> {
+export async function handleEscalations(
+  request: Request,
+  env: GatewayEnv,
+  secrets: GatewaySecrets,
+): Promise<Response> {
   let rawBody: unknown
   try {
     rawBody = await request.json()
@@ -415,7 +510,7 @@ export async function handleEscalations(request: Request, env: GatewayEnv): Prom
   // Verify signature.
   const verifyResult = await verifyOutboundEnvelope(
     envelope,
-    env.FF_AGENT_SIGNING_KEY,
+    secrets.ffAgentSigningKey,
     async (agentId) => env.KV_REPLAY.get(`agent-key:${agentId}`),
   )
   if (!verifyResult.ok) {
@@ -469,7 +564,11 @@ export async function handleEscalations(request: Request, env: GatewayEnv): Prom
 
 // ─── POST /vcrs ───────────────────────────────────────────────────────────────
 
-export async function handleVcrs(request: Request, env: GatewayEnv): Promise<Response> {
+export async function handleVcrs(
+  request: Request,
+  env: GatewayEnv,
+  secrets: GatewaySecrets,
+): Promise<Response> {
   let rawBody: unknown
   try {
     rawBody = await request.json()
@@ -487,7 +586,7 @@ export async function handleVcrs(request: Request, env: GatewayEnv): Promise<Res
   // Verify signature.
   const verifyResult = await verifyOutboundEnvelope(
     envelope,
-    env.FF_AGENT_SIGNING_KEY,
+    secrets.ffAgentSigningKey,
     async (agentId) => env.KV_REPLAY.get(`agent-key:${agentId}`),
   )
   if (!verifyResult.ok) {

@@ -34,7 +34,7 @@
  */
 
 import type { GatewayEnv } from './env.js'
-import { handleSignals, handleEscalations, handleVcrs } from './signals-handler.js'
+import { handleSignals, handleEscalations, handleVcrs, type GatewaySecrets } from './signals-handler.js'
 
 // Re-export QueryService as named entrypoint for Service Binding
 export { default as QueryService } from './query.js'
@@ -44,6 +44,13 @@ export default {
     const url = new URL(request.url)
     const method = request.method
     const path = url.pathname
+
+    // Read all Secrets Store bindings once at the top of the fetch handler.
+    // Resolved strings are passed to handlers; .get() is never called in hot loops.
+    const secrets: GatewaySecrets = {
+      weopsSigningKey: await env.WEOPS_SIGNING_KEY.get(),
+      ffAgentSigningKey: await env.FF_AGENT_SIGNING_KEY.get(),
+    }
 
     try {
       // ── Health ──
@@ -197,15 +204,15 @@ export default {
       // ── WeOps signals layer (Phase 4) ──
 
       if (method === 'POST' && path === '/signals') {
-        return handleSignals(request, env)
+        return handleSignals(request, env, secrets)
       }
 
       if (method === 'POST' && path === '/escalations') {
-        return handleEscalations(request, env)
+        return handleEscalations(request, env, secrets)
       }
 
       if (method === 'POST' && path === '/vcrs') {
-        return handleVcrs(request, env)
+        return handleVcrs(request, env, secrets)
       }
 
       // ── 404 ──

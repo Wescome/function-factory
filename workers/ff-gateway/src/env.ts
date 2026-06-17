@@ -52,12 +52,12 @@ export interface GatewayEnv {
   // Secrets set via `wrangler secret put`; KV namespace declared in wrangler.jsonc.
   /** KV namespace — jti replay guard, envelope idempotency, outbound retry queues, audit log */
   KV_REPLAY: KVNamespace
-  /** CF Secret — base64-encoded HMAC-SHA256 key for inbound JWT verification */
-  WEOPS_SIGNING_KEY: string
-  /** CF Secret — base64-encoded HMAC-SHA256 key for outbound envelope verification */
-  FF_AGENT_SIGNING_KEY: string
-  /** Base URL for Commissioning Agent Worker (e.g. https://ff-commissioning-agent.example.workers.dev) */
-  COMMISSIONING_AGENT_URL: string
+  /** CF Secrets Store — base64-encoded HMAC-SHA256 key for inbound JWT verification */
+  WEOPS_SIGNING_KEY: SecretsStoreSecret
+  /** CF Secrets Store — base64-encoded HMAC-SHA256 key for outbound envelope verification */
+  FF_AGENT_SIGNING_KEY: SecretsStoreSecret
+  /** Durable Object namespace for Commissioning Agent */
+  COMMISSIONING_AGENT: DurableObjectNamespace
   /** Base URL / stub URL for Architect Agent Durable Object */
   ARCHITECT_AGENT_DO_URL: string
   /** We-layer webhook URL for EscalationEvent delivery */
