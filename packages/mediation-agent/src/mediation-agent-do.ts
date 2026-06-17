@@ -1,7 +1,7 @@
 /**
  * MediationAgentDO — Cloudflare Durable Object
  *
- * One DO instance per repo: key = `mediation-agent:{repoId}`.
+ * One DO instance per org: key = `mediation-agent:{orgId}`.
  * Multiple runs share the same DO instance; the compiled_molecules
  * table is keyed on (atom_id, run_id).
  *
@@ -18,6 +18,7 @@
  */
 
 import { DurableObject } from 'cloudflare:workers'
+import { z } from 'zod'
 import type { CoordinatorDO } from '@factory/gears'
 import type { FactoryArtifactGraphDO, FactoryBeadGraphDO } from '@factory/factory-graph'
 import { emitSubscriptionEvent } from '@factory/subscription-buffer'
@@ -49,11 +50,12 @@ export interface Env {
 
   // Subscription buffer (optional)
   SUB_BUFFER?:                 DurableObjectNamespace
-  SUB_BUFFER_PRODUCER_SECRET?: string
+  SUB_BUFFER_PRODUCER_SECRET?: SecretsStoreSecret
 }
 
 export class MediationAgentDO extends DurableObject<Env> {
   private sql: SqlStorage
+  private _subBufferProducerSecret: string | undefined
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
@@ -63,17 +65,29 @@ export class MediationAgentDO extends DurableObject<Env> {
     })
   }
 
+  // ── Secret getter (lazy-cached) ───────────────────────────────────────
+
+  private async getSubBufferProducerSecret(): Promise<string | undefined> {
+    if (!this.env.SUB_BUFFER_PRODUCER_SECRET) return undefined
+    if (this._subBufferProducerSecret === undefined) {
+      this._subBufferProducerSecret = await this.env.SUB_BUFFER_PRODUCER_SECRET.get()
+    }
+    return this._subBufferProducerSecret
+  }
+
   // ── Subscription event helper ─────────────────────────────────────────
 
-  private emitMA(
+  private async emitMA(
     sessionId: string,
     stream: 'sessionEvents' | 'artifactWrites',
     kind: string,
     payload: Record<string, unknown>,
     options: { runId?: string; terminal?: boolean } = {},
-  ): void {
-    if (!this.env.SUB_BUFFER || !this.env.SUB_BUFFER_PRODUCER_SECRET) return
-    void emitSubscriptionEvent(this.env.SUB_BUFFER, this.env.SUB_BUFFER_PRODUCER_SECRET, {
+  ): Promise<void> {
+    if (!this.env.SUB_BUFFER) return
+    const secret = await this.getSubBufferProducerSecret()
+    if (!secret) return
+    void emitSubscriptionEvent(this.env.SUB_BUFFER, secret, {
       sessionId,
       stream,
       kind,
@@ -135,12 +149,30 @@ export class MediationAgentDO extends DurableObject<Env> {
   // ── POST /commission ──────────────────────────────────────────────────
 
   private async handleCommission(req: Request): Promise<Response> {
-    let body: CommissionRequest
+    let rawBody: unknown
     try {
-      body = await req.json<CommissionRequest>()
+      rawBody = await req.json()
     } catch {
       return jsonErr({ error: 'invalid JSON body' }, 400)
     }
+
+    // Validation gate (R7 — SPEC-FF-CA-MEDIATION-ADAPTER-001):
+    // Validate BEFORE any SQLite write. 400 = malformed request; 422 = compile failure.
+    const CommissionRequestSchema = z.object({
+      runId:                   z.string().min(1).startsWith('RUN-'),
+      orgId:                   z.string().min(1),
+      workGraphId:             z.string().min(1),
+      workGraphVersion:        z.string().min(1),
+      eluciationArtifactId:   z.string().min(1),
+      d1ArtifactRefs:         z.array(z.unknown()),
+      dispositionEventId:     z.string().min(1),
+      stalenessThresholdHours: z.number().positive().optional(),
+    })
+    const parsed = CommissionRequestSchema.safeParse(rawBody)
+    if (!parsed.success) {
+      return jsonErr({ status: 'invalid_request', issues: parsed.error.issues }, 400)
+    }
+    const body: CommissionRequest = parsed.data as unknown as CommissionRequest
 
     // Idempotency: same runId + SEEDED → return cached success
     const cached = this.checkIdempotency(body.runId)
@@ -175,7 +207,7 @@ export class MediationAgentDO extends DurableObject<Env> {
       this.setLifecycle('SEEDED')
 
       // Emit VERIFICATION_PRODUCED (COHERENCE check passed) — step 4 succeeded
-      this.emitMA(body.runId, 'sessionEvents', 'VERIFICATION_PRODUCED', {
+      void this.emitMA(body.runId, 'sessionEvents', 'VERIFICATION_PRODUCED', {
         kind:           'COHERENCE',
         passed:         true,
         verdictSummary: 'all coherence checks passed',
@@ -183,7 +215,7 @@ export class MediationAgentDO extends DurableObject<Env> {
 
       // Emit ARTIFACT_WRITTEN for each AtomDirective node written in step 6
       for (const [atomId] of result.directives) {
-        this.emitMA(body.runId, 'artifactWrites', 'ARTIFACT_WRITTEN', {
+        void this.emitMA(body.runId, 'artifactWrites', 'ARTIFACT_WRITTEN', {
           artifactId: `ATOM-DIRECTIVE-${atomId}`,
           kind:       'AtomDirective',
           r2Path:     null,
@@ -204,7 +236,7 @@ export class MediationAgentDO extends DurableObject<Env> {
       if (err instanceof CompileError) {
         // Emit VERIFICATION_PRODUCED (COHERENCE check failed) when it's a coherence error
         if (err.reason === 'coherence_failure') {
-          this.emitMA(body.runId, 'sessionEvents', 'VERIFICATION_PRODUCED', {
+          void this.emitMA(body.runId, 'sessionEvents', 'VERIFICATION_PRODUCED', {
             kind:           'COHERENCE',
             passed:         false,
             failedCriteria: err.message,

@@ -29,5 +29,8 @@
   },
   "vars": {
     "ENVIRONMENT": "development"
-  }
+  },
+  "secrets_store_secrets": [
+    { "binding": "SUB_BUFFER_PRODUCER_SECRET", "store_id": "5f51936ccef540ce825687d0afe96373", "secret_name": "SUB_BUFFER_PRODUCER_SECRET" }
+  ]
 }

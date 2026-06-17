@@ -29,6 +29,8 @@ export interface CommissionRequest {
   d1ArtifactRefs: string[]
   /** Must exist in ArtifactGraphDO before compile begins (A9 constraint) */
   eluciationArtifactId: string
+  /** A9 elucidation event reference (from signal) */
+  dispositionEventId: string
   /** Default 24 hours */
   stalenessThresholdHours?: number
 }
