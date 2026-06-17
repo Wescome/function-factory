@@ -10,6 +10,14 @@ export const CommissioningSignal = z.object({
   dispositionEventId: z.string().min(1),        // must match token claim
   elucidationArtifactId: z.string().min(1),
   issuedAt: z.string().min(1),
+  vertical: z.enum([
+    "gtm-engineering",
+    "healthcare-operations",
+    "comeflow-commerce",
+    "fintech-compliance",
+    "generic",
+  ]).optional(),
+  orgContext: z.string().optional(),            // fallback: repoId at gateway
 })
 export type CommissioningSignal = z.infer<typeof CommissioningSignal>
 

@@ -36,6 +36,7 @@ export type DomainProfile = z.infer<typeof DomainProfileSchema>
 // ── CommissioningSignal ───────────────────────────────────────────────────────
 
 export const CommissioningSignalSchema = z.object({
+  sessionId: z.string(),
   orgId: z.string().min(1),
   workGraphId: z.string().optional(), // if pre-specified by We-layer (WG-*)
   workGraphVersion: z.string().optional(),
