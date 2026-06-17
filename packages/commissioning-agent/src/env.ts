@@ -30,8 +30,8 @@ export interface Env {
   LINEAR_API_KEY: SecretsStoreSecret
   /** Secrets Store binding — call .get() to retrieve the value. */
   FF_AGENT_SIGNING_KEY: SecretsStoreSecret
-  /** Secrets Store binding — call .get() to retrieve the value. */
-  CF_API_TOKEN: SecretsStoreSecret
+  /** Secrets Store binding — call .get() to retrieve the value. Only required for cloudflare/* models. */
+  CF_API_TOKEN?: SecretsStoreSecret
   ENVIRONMENT: string
 
   // ── Subscription buffer (optional) ───────────────────────────────────────

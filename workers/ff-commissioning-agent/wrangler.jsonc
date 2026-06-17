@@ -53,6 +53,7 @@
     { "binding": "LINEAR_API_KEY",            "store_id": "5f51936ccef540ce825687d0afe96373", "secret_name": "LINEAR_API_KEY" },
     { "binding": "FF_AGENT_SIGNING_KEY",       "store_id": "5f51936ccef540ce825687d0afe96373", "secret_name": "FF_AGENT_SIGNING_KEY" },
     { "binding": "SUB_BUFFER_PRODUCER_SECRET", "store_id": "5f51936ccef540ce825687d0afe96373", "secret_name": "SUB_BUFFER_PRODUCER_SECRET" },
-    { "binding": "CF_API_TOKEN",               "store_id": "5f51936ccef540ce825687d0afe96373", "secret_name": "CF_API_TOKEN" }
+    // CF_API_TOKEN: add when planner role uses a cloudflare/* model
+    // { "binding": "CF_API_TOKEN", "store_id": "5f51936ccef540ce825687d0afe96373", "secret_name": "CF_API_TOKEN" }
   ]
 }

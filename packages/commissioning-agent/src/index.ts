@@ -197,7 +197,7 @@ export class CommissioningAgentDO extends DurableObject<Env> {
     const plannerEnv: PlannerAgentEnv = {
       DB: this.env.DB,
       CLOUDFLARE_ACCOUNT_ID: this.env.CLOUDFLARE_ACCOUNT_ID,
-      CF_API_TOKEN: await this.env.CF_API_TOKEN.get(),
+      CF_API_TOKEN: this.env.CF_API_TOKEN ? await this.env.CF_API_TOKEN.get() : '',
     }
     const plannerAgent = buildPlannerAgent('planner', plannerEnv)
     const generate = async (prompt: string): Promise<{ text: string }> => {

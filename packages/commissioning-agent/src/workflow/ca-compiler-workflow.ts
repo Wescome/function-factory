@@ -119,7 +119,7 @@ const synthesizePressureMastraStep = createStep({
     const plannerEnv: PlannerAgentEnv = {
       DB: env.DB,
       CLOUDFLARE_ACCOUNT_ID: env.CLOUDFLARE_ACCOUNT_ID,
-      CF_API_TOKEN: await env.CF_API_TOKEN.get(),
+      CF_API_TOKEN: env.CF_API_TOKEN ? await env.CF_API_TOKEN.get() : '',
     }
     const plannerAgent = buildPlannerAgent('planner', plannerEnv)
 
@@ -179,7 +179,7 @@ const mapCapabilityMastraStep = createStep({
     const plannerEnv: PlannerAgentEnv = {
       DB: env.DB,
       CLOUDFLARE_ACCOUNT_ID: env.CLOUDFLARE_ACCOUNT_ID,
-      CF_API_TOKEN: await env.CF_API_TOKEN.get(),
+      CF_API_TOKEN: env.CF_API_TOKEN ? await env.CF_API_TOKEN.get() : '',
     }
     const plannerAgent = buildPlannerAgent('planner', plannerEnv)
 
@@ -233,7 +233,7 @@ const proposeFunctionMastraStep = createStep({
     const plannerEnv: PlannerAgentEnv = {
       DB: env.DB,
       CLOUDFLARE_ACCOUNT_ID: env.CLOUDFLARE_ACCOUNT_ID,
-      CF_API_TOKEN: await env.CF_API_TOKEN.get(),
+      CF_API_TOKEN: env.CF_API_TOKEN ? await env.CF_API_TOKEN.get() : '',
     }
     const plannerAgent = buildPlannerAgent('planner', plannerEnv)
 
@@ -282,7 +282,7 @@ const compilePrdMastraStep = createStep({
     const plannerEnv: PlannerAgentEnv = {
       DB: env.DB,
       CLOUDFLARE_ACCOUNT_ID: env.CLOUDFLARE_ACCOUNT_ID,
-      CF_API_TOKEN: await env.CF_API_TOKEN.get(),
+      CF_API_TOKEN: env.CF_API_TOKEN ? await env.CF_API_TOKEN.get() : '',
     }
     const plannerAgent = buildPlannerAgent('planner', plannerEnv)
 
