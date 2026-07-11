@@ -1,0 +1,25 @@
+{
+  "name": "keel-skeleton",
+  "main": "src/composition/worker.ts",
+  "compatibility_date": "2026-06-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "durable_objects": {
+    "bindings": [
+      { "name": "ORCHESTRATOR", "class_name": "Orchestrator" },
+      { "name": "CODEMODE_RUNTIME", "class_name": "CodemodeRuntime" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["Orchestrator", "CodemodeRuntime"] }
+  ],
+  "worker_loaders": [{ "binding": "LOADER" }],
+  "d1_databases": [
+    { "binding": "DB", "database_name": "keel-crossrun", "database_id": "d5175ea9-0635-4b97-ae82-34c1a6112ccb" }
+  ],
+  "observability": { "enabled": true },
+  "vars": {
+    "AI_GATEWAY_URL": "https://api.cloudflare.com/client/v4/accounts/cb56a846c70a38987f31cf6e2b85cb57/ai/v1",
+    "AI_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+    "FOREIGN_MCP_URL": "https://keel-skeleton.koales.workers.dev/mcp-mock"
+  }
+}
