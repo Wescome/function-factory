@@ -11,14 +11,16 @@
     "gate": "npm run lint:deps && npm run typecheck && npm run test"
   },
   "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.18.0",
+    "@cloudflare/workers-types": "4.20250109.0",
     "typescript": "5.6.3",
     "vitest": "4.1.10",
-    "@cloudflare/vitest-pool-workers": "0.18.0",
-    "wrangler": "4.107.0",
-    "@cloudflare/workers-types": "4.20250109.0"
+    "wrangler": "4.107.0"
   },
   "dependencies": {
-    "agents": "0.17.3",
-    "@cloudflare/codemode": "0.4.2"
+    "@cloudflare/codemode": "0.4.2",
+    "@cloudflare/workers-oauth-provider": "^0.8.1",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "agents": "0.17.3"
   }
 }
