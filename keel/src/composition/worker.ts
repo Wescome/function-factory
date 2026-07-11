@@ -10,6 +10,9 @@
  */
 export { Orchestrator } from "./orchestrator";
 export { CodemodeRuntime } from "@cloudflare/codemode";
+export { InboundMcpAgent } from "./mcp-inbound";
+import { OAuthProvider, type OAuthHelpers } from "@cloudflare/workers-oauth-provider";
+import { InboundMcpAgent, makeInboundApiHandler } from "./mcp-inbound";
 import type { Env } from "./orchestrator";
 import { D1CrossRunAdapter } from "../adapters/persistence/d1-cross-run.adapter";
 import { D1ProcedureStore } from "../adapters/improve/d1-procedure-store.adapter";
@@ -126,7 +129,10 @@ async function mcpMock(req: Request): Promise<Response> {
   return new Response(JSON.stringify(body), { status: status ?? 200, headers });
 }
 
-export default {
+// The pre-existing KEEL HTTP surface (unchanged). Wrapped below by OAuthProvider
+// as the `defaultHandler` fallback, so every route here keeps working exactly
+// as before — the inbound MCP spike is additive, not a restructuring.
+const legacyHandler = {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);
     const name = url.searchParams.get("name") ?? "default";
@@ -327,3 +333,65 @@ export default {
     return new Response("KEEL. POST /admit?name=X (Specification JSON) · GET /result?name=X · GET /timeline?name=X · GET /debug/nodes?name=X · POST /approve?name=X · POST /derive?name=X · GET /backlog?name=X · POST /backlog/dispose?name=X {id,status} · GET /runs[?terminal=] · POST /improve/procedures {names,regressionNames?,minRepeats?} · GET /improve/procedures?key=X · POST /improve/procedures/rollback {key} · GET /improve/procedures/proposed[?key=] · POST /improve/procedures/approve-replay {id} · POST /improve/harness-fix {surfaces,n,baseAccepts,imprAccepts,regression?} · POST /improve/procedures/adds-value {attemptsUnderFixedHarness,attemptsUnderProcedure,criticalDeterminism?}\n");
   },
 };
+
+// --- BRIEF-KEEL-INBOUND-001: authenticated MCP inbound boundary (v1) --------
+// OAuthProvider wraps the ENTIRE fetch surface. `/mcp` (apiRoute) is the one
+// protected MCP endpoint; everything else — including the whole legacyHandler
+// surface above — falls through defaultHandler unchanged.
+//
+// `/authorize` here is a SPIKE-ONLY auto-approve, not a consent UI (explicitly
+// out of scope per BRIEF-KEEL-INBOUND-001's envelope-authoring-surface
+// guardrail, OD-IN-4). It exists solely to mint tokens for test callers:
+//   GET /authorize?...&caller=X               -> grants ["keel:read"]
+//   GET /authorize?...&caller=B                -> grants no scope
+//   GET /authorize?...&caller=X&grant=a,b,c     -> grants an explicit scope list
+// A real deployment would replace this with a real consent flow; nothing
+// downstream (the /mcp apiRoute, the envelope gate, the oracle) depends on
+// how consent was granted, only on the resulting `props.{scopes,caller}`.
+type InboundEnv = Env & { OAUTH_PROVIDER: OAuthHelpers; OAUTH_KV: KVNamespace; INBOUND_MCP: DurableObjectNamespace };
+
+const RESOURCE_URL = "https://keel-skeleton.koales.workers.dev/mcp";
+const SCOPES_SUPPORTED = ["keel:read", "keel:ledger-write"];
+
+const defaultHandler = {
+  async fetch(request: Request, env: InboundEnv, _ctx: ExecutionContext): Promise<Response> {
+    const url = new URL(request.url);
+    if (url.pathname === "/authorize") {
+      const oauthReqInfo = await env.OAUTH_PROVIDER.parseAuthRequest(request);
+      const caller = url.searchParams.get("caller") ?? "A";
+      const grantParam = url.searchParams.get("grant");
+      const grantedScope = grantParam ? grantParam.split(",").filter(Boolean) : (caller === "B" ? [] : ["keel:read"]);
+      const callerId = `spike-caller-${caller}`;
+      const { redirectTo } = await env.OAUTH_PROVIDER.completeAuthorization({
+        request: oauthReqInfo,
+        userId: callerId,
+        metadata: { caller },
+        scope: grantedScope,
+        props: { scopes: grantedScope, caller: callerId },
+      });
+      return Response.redirect(redirectTo, 302);
+    }
+    return legacyHandler.fetch(request, env);
+  },
+};
+
+// Check 1's "403/404 BEFORE the loop starts", generalized to the full menu:
+// makeInboundApiHandler (mcp-inbound.ts) reuses the SAME resolveInvocation the
+// tool handler uses, at the HTTP layer, before the MCP dispatch even starts.
+// tools/list's own per-caller scoping is the enable/disable done in init().
+const scopedApiHandler = makeInboundApiHandler(InboundMcpAgent.serve("/mcp", { binding: "INBOUND_MCP" }));
+
+export default new OAuthProvider({
+  apiRoute: "/mcp",
+  apiHandler: scopedApiHandler,
+  defaultHandler,
+  authorizeEndpoint: "/authorize",
+  tokenEndpoint: "/oauth/token",
+  clientRegistrationEndpoint: "/oauth/register",
+  scopesSupported: SCOPES_SUPPORTED,
+  resourceMetadata: {
+    resource: RESOURCE_URL,
+    scopes_supported: SCOPES_SUPPORTED,
+    resource_name: "KEEL inbound (fx.snapshot, weather.forCity, ledger.ensureRecord)",
+  },
+});

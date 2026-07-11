@@ -70,3 +70,8 @@ export type { TraceSummary, ProcedureCandidate, ReplayResult, ProcedurePassResul
 export { mineProcedures, evaluateProcedure, runProcedurePass } from "./improve/loop";
 export type { AnchorTrace } from "./improve/policy";
 export { pendingCandidates, curateRegressionSuite, procedureStillAddsValue } from "./improve/policy";
+
+// Inbound MCP v1 (BRIEF-KEEL-INBOUND-001) — the menu + envelope enforcement
+export type { RegisteredSpec, SpecRegistry, Principal, Admission } from "./inbound/envelope";
+export { invocationAuditKey, resolveInvocation, visibleSpecs } from "./inbound/envelope";
+export { DEFAULT_REGISTRY } from "./inbound/registry";
