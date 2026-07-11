@@ -1,0 +1,18 @@
+# CI gate G2 — runs from commit one. A red gate blocks the merge.
+name: keel-gate-G2
+on: [push, pull_request]
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm ci || npm install
+      - name: D6 import boundary (domain must be substrate-free)
+        run: npm run lint:deps
+      - name: Contracts compile (tsc --noEmit, strict)
+        run: npm run typecheck
+      - name: Contracts coherent (vitest)
+        run: npm run test

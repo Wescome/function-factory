@@ -1,0 +1,138 @@
+import type { ModelPort, GeneratedAction, SpecificationContent, VerdictContent } from "../../domain/index";
+
+// Walking-skeleton / loop-closing ModelPort: deterministic, no LLM. Behavior is
+// selected by spec.intent so M3 can exercise every branch of the loop:
+//   "echo 42"  -> correct on attempt 1                 (ACCEPT)
+//   "converge" -> wrong (41) on attempt 1, correct on amend (evidence present)
+//   "never"    -> always wrong (41)                    (ESCALATE at budget)
+//   "approve"  -> calls the approval-gated gate.commit (PAUSE, then ACCEPT)
+// The real AI Gateway adapter (Phase 4+) replaces this; the point here is the
+// LOOP wiring, not the model.
+export class ScriptedModelAdapter implements ModelPort {
+  async generate(spec: SpecificationContent, evidence?: VerdictContent): Promise<GeneratedAction> {
+    switch (spec.intent) {
+      case "converge": {
+        const value = evidence ? 42 : 41; // corrects itself once it has verifier evidence
+        return { code: `const r = await echo.emit({ value: ${value} }); return r;`, connectors: ["echo"] };
+      }
+      case "degraded": // model generates normally; the EXECUTOR is what fails
+      case "never":
+        return { code: `const r = await echo.emit({ value: 41 }); return r;`, connectors: ["echo"] };
+      case "approve":
+      case "uc-002": // schema migration: approval-gated -> PAUSE -> ACCEPT (expand/contract)
+        return { code: `const g = await gate.commit({ value: 42 }); return g;`, connectors: ["gate"] };
+      case "uc-001": // feature add: verifier catches the race on attempt 1, amend fixes it
+        return { code: `const r = await echo.emit({ value: ${evidence ? 42 : 41} }); return r;`, connectors: ["echo"] };
+      case "uc-003": // stale-total: verifier rejects symptom-masking each attempt -> ESCALATE
+        return { code: `const r = await echo.emit({ value: 41 }); return r;`, connectors: ["echo"] };
+      case "fx-correct": {
+        // fetch three rates, UNWRAP the nested shape, assemble
+        const c = `const a = await fx.rate({ from: "USD", to: "EUR" });
+const b = await fx.rate({ from: "EUR", to: "GBP" });
+const c = await fx.rate({ from: "USD", to: "GBP" });
+return { usd_eur: a.rates.EUR, eur_gbp: b.rates.GBP, usd_gbp: c.rates.GBP };`;
+        return { code: c, connectors: ["fx"] };
+      }
+      case "fx-fabricate": {
+        // fabricates usd_gbp -> breaks triangular consistency (A2 must fail)
+        const c = `const a = await fx.rate({ from: "USD", to: "EUR" });
+const b = await fx.rate({ from: "EUR", to: "GBP" });
+return { usd_eur: a.rates.EUR, eur_gbp: b.rates.GBP, usd_gbp: 0.5 };`;
+        return { code: c, connectors: ["fx"] };
+      }
+      case "fx-rawshape": {
+        // does NOT unwrap .rates -> returns objects, A1 fails (the discovery miss)
+        const c = `const a = await fx.rate({ from: "USD", to: "EUR" });
+const b = await fx.rate({ from: "EUR", to: "GBP" });
+const c = await fx.rate({ from: "USD", to: "GBP" });
+return { usd_eur: a, eur_gbp: b, usd_gbp: c };`;
+        return { code: c, connectors: ["fx"] };
+      }
+      case "ledger-create": {
+        // read-before-write: only put if absent; then read back to confirm
+        const c = `const key = "entity-1";
+let recs = await ledger.list({ key });
+if (recs.length === 0) { await ledger.put({ key, value: "active" }); }
+recs = await ledger.list({ key });
+return { count: recs.length };`;
+        return { code: c, connectors: ["ledger"] };
+      }
+      case "ledger-duplicate": {
+        // BUG: writes without checking -> duplicates if a record already exists.
+        // Oracle's read-back catches count!==1.
+        const c = `const key = "entity-1";
+await ledger.put({ key, value: "active" });
+const recs = await ledger.list({ key });
+return { count: recs.length };`;
+        return { code: c, connectors: ["ledger"] };
+      }
+      case "geo-correct": {
+        // threads geocode coords into weather; unwraps both nested shapes
+        const c = `const g = await geo.lookup({ city: "Paris" });
+const loc = g.results[0];
+const w = await weather.current({ latitude: loc.latitude, longitude: loc.longitude });
+return { latitude: loc.latitude, longitude: loc.longitude, temperature_c: w.current.temperature_2m };`;
+        return { code: c, connectors: ["geo", "weather"] };
+      }
+      case "geo-topfail": {
+        // assumes geocode returns TOP-LEVEL lat/lon (the discovery miss) -> undefined coords
+        const c = `const g = await geo.lookup({ city: "Paris" });
+const w = await weather.current({ latitude: g.latitude, longitude: g.longitude });
+return { latitude: g.latitude, longitude: g.longitude, temperature_c: w.current.temperature_2m };`;
+        return { code: c, connectors: ["geo", "weather"] };
+      }
+      case "geo-fabricate": {
+        // fabricates coords instead of threading geocode output -> A2 fails
+        const c = `const g = await geo.lookup({ city: "Paris" });
+const w = await weather.current({ latitude: 0, longitude: 0 });
+return { latitude: 0, longitude: 0, temperature_c: w.current.temperature_2m };`;
+        return { code: c, connectors: ["geo", "weather"] };
+      }
+      case "amend-blind-sim": {
+        // Simulates a real model on a genuinely UNconvergeable blind criterion:
+        // it makes reasonable guesses (mirror value, then double it) but cannot
+        // derive the hidden additive constant from evidence alone -> the harness
+        // correctly ESCALATEs. Proves "correct escalate on unconvergeable".
+        const check = evidence ? 84 : 42; // mirror, then double; never value*2+7
+        return { code: `return await echo.emit({ value: 42, check: ${check} });`, connectors: ["echo"] };
+      }
+      case "amend-demo": {
+        // Reads the SPECIFIC failed criterion from the oracle evidence (not just
+        // its presence): attempt 1 sets check=0 (fails A2); once told A2 failed,
+        // it sets check = value*2 = 84 and passes. If the per-criterion evidence
+        // were NOT read, it would stay 0 and ESCALATE at budget.
+        const check = evidence?.results?.["A2"] === "fail" ? 84 : 0;
+        return { code: `return await echo.emit({ value: 42, check: ${check} });`, connectors: ["echo"] };
+      }
+      case "stale-tier":
+        // stale assumption: attempt 1 treats getTier's return AS the tier (it is
+        // actually { tier: "pro" }). The amend reads the recorded response shape.
+        return evidence
+          ? { code: `const b = await billing.getTier("c1"); return { tier: b.tier };`, connectors: ["billing"] }
+          : { code: `const b = await billing.getTier("c1"); return { tier: b };`, connectors: ["billing"] };
+      case "regress-demo":
+        // attempt 1: A1 pass (value 42), A2 fail  -> score 1 (the BEST).
+        // later attempts regress: A1 fail (value 0), A2 fail -> score 0.
+        return evidence
+          ? { code: `return await echo.emit({ value: 0, tag: "bad" });`, connectors: ["echo"] }
+          : { code: `return await echo.emit({ value: 42, tag: "good" });`, connectors: ["echo"] };
+      case "mr-correct":
+        // compute BODY over `value` (the harness wraps as compute(value)):
+        return { code: `return { value, check: value * 2 };`, connectors: ["echo"] };
+      case "mr-cheat":
+        // extensional cheat: hardcodes the value=42 answer; passes one instance,
+        // fails the metamorphic probes at 43/91.
+        return { code: `return { value: 42, check: 84 };`, connectors: ["echo"] };
+      case "foreign-lookup":
+        return { code: `return await foreign.lookup({});`, connectors: ["foreign"] };
+      case "foreign-poisoned":
+        return { code: `return await foreign.lookupPoisoned({});`, connectors: ["foreign"] };
+      case "foreign-effectful":
+        return { code: `return await foreign.effectfulOp({});`, connectors: ["foreign"] };
+      case "foreign-denied":
+        return { code: `return await foreignDenied.lookup({});`, connectors: ["foreignDenied"] };
+      default:
+        return { code: `const r = await echo.emit({ value: 42 }); return r;`, connectors: ["echo"] };
+    }
+  }
+}
