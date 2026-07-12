@@ -17,6 +17,7 @@ import type { Env } from "./orchestrator";
 import { D1CrossRunAdapter } from "../adapters/persistence/d1-cross-run.adapter";
 import { D1ProcedureStore } from "../adapters/improve/d1-procedure-store.adapter";
 import { D1RegressionSuiteAdapter } from "../adapters/improve/d1-regression-suite.adapter";
+import { D1InboundAuditAdapter } from "../adapters/inbound/d1-inbound-audit.adapter";
 import { mineProcedures, evaluateProcedure, evaluateHarnessFix, pendingCandidates, procedureStillAddsValue } from "../domain/index";
 import type { TraceSummary, ReplayResult, VerdictPair, AnchorTrace } from "../domain/index";
 import type { SpecificationContent } from "../domain/lineage/nodes";
@@ -154,7 +155,15 @@ const legacyHandler = {
         return Response.json(await stub(env, name).dumpNodes());
       }
       if (req.method === "POST" && url.pathname === "/approve") {
-        return Response.json(await stub(env, name).approve());
+        const result = await stub(env, name).approve() as { resumed: boolean; state?: string };
+        // OD-IN-6: only when this call actually resumed something (a second
+        // /approve on an already-resolved run returns resumed:false and the
+        // audit row is left untouched — resolveByDoName's domain guard would
+        // refuse to flip it anyway, this just skips the no-op D1 round trip).
+        if (result.resumed && env.DB) {
+          await new D1InboundAuditAdapter(env.DB).resolveByDoName(name, result.state === "ACCEPT" ? "accepted" : "rejected");
+        }
+        return Response.json(result);
       }
       if (req.method === "POST" && url.pathname === "/derive") {
         return Response.json(await stub(env, name).derive());
@@ -392,6 +401,6 @@ export default new OAuthProvider({
   resourceMetadata: {
     resource: RESOURCE_URL,
     scopes_supported: SCOPES_SUPPORTED,
-    resource_name: "KEEL inbound (fx.snapshot, weather.forCity, ledger.ensureRecord)",
+    resource_name: "KEEL inbound (fx_snapshot, weather_forCity, ledger_ensureRecord)",
   },
 });
