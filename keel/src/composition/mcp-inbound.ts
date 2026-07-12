@@ -22,10 +22,21 @@
  */
 import { McpAgent } from "agents/mcp";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { resolveInvocation, visibleSpecs, DEFAULT_REGISTRY } from "../domain/index";
+import { resolveInvocation, visibleSpecs, evaluateQuota, DEFAULT_REGISTRY, type AuditStatus } from "../domain/index";
 import type { SpecificationContent } from "../domain/lineage/nodes";
 import type { Env } from "./orchestrator";
 import { D1InboundAuditAdapter } from "../adapters/inbound/d1-inbound-audit.adapter";
+
+/** OD-IN-3 stopgap: hardcoded per-caller-per-spec limit until the OD-IN-4
+ *  authoring surface lands and makes this operator-configurable. */
+const QUOTA_LIMIT = 100;
+const QUOTA_WINDOW_MS = 60 * 60 * 1000;
+
+function auditStatusFor(state: string | null): AuditStatus {
+  if (state === "ACCEPT") return "accepted";
+  if (state === "PAUSE") return "paused";
+  return "rejected"; // ESCALATE or no terminal state reached within the poll window
+}
 
 type OrchestratorStub = {
   admit(c: unknown): Promise<{ accepted: boolean; status: string; runId: string }>;
@@ -97,7 +108,7 @@ export class InboundMcpAgent extends McpAgent<Env, unknown, { scopes?: string[];
           const outcome = await invokeRegisteredSpec(this.env, reg.name, admission.spec);
           if (this.env.DB) {
             await new D1InboundAuditAdapter(this.env.DB).record(
-              admission.auditKey, admission.principal.caller, reg.name, nonce, outcome.doName, outcome.state,
+              admission.auditKey, admission.principal.caller, reg.name, nonce, outcome.doName, auditStatusFor(outcome.state),
             );
           }
           if (outcome.state === "PAUSE") {
@@ -121,11 +132,13 @@ export class InboundMcpAgent extends McpAgent<Env, unknown, { scopes?: string[];
 }
 
 /** Check 1's "403/404 BEFORE the loop starts", generalized from the spike's
- *  single-scope gate to the full registry: peek at `tools/call` requests only
- *  (everything else passes through untouched — tools/list's own scoping is
- *  the enable/disable above) and run the SAME `resolveInvocation` the tool
- *  handler uses, so an out-of-envelope or unknown-spec call never reaches the
- *  MCP dispatch, let alone the KEEL loop. */
+ *  single-scope gate to the full registry, plus OD-IN-3's quota gate: peek at
+ *  `tools/call` requests only (everything else passes through untouched —
+ *  tools/list's own scoping is the enable/disable above), run the SAME
+ *  `resolveInvocation` the tool handler uses, then — only once admitted — the
+ *  quota check, BOTH before the MCP dispatch even starts, so an out-of-
+ *  envelope, unknown-spec, or over-quota call never reaches the KEEL loop:
+ *  no per-invocation DO is spun up, no outbound connector call is made. */
 export function makeInboundApiHandler(mcpServe: { fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> }) {
   return {
     async fetch(request: Request, env: Env, ctx: ExecutionContext & { props?: { scopes?: string[]; caller?: string } }): Promise<Response> {
@@ -140,6 +153,23 @@ export function makeInboundApiHandler(mcpServe: { fetch(request: Request, env: E
               return new Response(
                 JSON.stringify({ error: admission.status === 403 ? "insufficient_scope" : "not_found", error_description: admission.reason }),
                 { status: admission.status, headers: { "content-type": "application/json" } },
+              );
+            }
+            // OD-IN-3: fail-closed if usage can't be determined at all (no D1
+            // index, or the count query throws) — evaluateQuota(0, -1) forces
+            // its "unconfigured" branch rather than falling through unlimited.
+            let quota;
+            try {
+              if (!env.DB) throw new Error("no D1 index configured");
+              const used = await new D1InboundAuditAdapter(env.DB).countSince(caller, body.params.name, Date.now() - QUOTA_WINDOW_MS);
+              quota = evaluateQuota(used, QUOTA_LIMIT);
+            } catch {
+              quota = evaluateQuota(0, -1);
+            }
+            if (!quota.allowed) {
+              return new Response(
+                JSON.stringify({ error: "quota_exceeded", error_description: quota.reason }),
+                { status: 429, headers: { "content-type": "application/json" } },
               );
             }
           }

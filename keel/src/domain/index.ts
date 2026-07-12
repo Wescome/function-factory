@@ -75,3 +75,8 @@ export { pendingCandidates, curateRegressionSuite, procedureStillAddsValue } fro
 export type { RegisteredSpec, SpecRegistry, Principal, Admission } from "./inbound/envelope";
 export { invocationAuditKey, resolveInvocation, visibleSpecs } from "./inbound/envelope";
 export { DEFAULT_REGISTRY } from "./inbound/registry";
+
+// Inbound policies (OD-IN-1/3/4/6): envelope granularity, quota, restriction
+// validation, audit outcome-authoritativeness
+export type { QuotaDecision, AuditStatus, InvocationAudit } from "./inbound/policy";
+export { effectiveEnvelope, evaluateQuota, validateRestriction, resolveInvocationAudit } from "./inbound/policy";
