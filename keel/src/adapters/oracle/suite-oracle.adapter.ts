@@ -23,11 +23,25 @@ export class SuiteOracleAdapter implements OraclePort {
     const t0 = Date.now();
     const suite = this.registry.resolve(spec.oracleRef);
     const perCriterion: Record<string, CritStatus> = {};
+    // PLAYBOOK-KEEL-SPANNING-CHECKABILITY: a spanning clause (A7 already
+    // guarantees it's CARRIED here, in spec.acceptance) with no matching
+    // assertion in this child's resolved suite is fail-closed to
+    // "unverifiable" exactly like any other missing assertion — that part
+    // was already correct. What's missing is legibility: an ordinary
+    // authoring gap and "this decomposition structurally cannot check the
+    // spanning obligation it was required to carry" land in the same bucket
+    // today. Tag exactly the ids in spec.spanning, nothing else.
+    const spanningIds = new Set(spec.spanning ?? []);
+    const spanningUncheckable: string[] = [];
 
     const covered = spec.acceptance
       .map((c) => ({ c, a: suite?.assertions.find((x) => x.criterionId === c.id) }))
       .filter((x): x is { c: typeof x.c; a: NonNullable<typeof x.a> } => {
-        if (!x.a) { perCriterion[x.c.id] = "unverifiable"; return false; }
+        if (!x.a) {
+          perCriterion[x.c.id] = "unverifiable";
+          if (spanningIds.has(x.c.id)) spanningUncheckable.push(x.c.id);
+          return false;
+        }
         return true;
       });
 
@@ -84,7 +98,7 @@ export class SuiteOracleAdapter implements OraclePort {
       // call (if any — decide() already ESCALATEs immediately on a terminal
       // class, so this is only ever seen for an amend-worthy one) can select
       // an amend-prompt skill by divergence class, not just by intent.
-      evidence: { suiteRef: spec.oracleRef, suiteFound: !!suite, perCriterion, observed, calls: trace.calls, raw, terminalError: trace.terminalError },
+      evidence: { suiteRef: spec.oracleRef, suiteFound: !!suite, perCriterion, observed, calls: trace.calls, raw, terminalError: trace.terminalError, spanningUncheckable },
       results,
       oracleRef: spec.oracleRef,
       attempt: 0,

@@ -77,6 +77,7 @@ async function verifyDecide(spec: Specification, p: RunPorts, action: Action, tr
     oracleRef: spec.content.oracleRef,
     acceptance: spec.content.acceptance,
     action: { code: action.content.code },
+    spanning: spec.content.spanning,
   });
   const vc: VerdictContent = { ...vcRaw, attempt }; // the loop owns the attempt number
   const verdict = await p.repo.append<Verdict>({

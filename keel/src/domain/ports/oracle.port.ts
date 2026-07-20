@@ -13,6 +13,15 @@ export interface OracleSpec {
   /** For metamorphic criteria: the action's code body, so the oracle can
    *  re-probe it over hidden inputs. Additive; verify()'s signature unchanged. */
   readonly action?: { readonly code: string };
+  /** PLAYBOOK-KEEL-SPANNING-CHECKABILITY: ids of THIS spec's carried clauses
+   *  that are spanning (mirrors `SpecificationContent.spanning`) — CORRECTED
+   *  from an assumption in the brief that this already flowed to the oracle;
+   *  verified at 4216eab that it did not (`verifyDecide`, run.ts, never
+   *  passed it). Additive, like `action?`; lets the adapter distinguish an
+   *  uncheckable SPANNING obligation from an ordinary missing-assertion gap
+   *  — a set-membership fact the oracle needs but cannot derive from
+   *  `acceptance`/`oracleRef` alone. */
+  readonly spanning?: readonly string[];
 }
 
 export interface OraclePort {
