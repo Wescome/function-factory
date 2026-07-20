@@ -7,6 +7,7 @@
 import { CodemodeConnector } from "@cloudflare/codemode";
 import type { CallRecorder } from "../codemode/call-recorder";
 import { fetchRate } from "./fx-call";
+import { requiresApprovalFor } from "../../domain/index";
 
 export class FxConnector extends CodemodeConnector<unknown> {
   private readonly f: typeof fetch;
@@ -20,6 +21,7 @@ export class FxConnector extends CodemodeConnector<unknown> {
     return {
       rate: {
         description: "fx.rate({from, to}) => latest reference FX rate; from/to are ISO-4217 codes.",
+        requiresApproval: requiresApprovalFor("fx", "rate"),
         execute: (args: unknown) => {
           const { from, to } = (args ?? {}) as { from?: string; to?: string };
           return fetchRate(from as string, to as string, { fetchImpl: f, recorder: rec });

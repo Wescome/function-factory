@@ -58,10 +58,14 @@ export { templateDerive, templateDeriver } from "./spec-loop/derive";
 export type { BacklogStatus, BacklogEntry, BacklogStore } from "./spec-loop/backlog";
 export type { SpecLoopBound, SpecLoopCtx, SpecLoopSummary } from "./spec-loop/loop";
 export { runSpecLoop } from "./spec-loop/loop";
+// PLAYBOOK-KEEL-COVERAGE: derivation coverage — catches an omitted clause
+// (untrusted deriver, set-level check) before anything is admitted.
+export type { CoverageReport } from "./spec-loop/coverage";
+export { clauseIds, checkCoverage } from "./spec-loop/coverage";
 
 // Phase 6b foreign-tool policy
 export type { ForeignAllowlist, FieldSpec, SchemaFields, ResponseSchema, Projection } from "./foreign/policy";
-export { isAllowedServer, projectResponse, hasDivergence } from "./foreign/policy";
+export { isAllowedServer, projectResponse, hasDivergence, projectFields } from "./foreign/policy";
 
 // Improvement loop (BRIEF-KEEL-IMPROVE-001)
 export type { ImprovableSurface, VerdictPair, ImprovementCandidate, ImprovementDecision, HarnessFixStat } from "./improve/gate";
@@ -80,3 +84,30 @@ export { DEFAULT_REGISTRY } from "./inbound/registry";
 // validation, audit outcome-authoritativeness
 export type { QuotaDecision, AuditStatus, InvocationAudit } from "./inbound/policy";
 export { effectiveEnvelope, evaluateQuota, validateRestriction, resolveInvocationAudit } from "./inbound/policy";
+
+// Effect signatures (BRIEF-KEEL-EFFECT-SIGNATURE-001): per-method effect
+// declaration -> derived approval + reversibility, anchored to the trace
+export type { EffectClass } from "./effect/lattice";
+export { effectAttenuates } from "./effect/lattice";
+export type { IdempotencyClass } from "./effect/idempotency";
+export type { ErrorClass } from "./effect/errors";
+export { classifyTerminal } from "./effect/errors";
+export type { ReadRef, WriteRef, EffectSignature, IdempotenceProvenance } from "./effect/signature";
+export { projectArgs } from "./effect/project-args";
+export type { EffectVerdict } from "./effect/verify";
+export { verifyEffect } from "./effect/verify";
+export type { Attestation } from "./effect/registry";
+export { EFFECT_SIGNATURES, effectSignatureFor, requiresApprovalFor, approvalForSignature, ATTESTED_IDEMPOTENT, attestedIdempotent } from "./effect/registry";
+
+// OpenAPI import (BRIEF-KEEL-CONNECTOR-DESCRIPTOR-001): derive EffectSignature[]
+// from an OpenAPI document — descriptive only, never admissive (INV-DESC-*)
+export type { OpenApiSchema, OpenApiMediaType, OpenApiParameter, OpenApiRequestBody, OpenApiResponse, OpenApiOperation, OpenApiPathItem, OpenApiServer, OpenApiDocument } from "./effect/import/openapi";
+export { openapiToSignatures } from "./effect/import/openapi";
+export { statusToErrorClass } from "./effect/import/status-map";
+
+// Skill selection + store (BRIEF-KEEL-SKILL-001): connector-doc/amend-prompt/
+// procedure prompt surfaces, fronted by selection, gated by the built improve
+// functions above — no new promotion mechanism
+export type { SkillKind, SkillRecord, SkillStorePort } from "./skill/store";
+export type { SkillConnectorDoc, SkillSelection, SelectSkillsOptions } from "./skill/select";
+export { selectSkills } from "./skill/select";

@@ -25,6 +25,6 @@
   "vars": {
     "AI_GATEWAY_URL": "https://api.cloudflare.com/client/v4/accounts/cb56a846c70a38987f31cf6e2b85cb57/ai/v1",
     "AI_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
-    "FOREIGN_MCP_URL": "https://keel-skeleton.koales.workers.dev/mcp-mock"
+    "FOREIGN_MCP_URL": "https://keel-skeleton.koales.workers.dev/fixture-mcp-mock"
   }
 }

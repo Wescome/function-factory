@@ -15,7 +15,8 @@ export class CodemodeExecutionAdapter implements CodeExecutionPort {
       : action.code;
     const out = await this.rt.tool().execute({ code }, undefined);
     const recorded = this.opts.recorder?.drain() ?? [];
-    return this.toOutcome(out, recorded);
+    const terminalError = this.opts.recorder?.drainTerminalError();
+    return this.toOutcome(out, recorded, terminalError);
   }
   async approve(executionId: string): Promise<ExecutionOutcome> {
     const out = await this.rt.approve({ executionId }); // D8: replays, runs approved call
@@ -25,7 +26,8 @@ export class CodemodeExecutionAdapter implements CodeExecutionPort {
     // check trace.calls (fx@v1, geo@v1, ledger@v1, fxrate@v1) saw an empty
     // array on a post-approval trace even when the real calls happened.
     const recorded = this.opts.recorder?.drain() ?? [];
-    return this.toOutcome(out, recorded);
+    const terminalError = this.opts.recorder?.drainTerminalError();
+    return this.toOutcome(out, recorded, terminalError);
   }
   async reject(executionId: string): Promise<void> {
     // codemode's reject needs the pending seq; the skeleton has one gated call.
@@ -40,12 +42,16 @@ export class CodemodeExecutionAdapter implements CodeExecutionPort {
     pending?: { executionId: string; seq: number; connector: string; method: string; args: unknown }[];
     error?: string;
     logs?: string[];
-  }, recorded: readonly import("../../domain/index").ConnectorCall[] = []): ExecutionOutcome {
+  }, recorded: readonly import("../../domain/index").ConnectorCall[] = [], terminalError?: import("../../domain/index").ErrorClass): ExecutionOutcome {
     // completed connector calls (with responses) come from the recorder; pending
     // (gated) calls come from codemode's out.pending.
     const pendingCalls = (out.pending ?? []).map((p) => ({ seq: p.seq, connector: p.connector, method: p.method, args: p.args }));
     const calls = recorded.length ? [...recorded] : pendingCalls;
-    const base = { executionId: out.executionId, calls, egress: "connector-only" as const };
+    // terminalError rides on the trace regardless of codemode's own status —
+    // BRIEF-KEEL-EFFECT-SIGNATURE-001 v1.3: the emitter classifies without
+    // throwing, so the execution typically still completes normally; the
+    // classification is what makes decide() ESCALATE, not a crash.
+    const base = { executionId: out.executionId, calls, egress: "connector-only" as const, terminalError };
     if (out.status === "completed") {
       const trace: ExecutionTraceContent = { ...base, status: "completed", result: out.result };
       return { status: "completed", trace };

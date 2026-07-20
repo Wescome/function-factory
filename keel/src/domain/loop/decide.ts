@@ -11,11 +11,13 @@
  */
 
 import type { VerdictOutcome } from "../lineage/nodes";
+import type { ErrorClass } from "../effect/errors";
+import { classifyTerminal } from "../effect/errors";
 
 export type DecideOutcome =
   | { readonly next: "ACCEPT" }
   | { readonly next: "AMEND"; readonly attempt: number }
-  | { readonly next: "ESCALATE"; readonly reason: "budget-exhausted" | "rejected" | "verifier-escalate" };
+  | { readonly next: "ESCALATE"; readonly reason: "budget-exhausted" | "rejected" | "verifier-escalate" | "terminal-error" };
 
 export interface DecideInput {
   readonly verdict: VerdictOutcome;
@@ -25,10 +27,18 @@ export interface DecideInput {
   readonly budget: number;
   /** set when a human refused an approval-gated action (PAUSE -> rejected). */
   readonly approvalRejected?: boolean;
+  /** OD-EFFECT-6: a classified connector-call error, if this attempt's
+   *  execution hit one. Only a TERMINAL class (classifyTerminal) short-
+   *  circuits to ESCALATE here; an amend-worthy class (InvalidResponse,
+   *  Conflict, RateLimited) falls through to the normal verdict-based path
+   *  below — the caller is expected to have set `verdict: "fail"` for those,
+   *  same as any other failed attempt. */
+  readonly terminalError?: ErrorClass;
 }
 
 export function decide(i: DecideInput): DecideOutcome {
   if (i.approvalRejected) return { next: "ESCALATE", reason: "rejected" };
+  if (i.terminalError && classifyTerminal(i.terminalError)) return { next: "ESCALATE", reason: "terminal-error" };
 
   switch (i.verdict) {
     case "pass":

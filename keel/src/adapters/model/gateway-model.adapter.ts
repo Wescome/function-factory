@@ -11,7 +11,8 @@
  * The fetch is injectable so the adapter's prompt-building and response-parsing
  * are unit-tested without a live call; production passes the global fetch.
  */
-import type { ModelPort, GeneratedAction, SpecificationContent, VerdictContent } from "../../domain/index";
+import type { ModelPort, GeneratedAction, SpecificationContent, VerdictContent, SkillRecord, ErrorClass } from "../../domain/index";
+import { selectSkills, type SkillSelection } from "../../domain/index";
 
 export interface ConnectorDoc {
   readonly name: string;
@@ -42,6 +43,14 @@ export interface GatewayModelConfig {
   /** Metamorphic task: the action is a bare compute(value) body, no connectors.
    *  Set by composition from suiteIsMetamorphic(oracleRef). */
   readonly metamorphic?: boolean;
+  /** BRIEF-KEEL-SKILL-001: the active skill rows for THIS run's connectors +
+   *  intent, fetched ONCE by composition (`store.activeFor(...)`) before
+   *  constructing this adapter — never re-fetched per attempt. `selectSkills`
+   *  still runs fresh on every `generate()` call (cold-start vs amend need
+   *  different selections), but purely over this already-fetched, frozen
+   *  row set — no live store read from here. Absent/empty = no skills,
+   *  `connectorDocs` alone (BUILTIN + whatever composition already merged in). */
+  readonly skillRows?: readonly SkillRecord[];
 }
 
 // Built-in docs for the skeleton connectors, so a live model knows the API.
@@ -58,7 +67,7 @@ export const BUILTIN_CONNECTOR_DOCS: readonly ConnectorDoc[] = [
   // IMPROVE-SPIKE test case: KEEL-authored interface doc documenting the response
   // shape (not the oracle's expected value — INV-FOREIGN-DESC-NOT-INGESTED holds).
   { name: "weather", description: "weather.current({latitude, longitude}) => current weather at coords. Returns { current: { temperature_2m: number } } — the temperature is nested under current.temperature_2m, not top-level." },
-  { name: "ledger", description: "ledger.list({key}) => existing records for key (read; use before writing). ledger.put({key, value}) => append a record. APPROVAL-GATED (consequential)." },
+  { name: "store", description: "store.select({key}) => existing records for key (read; use before writing with append). store.ensure({key, value}) => idempotent upsert, not approval-gated. store.append({key, value}) => always appends a new record. APPROVAL-GATED (consequential, non-idempotent)." },
 ];
 
 export class GatewayModelAdapter implements ModelPort {
@@ -66,6 +75,13 @@ export class GatewayModelAdapter implements ModelPort {
 
   async generate(spec: SpecificationContent, evidence?: VerdictContent): Promise<GeneratedAction> {
     const f = this.cfg.fetchImpl ?? fetch;
+    // BRIEF-KEEL-SKILL-001: selection runs fresh every call (cold-start vs
+    // amend need different results) but only over the already-fetched,
+    // frozen `skillRows` — no live store read here.
+    const divergenceClass = evidence ? extractDivergenceClass(evidence) : undefined;
+    const selection = selectSkills(this.cfg.skillRows ?? [], spec.connectors, spec.intent, {
+      amend: !!evidence, divergenceClass,
+    });
     const body = {
       model: this.cfg.model,
       // deterministic cold start; retries sample so "try a different
@@ -73,8 +89,8 @@ export class GatewayModelAdapter implements ModelPort {
       temperature: evidence ? (this.cfg.amendTemperature ?? 0.7) : 0,
       max_tokens: this.cfg.maxTokens ?? 2000,
       messages: [
-        { role: "system", content: this.systemPrompt(!!this.cfg.metamorphic) },
-        { role: "user", content: this.userPrompt(spec, evidence, !!this.cfg.metamorphic) },
+        { role: "system", content: this.systemPrompt(!!this.cfg.metamorphic, selection.procedure) },
+        { role: "user", content: this.userPrompt(spec, evidence, !!this.cfg.metamorphic, selection) },
       ],
       // amend turns only: cap reasoning etc. on models that stall on retries
       ...(evidence ? (this.cfg.amendParams ?? {}) : {}),
@@ -114,10 +130,10 @@ export class GatewayModelAdapter implements ModelPort {
       const diag = diagnostics(json);
       return { code: `throw new Error(${JSON.stringify("empty model response: " + diag)});`, connectors: [...spec.connectors] };
     }
-    return { code, connectors: [...spec.connectors] };
+    return { code, connectors: [...spec.connectors], skills: selection.ids.length ? selection.ids : undefined };
   }
 
-  private systemPrompt(mr: boolean): string {
+  private systemPrompt(mr: boolean, procedure?: string): string {
     if (mr) {
       return [
         "You are a code-generating agent. You write the BODY of a function `compute(value)`.",
@@ -127,6 +143,22 @@ export class GatewayModelAdapter implements ModelPort {
         "- Write ONLY the statements that go inside compute(value); it ends with `return {…}`.",
         "- Do NOT wrap your code in a function declaration (no `function task(){…}`, no arrow) — it would never be called.",
         "- Do NOT call any connectors, network, or filesystem. Pure computation from `value` only.",
+        "- Output ONLY the code — no prose, no explanation, no markdown fences.",
+      ].join("\n");
+    }
+    if (procedure) {
+      // BRIEF-KEEL-SKILL-001: a crystallized procedure exists for this exact
+      // intent — steer toward reproducing it (still a real model call, still
+      // variance; a FULL bypass is FixedCodeModelAdapter's separate, no-
+      // variance replay path, used only to VALIDATE a procedure for
+      // promotion, not here).
+      return [
+        "You are a code-generating agent. A previously-verified procedure exists for this exact task — it is KNOWN to satisfy the acceptance criteria.",
+        "Rules:",
+        "- Reproduce the given procedure as closely as possible; adapt only what the task's specific values require.",
+        "- Use ONLY the listed connectors, called as `await <name>.<method>(argsObject)`.",
+        "- Do NOT import anything. Do NOT access the network or filesystem.",
+        "- End by `return`ing the result value.",
         "- Output ONLY the code — no prose, no explanation, no markdown fences.",
       ].join("\n");
     }
@@ -140,8 +172,16 @@ export class GatewayModelAdapter implements ModelPort {
     ].join("\n");
   }
 
-  private userPrompt(spec: SpecificationContent, evidence?: VerdictContent, mr = false): string {
+  private userPrompt(spec: SpecificationContent, evidence?: VerdictContent, mr = false, selection?: SkillSelection): string {
     const acc = spec.acceptance.map((a) => `  - [${a.id}] (${a.kind}) ${a.statement}`).join("\n");
+    // Skill-store connector-doc rows OVERRIDE the base set by connector name;
+    // an empty store leaves the base (BUILTIN + whatever composition already
+    // merged in, e.g. the foreign connector doc) completely unchanged.
+    const baseDocs = this.cfg.connectorDocs ?? BUILTIN_CONNECTOR_DOCS;
+    const overrides = new Map((selection?.connectorDocs ?? []).map((d) => [d.name, d]));
+    const docs = baseDocs.map((d) => overrides.get(d.name) ?? d);
+    for (const [name, d] of overrides) if (!baseDocs.some((b) => b.name === name)) docs.push(d);
+
     const parts = mr
       ? [
           `Task: ${spec.intent}`,
@@ -151,8 +191,11 @@ export class GatewayModelAdapter implements ModelPort {
       : [
           `Task: ${spec.intent}`,
           `Acceptance criteria (your code's result must satisfy all):\n${acc}`,
-          `Available connectors (use only these):\n${(this.cfg.connectorDocs ?? BUILTIN_CONNECTOR_DOCS).filter((d) => spec.connectors.includes(d.name)).map((d) => `  - ${d.description}`).join("\n")}`,
+          `Available connectors (use only these):\n${docs.filter((d) => spec.connectors.includes(d.name)).map((d) => `  - ${d.description}`).join("\n")}`,
         ];
+    if (selection?.procedure) {
+      parts.push(`Known-good procedure for this task (adapt as needed, do not deviate unnecessarily):\n\`\`\`\n${selection.procedure}\n\`\`\``);
+    }
     if (evidence) {
       const failed = Object.entries(evidence.results).filter(([, v]) => v === "fail").map(([id]) => id);
       const ev = evidence.evidence as { observed?: Record<string, unknown>; calls?: { connector: string; method: string; args: unknown; response?: unknown }[] } | null;
@@ -181,14 +224,26 @@ export class GatewayModelAdapter implements ModelPort {
       const nestedHint = calls.length
         ? " IMPORTANT: if a field in your result is null/undefined, you accessed the WRONG path. Read each connector response's ACTUAL structure shown above and access the correct, possibly NESTED field (e.g. `resp.data.value` rather than `resp.value`). Do not reuse the same field path that just failed; do not invent values."
         : "";
+      const nudge = selection?.amendNudge ? ` Skill-derived guidance for this failure: ${selection.amendNudge}` : "";
       parts.push(
         `A previous attempt FAILED verification. These criteria did NOT pass:\n${detail}\n` +
-        `Your previous interpretation was wrong — try a materially different one.${shapeHint}${nestedHint}${callsNote} ` +
+        `Your previous interpretation was wrong — try a materially different one.${shapeHint}${nestedHint}${nudge}${callsNote} ` +
         `Overall outcome: ${evidence.outcome}. Fix the code so every criterion passes. Return only the corrected code.`,
       );
     }
     return parts.join("\n\n");
   }
+}
+
+/** BRIEF-KEEL-SKILL-001: read the classified connector error (if any) back off
+ *  the oracle's evidence blob (suite-oracle.adapter.ts writes `terminalError`
+ *  there from the recorded trace) so an amend call can select a divergence-
+ *  matched skill, and so a TERMINAL class suppresses a procedure retry
+ *  (OD-SKILL-1) even though in practice decide() already ESCALATEs before
+ *  another generate() call would happen for one. */
+function extractDivergenceClass(evidence: VerdictContent): ErrorClass | undefined {
+  const ev = evidence.evidence as { terminalError?: ErrorClass } | null;
+  return ev?.terminalError ?? undefined;
 }
 
 function extractText(json: unknown): string {

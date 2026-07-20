@@ -145,4 +145,91 @@ describe("GatewayModelAdapter", () => {
     expect(out.code).toContain("throw new Error");
     expect(out.code).toContain("401");
   });
+
+  // BRIEF-KEEL-SKILL-001
+  describe("skill selection", () => {
+    it("an empty skillRows is non-breaking — no skills recorded, base docs unchanged", async () => {
+      const { fn, captured } = mockFetch({ choices: [{ message: { content: "return await echo.emit({ value: 42 });" } }] });
+      const a = new GatewayModelAdapter({ url: "https://gw/openai", model: "m", apiKey: "k", fetchImpl: fn });
+      const out = await a.generate(spec);
+      expect(out.skills).toBeUndefined();
+      const user = JSON.parse(captured.init?.body as string).messages.find((m: { role: string }) => m.role === "user").content;
+      expect(user).toContain("echo.emit"); // builtin doc untouched
+    });
+
+    it("an active connector-doc skill OVERRIDES the builtin doc by name, and is recorded on skills", async () => {
+      const { fn, captured } = mockFetch({ choices: [{ message: { content: "return await echo.emit({ value: 42 });" } }] });
+      const a = new GatewayModelAdapter({
+        url: "https://gw/openai", model: "m", apiKey: "k", fetchImpl: fn,
+        skillRows: [{ id: "s1", kind: "connector-doc", key: "echo", content: "echo.emit(args) => SKILL-STORE OVERRIDE TEXT", version: 3, status: "active", evidence: {} }],
+      });
+      const out = await a.generate(spec);
+      expect(out.skills).toEqual(["s1@3"]);
+      const user = JSON.parse(captured.init?.body as string).messages.find((m: { role: string }) => m.role === "user").content;
+      expect(user).toContain("SKILL-STORE OVERRIDE TEXT");
+      expect(user).not.toContain("returns args unchanged"); // the builtin echo doc text is gone
+    });
+
+    it("a retired connector-doc skill is never selected", async () => {
+      const { fn, captured } = mockFetch({ choices: [{ message: { content: "return await echo.emit({ value: 42 });" } }] });
+      const a = new GatewayModelAdapter({
+        url: "https://gw/openai", model: "m", apiKey: "k", fetchImpl: fn,
+        skillRows: [{ id: "s1", kind: "connector-doc", key: "echo", content: "RETIRED TEXT", version: 1, status: "retired", evidence: {} }],
+      });
+      const out = await a.generate(spec);
+      expect(out.skills).toBeUndefined();
+      const user = JSON.parse(captured.init?.body as string).messages.find((m: { role: string }) => m.role === "user").content;
+      expect(user).not.toContain("RETIRED TEXT");
+    });
+
+    it("an active procedure skill switches the system prompt AND injects the code as a template", async () => {
+      const { fn, captured } = mockFetch({ choices: [{ message: { content: "return await echo.emit({ value: 42 });" } }] });
+      const a = new GatewayModelAdapter({
+        url: "https://gw/openai", model: "m", apiKey: "k", fetchImpl: fn,
+        skillRows: [{ id: "p1", kind: "procedure", key: spec.intent, content: "return await echo.emit({ value: 42 });", version: 1, status: "active", evidence: {} }],
+      });
+      const out = await a.generate(spec);
+      expect(out.skills).toEqual(["p1@1"]);
+      const body = JSON.parse(captured.init?.body as string);
+      const sys = body.messages.find((m: { role: string }) => m.role === "system").content;
+      const user = body.messages.find((m: { role: string }) => m.role === "user").content;
+      expect(sys).toContain("previously-verified procedure exists");
+      expect(user).toContain("Known-good procedure");
+      expect(user).toContain("return await echo.emit({ value: 42 });");
+    });
+
+    it("an amend-prompt skill is injected ONLY on the amend call, never cold start (OD-SKILL-4)", async () => {
+      const { fn, captured } = mockFetch({ choices: [{ message: { content: "return 1;" } }] });
+      const a = new GatewayModelAdapter({
+        url: "https://gw/openai", model: "m", apiKey: "k", fetchImpl: fn,
+        skillRows: [{ id: "n1", kind: "amend-prompt", key: spec.intent, content: "SKILL NUDGE TEXT", version: 2, status: "active", evidence: {} }],
+      });
+      await a.generate(spec); // cold start
+      let user = JSON.parse(captured.init?.body as string).messages.find((m: { role: string }) => m.role === "user").content;
+      expect(user).not.toContain("SKILL NUDGE TEXT");
+
+      const out = await a.generate(spec, { outcome: "fail", results: { A1: "fail" }, evidence: { observed: {} }, oracleRef: "echo@v1", attempt: 1, ms: 5 });
+      user = JSON.parse(captured.init?.body as string).messages.find((m: { role: string }) => m.role === "user").content;
+      expect(user).toContain("SKILL NUDGE TEXT");
+      expect(out.skills).toEqual(["n1@2"]);
+    });
+
+    it("OD-SKILL-1: a TERMINAL divergenceClass (from the oracle evidence) suppresses procedure selection", async () => {
+      const { fn, captured } = mockFetch({ choices: [{ message: { content: "return 1;" } }] });
+      const a = new GatewayModelAdapter({
+        url: "https://gw/openai", model: "m", apiKey: "k", fetchImpl: fn,
+        skillRows: [{ id: "p1", kind: "procedure", key: spec.intent, content: "KNOWN GOOD CODE", version: 1, status: "active", evidence: {} }],
+      });
+      await a.generate(spec, {
+        outcome: "fail", results: { A1: "fail" },
+        evidence: { observed: {}, terminalError: "PermissionDenied" },
+        oracleRef: "echo@v1", attempt: 1, ms: 5,
+      });
+      const body = JSON.parse(captured.init?.body as string);
+      const sys = body.messages.find((m: { role: string }) => m.role === "system").content;
+      const user = body.messages.find((m: { role: string }) => m.role === "user").content;
+      expect(sys).not.toContain("previously-verified procedure exists");
+      expect(user).not.toContain("KNOWN GOOD CODE");
+    });
+  });
 });

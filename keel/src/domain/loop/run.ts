@@ -47,7 +47,7 @@ async function genExec(spec: Specification, p: RunPorts, attempt: number, eviden
   const gen = await p.model.generate(spec.content, evidence);
   const action = await p.repo.append<Action>({
     kind: "Action",
-    content: { code: gen.code, connectors: [...gen.connectors], attempt },
+    content: { code: gen.code, connectors: [...gen.connectors], attempt, skills: gen.skills },
     provenance: [{ rel: "PRODUCES", to: spec.id }],
   });
   await p.repo.emit({ type: "ActionGenerated", at: p.now(), run: spec.id, action: action.id, attempt });
@@ -86,7 +86,10 @@ async function verifyDecide(spec: Specification, p: RunPorts, action: Action, tr
   });
   await p.repo.emit({ type: "VerdictEmitted", at: p.now(), run: spec.id, verdict: verdict.id, outcome: vc.outcome, attempt });
 
-  const d = decide({ verdict: vc.outcome, attempt, budget: spec.content.attemptBudget });
+  const d = decide({
+    verdict: vc.outcome, attempt, budget: spec.content.attemptBudget,
+    terminalError: trace.content.terminalError,
+  });
 
   if (d.next === "ACCEPT") {
     await p.repo.emit({ type: "RunAccepted", at: p.now(), run: spec.id, verdict: verdict.id });

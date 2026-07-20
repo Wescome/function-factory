@@ -7,6 +7,7 @@
  */
 
 import type { ContentHash, LineageNode } from "./contract";
+import type { ErrorClass } from "../effect/errors";
 
 // ---------------------------------------------------------------------------
 // Specification — the normalized intent (INTENT state). Admission is idempotent
@@ -36,8 +37,14 @@ export interface SpecificationContent {
    *  from capability: a connector may be in the ceiling yet forbidden here. A
    *  derived spec must inherit all of its root's forbids (the set can only grow). */
   readonly forbids?: readonly string[];
-  /** Which root goal-clause this derived spec serves. Mandatory for derived specs
-   *  (makes positive-serve inspectable); absent on human-root specs. */
+  /** Which PARENT goal-clause this derived spec serves (PLAYBOOK-KEEL-COVERAGE:
+   *  corrected from "root" — `templateDerive` writes it from `parent.acceptance`,
+   *  and the gate's anchor check (`hasGoalMapping`) resolves it against the
+   *  parent, not the root. At depth 1 parent === root so this was never
+   *  exercised; deeper, only parent-anchoring is correct — attenuation is
+   *  already transitive, so parent-anchoring composes up to the root anyway).
+   *  Mandatory for derived specs (makes positive-serve inspectable); absent on
+   *  human-root specs. */
   readonly servesClause?: string;
   /** Derivation provenance (INV-SPEC-PROVENANCE): the parent (attenuation anchor)
    *  and the human-authorized root (prohibition + authority anchor). */
@@ -58,6 +65,11 @@ export interface ActionContent {
   readonly code: string;
   readonly connectors: readonly string[];
   readonly attempt: number;            // 1-based
+  /** BRIEF-KEEL-SKILL-001: which skill rows (id@version) were selected to
+   *  produce THIS action, if any — additive/optional, exactly like
+   *  `forbids?`/`response?` were added elsewhere. Frozen at GENERATE time
+   *  (INV-SKILL-FROZEN): replay reads this back and never re-selects. */
+  readonly skills?: readonly string[];
 }
 export type Action = LineageNode<"Action", ActionContent>;
 
@@ -89,6 +101,11 @@ export interface ExecutionTraceContent {
   readonly pending?: readonly PendingAction[];
   readonly result?: unknown;
   readonly error?: string;
+  /** OD-EFFECT-6: a classified connector-call error, if the execution adapter
+   *  could classify one (see effect/errors.ts). Additive/optional — absent
+   *  today for every existing connector, so no current path's behavior
+   *  changes; decide() only acts on this when it's actually populated. */
+  readonly terminalError?: ErrorClass;
   /** D5: structural evidence the sandbox had no ambient network. */
   readonly egress: "none" | "connector-only";
 }

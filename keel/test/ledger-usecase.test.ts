@@ -49,3 +49,34 @@ describe("#1 read-before-write keeps exactly one (oracle read-back)", () => {
     expect(A1([{ connector: "ledger", method: "put", response: { ok: true } }])).toBe(false);
   });
 });
+
+// BRIEF-KEEL-EFFECT-SIGNATURE-001 v1.2 §A2.4: store.ensure is safe to
+// auto-execute (no D8 PAUSE) ONLY because it's atomic — a read-then-
+// conditional-write would race under concurrency and stack, which would make
+// skipping the approval gate unsafe. This is the regression guard: a future
+// edit to store.ensure that reintroduces a check-then-write gap should fail
+// HERE, not silently ship (the oracle only verifies post-state correctness,
+// it doesn't itself prove the write was race-free).
+describe("#1 store.ensure is atomic (the basis for skipping D8, not a convenience)", () => {
+  it("sequential: second ensure for an existing key is a no-op (inserted:false)", async () => {
+    const s = new MapLedgerStore();
+    const first = await s.ensure("entity-1", "active");
+    const second = await s.ensure("entity-1", "active");
+    expect(first.inserted).toBe(true);
+    expect(second.inserted).toBe(false);
+    expect(await s.list("entity-1")).toHaveLength(1);
+  });
+  it("CONCURRENT: two ensures racing on the same key still produce exactly one record", async () => {
+    const s = new MapLedgerStore();
+    const [a, b] = await Promise.all([s.ensure("entity-1", "active"), s.ensure("entity-1", "active")]);
+    // exactly one of the two actually inserted; the other observed it already there
+    expect([a.inserted, b.inserted].filter(Boolean)).toHaveLength(1);
+    expect(await s.list("entity-1")).toHaveLength(1);
+  });
+  it("many concurrent ensures on the same key -> still exactly one record (no stacking)", async () => {
+    const s = new MapLedgerStore();
+    const results = await Promise.all(Array.from({ length: 20 }, () => s.ensure("entity-1", "active")));
+    expect(results.filter((r) => r.inserted)).toHaveLength(1);
+    expect(await s.list("entity-1")).toHaveLength(1);
+  });
+});

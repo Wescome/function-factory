@@ -69,6 +69,21 @@ describe("decide() — the folded LoopController, exhaustive", () => {
     expect(decide({ verdict: "fail", attempt: 4, budget: 5 })).toEqual({ next: "AMEND", attempt: 5 });
     expect(decide({ verdict: "fail", attempt: 5, budget: 5 })).toEqual({ next: "ESCALATE", reason: "budget-exhausted" });
   });
+
+  // OD-EFFECT-6: a classified connector-call error. Amend-worthy classes fall
+  // through to the normal verdict path; terminal classes short-circuit.
+  it("Conflict (amend-worthy) falls through to the normal fail/amend path", () => {
+    expect(decide({ verdict: "fail", attempt: 1, budget: 3, terminalError: "Conflict" }))
+      .toEqual({ next: "AMEND", attempt: 2 });
+  });
+  it("PermissionDenied (terminal) -> ESCALATE terminal-error, even with budget left", () => {
+    expect(decide({ verdict: "fail", attempt: 1, budget: 3, terminalError: "PermissionDenied" }))
+      .toEqual({ next: "ESCALATE", reason: "terminal-error" });
+  });
+  it("terminal error takes priority over a passing verdict (can't happen in practice, but decide() stays total)", () => {
+    expect(decide({ verdict: "pass", attempt: 1, budget: 3, terminalError: "AuthenticationFailed" }))
+      .toEqual({ next: "ESCALATE", reason: "terminal-error" });
+  });
 });
 
 describe("state machine data (D3)", () => {

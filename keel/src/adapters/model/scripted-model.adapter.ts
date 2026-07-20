@@ -48,23 +48,34 @@ const c = await fx.rate({ from: "USD", to: "GBP" });
 return { usd_eur: a, eur_gbp: b, usd_gbp: c };`;
         return { code: c, connectors: ["fx"] };
       }
-      case "ledger-create": {
-        // read-before-write: only put if absent; then read back to confirm
+      case "store-ensure": {
+        // write-idempotent: store.ensure is atomic (the connector itself does
+        // the read-before-write check), so the model's job is trivial — a
+        // single call. The oracle verifies the CALL's own recorded response,
+        // not this return value.
         const c = `const key = "entity-1";
-let recs = await ledger.list({ key });
-if (recs.length === 0) { await ledger.put({ key, value: "active" }); }
-recs = await ledger.list({ key });
-return { count: recs.length };`;
-        return { code: c, connectors: ["ledger"] };
+const r = await store.ensure({ key, value: "active" });
+return { ok: r.ok };`;
+        return { code: c, connectors: ["store"] };
       }
-      case "ledger-duplicate": {
+      case "store-append-create": {
+        // write-effectful: store.append has no built-in check, so the model
+        // must do read-before-write itself — only put if absent; read back to confirm.
+        const c = `const key = "entity-1";
+let recs = await store.select({ key });
+if (recs.length === 0) { await store.append({ key, value: "active" }); }
+recs = await store.select({ key });
+return { count: recs.length };`;
+        return { code: c, connectors: ["store"] };
+      }
+      case "store-append-duplicate": {
         // BUG: writes without checking -> duplicates if a record already exists.
         // Oracle's read-back catches count!==1.
         const c = `const key = "entity-1";
-await ledger.put({ key, value: "active" });
-const recs = await ledger.list({ key });
+await store.append({ key, value: "active" });
+const recs = await store.select({ key });
 return { count: recs.length };`;
-        return { code: c, connectors: ["ledger"] };
+        return { code: c, connectors: ["store"] };
       }
       case "geo-correct": {
         // threads geocode coords into weather; unwraps both nested shapes
@@ -129,6 +140,17 @@ return { latitude: 0, longitude: 0, temperature_c: w.current.temperature_2m };`;
         return { code: `return await foreign.lookupPoisoned({});`, connectors: ["foreign"] };
       case "foreign-effectful":
         return { code: `return await foreign.effectfulOp({});`, connectors: ["foreign"] };
+      case "foreign-upsert":
+        return { code: `return await foreign.upsertRecord({ id: "r1" });`, connectors: ["foreign"] };
+      // PLAYBOOK-KEEL-COMPOSE-ANCHOR test support: deterministic `tax` values
+      // so derive()'s per-clause children (templateDerive rewrites intent to
+      // "<parent.intent> — sub-goal: return a result object with the
+      // field(s) described by: <clause statement>") reach an OBSERVED value
+      // without a real model — the anchor check runs only AFTER the vacuity
+      // gate passes, and vitest never has AI_API_KEY set.
+      case "compose-anchor-test — sub-goal: return a result object with the field(s) described by: R1 marker":
+      case "compose-anchor-test — sub-goal: return a result object with the field(s) described by: R2 marker":
+        return { code: `return { tax: 14 };`, connectors: ["echo"] };
       case "foreign-denied":
         return { code: `return await foreignDenied.lookup({});`, connectors: ["foreignDenied"] };
       default:

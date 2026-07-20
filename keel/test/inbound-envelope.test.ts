@@ -12,19 +12,24 @@ describe("inbound scope-gated admission (the menu)", () => {
     if (a.admit) { expect(a.spec.connectors).toEqual(["fx"]); expect(a.spec.oracleRef).toBe("fxrate@v1"); }
   });
   it("known spec + MISSING scope -> 403 insufficient_scope (before any execution)", () => {
-    const a = resolveInvocation(R, ["keel:read"], "callerA", "ledger_ensureRecord", "n1");
+    const a = resolveInvocation(R, ["keel:read"], "callerA", "store_append", "n1");
     expect(a.admit).toBe(false);
-    if (!a.admit) { expect(a.status).toBe(403); expect(a.reason).toContain("keel:ledger-write"); }
+    if (!a.admit) { expect(a.status).toBe(403); expect(a.reason).toContain("keel:store-write"); }
   });
   it("unknown spec -> 404 (caller cannot invent a spec — menu only)", () => {
     const a = resolveInvocation(R, ["keel:read"], "callerA", "os.exec", "n1");
     expect(a.admit).toBe(false);
     if (!a.admit) expect(a.status).toBe(404);
   });
-  it("effectful spec with the write scope -> ADMIT (D8 still gates at execution)", () => {
-    const a = resolveInvocation(R, ["keel:read", "keel:ledger-write"], "callerB", "ledger_ensureRecord", "n1");
+  it("write-idempotent spec with the write scope -> ADMIT, NOT approval-gated (auto-verifies)", () => {
+    const a = resolveInvocation(R, ["keel:read", "keel:store-write"], "callerB", "store_ensure", "n1");
     expect(a.admit).toBe(true);
-    if (a.admit) expect(a.spec.approvalGated).toEqual(["ledger"]);
+    if (a.admit) expect(a.spec.approvalGated).toEqual([]);
+  });
+  it("write-effectful spec with the write scope -> ADMIT (D8 still gates at execution)", () => {
+    const a = resolveInvocation(R, ["keel:read", "keel:store-write"], "callerB", "store_append", "n1");
+    expect(a.admit).toBe(true);
+    if (a.admit) expect(a.spec.approvalGated).toEqual(["store"]);
   });
 });
 
@@ -42,10 +47,12 @@ describe("no-passthrough (structural) + audit identity (OD-IN-5)", () => {
 });
 
 describe("visibleSpecs (tools/list filtering per scope)", () => {
-  it("read-only caller sees the two read specs, not the write spec", () => {
+  it("read-only caller sees the two read specs, not the two write specs", () => {
     expect(visibleSpecs(R, ["keel:read"]).sort()).toEqual(["fx_snapshot", "weather_forCity"]);
   });
-  it("write caller sees all three", () => {
-    expect(visibleSpecs(R, ["keel:read", "keel:ledger-write"])).toContain("ledger_ensureRecord");
+  it("write caller sees both store specs too", () => {
+    const visible = visibleSpecs(R, ["keel:read", "keel:store-write"]);
+    expect(visible).toContain("store_ensure");
+    expect(visible).toContain("store_append");
   });
 });

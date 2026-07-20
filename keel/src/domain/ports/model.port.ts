@@ -9,6 +9,12 @@ import type { SpecificationContent, VerdictContent } from "../lineage/nodes";
 export interface GeneratedAction {
   readonly code: string;
   readonly connectors: readonly string[];
+  /** BRIEF-KEEL-SKILL-001: the skill rows (id@version) selected to produce
+   *  this action, if any — additive/optional. The caller freezes this onto
+   *  the Action node (INV-SKILL-FROZEN); a replay-only ModelPort
+   *  (FixedCodeModelAdapter) returns back exactly what it was given, never
+   *  re-selecting. */
+  readonly skills?: readonly string[];
 }
 
 export interface ModelPort {

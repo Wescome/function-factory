@@ -53,7 +53,7 @@ export interface RunAccepted extends Base {
 }
 export interface RunEscalated extends Base {
   readonly type: "RunEscalated";
-  readonly reason: "budget-exhausted" | "rejected" | "verifier-escalate";
+  readonly reason: "budget-exhausted" | "rejected" | "verifier-escalate" | "terminal-error";
   readonly verdict?: ContentHash;
 }
 
