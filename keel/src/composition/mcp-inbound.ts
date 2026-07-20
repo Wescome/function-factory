@@ -16,9 +16,10 @@
  * never receives the inbound Request either. Absence by construction.
  *
  * INV-INBOUND-EFFECT-GATED: a granted scope admits the CLASS of spec
- * (ledger.ensureRecord); the effect itself still D8-gates at execution
- * (PAUSE, held for a human `POST /approve?name=<doName>`). A scope is not a
- * standing effect approval.
+ * (store_append); the effect itself still D8-gates at execution (PAUSE, held
+ * for a human `POST /approve?name=<doName>`). A scope is not a standing
+ * effect approval. (store_ensure is write-idempotent, not write-effectful —
+ * it never PAUSEs at all; see BRIEF-KEEL-EFFECT-SIGNATURE-001 v1.2 §A2.4.)
  */
 import { McpAgent } from "agents/mcp";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";

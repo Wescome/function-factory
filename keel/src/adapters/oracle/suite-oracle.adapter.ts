@@ -80,8 +80,12 @@ export class SuiteOracleAdapter implements OraclePort {
 
     return {
       outcome,
+      // BRIEF-KEEL-SKILL-001: terminalError rides along so the NEXT generate()
+      // call (if any — decide() already ESCALATEs immediately on a terminal
+      // class, so this is only ever seen for an amend-worthy one) can select
+      // an amend-prompt skill by divergence class, not just by intent.
+      evidence: { suiteRef: spec.oracleRef, suiteFound: !!suite, perCriterion, observed, calls: trace.calls, raw, terminalError: trace.terminalError },
       results,
-      evidence: { suiteRef: spec.oracleRef, suiteFound: !!suite, perCriterion, observed, calls: trace.calls, raw },
       oracleRef: spec.oracleRef,
       attempt: 0,
       ms: Date.now() - t0,

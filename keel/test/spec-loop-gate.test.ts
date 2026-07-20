@@ -16,20 +16,22 @@ const parent = base;         // attenuation anchor
 
 describe("6a freeze gate", () => {
   it("attenuating + reversible + mapped + inherits -> AUTO-ADMIT", () => {
-    const child = spec({ connectors: ["echo"], approvalGated: [], servesClause: "reconcile" });
+    // servesClause must resolve to a REAL parent clause (PLAYBOOK-KEEL-COVERAGE
+    // anchor) — parent's only clause is "A1".
+    const child = spec({ connectors: ["echo"], approvalGated: [], servesClause: "A1" });
     expect(freezeGate(child, parent, root, policy).tier).toBe("auto-admit");
   });
   it("adds a connector (amplifies) -> REJECT", () => {
-    const child = spec({ connectors: ["echo", "billing", "net"], servesClause: "x" });
+    const child = spec({ connectors: ["echo", "billing", "net"], servesClause: "A1" });
     expect(freezeGate(child, parent, root, policy).tier).toBe("reject");
   });
   it("un-gates a parent-gated connector -> REJECT (attenuation)", () => {
-    const child = spec({ connectors: ["echo", "billing"], approvalGated: [], servesClause: "x" });
+    const child = spec({ connectors: ["echo", "billing"], approvalGated: [], servesClause: "A1" });
     expect(attenuates(child, parent)).toBe(false);
     expect(freezeGate(child, parent, root, policy).tier).toBe("reject");
   });
   it("drops a root prohibition -> REJECT (intent drift)", () => {
-    const child = spec({ connectors: ["echo"], approvalGated: [], forbids: ["exceed-budget"], servesClause: "x" });
+    const child = spec({ connectors: ["echo"], approvalGated: [], forbids: ["exceed-budget"], servesClause: "A1" });
     expect(inheritsProhibitions(child, root)).toBe(false);
     expect(freezeGate(child, parent, root, policy).tier).toBe("reject");
   });
@@ -37,15 +39,23 @@ describe("6a freeze gate", () => {
     const child = spec({ connectors: ["echo"], approvalGated: [] }); // no servesClause
     expect(freezeGate(child, parent, root, policy).tier).toBe("human-preapproval");
   });
+  it("servesClause present but does not resolve to a parent clause -> REJECT (PLAYBOOK-KEEL-COVERAGE anchor)", () => {
+    // this is the test that used to read `servesClause: "x"` and pass under the
+    // OLD presence-only hasGoalMapping — that was the defect the anchor closes.
+    const child = spec({ connectors: ["echo"], approvalGated: [], servesClause: "x" });
+    const decision = freezeGate(child, parent, root, policy);
+    expect(decision.tier).toBe("reject");
+    expect(decision.reasons).toContain("servesClause does not resolve to a parent acceptance clause");
+  });
   it("attenuating + mapped but AUTONOMOUS EFFECTFUL reach -> HUMAN-PREAPPROVAL", () => {
     // parent that had billing ungated, so child attenuates yet is effectful
     const effParent = spec({ approvalGated: [] });
-    const child = spec({ connectors: ["billing"], approvalGated: [], servesClause: "x" });
+    const child = spec({ connectors: ["billing"], approvalGated: [], servesClause: "A1" });
     expect(attenuates(child, effParent)).toBe(true);
     expect(freezeGate(child, effParent, root, policy).tier).toBe("human-preapproval");
   });
   it("malformed (no acceptance) -> REJECT", () => {
-    const child = spec({ acceptance: [], connectors: ["echo"], approvalGated: [], servesClause: "x" });
+    const child = spec({ acceptance: [], connectors: ["echo"], approvalGated: [], servesClause: "A1" });
     expect(freezeGate(child, parent, root, policy).tier).toBe("reject");
   });
 });

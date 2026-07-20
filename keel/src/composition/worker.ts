@@ -7,6 +7,9 @@
  *   GET  /result?name=<run>                                     -> terminal state + node kinds
  *   GET  /timeline?name=<run>                                   -> ordered states
  *   POST /approve?name=<run>                                    -> resume a paused run
+ *   POST /derive?name=<run>                                     -> split into derived children
+ *   POST /join?name=<run>                                       -> read back what the children produced (judges nothing)
+ *   POST /compose?name=<run>                                    -> judge the joined outputs against the parent's cross-cut clause
  */
 export { Orchestrator } from "./orchestrator";
 export { CodemodeRuntime } from "@cloudflare/codemode";
@@ -18,6 +21,7 @@ import { D1CrossRunAdapter } from "../adapters/persistence/d1-cross-run.adapter"
 import { D1ProcedureStore } from "../adapters/improve/d1-procedure-store.adapter";
 import { D1RegressionSuiteAdapter } from "../adapters/improve/d1-regression-suite.adapter";
 import { D1InboundAuditAdapter } from "../adapters/inbound/d1-inbound-audit.adapter";
+import { D1SkillStoreAdapter } from "../adapters/skill/d1-skill-store.adapter";
 import { mineProcedures, evaluateProcedure, evaluateHarnessFix, pendingCandidates, procedureStillAddsValue } from "../domain/index";
 import type { TraceSummary, ReplayResult, VerdictPair, AnchorTrace } from "../domain/index";
 import type { SpecificationContent } from "../domain/lineage/nodes";
@@ -29,6 +33,8 @@ type Stub = {
   approve(): Promise<unknown>;
   dumpNodes(): Promise<unknown>;
   derive(): Promise<unknown>;
+  join(): Promise<unknown>;
+  compose(): Promise<unknown>;
   listBacklog(): Promise<unknown>;
   disposeBacklog(id: string, status: string): Promise<unknown>;
   replayProcedure(content: SpecificationContent, code: string): Promise<{ accepted: boolean; attempts: number; effectful: boolean }>;
@@ -116,6 +122,9 @@ function mcpMockHandle(rpc: { jsonrpc: "2.0"; id?: number; method: string; param
     if (toolName === "effectfulOp") {
       return { body: { jsonrpc: "2.0", id: rpc.id, result: { structuredContent: { done: true } } } };
     }
+    if (toolName === "upsertRecord") {
+      return { body: { jsonrpc: "2.0", id: rpc.id, result: { structuredContent: { ok: true } } } };
+    }
     return { body: { jsonrpc: "2.0", id: rpc.id, error: { code: -32601, message: `unknown tool: ${String(toolName)}` } }, status: 404 };
   }
   return { body: { jsonrpc: "2.0", id: rpc.id, error: { code: -32601, message: `unknown method: ${rpc.method}` } }, status: 404 };
@@ -138,7 +147,13 @@ const legacyHandler = {
     const url = new URL(req.url);
     const name = url.searchParams.get("name") ?? "default";
     try {
-      if (req.method === "POST" && url.pathname === "/mcp-mock") {
+      // Renamed from /mcp-mock (BRIEF-KEEL-ERROR-EMIT: live-verifying emitter 2
+      // surfaced that OAuthProvider's apiRoute:"/mcp" string-PREFIX-matches
+      // "/mcp-mock" too, silently routing this unauthenticated fixture through
+      // the OAuth apiHandler since the inbound MCP work — every foreign-
+      // connector test hitting this fixture has been getting a 401 on its own
+      // initialize handshake. Fixed by not sharing the prefix at all.
+      if (req.method === "POST" && url.pathname === "/fixture-mcp-mock") {
         return await mcpMock(req);
       }
       if (req.method === "POST" && url.pathname === "/admit") {
@@ -167,6 +182,12 @@ const legacyHandler = {
       }
       if (req.method === "POST" && url.pathname === "/derive") {
         return Response.json(await stub(env, name).derive());
+      }
+      if (req.method === "POST" && url.pathname === "/join") {
+        return Response.json(await stub(env, name).join());
+      }
+      if (req.method === "POST" && url.pathname === "/compose") {
+        return Response.json(await stub(env, name).compose());
       }
       if (req.method === "GET" && url.pathname === "/backlog") {
         return Response.json(await stub(env, name).listBacklog());
@@ -288,7 +309,7 @@ const legacyHandler = {
       if (req.method === "POST" && url.pathname === "/improve/procedures/approve-replay") {
         // AMENDMENT A2: the human authorizes the EFFECT by calling this at all —
         // the oracle still gates CORRECTNESS. Runs in a fresh, isolated replay DO
-        // (its own storage, including its own ledger) so the effect performed to
+        // (its own storage, including its own store) so the effect performed to
         // let the oracle judge it never touches production state.
         if (!env.DB) return Response.json({ error: "no D1 index configured" }, { status: 501 });
         const body = (await req.json()) as { id: number };
@@ -336,10 +357,54 @@ const legacyHandler = {
         const terminal = url.searchParams.get("terminal") ?? undefined;
         return Response.json(await new D1CrossRunAdapter(env.DB).list(terminal ? { terminal } : undefined));
       }
+      // BRIEF-KEEL-SKILL-001 — INV-SKILL-EARNED: the ONLY writer to the skill
+      // store. Evaluates through the SAME built gates (no new promotion
+      // mechanism); appends iff the gate says promote:true. `harnessFix` is
+      // the statistical gate (connector-doc/amend-prompt — the model still
+      // generates, so variance needs CI separation); `procedure` is the
+      // deterministic gate (a crystallized, replay-stable procedure).
+      if (req.method === "POST" && url.pathname === "/skill/promote") {
+        if (!env.DB) return Response.json({ error: "no D1 index configured" }, { status: 501 });
+        const body = (await req.json()) as {
+          record: { id: string; kind: "connector-doc" | "amend-prompt" | "procedure"; key: string; content: string; version: number; evidence?: unknown };
+          harnessFix?: { surfaces: string[]; n: number; baseAccepts: number; imprAccepts: number; regression?: VerdictPair[]; minN?: number };
+          procedure?: { surfaces: string[]; afterAccepted: boolean; regression?: VerdictPair[]; attemptsBefore: number; attemptsAfter: number; effectful?: boolean };
+        };
+        const decision = body.harnessFix
+          ? evaluateHarnessFix({
+              surfaces: body.harnessFix.surfaces, n: body.harnessFix.n,
+              baseAccepts: body.harnessFix.baseAccepts, imprAccepts: body.harnessFix.imprAccepts,
+              regression: body.harnessFix.regression ?? [], minN: body.harnessFix.minN,
+            })
+          : body.procedure
+          ? evaluateProcedure({
+              surfaces: body.procedure.surfaces, afterAccepted: body.procedure.afterAccepted,
+              regression: body.procedure.regression ?? [], attemptsBefore: body.procedure.attemptsBefore,
+              attemptsAfter: body.procedure.attemptsAfter, effectful: body.procedure.effectful,
+            })
+          : null;
+        if (!decision) return Response.json({ error: "missing harnessFix or procedure gate input" }, { status: 400 });
+        let appended = false;
+        if (decision.promote) {
+          await new D1SkillStoreAdapter(env.DB).append({
+            id: body.record.id, kind: body.record.kind, key: body.record.key, content: body.record.content,
+            version: body.record.version, status: "active", evidence: body.record.evidence ?? decision,
+          });
+          appended = true;
+        }
+        return Response.json({ decision, appended });
+      }
+      if (req.method === "GET" && url.pathname === "/skill/active") {
+        // Read-only: what selectSkills would see right now for these connectors+intent.
+        if (!env.DB) return Response.json({ error: "no D1 index configured" }, { status: 501 });
+        const connectors = (url.searchParams.get("connectors") ?? "").split(",").filter(Boolean);
+        const intent = url.searchParams.get("intent") ?? "";
+        return Response.json(await new D1SkillStoreAdapter(env.DB).activeFor(connectors, intent));
+      }
     } catch (e) {
       return Response.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 });
     }
-    return new Response("KEEL. POST /admit?name=X (Specification JSON) · GET /result?name=X · GET /timeline?name=X · GET /debug/nodes?name=X · POST /approve?name=X · POST /derive?name=X · GET /backlog?name=X · POST /backlog/dispose?name=X {id,status} · GET /runs[?terminal=] · POST /improve/procedures {names,regressionNames?,minRepeats?} · GET /improve/procedures?key=X · POST /improve/procedures/rollback {key} · GET /improve/procedures/proposed[?key=] · POST /improve/procedures/approve-replay {id} · POST /improve/harness-fix {surfaces,n,baseAccepts,imprAccepts,regression?} · POST /improve/procedures/adds-value {attemptsUnderFixedHarness,attemptsUnderProcedure,criticalDeterminism?}\n");
+    return new Response("KEEL. POST /admit?name=X (Specification JSON) · GET /result?name=X · GET /timeline?name=X · GET /debug/nodes?name=X · POST /approve?name=X · POST /derive?name=X · POST /join?name=X · POST /compose?name=X · GET /backlog?name=X · POST /backlog/dispose?name=X {id,status} · GET /runs[?terminal=] · POST /improve/procedures {names,regressionNames?,minRepeats?} · GET /improve/procedures?key=X · POST /improve/procedures/rollback {key} · GET /improve/procedures/proposed[?key=] · POST /improve/procedures/approve-replay {id} · POST /improve/harness-fix {surfaces,n,baseAccepts,imprAccepts,regression?} · POST /improve/procedures/adds-value {attemptsUnderFixedHarness,attemptsUnderProcedure,criticalDeterminism?}\n");
   },
 };
 
@@ -360,7 +425,7 @@ const legacyHandler = {
 type InboundEnv = Env & { OAUTH_PROVIDER: OAuthHelpers; OAUTH_KV: KVNamespace; INBOUND_MCP: DurableObjectNamespace };
 
 const RESOURCE_URL = "https://keel-skeleton.koales.workers.dev/mcp";
-const SCOPES_SUPPORTED = ["keel:read", "keel:ledger-write"];
+const SCOPES_SUPPORTED = ["keel:read", "keel:store-write"];
 
 const defaultHandler = {
   async fetch(request: Request, env: InboundEnv, _ctx: ExecutionContext): Promise<Response> {
@@ -401,6 +466,6 @@ export default new OAuthProvider({
   resourceMetadata: {
     resource: RESOURCE_URL,
     scopes_supported: SCOPES_SUPPORTED,
-    resource_name: "KEEL inbound (fx_snapshot, weather_forCity, ledger_ensureRecord)",
+    resource_name: "KEEL inbound (fx_snapshot, weather_forCity, store_ensure, store_append)",
   },
 });

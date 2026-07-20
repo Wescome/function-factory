@@ -34,7 +34,8 @@ export type FieldSpec =
   | { readonly type: "boolean" }
   | { readonly type: "enum"; readonly values: readonly string[] }
   | { readonly type: "pattern"; readonly pattern: string } // bounded string
-  | { readonly type: "shape"; readonly fields: SchemaFields };
+  | { readonly type: "shape"; readonly fields: SchemaFields }
+  | { readonly type: "array"; readonly items: FieldSpec };
 export type SchemaFields = Record<string, FieldSpec>;
 export interface ResponseSchema { readonly fields: SchemaFields; }
 export interface Projection { readonly projected: Record<string, unknown>; readonly dropped: readonly string[]; }
@@ -51,10 +52,24 @@ function validateField(v: unknown, spec: FieldSpec, dropped: string[], path: str
       if (!v || typeof v !== "object") { dropped.push(path); return DROP; }
       return projectFields(v, spec.fields, dropped, path);
     }
+    case "array": {
+      if (!Array.isArray(v)) { dropped.push(path); return DROP; }
+      const out: unknown[] = [];
+      for (let i = 0; i < v.length; i++) {
+        const itemDropped: string[] = [];
+        const val = validateField(v[i], spec.items, itemDropped, `${path}[${i}]`);
+        // fail closed: one bad element drops the WHOLE array field, never a
+        // silently-truncated partial list (same "never partially trust" rule
+        // shape/object fields already follow).
+        if (val === DROP || itemDropped.length > 0) { dropped.push(path); return DROP; }
+        out.push(val);
+      }
+      return out;
+    }
   }
 }
 
-function projectFields(obj: unknown, fields: SchemaFields, dropped: string[], prefix: string): Record<string, unknown> {
+export function projectFields(obj: unknown, fields: SchemaFields, dropped: string[], prefix: string): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   const src = (obj && typeof obj === "object") ? (obj as Record<string, unknown>) : {};
   for (const [k, spec] of Object.entries(fields)) {

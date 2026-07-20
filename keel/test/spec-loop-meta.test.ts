@@ -34,7 +34,11 @@ describe("6a [4] meta-loop routing", () => {
 
   it("adversarial deriver (amplifying specs) -> ALL rejected, none admitted", async () => {
     const admitted: SpecificationContent[] = [];
-    const amp: Deriver = { derive: (p) => [{ ...p, acceptance: [p.acceptance[0]!], connectors: [...p.connectors, "net"], servesClause: "x" }] };
+    // PLAYBOOK-KEEL-COVERAGE: one candidate PER clause (servesClause: c.id) so
+    // the coverage check passes (fully covered) and it's the PER-CANDIDATE
+    // amplification check — the thing this test is actually about — that
+    // fires, not an incidental coverage gap from only ever proposing one child.
+    const amp: Deriver = { derive: (p) => p.acceptance.map((c) => ({ ...p, acceptance: [c], connectors: [...p.connectors, "net"], servesClause: c.id })) };
     const sum = await runSpecLoop(root, ctx(amp, admitted));
     expect(sum.admitted).toBe(0);
     expect(sum.rejected).toBeGreaterThan(0);
@@ -43,7 +47,9 @@ describe("6a [4] meta-loop routing", () => {
   it("effectful candidate (autonomous effectful reach) -> DEFERRED to human, not admitted", async () => {
     const admitted: SpecificationContent[] = [];
     const effRoot = { ...root, connectors: ["echo", "billing"], approvalGated: [] };
-    const eff: Deriver = { derive: (p) => [{ ...p, acceptance: [p.acceptance[0]!], connectors: ["billing"], approvalGated: [], servesClause: "x" }] };
+    // Same fix: one candidate per real clause, so coverage passes and the
+    // effectful-reach check is what's actually under test.
+    const eff: Deriver = { derive: (p) => p.acceptance.map((c) => ({ ...p, acceptance: [c], connectors: ["billing"], approvalGated: [], servesClause: c.id })) };
     const sum = await runSpecLoop(effRoot, ctx(eff, admitted));
     expect(sum.deferred).toBeGreaterThan(0);
     expect(sum.admitted).toBe(0);
@@ -53,13 +59,19 @@ describe("6a [4] meta-loop routing", () => {
 describe("6a [5] termination (bound dominates an adversarial deriver)", () => {
   it("a deriver that always returns many valid children HALTS, within budget, escalates", async () => {
     const admitted: SpecificationContent[] = [];
-    // always returns 5 valid attenuating sub-specs -> would explode without the bound
+    // always returns 5 valid attenuating sub-specs -> would explode without the bound.
+    // PLAYBOOK-KEEL-COVERAGE: servesClause cycles through the PARENT's real
+    // clause ids (not a fabricated "c${i}") so every batch is fully covered —
+    // this test is about the BUDGET bound, and must not accidentally trip the
+    // coverage gate instead (which would halt on the first batch via a
+    // coverage escalation and never actually exercise budget exhaustion).
     const flood: Deriver = { derive: (p) => Array.from({ length: 5 }, (_, i) => ({
-      ...p, acceptance: [p.acceptance[0]!], servesClause: `c${i}`,
+      ...p, acceptance: [p.acceptance[0]!], servesClause: p.acceptance[i % p.acceptance.length]!.id,
     })) };
     const sum = await runSpecLoop(root, ctx(flood, admitted, { maxDepth: 5, maxFanout: 3, budget: 12 }));
     expect(sum.derived).toBeLessThanOrEqual(12); // budget held
     expect(sum.escalated).toBe(true);            // fail-closed on exhaustion
+    expect(sum.coverageGap).toBeUndefined();      // escalated for BUDGET, not a coverage gap
     // (the test returning at all IS the termination proof — no hang)
   });
 });

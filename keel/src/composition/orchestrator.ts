@@ -9,7 +9,7 @@ import { runLoop, resumeApproved, type RunPorts, type RunTerminal } from "../dom
 import type { Specification, SpecificationContent, ContentHash, AnyNode, DomainEvent, VerdictContent } from "../domain/index";
 import type { QueryPort, CustodyView, TimelineEntry, ReplaySnapshot, ReplayConsistency, CrossRunRecord } from "../domain/index";
 import { timeline as projTimeline, replayTo as projReplayTo, verifyReplay as projVerifyReplay, crossRunRecord as projCrossRun } from "../domain/index";
-import { runSpecLoop, templateDeriver } from "../domain/index";
+import { runSpecLoop, templateDeriver, requiresApprovalFor } from "../domain/index";
 import type { Deriver, GatePolicy, SpecLoopBound, SpecLoopCtx, SpecLoopSummary, BacklogStore, BacklogEntry, BacklogStatus } from "../domain/index";
 import { InMemoryBacklog } from "../adapters/spec-loop/in-memory-backlog";
 import { D1BacklogAdapter } from "../adapters/spec-loop/d1-backlog.adapter";
@@ -21,7 +21,7 @@ import { ForeignMcpConnector } from "../adapters/foreign/foreign-mcp.codemode";
 import { FxConnector } from "../adapters/fx/fx.codemode";
 import { GeoConnector } from "../adapters/geo/geo.codemode";
 import { WeatherConnector } from "../adapters/weather/weather.codemode";
-import { LedgerConnector } from "../adapters/ledger/ledger.codemode";
+import { StoreConnector } from "../adapters/ledger/store.codemode";
 import { DoLedgerStore } from "../adapters/ledger/do-ledger.adapter";
 import { foreignConnectorDoc } from "../adapters/foreign/mcp-call";
 import { CallRecorder } from "../adapters/codemode/call-recorder";
@@ -34,7 +34,8 @@ import { D1CrossRunAdapter } from "../adapters/persistence/d1-cross-run.adapter"
 import { ScriptedModelAdapter } from "../adapters/model/scripted-model.adapter";
 import { FixedCodeModelAdapter } from "../adapters/model/fixed-code.adapter";
 import { GatewayModelAdapter, BUILTIN_CONNECTOR_DOCS } from "../adapters/model/gateway-model.adapter";
-import { suiteIsMetamorphic } from "../adapters/oracle/suite";
+import { D1SkillStoreAdapter } from "../adapters/skill/d1-skill-store.adapter";
+import { suiteIsMetamorphic, compileComposition, suiteComposes, checkComposesAnchor } from "../adapters/oracle/suite";
 import type { ModelPort } from "../domain/index";
 
 export interface Env {
@@ -59,9 +60,17 @@ const RESERVED_INTENTS = new Set([
   "echo 42", "converge", "never", "approve",
   "uc-001", "uc-002", "uc-003", "degraded", "multi", "amend-demo", "amend-blind-sim",
   "mr-correct", "mr-cheat", "regress-demo", "stale-tier",
-  "foreign-lookup", "foreign-poisoned", "foreign-effectful", "foreign-denied",
+  "foreign-lookup", "foreign-poisoned", "foreign-effectful", "foreign-denied", "foreign-upsert",
   "fx-correct", "fx-fabricate", "fx-rawshape",
-  "geo-correct", "geo-topfail", "geo-fabricate", "ledger-create", "ledger-duplicate",
+  "geo-correct", "geo-topfail", "geo-fabricate",
+  "store-ensure", "store-append-create", "store-append-duplicate",
+  // PLAYBOOK-KEEL-COMPOSE-ANCHOR: templateDerive rewrites a child's intent to
+  // "<parent.intent> — sub-goal: ... <clause statement>" — these are the
+  // exact rewritten strings for the deterministic anchor-test fixture, so the
+  // live worker exercises the same scripted (non-model) path the vitest
+  // suite does, no real-model variance in the demo.
+  "compose-anchor-test — sub-goal: return a result object with the field(s) described by: R1 marker",
+  "compose-anchor-test — sub-goal: return a result object with the field(s) described by: R2 marker",
 ]);
 
 // The foreign connector's KEEL-authored tool config — the SAME text is used to
@@ -73,13 +82,59 @@ const FOREIGN_TOOLS = {
   lookup: { description: "KEEL: look up a value from the allowlisted foreign service.", responseSchema: FOREIGN_LOOKUP_SCHEMA },
   lookupPoisoned: { description: "KEEL: look up a value (poisoned-response fixture — the mock injects a free-text field).", responseSchema: FOREIGN_LOOKUP_SCHEMA },
   effectfulOp: { description: "KEEL: a consequential foreign operation.", responseSchema: { fields: { done: { type: "boolean" as const } } }, requiresApproval: true },
+  // BRIEF-KEEL-CONNECTOR-DESCRIPTOR-001 v1.1 live milestone: a merged foreign
+  // PUT (write-idempotent, by-claim) — `requiresApproval` is DERIVED, not
+  // hand-set like `effectfulOp` above, so it PAUSEs (unattested) or
+  // auto-executes (attested) purely off `registry.ts`'s provenance/attestation
+  // table (INV-DESC-FOREIGN-IDEMPOTENCE-UNOWNED, live).
+  upsertRecord: {
+    description: "KEEL: upsert a record by id (foreign-claimed idempotent).",
+    responseSchema: { fields: { ok: { type: "boolean" as const } } },
+    requiresApproval: requiresApprovalFor("foreign", "upsertRecord"),
+  },
 };
+
+/** PLAYBOOK-KEEL-JOIN: one derived child's read-back. Judges nothing — see
+ *  `Orchestrator.join()`. `observed` is an explicit present/absent pair
+ *  (never coalesced to `null`/`{}`) so "not finished" (`terminal: null`),
+ *  "no observe declared for this clause" (`observable: false`), and "observe
+ *  declared but produced nothing" (`observable: true`, `observed.present:
+ *  false`) stay three distinguishable states, not one silence. */
+export interface JoinChildReport {
+  readonly runId: string;
+  readonly doName: string;
+  readonly servesClause: string | null;
+  readonly parentRunId: string;
+  readonly terminal: string | null;
+  readonly outcome: string | null;
+  readonly observable: boolean;
+  readonly observed: { readonly present: true; readonly value: unknown } | { readonly present: false };
+}
+
+/** PLAYBOOK-KEEL-COMPOSE: one parent cross-cut clause's verdict. `outputs` is
+ *  what was composed — the produced values the relation read, keyed by
+ *  servesClause — never an expected answer (INV-ORACLE-BLIND holds up-leg).
+ *  `unverifiable` covers both "a required child's clause isn't observable"
+ *  (the vacuity gate) and "the sandbox didn't complete" — never a pass. */
+export interface ComposeClauseVerdict {
+  readonly criterionId: string;
+  readonly outcome: "pass" | "fail" | "unverifiable" | "error";
+  readonly reason?: string;
+  readonly outputs: Record<string, unknown>;
+}
 
 export class Orchestrator extends Agent<Env> implements QueryPort {
   private readonly suites = new InMemorySuiteRegistry();
   private readonly recorder = new CallRecorder();
   private readonly memBacklog = new InMemoryBacklog();
   private __rt?: CodemodeHandle;
+  /** The raw `SqlStorage.exec` (positional params, preserves `rowsWritten`)
+   *  — DoLedgerStore.ensure's atomicity proof needs `rowsWritten` off the
+   *  cursor, which `this.sql`'s tagged-template convenience wrapper discards. */
+  private storageSqlExec() {
+    const storage = (this.ctx as unknown as DurableObjectState).storage;
+    return storage.sql.exec.bind(storage.sql) as <T = Record<string, unknown>>(query: string, ...bindings: unknown[]) => { toArray(): T[]; rowsWritten: number };
+  }
   private get rt(): CodemodeHandle {
     if (!this.__rt) {
       const connectors: import("@cloudflare/codemode").CodemodeConnector<unknown>[] = [
@@ -89,7 +144,7 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
         new FxConnector(this.ctx, this.env, this.recorder),
         new GeoConnector(this.ctx, this.env, this.recorder),
         new WeatherConnector(this.ctx, this.env, this.recorder),
-        new LedgerConnector(this.ctx, this.env, this.recorder, new DoLedgerStore(this.sql.bind(this) as never)),
+        new StoreConnector(this.ctx, this.env, this.recorder, new DoLedgerStore(this.storageSqlExec())),
       ];
       const foreignUrl = (this.env as Env).FOREIGN_MCP_URL;
       if (foreignUrl) {
@@ -122,11 +177,36 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
   private ensureSchema() {
     this.sql`CREATE TABLE IF NOT EXISTS run_terminal (id INTEGER PRIMARY KEY, state TEXT, verdict TEXT, execution_id TEXT)`;
     this.sql`CREATE TABLE IF NOT EXISTS pending_run (id INTEGER PRIMARY KEY, action_id TEXT, execution_id TEXT, attempt INTEGER)`;
+    // PLAYBOOK-KEEL-JOIN: the source of truth for the join — the root's own
+    // DO, not the best-effort cross-run index (D1). derive()'s doName exists
+    // only transiently otherwise (returned in the HTTP response, persisted
+    // nowhere) and is unrecoverable once that response is gone.
+    // PLAYBOOK-KEEL-COMPOSE (FU-DECOMP-1, landed): `oracle_ref` recorded per
+    // child, not assumed equal to the root's. `join()`/`compose()` resolve
+    // each child's suite against ITS OWN recorded ref — an untrusted deriver
+    // that re-points a child's oracleRef no longer gets silently read against
+    // the wrong suite.
+    this.sql`CREATE TABLE IF NOT EXISTS derived_child (run_id TEXT PRIMARY KEY, do_name TEXT, serves_clause TEXT, parent_run_id TEXT, oracle_ref TEXT)`;
   }
 
   private repo() { return new LineageDoAdapter(this.sql.bind(this) as never); }
 
-  private model(intent: string, mr = false): ModelPort {
+  /** BRIEF-KEEL-SKILL-001: fetched ONCE per run (here), never re-fetched per
+   *  attempt — GatewayModelAdapter's own `generate()` re-runs `selectSkills`
+   *  fresh on every attempt, but only over this already-fetched, frozen row
+   *  set. An absent env.DB (no skill store configured) is legal — empty
+   *  rows, selection falls back to BUILTIN docs only (non-breaking). */
+  private async skillRows(connectors: readonly string[], intent: string) {
+    const env = this.env as Env;
+    if (!env.DB) return [];
+    try {
+      return await new D1SkillStoreAdapter(env.DB).activeFor(connectors, intent);
+    } catch {
+      return []; // the skill store is a read-side convenience; never break a run over it
+    }
+  }
+
+  private async model(intent: string, connectors: readonly string[], mr = false): Promise<ModelPort> {
     const env = this.env as Env;
     if (env.AI_GATEWAY_URL && env.AI_API_KEY && !RESERVED_INTENTS.has(intent)) {
       const connectorDocs = [...BUILTIN_CONNECTOR_DOCS];
@@ -145,15 +225,16 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
         apiKey: env.AI_API_KEY,
         connectorDocs,
         metamorphic: mr,
+        skillRows: await this.skillRows(connectors, intent),
       });
     }
     return new ScriptedModelAdapter();
   }
 
-  private ports(opts: { degraded?: boolean; intent: string; oracleRef?: string }): RunPorts {
+  private async ports(opts: { degraded?: boolean; intent: string; connectors: readonly string[]; oracleRef?: string }): Promise<RunPorts> {
     const wrapMr = opts.oracleRef ? suiteIsMetamorphic(opts.oracleRef) : false;
     return {
-      model: this.model(opts.intent, wrapMr),
+      model: await this.model(opts.intent, opts.connectors, wrapMr),
       // Degraded mode: fault-inject the executor. Oracle stays real so
       // verification keeps serving; the run must fail closed to ESCALATE.
       exec: opts.degraded ? new FaultyExecutionAdapter() : new CodemodeExecutionAdapter(this.rt, { wrapMr, recorder: this.recorder }),
@@ -196,7 +277,7 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
     const handle = await (this as unknown as {
       startFiber(name: string, fn: (raw: unknown) => Promise<void>, opts: { idempotencyKey: string }): Promise<{ accepted: boolean; status: string }>;
     }).startFiber("run", async () => {
-      const res = await runLoop(spec, this.ports({ degraded: content.intent === "degraded", intent: content.intent, oracleRef: content.oracleRef }));
+      const res = await runLoop(spec, await this.ports({ degraded: content.intent === "degraded", intent: content.intent, connectors: content.connectors, oracleRef: content.oracleRef }));
       await this.emitCrossRun();
       this.persistTerminal(res);
     }, { idempotencyKey: spec.id });
@@ -278,7 +359,7 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
     const specNode = nodes.find((n) => n.kind === "Specification") as Specification | undefined;
     if (!specNode) return { resumed: false };
 
-    const res = await resumeApproved(specNode, this.ports({ intent: specNode.content.intent, oracleRef: specNode.content.oracleRef }), {
+    const res = await resumeApproved(specNode, await this.ports({ intent: specNode.content.intent, connectors: specNode.content.connectors, oracleRef: specNode.content.oracleRef }), {
       action: pend.action_id as ContentHash,
       executionId: pend.execution_id,
       attempt: pend.attempt,
@@ -296,7 +377,12 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
   }
 
   private readonly SPEC_LOOP_BOUND: SpecLoopBound = { maxDepth: 3, maxFanout: 3, budget: 20 };
-  private readonly SPEC_LOOP_POLICY: GatePolicy = { effectful: ["billing", "gate"] };
+  // "billing" dropped (BRIEF-KEEL-EFFECT-SIGNATURE-001 v1.2): getTier is a pure
+  // read, no effectful method — this now matches what effect-signature
+  // derivation would produce. The connector itself is NOT removed (test/
+  // stale-assumption.test.ts depends on it as its whole test subject); only
+  // this policy-level classification changes.
+  private readonly SPEC_LOOP_POLICY: GatePolicy = { effectful: ["gate"] };
   private readonly SPEC_LOOP_LEASE_MS = 15 * 60 * 1000;
 
   /** The human-authored root: the one Specification with no derivedFrom
@@ -314,10 +400,31 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
    *  expect (they take nodes[0] of kind Specification). Root cause is the
    *  wiring, not the reads — so each derived spec runs as its own child run in
    *  its own DO instead, keeping "one Specification per DO" true everywhere. */
-  private childStub(name: string): { admit(c: unknown): Promise<{ runId: string }> } {
+  /** PLAYBOOK-KEEL-JOIN: widened to also expose `result()` — the cast is the
+   *  only thing that was ever hiding it; `result()` already exists and is
+   *  public (mirrors `worker.ts`'s `Stub`, which already reads cross-DO). No
+   *  new method added to the DO. */
+  private childStub(name: string): {
+    admit(c: unknown): Promise<{ runId: string }>;
+    result(): Promise<{ state: string | null; verdict: unknown; executionId: string | null; nodeKinds: string[] } | null>;
+  } {
     const env = this.env as Env;
     const ns = env.ORCHESTRATOR;
-    return ns.get(ns.idFromName(name)) as unknown as { admit(c: unknown): Promise<{ runId: string }> };
+    return ns.get(ns.idFromName(name)) as unknown as {
+      admit(c: unknown): Promise<{ runId: string }>;
+      result(): Promise<{ state: string | null; verdict: unknown; executionId: string | null; nodeKinds: string[] } | null>;
+    };
+  }
+
+  /** PLAYBOOK-KEEL-JOIN: remember a derived child durably, in the ROOT's own
+   *  DO — the source of truth for the join. Called from every place a
+   *  derived spec gets admitted into its own DO (derive()'s auto-admit
+   *  branch, and disposeBacklog()'s human-approved branch) — both already
+   *  had all four values in hand; this was the only piece missing.
+   *  PLAYBOOK-KEEL-COMPOSE (FU-DECOMP-1): `oracleRef` recorded per row, taken
+   *  from the CHILD's own spec — never assumed equal to the root's. */
+  private recordDerivedChild(runId: string, doName: string, servesClause: string | undefined, parentRunId: string, oracleRef: string): void {
+    this.sql`INSERT OR REPLACE INTO derived_child (run_id, do_name, serves_clause, parent_run_id, oracle_ref) VALUES (${runId}, ${doName}, ${servesClause ?? null}, ${parentRunId}, ${oracleRef})`;
   }
 
   /** Best-effort: record the derivation link in the cross-run index (D1),
@@ -377,12 +484,159 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
         const { runId } = await this.childStub(doName).admit(spec);
         idOf.set(spec, runId);
         admittedRuns.push({ doName, runId, servesClause: spec.servesClause });
+        this.recordDerivedChild(runId, doName, spec.servesClause, parentId, spec.oracleRef);
         await this.recordDependsOn(runId, parentId, rootNode.id);
       },
     };
 
     const summary = await runSpecLoop(root, ctx);
     return { ...summary, admittedRuns };
+  }
+
+  /** PLAYBOOK-KEEL-JOIN: read back what the derived children produced. Judges
+   *  NOTHING (no composition verdict — that is the next playbook, and it
+   *  cannot be written until this one gives it inputs). `derived_child` (this
+   *  DO's own SQLite) is the source of truth; the best-effort cross-run index
+   *  is never consulted for this.
+   *  PLAYBOOK-KEEL-COMPOSE (FU-DECOMP-1, landed): the suite is resolved PER
+   *  CHILD, from that row's own recorded `oracle_ref` — not assumed equal to
+   *  the root's. `templateDerive` never re-points a child's oracleRef, so an
+   *  honest derivation tree sees no behavior change; an untrusted deriver that
+   *  DID re-point one now gets that child read against its own real suite,
+   *  not silently mis-read against the root's. */
+  async join(): Promise<{ ready: boolean; children: readonly JoinChildReport[] } | { error: string }> {
+    this.ensureSchema();
+    const rootNode = await this.findRoot();
+    if (!rootNode) return { error: "no human-authored root Specification found for this run" };
+
+    const rows = [...this.sql<{ run_id: string; do_name: string; serves_clause: string | null; parent_run_id: string; oracle_ref: string | null }>`
+      SELECT run_id, do_name, serves_clause, parent_run_id, oracle_ref FROM derived_child`];
+
+    const children = await Promise.all(rows.map(async (row): Promise<JoinChildReport> => {
+      const r = await this.childStub(row.do_name).result();
+      const terminal = r?.state ?? null;
+      const verdict = (r?.verdict ?? null) as VerdictContent | null;
+      const outcome = verdict?.outcome ?? null;
+      const evidence = verdict?.evidence as { observed?: Record<string, unknown> } | undefined;
+
+      // Does THIS CHILD's own suite's assertion for its clause declare
+      // `observe` or `metamorphic` at all? Independent of whether the run
+      // finished — it's a property of the suite, not of the trace. A clause
+      // whose assertion has neither is NOT COMPOSABLE, regardless of outcome
+      // (compileProgram emits an observed entry only when `observe` is set;
+      // metamorphic assertions always emit one).
+      const suite = row.oracle_ref ? this.suites.resolve(row.oracle_ref) : null;
+      const assertion = row.serves_clause ? suite?.assertions.find((a) => a.criterionId === row.serves_clause) : undefined;
+      const observable = !!(assertion?.observe || assertion?.metamorphic);
+
+      const observedKey = row.serves_clause;
+      const hasObserved = observedKey != null && !!evidence?.observed && Object.prototype.hasOwnProperty.call(evidence.observed, observedKey);
+      const observed: JoinChildReport["observed"] = hasObserved
+        ? { present: true, value: evidence!.observed![observedKey!] }
+        : { present: false };
+
+      return {
+        runId: row.run_id,
+        doName: row.do_name,
+        servesClause: row.serves_clause,
+        parentRunId: row.parent_run_id,
+        terminal,
+        outcome,
+        observable,
+        observed,
+      };
+    }));
+
+    // Readiness: every recorded child has finished. Zero children (derive()
+    // never ran, or the root wasn't decomposable) is deliberately NOT "ready"
+    // — there is nothing to join, which is a different thing from "joined
+    // successfully."
+    const ready = children.length > 0 && children.every((c) => c.terminal !== null);
+    return { ready, children };
+  }
+
+  /** PLAYBOOK-KEEL-COMPOSE: the up-leg. Coverage proved every clause was
+   *  claimed; join() gathered what each child produced; THIS asks whether the
+   *  children's outputs actually compose into the PARENT's requirement — the
+   *  question that stays open even when every child is individually correct
+   *  (two lines of arithmetic: 14.01 per-line vs 14.00 per-subtotal, both
+   *  right, the invoice wrong). Judges the whole against the PARENT clause
+   *  only, never children against each other directly — the relation is
+   *  anchored on the parent's `composes` assertion (option A: a third compile
+   *  path beside compileProgram/compileMetamorphic, resolved from the SAME
+   *  suite `join()` already keys everything by servesClause against — no new
+   *  admission path, no second gather). Runs in the same independent sandbox
+   *  every other oracle runs in (`rt.tool().execute`) — no model judges its
+   *  own composition. */
+  async compose(): Promise<{ ready: boolean; clauses: readonly ComposeClauseVerdict[] } | { error: string }> {
+    const j = await this.join();
+    if ("error" in j) return j;
+    if (!j.ready) return { ready: false, clauses: [] }; // cannot compose an unfinished tree — no partial composition
+
+    const rootNode = await this.findRoot();
+    if (!rootNode) return { error: "no human-authored root Specification found for this run" };
+    const root = rootNode.content as SpecificationContent;
+    if (!suiteComposes(root.oracleRef)) return { ready: true, clauses: [] }; // no cross-cut declared — nothing to compose
+
+    const suite = this.suites.resolve(root.oracleRef);
+    const composesAssertions = suite?.assertions.filter((a) => !!a.composes) ?? [];
+
+    // What each child actually produced, keyed by servesClause — the ONLY
+    // input the relation ever sees (INV-ORACLE-BLIND up-leg: values, never
+    // an expected answer).
+    const outputs: Record<string, unknown> = {};
+    const byClause = new Map<string, JoinChildReport>();
+    for (const c of j.children) {
+      if (c.servesClause == null) continue;
+      byClause.set(c.servesClause, c);
+      if (c.observed.present) outputs[c.servesClause] = c.observed.value;
+    }
+
+    const clauses: ComposeClauseVerdict[] = [];
+    for (const a of composesAssertions) {
+      const composes = a.composes!;
+      // The vacuity gate, one level up from coverage's: every clause this
+      // relation NEEDS must be observable AND actually observed. Missing any
+      // one → unverifiable, named — never evaluate the relation over silence.
+      const missing = composes.requires.find((clauseId) => {
+        const child = byClause.get(clauseId);
+        return !child || !child.observable || !child.observed.present;
+      });
+      if (missing) {
+        clauses.push({
+          criterionId: a.criterionId,
+          outcome: "unverifiable",
+          reason: `clause ${missing} has no observed value to compose over`,
+          outputs,
+        });
+        continue;
+      }
+      // PLAYBOOK-KEEL-COMPOSE-ANCHOR: the vacuity gate above only checked the
+      // clauses `requires` DECLARES. Nothing stopped the relation from also
+      // reading a clause `requires` never listed — evaluating over a
+      // possibly-undefined operand and returning a spurious pass/fail. This
+      // closes that: the relation's actual operands must be a subset of
+      // `requires` (checked AFTER vacuity — missing data is the more
+      // actionable message when an assertion is both vacuous and malformed).
+      const anchor = checkComposesAnchor(a);
+      if (!anchor.ok) {
+        clauses.push({ criterionId: a.criterionId, outcome: "error", reason: anchor.reason, outputs });
+        continue;
+      }
+      // Same independent sandbox every oracle runs in; same completed-guard
+      // as suite-oracle.adapter.ts's two call sites — a sandbox that did not
+      // complete is unverifiable, never a pass.
+      const out = await this.rt.tool().execute({ code: compileComposition(outputs, a) }, undefined);
+      const res = out.status === "completed" ? (out.result as { results?: Record<string, string> }) : {};
+      const status = res.results?.[a.criterionId];
+      clauses.push({
+        criterionId: a.criterionId,
+        outcome: status === "pass" ? "pass" : status === "fail" ? "fail" : out.status === "completed" ? "error" : "unverifiable",
+        outputs,
+      });
+    }
+
+    return { ready: true, clauses };
   }
 
   async listBacklog(): Promise<readonly BacklogEntry[]> {
@@ -399,6 +653,7 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
    *  carries derivedFrom, stamped by derive()'s wrapping deriver before it ever
    *  reached the backlog). */
   async disposeBacklog(id: string, status: BacklogStatus): Promise<{ disposed: boolean; doName?: string; runId?: string }> {
+    this.ensureSchema();
     const rootNode = await this.findRoot();
     if (!rootNode) return { disposed: false };
     const backlog = this.backlogFor(rootNode.id);
@@ -410,6 +665,11 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
       const parentId = entry.spec.derivedFrom?.parent ?? rootNode.id;
       const doName = `derived-${crypto.randomUUID()}`;
       const { runId } = await this.childStub(doName).admit(entry.spec);
+      // PLAYBOOK-KEEL-JOIN: a human-approved derived child is still a child
+      // of this root's derivation tree — not just derive()'s auto-admit
+      // branch. Omitting it here would leave the exact silent gap this
+      // playbook exists to close, just reached via a different door.
+      this.recordDerivedChild(runId, doName, entry.spec.servesClause, parentId, entry.spec.oracleRef);
       await this.recordDependsOn(runId, parentId, rootNode.id);
       return { disposed: true, doName, runId };
     }

@@ -10,7 +10,7 @@ describe("OD-IN-1 envelope granularity (scope ceiling; per-caller only attenuate
     expect(effectiveEnvelope(["fx_snapshot", "weather_forCity"], ["fx_snapshot"]).names).toEqual(["fx_snapshot"]);
   });
   it("restriction cannot EXPAND beyond scope -> error, empty", () => {
-    const r = effectiveEnvelope(["fx_snapshot"], ["fx_snapshot", "ledger_ensureRecord"]);
+    const r = effectiveEnvelope(["fx_snapshot"], ["fx_snapshot", "store_ensure"]);
     expect(r.names).toEqual([]);
     expect(r.error).toContain("expands beyond scope");
   });
@@ -41,7 +41,7 @@ describe("OD-IN-4 restriction validation (must attenuate scope)", () => {
 });
 
 describe("OD-IN-6 audit outcome-authoritativeness", () => {
-  const base: InvocationAudit = { auditKey: "inv:A:ledger:n1", caller: "A", spec: "ledger_ensureRecord", status: "paused" };
+  const base: InvocationAudit = { auditKey: "inv:A:store:n1", caller: "A", spec: "store_append", status: "paused" };
   it("paused -> accepted after /approve resolves", () => {
     expect(resolveInvocationAudit(base, "accepted").status).toBe("accepted");
   });

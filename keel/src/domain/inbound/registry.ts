@@ -11,16 +11,25 @@
  *  - fx.snapshot: real (non-reserved) intent, but acceptance now states the
  *    EXACT field names fxrate@v1 verifies (proven live: the spike's identical
  *    3-criterion spec ACCEPTed in 2 attempts).
- *  - weather.forCity / ledger.ensureRecord: pinned to the RESERVED, scripted
- *    intents ("geo-correct" / "ledger-create") that already deterministically
- *    produce oracle-verified code — appropriate for a "vetted, fixed" menu
- *    entry, especially for ledger.ensureRecord, an approval-gated WRITE where
- *    live-model variance is the wrong tradeoff.
+ *  - weather.forCity / store.ensure / store.append: pinned to RESERVED,
+ *    scripted intents that already deterministically produce oracle-verified
+ *    code — appropriate for a "vetted, fixed" menu entry, especially the two
+ *    store writes, where live-model variance is the wrong tradeoff.
  *
  * WIRE CONSTRAINT: an MCP tool name must match ^[a-zA-Z0-9_-]{1,64}$ (no dots,
  * no spaces) — a real Claude connector rejected the dotted names outright at
  * registration. Exposed names use underscores (`fx_snapshot`, not
- * `fx.snapshot`); nothing else about the registry changes. */
+ * `fx.snapshot`); nothing else about the registry changes.
+ *
+ * BRIEF-KEEL-EFFECT-SIGNATURE-001 v1.2 §A2.4: `ledger` renamed to `store`,
+ * `ledger_ensureRecord` renamed to `store_ensure` — and its effect class
+ * changed from write-effectful to write-idempotent, so it no longer
+ * approval-gates (the connector's own check-then-write makes it safe to
+ * auto-verify). The effectful path is NOT dropped: `store_append` is a new
+ * menu entry reaching `store.append` (write-effectful, still PAUSEs) so the
+ * D8 demonstrator stays live under the new name. The scope
+ * `keel:ledger-write` is renamed to `keel:store-write`, covering both store
+ * writes (ensure and append are still both writes, just different classes). */
 import type { RegisteredSpec } from "./envelope";
 import type { AcceptanceCriterion, SpecificationContent } from "../lineage/nodes";
 
@@ -44,6 +53,11 @@ export const DEFAULT_REGISTRY: readonly RegisteredSpec[] = [
     ) },
   { name: "weather_forCity", requiredScope: "keel:read",
     spec: mk("geo-correct", [{ id: "A1", statement: "latitude/longitude/temperature_c for the geocoded city", kind: "example" }], ["geo", "weather"], "geo@v1") },
-  { name: "ledger_ensureRecord", requiredScope: "keel:ledger-write",
-    spec: mk("ledger-create", [{ id: "A1", statement: "exactly one ledger record, value active, read before write", kind: "example" }], ["ledger"], "ledger@v1", ["ledger"]) },
+  // write-idempotent: NOT approval-gated — store.ensure's own check-then-write
+  // makes repeating it safe, so this spec's approvalGated is empty.
+  { name: "store_ensure", requiredScope: "keel:store-write",
+    spec: mk("store-ensure", [{ id: "A1", statement: "exactly one store record, value active, idempotent upsert", kind: "example" }], ["store"], "store-ensure@v1") },
+  // write-effectful: Walk 2, preserved under the new name — still PAUSEs.
+  { name: "store_append", requiredScope: "keel:store-write",
+    spec: mk("store-append-create", [{ id: "A1", statement: "exactly one store record, value active, read before write", kind: "example" }], ["store"], "store-append@v1", ["store"]) },
 ];
