@@ -1,0 +1,18 @@
+{
+  "id": "ExecutionTrace:7b58aee4d1746310594cb494d7d68c29",
+  "type": "ExecutionTrace",
+  "lineage": "ExecutionTrace:e8a641bcc910e7ec777351fafdeb6d9e",
+  "sourceKey": "#worktree",
+  "createdAt": "2026-07-20T19:15:29.270Z",
+  "content": {
+    "branch": "feat/keel",
+    "head": "d21e4e2ea38bd98dc61aea0a0002f47e402792bc",
+    "files": [
+      ".reversa/config.user.toml"
+    ],
+    "diffSha": "blob:c5b0ea03259b331da5ba28b80d88b705",
+    "stat": "",
+    "governedBy": null,
+    "governedByCandidates": []
+  }
+}
