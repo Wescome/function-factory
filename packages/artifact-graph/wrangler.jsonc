@@ -1,0 +1,19 @@
+{
+  "name": "artifact-graph-dev",
+  "main": "src/worker.ts",
+  "compatibility_date": "2024-09-23",
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "ARTIFACT_GRAPH",
+        "class_name": "ArtifactGraphDO"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["ArtifactGraphDO"]
+    }
+  ]
+}

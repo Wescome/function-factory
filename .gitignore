@@ -16,3 +16,4 @@ workers/ff-pipeline/coding-adapter
 workers/ff-pipeline/synthesis
 workers/ff-gateway/.dev.vars
 workers/ff-gates/.dev.vars
+**/.dev.vars

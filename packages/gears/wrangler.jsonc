@@ -1,0 +1,57 @@
+{
+  // @factory/gears Cloudflare deployment configuration.
+  // This file documents the bindings required for CoordinatorDO and Sandbox.
+  // Merge these additions into the primary worker's wrangler.jsonc.
+  //
+  // SPEC-FF-GEARS-001 §11
+
+  "name": "factory-gears",
+  "main": "cloudflare.ts",
+  "compatibility_date": "2026-01-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "CoordinatorDO",
+        "Sandbox",
+        "FactoryArtifactGraphDO",
+        "FactoryBeadGraphDO"
+      ]
+    }
+  ],
+
+  "containers": [
+    { "class_name": "Sandbox", "image": "./Dockerfile", "max_instances": 10 }
+  ],
+
+  "durable_objects": {
+    "bindings": [
+      { "name": "COORDINATOR_DO",   "class_name": "CoordinatorDO" },
+      { "name": "ARTIFACT_GRAPH",   "class_name": "FactoryArtifactGraphDO" },
+      { "name": "BEAD_GRAPH",       "class_name": "FactoryBeadGraphDO" },
+      { "name": "Sandbox",          "class_name": "Sandbox" },
+      { "name": "MEDIATION_AGENT",  "class_name": "MediationAgentDO", "script_name": "factory-mediation-agent" }
+      // DREAM_DO is optional — add { "name": "DREAM_DO", "class_name": "DreamDO", "script_name": "factory-dream" } when Dream is deployed
+    ]
+  },
+
+  "kv_namespaces": [
+    { "binding": "KV", "id": "<provision>" }
+  ],
+
+  "d1_databases": [
+    {
+      "binding": "D1_AUDIT",
+      "database_name": "factory-bead-audit",
+      "database_id": "<provision>"
+    }
+  ]
+
+  // Secrets (set via `wrangler secret put`):
+  //   ANTHROPIC_API_KEY
+  //   OPENAI_API_KEY
+  //   DEEPSEEK_API_KEY
+  //   GITHUB_TOKEN
+}

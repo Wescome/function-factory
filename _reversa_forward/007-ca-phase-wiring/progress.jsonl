@@ -1,0 +1,4 @@
+{"feature":"007-ca-phase-wiring","status":"started","startedAt":"2026-06-15"}
+{"feature":"007-ca-phase-wiring","status":"complete","completedAt":"2026-06-15","gaps_closed":["G1","G4","G7","G3","G5"]}
+{"feature":"007-ca-phase-wiring","status":"model-provider-fixed","fixedAt":"2026-06-15","spec":"SPEC-FF-CA-MODELFIX-001","gates":"all-green"}
+{"feature":"007-ca-phase-wiring","status":"ofox-provider-live","completedAt":"2026-06-15","note":"CA now routes through OFOX at api.ofox.ai/v1 — anthropic/claude-sonnet-4-6 and anthropic/claude-opus-4-6"}

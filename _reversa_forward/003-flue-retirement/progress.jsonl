@@ -1,0 +1,18 @@
+{"ts": "2026-06-12T00:00:00Z", "action": "T001", "status": "done", "gate": "INSTALL", "gate_exit": 0, "files": ["packages/gears/package.json"]}
+{"ts": "2026-06-12T00:01:00Z", "action": "T002", "status": "done", "gate": "GREP", "gate_exit": 1, "files": ["packages/gears/src/flue/agents.ts", "packages/gears/src/flue/index.ts", "packages/gears/src/flue/sandbox.ts", "packages/gears/src/flue/workflows/atom-execution.ts", "packages/gears/src/flue/workflows/atom-execution-do.ts"]}
+{"ts": "2026-06-12T00:02:00Z", "action": "T003", "status": "done", "gate": "GREP", "gate_exit": 1, "files": ["workers/ff-pipeline/src/queue-bridge.test.ts"]}
+{"ts": "2026-06-12T00:03:00Z", "action": "T004", "status": "done", "gate": "TYPECHECK", "gate_exit": 0, "files": ["packages/gears/src/agents/models.ts"]}
+{"ts":"2026-06-12T05:49:00Z","action":"T005","status":"done","gate":"TYPECHECK","gate_exit":0,"files":["packages/gears/src/processors/consent-bead-audit-processor.ts"]}
+{"ts":"2026-06-12T13:30:00Z","action":"T006","status":"done","gate":"TYPECHECK","gate_exit":0,"files":["packages/gears/src/agents/conducting-agent.ts"]}
+{"ts":"2026-06-12T14:00:00Z","action":"T007","status":"done","gate":"TYPECHECK","gate_exit":0,"files":["packages/gears/src/agents/think-executor.ts"]}
+{"ts":"2026-06-12T14:01:00Z","action":"T008","status":"done","gate":"TYPECHECK","gate_exit":0,"files":["packages/gears/src/index.ts"]}
+{"ts":"2026-06-12T14:10:00Z","action":"T009","status":"done","gate":"TYPECHECK","gate_exit":0,"files":["workers/ff-pipeline/src/index.ts","workers/ff-pipeline/src/types.ts"]}
+{"ts":"2026-06-12T14:20:00Z","action":"T010","status":"done","gate":"WRANGLER","gate_exit":0,"files":["workers/ff-pipeline/wrangler.jsonc","workers/ff-pipeline/src/types.ts"]}
+{"ts":"2026-06-12T14:35:00Z","action":"T011","status":"done","gate":"TYPECHECK","gate_exit":0,"files":["workers/ff-pipeline/src/queue-handler.ts"]}
+{"ts":"2026-06-12T14:35:00Z","action":"T012","status":"done","gate":"TYPECHECK","gate_exit":0,"files":["workers/ff-pipeline/src/trigger-synthesis-handler.ts"]}
+{"ts":"2026-06-12T16:49:00Z","action":"T013","status":"done","gate":"TEST","gate_exit":0,"files":["workers/ff-pipeline/src/queue-bridge.test.ts"]}
+{"ts":"2026-06-12T16:50:00Z","action":"T014","status":"done","gate":"GREP+TYPECHECK","gate_exit":0,"files":["packages/gears/types/flue-runtime.d.ts","packages/gears/src/agents/models.ts"]}
+{"ts":"2026-06-12T16:55:00Z","action":"T015","status":"done","gate":"MANUAL","gate_exit":0,"files":["_reversa_forward/003-flue-retirement/investigation.md"],"note":"No path parity — @cloudflare/think uses SkillSource registry model, not path-based session.withSkill(). Documented in investigation.md §8."}
+{"ts":"2026-06-12T17:05:00Z","action":"T020","status":"done","gate":"MANUAL","gate_exit":0,"files":["_reversa_sdd/adrs/ADR-014-flue-retirement-cf-agents-sdk-project-think.md"]}
+{"ts":"2026-06-12T17:06:00Z","action":"T021","status":"done","gate":"MANUAL","gate_exit":0,"files":["_reversa_sdd/ksp-gears/design.md"]}
+{"ts":"2026-06-12T22:55:00Z","action":"cleanup-deploy","status":"done","gate":"WRANGLER","gate_exit":0,"files":["workers/ff-pipeline/src/index.ts","workers/ff-pipeline/src/flue-stubs.ts"],"note":"Removed flue stubs after v8 migration confirmed deleted classes. Version ID: 7a446f2d"}

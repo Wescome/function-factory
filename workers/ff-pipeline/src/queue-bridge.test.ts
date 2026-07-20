@@ -69,7 +69,6 @@ vi.mock('@cloudflare/containers', () => ({
   getContainer: () => ({}),
 }))
 
-
 // ─── Shared ArangoDB mock ───
 
 const mockDb = {
@@ -322,7 +321,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
   describe('queue consumer (queue() handler) — fire-and-forget', () => {
 
     it('dispatches to DO via stub.fetch with executableSpecification, dryRun, and workflowId (no callbackUrl)', async () => {
-      const { default: worker } = await import('./index')
+      const { queueHandler } = await import('./queue-handler')
+      const worker = { queue: queueHandler }
 
       const mockDoFetch = vi.fn(async () => new Response('{}', {
         headers: { 'Content-Type': 'application/json' },
@@ -362,7 +362,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
     })
 
     it('does not route stale harness-shaped messages when batch.queue is unavailable', async () => {
-      const { default: worker } = await import('./index')
+      const { queueHandler } = await import('./queue-handler')
+      const worker = { queue: queueHandler }
 
       const env = createEnv()
       const msg = createMockMessage({
@@ -386,7 +387,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
     })
 
     it('acks removed harness-dlq messages without calling RunCoordinator', async () => {
-      const { default: worker } = await import('./index')
+      const { queueHandler } = await import('./queue-handler')
+      const worker = { queue: queueHandler }
       const mockRunFetch = vi.fn(async (_request: Request) => new Response(JSON.stringify({ ok: true }), {
         headers: { 'Content-Type': 'application/json' },
       }))
@@ -417,7 +419,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
     })
 
     it('acks IMMEDIATELY after dispatching — does NOT await DO synthesis result', async () => {
-      const { default: worker } = await import('./index')
+      const { queueHandler } = await import('./queue-handler')
+      const worker = { queue: queueHandler }
 
       // DO that takes "forever" (returns response, but the key is we don't parse it)
       const mockDoFetch = vi.fn(async () => new Response('{}', {
@@ -449,7 +452,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
     })
 
     it('does NOT call workflow.sendEvent directly — callback handles that', async () => {
-      const { default: worker } = await import('./index')
+      const { queueHandler } = await import('./queue-handler')
+      const worker = { queue: queueHandler }
 
       const mockDoFetch = vi.fn(async () => new Response('{}', {
         headers: { 'Content-Type': 'application/json' },
@@ -489,7 +493,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
     })
 
     it('uses env.COORDINATOR.idFromName with synth-{executableSpecificationId} naming', async () => {
-      const { default: worker } = await import('./index')
+      const { queueHandler } = await import('./queue-handler')
+      const worker = { queue: queueHandler }
 
       const mockIdFromName = vi.fn(() => 'do-synth-ES-CUSTOM')
       const mockDoFetch = vi.fn(async () => new Response('{}', {
@@ -519,7 +524,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
     })
 
     it('passes dryRun: true through to DO when message specifies it', async () => {
-      const { default: worker } = await import('./index')
+      const { queueHandler } = await import('./queue-handler')
+      const worker = { queue: queueHandler }
 
       const mockDoFetch = vi.fn(async () => new Response('{}', {
         headers: { 'Content-Type': 'application/json' },
@@ -551,7 +557,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
     })
 
     it('defaults dryRun to false when not specified in message', async () => {
-      const { default: worker } = await import('./index')
+      const { queueHandler } = await import('./queue-handler')
+      const worker = { queue: queueHandler }
 
       const mockDoFetch = vi.fn(async () => new Response('{}', {
         headers: { 'Content-Type': 'application/json' },
@@ -588,7 +595,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
   describe('queue consumer error handling', () => {
 
     it('retries message when DO dispatch (stub.fetch) throws', async () => {
-      const { default: worker } = await import('./index')
+      const { queueHandler } = await import('./queue-handler')
+      const worker = { queue: queueHandler }
 
       const mockDoFetch = vi.fn(async () => { throw new Error('DO unavailable') })
 
@@ -616,7 +624,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
     })
 
     it('sends failure event and acks when max dispatch retries exhausted (attempts >= 3)', async () => {
-      const { default: worker } = await import('./index')
+      const { queueHandler } = await import('./queue-handler')
+      const worker = { queue: queueHandler }
 
       const mockDoFetch = vi.fn(async () => { throw new Error('DO permanently broken') })
 
@@ -747,7 +756,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
   describe('queue consumer dispatch failure event resilience', () => {
 
     it('logs the ACTUAL sendEvent error when failure event also fails at max retries', async () => {
-      const { default: worker } = await import('./index')
+      const { queueHandler } = await import('./queue-handler')
+      const worker = { queue: queueHandler }
 
       const mockDoFetch = vi.fn(async () => { throw new Error('DO permanently broken') })
       const mockSendEvent = vi.fn(async () => {
@@ -796,7 +806,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
     })
 
     it('includes error context in log when sendEvent fails at max dispatch retries', async () => {
-      const { default: worker } = await import('./index')
+      const { queueHandler } = await import('./queue-handler')
+      const worker = { queue: queueHandler }
 
       const mockDoFetch = vi.fn(async () => { throw new Error('DO crashed') })
       const mockSendEvent = vi.fn(async () => {
@@ -848,7 +859,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
   describe('synthesis-results queue consumer', () => {
 
     it('calls workflow.sendEvent with synthesis-complete on receiving result message', async () => {
-      const { default: worker } = await import('./index')
+      const { queueHandler } = await import('./queue-handler')
+      const worker = { queue: queueHandler }
 
       const mockSendEvent = vi.fn(async () => {})
 
@@ -899,7 +911,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
     })
 
     it('acks after successful sendEvent', async () => {
-      const { default: worker } = await import('./index')
+      const { queueHandler } = await import('./queue-handler')
+      const worker = { queue: queueHandler }
 
       const mockSendEvent = vi.fn(async () => {})
 
@@ -938,7 +951,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
     })
 
     it('retries on sendEvent failure', async () => {
-      const { default: worker } = await import('./index')
+      const { queueHandler } = await import('./queue-handler')
+      const worker = { queue: queueHandler }
 
       const mockSendEvent = vi.fn(async () => {
         throw new Error('workflow not running')
@@ -983,7 +997,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
     })
 
     it('acks and logs when max retries exhausted (attempts >= 4)', async () => {
-      const { default: worker } = await import('./index')
+      const { queueHandler } = await import('./queue-handler')
+      const worker = { queue: queueHandler }
 
       const mockSendEvent = vi.fn(async () => {
         throw new Error('workflow permanently broken')
@@ -1032,7 +1047,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
     })
 
     it('forwards interrupt verdict from DO alarm timeout', async () => {
-      const { default: worker } = await import('./index')
+      const { queueHandler } = await import('./queue-handler')
+      const worker = { queue: queueHandler }
 
       const mockSendEvent = vi.fn(async () => {})
 
@@ -1086,7 +1102,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
     })
 
     it('does NOT dispatch to Coordinator DO (only relays to Workflow)', async () => {
-      const { default: worker } = await import('./index')
+      const { queueHandler } = await import('./queue-handler')
+      const worker = { queue: queueHandler }
 
       const mockDoFetch = vi.fn(async () => new Response('{}'))
       const mockSendEvent = vi.fn(async () => {})
@@ -1136,7 +1153,11 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
   describe('/trigger-synthesis HTTP route preserved', () => {
 
     it('POST /trigger-synthesis still returns 202', async () => {
-      const { default: worker } = await import('./index')
+      // The /trigger-synthesis route body lives in ./trigger-synthesis-handler
+      // (extracted from index.ts) so it can be exercised without importing the
+      // worker barrel, which re-exports Flue DO/Workflow classes that statically
+      // pull in cloudflare:* protocol modules (rejected by Node's ESM loader).
+      const { handleTriggerSynthesis } = await import('./trigger-synthesis-handler')
 
       const mockSendEvent = vi.fn(async () => {})
 
@@ -1175,7 +1196,7 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
         }),
       })
 
-      const response = await worker.fetch(request, env as never, ctx as never)
+      const response = await handleTriggerSynthesis(request, env as never, ctx as never)
       expect(response.status).toBe(202)
     })
   })
@@ -1184,16 +1205,17 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
   describe('v5.1: atom-execute queue messages', () => {
 
-    it('dispatches atom-execute messages to AtomExecutor DO', async () => {
-      const { default: worker } = await import('./index')
+    it('dispatches atom-execute messages to ThinkExecutor DO', async () => {
+      const { queueHandler } = await import('./queue-handler')
+      const worker = { queue: queueHandler }
 
       const mockDoFetch = vi.fn(async () => new Response('{}', {
         headers: { 'Content-Type': 'application/json' },
       }))
 
       const env = createEnv({
-        ATOM_EXECUTOR: {
-          idFromName: vi.fn(() => 'atom-do-id'),
+        THINK_EXECUTOR: {
+          idFromName: vi.fn(() => 'think-do-id'),
           get: vi.fn(() => ({ fetch: mockDoFetch })),
         },
       })
@@ -1215,28 +1237,30 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       await worker.queue(batch as never, env as never, ctx as never)
 
-      // AtomExecutor DO was called
+      // ThinkExecutor DO was called
       expect(mockDoFetch).toHaveBeenCalledOnce()
       const calls = mockDoFetch.mock.calls as unknown[][]
       const fetchArg = calls[0]![0] as Request
       expect(new URL(fetchArg.url).pathname).toBe('/execute-atom')
 
+      // Body is the atomSpec forwarded verbatim
       const fetchBody = await new Request(fetchArg).json() as Record<string, unknown>
-      expect(fetchBody.atomId).toBe('atom-001')
-      expect(fetchBody.executableSpecificationId).toBe('ES-ATOM')
+      expect(fetchBody.id).toBe('atom-001')
+      expect(fetchBody.description).toBe('Test atom')
 
       // Message acked
       expect(msg.ack).toHaveBeenCalledOnce()
     })
 
-    it('uses idFromName with atom-{executableSpecificationId}-{atomId}', async () => {
-      const { default: worker } = await import('./index')
+    it('uses idFromName with think-{executableSpecificationId}-{atomId}', async () => {
+      const { queueHandler } = await import('./queue-handler')
+      const worker = { queue: queueHandler }
 
-      const mockIdFromName = vi.fn(() => 'atom-do-id')
+      const mockIdFromName = vi.fn(() => 'think-do-id')
       const mockDoFetch = vi.fn(async () => new Response('{}'))
 
       const env = createEnv({
-        ATOM_EXECUTOR: {
+        THINK_EXECUTOR: {
           idFromName: mockIdFromName,
           get: vi.fn(() => ({ fetch: mockDoFetch })),
         },
@@ -1259,17 +1283,18 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
 
       await worker.queue(batch as never, env as never, ctx as never)
 
-      expect(mockIdFromName).toHaveBeenCalledWith('atom-ES-NAME-atom-xyz')
+      expect(mockIdFromName).toHaveBeenCalledWith('think-ES-NAME-atom-xyz')
     })
 
     it('retries atom-execute on DO dispatch failure', async () => {
-      const { default: worker } = await import('./index')
+      const { queueHandler } = await import('./queue-handler')
+      const worker = { queue: queueHandler }
 
       const mockDoFetch = vi.fn(async () => { throw new Error('DO unavailable') })
 
       const env = createEnv({
-        ATOM_EXECUTOR: {
-          idFromName: vi.fn(() => 'atom-do-id'),
+        THINK_EXECUTOR: {
+          idFromName: vi.fn(() => 'think-do-id'),
           get: vi.fn(() => ({ fetch: mockDoFetch })),
         },
       })
@@ -1296,14 +1321,15 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
     })
 
     it('publishes failure result to ATOM_RESULTS when atom-execute max retries exhausted', async () => {
-      const { default: worker } = await import('./index')
+      const { queueHandler } = await import('./queue-handler')
+      const worker = { queue: queueHandler }
 
       const mockDoFetch = vi.fn(async () => { throw new Error('Permanent failure') })
       const mockAtomResultsSend = vi.fn(async () => {})
 
       const env = createEnv({
-        ATOM_EXECUTOR: {
-          idFromName: vi.fn(() => 'atom-do-id'),
+        THINK_EXECUTOR: {
+          idFromName: vi.fn(() => 'think-do-id'),
           get: vi.fn(() => ({ fetch: mockDoFetch })),
         },
         ATOM_RESULTS: { send: mockAtomResultsSend },
@@ -1343,7 +1369,8 @@ describe('CF Queue bridge for Agent Call execution synthesis', () => {
   describe('v5.1: synthesis-results phase1-complete', () => {
 
     it('acks phase1-complete messages without relaying to workflow', async () => {
-      const { default: worker } = await import('./index')
+      const { queueHandler } = await import('./queue-handler')
+      const worker = { queue: queueHandler }
 
       const mockSendEvent = vi.fn(async () => {})
 

@@ -1,0 +1,29 @@
+{
+  "name": "@factory/artifact-graph",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/do.ts",
+  "types": "src/types.ts",
+  "exports": {
+    ".": "./src/do.ts",
+    "./types": "./src/types.ts",
+    "./queries": "./src/queries.ts",
+    "./migrate": "./src/migrate.ts",
+    "./migrations/v00_base": "./migrations/v00_base.ts",
+    "./migrations/v01_hypothesis_index": "./migrations/v01_hypothesis_index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "lint": "echo 'lint: TODO'"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260101.0",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^24.0.0",
+    "better-sqlite3": "^12.10.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.4.0"
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ff-commissioning-agent",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-01-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Durable Objects
+  "durable_objects": {
+    "bindings": [
+      // CommissioningAgentDO — the I-layer commissioning orchestrator
+      { "name": "COMMISSIONING_AGENT", "class_name": "CommissioningAgentDO" },
+      // Cross-worker DO bindings
+      { "name": "MEDIATION_AGENT",  "class_name": "MediationAgentDO",       "script_name": "ff-mediation-agent" },
+      { "name": "ARTIFACT_GRAPH",   "class_name": "FactoryArtifactGraphDO", "script_name": "ff-pipeline" },
+      { "name": "COORDINATOR_DO",   "class_name": "CoordinatorDO",          "script_name": "ff-pipeline" },
+      // Subscription buffer — per-session WebSocket fan-out + replay (ADR-0016)
+      { "name": "SUB_BUFFER", "class_name": "SubscriptionEventBufferDO", "script_name": "factory-subscription-buffer" }
+    ]
+  },
+
+  // Migrations — CommissioningAgentDO requires SQLite storage
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["CommissioningAgentDO"] }
+  ],
+
+  // D1 Databases
+  "d1_databases": [
+    { "binding": "DB", "database_name": "ff-factory", "database_id": "6a72d5c3-bcbb-41e3-b29d-d8de5834c3b3" }
+  ],
+
+  // KV namespaces
+  "kv_namespaces": [
+    // FACTORY_LINEAR_KV: cycle context cache (1h TTL) — provision: wrangler kv namespace create FACTORY_LINEAR_KV
+    { "binding": "FACTORY_LINEAR_KV", "id": "9c512bae149449aeac515e5d9083e21e" },
+    { "binding": "KV_KS", "id": "9fe793fc61174920b8030ac1d06cfd8c" }
+  ],
+
+  // AI binding
+  "ai": {
+    "binding": "AI"
+  },
+
+  "vars": {
+    "ENVIRONMENT": "development",
+    "LINEAR_TEAM_ID": "8b9ba524-28fa-457f-adfc-e4f2452d3aa0",
+    "LINEAR_SYNC_URL": "https://ff-linear-sync.koales.workers.dev",
+    "CLOUDFLARE_ACCOUNT_ID": "cb56a846c70a38987f31cf6e2b85cb57"
+  },
+
+  // Secrets — CF Secrets Store (store: 5f51936ccef540ce825687d0afe96373)
+  "secrets_store_secrets": [
+    { "binding": "LINEAR_API_KEY",            "store_id": "5f51936ccef540ce825687d0afe96373", "secret_name": "LINEAR_API_KEY" },
+    { "binding": "FF_AGENT_SIGNING_KEY",       "store_id": "5f51936ccef540ce825687d0afe96373", "secret_name": "FF_AGENT_SIGNING_KEY" },
+    { "binding": "SUB_BUFFER_PRODUCER_SECRET", "store_id": "5f51936ccef540ce825687d0afe96373", "secret_name": "SUB_BUFFER_PRODUCER_SECRET" },
+    // CF_API_TOKEN: add when planner role uses a cloudflare/* model
+    // { "binding": "CF_API_TOKEN", "store_id": "5f51936ccef540ce825687d0afe96373", "secret_name": "CF_API_TOKEN" }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "name": "@factory/ff-dream",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DreamDO — PassTemplate crystallization and consolidation singleton (GAP-013)",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260101.0",
+    "typescript": "^5.5.0",
+    "wrangler": "^4.0.0"
+  }
+}

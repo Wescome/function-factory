@@ -1,0 +1,37 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ff-dream",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-01-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // DreamDO singleton — PassTemplate crystallization and consolidation
+  "durable_objects": {
+    "bindings": [
+      { "name": "DREAM_DO",     "class_name": "DreamDO" },
+      // Cross-worker: ArtifactGraphDO for ConsolidationReport lineage
+      { "name": "ARTIFACT_GRAPH", "class_name": "FactoryArtifactGraphDO", "script_name": "ff-pipeline" }
+    ]
+  },
+
+  // DreamDO requires SQLite storage (DO SQLite)
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["DreamDO"] }
+  ],
+
+  // Workers AI binding — cheap validation tier for Phase 2 consolidation
+  // (used as fallback when DEEPSEEK_API_KEY is not set)
+  "ai": { "binding": "AI" },
+
+  "vars": {
+    "ENVIRONMENT": "development",
+    // Consolidation interval in hours (default: 168 = 7 days)
+    "DREAM_CONSOLIDATION_INTERVAL_HOURS": "168",
+    // Signal window size for routing-patch proposals (default: 10 runs)
+    "DREAM_SIGNAL_WINDOW_RUNS": "10"
+  }
+
+  // Secrets (set via `wrangler secret put`):
+  //   DEEPSEEK_API_KEY — optional; enables Phase 2 consolidation via DeepSeek Flash
+  //                      (routing: TaskKind.CONSOLIDATION → deepseek-v3-flash)
+}

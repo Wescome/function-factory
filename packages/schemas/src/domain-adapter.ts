@@ -46,7 +46,7 @@ export const DomainExecutionRequest = z.object({
   executableSpecificationId: ArtifactId,
   runId: z.string().min(1),
   mode: DomainExecutionMode,
-  parameters: z.record(z.unknown()).default({}),
+  parameters: z.record(z.string(), z.unknown()).default({}),
 })
 export type DomainExecutionRequest = z.infer<typeof DomainExecutionRequest>
 

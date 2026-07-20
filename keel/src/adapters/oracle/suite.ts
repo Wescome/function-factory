@@ -1,0 +1,400 @@
+/**
+ * suite.ts — Oracle suites (adapter-side infrastructure, not domain-frozen).
+ *
+ * A Specification carries an `oracleRef` (frozen) that names a suite. The suite
+ * maps each AcceptanceCriterion id to an executable assertion over the recorded
+ * ExecutionTrace. This is the "frozen oracle suite the Verifier runs" — it lives
+ * outside the domain (like a test file the Verifier loads), so adding/changing
+ * suites never touches the frozen contracts.
+ */
+import type { ExecutionTraceContent } from "../../domain/index";
+
+export interface OracleAssertion {
+  readonly criterionId: string;              // matches AcceptanceCriterion.id
+  readonly kind: "example" | "property";
+  /** A boolean JS expression over `trace` (the ExecutionTraceContent). Compiled
+   *  and run inside the sandbox, independent of the generating model. */
+  readonly expr?: string;
+  /** Optional expression naming the OBSERVED operand this check read (e.g.
+   *  "trace.result.check"). Fed back on amend so the model sees what it produced.
+   *  INV-ORACLE-BLIND: this is the observed value, NEVER the expected answer. */
+  readonly observe?: string;
+  /** Metamorphic: verify a RELATION over multiple oracle-chosen inputs, instead
+   *  of one trace. `probes` are hidden from the model. `relation` is a JS bool
+   *  over (input, output) that MUST reference `input` (the ANCHOR LAW: comparing
+   *  to a model-controlled output field alone is gameable). */
+  readonly metamorphic?: { readonly probes: readonly number[]; readonly relation: string };
+  /** PLAYBOOK-KEEL-COMPOSE: a PARENT-level cross-cut over DERIVED CHILDREN's
+   *  produced values, not one trace. `relation` is a JS bool over `outputs`
+   *  (a `Record<servesClause, unknown>` — the anchor law one level up: it must
+   *  read the outputs the parent clause actually spans, never just assert the
+   *  children agree with each other for no stated reason). `requires` is the
+   *  set of `servesClause` ids the relation reads — declared, not parsed out
+   *  of the relation string, so the vacuity gate (composeRun) can check
+   *  observability BEFORE evaluating anything, the same way `metamorphic`
+   *  declares `probes` rather than have the runtime infer them. */
+  readonly composes?: { readonly relation: string; readonly requires: readonly string[] };
+}
+
+export interface OracleSuite {
+  readonly ref: string;
+  readonly assertions: readonly OracleAssertion[];
+}
+
+// Built-in suites. In production these would load from R2/D1; here they are
+// registered in-process. Each assertion is a pure predicate over the trace.
+const SUITES: Record<string, OracleSuite> = {
+  "echo@v1": {
+    ref: "echo@v1",
+    assertions: [{ criterionId: "A1", kind: "example", expr: "trace.result && trace.result.value === 42" }],
+  },
+  "uc@v1": {
+    ref: "uc@v1",
+    assertions: [{ criterionId: "A1", kind: "example", expr: "trace.result && trace.result.value === 42" }],
+  },
+  "multi@v1": {
+    ref: "multi@v1",
+    assertions: [
+      { criterionId: "A1", kind: "example", expr: "trace.result && trace.result.value === 42" },
+      // a real property: the run had no ambient network egress (the D5 guarantee)
+      { criterionId: "A2", kind: "property", expr: "trace.egress === 'connector-only' || trace.egress === 'none'" },
+    ],
+  },
+  "derived@v1": {
+    ref: "derived@v1",
+    assertions: [
+      { criterionId: "A1", kind: "example", expr: "trace.result && trace.result.value === 42" },
+      // a DERIVED requirement: check must be value doubled. Underspecified by a
+      // natural-language intent, so a real model plausibly misses it first.
+      { criterionId: "A2", kind: "example", expr: "trace.result && trace.result.check === trace.result.value * 2", observe: "trace.result.check" },
+    ],
+  },
+  "derived-hard@v1": {
+    ref: "derived-hard@v1",
+    assertions: [
+      { criterionId: "A1", kind: "example", expr: "trace.result && trace.result.value === 42" },
+      // Harder derived rule, not guessable from the intent alone.
+      { criterionId: "A2", kind: "example", expr: "trace.result && trace.result.check === trace.result.value * 3 - 5", observe: "trace.result.check" },
+    ],
+  },
+  "derived-fair@v1": {
+    ref: "derived-fair@v1",
+    assertions: [
+      { criterionId: "A1", kind: "example", expr: "trace.result && trace.result.value === 42" },
+      // Blind in the intent ("internally consistent"), but DERIVABLE: check is
+      // value doubled — inferable from observed pairs across attempts, with no
+      // free additive constant. This is the convergence target: evidence CAN
+      // close it without ever revealing the rule (INV-ORACLE-BLIND intact).
+      { criterionId: "A2", kind: "example", expr: "trace.result && trace.result.check === trace.result.value * 2", observe: "trace.result.check" },
+    ],
+  },
+  "derived-blind@v1": {
+    ref: "derived-blind@v1",
+    assertions: [
+      { criterionId: "A1", kind: "example", expr: "trace.result && trace.result.value === 42" },
+      // The acceptance statement shown to the model stays VAGUE ("internally
+      // consistent"); it does not state this formula. The model must genuinely
+      // guess on attempt 1, then use the amend evidence. This is the fixture
+      // that surfaced the evidence-thinness finding (D10) live — kept as the
+      // regression case.
+      { criterionId: "A2", kind: "example", expr: "trace.result && trace.result.check === trace.result.value * 2 + 7", observe: "trace.result.check" },
+    ],
+  },
+  "derived-mr@v1": {
+    ref: "derived-mr@v1",
+    assertions: [
+      // check must be value doubled — verified over hidden probes, anchored on
+      // `input`. A hardcoded output passes value=42 but fails 43/91.
+      { criterionId: "A1", kind: "example", metamorphic: { probes: [42, 43, 91], relation: "output.check === input * 2" } },
+      // and the function must preserve value (shape pin), also anchored on input.
+      { criterionId: "A2", kind: "property", metamorphic: { probes: [42, 43, 91], relation: "output.value === input" } },
+    ],
+  },
+  "regress@v1": {
+    ref: "regress@v1",
+    assertions: [
+      { criterionId: "A1", kind: "example", expr: "trace.result && trace.result.value === 42" },
+      { criterionId: "A2", kind: "example", expr: "trace.result && trace.result.tag === 'perfect'" }, // never satisfied
+    ],
+  },
+  "tier@v1": {
+    ref: "tier@v1",
+    assertions: [{ criterionId: "A1", kind: "example", expr: "trace.result && trace.result.tier === 'pro'" }],
+  },
+  "foreign@v1": {
+    ref: "foreign@v1",
+    assertions: [
+      // Passes for BOTH lookup and lookupPoisoned: projection already stripped
+      // the injected field before this ever runs, so the same assertion holds.
+      { criterionId: "A1", kind: "example", expr: "trace.result && trace.result.value === 42 && trace.result.ok === true" },
+    ],
+  },
+  "foreign-effectful@v1": {
+    ref: "foreign-effectful@v1",
+    assertions: [{ criterionId: "A1", kind: "example", expr: "trace.result && trace.result.done === true" }],
+  },
+  "fx@v1": {
+    ref: "fx@v1",
+    assertions: [
+      // A1 structural: all three rates present, positive numbers
+      { criterionId: "A1", kind: "example", expr: "trace.result && typeof trace.result.usd_eur === 'number' && typeof trace.result.eur_gbp === 'number' && typeof trace.result.usd_gbp === 'number' && trace.result.usd_eur > 0 && trace.result.eur_gbp > 0 && trace.result.usd_gbp > 0" },
+      // A2 ANCHORED (anchor law + E-A): each returned rate must equal the rate the
+      // fx connector ACTUALLY returned, recorded in trace.calls. Anchoring on the
+      // recorded API response (not on the other output fields) closes the shortcut
+      // "compute one rate from the others" and "fabricate": the model must fetch
+      // all three and report them faithfully. tol 1e-6 distinguishes a faithfully
+      // reported fetch (diff 0) from a computed value (~3e-6 off).
+      { criterionId: "A2", kind: "property", expr: "trace.result && Array.isArray(trace.calls) && [['USD','EUR','usd_eur'],['EUR','GBP','eur_gbp'],['USD','GBP','usd_gbp']].every(function(t){var call=trace.calls.find(function(c){return c.connector==='fx'&&c.args&&c.args.from===t[0]&&c.args.to===t[1];});if(!call||!call.response||!call.response.rates)return false;var rec=call.response.rates[t[1]];var got=trace.result[t[2]];return typeof rec==='number'&&typeof got==='number'&&Math.abs(got-rec)/rec<1e-6;})" },
+    ],
+  },
+  "geo@v1": {
+    ref: "geo@v1",
+    assertions: [
+      { criterionId: "A1", kind: "example", expr: "trace.result && typeof trace.result.latitude === 'number' && typeof trace.result.longitude === 'number' && typeof trace.result.temperature_c === 'number'", observe: "trace.result" },
+      // A2 CROSS-STEP ANCHOR: the weather call must have been made with the coords
+      // the GEOCODE actually returned (real threading, not invented coords), and
+      // the returned temperature must equal what the weather call actually returned.
+      { criterionId: "A2", kind: "property", expr: "(function(){ if(!trace.result||!Array.isArray(trace.calls))return false; var g=trace.calls.find(function(c){return c.connector==='geo';}); var w=trace.calls.find(function(c){return c.connector==='weather';}); if(!g||!w||!g.response||!g.response.results||!g.response.results[0]||!w.response||!w.response.current)return false; var gr=g.response.results[0]; if(Math.abs(w.args.latitude-gr.latitude)>1e-4||Math.abs(w.args.longitude-gr.longitude)>1e-4)return false; return trace.result.temperature_c===w.response.current.temperature_2m; })()", observe: "(function(){var w=(trace.calls||[]).find(function(c){return c.connector==='weather';});return w?w.response:null;})()" },
+    ],
+  },
+  // store.append: the effectful, non-idempotent write — the model must still
+  // do read-before-write itself (select, then append-if-absent); verified the
+  // same way ledger@v1 always was, just renamed onto store/select.
+  "store-append@v1": {
+    ref: "store-append@v1",
+    assertions: [
+      // A1 ANCHORED on the final recorded read-back: exactly ONE record for the key,
+      // and its value is the target ("active"). Verifies real post-state, not the
+      // model's claim; the write is never re-run.
+      { criterionId: "A1", kind: "property", expr: "(function(){ if(!Array.isArray(trace.calls))return false; var sels=trace.calls.filter(function(c){return c.connector==='store'&&c.method==='select';}); if(!sels.length)return false; var recs=sels[sels.length-1].response; if(!Array.isArray(recs))return false; return recs.length===1 && recs[0] && recs[0].value==='active'; })()" },
+    ],
+  },
+  // store.ensure: write-idempotent — the connector's own atomic check-then-
+  // write means the CALL'S OWN recorded response already carries the
+  // post-state (no separate model-orchestrated read-back needed). Still
+  // anchored on the recorded ConnectorCall, never the model's `return`.
+  "store-ensure@v1": {
+    ref: "store-ensure@v1",
+    assertions: [
+      { criterionId: "A1", kind: "property", expr: "(function(){ if(!Array.isArray(trace.calls))return false; var e=trace.calls.filter(function(c){return c.connector==='store'&&c.method==='ensure';}); if(!e.length)return false; var r=e[e.length-1].response; return !!r && r.count===1 && r.value==='active'; })()" },
+    ],
+  },
+  "fxrate@v1": {
+    ref: "fxrate@v1",
+    assertions: [
+      { criterionId: "A1", kind: "example", expr: "(function(){ if(!trace.result||!Array.isArray(trace.calls))return false; var c=trace.calls.find(function(x){return x.connector==='fx'&&x.args&&x.args.from==='USD'&&x.args.to==='EUR';}); if(!c||!c.response||!c.response.rates)return false; var rec=c.response.rates.EUR; var got=trace.result.usd_eur; return typeof got==='number'&&typeof rec==='number'&&Math.abs(got-rec)/rec<1e-6; })()" },
+      { criterionId: "A2", kind: "example", expr: "(function(){ if(!trace.result||!Array.isArray(trace.calls))return false; var c=trace.calls.find(function(x){return x.connector==='fx'&&x.args&&x.args.from==='USD'&&x.args.to==='GBP';}); if(!c||!c.response||!c.response.rates)return false; var rec=c.response.rates.GBP; var got=trace.result.usd_gbp; return typeof got==='number'&&typeof rec==='number'&&Math.abs(got-rec)/rec<1e-6; })()" },
+      { criterionId: "A3", kind: "example", expr: "(function(){ if(!trace.result||!Array.isArray(trace.calls))return false; var c=trace.calls.find(function(x){return x.connector==='fx'&&x.args&&x.args.from==='USD'&&x.args.to==='JPY';}); if(!c||!c.response||!c.response.rates)return false; var rec=c.response.rates.JPY; var got=trace.result.usd_jpy; return typeof got==='number'&&typeof rec==='number'&&Math.abs(got-rec)/rec<1e-6; })()" },
+    ],
+  },
+  "strict@v1": {
+    ref: "strict@v1",
+    assertions: [
+      { criterionId: "A1", kind: "example", expr: "trace.result && trace.result.value === 42" },
+      // deliberately demanding: requires a field the default action omits
+      { criterionId: "A2", kind: "property", expr: "trace.result && trace.result.strict === true" },
+    ],
+  },
+  // PLAYBOOK-KEEL-COMPOSE: the whitepaper's invoice case, generalized. R1/R2
+  // are each a CHILD's own clause (independently correct, each observing its
+  // own computed `tax` — a plausible per-line vs per-subtotal rounding), and
+  // R3 is the PARENT'S cross-cut: the two presented tax figures must agree.
+  // Two individually-green children can still fail R3 (14.01 vs 14.00) — the
+  // whole point. R1/R2 deliberately don't assert what the number IS (any
+  // valid decomposition strategy is fine per-child); R3 is where composition
+  // — or its absence — becomes visible.
+  "compose-demo@v1": {
+    ref: "compose-demo@v1",
+    assertions: [
+      { criterionId: "R1", kind: "example", expr: "trace.result && typeof trace.result.tax === 'number'", observe: "trace.result.tax" },
+      { criterionId: "R2", kind: "example", expr: "trace.result && typeof trace.result.tax === 'number'", observe: "trace.result.tax" },
+      { criterionId: "R3", kind: "property", composes: { relation: "outputs['R1'] === outputs['R2']", requires: ["R1", "R2"] } },
+    ],
+  },
+  // The vacuity fixture: R2 declares NO `observe` (nor `metamorphic`) — it can
+  // pass or fail on its own, but produces nothing a composition can read. R3
+  // requires it, so compose must report R3 unverifiable, never pass or fail.
+  "compose-vacuous@v1": {
+    ref: "compose-vacuous@v1",
+    assertions: [
+      { criterionId: "R1", kind: "example", expr: "trace.result && typeof trace.result.tax === 'number'", observe: "trace.result.tax" },
+      { criterionId: "R2", kind: "example", expr: "trace.result && typeof trace.result.tax === 'number'" }, // no observe — deliberate
+      { criterionId: "R3", kind: "property", composes: { relation: "outputs['R1'] === outputs['R2']", requires: ["R1", "R2"] } },
+    ],
+  },
+  // PLAYBOOK-KEEL-COMPOSE-ANCHOR: THE HOLE, as a fixture. `requires` gates
+  // R1/R2, but the relation reads `outputs['R4']` — a clause declared
+  // NOWHERE, so `outputs.R4` is always `undefined`. Before the anchor check,
+  // this ran the relation over that hole and returned a spurious pass/fail;
+  // now it must report `error` naming R4, never a judgment.
+  "compose-hole@v1": {
+    ref: "compose-hole@v1",
+    assertions: [
+      { criterionId: "R1", kind: "example", expr: "trace.result && typeof trace.result.tax === 'number'", observe: "trace.result.tax" },
+      { criterionId: "R2", kind: "example", expr: "trace.result && typeof trace.result.tax === 'number'", observe: "trace.result.tax" },
+      { criterionId: "R3", kind: "property", composes: { relation: "outputs['R1'] === outputs['R4']", requires: ["R1", "R2"] } },
+    ],
+  },
+  // A relation that reaches `outputs` by a COMPUTED key (`outputs[k]`) —
+  // extraction cannot bound it to `requires`, so it is malformed by
+  // construction, regardless of what `k` happens to range over at runtime.
+  "compose-dynamic@v1": {
+    ref: "compose-dynamic@v1",
+    assertions: [
+      { criterionId: "R1", kind: "example", expr: "trace.result && typeof trace.result.tax === 'number'", observe: "trace.result.tax" },
+      { criterionId: "R2", kind: "example", expr: "trace.result && typeof trace.result.tax === 'number'", observe: "trace.result.tax" },
+      { criterionId: "R3", kind: "property", composes: { relation: "['R1','R2'].every(function(k){ return outputs[k] === outputs['R1']; })", requires: ["R1", "R2"] } },
+    ],
+  },
+  // A DEAD declaration: `requires` lists R2, but the relation never reads it.
+  // Over-gating only (R2 still has to be observed before this runs), never a
+  // soundness hole — reported as a warning, the verdict is still the
+  // relation's real pass/fail, never `error`.
+  "compose-dead@v1": {
+    ref: "compose-dead@v1",
+    assertions: [
+      { criterionId: "R1", kind: "example", expr: "trace.result && typeof trace.result.tax === 'number'", observe: "trace.result.tax" },
+      { criterionId: "R2", kind: "example", expr: "trace.result && typeof trace.result.tax === 'number'", observe: "trace.result.tax" },
+      { criterionId: "R3", kind: "property", composes: { relation: "outputs['R1'] > 0", requires: ["R1", "R2"] } },
+    ],
+  },
+};
+
+export interface OracleSuiteRegistry {
+  resolve(ref: string): OracleSuite | null;
+}
+
+export class InMemorySuiteRegistry implements OracleSuiteRegistry {
+  resolve(ref: string): OracleSuite | null {
+    return SUITES[ref] ?? null;
+  }
+}
+
+/** Compile covered assertions into one sandbox program returning per-criterion
+ *  results. Each expr is wrapped so a throw becomes "error", never a false pass. */
+export function compileProgram(trace: ExecutionTraceContent, assertions: readonly OracleAssertion[]): string {
+  const checks = assertions.map((a) => {
+    const obs = a.observe
+      ? ` try { observed[${JSON.stringify(a.criterionId)}] = ((trace) => (${a.observe}))(trace); } catch (e) {}`
+      : "";
+    return `try { results[${JSON.stringify(a.criterionId)}] = ((trace) => (${a.expr ?? 'false'}))(trace) ? "pass" : "fail"; }` +
+      ` catch (e) { results[${JSON.stringify(a.criterionId)}] = "error"; }` + obs;
+  }).join("\n");
+  return `
+    const trace = ${JSON.stringify(trace)};
+    const results = {};
+    const observed = {};
+    ${checks}
+    return { results, observed };
+  `;
+}
+
+/** Probe program: wrap the model's action code as compute(value), run it over
+ *  each assertion's hidden probes, and check the relation anchored on `input`. */
+export function compileMetamorphic(actionCode: string, assertions: readonly OracleAssertion[]): string {
+  const checks = assertions.map((a) => {
+    const m = a.metamorphic!;
+    return `{
+      const probes = ${JSON.stringify(m.probes)};
+      const pairs = probes.map((value) => {
+        try { return { input: value, output: compute(value) }; }
+        catch (e) { return { input: value, error: String(e) }; }
+      });
+      const ok = pairs.every((p) => p.output !== undefined && ((input, output) => (${m.relation}))(p.input, p.output));
+      results[${JSON.stringify(a.criterionId)}] = ok ? "pass" : "fail";
+      observed[${JSON.stringify(a.criterionId)}] = pairs;
+    }`;
+  }).join("\n");
+  return `
+    const compute = (value) => { ${actionCode} };
+    const results = {};
+    const observed = {};
+    ${checks}
+    return { results, observed };
+  `;
+}
+
+/** True if any criterion in the referenced suite is metamorphic (so the
+ *  composition knows to wrap the action as a compute body). */
+export function suiteIsMetamorphic(ref: string): boolean {
+  const suite = new InMemorySuiteRegistry().resolve(ref);
+  return !!suite && suite.assertions.some((a) => !!a.metamorphic);
+}
+
+/** PLAYBOOK-KEEL-COMPOSE: true if the referenced suite has a cross-cut over
+ *  derived children at all — lets the orchestrator know a root has a
+ *  composition clause without resolving the whole suite just to check. */
+export function suiteComposes(ref: string): boolean {
+  const suite = new InMemorySuiteRegistry().resolve(ref);
+  return !!suite && suite.assertions.some((a) => !!a.composes);
+}
+
+/** Compose program: mirrors `compileMetamorphic` one level up — a relation
+ *  over the GATHERED CHILD OUTPUTS (`outputs`, keyed by servesClause) instead
+ *  of one trace or one (input, output) pair. A throw becomes "error", never a
+ *  silent pass. `observed[criterionId] = outputs` records exactly what was
+ *  composed — the values, never an expected answer (INV-ORACLE-BLIND holds
+ *  up-leg: the relation itself encodes the expectation; the recorded
+ *  `observed` never does). */
+export function compileComposition(outputs: Record<string, unknown>, assertion: OracleAssertion): string {
+  const c = assertion.composes!;
+  return `
+    const outputs = ${JSON.stringify(outputs)};
+    const results = {};
+    const observed = {};
+    try {
+      results[${JSON.stringify(assertion.criterionId)}] = ((outputs) => (${c.relation}))(outputs) ? "pass" : "fail";
+    } catch (e) {
+      results[${JSON.stringify(assertion.criterionId)}] = "error";
+    }
+    observed[${JSON.stringify(assertion.criterionId)}] = outputs;
+    return { results, observed };
+  `;
+}
+
+/** PLAYBOOK-KEEL-COMPOSE-ANCHOR: a targeted scan of the DECLARED access form
+ *  (`outputs['X']` / `outputs["X"]`) — not a JS parse, the same "declared,
+ *  not inferred" discipline `requires` and metamorphic `probes` already
+ *  follow. `clauses` is every literal-keyed clause the relation reads.
+ *  `dynamic` is true if the relation reaches `outputs[` through anything
+ *  OTHER than an immediate quoted literal (a computed key) — that access
+ *  cannot be bounded, so it cannot be shown to stay within `requires`. */
+export function relationOperands(relation: string): { readonly clauses: ReadonlySet<string>; readonly dynamic: boolean } {
+  const clauses = new Set<string>();
+  const totalAccess = [...relation.matchAll(/outputs\[/g)].length;
+  const literalAccess = relation.matchAll(/outputs\[\s*(?:'([^']*)'|"([^"]*)")\s*\]/g);
+  let literalCount = 0;
+  for (const m of literalAccess) {
+    literalCount++;
+    const id = m[1] ?? m[2];
+    if (id !== undefined) clauses.add(id);
+  }
+  return { clauses, dynamic: literalCount < totalAccess };
+}
+
+/** PLAYBOOK-KEEL-COMPOSE-ANCHOR: the composition anchor law, stated as a
+ *  checkable property (unlike metamorphic's `input`-reference law, which is
+ *  semantic and enforced only as a comment). The threat here isn't a model
+ *  gaming its own output — composition operands come from independent runs,
+ *  each with its own oracle. The threat is a relation that reads an operand
+ *  the vacuity gate never gated, so the check runs over a value that may not
+ *  exist. Closing it: `operands(relation) ⊆ requires`. A relation that reads
+ *  outside `requires`, or reaches `outputs` by a computed key, is a MALFORMED
+ *  assertion — `error`, never a judgment. A declared-but-unread clause in
+ *  `requires` (`dead`) only over-gates; it is reported as a warning, never a
+ *  failure, so this check can never turn a sound assertion red. */
+export function checkComposesAnchor(assertion: OracleAssertion): { readonly ok: true; readonly warnings?: readonly string[] } | { readonly ok: false; readonly reason: string } {
+  const c = assertion.composes;
+  if (!c) return { ok: true };
+  const { clauses, dynamic } = relationOperands(c.relation);
+  if (dynamic) {
+    return { ok: false, reason: "relation reads outputs by computed key; operands cannot be bounded to requires" };
+  }
+  const required = new Set(c.requires);
+  const extra = [...clauses].filter((x) => !required.has(x)).sort();
+  if (extra.length) {
+    return { ok: false, reason: `relation reads clause(s) not in requires: ${extra.join(", ")}` };
+  }
+  const dead = c.requires.filter((x) => !clauses.has(x));
+  return dead.length ? { ok: true, warnings: [`requires declares clause(s) never read by the relation: ${dead.join(", ")}`] } : { ok: true };
+}

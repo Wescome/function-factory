@@ -1,0 +1,11 @@
+{"ts":"2026-06-10T00:00:00.000Z","step":"34","status":"done","files":["packages/schemas/src/atom-directive.ts","packages/schemas/src/index.ts"]}
+{"ts":"2026-06-10T00:01:00.000Z","step":"35","status":"done","files":["packages/gears/package.json","packages/gears/tsconfig.json","packages/gears/src/index.ts"]}
+{"ts":"2026-06-10T00:02:00.000Z","step":"36","status":"done","files":["packages/gears/src/flue/sandbox.ts"]}
+{"ts":"2026-06-10T00:03:00.000Z","step":"37","status":"done","files":["packages/gears/src/flue/agents.ts","packages/gears/types/flue-runtime.d.ts","packages/gears/tsconfig.json"]}
+{"ts":"2026-06-10T00:04:00.000Z","step":"38","status":"done","files":["packages/gears/src/gears/types.ts","packages/gears/src/gears/role.ts","packages/schemas/src/gear-types.ts"]}
+{"ts":"2026-06-10T00:05:00.000Z","step":"39","status":"done","files":["packages/gears/src/beads/types.ts"]}
+{"ts":"2026-06-10T00:06:00.000Z","step":"40","status":"done","files":["packages/gears/src/beads/coordinator-do.ts"]}
+{"ts":"2026-06-10T00:09:00.000Z","step":"41","status":"done","files":["packages/gears/src/beads/coordinator-do.ts"]}
+{"ts":"2026-06-10T00:10:00.000Z","step":"42","status":"done","files":["packages/gears/src/beads/hook.ts"]}
+{"ts":"2026-06-10T00:11:00.000Z","step":"43","status":"done","files":["packages/gears/src/index.ts"]}
+{"ts":"2026-06-10T00:12:00.000Z","step":"44","status":"done","files":["packages/gears/cloudflare.ts","packages/gears/wrangler.jsonc","packages/gears/src/flue/index.ts","packages/gears/src/beads/index.ts"]}

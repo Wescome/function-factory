@@ -1,0 +1,30 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "factory-subscription-buffer",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-01-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Durable Object — SubscriptionEventBufferDO per-session WebSocket fan-out + replay buffer
+  "durable_objects": {
+    "bindings": [
+      { "name": "SUBSCRIPTION_EVENT_BUFFER", "class_name": "SubscriptionEventBufferDO" }
+    ]
+  },
+
+  // SQLite-backed DO migration
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["SubscriptionEventBufferDO"] }
+  ],
+
+  // KV namespace — session liveness shadow (TTL probe for factory-gateway / factory-graphql)
+  // Provision: wrangler kv namespace create SUB_BUFFER_KV
+  "kv_namespaces": [
+    { "binding": "SUB_BUFFER_KV", "id": "d7176cd90477444285b52c5e39f64e63" }
+  ],
+
+  // Secrets Store — HMAC secrets for token verification
+  "secrets_store_secrets": [
+    { "binding": "SUB_BUFFER_PRODUCER_SECRET", "store_id": "5f51936ccef540ce825687d0afe96373", "secret_name": "SUB_BUFFER_PRODUCER_SECRET" }
+  ]
+}

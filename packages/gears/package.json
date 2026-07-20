@@ -1,0 +1,48 @@
+{
+  "name": "@factory/gears",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./beads": "./src/beads/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "lint": "echo 'lint: TODO'"
+  },
+  "dependencies": {
+    "@factory/factory-graph": "workspace:*",
+    "@factory/loop-closure": "workspace:*",
+    "@factory/schemas": "workspace:*",
+    "@factory/subscription-buffer": "workspace:*",
+    "@cloudflare/codemode": "latest",
+    "@cloudflare/shell": "latest",
+    "@cloudflare/think": "latest",
+    "@cloudflare/worker-bundler": "latest",
+    "@mastra/cloudflare-d1": "latest",
+    "@mastra/core": "latest",
+    "@mastra/memory": "latest",
+    "agents": "^0.16.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/containers": "^0.3.5",
+    "@cloudflare/sandbox": "^0.9.0",
+    "@cloudflare/workers-types": "^4.20260527.1",
+    "@types/node": "^24.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.4.0"
+  },
+  "peerDependencies": {
+    "@cloudflare/sandbox": "^0.9.0"
+  },
+  "peerDependenciesMeta": {
+    "@cloudflare/sandbox": {
+      "optional": false
+    }
+  }
+}

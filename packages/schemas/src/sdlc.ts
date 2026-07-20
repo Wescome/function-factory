@@ -225,7 +225,7 @@ export const MergeReadinessPack = z.object({
     coherenceVerificationReportId: z.string().optional(),
     fidelityVerificationReportId: z.string().optional(),
     sessionTreeId: z.string().optional(),
-    modelBindings: z.record(z.object({
+    modelBindings: z.record(z.string(), z.object({
       provider: z.string(),
       model: z.string(),
     })),
@@ -326,7 +326,7 @@ export const GitHubEventPayload = z.object({
   subtype: z.literal("github-event"),
   eventType: z.enum(["issue", "issue_comment", "pull_request"]),
   action: z.string(),
-  raw: z.record(z.unknown()),
+  raw: z.record(z.string(), z.unknown()),
 })
 export type GitHubEventPayload = z.infer<typeof GitHubEventPayload>
 

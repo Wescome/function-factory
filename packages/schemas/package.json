@@ -14,7 +14,10 @@
     "./coding-domain-adapter": "./src/coding-domain-adapter.ts",
     "./ontology-aliases": "./src/ontology-aliases.ts",
     "./trellis-execution-packet": "./src/_attic/trellis-execution-packet.ts",
-    "./trellis-canonical-json": "./src/_attic/trellis-canonical-json.ts"
+    "./trellis-canonical-json": "./src/_attic/trellis-canonical-json.ts",
+    "./weops-disposition-token": "./src/weops-disposition-token.ts",
+    "./wgsp-envelope": "./src/wgsp-envelope.ts",
+    "./weops-signals": "./src/weops-signals.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -23,7 +26,7 @@
     "lint": "echo 'lint: TODO'"
   },
   "dependencies": {
-    "zod": "^3.22.4"
+    "zod": "^4.0.0"
   },
   "devDependencies": {
     "typescript": "^5.4.0",

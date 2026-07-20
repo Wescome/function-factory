@@ -1,0 +1,2 @@
+{"ts":"2026-06-11T00:00:00Z","action":"T001","status":"done","gate":"TYPECHECK","gate_exit":0,"files":["packages/gears/src/flue/runtime-stub.js (deleted)"]}
+{"ts":"2026-06-11T00:01:00Z","action":"T001b","status":"done","gate":"TYPECHECK","gate_exit":0,"files":["packages/gears/src/flue/agents.ts"]}

@@ -21,7 +21,14 @@
       { "name": "SANDBOX", "class_name": "Sandbox" },
       { "name": "ATOM_EXECUTOR", "class_name": "AtomExecutor" },
       { "name": "RUN_COORDINATOR", "class_name": "RunCoordinator" },
-      { "name": "PI_CONTAINER", "class_name": "PiContainer" }
+      { "name": "PI_CONTAINER", "class_name": "PiContainer" },
+      // KSP layer — @factory/gears (SPEC-FF-GEARS-001 §11)
+      { "name": "COORDINATOR_DO",  "class_name": "CoordinatorDO" },
+      { "name": "ARTIFACT_GRAPH",  "class_name": "FactoryArtifactGraphDO" },
+      { "name": "BEAD_GRAPH",      "class_name": "FactoryBeadGraphDO" },
+      { "name": "THINK_EXECUTOR",  "class_name": "ThinkExecutor" },
+      // Subscription buffer — per-session WebSocket fan-out + replay (ADR-0016)
+      { "name": "SUB_BUFFER", "class_name": "SubscriptionEventBufferDO", "script_name": "factory-subscription-buffer" }
     ]
   },
   "migrations": [
@@ -29,7 +36,13 @@
     { "tag": "v2", "new_sqlite_classes": ["Sandbox"] },
     { "tag": "v3", "new_sqlite_classes": ["AtomExecutor"] },
     { "tag": "v4", "new_sqlite_classes": ["RunCoordinator"] },
-    { "tag": "v5", "new_sqlite_classes": ["PiContainer"] }
+    { "tag": "v5", "new_sqlite_classes": ["PiContainer"] },
+    // KSP layer migrations
+    { "tag": "v6", "new_sqlite_classes": ["CoordinatorDO", "FactoryArtifactGraphDO", "FactoryBeadGraphDO"] },
+    // Registers Flue stubs in CF migration tracker so they can be deleted in v8
+    { "tag": "v7", "new_sqlite_classes": ["FlueAtomExecutionWorkflow", "FlueRegistry"] },
+    // ThinkExecutor — Flue-retirement migration (003-flue-retirement)
+    { "tag": "v8", "new_sqlite_classes": ["ThinkExecutor"], "deleted_classes": ["FlueAtomExecutionWorkflow", "FlueRegistry"] }
   ],
 
   // Sandbox Container for Coder/Tester execution
@@ -40,9 +53,11 @@
     { "class_name": "PiContainer", "image": "./pi-container/Dockerfile", "max_instances": 3 }
   ],
 
-  // D1 Database
+  // D1 Databases
   "d1_databases": [
-    { "binding": "DB", "database_name": "ff-factory", "database_id": "6a72d5c3-bcbb-41e3-b29d-d8de5834c3b3" }
+    { "binding": "DB", "database_name": "ff-factory", "database_id": "6a72d5c3-bcbb-41e3-b29d-d8de5834c3b3" },
+    // KSP layer — cross-run bead audit log (provision: wrangler d1 create factory-bead-audit)
+    { "binding": "D1_AUDIT", "database_name": "factory-bead-audit", "database_id": "128d4b98-585a-4de9-abcc-98b7d78691b4" }
   ],
 
   // Service Bindings
@@ -86,6 +101,9 @@
   // Workers AI binding (fallback provider for task-routing)
   "ai": { "binding": "AI" },
 
+  // WorkerLoader binding — required by @cloudflare/think createExecuteTool (ThinkExecutor)
+  "worker_loaders": [{ "binding": "LOADER" }],
+
   // Worker version identity used to coordinate singleton Container restarts.
   "version_metadata": { "binding": "CF_VERSION_METADATA" },
 
@@ -93,6 +111,12 @@
   // Run scripts/ops/configure-r2-lifecycle.sh once per env to set this.
   // _summary.json and per-event objects have no expiry.
   "r2_buckets": [{ "binding": "WORKSPACE_BUCKET", "bucket_name": "ff-workspaces" }],
+
+  // KSP layer — KV namespace for knowing-state hot cache
+  // Provision: wrangler kv namespace create KV_KS → paste id below
+  "kv_namespaces": [
+    { "binding": "KV_KS", "id": "9fe793fc61174920b8030ac1d06cfd8c" }
+  ],
 
   // Governor: Phase 2 — verified working, ramp to 5min
   // Phase 1: */1 ✓ (verified 2026-04-30) → Phase 2: */5 → Phase 3: event-driven + 6h drift
@@ -123,17 +147,16 @@
     "GAS_CITY_MAX_AMENDMENT_DEPTH": "3",
     "GAS_CITY_PERSISTENCE_FRESHNESS_HOURS": "24",
     "GAS_CITY_DISPATCH_STALE_MINUTES": "60",
-    "GAS_CITY_RECURRING_INCIDENT_THRESHOLD": "3"
-  }
+    "GAS_CITY_RECURRING_INCIDENT_THRESHOLD": "3",
+    "CLOUDFLARE_ACCOUNT_ID": "cb56a846c70a38987f31cf6e2b85cb57"
+  },
 
-  // Secrets (set via `wrangler secret put`):
-  //   [DEPRECATED] ARANGO_URL       — ArangoDB removed; use D1 (DB binding)
-  //   [DEPRECATED] ARANGO_JWT       — ArangoDB removed; use D1 (DB binding)
-  //   [DEPRECATED] ARANGO_USERNAME  — ArangoDB removed; use D1 (DB binding)
-  //   [DEPRECATED] ARANGO_PASSWORD  — ArangoDB removed; use D1 (DB binding)
-  //   [DEPRECATED] ARANGO_DATABASE  — ArangoDB removed; use D1 (DB binding)
-  //   OFOX_API_KEY, CF_API_TOKEN, GITHUB_TOKEN, OPERATOR_CONTROL_TOKEN
-  //   GAS_CITY_BEARER_TOKEN  (shared with GC_SUPERVISOR_TOKEN on gascity-supervisor)
-  //   GAS_CITY_HMAC_SECRET_V1 (shared with Gas City webhook signer)
-  //   HONEYCOMB_API_KEY
+  // Secrets sourced from CF Secrets Store (store_id: 5f51936ccef540ce825687d0afe96373).
+  "secrets_store_secrets": [
+    { "binding": "OFOX_API_KEY",               "secret_name": "OFOX_API_KEY",               "store_id": "5f51936ccef540ce825687d0afe96373" },
+    { "binding": "OPENAI_API_KEY",             "secret_name": "OPENAI_API_KEY",              "store_id": "5f51936ccef540ce825687d0afe96373" },
+    { "binding": "SUB_BUFFER_PRODUCER_SECRET", "secret_name": "SUB_BUFFER_PRODUCER_SECRET",  "store_id": "5f51936ccef540ce825687d0afe96373" },
+    { "binding": "WEOPS_SIGNING_KEY",          "secret_name": "WEOPS_SIGNING_KEY",           "store_id": "5f51936ccef540ce825687d0afe96373" },
+    { "binding": "GITHUB_TOKEN",               "secret_name": "GITHUB_TOKEN",                "store_id": "5f51936ccef540ce825687d0afe96373" }
+  ]
 }

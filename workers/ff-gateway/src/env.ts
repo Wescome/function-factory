@@ -48,4 +48,20 @@ export interface GatewayEnv {
   PIPELINE: PipelineBinding
   DB: D1Database
   ENVIRONMENT: string
+  // WeOps signals layer (Phase 4+)
+  // Secrets set via `wrangler secret put`; KV namespace declared in wrangler.jsonc.
+  /** KV namespace — jti replay guard, envelope idempotency, outbound retry queues, audit log */
+  KV_REPLAY: KVNamespace
+  /** CF Secrets Store — base64-encoded HMAC-SHA256 key for inbound JWT verification */
+  WEOPS_SIGNING_KEY: SecretsStoreSecret
+  /** CF Secrets Store — base64-encoded HMAC-SHA256 key for outbound envelope verification */
+  FF_AGENT_SIGNING_KEY: SecretsStoreSecret
+  /** Durable Object namespace for Commissioning Agent */
+  COMMISSIONING_AGENT: DurableObjectNamespace
+  /** Base URL / stub URL for Architect Agent Durable Object */
+  ARCHITECT_AGENT_DO_URL: string
+  /** We-layer webhook URL for EscalationEvent delivery */
+  WEOPS_ENDPOINT_ESCALATIONS: string
+  /** We-layer webhook URL for VCR delivery */
+  WEOPS_ENDPOINT_VCRS: string
 }

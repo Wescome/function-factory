@@ -16,6 +16,12 @@
     "@cloudflare/sandbox": "latest",
     "@cloudflare/shell": "0.3.4",
     "@factory/db-client": "workspace:*",
+    "@factory/gears": "workspace:*",
+    "@factory/factory-graph": "workspace:*",
+    "@factory/artifact-graph": "workspace:*",
+    "@factory/bead-graph": "workspace:*",
+    "@factory/loop-closure": "workspace:*",
+    "@factory/ksp-sdk": "workspace:*",
     "@factory/artifact-validator": "workspace:*",
     "@factory/compiler": "workspace:*",
     "@factory/diff-engine": "workspace:*",
@@ -29,7 +35,7 @@
     "@factory/verification": "workspace:*",
     "@weops/gdk-agent": "workspace:*",
     "@weops/gdk-ai": "workspace:*",
-    "agents": "0.11.6"
+    "agents": "^0.16.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260101.0",

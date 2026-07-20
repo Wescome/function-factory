@@ -1,0 +1,22 @@
+{
+  "name": "@factory/factory-graphql",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Factory GraphQL API — Query surface over sessions, beads, artifacts, and lineage",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "graphql": "^16.8.1",
+    "graphql-yoga": "^5.3.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260101.0",
+    "typescript": "^5.4.0",
+    "wrangler": "^4.99.0"
+  }
+}

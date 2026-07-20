@@ -1,0 +1,136 @@
+{
+  // ff-pipeline — single Cloudflare Worker: pipeline + Flue workflow runtime
+  // Architecture decision 2026-06-10: Flue workflows run inside ff-pipeline (not a separate ff-flue worker).
+  // CoordinatorDO, FactoryArtifactGraphDO, FactoryBeadGraphDO, Sandbox all live here — no cross-script bindings needed.
+  // This config is the authoritative deployment config; workers/ff-pipeline/wrangler.jsonc is the legacy reference.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ff-pipeline",
+  "main": "../workers/ff-pipeline/src/index.ts",
+  "compatibility_date": "2026-06-10",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Existing pipeline workflow
+  "workflows": [
+    {
+      "name": "factory-pipeline",
+      "binding": "FACTORY_PIPELINE",
+      "class_name": "FactoryPipeline"
+    }
+  ],
+
+  // Durable Objects — all classes live in this worker (no cross-script)
+  "durable_objects": {
+    "bindings": [
+      { "name": "COORDINATOR",   "class_name": "SynthesisCoordinator" },
+      { "name": "SANDBOX",       "class_name": "Sandbox" },
+      { "name": "ATOM_EXECUTOR", "class_name": "AtomExecutor" },
+      { "name": "RUN_COORDINATOR","class_name": "RunCoordinator" },
+      { "name": "PI_CONTAINER",  "class_name": "PiContainer" },
+      // KSP layer
+      { "name": "COORDINATOR_DO",  "class_name": "CoordinatorDO" },
+      { "name": "ARTIFACT_GRAPH",  "class_name": "FactoryArtifactGraphDO" },
+      { "name": "BEAD_GRAPH",      "class_name": "FactoryBeadGraphDO" },
+      // Flue workflow DOs — atom-execution is the only specced workflow (SPEC-FF-JUSTBASH-004)
+      { "name": "FLUE_ATOM_EXECUTION_WORKFLOW", "class_name": "FlueAtomExecutionWorkflow" },
+      { "name": "FLUE_REGISTRY",                "class_name": "FlueRegistry" }
+    ]
+  },
+
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["SynthesisCoordinator"] },
+    { "tag": "v2", "new_sqlite_classes": ["Sandbox"] },
+    { "tag": "v3", "new_sqlite_classes": ["AtomExecutor"] },
+    { "tag": "v4", "new_sqlite_classes": ["RunCoordinator"] },
+    { "tag": "v5", "new_sqlite_classes": ["PiContainer"] },
+    { "tag": "v6", "new_sqlite_classes": ["CoordinatorDO", "FactoryArtifactGraphDO", "FactoryBeadGraphDO"] },
+    { "tag": "v7", "new_sqlite_classes": ["FlueAtomExecutionWorkflow", "FlueRegistry"] }
+  ],
+
+  "containers": [
+    { "class_name": "Sandbox",     "image": "../workers/ff-pipeline/Dockerfile",             "max_instances": 5 },
+    { "class_name": "PiContainer", "image": "../workers/ff-pipeline/pi-container/Dockerfile", "max_instances": 3 }
+  ],
+
+  "d1_databases": [
+    { "binding": "DB",        "database_name": "ff-factory",        "database_id": "6a72d5c3-bcbb-41e3-b29d-d8de5834c3b3" },
+    { "binding": "D1_AUDIT",  "database_name": "factory-bead-audit", "database_id": "128d4b98-585a-4de9-abcc-98b7d78691b4" }
+  ],
+
+  "services": [
+    { "binding": "GATES",    "service": "ff-gates",          "entrypoint": "GatesService" },
+    { "binding": "GAS_CITY", "service": "gascity-supervisor" }
+  ],
+
+  "queues": {
+    "producers": [
+      { "binding": "SYNTHESIS_QUEUE",  "queue": "synthesis-queue" },
+      { "binding": "SYNTHESIS_RESULTS","queue": "synthesis-results" },
+      { "binding": "ATOM_RESULTS",     "queue": "atom-results" },
+      { "binding": "FEEDBACK_QUEUE",   "queue": "feedback-signals" },
+      { "binding": "HARNESS_QUEUE",    "queue": "harness-queue" },
+      { "binding": "TELEMETRY_QUEUE",  "queue": "telemetry-queue" }
+    ],
+    "consumers": [
+      { "queue": "synthesis-queue",   "max_batch_size": 1,  "max_retries": 5 },
+      { "queue": "synthesis-results", "max_batch_size": 1,  "max_retries": 3 },
+      { "queue": "atom-results",      "max_batch_size": 1,  "max_retries": 3 },
+      { "queue": "feedback-signals",  "max_batch_size": 1,  "max_retries": 2 },
+      { "queue": "harness-queue",     "max_batch_size": 1,  "max_retries": 3, "dead_letter_queue": "harness-dlq" },
+      { "queue": "harness-dlq",       "max_batch_size": 10, "max_retries": 1 },
+      { "queue": "telemetry-queue",   "max_batch_size": 25, "max_retries": 3, "dead_letter_queue": "telemetry-dlq" },
+      { "queue": "telemetry-dlq",     "max_batch_size": 10, "max_retries": 1 }
+    ]
+  },
+
+  "analytics_engine_datasets": [
+    { "binding": "FACTORY_METRICS", "dataset": "factory-metrics" }
+  ],
+
+  "ai": { "binding": "AI" },
+  "version_metadata": { "binding": "CF_VERSION_METADATA" },
+
+  "r2_buckets": [
+    { "binding": "WORKSPACE_BUCKET", "bucket_name": "ff-workspaces" }
+  ],
+
+  "kv_namespaces": [
+    { "binding": "KV_KS", "id": "9fe793fc61174920b8030ac1d06cfd8c" }
+  ],
+
+  "triggers": {
+    "crons": ["*/5 * * * *"]
+  },
+
+  "alias": {
+    "execa": "../workers/ff-pipeline/src/cf-stubs/execa.js"
+  },
+
+  "vars": {
+    "ENVIRONMENT": "development",
+    "WEOPS_GATEWAY_URL": "https://gateway.weops.ai",
+    "WEOPS_SIGNING_KEY": "",
+    "PI_MODEL": "openrouter/openai/gpt-5.4",
+    "PI_FILESYSTEM_MODEL_CANDIDATES": "openrouter/openai/gpt-5.4,openrouter/anthropic/claude-sonnet-4.6,openrouter/google/gemini-3.1-pro-preview,openrouter/x-ai/grok-4.20",
+    "FACTORY_MAX_ITERATIONS": "5",
+    "BUILD_GIT_SHA": "",
+    "GAS_CITY_BASE_URL": "https://gascity-supervisor.koales.workers.dev",
+    "GAS_CITY_CITY_NAME": "factory",
+    "GAS_CITY_AGENT_NAME": "coder",
+    "GAS_CITY_RIG": "function-factory",
+    "GAS_CITY_RIG_ROOT": "/workspace",
+    "GAS_CITY_WEBHOOK_URL": "https://ff-pipeline.koales.workers.dev/webhooks/gascity",
+    "GAS_CITY_FORMULA_VERSION_FACTORY_CODING_V1": "3",
+    "GAS_CITY_MAX_AMENDMENT_DEPTH": "3",
+    "GAS_CITY_PERSISTENCE_FRESHNESS_HOURS": "24",
+    "GAS_CITY_DISPATCH_STALE_MINUTES": "60",
+    "GAS_CITY_RECURRING_INCIDENT_THRESHOLD": "3"
+  }
+
+  // Secrets (set via `wrangler secret put`):
+  //   Same set as workers/ff-pipeline/wrangler.jsonc plus Flue KSP layer:
+  //   ANTHROPIC_API_KEY, OPENAI_API_KEY, DEEPSEEK_API_KEY, GITHUB_TOKEN
+  //   WEOPS_SIGNING_KEY (also in vars above for local dev)
+  //   OFOX_API_KEY, CF_API_TOKEN, OPERATOR_CONTROL_TOKEN
+  //   GAS_CITY_BEARER_TOKEN, GAS_CITY_HMAC_SECRET_V1
+  //   HONEYCOMB_API_KEY
+}

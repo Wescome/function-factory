@@ -1,37 +1,54 @@
 # Current Workspace
 
 ## Status
-Session ended at 2026-06-03T05:12:55.417Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
+Session ended at 2026-06-08T22:53:10.542Z. Auto-snapshot by WorkspaceSnapshot.hook.ts.
 
 ## Last update
-2026-06-03T05:12:55.417Z
+2026-06-08T22:53:10.542Z
 
 ## Recent actions (last 4h from AGENT_LEARNINGS.jsonl)
 
-- [05:00:34] Agent: SE augment SPEC-FF-DEVOPS-001 for full lifecycle production/Ops
-- [05:00:34] Bash: grep -rn "ACTIVE_EXECUTION_KEY\|R2.*checkpoint\|checkpoint\|exit 143\|exit143\|143\|SIGTERM\|resume" workers/ff-pipeline
-- [05:00:42] Bash: curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"message":"Algorithm agent activat
-- [05:00:46] Bash: ls /Users/wes/.claude/skills/PAI/SKILL.md /Users/wes/.claude/skills/skill-index.json 2>&1; echo "---REPO SEARCH---"; fin
-- [05:00:46] Bash: cd /Users/wes/Developer/function-factory; echo "=== ff-pipeline wrangler ==="; grep -n "name\|image\|class_name\|contain
-- [05:00:57] Bash: cd /Users/wes/Developer/function-factory; grep -n "recordActiveExecution\|clearActiveExecution\|infrastructure_error\|fa
-- [05:01:00] Bash: grep -rl "SPEC-FF-DEVOPS" . 2>/dev/null | head; echo "---WRANGLER---"; ls workers/ff-pipeline/wrangler.jsonc 2>/dev/null
-- [05:01:08] Bash: cd /Users/wes/Developer/function-factory
-echo "=== pi-container-version.ts (restart decision) ==="
-grep -n "shouldRestar
-- [05:01:09] Bash: curl -s -X POST http://localhost:8888/notify -H "Content-Type: application/json" -d '{"message":"Augmented the DevOps sp
-- [05:01:16] Bash: cd /Users/wes/Developer/function-factory; sed -n '100,120p' workers/ff-pipeline/wrangler.jsonc
-- [05:02:21] Bash: curl -s -X POST http://localhost:8888/notify \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Running the St
-- [05:04:47] Bash: ls /Users/wes/Developer/function-factory/workers/ && ls /Users/wes/Developer/function-factory/ 2>/dev/null | head -30
-- [05:04:51] Bash: ls /Users/wes/Developer/function-factory/workers/gascity-supervisor/ 2>/dev/null && cat /Users/wes/Developer/function-fa
-- [05:04:52] Bash: ls /Users/wes/Developer/function-factory/.github/workflows/ 2>/dev/null || echo "no .github/workflows found"
-- [05:07:32] Bash: ls /Users/wes/Developer/function-factory/.github/workflows/ 2>/dev/null && cat /Users/wes/Developer/function-factory/.gi
-- [05:11:29] Write: /Users/wes/Developer/function-factory/specs/reference/SPEC-FF-DEVOPS-001-v2.md
-- [05:12:18] Bash: ls /Users/wes/Developer/function-factory/specs/reference/ 2>/dev/null && ls /Users/wes/Developer/function-factory/docs/a
-- [05:12:33] Bash: wc -l /Users/wes/Developer/function-factory/specs/reference/SPEC-FF-DEVOPS-001-v2.md && tail -30 /Users/wes/Developer/fu
-- [05:12:35] Bash: wc -l /Users/wes/Developer/function-factory/docs/adr/ADR-0012-candidatepatch-untracked-file-fix.md 2>/dev/null && head -
-- [05:12:46] Bash: head -30 /Users/wes/Developer/function-factory/specs/reference/ADR-012-candidatepatch-git-diff-fix.md
+- [21:59:51] Bash: git -C /Users/wes/Developer/function-factory log --oneline -- workers/ff-pipeline/pi-container/server.mjs | head -10
+- [21:59:54] Bash: git -C /Users/wes/Developer/function-factory show 2ffbed1 -- workers/ff-pipeline/pi-container/workspace-seed.mjs | grep 
+- [21:59:58] Bash: git -C /Users/wes/Developer/function-factory show ab48d7f -- workers/ff-pipeline/pi-container/server.mjs | grep "^+" | g
+- [22:00:01] Bash: git -C /Users/wes/Developer/function-factory show ab48d7f -- workers/ff-pipeline/pi-container/workspace-seed.mjs | grep 
+- [22:00:05] Bash: # Check when workDir/cwd was introduced - look at older commits
+git -C /Users/wes/Developer/function-factory show 89ba50
+- [22:00:09] Bash: git -C /Users/wes/Developer/function-factory show 89ba50c:workers/ff-pipeline/pi-container/server.mjs | grep -n "cwd\|wo
+- [22:00:47] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/pi-container/server.mjs
+- [22:00:56] Edit: /Users/wes/Developer/function-factory/workers/ff-pipeline/pi-container/server.mjs
+- [22:01:04] Bash: git -C /Users/wes/Developer/function-factory add workers/ff-pipeline/pi-container/server.mjs && \
+git -C /Users/wes/Deve
+- [22:47:37] Bash: cd /Users/wes/Developer/function-factory && \
+bash scripts/ops/seed.sh \
+  specs/intent-specifications/IS-GC-DISPATCH-WI
+- [22:49:55] Bash: GC_BEARER="$(cat /tmp/gc_supervisor_token.txt)"
+for i in $(seq 1 80); do
+  RESULT=$(curl -sf -H "Authorization: Bearer $
+- [22:50:05] Bash: GC_BEARER="$(cat /tmp/gc_supervisor_token.txt)"
+curl -sf -H "Authorization: Bearer $GC_BEARER" -H "X-GC-Request: 1" \
+  
+- [22:50:16] Bash: GC_BEARER="$(cat /tmp/gc_supervisor_token.txt)"
+curl -sf -H "Authorization: Bearer $GC_BEARER" -H "X-GC-Request: 1" \
+  
+- [22:50:45] Bash: GC_BEARER="$(cat /tmp/gc_supervisor_token.txt)"
+curl -sf -H "Authorization: Bearer $GC_BEARER" -H "X-GC-Request: 1" \
+  
+- [22:50:50] Bash: # Check the logs from the pi container status for symlink errors
+curl -sf -H "Authorization: Bearer $(cat /tmp/gc_token.
+- [22:51:38] Bash: GC_BEARER="$(cat /tmp/gc_supervisor_token.txt)"
+curl -sf -H "Authorization: Bearer $GC_BEARER" -H "X-GC-Request: 1" \
+  
+- [22:51:58] Bash: grep -n "seed_workspace\|seedKey\|putSeed\|SeedWorkspace\|seed.*workspace" \
+  /Users/wes/Developer/function-factory/wor
+- [22:52:14] Bash: git -C ~/Developer/gascity show e7f3469a --stat 2>/dev/null | head -10
+git -C ~/Developer/gascity show e7f3469a 2>/dev/n
+- [22:52:36] Bash: grep -rn "seed_workspace\|SeedWorkspace" \
+  ~/Developer/gascity/cmd/gc/*.go \
+  ~/Developer/gascity/internal/dispatch/*
+- [22:52:40] Bash: grep -rn "gc\.seed_workspace\|seed_workspace" \
+  ~/Developer/gascity/cmd/gc/cmd_sling.go \
+  ~/Developer/gascity/intern
 
 ## Notes
 This file is auto-updated on session end. Manual edits will be overwritten.

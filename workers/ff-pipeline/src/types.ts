@@ -33,8 +33,8 @@ export interface PipelineEnv {
 
   COORDINATOR: DurableObjectNamespace<import('./coordinator/coordinator').SynthesisCoordinator>
 
-  /** v5.1: AtomExecutor DO namespace — one DO per atom for independent lifetimes */
-  ATOM_EXECUTOR: DurableObjectNamespace<import('./coordinator/atom-executor-do').AtomExecutor>
+  /** @deprecated ADR-014: retired in favour of ThinkExecutor. Optional until binding removed from wrangler.jsonc. */
+  ATOM_EXECUTOR?: DurableObjectNamespace<import('./coordinator/atom-executor-do').AtomExecutor>
 
   SYNTHESIS_QUEUE: Queue
 
@@ -50,9 +50,13 @@ export interface PipelineEnv {
   TELEMETRY_QUEUE?: Queue
   /** Workers Analytics Engine dataset for Factory metrics */
   FACTORY_METRICS?: AnalyticsEngineDataset
-  OFOX_API_KEY?: string
+  OFOX_API_KEY: string
   CF_API_TOKEN?: string
   OPERATOR_CONTROL_TOKEN?: string
+
+  // Secrets Store bindings (store_id: 5f51936ccef540ce825687d0afe96373)
+  SUB_BUFFER_PRODUCER_SECRET?: string
+  WEOPS_SIGNING_KEY?: string
 
   AI?: {
     run(model: string, input: Record<string, unknown>): Promise<{ response: string }>
@@ -61,7 +65,7 @@ export interface PipelineEnv {
   /** @cloudflare/sandbox binding — activated when container image is deployed */
   SANDBOX?: unknown
   /** R2 bucket for workspace backups */
-  WORKSPACE_BUCKET?: unknown
+  WORKSPACE_BUCKET: R2Bucket
 
   /** GitHub personal access token for PR creation */
   GITHUB_TOKEN?: string
@@ -86,6 +90,14 @@ export interface PipelineEnv {
   AIDER_CONTAINER?: { fetch: (req: Request) => Promise<Response> }
   /** Claude Code container service binding */
   CLAUDE_CODE_CONTAINER?: { fetch: (req: Request) => Promise<Response> }
+
+  // ── KSP layer bindings (@factory/gears + factory-graph) ──────────────────
+  COORDINATOR_DO?:  DurableObjectNamespace
+  ARTIFACT_GRAPH?:  DurableObjectNamespace
+  BEAD_GRAPH?:      DurableObjectNamespace
+  KV_KS:            KVNamespace
+  D1_AUDIT?:        D1Database
+  THINK_EXECUTOR:   DurableObjectNamespace
 
   LEARNING_ENABLED?: string
   LEARNING_OBSERVATIONS_ENABLED?: string

@@ -10,6 +10,11 @@
     { "binding": "DB", "database_name": "ff-factory", "database_id": "6a72d5c3-bcbb-41e3-b29d-d8de5834c3b3" }
   ],
 
+  // KV Namespaces
+  "kv_namespaces": [
+    { "binding": "KV_REPLAY", "id": "0912b9d9b6d74e6296553a6177d61174" }
+  ],
+
   // Service Bindings — internal Workers, no public route
   "services": [
     { "binding": "GATES", "service": "ff-gates", "entrypoint": "GatesService" },
@@ -29,12 +34,24 @@
   // Phase 2: query-worker runs as a named entrypoint in the same deployment.
   // If query load requires independent scaling, split to separate Worker.
 
+  // Durable Object binding — CommissioningAgentDO lives in ff-commissioning-agent Worker
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "COMMISSIONING_AGENT",
+        "class_name": "CommissioningAgentDO",
+        "script_name": "ff-commissioning-agent"
+      }
+    ]
+  },
+
   "vars": {
     "ENVIRONMENT": "production"
-  }
+  },
 
-  // Secrets (set via `wrangler secret put`):
-  //   [DEPRECATED] ARANGO_URL      — ArangoDB removed; use D1 (DB binding)
-  //   [DEPRECATED] ARANGO_DATABASE — ArangoDB removed; use D1 (DB binding)
-  //   [DEPRECATED] ARANGO_JWT      — ArangoDB removed; use D1 (DB binding)
+  // Secrets Store bindings — managed via CF Secrets Store (store: 5f51936ccef540ce825687d0afe96373)
+  "secrets_store_secrets": [
+    { "binding": "WEOPS_SIGNING_KEY", "store_id": "5f51936ccef540ce825687d0afe96373", "secret_name": "WEOPS_SIGNING_KEY" },
+    { "binding": "FF_AGENT_SIGNING_KEY", "store_id": "5f51936ccef540ce825687d0afe96373", "secret_name": "FF_AGENT_SIGNING_KEY" }
+  ]
 }

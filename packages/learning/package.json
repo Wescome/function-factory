@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@factory/schemas": "workspace:*",
-    "zod": "^3.23.8"
+    "zod": "^4.0.0"
   },
   "devDependencies": {
     "typescript": "^5.4.0",

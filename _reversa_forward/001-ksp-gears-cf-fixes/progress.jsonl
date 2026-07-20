@@ -1,0 +1,2 @@
+{"ts":"2026-06-10T23:15:00Z","action":"T001","status":"done","files":[".flue/wrangler.jsonc"]}
+{"ts":"2026-06-10T23:15:30Z","action":"T002","status":"done","files":[".agents/tools/skill_loader.ts"],"note":"skill_loader.ts:16 path fixed; .agent/skills/ deletion deferred — .agent/ contains only skills/, user to confirm rm -r .agent/"}

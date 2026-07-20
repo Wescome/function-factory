@@ -1,0 +1,267 @@
+syntax = "proto3";
+
+package weops.factory.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+option java_multiple_files = true;
+option java_package = "ai.koales.factory.v1";
+option java_outer_classname = "FactoryProto";
+
+// ─── Service ─────────────────────────────────────────────────────────────────
+
+service FactoryGateway {
+  // Submit a new session (WGSP envelope containing a work graph).
+  // Returns a server-streaming sequence of SessionEvents until the session
+  // reaches a terminal state or the caller cancels.
+  rpc SubmitSession(SubmitSessionRequest) returns (stream SessionEvent);
+
+  // Cancel an in-flight session.
+  rpc CancelSession(CancelSessionRequest) returns (CancelSessionResponse);
+
+  // Acknowledge a review prompt produced during a REVIEW_REQUIRED state,
+  // unblocking the pipeline.
+  rpc AcknowledgeReview(AcknowledgeReviewRequest) returns (AcknowledgeReviewResponse);
+
+  // Reattach to an existing session's event stream from a given sequence
+  // number (reconnect / durable replay).
+  rpc ResumeStream(ResumeStreamRequest) returns (stream SessionEvent);
+}
+
+// ─── Stream mode ─────────────────────────────────────────────────────────────
+
+enum StreamMode {
+  STREAM_MODE_UNSPECIFIED = 0;
+  // Stream all events (default).
+  STREAM_MODE_ALL = 1;
+  // Stream only terminal events.
+  STREAM_MODE_TERMINAL_ONLY = 2;
+  // Stream state-transition events and terminal events.
+  STREAM_MODE_STATE_TRANSITIONS = 3;
+}
+
+// ─── Top-level request/response messages ─────────────────────────────────────
+
+message SubmitSessionRequest {
+  // WGSP envelope carrying the actor identity, work graph, and signature.
+  WGSPEnvelopeProto envelope = 1;
+  // Controls which events are streamed back to the caller.
+  StreamMode stream_mode = 2;
+}
+
+message CancelSessionRequest {
+  string session_id = 1;
+  string reason = 2;
+}
+
+message CancelSessionResponse {
+  bool accepted = 1;
+  string reason = 2;
+}
+
+message AcknowledgeReviewRequest {
+  string session_id = 1;
+  string review_id = 2;
+  // "approved" | "rejected" | "amended"
+  string decision = 3;
+  // Optional free-text note from the reviewer.
+  string note = 4;
+}
+
+message AcknowledgeReviewResponse {
+  bool accepted = 1;
+  string reason = 2;
+}
+
+message ResumeStreamRequest {
+  string session_id = 1;
+  // Resume from events strictly after this sequence number.
+  // Use 0 to replay from the beginning.
+  uint64 from_sequence = 2;
+  StreamMode stream_mode = 3;
+}
+
+// ─── Session event stream ─────────────────────────────────────────────────────
+
+message SessionEvent {
+  string session_id = 1;
+  string work_order_id = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+  // Monotonic per-session sequence number (shared with GraphQL subscription seq).
+  uint64 seq = 4;
+  SessionEventKind kind = 5;
+
+  oneof payload {
+    StateTransitionPayload state_transition = 10;
+    VerificationPayload    verification     = 11;
+    ArtifactPayload        artifact         = 12;
+    ReviewPromptPayload    review_prompt    = 13;
+    BeadPayload            bead             = 14;
+    AmendmentPayload       amendment        = 15;
+    ErrorPayload           error            = 16;
+    TerminalPayload        terminal         = 17;
+  }
+}
+
+// ─── Session event kinds (§2.3) ───────────────────────────────────────────────
+
+enum SessionEventKind {
+  SESSION_EVENT_KIND_UNSPECIFIED     = 0;
+
+  // Lifecycle / state-machine events
+  SESSION_SUBMITTED                  = 1;
+  CANDIDATE_SET_BUILT                = 2;
+  APPROVAL_GRANTED                   = 3;
+  COMPILATION_STARTED                = 4;
+  COMPILATION_COMPLETE               = 5;
+  COMPILATION_FAILED                 = 6;
+  REVIEW_REQUIRED                    = 7;
+  REVIEW_RESOLVED                    = 8;
+  DEPLOYING                          = 9;
+  MONITORED                          = 10;
+
+  // Bead-level events
+  BEAD_CLAIMED                       = 11;
+  BEAD_RELEASED                      = 12;
+  BEAD_FAILED                        = 13;
+  BEAD_RESCUED                       = 14;
+  CONSENT_BEAD_DENIED                = 15;
+
+  // Verification / amendment events
+  VERIFICATION_PRODUCED              = 16;
+  DIVERGENCE_DETECTED                = 17;
+  AMENDMENT_PROPOSED                 = 18;
+  AMENDMENT_ADOPTED                  = 19;
+  AMENDMENT_REJECTED                 = 20;
+
+  // Artifact events
+  ARTIFACT_WRITTEN                   = 21;
+  EXECUTION_COMPLETE                 = 22;
+  EXECUTION_FAILED                   = 23;
+
+  // Terminal events
+  SESSION_COMPLETED                  = 24;
+  SESSION_FAILED                     = 25;
+  SESSION_CANCELLED                  = 26;
+}
+
+// ─── Payload message types (§2.3) ─────────────────────────────────────────────
+
+message StateTransitionPayload {
+  // Previous state name.
+  string from_state = 1;
+  // New state name.
+  string to_state = 2;
+  // Human-readable reason for the transition.
+  string reason = 3;
+}
+
+message VerificationPayload {
+  string verification_id = 1;
+  // "FIDELITY" | "COHERENCE"
+  string verification_type = 2;
+  // "PASS" | "FAIL" | "INCONCLUSIVE"
+  string outcome = 3;
+  double score = 4;
+  string evidence_root_hash = 5;
+  google.protobuf.Struct details = 6;
+}
+
+message ArtifactPayload {
+  string artifact_id = 1;
+  string artifact_type = 2;
+  string content_hash = 3;
+  // Storage location hint (e.g. R2 key or ArtifactGraph node id).
+  string storage_ref = 4;
+  google.protobuf.Struct metadata = 5;
+}
+
+message ReviewPromptPayload {
+  string review_id = 1;
+  // "APPROVAL_REQUIRED" | "AMENDMENT_REQUIRED" | "HUMAN_REVIEW"
+  string review_type = 2;
+  string prompt_text = 3;
+  // Epoch seconds — after this the pipeline auto-rejects if unacknowledged.
+  int64 deadline_unix_sec = 4;
+  google.protobuf.Struct context = 5;
+}
+
+message BeadPayload {
+  string bead_id = 1;
+  string run_id = 2;
+  string atom_id = 3;
+  // "CLAIMED" | "RELEASED" | "FAILED" | "RESCUED" | "CONSENT_DENIED"
+  string bead_state = 4;
+  google.protobuf.Struct details = 5;
+}
+
+message AmendmentPayload {
+  string amendment_id = 1;
+  // "PROPOSED" | "ADOPTED" | "REJECTED"
+  string amendment_state = 2;
+  string divergence_reason = 3;
+  google.protobuf.Struct patch = 4;
+  // Iteration depth — how many amendments deep this session is.
+  uint32 depth = 5;
+}
+
+message ErrorPayload {
+  // gRPC status code numeric value.
+  uint32 code = 1;
+  string message = 2;
+  google.protobuf.Struct details = 3;
+  bool retryable = 4;
+}
+
+message TerminalPayload {
+  // "COMPLETED" | "FAILED" | "CANCELLED"
+  string outcome = 1;
+  string reason = 2;
+  // Final artifact id if outcome == COMPLETED.
+  string final_artifact_id = 3;
+  google.protobuf.Struct summary = 4;
+}
+
+// ─── WGSP envelope (inbound wrapper) ─────────────────────────────────────────
+
+// Lightweight proto wrapper around the WGSP JSON envelope.
+// The work_graph field carries the canonical JSON bytes of the full
+// OutboundEnvelope (RFC 8785 canonical, base64 would bloat; use bytes).
+message WGSPEnvelopeProto {
+  string envelope_schema_version = 1;
+  string actor_type              = 2;
+  string purpose_id              = 3;
+  // Canonical JSON bytes of the full work graph (OutboundEnvelope.work_graph).
+  bytes  work_graph              = 4;
+  // HMAC-SHA256 signature over the RFC 8785 canonical envelope (base64).
+  bytes  signature               = 5;
+}
+
+// ─── Factory payload / compilation config (§2.4) ─────────────────────────────
+
+// Top-level factory payload — embedded in the WGSP work_graph.
+message FactoryPayload {
+  string work_order_id  = 1;
+  string assembly_id    = 2;
+  string intent_id      = 3;
+  // JSON-serialized FactoryCompilationConfig.
+  FactoryCompilationConfig compilation_config = 4;
+  // Arbitrary caller metadata forwarded unchanged to the pipeline.
+  google.protobuf.Struct metadata = 5;
+}
+
+message FactoryCompilationConfig {
+  // Target runtime: "cloudflare-workers" | "node" | "bun" | etc.
+  string target_runtime = 1;
+  // Language hint: "typescript" | "python" | etc.
+  string language = 2;
+  // Maximum pipeline iterations before forced terminal.
+  uint32 max_iterations = 3;
+  // Enable amendment loop (default true).
+  bool enable_amendments = 4;
+  // Review mode: "auto" | "human" | "hybrid".
+  string review_mode = 5;
+  // Additional runtime-specific flags.
+  google.protobuf.Struct extra = 6;
+}

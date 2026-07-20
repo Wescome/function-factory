@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Function Factory — State Machines</title>
+<style>
+  :root {
+    --ink: #0f1117;
+    --ink-2: #3a3d4a;
+    --ink-3: #6b7080;
+    --surface: #f7f8fc;
+    --card: #ffffff;
+    --border: #e0e3ee;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --teal: #0d9488;
+    --teal-soft: #ccfbf1;
+    --amber: #d97706;
+    --amber-soft: #fef3c7;
+    --red: #dc2626;
+    --red-soft: #fee2e2;
+    --purple: #7c3aed;
+    --purple-soft: #ede9fe;
+    --green: #16a34a;
+    --green-soft: #dcfce7;
+    --gray-soft: #f1f5f9;
+    --mono: 'JetBrains Mono', 'Fira Code', monospace;
+    --sans: 'Inter', system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--surface);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 0 0 80px;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--ink);
+    color: #fff;
+    padding: 40px 48px 36px;
+    border-bottom: 3px solid var(--accent);
+  }
+  header .eyebrow {
+    font-size: 11px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin-bottom: 10px;
+  }
+  header h1 {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -.02em;
+    margin-bottom: 6px;
+  }
+  header .meta {
+    font-size: 12px;
+    color: #64748b;
+  }
+  header .meta span { margin-right: 20px; }
+
+  /* ── TOC ── */
+  nav.toc {
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 48px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 20px;
+  }
+  nav.toc a {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink-3);
+    text-decoration: none;
+    padding: 3px 0;
+    border-bottom: 1.5px solid transparent;
+    transition: color .15s, border-color .15s;
+  }
+  nav.toc a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* ── Layout ── */
+  main { max-width: 1100px; margin: 0 auto; padding: 40px 48px 0; }
+
+  /* ── Section ── */
+  section.sm {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 32px;
+    overflow: hidden;
+  }
+  section.sm .sm-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 20px 24px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sm-number {
+    flex-shrink: 0;
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700;
+    margin-top: 2px;
+  }
+  .sm-header h2 { font-size: 16px; font-weight: 600; letter-spacing: -.01em; margin-bottom: 4px; }
+  .sm-header .origin {
+    font-size: 11px;
+    color: var(--ink-3);
+    font-family: var(--mono);
+  }
+  .sm-body { padding: 20px 24px; }
+
+  /* ── State diagram ── */
+  .diagram {
+    background: var(--gray-soft);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+    overflow-x: auto;
+  }
+
+  /* State nodes */
+  .states { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  .state {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 12px; font-weight: 600;
+    padding: 5px 11px;
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+  .state .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+  /* Transitions table */
+  .transitions { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .transitions th {
+    background: var(--ink);
+    color: #fff;
+    text-align: left;
+    padding: 8px 12px;
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+  .transitions td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .transitions tr:last-child td { border-bottom: none; }
+  .transitions tr:nth-child(even) td { background: var(--gray-soft); }
+  .transitions code {
+    font-family: var(--mono);
+    font-size: 11px;
+    background: var(--border);
+    padding: 1px 5px;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+
+  /* Invariants / notes */
+  .notes { margin-top: 14px; }
+  .note {
+    display: flex; gap: 10px;
+    font-size: 12px;
+    color: var(--ink-2);
+    margin-bottom: 7px;
+    line-height: 1.55;
+  }
+  .note-icon {
+    flex-shrink: 0;
+    font-size: 13px;
+    margin-top: 1px;
+  }
+
+  /* Badge */
+  .badge {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 4px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  .badge-retired { background: var(--red-soft); color: var(--red); }
+  .badge-updated { background: var(--amber-soft); color: var(--amber); }
+  .badge-new { background: var(--green-soft); color: var(--green); }
+
+  /* Arrow ASCII art in diagram */
+  .flow {
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.9;
+    white-space: pre;
+    color: var(--ink-2);
+  }
+  .flow .s  { color: var(--accent); font-weight: 700; }
+  .flow .t  { color: var(--teal); font-weight: 700; }
+  .flow .a  { color: var(--amber); font-weight: 700; }
+  .flow .r  { color: var(--red); font-weight: 700; }
+  .flow .g  { color: var(--green); font-weight: 700; }
+  .flow .p  { color: var(--purple); font-weight: 700; }
+  .flow .dim{ color: var(--ink-3); }
+
+  /* Color chips for legend */
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+  .chip {
+    font-size: 11px;
+    padding: 3px 10px 3px 7px;
+    border-radius: 5px;
+    display: flex; align-items: center; gap: 5px;
+    font-weight: 500;
+  }
+  .chip .dot2 { width: 8px; height: 8px; border-radius: 50%; }
+
+  hr.divider { border: none; border-top: 2px solid var(--border); margin: 32px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">Function Factory · Architecture Reference</div>
+  <h1>State Machines</h1>
+  <div class="meta">
+    <span>v4.2 — June 2026</span>
+    <span>Reflects: Flue retirement · ThinkExecutor/Mastra stack · CoordinatorDO v3 · ConsentBead · LoopClosureService · WeOps Gateway wire protocol · gRPC session stream · Linear integration (SM13–SM16) · No Gas City · No ArangoDB</span>
+  </div>
+</header>
+
+<nav class="toc">
+  <a href="#sm1">SM1 Pipeline Run</a>
+  <a href="#sm2">SM2 Function Lifecycle</a>
+  <a href="#sm3">SM3 ExecutionBead (CoordinatorDO)</a>
+  <a href="#sm4">SM4 CoordinatorDO Lifecycle</a>
+  <a href="#sm5">SM5 Mediation Agent DO</a>
+  <a href="#sm6">SM6 ConsentBead Verdict</a>
+  <a href="#sm7">SM7 Amendment Lifecycle</a>
+  <a href="#sm8">SM8 Session (LoopClosureService)</a>
+  <a href="#sm9">SM9 Autonomy Floor</a>
+  <a href="#sm10">SM10 ThinkExecutor Fiber</a>
+  <a href="#sm11">SM11 WeOps Gateway Signal</a>
+  <a href="#sm12">SM12 gRPC Session Stream</a>
+  <a href="#sm13">SM13 LinearSyncService Projection</a>
+  <a href="#sm14">SM14 ff-linear-bridge Disposition</a>
+  <a href="#sm15">SM15 CycleAwareness Advisory</a>
+  <a href="#sm16">SM16 Commit Tracing</a>
+</nav>
+
+<main>
+
+<!-- ══════════════════════════════════════════════════════════════════ SM1 -->
+<section class="sm" id="sm1">
+  <div class="sm-header">
+    <div class="sm-number" style="background:var(--accent-soft);color:var(--accent)">1</div>
+    <div>
+      <h2>Pipeline Run Status <span class="badge badge-updated">Updated</span></h2>
+      <div class="origin">packages/commissioning-agent/ · Mastra Workflow T1</div>
+    </div>
+  </div>
+  <div class="sm-body">
+    <div class="diagram">
+      <div class="flow"><span class="dim">[*]</span> ──────────────────────────────► <span class="s">signal_received</span>
+                                                 │ Signal ingested
+                                                 ▼
+                                          <span class="s">deliberating</span>
+                                                 │ Commissioning Agent builds Candidate Set
+                                                 ▼
+                                          <span class="s">awaiting_approval</span>  <span class="dim">◄── human-approval gate</span>
+                                         <span class="dim">/               \</span>
+                               rejected <span class="r">◄</span>                <span class="g">►</span> approved
+                                  <span class="dim">│</span>                              <span class="dim">│</span>
+                              <span class="r">[*]</span> <span class="dim">status=rejected</span>              <span class="dim">▼</span>
+                                                          <span class="s">disposition_event</span>
+                                                                 │ EluciationArtifact written
+                                                                 │ ResourceBudgetBead written
+                                                                 ▼
+                                                          <span class="s">compiling</span>  <span class="dim">◄── Mediation Agent DO</span>
+                                                         <span class="dim">/          \</span>
+                                              <span class="r">compile_failed</span>      <span class="g">seeded</span>
+                                                  <span class="dim">│</span>                    <span class="dim">│</span>
+                                              <span class="r">[*]</span> <span class="dim">422</span>                  <span class="dim">▼</span>
+                                                                  <span class="s">executing</span>  <span class="dim">◄── CoordinatorDO loop</span>
+                                                                 <span class="dim">/           \</span>
+                                                    <span class="r">synthesis_failed</span>   <span class="g">synthesis_passed</span>
+                                                           <span class="dim">│</span>                    <span class="dim">│</span>
+                                                      <span class="r">divergence</span> <span class="dim">→</span>         <span class="g">deploying</span>
+                                                      <span class="a">amendment</span> <span class="dim">loop</span>           <span class="dim">│</span>
+                                                                          <span class="g">monitored</span> <span class="dim">[*]</span></div>
+    </div>
+    <table class="transitions">
+      <tr><th>From</th><th>To</th><th>Trigger</th></tr>
+      <tr><td><code>signal_received</code></td><td><code>deliberating</code></td><td>Commissioning Agent begins Pattern Appraisal + Candidate Set construction</td></tr>
+      <tr><td><code>deliberating</code></td><td><code>awaiting_approval</code></td><td>Candidate Set produced — Mastra workflow <code>suspend()</code> fires if human gate configured</td></tr>
+      <tr><td><code>awaiting_approval</code></td><td><code>rejected</code></td><td>Architect calls <code>run.resume({ approved: false })</code></td></tr>
+      <tr><td><code>awaiting_approval</code></td><td><code>disposition_event</code></td><td>Auto-approved or architect calls <code>run.resume({ approved: true })</code></td></tr>
+      <tr><td><code>disposition_event</code></td><td><code>compiling</code></td><td>EluciationArtifact + ResourceBudgetBead written → <code>POST /commission</code> to Mediation Agent DO</td></tr>
+      <tr><td><code>compiling</code></td><td><code>compile_failed</code></td><td>Mediation Agent DO returns HTTP 422 — missing Gear, invalid WorkGraph node</td></tr>
+      <tr><td><code>compiling</code></td><td><code>executing</code></td><td>Mediation Agent DO seeds CoordinatorDO, sends CF Queue message</td></tr>
+      <tr><td><code>executing</code></td><td><code>synthesis_failed</code></td><td>One or more ExecutionBeads reach <code>failed</code>; LoopClosureService records Divergence</td></tr>
+      <tr><td><code>executing</code></td><td><code>synthesis_passed</code></td><td><code>getNextReady()</code> returns null — all beads terminal, all done</td></tr>
+      <tr><td><code>synthesis_passed</code></td><td><code>deploying</code></td><td><code>wrangler deploy</code> triggered against verified code artifact</td></tr>
+      <tr><td><code>deploying</code></td><td><code>monitored</code></td><td>Worker deployed; LoopClosureService assurance loop armed</td></tr>
+    </table>
+    <div class="notes">
+      <div class="note"><span class="note-icon">⚠</span><span>Gas City, <code>birthGate</code>, <code>SYNTHESIS_QUEUE</code>, <code>reconciliation-gate.ts</code>, and <code>coherence_check</code> state from SM1/SM3 v3 are <strong>retired</strong>. Human approval is now a Mastra <code>suspend()</code>/<code>resume()</code> cycle with EluciationArtifact as payload.</span></div>
+      <div class="note"><span class="note-icon">ℹ</span><span>The amendment loop on <code>synthesis_failed</code> is handled by SM7 (Amendment Lifecycle) and SM8 (Session / LoopClosureService). Pipeline Run status returns to <code>executing</code> only after a successor Specification is adopted and a new run is commissioned.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════ SM2 -->
+<section class="sm" id="sm2">
+  <div class="sm-header">
+    <div class="sm-number" style="background:var(--teal-soft);color:var(--teal)">2</div>
+    <div>
+      <h2>Function Lifecycle <span class="badge badge-updated">Updated</span></h2>
+      <div class="origin">ArtifactGraphDO · LoopClosureService · wrangler deploy</div>
+    </div>
+  </div>
+  <div class="sm-body">
+    <div class="diagram">
+      <div class="flow"><span class="dim">[*]</span> ──► <span class="s">proposed</span> ──► <span class="s">specified</span> ──► <span class="s">dispatched</span>
+                                    <span class="dim">│                │               /        \</span>
+                              <span class="r">retired</span>          <span class="r">retired</span>    <span class="g">accepted</span>     <span class="r">rejected</span>
+                                                                <span class="dim">│</span>              <span class="dim">│</span>
+                                                          <span class="s">monitored</span>      <span class="r">retired</span>
+                                                         <span class="dim">/         \</span>
+                                                   <span class="a">regressed</span>       <span class="r">retired</span>
+                                                        <span class="dim">│</span>
+                                              <span class="dim">resolved ▲ ─ loops back to monitored</span></div>
+    </div>
+    <table class="transitions">
+      <tr><th>From</th><th>To</th><th>Trigger</th></tr>
+      <tr><td><code>proposed</code></td><td><code>specified</code></td><td>IntentSpecification (WorkGraph) authored by Commissioning Agent</td></tr>
+      <tr><td><code>specified</code></td><td><code>dispatched</code></td><td>Mediation Agent DO compiles + seeds CoordinatorDO + CF Queue fired</td></tr>
+      <tr><td><code>dispatched</code></td><td><code>accepted</code></td><td>All ExecutionBeads <code>done</code>; code artifact verified; <code>wrangler deploy</code> succeeds</td></tr>
+      <tr><td><code>dispatched</code></td><td><code>rejected</code></td><td>Blocking Divergence unresolvable; Architect closes the run</td></tr>
+      <tr><td><code>accepted</code></td><td><code>monitored</code></td><td>Worker deployed; LoopClosureService assurance loop armed</td></tr>
+      <tr><td><code>monitored</code></td><td><code>regressed</code></td><td>Runtime Divergence detected by LoopClosureService (severity: blocking)</td></tr>
+      <tr><td><code>regressed</code></td><td><code>monitored</code></td><td>Amendment adopted; successor Specification deployed</td></tr>
+      <tr><td>any</td><td><code>retired</code></td><td>Explicit Architect decision — writes terminal ArtifactGraph node</td></tr>
+    </table>
+    <div class="notes">
+      <div class="note"><span class="note-icon">ℹ</span><span>Transitions enforced by lineage edges in ArtifactGraphDO — replaces <code>assertFunctionTransition()</code> + <code>lifecycle_transitions</code> collection from v3 (ArangoDB retired).</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════ SM3 -->
+<section class="sm" id="sm3">
+  <div class="sm-header">
+    <div class="sm-number" style="background:var(--purple-soft);color:var(--purple)">3</div>
+    <div>
+      <h2>ExecutionBead Status — CoordinatorDO <span class="badge badge-updated">Updated</span></h2>
+      <div class="origin">packages/gears/src/beads/coordinator-do.ts · SPEC-FF-COORDINATOR-DO-001</div>
+    </div>
+  </div>
+  <div class="sm-body">
+    <div class="diagram">
+      <div class="flow">                        <span class="dim">seedBeads() + initRun()</span>
+ <span class="dim">UNSEEDED</span> ──────────────────────────────────────────► <span class="s">ready</span>
+                                                               │
+                                                  claimBead() │ atomic CAS
+                                              <span class="dim">WHERE status='ready'</span> │
+                                                               ▼
+                                                         <span class="s">in_progress</span>
+                                                        <span class="dim">/           \</span>
+                                            releaseBead() <span class="dim">▼</span>             <span class="dim">▼</span> failBead()
+                                                       <span class="g">done</span>             <span class="r">failed</span>
+                                                       <span class="dim">[*]</span>             <span class="dim">[*]</span>
+                                                        <span class="dim">↑ alarm() every 5 min</span>
+                                           <span class="a">in_progress</span> <span class="dim">+ updated_at &gt; 5m → back to</span> <span class="s">ready</span></div>
+    </div>
+    <table class="transitions">
+      <tr><th>From</th><th>To</th><th>Trigger / Invariant</th></tr>
+      <tr><td><code>UNSEEDED</code></td><td><code>ready</code></td><td><code>seedBeads()</code> called after <code>initRun()</code>. <code>INSERT OR IGNORE</code> — idempotent. <code>getNextReady()</code> throws if called before seed (INV-2).</td></tr>
+      <tr><td><code>ready</code></td><td><code>in_progress</code></td><td><code>claimBead()</code> — single atomic <code>UPDATE … WHERE status='ready' RETURNING</code>. Only transitions if all parent beads are <code>done</code>.</td></tr>
+      <tr><td><code>in_progress</code></td><td><code>done</code></td><td><code>releaseBead(agentId)</code> — verifies <code>assigned_to = agentId</code> before transition. Writes D1 audit row + calls <code>LoopClosureService.recordOutcome()</code>.</td></tr>
+      <tr><td><code>in_progress</code></td><td><code>failed</code></td><td><code>failBead(agentId)</code> — same ownership check. Divergence detection triggered at BP1–BP3.</td></tr>
+      <tr><td><code>in_progress</code></td><td><code>ready</code></td><td><code>alarm()</code> fires every 5 min. Beads with <code>updated_at &lt; now − 5min</code> are rescued. Alarm armed in <code>initRun()</code>, not <code>seedBeads()</code> (INV-3).</td></tr>
+    </table>
+    <div class="notes">
+      <div class="note"><span class="note-icon">⚠</span><span><strong>INV-1:</strong> <code>initRun()</code> must precede <code>seedBeads()</code>. <code>POST /seed</code> handler returns HTTP 409 if <code>!this.runId</code>.</span></div>
+      <div class="note"><span class="note-icon">⚠</span><span><strong>INV-2:</strong> <code>getNextReady()</code> throws <code>Error('molecule not seeded')</code> on empty molecule; returns <code>null</code> only when all beads are terminal (run complete — not "nothing yet").</span></div>
+      <div class="note"><span class="note-icon">⚠</span><span><strong>INV-3:</strong> Alarm clock starts at <code>initRun()</code>. Repeated <code>seedBeads()</code> calls cannot push the stale-rescue window forward.</span></div>
+      <div class="note"><span class="note-icon">ℹ</span><span>Both terminal states (<code>done</code>, <code>failed</code>) trigger <code>writeAudit()</code> → D1 and <code>recordOutcome()</code> → LoopClosureService BP1.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════ SM4 -->
+<section class="sm" id="sm4">
+  <div class="sm-header">
+    <div class="sm-number" style="background:var(--accent-soft);color:var(--accent)">4</div>
+    <div>
+      <h2>CoordinatorDO Run Lifecycle <span class="badge badge-new">New</span></h2>
+      <div class="origin">packages/gears/src/beads/coordinator-do.ts · SPEC-FF-COORDINATOR-DO-001</div>
+    </div>
+  </div>
+  <div class="sm-body">
+    <div class="diagram">
+      <div class="flow"> <span class="dim">COLD</span>
+   <span class="dim">│</span>  POST /init → initRun(runId, orgId)
+   <span class="dim">▼</span>
+ <span class="s">INITIALIZED</span>  <span class="dim">(runId + orgId in meta · 5-min alarm armed)</span>
+   <span class="dim">│</span>  POST /seed → seedBeads()
+   <span class="dim">▼</span>
+ <span class="s">SEEDED</span>  <span class="dim">(execution_beads + bead_edges populated)</span>
+   <span class="dim">│</span>  CF Queue consumer fires ThinkExecutor.executeAtom()
+   <span class="dim">▼</span>
+ <span class="s">EXECUTING</span>  <span class="dim">(claimBead / releaseBead / failBead loop)</span>
+   <span class="dim">│</span>  getNextReady() returns null (all beads terminal)
+   <span class="dim">▼</span>
+ <span class="g">COMPLETE</span>  <span class="dim">→ POST /complete to Mediation Agent DO</span></div>
+    </div>
+    <div class="notes">
+      <div class="note"><span class="note-icon">ℹ</span><span>State derived from DO SQLite <code>meta</code> table on every wake from hibernation — never a mutable field.</span></div>
+      <div class="note"><span class="note-icon">ℹ</span><span>Alarm does not re-arm when all beads are terminal — prevents DO from staying alive after run completion.</span></div>
+      <div class="note"><span class="note-icon">⚠</span><span>GasCitySupervisor keepalive refcount (SM4 v3) is <strong>retired</strong>. CF Container keepalive is managed by <code>ThinkExecutor.runFiber()</code> + CF platform automatic lifecycle.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════ SM5 -->
+<section class="sm" id="sm5">
+  <div class="sm-header">
+    <div class="sm-number" style="background:var(--teal-soft);color:var(--teal)">5</div>
+    <div>
+      <h2>Mediation Agent DO Lifecycle <span class="badge badge-new">New</span></h2>
+      <div class="origin">packages/mediation-agent/ · SPEC-MEDIATION-AGENT-DO-001 v3.0</div>
+    </div>
+  </div>
+  <div class="sm-body">
+    <div class="diagram">
+      <div class="flow"> <span class="dim">UNINITIALIZED</span>
+        <span class="dim">│</span>  POST /commission
+        <span class="dim">▼</span>
+     <span class="s">COMPILING</span>  <span class="dim">(nine-step compile sequence in progress)</span>
+    <span class="dim">/            \</span>
+<span class="r">FAILED</span>          <span class="g">SEEDED</span>
+  <span class="dim">│</span>                <span class="dim">│</span>
+ <span class="r">HTTP 422</span>        <span class="dim">│</span>  CF Queue message sent → ThinkExecutor
+ <span class="dim">→ Commissioning  │</span>
+   <span class="dim">Agent retry</span>    <span class="dim">▼</span>
+               <span class="g">COMPLETE</span>  <span class="dim">(POST /complete from CoordinatorDO)</span></div>
+    </div>
+    <div class="notes">
+      <div class="note"><span class="note-icon">ℹ</span><span>The Mediation Agent DO has no role in execution. After <code>SEEDED</code>, it is idle until <code>POST /complete</code> arrives from CoordinatorDO.</span></div>
+      <div class="note"><span class="note-icon">ℹ</span><span>Idempotent: a second <code>POST /commission</code> with the same <code>runId</code> returns the cached <code>CommissionResponse</code> from the <code>compiled_molecules</code> table without re-running.</span></div>
+      <div class="note"><span class="note-icon">⚠</span><span>On <code>FAILED</code>: ArtifactGraphDO writes (steps 5–6) may have occurred. They are content-addressed and idempotent on retry. No bead state exists in CoordinatorDO.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════ SM6 -->
+<section class="sm" id="sm6">
+  <div class="sm-header">
+    <div class="sm-number" style="background:var(--amber-soft);color:var(--amber)">6</div>
+    <div>
+      <h2>ConsentBead Verdict <span class="badge badge-new">New</span></h2>
+      <div class="origin">packages/gears/src/processors/consent-bead-audit-processor.ts · SPEC-FF-CONSENT-BEAD-001</div>
+    </div>
+  </div>
+  <div class="sm-body">
+    <div class="diagram">
+      <div class="flow">LLM response contains tool call
+        <span class="dim">│</span>
+        <span class="dim">▼</span>
+  <code>processOutputStep</code> fires  <span class="dim">(Mastra outputProcessors — before tool execution)</span>
+        <span class="dim">│</span>
+        <span class="dim">├── toolName IN permittedTools?</span>
+        <span class="dim">│</span>
+        <span class="dim">│    YES                           NO</span>
+        <span class="dim">│     │                             │</span>
+        <span class="dim">▼     ▼                             ▼</span>
+   write <span class="g">ConsentBead</span>            write <span class="r">ConsentBead</span>
+   <span class="dim">verdict: allowed</span>              <span class="dim">verdict: denied</span>
+        <span class="dim">│</span>                              <span class="dim">│</span>
+        <span class="dim">▼</span>                              <span class="dim">▼</span>
+  <span class="g">ToolCallFilter</span> passes        <span class="r">throw ConsentDeniedError</span>
+        <span class="dim">│</span>                         <span class="dim">tool call never executes</span>
+        <span class="dim">▼</span>                         <span class="dim">(I4 — fail-closed)</span>
+   <span class="g">tool executes</span></div>
+    </div>
+    <div class="notes">
+      <div class="note"><span class="note-icon">⚠</span><span><strong>Every tool call has exactly one ConsentBead.</strong> Written before tool execution. A <code>verdict: denied</code> ConsentBead proves the tool never ran.</span></div>
+      <div class="note"><span class="note-icon">⚠</span><span><strong>I4 — fail-closed:</strong> ConsentBead enforcement is in Mastra <code>outputProcessors</code> (<code>processOutputStep</code>), not in <code>ThinkExecutor.beforeToolCall()</code>. ThinkExecutor runs no LLM loop and has no lifecycle hooks to intercept. Mastra's processor chain is the sole enforcement point.</span></div>
+      <div class="note"><span class="note-icon">ℹ</span><span>ConsentBead id is content-addressed: <code>SHA-256(runId:atomId:toolName:inputHash:timestamp)</code>. Duplicate writes are <code>INSERT OR IGNORE</code> — idempotent.</span></div>
+      <div class="note"><span class="note-icon">ℹ</span><span><code>ToolCallFilter</code> (Mastra built-in) runs after <code>ConsentBeadAuditProcessor</code> as a secondary hard gate — belt-and-suspenders. The ConsentBead is the governance record; the filter is the enforcement gate.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════ SM7 -->
+<section class="sm" id="sm7">
+  <div class="sm-header">
+    <div class="sm-number" style="background:var(--purple-soft);color:var(--purple)">7</div>
+    <div>
+      <h2>Amendment Lifecycle <span class="badge badge-updated">Updated</span></h2>
+      <div class="origin">ArtifactGraphDO · LoopClosureService BP4–BP5 · SPEC-FF-GAP-CLOSURES-001 §4</div>
+    </div>
+  </div>
+  <div class="sm-body">
+    <div class="diagram">
+      <div class="flow">  Divergence detected (LoopClosureService BP2–BP3)
+        <span class="dim">│</span>  buildHypothesis() — fault attribution (specification / execution / environment)
+        <span class="dim">▼</span>
+   <span class="s">Hypothesis</span>  <span class="dim">written to ArtifactGraph</span>
+        <span class="dim">│</span>  proposeAmendment()
+        <span class="dim">▼</span>
+   <span class="a">Amendment — CANDIDATE</span>
+        <span class="dim">│</span>  Verification-Process runs (Mastra eval T4)
+        <span class="dim">├──────────────────────┐</span>
+        <span class="dim">│ Verdict: passed</span>       <span class="dim">│ Verdict: failed</span>
+        <span class="dim">▼</span>                       <span class="dim">▼</span>
+   <span class="g">Amendment — ADOPTED</span>      <span class="r">Amendment — REJECTED</span>
+        <span class="dim">│</span>                       <span class="dim">│</span>
+  new Specification written    <span class="dim">[*] terminal</span>
+  new run commissioned
+        <span class="dim">│</span>
+        <span class="dim">▼  (if later Amendment adopted for same target)</span>
+   <span class="dim">Amendment — SUPERSEDED [*]</span></div>
+    </div>
+    <div class="notes">
+      <div class="note"><span class="note-icon">ℹ</span><span>Amendment status is <strong>never updated in place</strong>. <code>ADOPTED</code> and <code>REJECTED</code> are written as new ArtifactGraph nodes with <code>resolves</code> edges to the <code>CANDIDATE</code> node — append-only invariant.</span></div>
+      <div class="note"><span class="note-icon">ℹ</span><span>Verification-Process and Verdict nodes are written unconditionally — even for <code>REJECTED</code> outcomes. The audit trail is complete regardless of verdict.</span></div>
+      <div class="note"><span class="note-icon">⚠</span><span>Prior architecture (v3) used <code>AmendmentBead</code> + <code>TrustBead</code> + <code>PolicyBead</code> + KV invalidation. Current architecture: all nodes in <code>ArtifactGraphDO</code>; KV hot cache invalidated on new Specification adoption.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════ SM8 -->
+<section class="sm" id="sm8">
+  <div class="sm-header">
+    <div class="sm-number" style="background:var(--teal-soft);color:var(--teal)">8</div>
+    <div>
+      <h2>Session Lifecycle — LoopClosureService <span class="badge badge-updated">Updated</span></h2>
+      <div class="origin">packages/loop-closure/src/loop-closure-service.ts · SPEC-FF-GAP-CLOSURES-001 §4</div>
+    </div>
+  </div>
+  <div class="sm-body">
+    <div class="diagram">
+      <div class="flow">  <span class="dim">[*]</span> ──► <span class="s">open</span>  <span class="dim">(CoordinatorDO initRun + seedBeads complete)</span>
+               <span class="dim">│</span>  ThinkExecutor executeAtom() begins
+               <span class="dim">▼</span>
+           <span class="s">executing</span>  <span class="dim">(ConsentBeads written on each tool call)</span>
+               <span class="dim">│</span>  releaseBead() or failBead() → LoopClosureService.recordOutcome()
+               <span class="dim">▼</span>
+         <span class="s">outcome_written</span>  <span class="dim">(ExecutionTrace node in ArtifactGraph)</span>
+               <span class="dim">│</span>
+        <span class="dim">┌──────┴──────────────┐</span>
+        <span class="dim">│ Divergences?</span>         <span class="dim">│ No divergences</span>
+        <span class="dim">▼</span>                     <span class="dim">▼</span>
+  <span class="a">amendment_proposed</span>       <span class="s">open</span> <span class="dim">← next atom begins</span>
+        <span class="dim">│</span>
+   <span class="dim">┌────┴────────────┐</span>
+   <span class="dim">│ adopted</span>          <span class="dim">│ rejected</span>
+   <span class="dim">▼</span>                 <span class="dim">▼</span>
+ <span class="g">superseded</span>       <span class="r">rejected_amendment</span>
+   <span class="dim">[*] new run</span>          <span class="dim">[*] prior state</span>
+   <span class="dim">commissioned</span>         <span class="dim">remains active</span></div>
+    </div>
+    <table class="transitions">
+      <tr><th>Bridge Point</th><th>Transition</th><th>Action</th></tr>
+      <tr><td>BP1</td><td><code>open</code> prerequisite check</td><td>Verify <code>runId</code> in CoordinatorDO <code>meta</code> before any execution starts</td></tr>
+      <tr><td>BP2</td><td><code>open</code> → <code>executing</code></td><td>ExecutionTrace node written to ArtifactGraph; linked to Specification node</td></tr>
+      <tr><td>BP3</td><td><code>executing</code> → <code>outcome_written</code></td><td>ExecutionTrace completed; <code>factoryDivergenceDetector</code> runs; Divergence nodes written if triggered</td></tr>
+      <tr><td>BP4</td><td><code>outcome_written</code> → <code>amendment_proposed</code></td><td><code>buildHypothesis()</code> + <code>proposeAmendment()</code>; Amendment node written as <code>CANDIDATE</code></td></tr>
+      <tr><td>BP5</td><td><code>amendment_proposed</code> → <code>superseded</code></td><td>Amendment <code>ADOPTED</code>; successor Specification written; KV invalidated; new run commissioned</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════ SM9 -->
+<section class="sm" id="sm9">
+  <div class="sm-header">
+    <div class="sm-number" style="background:var(--red-soft);color:var(--red)">9</div>
+    <div>
+      <h2>Autonomy Floor Degradation <span class="badge badge-updated">Updated</span></h2>
+      <div class="origin">packages/gears/src/agents/ · SPEC-KSP-ARCH-001 §6 · I4</div>
+    </div>
+  </div>
+  <div class="sm-body">
+    <div class="diagram">
+      <div class="flow">  <span class="dim">[*]</span> ──► <span class="g">FULL_OR_BOUNDED</span>
+              <span class="dim">(ThinkExecutor.executeAtom() begins</span>
+               <span class="dim">autonomyFloor = AtomDirective.toolPolicy.permittedTools)</span>
+                        <span class="dim">│</span>
+       <span class="dim">ConsentBeadAuditProcessor fails to write?</span>
+       <span class="dim">ThinkExecutor runFiber() unreachable?</span>
+       <span class="dim">CoordinatorDO unavailable?</span>
+                        <span class="dim">▼</span>
+                    <span class="r">SUGGEST</span>  <span class="dim">(I4 fail-closed)</span>
+                        <span class="dim">│</span>  Agent may only surface options
+                        <span class="dim">│</span>  No tool execution permitted
+                        <span class="dim">│</span>  Human review required
+                        <span class="dim">▼</span>
+                    <span class="dim">[*] — session closed</span>
+                    <span class="dim">New session after root cause resolved</span></div>
+    </div>
+    <div class="notes">
+      <div class="note"><span class="note-icon">⚠</span><span>There is <strong>no in-session recovery</strong> from <code>SUGGEST</code>. Once degraded, the session must be closed. A new session may open after the root cause is resolved.</span></div>
+      <div class="note"><span class="note-icon">⚠</span><span>Triggers: CoordinatorDO unavailable · ConsentBead write fails · <code>ThinkExecutor.runFiber()</code> cannot reach CoordinatorDO <code>/claim</code> · <code>AtomDirective.permittedTools</code> is null in production (invariant violation).</span></div>
+      <div class="note"><span class="note-icon">ℹ</span><span>In normal operation, <code>autonomyFloor</code> is set by <code>AtomDirective.toolPolicy</code> — not by a <code>PolicyBead</code> from the KV/BeadGraph path described in prior v3 spec. <code>PolicyBead</code> lookup has been superseded by compile-time <code>ToolPolicy</code> on the <code>AtomDirective</code>.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════ SM10 -->
+<section class="sm" id="sm10">
+  <div class="sm-header">
+    <div class="sm-number" style="background:var(--purple-soft);color:var(--purple)">10</div>
+    <div>
+      <h2>ThinkExecutor Fiber Lifecycle <span class="badge badge-new">New</span></h2>
+      <div class="origin">packages/gears/src/agents/think-executor.ts · @cloudflare/think · SPEC-FF-FLUE-RETIRE-001</div>
+    </div>
+  </div>
+  <div class="sm-body">
+    <div class="diagram">
+      <div class="flow">  CF Queue message received
+               <span class="dim">│</span>  ThinkExecutor.executeAtom(directive, mastraAgent, coordinatorDO)
+               <span class="dim">▼</span>
+         <span class="s">fiber_started</span>  <span class="dim">(runFiber('atom-execution', ctx) begins)</span>
+               <span class="dim">│</span>  ctx.stash({ atomId, runId })
+               <span class="dim">│</span>  mastraAgent.generate() begins (Mastra LLM loop)
+               <span class="dim">▼</span>
+         <span class="s">generating</span>
+               <span class="dim">│</span>
+     <span class="dim">┌───────────┼───────────────────────────┐</span>
+     <span class="dim">│</span>           <span class="dim">│</span>                           <span class="dim">│</span>
+ <span class="a">CF eviction</span>  <span class="dim">│ generation complete</span>       <span class="r">provider error</span>
+     <span class="dim">│</span>           <span class="dim">▼</span>                           <span class="dim">▼</span>
+     <span class="dim">│</span>    <span class="s">evaluating</span>                   <span class="r">fiber_failed</span>
+     <span class="dim">│</span>    <span class="dim">(evaluateSuccessCondition)</span>      <span class="dim">│</span>
+     <span class="dim">│</span>    <span class="dim">│              │</span>           <span class="dim">failBead() → [*]</span>
+     <span class="dim">▼</span>    <span class="dim">▼              ▼</span>
+<span class="a">recovered</span> <span class="g">success</span>        <span class="r">failure</span>
+     <span class="dim">│</span>    <span class="dim">│</span>              <span class="dim">│</span>
+     <span class="dim">│</span> <span class="g">releaseBead()</span>   <span class="r">failBead()</span>
+     <span class="dim">│</span>   <span class="dim">[*]</span>            <span class="dim">[*]</span>
+     <span class="dim">│</span>
+     <span class="dim">▼  onFiberRecovered()</span>
+<span class="a">re_dispatched</span>  <span class="dim">← signals CoordinatorDO stale-bead alarm</span>
+               <span class="dim">stale-bead rescue re-hooks bead to ready</span></div>
+    </div>
+    <div class="notes">
+      <div class="note"><span class="note-icon">ℹ</span><span><code>ThinkExecutor</code> extends <code>Think&lt;Env&gt;</code> but runs <strong>no LLM loop of its own</strong>. It owns the durable fiber, workspace filesystem (<code>@cloudflare/shell</code>), and CF Sandbox binding. The Mastra <code>Agent</code> (<code>buildConductingAgent()</code>) runs the LLM loop inside the fiber.</span></div>
+      <div class="note"><span class="note-icon">ℹ</span><span>On CF eviction mid-stream, <code>onFiberRecovered()</code> signals the CoordinatorDO via <code>POST /fail</code> with a recoverable error code. The stale-bead alarm re-hooks the bead to <code>ready</code> for re-dispatch. The atom re-executes from scratch — no mid-stream resume.</span></div>
+      <div class="note"><span class="note-icon">ℹ</span><span>The Mastra processor chain (<code>ConsentBeadAuditProcessor</code>, <code>ToolCallFilter</code>, <code>PIIDetector</code>) runs inside <code>mastraAgent.generate()</code> during the <code>generating</code> state — not in ThinkExecutor itself.</span></div>
+      <div class="note"><span class="note-icon">⚠</span><span>Replaces Flue's <code>harness.session()</code> loop entirely. Flue <code>init()</code> / <code>session.skill()</code> / <code>session.prompt()</code> / <code>session.task()</code> are retired.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════ SM11 -->
+<section class="sm" id="sm11">
+  <div class="sm-header">
+    <div class="sm-number" style="background:var(--teal-soft);color:var(--teal)">11</div>
+    <div>
+      <h2>WeOps Gateway Signal Lifecycle <span class="badge badge-new">New</span></h2>
+      <div class="origin">ff-gateway.koales.workers.dev · SPEC-WEOPS-GATEWAY-BOUNDARY-001 v1.1</div>
+    </div>
+  </div>
+  <div class="sm-body">
+    <div class="diagram">
+      <div class="flow"><span class="dim">──────────────── INBOUND (We → I) ────────────────────────────────────</span>
+
+  WeOps disposition comment (Linear)
+        │  ff-linear-bridge: parse → EluciationArtifact written → JWT issued
+        ▼
+  <span class="s">signal_pending</span>  <span class="dim">(POST /signals arrives at gateway)</span>
+        │
+        │  JWT validation
+        ├── signature invalid / expired / jti replay ──► <span class="r">rejected_401</span>  <span class="dim">[*]</span>
+        ├── scope insufficient ──────────────────────► <span class="r">rejected_403</span>  <span class="dim">[*]</span>
+        ├── dispositionEventId absent ───────────────► <span class="r">rejected_400</span>  <span class="dim">[*] + A9ViolationEvent</span>
+        ▼
+  <span class="s">validated</span>
+        │  route lookup (Architect Agent DO factory:state by repoId)
+        ▼
+  <span class="s">routing</span>
+        │
+        ├── target unavailable ──► <span class="r">rejected_503</span>  <span class="dim">[*] I-layer unchanged</span>
+        ▼
+  <span class="g">delivered</span>  <span class="dim">→ HTTP 200 to ff-linear-bridge · jti cached KV 24h</span>
+
+<span class="dim">──────────────── OUTBOUND (I → We) ────────────────────────────────────</span>
+
+  I-layer agent (Mediation Agent DO / Commissioning Agent)
+        │  builds WGSP envelope · signs with FF_AGENT_SIGNING_KEY (HMAC-SHA256 / Ed25519)
+        │  RFC 8785 canonical-JSON of all fields except signature field
+        ▼
+  <span class="s">envelope_sent</span>  <span class="dim">(POST /escalations or POST /vcrs)</span>
+        │
+        │  Envelope signature validation
+        ├── signature absent ────────────────────────► <span class="r">rejected_401</span>  <span class="dim">[*]</span>
+        ├── signing_kernel_id unknown ───────────────► <span class="r">rejected_401</span>  <span class="dim">[*]</span>
+        ├── source.agent_id not in KV registry ──────► <span class="r">rejected_401</span>  <span class="dim">[*]</span>
+        ├── HMAC mismatch ───────────────────────────► <span class="r">rejected_401</span>  <span class="dim">[*]</span>
+        ├── signed_at stale (&gt;60s) ─────────────────► <span class="r">rejected_401</span>  <span class="dim">[*]</span>
+        ├── envelope_id replay ──────────────────────► <span class="dim">HTTP 200 idempotent [*]</span>
+        ▼
+  <span class="s">envelope_verified</span>
+        │  forward to We-layer endpoint
+        ├── We-layer available ──────────────────────► <span class="g">forwarded</span>  <span class="dim">[*]</span>
+        └── We-layer unavailable
+              │
+              ▼
+        <span class="a">buffered</span>  <span class="dim">(full envelope in KV)</span>
+              │
+  EscalationEvent: retry every 5 min · 7-day TTL · I-layer stays suspended
+  VCR:            best-effort retry · 30-day TTL · no I-layer impact
+  HealthSummary:  dropped · not retried</div>
+    </div>
+    <table class="transitions">
+      <tr><th>Signal</th><th>Auth mechanism</th><th>Key field</th><th>Retry on failure</th></tr>
+      <tr><td><code>CommissioningSignal</code> / <code>ResumeSignal</code> / <code>PatchAuthSignal</code> / <code>PipelineConfigAuthSignal</code> / <code>OverrideSignal</code></td><td>JWT (<code>WeOpsDispositionToken</code>, <code>WEOPS_SIGNING_KEY</code>, 5-min TTL)</td><td><code>jti</code> replay prevention (KV 24h)</td><td>No — 503 returns, I-layer stays unchanged</td></tr>
+      <tr><td><code>EscalationEvent</code></td><td>Envelope signature (<code>FF_AGENT_SIGNING_KEY</code>, RFC 8785)</td><td><code>envelope_id</code> idempotency</td><td>Yes — KV buffer, 5-min interval, 7-day TTL</td></tr>
+      <tr><td><code>VCR</code></td><td>Envelope signature</td><td><code>envelope_id</code> idempotency</td><td>Best-effort — KV buffer, 30-day TTL</td></tr>
+      <tr><td><code>HealthSummary</code></td><td>Envelope signature</td><td>—</td><td>No — dropped</td></tr>
+    </table>
+    <div class="notes">
+      <div class="note"><span class="note-icon">⚠</span><span><strong>Asymmetric auth:</strong> Inbound (We → I) uses JWT (<code>WeOpsDispositionToken</code>). Outbound (I → We) uses WGSP envelope signature (<code>EnvelopeSignature</code> per SRD §5.8) — no JWT. Different key, different algorithm, different validation path.</span></div>
+      <div class="note"><span class="note-icon">⚠</span><span><strong>A9 structural enforcement:</strong> Any inbound signal missing <code>dispositionEventId</code> or <code>elucidationArtifactId</code> is rejected HTTP 400 and produces an <code>A9ViolationEvent</code> forwarded to the We-layer audit stream. The EluciationArtifact write must precede JWT issuance in <code>ff-linear-bridge</code> — no token without a recorded artifact.</span></div>
+      <div class="note"><span class="note-icon">ℹ</span><span><strong>I4 hold under degradation:</strong> When the We-layer is unavailable and the I-layer is suspended, the suspended state is permanent until a <code>ResumeSignal</code> arrives. The I-layer never self-resumes.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════ SM12 -->
+<section class="sm" id="sm12">
+  <div class="sm-header">
+    <div class="sm-number" style="background:var(--purple-soft);color:var(--purple)">12</div>
+    <div>
+      <h2>gRPC Session Stream Lifecycle <span class="badge badge-new">New</span></h2>
+      <div class="origin">cf-worker: factory-gateway · service FactoryGateway · Factory-External-Interface-gRPC-GraphQL v3</div>
+    </div>
+  </div>
+  <div class="sm-body">
+    <div class="diagram">
+      <div class="flow">External caller: <code>SubmitSession(WGSPEnvelope)</code>
+        │
+        │  factory-gateway CF Worker
+        ├── WGSP envelope invalid ────────────────────► <span class="r">INVALID_ARGUMENT</span>  <span class="dim">[*]</span>
+        ├── OIDC token invalid ───────────────────────► <span class="r">UNAUTHENTICATED</span>   <span class="dim">[*]</span>
+        ├── PDP DENY ────────────────────────────────► <span class="r">PERMISSION_DENIED</span> <span class="dim">[*]</span>
+        ├── Commissioning Agent already active ──────► <span class="r">FAILED_PRECONDITION</span> <span class="dim">[*]</span>
+        ▼
+  <span class="s">stream_open</span>
+        │
+        │  Commissioning Agent Mastra Workflow T1 begins
+        │
+        ├──► <span class="s">SESSION_SUBMITTED</span>          <span class="dim">signal_received → deliberating</span>
+        ├──► <span class="s">CANDIDATE_SET_BUILT</span>        <span class="dim">deliberating → awaiting_approval</span>
+        ├──► <span class="s">REVIEW_REQUIRED</span>            <span class="dim">Mastra suspend() — human gate</span>
+        │         │
+        │    AcknowledgeReview() ──► APPROVE ──► <span class="s">APPROVAL_GRANTED</span>
+        │                       └──► REJECT ───► <span class="r">SESSION_CANCELLED</span>  <span class="dim">[terminal]</span>
+        │
+        ├──► <span class="s">APPROVAL_GRANTED</span>           <span class="dim">disposition_event</span>
+        ├──► <span class="s">COMPILATION_STARTED</span>        <span class="dim">compiling — Mediation Agent DO nine-step sequence</span>
+        ├──► <span class="s">VERIFICATION_PRODUCED</span>      <span class="dim">Coherence verdict (compile step 4)</span>
+        │         │
+        │    Coherence unfavorable ──► <span class="r">COMPILATION_FAILED</span>  <span class="dim">[terminal]</span>
+        │
+        ├──► <span class="s">COMPILATION_COMPLETE</span>       <span class="dim">CoordinatorDO seeded · CF Queue messages sent</span>
+        │
+        │  Per atom (repeated until all beads terminal):
+        ├──► <span class="s">BEAD_CLAIMED</span>               <span class="dim">ThinkExecutor claimBead()</span>
+        ├──► <span class="s">ARTIFACT_WRITTEN</span>           <span class="dim">ArtifactGraphDO append (zero or more)</span>
+        ├──► <span class="s">CONSENT_BEAD_DENIED</span>        <span class="dim">I4 tool block (zero or more)</span>
+        ├──► <span class="s">BEAD_RELEASED</span>  <span class="dim">or</span>  <span class="r">BEAD_FAILED</span>
+        ├──► <span class="s">VERIFICATION_PRODUCED</span>      <span class="dim">Fidelity verdict (LoopClosureService BP3)</span>
+        │
+        │  On divergence:
+        ├──► <span class="a">DIVERGENCE_DETECTED</span>
+        ├──► <span class="a">AMENDMENT_PROPOSED</span>
+        ├──► <span class="g">AMENDMENT_ADOPTED</span>  <span class="dim">or</span>  <span class="r">AMENDMENT_REJECTED</span>
+        │
+        ├──► <span class="g">EXECUTION_COMPLETE</span>         <span class="dim">synthesis_passed — all beads done</span>
+        ├──► <span class="g">DEPLOYING</span>                  <span class="dim">wrangler deploy triggered</span>
+        ├──► <span class="g">MONITORED</span>                  <span class="dim">Worker deployed · assurance loop armed</span>
+        │
+        ▼
+  <span class="g">SESSION_COMPLETED</span>  <span class="dim">→ TerminalPayload emitted → stream closes immediately [*]</span>
+
+        <span class="dim">── Error paths ──</span>
+  <span class="r">SESSION_FAILED</span>     <span class="dim">→ TerminalPayload (synthesis_failed unresolvable) → stream closes [*]</span>
+  <span class="r">SESSION_CANCELLED</span>  <span class="dim">→ TerminalPayload (CancelSession() or Architect rejection) → stream closes [*]</span>
+  <span class="r">UNAVAILABLE</span>        <span class="dim">→ CF eviction / DO hibernation → caller retries with ResumeStream(from_sequence) [resumable]</span></div>
+    </div>
+    <table class="transitions">
+      <tr><th>Event Kind</th><th>Payload type</th><th>Source</th></tr>
+      <tr><td><code>SESSION_SUBMITTED</code> → <code>COMPILATION_COMPLETE</code></td><td><code>StateTransitionPayload</code></td><td>Commissioning Agent / Mediation Agent DO</td></tr>
+      <tr><td><code>BEAD_CLAIMED</code> / <code>BEAD_RELEASED</code> / <code>BEAD_FAILED</code> / <code>BEAD_RESCUED</code></td><td><code>BeadPayload</code></td><td>CoordinatorDO</td></tr>
+      <tr><td><code>CONSENT_BEAD_DENIED</code></td><td><code>BeadPayload</code></td><td>ConsentBeadAuditProcessor (Mastra outputProcessors)</td></tr>
+      <tr><td><code>VERIFICATION_PRODUCED</code></td><td><code>VerificationPayload</code></td><td>Mediation Agent DO (Coherence) · LoopClosureService (Fidelity)</td></tr>
+      <tr><td><code>ARTIFACT_WRITTEN</code></td><td><code>ArtifactPayload</code></td><td>ArtifactGraphDO append (LoopClosureService)</td></tr>
+      <tr><td><code>DIVERGENCE_DETECTED</code> / <code>AMENDMENT_PROPOSED</code> / <code>AMENDMENT_ADOPTED</code> / <code>AMENDMENT_REJECTED</code></td><td><code>AmendmentPayload</code></td><td>LoopClosureService BP2–BP5</td></tr>
+      <tr><td><code>REVIEW_REQUIRED</code> / <code>REVIEW_RESOLVED</code></td><td><code>ReviewPromptPayload</code></td><td>Commissioning Agent Mastra suspend()/resume()</td></tr>
+      <tr><td><code>SESSION_COMPLETED</code> / <code>SESSION_FAILED</code> / <code>SESSION_CANCELLED</code></td><td><code>TerminalPayload</code></td><td>factory-gateway</td></tr>
+    </table>
+    <div class="notes">
+      <div class="note"><span class="note-icon">⚠</span><span><strong>Terminal stream close (I-EXT-07):</strong> Stream closes immediately after any <code>TerminalPayload</code>. No events follow <code>SESSION_COMPLETED</code>, <code>SESSION_FAILED</code>, or <code>SESSION_CANCELLED</code>. Callers must not expect further events after a terminal.</span></div>
+      <div class="note"><span class="note-icon">⚠</span><span><strong><code>UNAVAILABLE</code> is the only resumable error.</strong> CF eviction mid-stream or DO hibernation returns <code>UNAVAILABLE</code>. The session may still be live. Caller retries with <code>ResumeStream(session_id, from_sequence)</code>. All other gRPC error codes are terminal for the call — the session state is unchanged but the stream cannot be restarted.</span></div>
+      <div class="note"><span class="note-icon">ℹ</span><span><strong>GraphQL is the read plane.</strong> All events emitted on the gRPC stream are also readable via GraphQL queries/subscriptions against D1, CoordinatorDO, and ArtifactGraphDO. The gRPC stream is the push surface; GraphQL is the pull/subscribe surface.</span></div>
+      <div class="note"><span class="note-icon">ℹ</span><span><strong>Evidence chain hash on every state transition:</strong> <code>StateTransitionPayload.evidence_chain_hash</code> must equal the <code>evidence_chain_root</code> in ArtifactGraphDO at that transition point (I-EXT-04). The gRPC stream is the live evidence chain witness.</span></div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════════════ SM13 -->
+<section class="sm" id="sm13">
+  <div class="sm-header">
+    <div class="sm-number" style="background:var(--purple-soft);color:var(--purple)">13</div>
+    <div>
+      <h2>LinearSyncService Projection Lifecycle <span class="badge badge-new">New</span></h2>
+      <div class="origin">packages/linear-sync/ · SPEC-LINEAR-SYNC-SERVICE-001 v2.0</div>
+    </div>
+  </div>
+  <div class="sm-body">
+    <div class="diagram">
+      <div class="flow"><span class="dim">──────── P1: Atom Projection ────────────────────────────────────────────</span>
+
+  CoordinatorDO seedBeads() → POST /sync/atoms
+        │
+        ▼
+  <span class="s">check_binding</span>  <span class="dim">(D1 factory-artifacts linear_bindings for atomId)</span>
+        │
+        ├── binding exists, same workGraphVersion ──► <span class="dim">skip [*]</span>
+        ├── binding exists, new version ──────────► label old <code>factory:superseded</code>
+        │                                            move to Cancelled → create new
+        └── no binding
+              ▼
+        <span class="s">create_issue</span>  <span class="dim">(Linear: Backlog, factory:atom, factory:active)</span>
+              │  write D1 linear_binding
+              │  write IssueBindingEvent node → ArtifactGraphDO
+              ▼
+        <span class="s">link_dependencies</span>  <span class="dim">(Linear issueRelationCreate blocks edges from dependsOn)</span>
+              ▼
+        <span class="g">projected</span>  <span class="dim">[*]</span>
+
+<span class="dim">──────── P2: Trace State Sync ───────────────────────────────────────────</span>
+
+  CoordinatorDO releaseBead() / failBead() → POST /sync/atoms
+        │
+        ▼
+  <span class="s">resolve_issue</span>  <span class="dim">(D1 linear_bindings by atomId)</span>
+        │
+        ├── releaseBead() (done) ──────────────────► <span class="g">Done</span>  <span class="dim">+ factory:success · commit SHA comment</span>
+        ├── failBead() recoverable ────────────────► <span class="a">In Review</span>  <span class="dim">+ factory:retrying · retry comment</span>
+        ├── failBead() governance_violation ───────► <span class="r">Cancelled</span>  <span class="dim">+ factory:divergence factory:failure</span>
+        └── failBead() provider_error ─────────────► <span class="r">Cancelled</span>  <span class="dim">+ factory:failure</span>
+
+<span class="dim">──────── P3: Divergence Projection ──────────────────────────────────────</span>
+
+  LoopClosureService BP3 → POST /sync/divergences
+        │
+        ▼
+  <span class="s">check_binding</span>  <span class="dim">(D1 linear_bindings for divergenceNodeId)</span>
+        │
+        ├── exists ──► <span class="dim">skip (idempotent) [*]</span>
+        └── no binding
+              ▼
+        <span class="s">create_divergence_issue</span>  <span class="dim">(child of parent atom issue)</span>
+              │  severity → state: blocking=In Progress · advisory/info=Backlog
+              │  labels: factory:divergence + severity label
+              │  write D1 linear_binding for divergenceNodeId
+              ▼
+        <span class="s">awaiting_resolution</span>
+              │
+              ├── Hypothesis formed → POST /sync/hypothesis
+              │     ▼ comment appended to issue
+              ├── Amendment proposed → POST /sync/hypothesis (amendmentId in body)
+              │     ▼ comment updated
+              └── Divergence closed → POST /sync/divergence-closed
+                    ▼
+              <span class="g">Done</span>  <span class="dim">[*]</span>
+
+<span class="dim">──────── P4: Health Document ─────────────────────────────────────────────</span>
+
+  LoopClosureService health push → POST /sync/health
+        │
+        ▼
+  <span class="s">resolve_documents</span>  <span class="dim">(CF KV: health-doc-live-id + health-doc-history-id)</span>
+        │
+        ├── documents exist → full-replace live doc
+        └── documents absent → create both docs → full-replace live doc
+              ▼
+        <span class="g">live_updated</span>
+
+  Midnight cron → append timestamped snapshot to history doc
+        ▼
+  <span class="g">history_appended</span>  <span class="dim">[*]</span></div>
+    </div>
+    <table class="transitions">
+      <tr><th>Projection</th><th>Trigger</th><th>Source of truth</th></tr>
+      <tr><td>P1 atom</td><td>CoordinatorDO seedBeads()</td><td>AtomDirective nodes in ArtifactGraphDO</td></tr>
+      <tr><td>P2 trace</td><td>CoordinatorDO releaseBead() / failBead()</td><td>D1 factory-ops bead audit rows</td></tr>
+      <tr><td>P3 divergence</td><td>LoopClosureService BP3</td><td>Divergence nodes in ArtifactGraphDO</td></tr>
+      <tr><td>P4 health</td><td>LoopClosureService health push + midnight cron</td><td>CoordinatorDO SQLite + ArtifactGraphDO + D1</td></tr>
+    </table>
+    <div class="notes">
+      <div class="note"><span class="note-icon">ℹ</span><span><strong>One-way projection only.</strong> LinearSyncService is not a webhook receiver. It does not pull from Linear. The Factory's ArtifactGraphDO + D1 are the source of truth. Linear is a human-readable view maintained by this service.</span></div>
+      <div class="note"><span class="note-icon">ℹ</span><span><strong>All operations idempotent via D1 linear_bindings.</strong> Every write checks the binding table first. Alarm replays and flush retries produce no duplicate issues.</span></div>
+      <div class="note"><span class="note-icon">⚠</span><span><strong>Linear failures are non-blocking.</strong> A Linear API failure must never cause a CoordinatorDO bead operation or LoopClosureService outcome to fail. Errors are logged to D1 factory-ops and retried on the next flush cycle.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════ SM14 -->
+<section class="sm" id="sm14">
+  <div class="sm-header">
+    <div class="sm-number" style="background:var(--teal-soft);color:var(--teal)">14</div>
+    <div>
+      <h2>ff-linear-bridge Disposition Lifecycle <span class="badge badge-new">New</span></h2>
+      <div class="origin">workers/linear-bridge/ · SPEC-FF-LINEAR-BRIDGE-001 v2.0</div>
+    </div>
+  </div>
+  <div class="sm-body">
+    <div class="diagram">
+      <div class="flow">Linear webhook (IssueCommentCreate on factory:escalation issue)
+        │
+        ▼
+  <span class="s">signature_check</span>  <span class="dim">(Linear-Signature HMAC-SHA256)</span>
+        │
+        ├── invalid / missing ──► <span class="r">rejected_401</span>  <span class="dim">[*] logged to D1 factory-ops bridge_security_events</span>
+        ▼
+  <span class="s">comment_classify</span>
+        │
+        ├── APPROVED comment ──► <span class="s">approval_flow</span>  <span class="dim">(§ override two-person sub-SM below)</span>
+        ├── DISPOSITION: prefix + commenter NOT in AuthorityRegistry
+        │     ──► reply once: "your Linear ID is not registered"  <span class="dim">[*]</span>
+        ├── other comment ──► <span class="dim">ignore [*]</span>
+        └── DISPOSITION: prefix + commenter IN registry
+              ▼
+        <span class="s">parse_disposition</span>
+              │
+              ├── unknown verb ────────────────────────────────► <span class="r">error_reply</span>  <span class="dim">[*]</span>
+              ├── missing required fields ─────────────────────► <span class="r">error_reply</span>  <span class="dim">[*]</span>
+              └── parsed ok
+                    ▼
+              <span class="s">authority_check</span>
+                    │
+                    ├── not permitted ───────────────────────────► <span class="r">error_reply</span>  <span class="dim">[*]</span>
+                    ├── verb=override → requiredApprovals=2 ──────► <span class="a">approval_pending</span>  <span class="dim">(sub-SM below)</span>
+                    └── permitted, requiredApprovals=1
+                          ▼
+                    <span class="s">write_eluciation_artifact</span>  <span class="dim">(ELC-* node → ArtifactGraphDO — A9 gate)</span>
+                          │
+                          ├── ArtifactGraphDO write FAILS ────────► <span class="r">error_reply</span>  <span class="dim">[*] no token issued</span>
+                          └── write ok
+                                ▼
+                          <span class="s">issue_jwt</span>  <span class="dim">(WeOpsDispositionToken · 5-min TTL · jti → BRIDGE_KV)</span>
+                                │
+                                ▼
+                          <span class="s">build_gateway_signal</span>  <span class="dim">(verb → signal type mapping)</span>
+                                │
+                                ▼
+                          <span class="s">post_gateway</span>  <span class="dim">(POST /signals with Authorization: Bearer {token})</span>
+                                │
+                                ├── gateway 4xx ──► <span class="r">error_reply</span>  <span class="dim">[*] no retry</span>
+                                ├── gateway 5xx ──► retry 3× backoff → <span class="r">error_reply</span> if all fail
+                                └── gateway ok
+                                      ▼
+                                <span class="g">disposition_recorded</span>
+                                      │  reply to Linear comment (success template)
+                                      │  add factory:disposition-recorded label
+                                      └──► issue closed  <span class="dim">[*]</span>
+
+<span class="dim">──────── Override Approval Sub-SM (requiredApprovals=2) ─────────────────</span>
+
+  <span class="a">approval_pending</span>  <span class="dim">(state stored in CF KV pending-override:{escalationId} · 1-hour TTL)</span>
+        │  bridge replies: "2-person approval required; expires at {time}"
+        │
+        ├── APPROVED comment from SAME actor ──► <span class="dim">ignore (must be different person)</span>
+        ├── APPROVED comment from different actor WITHOUT we-layer:override scope
+        │     ──► reply: "insufficient authority"
+        ├── TTL expires without 2 approvals
+        │     ──► clear KV · move issue to In Progress · expiry comment
+        │     ──► <span class="r">expired</span>  <span class="dim">[*]</span>
+        └── APPROVED comment from different actor WITH we-layer:override scope
+              ▼
+        <span class="s">write_eluciation_artifact</span>  <span class="dim">(same path as single-approval flow above)</span></div>
+    </div>
+    <table class="transitions">
+      <tr><th>Signal type</th><th>Disposition verb</th><th>Scope required</th></tr>
+      <tr><td><code>CommissioningSignal</code></td><td><code>resume</code>, <code>commission</code></td><td><code>we-layer:commission</code></td></tr>
+      <tr><td><code>PatchAuthSignal</code></td><td><code>patch</code></td><td><code>we-layer:patch</code></td></tr>
+      <tr><td><code>PipelineConfigAuthSignal</code></td><td><code>pipeline-config</code></td><td><code>we-layer:pipeline-config</code></td></tr>
+      <tr><td><code>OverrideSignal</code></td><td><code>override</code></td><td><code>we-layer:override</code> + 2-person</td></tr>
+      <tr><td>(none)</td><td><code>reject</code></td><td><code>we-layer:commission</code> (any scope)</td></tr>
+    </table>
+    <div class="notes">
+      <div class="note"><span class="note-icon">⚠</span><span><strong>A9 is the hard gate.</strong> The code path to JWT signing runs only after the ArtifactGraphDO EluciationArtifact write succeeds. No ELC-* node = no token = no I-layer action. This is structural, not advisory.</span></div>
+      <div class="note"><span class="note-icon">⚠</span><span><strong>JTI replay prevention is two-layer.</strong> The bridge stores every issued JTI in CF KV (<code>jti:{jti}</code>). The WeOps Gateway independently checks JTI on every inbound signal. Both layers must pass.</span></div>
+      <div class="note"><span class="note-icon">ℹ</span><span><strong>Rejection is still a Disposition Event.</strong> <code>verb: reject</code> writes a RejectionRecord node to ArtifactGraphDO, closes the escalation issue, and adds <code>factory:disposition-recorded</code>. No gateway signal is fired — the Factory remains in its current state.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════ SM15 -->
+<section class="sm" id="sm15">
+  <div class="sm-header">
+    <div class="sm-number" style="background:var(--amber-soft);color:var(--amber)">15</div>
+    <div>
+      <h2>CycleAwareness Advisory Lifecycle <span class="badge badge-new">New</span></h2>
+      <div class="origin">packages/linear-sync/src/cycle-awareness.ts · packages/commissioning-agent/ · SPEC-FF-CYCLE-HEALTH-001 v2.0</div>
+    </div>
+  </div>
+  <div class="sm-body">
+    <div class="diagram">
+      <div class="flow"><span class="dim">──────── Advisory Hypothesis Lifecycle ──────────────────────────────────</span>
+
+  LoopClosureService BP4: Amendment CANDIDATE → advisory severity
+        │  Hypothesis node written to ArtifactGraphDO (status: CANDIDATE, surfaced: false)
+        ▼
+  <span class="s">queued</span>  <span class="dim">(in ArtifactGraphDO; not yet in Linear)</span>
+        │
+        │  CommissioningAgentDO alarm fires every 6h
+        ▼
+  <span class="s">cycle_check</span>  <span class="dim">(getCycleContext() → CF KV cache → Linear API if miss)</span>
+        │
+        ├── no active cycle ──────────────────────────► surface immediately
+        ├── daysRemaining > 2 ────────────────────────► <span class="s">queued</span>  <span class="dim">(defer to cycle boundary)</span>
+        └── daysRemaining ≤ 2 (isLastTwoDays)
+              ▼
+        <span class="s">surface</span>  <span class="dim">(POST /sync/advisory-hypothesis → LinearSyncService)</span>
+              │  Linear issue created: Backlog · factory:advisory · factory:cycle-boundary
+              │  D1 linear_bindings entry written
+              │  mark surfaced in CommissioningAgentDO DO SQLite session_context
+              ▼
+        <span class="s">surfaced</span>  <span class="dim">(in Linear; awaiting human action)</span>
+              │
+        ┌─────┴───────────────────────────┐
+        │ Human action during cycle       │ No action before cycle end
+        ▼                                 ▼
+  human resolves issue              <span class="a">cycle_end_reconciliation</span>
+  (comment + close)                       │  add factory:carried-over label
+        │                                 │  increment surfacedCycleCount on HYP-* node
+        ▼                                 │  in ArtifactGraphDO
+  POST /sync/divergence-closed            ▼
+        │                           <span class="s">carried_over</span>  <span class="dim">(into next cycle)</span>
+        ▼                                 │
+  <span class="g">resolved</span>  <span class="dim">[*]</span>                    surfacedCycleCount ≥ 2?
+                                          │
+                                    ├── yes ──► <span class="a">recurring</span>
+                                    │     │  flagged for CommissioningAgentDO re-evaluation
+                                    │     │  on next /divergence push
+                                    │     └──► <span class="s">queued</span>  <span class="dim">(restart — may escalate to blocking)</span>
+                                    └── no ──► <span class="s">queued</span>  <span class="dim">(next cycle boundary)</span>
+
+<span class="dim">──────── CycleReconciliation (at isCycleEnd) ────────────────────────────</span>
+
+  CommissioningAgentDO alarm detects isCycleEnd
+        │
+        ▼
+  <span class="s">label_carried_over</span>  <span class="dim">(all open advisory issues in closing cycle → factory:carried-over)</span>
+        │
+        ▼
+  <span class="s">write_vcr</span>  <span class="dim">(VerdictClosureRecord node → ArtifactGraphDO · dispositionEventType: cycle-close)</span>
+        │
+        ▼
+  <span class="s">check_recurring</span>  <span class="dim">(ArtifactGraphDO query: HYP-* with status=CANDIDATE surfacedCycleCount≥2)</span>
+        │
+        ├── none ──► <span class="g">reconciliation_complete</span>  <span class="dim">[*]</span>
+        └── recurring found ──► flag in DO SQLite for /divergence re-evaluation
+              ▼
+        <span class="g">reconciliation_complete</span>  <span class="dim">[*]</span>
+
+<span class="dim">──────── Health Document (Direction 6) ──────────────────────────────────</span>
+
+  LoopClosureService health push → POST /sync/health
+        │  full-replace Factory Health — Live document
+        ▼
+  Midnight UTC cron
+        │  append timestamped snapshot to Factory Health — History document
+        ▼
+  <span class="g">snapshot_appended</span>  <span class="dim">[*]</span></div>
+    </div>
+    <table class="transitions">
+      <tr><th>State</th><th>Trigger</th><th>Action</th></tr>
+      <tr><td><code>queued</code></td><td>LoopClosureService BP4 writes advisory HYP-* to ArtifactGraphDO</td><td>No Linear action — deferred to cycle boundary</td></tr>
+      <tr><td><code>queued</code> → <code>surfaced</code></td><td>CommissioningAgentDO alarm when <code>isLastTwoDays</code> or no active cycle</td><td>POST /sync/advisory-hypothesis → Linear issue created</td></tr>
+      <tr><td><code>surfaced</code> → <code>resolved</code></td><td>Human closes issue during cycle</td><td>POST /sync/divergence-closed → ArtifactGraphDO update</td></tr>
+      <tr><td><code>surfaced</code> → <code>carried_over</code></td><td>Cycle ends without resolution</td><td><code>factory:carried-over</code> label · <code>surfacedCycleCount++</code> · VCR node</td></tr>
+      <tr><td><code>carried_over</code> → <code>recurring</code></td><td><code>surfacedCycleCount ≥ 2</code></td><td>Flagged for CommissioningAgentDO re-evaluation on next /divergence push</td></tr>
+    </table>
+    <div class="notes">
+      <div class="note"><span class="note-icon">⚠</span><span><strong>No polling loop (WEO-13 cancelled).</strong> CommissioningAgentDO uses DO hibernation + alarm (every 6h). Push-based <code>/divergence</code> endpoint handles real-time Divergence notification. No CF Workflow, no Cron Trigger for the advisory surfacing path.</span></div>
+      <div class="note"><span class="note-icon">ℹ</span><span><strong>Advisory items do not block execution.</strong> A Hypothesis with <code>severity: advisory</code> never triggers <code>LifecycleEvent(SUSPENDED)</code>. The cycle cadence governs when humans review them, not whether the Factory continues running.</span></div>
+      <div class="note"><span class="note-icon">ℹ</span><span><strong>Recurring detection closes the governance feedback loop.</strong> A Hypothesis carried over twice without resolution signals either a systematic pattern (→ pipeline config change, D4) or an implicit non-decision that should be explicit. CommissioningAgentDO re-evaluation may reclassify it as blocking on the next amendment loop.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════ SM16 -->
+<section class="sm" id="sm16">
+  <div class="sm-header">
+    <div class="sm-number" style="background:var(--green-soft);color:var(--green)">16</div>
+    <div>
+      <h2>Commit Tracing Lifecycle <span class="badge badge-new">New</span></h2>
+      <div class="origin">packages/gears/src/processors/commit-tracing-processor.ts · SPEC-FF-COMMIT-TRACING-001 v2.0</div>
+    </div>
+  </div>
+  <div class="sm-body">
+    <div class="diagram">
+      <div class="flow"><span class="dim">──────── Env Injection (compile time) ───────────────────────────────────</span>
+
+  Mediation Agent DO nine-step compile sequence step 7
+        │  resolves D1 linear_bindings for each atomId
+        │  adds /spec/.factory-env to AtomDirective.specFiles[]
+        │    FACTORY_ATOM_ID, FACTORY_WORK_GRAPH_VERSION, FACTORY_REPO_ID
+        │    FACTORY_POLICY_BEAD_ID, FACTORY_LINEAR_ISSUE_ID, FACTORY_RUN_ID
+        ▼
+  CF Queue message → ThinkExecutor
+        │  ThinkExecutor writes all specFiles → @cloudflare/shell workspace
+        │  /spec/.factory-env available to all tool calls
+        ▼
+  <span class="s">env_injected</span>
+
+<span class="dim">──────── CommitTracingProcessor (Mastra outputProcessor, runtime) ───────</span>
+
+  mastraAgent.generate() — Mastra outputProcessor chain fires on each tool call
+        │  ConsentBeadAuditProcessor (primary I4 gate)
+        │  ToolCallFilter (secondary gate)
+        │  CommitTracingProcessor ← here
+        │
+        ▼
+  <span class="s">tool_call_inspect</span>
+        │
+        ├── tool ≠ shell OR no /git\s+commit/ match ──► <span class="dim">pass through [*]</span>
+        └── shell tool + git commit matched
+              ▼
+        <span class="s">parse_message_flag</span>  <span class="dim">(extract -m "..." from command)</span>
+              │
+              ├── -m flag not found / non-standard form
+              │     ──► <span class="dim">pass through unmodified</span>
+              │     ──► log CommitTrailerSkipped → INV-COMMIT-TRACE-001 will fire advisory
+              └── -m parsed ok
+                    ▼
+              <span class="s">read_factory_env</span>  <span class="dim">(parse /spec/.factory-env from @cloudflare/shell workspace)</span>
+                    │
+                    ├── no FACTORY_* vars (env not injected) ──► <span class="dim">pass through [*]</span>
+                    └── vars present
+                          ▼
+                    <span class="s">append_trailers</span>
+                          │  Factory-Atom: {FACTORY_ATOM_ID}
+                          │  Factory-WorkGraph: WG-{FACTORY_REPO_ID}@{FACTORY_WORK_GRAPH_VERSION}
+                          │  Factory-Linear: {FACTORY_LINEAR_ISSUE_ID}  (omit if empty)
+                          │  Factory-PolicyBead: {FACTORY_POLICY_BEAD_ID}
+                          ▼
+                    <span class="g">rewritten_command</span>  <span class="dim">→ tool call proceeds with appended trailers [*]</span>
+
+<span class="dim">──────── SHA Extraction (ThinkExecutor post-generation) ─────────────────</span>
+
+  mastraAgent.generate() completes → ThinkExecutor enters evaluating state
+        │
+        ├── shell NOT in permittedTools ──► <span class="dim">commitSha = undefined [*]</span>
+        └── shell in permittedTools
+              ▼
+        <span class="s">run_git_log</span>  <span class="dim">(workspace.exec: git log --oneline -1 --format=%H)</span>
+              │
+              ├── exitCode ≠ 0 / no output ──► <span class="dim">commitSha = undefined</span>
+              ├── output not 40-char hex ────► <span class="dim">commitSha = undefined</span>
+              └── valid SHA
+                    ▼
+              <span class="s">sha_extracted</span>  <span class="dim">(commitSha: string)</span>
+                    │
+                    ▼
+              buildTraceFragment(executionId, atomId, result, commitSha)
+                    │
+              ┌─────┴──────────────────────────────────────────┐
+              │                                                │
+              ▼                                                ▼
+  <span class="s">write_to_artifact_graph</span>                       <span class="s">post_linear_sync</span>
+  LoopClosureService recordOutcome()             POST /sync/commit-sha
+  → ExecutionTrace node.commitSha set            (fire-and-forget)
+  → ArtifactGraphDO (append-only)                      │
+              │                                  Linear atom issue comment:
+              ▼                                  "Commit: {sha} [GitHub link]"
+        <span class="g">lineage_closed</span>  <span class="dim">[*]</span>
+
+<span class="dim">──────── INV-COMMIT-TRACE-001 (advisory governance detector) ────────────</span>
+
+  LoopClosureService BP3 evaluates ExecutionTrace node
+        │
+        ├── permittedTools excludes shell ──► <span class="dim">INV not applicable [*]</span>
+        ├── outcome ≠ success ───────────────► <span class="dim">INV not applicable [*]</span>
+        └── shell in permittedTools + outcome: success + commitSha is null
+              ▼
+        <span class="a">advisory_divergence</span>  <span class="dim">(INV-COMMIT-TRACE-001 fired)</span>
+              │  Hypothesis: atom made git operation without committing
+              │              OR commit message was non-standard (trailer skipped)
+              └──► advisory Hypothesis → SM15 queued state</div>
+    </div>
+    <table class="transitions">
+      <tr><th>Phase</th><th>Location</th><th>What happens</th></tr>
+      <tr><td>Compile</td><td>Mediation Agent DO step 7</td><td><code>/spec/.factory-env</code> added to <code>AtomDirective.specFiles[]</code> with all <code>FACTORY_*</code> vars</td></tr>
+      <tr><td>Runtime interception</td><td>Mastra <code>CommitTracingProcessor</code></td><td><code>git commit -m "..."</code> rewritten to append Factory git trailers before tool executes</td></tr>
+      <tr><td>Post-generation</td><td>ThinkExecutor <code>evaluating</code> state</td><td><code>workspace.exec(git log)</code> extracts SHA; included in <code>TraceFragment</code></td></tr>
+      <tr><td>Governance record</td><td>LoopClosureService <code>recordOutcome()</code></td><td><code>ExecutionTrace.commitSha</code> written to ArtifactGraphDO (append-only)</td></tr>
+      <tr><td>Linear visibility</td><td>LinearSyncService <code>POST /sync/commit-sha</code></td><td>SHA comment posted to atom issue (fire-and-forget, non-blocking)</td></tr>
+    </table>
+    <div class="notes">
+      <div class="note"><span class="note-icon">⚠</span><span><strong>CommitTracingProcessor runs AFTER ConsentBead gate.</strong> It only fires on permitted tool calls. It never intercepts a denied <code>git commit</code> — a denied call never reaches CommitTracingProcessor.</span></div>
+      <div class="note"><span class="note-icon">ℹ</span><span><strong>Uses <code>-m</code> string injection, not <code>--trailer</code>.</strong> <code>git commit --trailer</code> requires Git 2.33+. The <code>@cloudflare/shell</code> sandbox may run older versions. String injection into the <code>-m</code> flag is universally compatible.</span></div>
+      <div class="note"><span class="note-icon">ℹ</span><span><strong>Linear visibility is fire-and-forget.</strong> <code>POST /sync/commit-sha</code> failure does not affect Factory governance — the SHA is already in the <code>ExecutionTrace</code> node in ArtifactGraphDO. Linear is a projection surface, not a governance record.</span></div>
+      <div class="note"><span class="note-icon">ℹ</span><span><strong>INV-COMMIT-TRACE-001 fires advisory only.</strong> A missing <code>commitSha</code> produces an advisory Divergence (→ SM15 queued), never a blocking Divergence. The tracing gap is surfaced for Hypothesis formation, not execution suspension.</span></div>
+    </div>
+  </div>
+</section>
+
+
+</main>
+</body>
+</html>

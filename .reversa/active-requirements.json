@@ -1,0 +1,10 @@
+{
+  "schema-version": 1,
+  "feature-dir": "_reversa_forward/003-flue-retirement",
+  "feature-id": "003",
+  "short-name": "flue-retirement",
+  "started-at": "2026-06-12T00:00:00Z",
+  "current-stage": "requirements",
+  "stages-completed": [],
+  "paused-features": []
+}

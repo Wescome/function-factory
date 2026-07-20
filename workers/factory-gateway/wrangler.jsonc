@@ -1,0 +1,40 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "factory-gateway",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-01-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Durable Object bindings — external scripts (not deployed in this Worker)
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "COMMISSIONING_AGENT",
+        "class_name": "CommissioningAgentDO",
+        "script_name": "ff-commissioning-agent"
+      },
+      {
+        "name": "SUB_BUFFER",
+        "class_name": "SubscriptionEventBufferDO",
+        "script_name": "factory-subscription-buffer"
+      }
+    ]
+  },
+
+  // KV namespace — SubscriptionEventBufferDO liveness shadow
+  // Provision: wrangler kv namespace create SUB_BUFFER_KV
+  "kv_namespaces": [
+    { "binding": "SUB_BUFFER_KV", "id": "d7176cd90477444285b52c5e39f64e63" }
+  ],
+
+  // Service binding — routes PDP calls via CF service-to-service (no HTTP 404)
+  "services": [
+    { "binding": "PDP", "service": "factory-pdp" }
+  ],
+
+  // Secrets Store bindings — sourced from CF Secrets Store (store: 5f51936ccef540ce825687d0afe96373)
+  "secrets_store_secrets": [
+    { "binding": "WEOPS_SIGNING_KEY", "store_id": "5f51936ccef540ce825687d0afe96373", "secret_name": "WEOPS_SIGNING_KEY" },
+    { "binding": "PDP_API_KEY", "store_id": "5f51936ccef540ce825687d0afe96373", "secret_name": "PDP_API_KEY" }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "name": "@factory/mediation-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "lint": "echo 'lint: TODO'"
+  },
+  "dependencies": {
+    "@factory/factory-graph": "workspace:*",
+    "@factory/gears": "workspace:*",
+    "@factory/schemas": "workspace:*",
+    "@factory/subscription-buffer": "workspace:*",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260527.1",
+    "@types/node": "^24.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.4.0"
+  }
+}

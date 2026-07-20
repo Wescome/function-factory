@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@cloudflare/sandbox": ["workers/ff-pipeline/node_modules/@cloudflare/sandbox/dist/index.d.ts"]
+    },
+    "noEmit": true
+  },
+  "include": ["connectors/**/*"],
+  "exclude": ["node_modules", "dist", "**/dist/**", "packages", "workers"]
+}
