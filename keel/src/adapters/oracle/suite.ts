@@ -34,6 +34,20 @@ export interface OracleAssertion {
    *  observability BEFORE evaluating anything, the same way `metamorphic`
    *  declares `probes` rather than have the runtime infer them. */
   readonly composes?: { readonly relation: string; readonly requires: readonly string[] };
+  /** PLAYBOOK-KEEL-SEAM (INV-DECOMP-5): `geo@v1`'s A2 cross-step anchor
+   *  generalized from "two calls in one trace" to "two children across two
+   *  runs." `composes` asks whether the children's outputs jointly satisfy a
+   *  parent relation; `seams` asks a DIFFERENT question — did the value
+   *  threaded from an upstream child survive being read by a downstream one.
+   *  A list because one parent may declare several seams. Each `relation` is
+   *  a JS bool over two bound operands, `upstream` and `downstream` — each
+   *  child's recorded `observed.value` from `join()`, never the downstream
+   *  child's unverified claim about what it received. The ANCHOR LAW: the
+   *  relation MUST reference `upstream` — reading only `downstream` is
+   *  gameable (a child could just claim the right value) and is malformed,
+   *  same discipline as `metamorphic`'s `input`-reference requirement, one
+   *  level up. */
+  readonly seams?: readonly { readonly upstream: string; readonly downstream: string; readonly relation: string }[];
 }
 
 export interface OracleSuite {
@@ -258,6 +272,62 @@ const SUITES: Record<string, OracleSuite> = {
       { criterionId: "R3", kind: "property", composes: { relation: "outputs['R1'] > 0", requires: ["R1", "R2"] } },
     ],
   },
+  // PLAYBOOK-KEEL-SEAM: the Mars-Orbiter shape. S1 (upstream) records a
+  // value; S2 (downstream) records what it "received." Both independently
+  // green (each just checks its own field is a number) — the seam is the
+  // ONLY thing that can catch S2 having read (or been given) the wrong
+  // value. S3 carries the seam declaration; it has no `expr`/`observe` of
+  // its own, only `seams` — mirrors `compose-demo@v1`'s R3 carrying only
+  // `composes`.
+  "seam-demo@v1": {
+    ref: "seam-demo@v1",
+    assertions: [
+      { criterionId: "S1", kind: "example", expr: "trace.result && typeof trace.result.val === 'number'", observe: "trace.result.val" },
+      { criterionId: "S2", kind: "example", expr: "trace.result && typeof trace.result.received === 'number'", observe: "trace.result.received" },
+      { criterionId: "S3", kind: "property", seams: [{ upstream: "S1", downstream: "S2", relation: "downstream === upstream" }] },
+    ],
+  },
+  // The vacuity fixture: S1 declares NO `observe` — produces nothing a seam
+  // can anchor on, regardless of what S2 records.
+  "seam-vacuous@v1": {
+    ref: "seam-vacuous@v1",
+    assertions: [
+      { criterionId: "S1", kind: "example", expr: "trace.result && typeof trace.result.val === 'number'" }, // no observe — deliberate
+      { criterionId: "S2", kind: "example", expr: "trace.result && typeof trace.result.received === 'number'", observe: "trace.result.received" },
+      { criterionId: "S3", kind: "property", seams: [{ upstream: "S1", downstream: "S2", relation: "downstream === upstream" }] },
+    ],
+  },
+  // A relation that reads only `downstream` — never anchored on the
+  // upstream's recorded output. Malformed regardless of what either child
+  // actually produced.
+  "seam-unanchored@v1": {
+    ref: "seam-unanchored@v1",
+    assertions: [
+      { criterionId: "S1", kind: "example", expr: "trace.result && typeof trace.result.val === 'number'", observe: "trace.result.val" },
+      { criterionId: "S2", kind: "example", expr: "trace.result && typeof trace.result.received === 'number'", observe: "trace.result.received" },
+      { criterionId: "S3", kind: "property", seams: [{ upstream: "S1", downstream: "S2", relation: "downstream === 14" }] },
+    ],
+  },
+  // Both legs, one suite: R1/R2/R3 (cross-cut, exactly compose-demo@v1's
+  // shape) plus a seam from R1 (reused as the seam's upstream) to S2 (the
+  // downstream) — proves the two checks are independent: a tree can pass one
+  // and fail the other in the same run. Deliberately only THREE root clauses
+  // (R1, R2, S2) — the real SPEC_LOOP_BOUND.maxFanout is 3
+  // (orchestrator.ts), so a 4-clause decomposable root would have its 4th
+  // clause sliced away and the coverage gate would escalate before any
+  // children were ever admitted (PLAYBOOK-KEEL-COVERAGE) — a fourth,
+  // separate S1 upstream clause would trip that, unrelated to what this
+  // fixture is testing.
+  "seam-and-compose-demo@v1": {
+    ref: "seam-and-compose-demo@v1",
+    assertions: [
+      { criterionId: "R1", kind: "example", expr: "trace.result && typeof trace.result.tax === 'number'", observe: "trace.result.tax" },
+      { criterionId: "R2", kind: "example", expr: "trace.result && typeof trace.result.tax === 'number'", observe: "trace.result.tax" },
+      { criterionId: "R3", kind: "property", composes: { relation: "outputs['R1'] === outputs['R2']", requires: ["R1", "R2"] } },
+      { criterionId: "S2", kind: "example", expr: "trace.result && typeof trace.result.received === 'number'", observe: "trace.result.received" },
+      { criterionId: "S4", kind: "property", seams: [{ upstream: "R1", downstream: "S2", relation: "downstream === upstream" }] },
+    ],
+  },
 };
 
 export interface OracleSuiteRegistry {
@@ -397,4 +467,55 @@ export function checkComposesAnchor(assertion: OracleAssertion): { readonly ok: 
   }
   const dead = c.requires.filter((x) => !clauses.has(x));
   return dead.length ? { ok: true, warnings: [`requires declares clause(s) never read by the relation: ${dead.join(", ")}`] } : { ok: true };
+}
+
+/** PLAYBOOK-KEEL-SEAM: mirrors `compileComposition` one level over — two
+ *  NAMED bound operands (`upstream`/`downstream`, each a child's recorded
+ *  `observed.value`) instead of a keyed `outputs` map. A throw becomes
+ *  "error", never a silent pass. `observed[criterionId] = {upstream,
+ *  downstream}` records exactly what was compared — the values, never an
+ *  expected answer (INV-ORACLE-BLIND holds for the seam leg too).
+ *  `criterionId` is the caller's reporting id for this seam check — `seams`
+ *  is a LIST on one `OracleAssertion`, so unlike `compileComposition` (one
+ *  relation per assertion, keyed by the assertion's own criterionId) there
+ *  is no single id to reuse here; the caller synthesizes one per declared
+ *  seam (see `Orchestrator.compose()`). */
+export function compileSeam(criterionId: string, upstreamValue: unknown, downstreamValue: unknown, relation: string): string {
+  return `
+    const upstream = ${JSON.stringify(upstreamValue)};
+    const downstream = ${JSON.stringify(downstreamValue)};
+    const results = {};
+    const observed = {};
+    try {
+      results[${JSON.stringify(criterionId)}] = ((upstream, downstream) => (${relation}))(upstream, downstream) ? "pass" : "fail";
+    } catch (e) {
+      results[${JSON.stringify(criterionId)}] = "error";
+    }
+    observed[${JSON.stringify(criterionId)}] = { upstream, downstream };
+    return { results, observed };
+  `;
+}
+
+/** PLAYBOOK-KEEL-SEAM: the seam's anchor law, checkable — the relation MUST
+ *  reference `upstream` (the upstream child's RECORDED output). A relation
+ *  that reads only `downstream` never checks the value actually crossed the
+ *  seam; it only checks what the downstream child claims, which is exactly
+ *  as gameable as a metamorphic relation that never references `input`.
+ *  NOTE, scope: unlike `composes`'s `outputs['X']` keyed-map form (where an
+ *  UNBOUNDED read of some OTHER clause is the live threat, closed by
+ *  `checkComposesAnchor`'s operand-extraction), a seam relation binds exactly
+ *  two SCALAR parameters — there is no third clause it could reach by
+ *  bracket key, so there is nothing analogous to `relationOperands`'s
+ *  computed-key detection to reuse here. Any reference to an identifier
+ *  other than `upstream`/`downstream` is simply undefined in the compiled
+ *  sandbox and throws at evaluation time — caught by `compileSeam`'s own
+ *  try/catch as "error", never a silent pass. This function enforces the one
+ *  property that is NOT already covered by that runtime throw: a relation
+ *  that reads ONLY `downstream` is syntactically valid (no ReferenceError)
+ *  and would otherwise run and produce an unanchored, gameable verdict. */
+export function checkSeamAnchor(relation: string): { readonly ok: true } | { readonly ok: false; readonly reason: string } {
+  if (!/\bupstream\b/.test(relation)) {
+    return { ok: false, reason: "relation does not reference upstream — not anchored on the recorded output (the anchor law)" };
+  }
+  return { ok: true };
 }
