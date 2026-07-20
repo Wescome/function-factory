@@ -78,6 +78,10 @@ const RESERVED_INTENTS = new Set([
   "seam-anchor-test — sub-goal: return a result object with the field(s) described by: S2 marker mismatch",
   "compose-anchor-test — sub-goal: return a result object with the field(s) described by: S1 marker",
   "compose-anchor-test — sub-goal: return a result object with the field(s) described by: S2 marker mismatch",
+  // PLAYBOOK-KEEL-SPANNING: deterministic — see scripted-model.adapter.ts.
+  "spanning-anchor-test — sub-goal: return a result object with the field(s) described by: A1 marker",
+  "spanning-anchor-test — sub-goal: return a result object with the field(s) described by: A9 marker",
+  "spanning-anchor-test — sub-goal: return a result object with the field(s) described by: A2 marker (spanning, never satisfied)",
 ]);
 
 // The foreign connector's KEEL-authored tool config — the SAME text is used to

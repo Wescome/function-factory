@@ -163,6 +163,18 @@ return { latitude: 0, longitude: 0, temperature_c: w.current.temperature_2m };`;
       case "seam-anchor-test — sub-goal: return a result object with the field(s) described by: S2 marker mismatch":
       case "compose-anchor-test — sub-goal: return a result object with the field(s) described by: S2 marker mismatch":
         return { code: `return { received: 99 };`, connectors: ["echo"] };
+      // PLAYBOOK-KEEL-SPANNING test support: a real (non-scripted) model, left
+      // to guess, may satisfy a spanning clause it was never told about by
+      // luck (observed live: asked only for "value is 42", one run also
+      // guessed `tag: 'perfect'` unprompted) — not a reliable demonstration
+      // that gate presence and oracle satisfaction are decoupled. This fixed
+      // code deterministically sets `value` only, never `tag`, so
+      // `regress@v1`'s A2 ("tag is perfect") reliably fails at the oracle
+      // regardless of gate admission.
+      case "spanning-anchor-test — sub-goal: return a result object with the field(s) described by: A1 marker":
+      case "spanning-anchor-test — sub-goal: return a result object with the field(s) described by: A9 marker":
+      case "spanning-anchor-test — sub-goal: return a result object with the field(s) described by: A2 marker (spanning, never satisfied)":
+        return { code: `return { value: 42 };`, connectors: ["echo"] };
       case "foreign-denied":
         return { code: `return await foreignDenied.lookup({});`, connectors: ["foreignDenied"] };
       default:

@@ -1,6 +1,6 @@
 /** Phase 6a freeze gate — the safety core, over real Specification content. */
 import { describe, it, expect } from "vitest";
-import { freezeGate, attenuates, inheritsProhibitions, type GatePolicy } from "../src/domain/spec-loop/gate";
+import { freezeGate, attenuates, inheritsProhibitions, inheritsSpanning, type GatePolicy } from "../src/domain/spec-loop/gate";
 import type { SpecificationContent } from "../src/domain/lineage/nodes";
 
 const base: SpecificationContent = {
@@ -57,5 +57,83 @@ describe("6a freeze gate", () => {
   it("malformed (no acceptance) -> REJECT", () => {
     const child = spec({ acceptance: [], connectors: ["echo"], approvalGated: [], servesClause: "A1" });
     expect(freezeGate(child, parent, root, policy).tier).toBe("reject");
+  });
+});
+
+describe("PLAYBOOK-KEEL-SPANNING — inheritsSpanning (INV-DECOMP-3, the positive dual)", () => {
+  const spanningParent: SpecificationContent = spec({
+    acceptance: [
+      { id: "A1", statement: "s1", kind: "example" },
+      { id: "A2", statement: "s2", kind: "example" },
+      { id: "A4", statement: "every presented amount is in whole minor units", kind: "property" },
+    ],
+    spanning: ["A4"],
+    decomposable: true,
+  });
+
+  it("no spanning declared on the parent -> vacuously satisfied regardless of the child's acceptance", () => {
+    const plainParent = spec({}); // base has no `spanning` field at all
+    const child = spec({ acceptance: [{ id: "A1", statement: "s", kind: "example" }] });
+    expect(inheritsSpanning(child, plainParent)).toBe(true);
+  });
+
+  it("the drop, caught: a child that carries its served clause but omits the spanning clause -> false", () => {
+    const child = spec({
+      connectors: ["echo"], approvalGated: [], servesClause: "A1",
+      acceptance: [{ id: "A1", statement: "s1", kind: "example" }], // A4 dropped
+    });
+    expect(inheritsSpanning(child, spanningParent)).toBe(false);
+  });
+
+  it("a child that carries both its served clause and the spanning clause -> true", () => {
+    const child = spec({
+      connectors: ["echo"], approvalGated: [], servesClause: "A1",
+      acceptance: [
+        { id: "A1", statement: "s1", kind: "example" },
+        { id: "A4", statement: "every presented amount is in whole minor units", kind: "property" },
+      ],
+    });
+    expect(inheritsSpanning(child, spanningParent)).toBe(true);
+  });
+
+  it("freezeGate: dropping a spanning clause -> REJECT, reason names obligation drift — before this playbook the identical child (attenuating, prohibition-inheriting, mapped) auto-admitted, since nothing checked spanning at all", () => {
+    const child = spec({
+      connectors: ["echo"], approvalGated: [], servesClause: "A1",
+      acceptance: [{ id: "A1", statement: "s1", kind: "example" }], // A4 dropped — a model-style deriver's mistake
+    });
+    // Confirm every OTHER hard check independently passes — the only thing
+    // that fails here is spanning, isolating exactly what this playbook adds.
+    expect(attenuates(child, spanningParent)).toBe(true);
+    expect(inheritsProhibitions(child, root)).toBe(true);
+    const decision = freezeGate(child, spanningParent, root, policy);
+    expect(decision.tier).toBe("reject");
+    expect(decision.reasons).toContain("drops a spanning requirement (obligation drift)");
+  });
+
+  it("freezeGate: carrying the spanning clause -> passes the spanning check (falls through to auto-admit)", () => {
+    const child = spec({
+      connectors: ["echo"], approvalGated: [], servesClause: "A1",
+      acceptance: [
+        { id: "A1", statement: "s1", kind: "example" },
+        { id: "A4", statement: "every presented amount is in whole minor units", kind: "property" },
+      ],
+    });
+    const decision = freezeGate(child, spanningParent, root, policy);
+    expect(decision.tier).toBe("auto-admit");
+    expect(decision.reasons).not.toContain("drops a spanning requirement (obligation drift)");
+  });
+
+  it("presence, not satisfaction: the gate only checks the clause is PRESENT — it has no oracle, so it cannot and does not judge whether the child's eventual result would satisfy it", () => {
+    // A child carrying A4 passes the gate regardless of what A4's statement
+    // even says — freezeGate never evaluates a trace or a result, only ids.
+    const child = spec({
+      connectors: ["echo"], approvalGated: [], servesClause: "A1",
+      acceptance: [
+        { id: "A1", statement: "s1", kind: "example" },
+        { id: "A4", statement: "a spanning clause whose statement is irrelevant to presence", kind: "property" },
+      ],
+    });
+    expect(inheritsSpanning(child, spanningParent)).toBe(true);
+    expect(freezeGate(child, spanningParent, root, policy).tier).toBe("auto-admit");
   });
 });

@@ -49,6 +49,18 @@ export interface SpecificationContent {
   /** Derivation provenance (INV-SPEC-PROVENANCE): the parent (attenuation anchor)
    *  and the human-authorized root (prohibition + authority anchor). */
   readonly derivedFrom?: { readonly parent: string; readonly root: string };
+  /** PLAYBOOK-KEEL-SPANNING (INV-DECOMP-3): ids of THIS spec's OWN acceptance
+   *  clauses that are cross-cutting — a positive obligation every child this
+   *  spec spans must carry, the exact dual of `forbids` (which may only grow
+   *  downward; this may only be CARRIED downward, never dropped). Absent/empty
+   *  means no spanning clauses declared here — never inferred. Scope is
+   *  fail-closed: an unscoped (absent-scope) spanning clause is inherited by
+   *  every child, never by none (OD-DECOMP-3). Deriver-declared, gate-checked
+   *  (OD-DECOMP-2) — `templateDerive` carries these into every child's
+   *  `acceptance`; `inheritsSpanning` (gate.ts) rejects a child that drops
+   *  one. Presence only — whether a child's RESULT satisfies the spanning
+   *  clause is INV-DECOMP-6, a separate, composition-time build. */
+  readonly spanning?: readonly string[];
   /** Opt-in: this spec's acceptance criteria are INDEPENDENT and may be
    *  decomposed into per-criterion sub-specs (OD-6a-6-adjacent). Absent/false =>
    *  no decomposition. An unsound split (coupled criteria) still fails SAFE — the

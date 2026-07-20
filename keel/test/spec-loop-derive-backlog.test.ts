@@ -31,6 +31,60 @@ describe("6a [2] template derivation", () => {
   });
 });
 
+describe("PLAYBOOK-KEEL-SPANNING [templateDerive] — the trusted path carries spanning clauses into every child", () => {
+  const spanningRoot: SpecificationContent = {
+    ...root,
+    acceptance: [
+      { id: "A1", statement: "totals match", kind: "example" },
+      { id: "A2", statement: "discrepancies flagged", kind: "property" },
+      { id: "A3", statement: "every presented amount is in whole minor units", kind: "property" },
+    ],
+    spanning: ["A3"],
+  };
+
+  it("every child's acceptance includes A3 alongside its own served clause -> all auto-admit", () => {
+    const derived = templateDerive(spanningRoot, spanningRoot);
+    expect(derived).toHaveLength(3); // one per clause, INCLUDING A3 itself
+    for (const d of derived) {
+      expect(d.acceptance.map((a) => a.id)).toContain("A3");
+      expect(d.spanning).toEqual(["A3"]); // propagated downward, like forbids
+      expect(freezeGate(d, spanningRoot, spanningRoot, policy).tier).toBe("auto-admit");
+    }
+  });
+
+  it("A3 (the spanning clause itself) is not duplicated in its own child's acceptance", () => {
+    const derived = templateDerive(spanningRoot, spanningRoot);
+    const a3Child = derived.find((d) => d.servesClause === "A3")!;
+    expect(a3Child.acceptance.map((a) => a.id)).toEqual(["A3"]); // not ["A3", "A3"]
+  });
+
+  it("no spanning declared -> every child's acceptance is still exactly one clause (byte-identical to before this playbook)", () => {
+    const derived = templateDerive(root, root); // `root` (module-level) has no `spanning` field
+    for (const d of derived) expect(d.acceptance).toHaveLength(1);
+  });
+
+  // Live-verify caught this: a spanning clause inflates every child's
+  // acceptance to length 2 (its own clause + the carried spanning one), so a
+  // decomposability guard keyed on raw `acceptance.length` never converges —
+  // every depth-1 child still "looks" 2-clause-decomposable and splits AGAIN
+  // into the same shape. A single 3-clause root produced 11 admitted runs
+  // through the real BFS (runSpecLoop) instead of 3 before this was fixed.
+  // Unit-testing templateDerive as a single, one-shot call (as every OTHER
+  // test above does) cannot catch this — it only shows up across MULTIPLE
+  // levels of derivation, so this test explicitly re-derives from one of
+  // templateDerive's own children, the way runSpecLoop's queue does.
+  it("multi-level recursion terminates: re-deriving from a spanning child produces nothing further to split", () => {
+    const derived = templateDerive(spanningRoot, spanningRoot);
+    expect(derived).toHaveLength(3); // A1-serving, A2-serving, A3-serving (A3 is the spanning clause itself)
+    for (const child of derived) {
+      // Each child becomes a new "parent" at the next BFS depth, exactly as
+      // runSpecLoop does (`queue.push({ spec: cand, depth: depth + 1 })`).
+      const grandchildren = templateDerive(child, spanningRoot);
+      expect(grandchildren).toHaveLength(0);
+    }
+  });
+});
+
 describe("6a [3] backlog + lease", () => {
   it("enqueue -> listPending -> dispose removes from pending", async () => {
     const bl = new InMemoryBacklog();

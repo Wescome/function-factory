@@ -57,6 +57,22 @@ export function inheritsProhibitions(child: SpecificationContent, root: Specific
   return subset(asSet(root.forbids ?? []), asSet(child.forbids ?? []));
 }
 
+/** PLAYBOOK-KEEL-SPANNING (INV-DECOMP-3), the exact positive dual of
+ *  `inheritsProhibitions` above — same subset shape, opposite polarity and
+ *  anchor: `forbids` may only GROW downward, anchored on the ROOT (the
+ *  authority anchor); a spanning clause must be CARRIED downward, anchored on
+ *  the PARENT (mirrors `attenuates`/`hasGoalMapping`'s parent-anchoring,
+ *  PLAYBOOK-KEEL-COVERAGE's own correction — a spanning clause introduced at
+ *  an intermediate derivation level scopes that level's children, not
+ *  retroactively the whole tree from the root). `carried` is every clause id
+ *  the child's OWN `acceptance` actually holds — presence, not satisfaction
+ *  (INV-DECOMP-6 is a separate, composition-time check). */
+export function inheritsSpanning(child: SpecificationContent, parent: SpecificationContent): boolean {
+  const required = asSet(parent.spanning ?? []);
+  const carried = asSet(child.acceptance.map((a) => a.id));
+  return subset(required, carried);
+}
+
 /** Reversible iff no autonomous (ungated) effectful reach. */
 export function isReversible(child: SpecificationContent, policy: GatePolicy): boolean {
   const eff = asSet(policy.effectful);
@@ -102,6 +118,7 @@ export function freezeGate(
   if (!isWellFormed(child)) hard.push("malformed spec");
   if (!attenuates(child, parent)) hard.push("amplifies capability (not attenuating)");
   if (!inheritsProhibitions(child, root)) hard.push("drops a root prohibition (intent drift)");
+  if (!inheritsSpanning(child, parent)) hard.push("drops a spanning requirement (obligation drift)");
   // A present-and-unresolvable servesClause is a malformed proposal, not a
   // judgment call (PLAYBOOK-KEEL-COVERAGE) — absence is handled below, still
   // human-preapproval, unchanged.
