@@ -53,7 +53,7 @@ export type { CrossRunIndexPort, CrossRunListOptions } from "./ports/cross-run-i
 // Phase 6a spec-loop
 export type { GateTier, GateDecision, GatePolicy } from "./spec-loop/gate";
 export { freezeGate, attenuates, inheritsProhibitions, inheritsSpanning, isReversible, isWellFormed, hasGoalMapping } from "./spec-loop/gate";
-export type { Deriver } from "./spec-loop/derive";
+export type { Deriver, DerivationEvidence } from "./spec-loop/derive";
 export { templateDerive, templateDeriver } from "./spec-loop/derive";
 export type { BacklogStatus, BacklogEntry, BacklogStore } from "./spec-loop/backlog";
 export type { SpecLoopBound, SpecLoopCtx, SpecLoopSummary } from "./spec-loop/loop";
@@ -62,6 +62,11 @@ export { runSpecLoop } from "./spec-loop/loop";
 // (untrusted deriver, set-level check) before anything is admitted.
 export type { CoverageReport } from "./spec-loop/coverage";
 export { clauseIds, checkCoverage } from "./spec-loop/coverage";
+// PLAYBOOK-KEEL-DERIV-AMEND (INV-DECOMP-8): decide()'s exit policy, lifted
+// to the decomposition level — consumes coverage/compose verdicts, does not
+// re-implement them.
+export type { CompositionLegVerdict, DecompDecisionInput, DecompDecision } from "./spec-loop/decide-decomp";
+export { decideDecomp, failureToEvidence } from "./spec-loop/decide-decomp";
 
 // Phase 6b foreign-tool policy
 export type { ForeignAllowlist, FieldSpec, SchemaFields, ResponseSchema, Projection } from "./foreign/policy";

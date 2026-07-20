@@ -9,7 +9,7 @@
  * candidate is gated against it, so a human-authored root bounds the whole tree.
  */
 import type { SpecificationContent } from "../lineage/nodes";
-import type { Deriver } from "./derive";
+import type { Deriver, DerivationEvidence } from "./derive";
 import { freezeGate, type GatePolicy } from "./gate";
 import type { BacklogStore } from "./backlog";
 import { checkCoverage } from "./coverage";
@@ -28,6 +28,10 @@ export interface SpecLoopCtx {
   readonly admit: (spec: SpecificationContent, parent: SpecificationContent) => Promise<void>;
   readonly leaseMs: number;
   readonly now: () => number;
+  /** PLAYBOOK-KEEL-DERIV-AMEND: the prior decomposition attempt's failure,
+   *  threaded to every `deriver.derive` call this pass. Optional/undefined
+   *  on a first pass — byte-identical to before this playbook when absent. */
+  readonly evidence?: DerivationEvidence;
 }
 export interface SpecLoopSummary {
   derived: number;
@@ -50,7 +54,7 @@ export async function runSpecLoop(root: SpecificationContent, ctx: SpecLoopCtx):
   while (queue.length) {
     const { spec: parent, depth } = queue.shift()!;
     if (depth >= ctx.bound.maxDepth) continue;                         // depth bound
-    const candidates = ctx.deriver.derive(parent, root).slice(0, ctx.bound.maxFanout); // fan-out bound
+    const candidates = ctx.deriver.derive(parent, root, ctx.evidence).slice(0, ctx.bound.maxFanout); // fan-out bound
 
     // PLAYBOOK-KEEL-COVERAGE: a set check against the WHOLE candidate batch,
     // before any per-candidate gate sees it. Checked on the SLICED list —

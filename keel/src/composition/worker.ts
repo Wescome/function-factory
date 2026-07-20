@@ -10,6 +10,7 @@
  *   POST /derive?name=<run>                                     -> split into derived children
  *   POST /join?name=<run>                                       -> read back what the children produced (judges nothing)
  *   POST /compose?name=<run>                                    -> judge the joined outputs against the parent's cross-cut clause
+ *   POST /derive-amend?name=<run>&budget=<n>                    -> derive, re-derive under a coverage/cross-cut/seam failure up to budget, decide ACCEPT|RE-DERIVE|ESCALATE
  */
 export { Orchestrator } from "./orchestrator";
 export { CodemodeRuntime } from "@cloudflare/codemode";
@@ -35,6 +36,7 @@ type Stub = {
   derive(): Promise<unknown>;
   join(): Promise<unknown>;
   compose(): Promise<unknown>;
+  deriveAmend(budget: number): Promise<unknown>;
   listBacklog(): Promise<unknown>;
   disposeBacklog(id: string, status: string): Promise<unknown>;
   replayProcedure(content: SpecificationContent, code: string): Promise<{ accepted: boolean; attempts: number; effectful: boolean }>;
@@ -188,6 +190,10 @@ const legacyHandler = {
       }
       if (req.method === "POST" && url.pathname === "/compose") {
         return Response.json(await stub(env, name).compose());
+      }
+      if (req.method === "POST" && url.pathname === "/derive-amend") {
+        const budget = Number(url.searchParams.get("budget") ?? "3");
+        return Response.json(await stub(env, name).deriveAmend(budget));
       }
       if (req.method === "GET" && url.pathname === "/backlog") {
         return Response.json(await stub(env, name).listBacklog());
@@ -404,7 +410,7 @@ const legacyHandler = {
     } catch (e) {
       return Response.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 });
     }
-    return new Response("KEEL. POST /admit?name=X (Specification JSON) · GET /result?name=X · GET /timeline?name=X · GET /debug/nodes?name=X · POST /approve?name=X · POST /derive?name=X · POST /join?name=X · POST /compose?name=X · GET /backlog?name=X · POST /backlog/dispose?name=X {id,status} · GET /runs[?terminal=] · POST /improve/procedures {names,regressionNames?,minRepeats?} · GET /improve/procedures?key=X · POST /improve/procedures/rollback {key} · GET /improve/procedures/proposed[?key=] · POST /improve/procedures/approve-replay {id} · POST /improve/harness-fix {surfaces,n,baseAccepts,imprAccepts,regression?} · POST /improve/procedures/adds-value {attemptsUnderFixedHarness,attemptsUnderProcedure,criticalDeterminism?}\n");
+    return new Response("KEEL. POST /admit?name=X (Specification JSON) · GET /result?name=X · GET /timeline?name=X · GET /debug/nodes?name=X · POST /approve?name=X · POST /derive?name=X · POST /join?name=X · POST /compose?name=X · POST /derive-amend?name=X&budget=N · GET /backlog?name=X · POST /backlog/dispose?name=X {id,status} · GET /runs[?terminal=] · POST /improve/procedures {names,regressionNames?,minRepeats?} · GET /improve/procedures?key=X · POST /improve/procedures/rollback {key} · GET /improve/procedures/proposed[?key=] · POST /improve/procedures/approve-replay {id} · POST /improve/harness-fix {surfaces,n,baseAccepts,imprAccepts,regression?} · POST /improve/procedures/adds-value {attemptsUnderFixedHarness,attemptsUnderProcedure,criticalDeterminism?}\n");
   },
 };
 

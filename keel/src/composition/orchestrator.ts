@@ -9,8 +9,8 @@ import { runLoop, resumeApproved, type RunPorts, type RunTerminal } from "../dom
 import type { Specification, SpecificationContent, ContentHash, AnyNode, DomainEvent, VerdictContent } from "../domain/index";
 import type { QueryPort, CustodyView, TimelineEntry, ReplaySnapshot, ReplayConsistency, CrossRunRecord } from "../domain/index";
 import { timeline as projTimeline, replayTo as projReplayTo, verifyReplay as projVerifyReplay, crossRunRecord as projCrossRun } from "../domain/index";
-import { runSpecLoop, templateDeriver, requiresApprovalFor } from "../domain/index";
-import type { Deriver, GatePolicy, SpecLoopBound, SpecLoopCtx, SpecLoopSummary, BacklogStore, BacklogEntry, BacklogStatus } from "../domain/index";
+import { runSpecLoop, templateDeriver, requiresApprovalFor, decideDecomp, failureToEvidence } from "../domain/index";
+import type { Deriver, DerivationEvidence, GatePolicy, SpecLoopBound, SpecLoopCtx, SpecLoopSummary, BacklogStore, BacklogEntry, BacklogStatus, DecompDecision } from "../domain/index";
 import { InMemoryBacklog } from "../adapters/spec-loop/in-memory-backlog";
 import { D1BacklogAdapter } from "../adapters/spec-loop/d1-backlog.adapter";
 import { makeRuntime, type CodemodeHandle } from "../adapters/codemode/runtime";
@@ -71,6 +71,7 @@ const RESERVED_INTENTS = new Set([
   // suite does, no real-model variance in the demo.
   "compose-anchor-test — sub-goal: return a result object with the field(s) described by: R1 marker",
   "compose-anchor-test — sub-goal: return a result object with the field(s) described by: R2 marker",
+  "compose-anchor-test — sub-goal: return a result object with the field(s) described by: R2 marker mismatch",
   // PLAYBOOK-KEEL-SEAM: same discipline, for the seam-anchor-test fixture
   // and the "both legs together" fixture riding on compose-anchor-test.
   "seam-anchor-test — sub-goal: return a result object with the field(s) described by: S1 marker",
@@ -120,6 +121,13 @@ export interface JoinChildReport {
   readonly outcome: string | null;
   readonly observable: boolean;
   readonly observed: { readonly present: true; readonly value: unknown } | { readonly present: false };
+  /** PLAYBOOK-KEEL-DERIV-AMEND: this child's OWN spanning-uncheckable ids
+   *  (PLAYBOOK-KEEL-SPANNING-CHECKABILITY, `evidence.spanningUncheckable`
+   *  from its own verdict) — a per-run detail `join()` didn't surface
+   *  before, needed here so a decomposition-level re-derivation can carry it
+   *  forward as `DerivationEvidence`. Empty (never absent) when the child
+   *  hasn't finished or has no verdict. */
+  readonly spanningUncheckable: readonly string[];
 }
 
 /** PLAYBOOK-KEEL-COMPOSE: one parent cross-cut clause's verdict. `outputs` is
@@ -132,6 +140,21 @@ export interface ComposeClauseVerdict {
   readonly outcome: "pass" | "fail" | "unverifiable" | "error";
   readonly reason?: string;
   readonly outputs: Record<string, unknown>;
+}
+
+/** PLAYBOOK-KEEL-DERIV-AMEND: one re-derivation attempt's full record —
+ *  every input `decideDecomp` saw, plus its decision and the evidence that
+ *  PRODUCED this attempt (not the evidence it produces for the next one) —
+ *  so a human (or a report) can read the whole sequence: what failed, what
+ *  was carried forward, what happened next. */
+export interface DerivAmendAttempt {
+  readonly attempt: number;
+  readonly derivationEscalated: boolean;
+  readonly coverageGap?: readonly string[];
+  readonly clauses: readonly ComposeClauseVerdict[];
+  readonly seams: readonly ComposeClauseVerdict[];
+  readonly evidenceUsed: DerivationEvidence | undefined;
+  readonly decision: DecompDecision;
 }
 
 export class Orchestrator extends Agent<Env> implements QueryPort {
@@ -458,7 +481,15 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
    *  a human-admitted spec, including its own background execution and its own
    *  cross-run record. The derivation link itself is recorded in the cross-run
    *  index (D1), not as an in-DO edge (OD-6a-5). */
-  async derive(): Promise<(SpecLoopSummary & { admittedRuns: { doName: string; runId: string; servesClause?: string }[] }) | { error: string }> {
+  /** PLAYBOOK-KEEL-DERIV-AMEND: `evidence` is additive — absent (the
+   *  default) on every existing caller, byte-identical to before this
+   *  playbook. Present only when `deriveAmend()` re-derives after a failed
+   *  composition leg; threaded to `runSpecLoop` (which threads it to every
+   *  `deriver.derive` call this pass) via `SpecLoopCtx.evidence`.
+   *  `templateDerive` ignores it, so re-deriving under it is idempotent —
+   *  the same content, the same `run_id`s, safely re-admitted via
+   *  `recordDerivedChild`'s `INSERT OR REPLACE`. */
+  async derive(evidence?: DerivationEvidence): Promise<(SpecLoopSummary & { admittedRuns: { doName: string; runId: string; servesClause?: string }[] }) | { error: string }> {
     this.ensureSchema();
     const rootNode = await this.findRoot();
     if (!rootNode) return { error: "no human-authored root Specification found for this run" };
@@ -473,12 +504,12 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
     const admittedRuns: { doName: string; runId: string; servesClause?: string }[] = [];
 
     const deriver: Deriver = {
-      derive: (parent, r) => {
+      derive: (parent, r, ev) => {
         const parentId = idOf.get(parent) ?? rootNode.id;
         // Stamp derivedFrom here, before the gate/backlog ever see the
         // candidate, so a later backlog disposal can record the same link
         // without needing separate parent-tracking state.
-        return templateDeriver.derive(parent, r).map((c) => ({ ...c, derivedFrom: { parent: parentId, root: rootNode.id } }));
+        return templateDeriver.derive(parent, r, ev).map((c) => ({ ...c, derivedFrom: { parent: parentId, root: rootNode.id } }));
       },
     };
 
@@ -489,6 +520,7 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
       bound: this.SPEC_LOOP_BOUND,
       leaseMs: this.SPEC_LOOP_LEASE_MS,
       now: () => Date.now(),
+      evidence,
       admit: async (spec, parent) => {
         const parentId = idOf.get(parent) ?? rootNode.id;
         const doName = `derived-${crypto.randomUUID()}`;
@@ -528,7 +560,7 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
       const terminal = r?.state ?? null;
       const verdict = (r?.verdict ?? null) as VerdictContent | null;
       const outcome = verdict?.outcome ?? null;
-      const evidence = verdict?.evidence as { observed?: Record<string, unknown> } | undefined;
+      const evidence = verdict?.evidence as { observed?: Record<string, unknown>; spanningUncheckable?: string[] } | undefined;
 
       // Does THIS CHILD's own suite's assertion for its clause declare
       // `observe` or `metamorphic` at all? Independent of whether the run
@@ -555,6 +587,7 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
         outcome,
         observable,
         observed,
+        spanningUncheckable: evidence?.spanningUncheckable ?? [],
       };
     }));
 
@@ -696,6 +729,106 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
     }
 
     return { ready: true, clauses, seams };
+  }
+
+  /** PLAYBOOK-KEEL-DERIV-AMEND (INV-DECOMP-8): `decide()` lifted to the
+   *  DECOMPOSITION level — closes the loop A1–A9 left open. Every detection
+   *  built so far (coverage gap, cross-cut fail, seam fail, spanning-
+   *  uncheckable) flowed nowhere: `runSpecLoop` escalated to a human and
+   *  stopped; `compose()`'s verdicts had no consumer. This is the wrapper —
+   *  `runSpecLoop` and `compose()` had NO common caller before this playbook
+   *  (verified: `derive()` calls `runSpecLoop` at :503(ish); `compose()` is
+   *  only ever reached via its own `/compose` route) — that missing seam
+   *  IS the finding this playbook's own orientation anticipated, so this
+   *  method is where it now lives.
+   *
+   *  `templateDerive` ignores `evidence`, so under it this is an HONEST
+   *  BOUNDED NO-OP: a failing decomposition re-derives to the IDENTICAL
+   *  tree, fails identically, and escalates once `budget` is exhausted —
+   *  never an infinite loop, never a silent repair that didn't happen. The
+   *  day a model deriver is admitted over the `Deriver` port, the same
+   *  structure becomes a functional repair with zero rework.
+   *
+   *  Re-derivation under `templateDerive` is idempotent (same content, same
+   *  `run_id`s, re-admitted via `recordDerivedChild`'s `INSERT OR REPLACE`)
+   *  and therefore instantaneous once the FIRST attempt's children have
+   *  actually finished executing — so this loops synchronously through every
+   *  remaining attempt once attempt 1 is ready. Only attempt 1 can come back
+   *  "pending" (children still running); the caller re-calls this method
+   *  later, exactly the same `/derive` + poll `/join` pattern already used
+   *  everywhere else — no new persisted attempt-state, no in-DO sleep
+   *  (Durable Objects cannot reliably self-delay). */
+  async deriveAmend(budget: number): Promise<
+    | { readonly status: "done"; readonly decision: DecompDecision; readonly attempts: readonly DerivAmendAttempt[] }
+    | { readonly status: "pending"; readonly attempt: number; readonly attempts: readonly DerivAmendAttempt[] }
+    | { readonly error: string }
+  > {
+    // CORRECTION, found live: `derive()`'s admit callback mints a FRESH
+    // `derived-${crypto.randomUUID()}` DO name on every call — including a
+    // re-derivation. Re-derivation under `templateDerive` is content-
+    // identical (same `run_id`), but NOT the same DO instance, so it is NOT
+    // instantaneous — every attempt's children are brand-new DOs that must
+    // actually execute. The original design here assumed otherwise (an
+    // idempotent, instant re-derivation) and called this method itself
+    // repeatedly as the "wait" mechanism, which — combined with that wrong
+    // assumption — silently spawned an ever-growing, never-converging set of
+    // children instead of waiting for one attempt's own. Fixed: wait
+    // INTERNALLY (bounded busy-poll) for each attempt's own children before
+    // moving on, so one call to this method drives the whole bounded loop
+    // to a real ACCEPT/ESCALATE, calling `derive()` exactly once per
+    // attempt. `status: "pending"` is now only a defensive fallback if an
+    // attempt's children genuinely never finish within the wait bound —
+    // not the normal calling convention.
+    const maxWaitIterations = 150;
+    const waitIntervalMs = 200;
+
+    let attempt = 1;
+    let evidence: DerivationEvidence | undefined = undefined;
+    const attempts: DerivAmendAttempt[] = [];
+
+    while (true) {
+      const summary = await this.derive(evidence); // exactly once per attempt — fresh children
+      if ("error" in summary) return summary;
+
+      let j = await this.join();
+      for (let i = 0; i < maxWaitIterations && !("error" in j) && !j.ready; i++) {
+        await new Promise((resolve) => setTimeout(resolve, waitIntervalMs));
+        j = await this.join();
+      }
+      if ("error" in j) return j;
+      if (!j.ready) {
+        return { status: "pending", attempt, attempts }; // this attempt's children never finished in time
+      }
+
+      const comp = await this.compose();
+      if ("error" in comp) return comp;
+
+      const decision = decideDecomp({
+        derivationEscalated: summary.escalated,
+        coverageGap: summary.coverageGap,
+        clauses: comp.clauses,
+        seams: comp.seams,
+        attempt,
+        budget,
+      });
+      attempts.push({
+        attempt,
+        derivationEscalated: summary.escalated,
+        coverageGap: summary.coverageGap,
+        clauses: comp.clauses,
+        seams: comp.seams,
+        evidenceUsed: evidence,
+        decision,
+      });
+
+      if (decision.next !== "RE-DERIVE") {
+        return { status: "done", decision, attempts };
+      }
+
+      const spanningUncheckable = j.children.flatMap((c) => c.spanningUncheckable);
+      evidence = failureToEvidence({ coverageGap: summary.coverageGap, clauses: comp.clauses, seams: comp.seams }, spanningUncheckable);
+      attempt = decision.attempt;
+    }
   }
 
   async listBacklog(): Promise<readonly BacklogEntry[]> {

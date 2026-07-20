@@ -121,8 +121,12 @@ describe("PLAYBOOK-KEEL-JOIN — the join", () => {
     const j = await pollReady(stub);
     if (!("children" in j)) throw new Error("join() errored");
     for (const c of j.children) {
+      // PLAYBOOK-KEEL-DERIV-AMEND added `spanningUncheckable` — a per-child
+      // fact (which of its OWN spanning ids had no assertion), not a
+      // judgment about this decomposition; still no verdict/composition
+      // field.
       expect(Object.keys(c).sort()).toEqual(
-        ["doName", "observable", "observed", "outcome", "parentRunId", "runId", "servesClause", "terminal"].sort(),
+        ["doName", "observable", "observed", "outcome", "parentRunId", "runId", "servesClause", "spanningUncheckable", "terminal"].sort(),
       );
     }
     expect(Object.keys(j).sort()).toEqual(["children", "ready"]);

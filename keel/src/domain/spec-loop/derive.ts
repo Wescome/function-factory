@@ -6,8 +6,25 @@
  */
 import type { SpecificationContent } from "../lineage/nodes";
 
+/** PLAYBOOK-KEEL-DERIV-AMEND: the prior attempt's failure, carried into a
+ *  re-derivation — the union of what coverage (A1), compose (A6), and
+ *  spanning-checkability (A9) produce. Declared, not inferred: the deriver
+ *  reads this to try a DIFFERENT decomposition; `templateDerive` (below)
+ *  deterministically ignores it, which is the honest no-op this playbook is
+ *  scoped to — the channel exists for the model deriver the `Deriver` port
+ *  was built for (derive.ts's own doc: "a model deriver is an adapter over
+ *  the same port"), not to make the template pretend to be smarter. */
+export interface DerivationEvidence {
+  readonly coverageGap?: readonly string[];
+  readonly failedClauses?: readonly string[];
+  readonly spanningUncheckable?: readonly string[];
+}
+
 export interface Deriver {
-  derive(parent: SpecificationContent, root: SpecificationContent): readonly SpecificationContent[];
+  /** `evidence` is additive and optional — present only on a re-derivation
+   *  (PLAYBOOK-KEEL-DERIV-AMEND); absent on a first derivation, byte-
+   *  identical to before this playbook. */
+  derive(parent: SpecificationContent, root: SpecificationContent, evidence?: DerivationEvidence): readonly SpecificationContent[];
 }
 
 /**
@@ -18,8 +35,14 @@ export interface Deriver {
  * `forbids`), and maps the one clause it serves. So each is structurally
  * auto-admissible (the gate confirms, per its own policy). Provenance edges
  * (derivedFrom) are attached at admission, when real node IDs exist.
+ *
+ * PLAYBOOK-KEEL-DERIV-AMEND: accepts (and deliberately IGNORES) `_evidence` —
+ * this deriver is deterministic, so a re-derivation with evidence produces
+ * the IDENTICAL tree. That is the honest no-op the plumbing build is scoped
+ * to; do not add heuristics here. The parameter exists only so the widened
+ * `Deriver` port type-checks against this implementation.
  */
-export function templateDerive(parent: SpecificationContent, root: SpecificationContent): SpecificationContent[] {
+export function templateDerive(parent: SpecificationContent, root: SpecificationContent, _evidence?: DerivationEvidence): SpecificationContent[] {
   if (parent.decomposable !== true) return []; // only decompose specs that DECLARE criterion independence
   const spanning = [...new Set([...(root.spanning ?? []), ...(parent.spanning ?? [])])];
   // PLAYBOOK-KEEL-SPANNING: decomposability is judged by how many
