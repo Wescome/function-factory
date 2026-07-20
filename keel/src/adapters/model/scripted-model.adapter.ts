@@ -151,6 +151,18 @@ return { latitude: 0, longitude: 0, temperature_c: w.current.temperature_2m };`;
       case "compose-anchor-test — sub-goal: return a result object with the field(s) described by: R1 marker":
       case "compose-anchor-test — sub-goal: return a result object with the field(s) described by: R2 marker":
         return { code: `return { tax: 14 };`, connectors: ["echo"] };
+      // PLAYBOOK-KEEL-SEAM test support: same discipline — deterministic
+      // "upstream produced" / "downstream received" values so the seam check
+      // runs without a real model. "match" honestly threads S1's value;
+      // "mismatch" is the invented value (the Mars-Orbiter shape).
+      case "seam-anchor-test — sub-goal: return a result object with the field(s) described by: S1 marker":
+      case "compose-anchor-test — sub-goal: return a result object with the field(s) described by: S1 marker":
+        return { code: `return { val: 14 };`, connectors: ["echo"] };
+      case "seam-anchor-test — sub-goal: return a result object with the field(s) described by: S2 marker match":
+        return { code: `return { received: 14 };`, connectors: ["echo"] };
+      case "seam-anchor-test — sub-goal: return a result object with the field(s) described by: S2 marker mismatch":
+      case "compose-anchor-test — sub-goal: return a result object with the field(s) described by: S2 marker mismatch":
+        return { code: `return { received: 99 };`, connectors: ["echo"] };
       case "foreign-denied":
         return { code: `return await foreignDenied.lookup({});`, connectors: ["foreignDenied"] };
       default:

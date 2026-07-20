@@ -35,7 +35,7 @@ import { ScriptedModelAdapter } from "../adapters/model/scripted-model.adapter";
 import { FixedCodeModelAdapter } from "../adapters/model/fixed-code.adapter";
 import { GatewayModelAdapter, BUILTIN_CONNECTOR_DOCS } from "../adapters/model/gateway-model.adapter";
 import { D1SkillStoreAdapter } from "../adapters/skill/d1-skill-store.adapter";
-import { suiteIsMetamorphic, compileComposition, suiteComposes, checkComposesAnchor } from "../adapters/oracle/suite";
+import { suiteIsMetamorphic, compileComposition, checkComposesAnchor, compileSeam, checkSeamAnchor } from "../adapters/oracle/suite";
 import type { ModelPort } from "../domain/index";
 
 export interface Env {
@@ -71,6 +71,13 @@ const RESERVED_INTENTS = new Set([
   // suite does, no real-model variance in the demo.
   "compose-anchor-test — sub-goal: return a result object with the field(s) described by: R1 marker",
   "compose-anchor-test — sub-goal: return a result object with the field(s) described by: R2 marker",
+  // PLAYBOOK-KEEL-SEAM: same discipline, for the seam-anchor-test fixture
+  // and the "both legs together" fixture riding on compose-anchor-test.
+  "seam-anchor-test — sub-goal: return a result object with the field(s) described by: S1 marker",
+  "seam-anchor-test — sub-goal: return a result object with the field(s) described by: S2 marker match",
+  "seam-anchor-test — sub-goal: return a result object with the field(s) described by: S2 marker mismatch",
+  "compose-anchor-test — sub-goal: return a result object with the field(s) described by: S1 marker",
+  "compose-anchor-test — sub-goal: return a result object with the field(s) described by: S2 marker mismatch",
 ]);
 
 // The foreign connector's KEEL-authored tool config — the SAME text is used to
@@ -568,16 +575,20 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
    *  admission path, no second gather). Runs in the same independent sandbox
    *  every other oracle runs in (`rt.tool().execute`) — no model judges its
    *  own composition. */
-  async compose(): Promise<{ ready: boolean; clauses: readonly ComposeClauseVerdict[] } | { error: string }> {
+  async compose(): Promise<{ ready: boolean; clauses: readonly ComposeClauseVerdict[]; seams: readonly ComposeClauseVerdict[] } | { error: string }> {
     const j = await this.join();
     if ("error" in j) return j;
-    if (!j.ready) return { ready: false, clauses: [] }; // cannot compose an unfinished tree — no partial composition
+    if (!j.ready) return { ready: false, clauses: [], seams: [] }; // cannot compose an unfinished tree — no partial composition
 
     const rootNode = await this.findRoot();
     if (!rootNode) return { error: "no human-authored root Specification found for this run" };
     const root = rootNode.content as SpecificationContent;
-    if (!suiteComposes(root.oracleRef)) return { ready: true, clauses: [] }; // no cross-cut declared — nothing to compose
-
+    // PLAYBOOK-KEEL-SEAM: no early "nothing declared" short-circuit here
+    // anymore — a suite can declare seams with no composes clause at all (or
+    // vice versa), so `suiteComposes` alone can no longer stand in for "there
+    // is nothing to do here." Both loops below naturally no-op on an empty
+    // filter/flatMap, so this is a simplification, not a behavior change for
+    // any suite that declares neither.
     const suite = this.suites.resolve(root.oracleRef);
     const composesAssertions = suite?.assertions.filter((a) => !!a.composes) ?? [];
 
@@ -636,7 +647,51 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
       });
     }
 
-    return { ready: true, clauses };
+    // PLAYBOOK-KEEL-SEAM (INV-DECOMP-5): a DISTINCT question from the
+    // composes loop above — not "do the outputs jointly satisfy a parent
+    // relation" but "did the value threaded from an upstream child survive
+    // being read by a downstream one." A tree can pass one leg and fail the
+    // other; never folded into a `composes` relation. `seams` is a list on
+    // ONE assertion, so unlike `composes` (one relation per assertion, keyed
+    // by that assertion's own criterionId) there is no single id per
+    // declared seam — synthesized here as `<assertion id>[<upstream>-><downstream>]`.
+    const seamDeclarations = (suite?.assertions ?? []).flatMap((owner) => (owner.seams ?? []).map((seam) => ({ owner, seam })));
+    const seams: ComposeClauseVerdict[] = [];
+    for (const { owner, seam } of seamDeclarations) {
+      const criterionId = `${owner.criterionId}[${seam.upstream}->${seam.downstream}]`;
+      const up = byClause.get(seam.upstream);
+      const down = byClause.get(seam.downstream);
+      // The vacuity gate, seam form: BOTH sides must be observed. A seam
+      // over silence is not a check — the same rule composes's `requires`
+      // enforces, applied to the two named operands instead of a declared set.
+      if (!up || !up.observable || !up.observed.present) {
+        seams.push({ criterionId, outcome: "unverifiable", reason: `upstream clause ${seam.upstream} has no observed value to anchor the seam on`, outputs: {} });
+        continue;
+      }
+      if (!down || !down.observable || !down.observed.present) {
+        seams.push({ criterionId, outcome: "unverifiable", reason: `downstream clause ${seam.downstream} has no observed value to check`, outputs: {} });
+        continue;
+      }
+      // The anchor law: the relation must reference `upstream` (the
+      // recorded output), or it's checking only the downstream child's
+      // unverified claim — gameable, malformed, never a judgment.
+      const anchor = checkSeamAnchor(seam.relation);
+      const seamOutputs = { upstream: up.observed.value, downstream: down.observed.value };
+      if (!anchor.ok) {
+        seams.push({ criterionId, outcome: "error", reason: anchor.reason, outputs: seamOutputs });
+        continue;
+      }
+      const out = await this.rt.tool().execute({ code: compileSeam(criterionId, up.observed.value, down.observed.value, seam.relation) }, undefined);
+      const res = out.status === "completed" ? (out.result as { results?: Record<string, string> }) : {};
+      const status = res.results?.[criterionId];
+      seams.push({
+        criterionId,
+        outcome: status === "pass" ? "pass" : status === "fail" ? "fail" : out.status === "completed" ? "error" : "unverifiable",
+        outputs: seamOutputs,
+      });
+    }
+
+    return { ready: true, clauses, seams };
   }
 
   async listBacklog(): Promise<readonly BacklogEntry[]> {
