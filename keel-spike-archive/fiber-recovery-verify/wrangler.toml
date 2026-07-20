@@ -1,0 +1,12 @@
+name = "fiber-recovery-verify"
+main = "src/agent.ts"
+compatibility_date = "2025-06-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[durable_objects.bindings]]
+name = "TESTAGENT"
+class_name = "TestAgent"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["TestAgent"]

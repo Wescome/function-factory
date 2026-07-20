@@ -91,40 +91,40 @@ Any unhandled exception in route dispatch MUST return HTTP 500 `{ error: "<messa
 ```
 Dado: POST /pipeline with { signal: { signalType: 'market', title: 'X', ... } }
 Quando: Route dispatches to PIPELINE.create()
-Então: 201 { instanceId, status: "started", statusUrl: "/pipeline/{id}", approveUrl: "/approve/{id}" }
+Then: 201 { instanceId, status: "started", statusUrl: "/pipeline/{id}", approveUrl: "/approve/{id}" }
 ```
 
 **Scenario: Missing signal field**
 ```
 Dado: POST /pipeline with {} (no signal)
 Quando: Route handler checks body.signal
-Então: 400 { error: "Missing signal field" }
+Then: 400 { error: "Missing signal field" }
 ```
 
 **Scenario: Architect approval with CF Access header**
 ```
 Dado: POST /approve/abc123 with cf-access-authenticated-user-email: wes@factory.dev
 Quando: sendEvent called
-Então: Event { type: 'architect-approval', payload: { decision: 'approved', by: 'wes@factory.dev' } } sent to Workflow
+Then: Event { type: 'architect-approval', payload: { decision: 'approved', by: 'wes@factory.dev' } } sent to Workflow
 ```
 
 **Scenario: Coherence check fails**
 ```
 Dado: POST /coherence-verification with malformed ExecutableSpecification
 Quando: GATES.evaluateCoherenceVerification returns { passed: false }
-Então: HTTP 422 with the CoherenceVerificationReport
+Then: HTTP 422 with the CoherenceVerificationReport
 ```
 
 **Scenario: Health degraded (D1 unreachable)**
 ```
 Dado: db.ping() returns false
 Quando: GET /health called
-Então: { status: 'degraded', arango: false, collections: {}, timestamp }
+Then: { status: 'degraded', arango: false, collections: {}, timestamp }
 ```
 
 **Scenario: Spec not found**
 ```
 Dado: GET /specs/signals/SIG-NOT-EXIST
 Quando: QueryService.getSpec() returns null
-Então: HTTP 404 { error: "Not found" }
+Then: HTTP 404 { error: "Not found" }
 ```

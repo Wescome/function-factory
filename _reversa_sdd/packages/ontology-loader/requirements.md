@@ -86,14 +86,14 @@ All query helpers cast `JSON.parse(row.json)` directly to typed interfaces witho
 ```
 Dado: Empty D1 ontology collections
 Quando: seedOntology(db) called twice
-Então: Both calls succeed; second call produces same result as first (no duplicates, no errors)
+Then: Both calls succeed; second call produces same result as first (no duplicates, no errors)
 ```
 
 **Scenario: getConstraintsForClass double-filter**
 ```
 Dado: Ontology contains constraint C1 (targetClasses: ['Pressure','BusinessCapability','FunctionProposal'])
 Quando: getConstraintsForClass(db, 'Pressure') called
-Então: Returns C1; does NOT return constraints targeting only 'BusinessCapability'
+Then: Returns C1; does NOT return constraints targeting only 'BusinessCapability'
 Note: Class 'CIFeedbackSignal' does NOT match a query for 'Signal' despite substring match
 ```
 
@@ -101,19 +101,19 @@ Note: Class 'CIFeedbackSignal' does NOT match a query for 'Signal' despite subst
 ```
 Dado: ONTOLOGY_INSTANCES contains { _key: 'CoderRole', type: 'AgentRole', runsIn: 'SandboxContainer', tools: ['FileWriteTool','BashExecuteTool','GitTool'] }
 Quando: getRoleSpec(db, 'CoderRole')
-Então: Returns the CoderRole instance with correct permissions and tools
+Then: Returns the CoderRole instance with correct permissions and tools
 ```
 
 **Scenario: ontology_query tool — constraints_for_class**
 ```
 Dado: buildOntologyTool(db) returns tool; constraints seeded
 Quando: execute('call-1', { queryType: 'constraints_for_class', argument: 'ExecutableSpecification' })
-Então: Returns { content: [{ type: 'text', text: '<constraints JSON>' }], details: [...] }
+Then: Returns { content: [{ type: 'text', text: '<constraints JSON>' }], details: [...] }
 ```
 
 **Scenario: lifecycle state not found**
 ```
 Dado: specs_functions does not contain 'FP-unknown'
 Quando: getLifecycleState(db, 'FP-unknown')
-Então: Returns null
+Then: Returns null
 ```

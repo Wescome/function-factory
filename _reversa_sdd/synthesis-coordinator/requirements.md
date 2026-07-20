@@ -111,40 +111,40 @@ Real agent classes in AtomExecutor MUST be lazy-imported only for non-dryRun exe
 ```
 Dado: POST /synthesize with malformed trellisExecutionPacket
 Quando: fetch() handler processes the request
-Então: Response 400 with { error: 'Missing or invalid trellisExecutionPacket', issues: [...] }
+Then: Response 400 with { error: 'Missing or invalid trellisExecutionPacket', issues: [...] }
 ```
 
 **Scenario: Already-completed synthesis (idempotent re-entry)**
 ```
 Dado: GraphState in DO storage has verdict.decision = 'interrupt'
 Quando: POST /synthesize is called again
-Então: Returns cached interrupt result without re-executing any synthesis steps
+Then: Returns cached interrupt result without re-executing any synthesis steps
 ```
 
 **Scenario: Synthesis returns interrupt (ADR-009 gate)**
 ```
 Dado: Valid TrellisExecutionPacket submitted; no prior GraphState
 Quando: synthesize() runs to the DEPRECATED throw
-Então: interrupt verdict returned; SYNTHESIS_RESULTS queue receives { workflowId, verdict: { decision: 'interrupt' }, tokenUsage, repairCount }
+Then: interrupt verdict returned; SYNTHESIS_RESULTS queue receives { workflowId, verdict: { decision: 'interrupt' }, tokenUsage, repairCount }
 ```
 
 **Scenario: Coordinator alarm fires (deadline exceeded)**
 ```
 Dado: DO alarm fires before synthesis completes
 Quando: alarm() handler executes
-Então: graphState.verdict = 'interrupt'; __completed=true; notifyCallback() called; Workflow unblocked
+Then: graphState.verdict = 'interrupt'; __completed=true; notifyCallback() called; Workflow unblocked
 ```
 
 **Scenario: AtomExecutor pre-flight key check fails**
 ```
 Dado: AtomExecutor executed with dryRun=false and no OFOX_API_KEY or CF_API_TOKEN
 Quando: handleExecuteAtom() runs pre-flight check
-Então: failResult written to DO storage; infra:llm-api-401 signal ingested (best-effort); HTTP 400 returned; 900s alarm NOT set
+Then: failResult written to DO storage; infra:llm-api-401 signal ingested (best-effort); HTTP 400 returned; 900s alarm NOT set
 ```
 
 **Scenario: AtomExecutor result is cached (idempotent)**
 ```
 Dado: DO storage contains 'atomResult' key from a prior execution
 Quando: handleExecuteAtom() is called again
-Então: Cached result returned; no LLM call made; no 900s alarm set
+Then: Cached result returned; no LLM call made; no 900s alarm set
 ```

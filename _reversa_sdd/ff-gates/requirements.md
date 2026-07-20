@@ -86,14 +86,14 @@ The gate MUST use a D1 binding (`DB`) via `@factory/db-client` (`ArangoClient` s
 ```
 Dado: Well-formed ExecutableSpecification with bound atoms, detector-equipped invariants, closed dependency graph, and lineage traceable to a Signal (SIG-* key or type='signal')
 Quando: evaluateCoherenceVerification() is called
-Então: CoherenceVerificationReport.passed = true; all checks[].passed = true
+Then: CoherenceVerificationReport.passed = true; all checks[].passed = true
 ```
 
 **Scenario: Atom without binding or implementation**
 ```
 Dado: ExecutableSpecification with one atom where binding=null and implementation=undefined
 Quando: evaluateCoherenceVerification() is called
-Então: checkAtomVerification().passed = false; CoherenceVerificationReport.passed = false
+Then: checkAtomVerification().passed = false; CoherenceVerificationReport.passed = false
 Note: atom with implementation='stub' PASSES (truthy string is truthy)
 ```
 
@@ -101,26 +101,26 @@ Note: atom with implementation='stub' PASSES (truthy string is truthy)
 ```
 Dado: ExecutableSpecification with one invariant missing both detector and detectorSpec
 Quando: evaluateCoherenceVerification() is called
-Então: checkInvariantVerification().passed = false; CoherenceVerificationReport.passed = false
+Then: checkInvariantVerification().passed = false; CoherenceVerificationReport.passed = false
 ```
 
 **Scenario: Dangling dependency reference**
 ```
 Dado: ExecutableSpecification with dependency { to: 'atom-999' } but 'atom-999' absent from atoms[]
 Quando: checkDependencyClosure() runs
-Então: check.passed = false; CoherenceVerificationReport.passed = false
+Then: check.passed = false; CoherenceVerificationReport.passed = false
 ```
 
 **Scenario: Parseable check fails (short-circuit)**
 ```
 Dado: Input is a non-null object missing the 'atoms' field
 Quando: evaluateCoherenceVerification() is called
-Então: Report returned immediately with only the parseable check; no other checks run
+Then: Report returned immediately with only the parseable check; no other checks run
 ```
 
 **Scenario: Lineage completeness — Signal found in D1**
 ```
 Dado: ES with a lineage path in D1 edges table: ES → FP → BC → PRS → SIG-001
 Quando: checkLineageCompleteness(esKey) runs
-Então: check.passed = true; depth=4 in success detail message
+Then: check.passed = true; depth=4 in success detail message
 ```

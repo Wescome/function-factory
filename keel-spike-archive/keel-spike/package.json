@@ -1,0 +1,26 @@
+{
+  "name": "keel-spike",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Throwaway substrate spike for KEEL (ARCH-KEEL-PLAN-001, Phase 1). Runs S1-S8.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "spike": "wrangler dev --test-scheduled & sleep 2 && curl -s -X POST localhost:8787/spike | jq .",
+    "test": "vitest run",
+    "lint:deps": "node scripts/lint-deps.mjs"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.x",
+    "@cloudflare/workers-types": "^4.20260702.1",
+    "typescript": "^5.x",
+    "vitest": "^2.x",
+    "wrangler": "^4.x"
+  },
+  "dependencies": {
+    "@cloudflare/codemode": "^0.x",
+    "agents": "^0.x"
+  },
+  "comment_VERIFY": "Pin every ^0.x / ^x to the exact versions you install; this SDK set is pre-1.0 and moves monthly."
+}

@@ -5,17 +5,17 @@ Feature: 001-ksp-gears-cf-fixes | Date: 2026-06-10
 
 No items — the two changes were additive config (new DO bindings) and a path constant correction. No existing business rules were modified or removed.
 
-## Observações (🟡 — sem peso de regressão)
+## Observations (🟡 — no regression weight)
 
-| ID | Origem | Observação |
+| ID | Source | Observation |
 |----|--------|-----------|
 | OBS-01 | `.flue/wrangler.jsonc` — migrations | The 5 Flue workflow DO classes remain in `new_sqlite_classes`. If class names change in `_entry.ts`, bindings must be updated to match. |
 | OBS-02 | `.agents/tools/skill_loader.ts:16` | `.agent/skills/` still exists on disk. Re-extraction will find both paths. Delete `.agent/` when convenient. |
 
-## Histórico de re-extrações
+## Re-extraction history
 
-_(vazio — preenchido pelo agente reverso na próxima extração)_
+_(empty — filled on the next reverse extraction)_
 
-## Arquivadas
+## Archived
 
-_(vazio)_
+_(empty)_

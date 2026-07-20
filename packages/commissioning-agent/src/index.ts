@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   runId       TEXT NOT NULL,
   orgId       TEXT NOT NULL,
   isNodeId    TEXT,
+  status      TEXT NOT NULL DEFAULT 'running',
   createdAt   TEXT NOT NULL
 )
 `
@@ -47,9 +48,11 @@ CREATE TABLE IF NOT EXISTS sessions (
 
 export class CommissioningAgentDO extends DurableObject<Env> {
   private sql: SqlStorage
+  private doCtx: DurableObjectState
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
+    this.doCtx = ctx
     this.sql = ctx.storage.sql
     void ctx.blockConcurrencyWhile(async () => {
       this.sql.exec(SESSIONS_DDL)
@@ -97,32 +100,57 @@ export class CommissioningAgentDO extends DurableObject<Env> {
     // Build RequestContext so workflow steps can access Cloudflare bindings
     const rc = new RequestContext<{ env: Env }>([['env', this.env]])
 
-    // Create run and start async (fire-and-forget) — returns immediately with runId
+    // Create run — get runId before starting so we can insert session immediately
     const run = await caCompilerWorkflow.createRun()
-    const { runId } = await run.startAsync({
-      inputData: signal,
-      requestContext: rc,
-    })
+    const runId = run.runId
 
-    // Persist sessionId → runId in SQLite so we can rehydrate later
+    // Persist session immediately so poll works from the first request
     this.sql.exec(
-      `INSERT OR REPLACE INTO sessions (sessionId, runId, orgId, isNodeId, createdAt)
-       VALUES (?, ?, ?, NULL, ?)`,
+      `INSERT OR REPLACE INTO sessions (sessionId, runId, orgId, isNodeId, status, createdAt)
+       VALUES (?, ?, ?, NULL, 'running', ?)`,
       signal.sessionId,
       runId,
       signal.orgId,
       new Date().toISOString(),
     )
 
-    return jsonResponse({ sessionId: signal.sessionId, runId }, 202)
+    // Keep DO alive until workflow completes; update session status when done
+    const sessionId = signal.sessionId
+    const sql = this.sql
+    this.doCtx.waitUntil(
+      run.start({ inputData: signal, requestContext: rc })
+        .then((result) => {
+          if (result.status === 'success') {
+            sql.exec(
+              'UPDATE sessions SET status = ?, isNodeId = ? WHERE sessionId = ?',
+              'completed',
+              (result.result as { isNodeId?: string }).isNodeId ?? null,
+              sessionId,
+            )
+          } else if (result.status === 'suspended') {
+            sql.exec('UPDATE sessions SET status = ? WHERE sessionId = ?', 'suspended', sessionId)
+          } else {
+            sql.exec('UPDATE sessions SET status = ? WHERE sessionId = ?', 'failed', sessionId)
+          }
+        })
+        .catch(() => {
+          sql.exec(
+            'UPDATE sessions SET status = ? WHERE sessionId = ?',
+            'failed',
+            sessionId,
+          )
+        }),
+    )
+
+    return jsonResponse({ status: 'commissioned', sessionId: signal.sessionId, runId, orgId: signal.orgId }, 202)
   }
 
   // ── GET /signal/:sessionId ─────────────────────────────────────────────────────
 
   private async handlePoll(sessionId: string): Promise<Response> {
-    type SessionRow = { sessionId: string; runId: string; orgId: string; isNodeId: string | null }
+    type SessionRow = { sessionId: string; runId: string; orgId: string; isNodeId: string | null; status: string }
     const rows = [...this.sql.exec<SessionRow>(
-      'SELECT sessionId, runId, orgId, isNodeId FROM sessions WHERE sessionId = ?',
+      'SELECT sessionId, runId, orgId, isNodeId, status FROM sessions WHERE sessionId = ?',
       sessionId,
     )]
 
@@ -131,11 +159,7 @@ export class CommissioningAgentDO extends DurableObject<Env> {
     }
 
     const row = rows[0]!
-    const state = await caCompilerWorkflow.getWorkflowRunById(row.runId, {
-      fields: ['result'],
-    })
-
-    const phase = state ? mapRunStatusToPhase(state.status) : 'idle'
+    const phase = mapDbStatusToPhase(row.status ?? 'running')
     const isNodeId = row.isNodeId ?? null
 
     return jsonResponse({
@@ -223,13 +247,13 @@ export class CommissioningAgentDO extends DurableObject<Env> {
 
 // ── Status → Phase mapping ────────────────────────────────────────────────────
 
-function mapRunStatusToPhase(status: string): Phase {
+function mapDbStatusToPhase(status: string): Phase {
   switch (status) {
-    case 'suspended': return 'suspended-approval'
-    case 'running':   return 'commissioning'
-    case 'success':   return 'idle'
-    case 'failed':    return 'idle'
-    default:          return 'idle'
+    case 'suspended':  return 'suspended-approval'
+    case 'running':    return 'commissioning'
+    case 'completed':  return 'idle'
+    case 'failed':     return 'idle'
+    default:           return 'idle'
   }
 }
 
@@ -248,3 +272,4 @@ function jsonError(error: string, status: number, details?: unknown): Response {
     headers: { 'Content-Type': 'application/json' },
   })
 }
+

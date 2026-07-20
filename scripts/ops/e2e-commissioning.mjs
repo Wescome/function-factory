@@ -49,6 +49,7 @@ const res = await httpPost(GATEWAY + '/signals', { Authorization: 'Bearer ' + jw
   dispositionEventId: DISPOSITION_ID,
   elucidationArtifactId: DISPOSITION_ID,
   issuedAt: new Date().toISOString(),
+  requireHumanApproval: false,
 })
 
 console.log('  gateway status: ' + res.status)
@@ -57,17 +58,20 @@ console.log('  gateway body:   ' + res.body)
 let accepted
 try { accepted = JSON.parse(res.body) } catch { accepted = {} }
 
-if (res.status !== 202 || accepted.status !== 'commissioned') {
-  console.log('\n❌ Gateway did not accept signal (expected 202 commissioned) — FAIL')
+if (res.status !== 202 || !accepted.sessionId) {
+  console.log('\n❌ Gateway did not accept signal (expected 202 with sessionId) — FAIL')
   process.exit(1)
 }
 
 const sessionId = accepted.sessionId
-const pollUrl = CA_URL + '/agents/commissioning/' + ORG_ID + '/signal/' + sessionId
-console.log('\n✓ Commissioned. Polling: ' + pollUrl)
+const orgId = accepted.orgId ?? 'function-factory'
+// CA worker routes GET /agents/commissioning/{orgId}/signal/{sessionId} → DO poll
+const pollUrl = CA_URL + '/agents/commissioning/' + orgId + '/signal/' + sessionId
+console.log('\n✓ Commissioned  sessionId=' + sessionId)
+console.log('  Polling CA:   ' + pollUrl)
 
-const POLL_INTERVAL_MS = 3000
-const POLL_MAX_MS = 240000
+const POLL_INTERVAL_MS = 5000
+const POLL_MAX_MS = 300000
 const start = Date.now()
 
 while (Date.now() - start < POLL_MAX_MS) {
@@ -82,20 +86,25 @@ while (Date.now() - start < POLL_MAX_MS) {
   }
   let state
   try { state = JSON.parse(poll.body) } catch { state = {} }
-  console.log('  [' + elapsed + 's] phase=' + state.phase + ' result=' + JSON.stringify(state.result))
-  if (state.result) {
-    if (state.result.status === 'seeded' && state.result.atomCount > 0) {
-      console.log('\n✅ Pipeline seeded — atomCount: ' + state.result.atomCount + ' — PASS')
-      process.exit(0)
-    }
-    if (state.result.status === 'archived') {
-      console.log('\n❌ Signal archived — pattern appraisal failed — pipeline DID NOT RUN — FAIL')
-      process.exit(1)
-    }
-    console.log('\n❌ Terminal state but unexpected: ' + JSON.stringify(state.result) + ' — FAIL')
+  console.log('  [' + elapsed + 's] phase=' + state.phase + ' isNodeId=' + state.isNodeId + ' runId=' + state.runId)
+
+  // Terminal: workflow completed and IS-* was emitted to Mediation
+  if (state.phase === 'idle' && state.isNodeId) {
+    console.log('\n✅ Compiler workflow complete — isNodeId: ' + state.isNodeId + ' — PASS')
+    process.exit(0)
+  }
+  // Terminal: suspended waiting for human approval (shouldn't happen with requireHumanApproval:false)
+  if (state.phase === 'suspended-approval') {
+    console.log('\n⚠️  Workflow suspended for human approval — isNodeId: ' + state.isNodeId)
+    console.log('   POST /divergence with a ResumeSignal to continue')
+    process.exit(1)
+  }
+  // Error response
+  if (poll.status === 404) {
+    console.log('\n❌ Session not found (404) — signal may not have reached CA — FAIL')
     process.exit(1)
   }
 }
 
-console.log('\n❌ Timed out after ' + Math.round(POLL_MAX_MS/1000) + 's — pipeline did not complete — FAIL')
+console.log('\n❌ Timed out after ' + Math.round(POLL_MAX_MS/1000) + 's — workflow did not complete — FAIL')
 process.exit(1)

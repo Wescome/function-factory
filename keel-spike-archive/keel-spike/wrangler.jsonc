@@ -1,0 +1,27 @@
+{
+  // KEEL substrate spike — VERIFY every binding against your installed SDK.
+  "name": "keel-spike",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-06-01", // VERIFY: use a date your SDK supports
+  "compatibility_flags": ["nodejs_compat"], // VERIFY: flags codemode/agents need
+
+  "durable_objects": {
+    "bindings": [
+      { "name": "ORCHESTRATOR", "class_name": "Orchestrator" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["Orchestrator"] } // SQLite-backed DO
+  ],
+
+  // Dynamic Workers / WorkerLoader binding required by codemode to run
+  // generated code in a fresh isolate. Confirmed against wrangler 4.107.0's
+  // config-schema.json: shape is { binding }, not { name }.
+  "worker_loaders": [{ "binding": "LOADER" }],
+
+  // S6: the Orchestrator/Verifier env MUST NOT contain a model/AI binding.
+  // Model access belongs to the GENERATE path only, never the verify path.
+  // "ai": { "binding": "AI" }   // <- intentionally absent here
+
+  "observability": { "enabled": true }
+}

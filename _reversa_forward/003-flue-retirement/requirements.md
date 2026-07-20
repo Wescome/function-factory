@@ -105,7 +105,7 @@ All three original open points resolved in clarification session 2026-06-12. No 
 
 ## 8. Esclarecimentos
 
-### Sessão 2026-06-12
+### Session 2026-06-12
 
 - **Q:** Is Option A/B (Mastra T2 processor placement) a remaining decision, or fully resolved?
   **R:** Option B is fully decided. Step 6 in spec §10 contains stale wording. Rewritten as FR-09: "Wire Mastra T2 processors into `buildConductingAgent()` inputProcessors/outputProcessors." No decision remaining.

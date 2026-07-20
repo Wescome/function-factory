@@ -47,3 +47,51 @@ This project is indexed by Tessera as **function-factory** (19327 symbols, 28964
 | Index, status, clean, wiki CLI commands | `.claude/skills/tessera/tessera-cli/SKILL.md` |
 
 <!-- tessera:end -->
+
+
+---
+
+# Reversa
+
+> Reverse Engineering framework installed in this project.
+
+## How to use
+
+Type `/reversa` to activate Reversa and start or resume project analysis.
+
+## Activation behavior
+
+When the user enters `/reversa` or the word `reversa` alone in a message:
+
+1. Activate the `reversa` skill at `.claude/skills/reversa/SKILL.md`
+2. If not found in `.claude/skills/`, use `.agents/skills/reversa/SKILL.md`
+3. Read the SKILL.md in full and follow Reversa instructions exactly
+
+## Non-negotiable rule
+
+Do not delete, modify, or overwrite existing legacy project files.
+Reversa writes **only** to `.reversa/` and `_reversa_sdd/`.
+
+
+---
+
+# Reversa
+
+> Reverse Engineering framework installed in this project.
+
+## How to use
+
+Type `/reversa` to activate Reversa and start or resume project analysis.
+
+## Activation behavior
+
+When the user enters `/reversa` or the word `reversa` alone in a message:
+
+1. Activate the `reversa` skill at `.claude/skills/reversa/SKILL.md`
+2. If not found in `.claude/skills/`, use `.agents/skills/reversa/SKILL.md`
+3. Read the SKILL.md in full and follow Reversa instructions exactly
+
+## Non-negotiable rule
+
+Do not delete, modify, or overwrite existing legacy project files.
+Reversa writes **only** to `.reversa/` and `_reversa_sdd/`.

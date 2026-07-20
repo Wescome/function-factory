@@ -86,13 +86,13 @@ Factory Mediation Agent DO, ComeFlow, and CareTrace MUST import from `@factory/k
 
 **Dado** that `@factory/bead-graph` compiles clean with zero TypeScript errors,
 **Quando** a consumer package declares `@factory/ksp-sdk` as a dependency and imports `KnowingStateSDK` from it,
-**Então** TypeScript resolves the type without errors, and all generic parameters (`PolicyContent`, `TrustContent`, `ExecutionContent`, `OutcomeContent`) are visible and correctly typed.
+**Then** TypeScript resolves the type without errors, and all generic parameters (`PolicyContent`, `TrustContent`, `ExecutionContent`, `OutcomeContent`) are visible and correctly typed.
 
 ### AC-02: Failure path — @factory/* import rejected at typecheck gate
 
 **Dado** that a developer accidentally adds `import { something } from '@factory/schemas'` to `packages/knowing-state-sdk/src/index.ts`,
 **Quando** `tsc --noEmit` is run,
-**Então** TypeScript reports an error (module not in dependencies, or import creates a cycle), and the gate fails — preventing the violation from entering the build.
+**Then** TypeScript reports an error (module not in dependencies, or import creates a cycle), and the gate fails — preventing the violation from entering the build.
 
 ---
 

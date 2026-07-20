@@ -7,6 +7,39 @@
 
 ---
 
+## AMENDMENT (2026-06-17) — Mastra workflow lifecycle superseded by SPEC-FF-CA-ALARM-001
+
+The DO lifecycle mechanics in this spec (Mastra `createWorkflow`, `createRunAndStart`, `getRunById`,
+`@mastra/cloudflare-d1` persistence, `workflow.suspend()`/`run.resume()`) are **superseded** by
+**SPEC-FF-CA-ALARM-001**. That spec replaces the Mastra workflow orchestrator with a DO `alarm()`-driven
+sequence over the same pure step functions, conforming to the DO-owned 202-accept + poll decision of
+**SPEC-FF-CA-ASYNC-001**.
+
+Two invariants are amended:
+
+- **CA-INV-001 — AMENDED:** The DO uses `alarm()` for async processing per SPEC-FF-CA-ASYNC-001 and
+  SPEC-FF-CA-ALARM-001. The prohibition on alarm handlers is **revoked**. The DO still owns no Mastra
+  workflow engine and no `Think` LLM loop.
+- **CA-INV-007 — AMENDED:** Human approval suspension is a SQLite `status='suspended-approval'` state,
+  **not** `workflow.suspend()`. Resume is a re-queue + alarm re-arm. The Mastra workflow orchestrator is
+  removed.
+
+**What this spec still governs (unchanged and valid):**
+
+- The pure compiler-pass step extraction into `src/workflow/steps/*.ts` (kept verbatim).
+- The schema rewrites in `src/schemas.ts` (`Phase`, `PressureArtifact`, `CapabilityArtifact`,
+  `FunctionProposal`; removal of `WorkGraph`/`CandidateSet`/`ExecutionApproach`).
+- All file deletions in the File Inventory (`skill-registry.ts`, `phases/deliberation.ts`, etc.).
+- `buildPlannerAgent` as the sole LLM entry point (CA-INV-005).
+- ArtifactGraphDO as the artifact store; no ArangoDB (CA-INV-004).
+- The IS-* → MediationAgentDO `/commission` handoff (CA-INV-008).
+
+The "Target Architecture", "CommissioningAgentDO (Rewritten)", "DO↔Mastra Run lifecycle", and
+"Mastra Workflow: ca-compiler-workflow" sections below describe the Mastra mechanism and are retained
+for historical context only. **Read SPEC-FF-CA-ALARM-001 for the authoritative lifecycle.**
+
+---
+
 ## Problem
 
 The CommissioningAgentDO currently:

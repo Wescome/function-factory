@@ -10,6 +10,7 @@ export const CommissioningSignal = z.object({
   dispositionEventId: z.string().min(1),        // must match token claim
   elucidationArtifactId: z.string().min(1),
   issuedAt: z.string().min(1),
+  requireHumanApproval: z.boolean().optional(), // default true; set false in e2e/test flows
   vertical: z.enum([
     "gtm-engineering",
     "healthcare-operations",

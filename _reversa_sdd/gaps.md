@@ -5,7 +5,7 @@
 
 ---
 
-## CRÍTICO (blocker for spec accuracy)
+## CRITICAL (blocker for spec accuracy)
 
 ### GAP-01: dependencies.md lists `@factory/arango-client` — STALE
 
@@ -104,7 +104,7 @@ After the D1 migration, these statements are superseded. D1 is now the primary s
 
 ---
 
-## COSMÉTICO (documentation hygiene only)
+## COSMETIC (documentation hygiene only)
 
 ### GAP-10: questions.md Q-01 and Q-04 resolved but not removed from original file
 
@@ -136,11 +136,11 @@ After the D1 migration, these statements are superseded. D1 is now the primary s
 
 ---
 
-## CRÍTICO (KSP — blocker for spec accuracy or implementation)
+## CRITICAL (KSP — blocker for spec accuracy or implementation)
 
 ### GAP-KSP-01: Package naming ambiguity — @koales/* vs @factory/* for base packages
 
-**Severity:** CRÍTICO
+**Severity:** CRITICAL
 **Location:** All KSP SDD modules; `ksp-gears/requirements.md:NFR-07`; CLAUDE.md `/tmp/ksp-impl/ksp-impl-specs/CLAUDE.md` package topology
 **Description:** CLAUDE.md (the authoritative implementation spec) uses `@koales/artifact-graph`, `@koales/bead-graph`, and `@koales/loop-closure` for the three base KSP packages. All 7 KSP SDD modules consistently use `@factory/artifact-graph`, `@factory/bead-graph`, `@factory/loop-closure`. The `ksp-gears/requirements.md` NFR-07 acknowledges this conflict and states the mapping rule but marks it as 🟡 confidence. The CLAUDE.md also uses `@koales/bead-graph` in its own package topology listing (Phase 1-4 build order). This creates a direct conflict between the spec's package.json `name` fields and the CLAUDE.md implementation names.
 
@@ -152,7 +152,7 @@ After the D1 migration, these statements are superseded. D1 is now the primary s
 
 ### GAP-KSP-02: `getActiveSpecification` called in loop-closure but not defined in artifact-graph
 
-**Severity:** CRÍTICO
+**Severity:** CRITICAL
 **Location:** `ksp-loop-closure/design.md` §Bridge Point 1; `ksp-artifact-graph/requirements.md` FR-12 (10-method list)
 **Description:** `LoopClosureService.openSession()` calls `artifactGraphDO.getActiveSpecification(ns, domain)`. This method is NOT in `ArtifactGraphDOBase`'s 10-method contract (FR-12). It is not in any SPEC-KSP-ARTIFACT-GRAPH-001 section. This means either: (a) it is a `FactoryArtifactGraphDO` domain method that loop-closure should not call directly (architectural violation — NFR-07 says no factory-specific imports), or (b) it was intended as a base class method that was accidentally omitted from the spec.
 
@@ -164,7 +164,7 @@ After the D1 migration, these statements are superseded. D1 is now the primary s
 
 ### GAP-KSP-03: `dispositionEventId` undefined in Bridge Point 5 — tasks.md does not generate it
 
-**Severity:** CRÍTICO
+**Severity:** CRITICAL
 **Location:** `ksp-loop-closure/design.md` §Bridge Point 5 Step 3; `ksp-loop-closure/tasks.md` Task 25e
 **Description:** Bridge Point 5 Step 3 writes `artifactGraphDO.upsertEdge(eaId, dispositionEventId, 'produced_at')` but `dispositionEventId` is never defined or assigned anywhere in the six-step sequence. The design.md Open Gaps section acknowledges this. However, tasks.md (Task 25e `adoptAmendment`) does not instruct the implementor to generate the DispositionEvent node or its ID. An implementor following tasks.md will write code referencing an undefined variable.
 
@@ -176,7 +176,7 @@ After the D1 migration, these statements are superseded. D1 is now the primary s
 
 ### GAP-KSP-04: ksp-sdk tasks.md labels module as "Phase 3" — conflicts with requirements.md
 
-**Severity:** COSMÉTICO (but confusing for implementors)
+**Severity:** COSMETIC (but confusing for implementors)
 **Location:** `ksp-sdk/tasks.md` prerequisite gate header; `ksp-sdk/requirements.md` NFR-03
 **Description:** tasks.md prerequisite header states "This module is Phase 3. Do not begin any task below until Phase 2 (`@factory/bead-graph`) compiles clean". But requirements.md NFR-03 and the architecture.md KSP package build order correctly identify ksp-sdk as Phase 2. CLAUDE.md labels it "Phase 3 — @factory/knowing-state-sdk" because it is the third item in the reading order (after artifact-graph and bead-graph), not because it is build Phase 3. The confusion: CLAUDE.md uses "Phase" to mean "reading sequence group", while SDD uses "Phase" to mean "dependency tier". Tasks.md has adopted the CLAUDE.md sequence numbering which conflicts with the SDD tier numbering.
 
@@ -226,11 +226,11 @@ After the D1 migration, these statements are superseded. D1 is now the primary s
 
 ---
 
-## COSMÉTICO (KSP — documentation hygiene)
+## COSMETIC (KSP — documentation hygiene)
 
 ### GAP-KSP-09: @koales/* references in code-analysis.md, domain.md, flowcharts, and ADR-KSP-005
 
-**Severity:** COSMÉTICO
+**Severity:** COSMETIC
 **Location:** `code-analysis.md:3804-3806`, `domain.md:226,262`, `flowcharts/ksp-gears.md:14`, `adrs/ADR-KSP-005-ksp-sdk-isolation.md`
 **Description:** Several cross-cutting artifacts still use `@koales/*` package names in code examples and explanatory text. The SDD unit files consistently use `@factory/*`. Once GAP-KSP-01 is resolved (Q-11), any remaining `@koales/` references in the SDD should be updated to `@factory/` for consistency. Current state: these references exist as "former name" context which is accurate per the historical evolution described in ksp-flue-workflow headers.
 
@@ -240,7 +240,7 @@ After the D1 migration, these statements are superseded. D1 is now the primary s
 
 ### GAP-KSP-10: ksp-artifact-graph design.md §4.2 lists wrong consumer package names
 
-**Severity:** COSMÉTICO
+**Severity:** COSMETIC
 **Location:** `ksp-artifact-graph/design.md` §4.2 (What Calls This Package)
 **Description:** The table lists `@factory/ksp-sdk (Phase 2)` as importing `ArtifactNode, ArtifactEdge types only`. In practice, `@factory/ksp-sdk` only re-exports from `@factory/bead-graph` — it does not import from `@factory/artifact-graph`. The loop-closure package (not ksp-sdk) uses artifact graph types. The consumer table is slightly inaccurate for ksp-sdk.
 
@@ -252,7 +252,7 @@ After the D1 migration, these statements are superseded. D1 is now the primary s
 
 ### GAP-THINK-01: claimBead Never Called Before ThinkExecutor.executeAtom()
 
-**Severity:** CRÍTICO
+**Severity:** CRITICAL
 **Location:** `packages/gears/src/agents/think-executor.ts` — `executeAtom()` method
 **Description:** `ThinkExecutor.executeAtom()` does not call `claimHook(coordinatorDO, directive.atomId, directive.directiveId)` before executing. `releaseBead()` and `failBead()` in `CoordinatorDO` use `WHERE id=? AND assigned_to=?`. Since `assigned_to` is NULL (claim never happened), both UPDATE statements silently match 0 rows. The bead stays `ready` forever. The 5-min stale-bead alarm will re-dispatch it, creating an infinite execution loop.
 **Fix required:** Add `await claimHook(coordinatorDO, directive.atomId, directive.directiveId)` as the first step of `executeAtom()`. If claim returns null (bead already claimed by another agent), abort execution.
@@ -260,7 +260,7 @@ After the D1 migration, these statements are superseded. D1 is now the primary s
 
 ### GAP-THINK-02: /consent Route Missing in CoordinatorDO
 
-**Severity:** CRÍTICO
+**Severity:** CRITICAL
 **Location:** `packages/gears/src/beads/coordinator-do.ts` — `fetch()` handler
 **Description:** `ConsentBeadAuditProcessor` POSTs to `CoordinatorDO /consent` for every tool call to write an audit record before checking the `permittedTools` allowlist. The `/consent` route does not exist in `CoordinatorDO.fetch()` — returns 404. The audit trail for tool calls is silently broken. I4 enforcement (ConsentDeniedError) still fires correctly because it's checked after the DO fetch, but no ConsentBead records are persisted.
 **Fix required:** Add `if (url.pathname === '/consent') { ... }` handler to `CoordinatorDO.fetch()` that persists a ConsentBead record (beadId, toolName, toolCallId, timestamp) to the DO's SQLite storage.
@@ -284,7 +284,7 @@ After the D1 migration, these statements are superseded. D1 is now the primary s
 
 ### GAP-SOURCE-GRAPH-02: tessera-shared Schema Update Is Untracked Architecture Gate
 
-**Severity:** CRÍTICO (blocks SPEC-KSP-SOURCE-GRAPH-001 entirely)
+**Severity:** CRITICAL (blocks SPEC-KSP-SOURCE-GRAPH-001 entirely)
 **Location:** External — `tessera-shared` package in Tessera repo
 **Description:** SPEC-KSP-SOURCE-GRAPH-001 §8 mandates adding SR types (Capability, Initiative, Decision, Thesis, Assumption, Constraint, Option, Risk, Metric, Stakeholder, Dependency, Tradeoff, Evidence) to `NODE_TABLES` + `NodeLabel`, and adding SUPPORTS/CONTRADICTS/CONSTRAINS/etc. to `REL_TYPES` + `RelationshipType` in `tessera-shared`. This is a cross-repo architecture gate in the Tessera repository. No implementation tracking exists in function-factory. Without this, the management adapter cannot use typed labels and the Source Graph stores free-form strings.
 **Fix required:** Create a Tessera-side task (or Linear ticket) for `tessera-shared` schema update. Add prerequisite note to SPEC-KSP-SOURCE-GRAPH-001 implementation plan.

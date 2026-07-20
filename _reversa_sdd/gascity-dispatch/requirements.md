@@ -73,19 +73,19 @@ GasCitySupervisor Container MUST have `enableInternet = true` to reach the Gas C
 ```
 Dado: GasCitySupervisor receives POST /v0/keepalive/start (twice)
 Quando: 30 minutes elapse without activity
-Então: Container remains warm (onActivityExpired returns early, refcount > 0)
+Then: Container remains warm (onActivityExpired returns early, refcount > 0)
 ```
 
 **Scenario: CSRF injection on proxied request**
 ```
 Dado: A POST request arrives at GasCitySupervisor for any non-internal path
 Quando: fetch() processes the request
-Então: Forwarded request contains X-GC-Request: true header
+Then: Forwarded request contains X-GC-Request: true header
 ```
 
 **Scenario: Telemetry batch exceeds limit**
 ```
 Dado: POST /internal/telemetry with 51 events
 Quando: handler processes request
-Então: Response 400 with { error: 'max 50 events per batch' }
+Then: Response 400 with { error: 'max 50 events per batch' }
 ```

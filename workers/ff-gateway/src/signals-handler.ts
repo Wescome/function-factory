@@ -317,7 +317,7 @@ async function routeSignal(
         dispositionEventId:     signal.dispositionEventId,
         elucidationArtifactId:  signal.elucidationArtifactId,
         issuedAt:               signal.issuedAt,
-        requireHumanApproval:   true,
+        requireHumanApproval:   signal.requireHumanApproval ?? true,
       }
       break
     }

@@ -180,7 +180,7 @@ Drift ledger writes, CRP creation, and learning capture MUST be best-effort. Err
 ```
 Dado: A valid SignalInput is submitted with all required fields
 Quando: FactoryPipeline.run() is invoked
-Então:
+Then:
   - Signal (SIG-*) persisted to D1 specs_signals
   - Pressure (PRS-*) persisted to D1 specs_pressures
   - Capability (BC-*) persisted to D1 specs_capabilities
@@ -199,40 +199,40 @@ Então:
 ```
 Dado: A Signal with the same title, description, and signalType was already processed
 Quando: The same SignalInput is submitted again
-Então: ingestSignal returns the existing Signal without creating a new one
+Then: ingestSignal returns the existing Signal without creating a new one
 ```
 
 **Scenario: Birth gate rejects low-confidence proposal**
 ```
 Dado: The LLM returns birthGateScore = 0.3
 Quando: proposeFunction executes
-Então: Error thrown; pipeline halts; no ExecutableSpecification compiled
+Then: Error thrown; pipeline halts; no ExecutableSpecification compiled
 ```
 
 **Scenario: Block-severity IntentAnchor violated after MAX_REMEDIATION attempts**
 ```
 Dado: A block-severity anchor is violated in all 3 decompose compile attempts
 Quando: reconcile() is called with remediationAttempt = MAX_REMEDIATION
-Então: GateDecision.verdict = 'escalate'; pipeline returns status: 'synthesis:intent-violation'
+Then: GateDecision.verdict = 'escalate'; pipeline returns status: 'synthesis:intent-violation'
 ```
 
 **Scenario: Coherence Verification fails**
 ```
 Dado: Assembled ExecutableSpecification has atoms without implementation bindings
 Quando: evaluateCoherenceVerification is called
-Então: CoherenceVerificationReport.passed = false; pipeline returns status: 'coherence-verification-failed'; feedback signal enqueued
+Then: CoherenceVerificationReport.passed = false; pipeline returns status: 'coherence-verification-failed'; feedback signal enqueued
 ```
 
 **Scenario: Gas City revision exceeds amendment depth**
 ```
 Dado: Gas City calls /webhooks/gascity with outcome='revise' and factory_attempt=3 (= GAS_CITY_MAX_AMENDMENT_DEPTH)
 Quando: webhook-receiver processes the callback
-Então: Incident written to specs_incidents; no new revision Signal created
+Then: Incident written to specs_incidents; no new revision Signal created
 ```
 
 **Scenario: GovernorAgent auto-triggers feedback loop**
 ```
 Dado: A pending Signal with source='factory:feedback-loop', feedbackDepth=1, autoApprove=true
 Quando: runGovernanceCycle() runs
-Então: meetsAutoTriggerCriteria() returns true; FACTORY_PIPELINE.create() called; count incremented toward max 5
+Then: meetsAutoTriggerCriteria() returns true; FACTORY_PIPELINE.create() called; count incremented toward max 5
 ```

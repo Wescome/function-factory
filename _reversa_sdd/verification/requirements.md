@@ -49,12 +49,12 @@ The `@factory/schemas` package MUST have no internal package dependencies. All o
 ```
 Dado: A CoherenceVerificationReport object with 5 checks, passed=true
 Quando: CoherenceVerificationReport.parse(obj) is called
-Então: Parse succeeds, TypeScript type is inferred correctly
+Then: Parse succeeds, TypeScript type is inferred correctly
 ```
 
 **Scenario: Invalid report rejected**
 ```
 Dado: An object missing the 'verification' field
 Quando: CoherenceVerificationReport.safeParse(obj)
-Então: safeParse returns { success: false, error: ZodError }
+Then: safeParse returns { success: false, error: ZodError }
 ```

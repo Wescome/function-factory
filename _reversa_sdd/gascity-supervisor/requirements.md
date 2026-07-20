@@ -119,40 +119,40 @@ On `initSchema()`, the FactoryStore MUST normalize `status=''` → `'open'` for 
 ```
 Dado: Pipeline calls POST /v0/keepalive/start before dispatch
 Quando: 30-minute idle timer fires (onActivityExpired)
-Então: refcount > 0 → renewActivityTimeout() called; container does NOT sleep
+Then: refcount > 0 → renewActivityTimeout() called; container does NOT sleep
 ```
 
 **Scenario: Container sleeps after all molecules complete**
 ```
 Dado: All molecules have called POST /v0/keepalive/stop; refcount = 0
 Quando: 30-minute idle timer fires
-Então: super.onActivityExpired() called; container transitions to sleep
+Then: super.onActivityExpired() called; container transitions to sleep
 ```
 
 **Scenario: Bead store proxy strips auth header**
 ```
 Dado: Worker receives authenticated request for /internal/bead-store/factory/beads
 Quando: proxy logic executes
-Então: Request forwarded to FactoryStore DO with Authorization header removed; X-FF-Internal: factory-store injected
+Then: Request forwarded to FactoryStore DO with Authorization header removed; X-FF-Internal: factory-store injected
 ```
 
 **Scenario: Oversized artifact payload rejected**
 ```
 Dado: POST /artifacts/specs_functions with payload > 1 MB
 Quando: FactoryStore enforcePayloadLimit() runs
-Então: HTTP 413 returned; no SQLite write occurs
+Then: HTTP 413 returned; no SQLite write occurs
 ```
 
 **Scenario: Telemetry queue unbound**
 ```
 Dado: TELEMETRY_QUEUE binding is absent from Worker env
 Quando: POST /internal/telemetry is called
-Então: HTTP 503 { error: "telemetry_queue_unbound" } returned
+Then: HTTP 503 { error: "telemetry_queue_unbound" } returned
 ```
 
 **Scenario: Container restart resets refcount**
 ```
 Dado: Container stops (onStop fires)
 Quando: Container is restarted
-Então: keepalive_refcount deleted from DO storage; refcount starts at 0 on restart
+Then: keepalive_refcount deleted from DO storage; refcount starts at 0 on restart
 ```

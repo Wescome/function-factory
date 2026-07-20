@@ -103,40 +103,40 @@ No audit of remaining `traverse()` call sites exists in this SDD. Any call site 
 Dado: db = createClientFromEnv({ DB: d1 })
 Quando: db.save('signals', { _key: 'SIG-001', type: 'market', title: 'X' })
    then db.get('signals', 'SIG-001')
-Então: Returns { _key: 'SIG-001', type: 'market', title: 'X' }
+Then: Returns { _key: 'SIG-001', type: 'market', title: 'X' }
 ```
 
 **Scenario: Upsert (last-writer-wins)**
 ```
 Dado: 'signals/SIG-001' exists with title: 'X'
 Quando: db.save('signals', { _key: 'SIG-001', title: 'Y' })
-Então: Document in D1 has title: 'Y'
+Then: Document in D1 has title: 'Y'
 ```
 
 **Scenario: Auto-generated key**
 ```
 Dado: db.save('signals', { type: 'market' }) (no _key supplied)
 Quando: save() runs
-Então: Document key is 16-char uppercase hex string (e.g., 'A3F2...')
+Then: Document key is 16-char uppercase hex string (e.g., 'A3F2...')
 ```
 
 **Scenario: traverse() throws**
 ```
 Dado: Any call to db.traverse(...)
 Quando: executed
-Então: Throws Error: "traverse() not supported in D1 backend — use recursive CTE via query()"
+Then: Throws Error: "traverse() not supported in D1 backend — use recursive CTE via query()"
 ```
 
 **Scenario: Violation blocks save**
 ```
 Dado: setValidator returns { violations: [{ severity: 'violation', message: 'required field missing', constraint: 'C1' }] }
 Quando: db.save('signals', doc) called
-Então: Error thrown: "Artifact validation failed for signals: required field missing"; no D1 write
+Then: Error thrown: "Artifact validation failed for signals: required field missing"; no D1 write
 ```
 
 **Scenario: ping succeeds**
 ```
 Dado: D1 binding is functional
 Quando: db.ping()
-Então: true
+Then: true
 ```

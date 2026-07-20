@@ -6,18 +6,18 @@
 
 ---
 
-## Fase 1 — Preparação
+## Phase 1 — Preparation
 
-| ID | Ação | Arquivo(s) | Dep | Par | Status |
+| ID | Action | File(s) | Dep | Parallel | Status |
 |----|------|-----------|-----|-----|--------|
 | T001 | Add 5 Flue workflow DO bindings to `.flue/wrangler.jsonc` durable_objects.bindings — CF002 | `.flue/wrangler.jsonc` | — | — | [X] |
 | T002 | Fix `skill_loader.ts:16`: change `".agent/skills"` to `".agents/skills"`, then delete `.agent/skills/` directory — CF005 | `.agents/tools/skill_loader.ts` | — | — | [X] |
 
 ---
 
-## Fase 2 — Núcleo (BLOQUEADA — CF001 architecture gate)
+## Phase 2 — Core (BLOCKED — CF001 architecture gate)
 
-| ID | Ação | Arquivo(s) | Dep | Par | Status |
+| ID | Action | File(s) | Dep | Parallel | Status |
 |----|------|-----------|-----|-----|--------|
 | T003 | ⛔ BLOCKED: Resolve agents/zod-4 conflict — choose: (A) patch agents, (B) isolate workers, (C) migrate @factory/* to zod 4 | TBD | CF001 decision | — | [ ] |
 | T004 | Fill `<provision>` D1 database_id in `packages/gears/wrangler.jsonc` with real ID `6a72d5c3-bcbb-41e3-b29d-d8de5834c3b3` — CF004 | `packages/gears/wrangler.jsonc` | CF001 | — | [ ] |

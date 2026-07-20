@@ -15,7 +15,7 @@
 | 🟢 CONFIRMADO claims | ~84% |
 | 🟡 INFERIDO claims | ~11% |
 | 🔴 LACUNA / open gaps | ~5% (10 questions, 12 gaps) |
-| Stale reference audit | 3 crítico gaps found (dependencies.md, confidence-report.md, validator behavior) |
+| Stale reference audit | 3 critical gaps found (dependencies.md, confidence-report.md, validator behavior) |
 | Reclassifications this run | 4 (Q-01 🟡→🟢, Q-04 🟡→🟢, ff-gates T-05 🟡→🟢, Q-10 new critical gap added) |
 
 ---
@@ -150,12 +150,12 @@
 ### RISK-1: GAP-01 — dependencies.md still lists `@factory/arango-client`
 **Why critical:** This is a factually incorrect dependency name. Any automated dependency graph tool, onboarding guide, or spec that reads `dependencies.md` will reference a non-existent package. The fix is simple (one-line change) but the impact of leaving it stale is high.
 **Affected units:** ff-pipeline, ff-gates (and transitively all units depending on db-client)
-**Severity:** CRÍTICO
+**Severity:** CRITICAL
 
 ### RISK-2: GAP-07 — `traverse()` call sites unaudited
 **Why critical:** The `traverse()` method now throws unconditionally. Any call site not yet migrated to recursive CTE SQL will throw at runtime — silently if in a best-effort path, loudly if on a critical path. The current SDD has no inventory of these call sites.
 **Affected units:** Any consumer of `@factory/db-client` that has not fully migrated from AQL traversal
-**Severity:** CRÍTICO (potential silent runtime failure)
+**Severity:** CRITICAL (potential silent runtime failure)
 **Recommended action:** Run `grep -rn "\.traverse(" workers/ packages/ --include="*.ts"` and document all hits.
 
 ### RISK-3: GAP-02 — db-client validator trigger behavior undocumented
@@ -432,10 +432,10 @@
 
 | ID | Severity | Status |
 |----|---------|--------|
-| GAP-THINK-01 (claimBead never called) | CRÍTICO | Open — blocks smoke test |
-| GAP-THINK-02 (/consent route missing) | CRÍTICO | Open — blocks audit trail |
+| GAP-THINK-01 (claimBead never called) | CRITICAL | Open — blocks smoke test |
+| GAP-THINK-02 (/consent route missing) | CRITICAL | Open — blocks audit trail |
 | GAP-THINK-03 (no bead chaining) | MODERADO | Open — blocks multi-bead molecules |
-| GAP-SOURCE-GRAPH-02 (tessera-shared gate) | CRÍTICO | Open — cross-repo architecture gate |
+| GAP-SOURCE-GRAPH-02 (tessera-shared gate) | CRITICAL | Open — cross-repo architecture gate |
 | GAP-SOURCE-GRAPH-01 (binding missing) | MODERADO | Open — pending SourceGraphDO implementation |
 | GAP-SOURCE-GRAPH-03 (D1 not provisioned) | MODERADO | Open — pending provisioning |
 | GAP-BP6-01 (SpecificationIngester missing) | MODERADO | Open — pending BP6 implementation |

@@ -7,18 +7,18 @@
 
 ---
 
-## Fase 1 — Preparação
+## Phase 1 — Preparation
 
-| ID | Ação | Arquivo(s) | Dep | Par | Status |
+| ID | Action | File(s) | Dep | Parallel | Status |
 |----|------|-----------|-----|-----|--------|
 | T001 | Delete dead no-op stub `runtime-stub.js` — if alias is ever wired it silently kills model routing | `packages/gears/src/flue/runtime-stub.js` | — | — | [X] |
 | T001b | Update coder profile in `packages/gears/src/flue/agents.ts`: change `coderProfile` model from `anthropic/claude-opus-4-6` to `cloudflare/kimi-k2.6`. Add `CF_API_TOKEN: string` to the comment noting kimi requires REST API (env.AI.run() returns empty for kimi — use CF REST path via configureProvider override in run()). | `packages/gears/src/flue/agents.ts` | — | T001 | [X] |
 
 ---
 
-## Fase 2 — Núcleo (gears)
+## Phase 2 — Core (gears)
 
-| ID | Ação | Arquivo(s) | Dep | Par | Status |
+| ID | Action | File(s) | Dep | Parallel | Status |
 |----|------|-----------|-----|-----|--------|
 | T002 | [X] Move `atom-execution.ts run()` into gears: copy `.flue/workflows/atom-execution.ts` to `packages/gears/src/flue/workflows/atom-execution.ts`. Update internal imports: `@factory/gears/flue` → `../agents.js`, `@factory/gears/beads` → `../../beads/hook.js` and `../../beads/types.js`. Keep `@factory/schemas`, `@flue/runtime`, `@cloudflare/sandbox`, `node:crypto` as-is. Add `configureProvider` import from `@flue/runtime`. Add `OFOX_API_KEY: string`, `CF_API_TOKEN: string`, and `AI: unknown` to local `Env` interface. Provider config block at top of `run()` before DO init: (1) ofox for anthropic+openai as before; (2) cloudflare provider override for kimi using CF REST API — same pattern as `workers/ff-pipeline/src/providers.ts` lines 18-44: `configureProvider('cloudflare', { baseUrl: 'https://api.cloudflare.com/client/v4/accounts/cb56a846c70a38987f31cf6e2b85cb57/ai/run/', apiKey: env.CF_API_TOKEN, headers: { Authorization: 'Bearer ' + env.CF_API_TOKEN } })`. | `packages/gears/src/flue/workflows/atom-execution.ts` (new) | — | — | [ ] |
 | T003 | Gate: `pnpm --filter @factory/gears typecheck` passes after T002 | TYPECHECK | T002 | — | [X] |
@@ -30,9 +30,9 @@
 
 ---
 
-## Fase 3 — Integração (ff-pipeline)
+## Phase 3 — Integration (ff-pipeline)
 
-| ID | Ação | Arquivo(s) | Dep | Par | Status |
+| ID | Action | File(s) | Dep | Parallel | Status |
 |----|------|-----------|-----|-----|--------|
 | T009 | Add `FLUE_ATOM_EXECUTION_WORKFLOW: DurableObjectNamespace` and `FLUE_REGISTRY: DurableObjectNamespace` and `OFOX_API_KEY: string` to `PipelineEnv` in `workers/ff-pipeline/src/types.ts` | `workers/ff-pipeline/src/types.ts` | T008 | — | [ ] |
 | T010 | Update `workers/ff-pipeline/src/index.ts` — add exports after existing KSP block: `export { FlueAtomExecutionWorkflow, FlueRegistry } from '@factory/gears'`. Add routing at TOP of fetch handler (before `/version` check): import `routeAtomExecutionWorkflow` from `@factory/gears`, if `env.FLUE_ATOM_EXECUTION_WORKFLOW` call it and return if non-null. | `workers/ff-pipeline/src/index.ts` | T009 | — | [ ] |
@@ -41,9 +41,9 @@
 
 ---
 
-## Fase 4 — Polimento
+## Phase 4 — Polish
 
-| ID | Ação | Arquivo(s) | Dep | Par | Status |
+| ID | Action | File(s) | Dep | Parallel | Status |
 |----|------|-----------|-----|-----|--------|
 | T013 | Delete WeOps gateway block from `.flue/app.ts` — remove `configureProvider('anthropic', ...)`, `WEOPS_GATEWAY_URL`, `WEOPS_SIGNING_KEY` from Env interface. Gateway is unimplemented; ofox is now authoritative inside `run()`. Keep `flue().fetch()` routing. | `.flue/app.ts` | T012 | — | [ ] |
 | T014 | Update `.flue/workflows/atom-execution.ts` (original) — replace with thin shim re-exporting `run`, `route`, `extractWorkspaceDelta` from `@factory/gears/flue/workflows/atom-execution.js`. Keeps `.flue/` local dev path working. | `.flue/workflows/atom-execution.ts` | T013 | — | [ ] |
