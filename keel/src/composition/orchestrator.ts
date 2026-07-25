@@ -5,6 +5,7 @@
  * on PAUSE it persists resume context; approve() replays via the port (D8).
  */
 import { Agent } from "agents";
+import { Workspace } from "@cloudflare/shell";
 import { runLoop, resumeApproved, type RunPorts, type RunTerminal } from "../domain/loop/run";
 import type { Specification, SpecificationContent, ContentHash, AnyNode, DomainEvent, VerdictContent } from "../domain/index";
 import type { QueryPort, CustodyView, TimelineEntry, ReplaySnapshot, ReplayConsistency, CrossRunRecord } from "../domain/index";
@@ -21,6 +22,7 @@ import { ForeignMcpConnector } from "../adapters/foreign/foreign-mcp.codemode";
 import { FxConnector } from "../adapters/fx/fx.codemode";
 import { GeoConnector } from "../adapters/geo/geo.codemode";
 import { WeatherConnector } from "../adapters/weather/weather.codemode";
+import { WorkspaceStateConnector, WorkspaceGitConnector } from "../adapters/workspace/workspace.codemode";
 import { StoreConnector } from "../adapters/ledger/store.codemode";
 import { DoLedgerStore } from "../adapters/ledger/do-ledger.adapter";
 import { foreignConnectorDoc } from "../adapters/foreign/mcp-call";
@@ -64,6 +66,7 @@ const RESERVED_INTENTS = new Set([
   "fx-correct", "fx-fabricate", "fx-rawshape",
   "geo-correct", "geo-topfail", "geo-fabricate",
   "store-ensure", "store-append-create", "store-append-duplicate",
+  "workspace-read-test",
   // PLAYBOOK-KEEL-COMPOSE-ANCHOR: templateDerive rewrites a child's intent to
   // "<parent.intent> — sub-goal: ... <clause statement>" — these are the
   // exact rewritten strings for the deterministic anchor-test fixture, so the
@@ -162,6 +165,18 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
   private readonly recorder = new CallRecorder();
   private readonly memBacklog = new InMemoryBacklog();
   private __rt?: CodemodeHandle;
+  private __ws?: Workspace;
+  /** PLAYBOOK-KEEL-WORKSPACE-001 (B.2): one Workspace on the Orchestrator,
+   *  backed by the DO's own SQLite — not keyed per slice (a later playbook).
+   *  No R2 bucket is bound in wrangler.jsonc; files spill to inline SQLite
+   *  storage under the (default 1.5MB) inlineThreshold, fine for this spike. */
+  private get workspace(): Workspace {
+    if (!this.__ws) {
+      const storage = (this.ctx as unknown as DurableObjectState).storage;
+      this.__ws = new Workspace({ sql: storage.sql, name: () => this.name });
+    }
+    return this.__ws;
+  }
   /** The raw `SqlStorage.exec` (positional params, preserves `rowsWritten`)
    *  — DoLedgerStore.ensure's atomicity proof needs `rowsWritten` off the
    *  cursor, which `this.sql`'s tagged-template convenience wrapper discards. */
@@ -178,6 +193,8 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
         new FxConnector(this.ctx, this.env, this.recorder),
         new GeoConnector(this.ctx, this.env, this.recorder),
         new WeatherConnector(this.ctx, this.env, this.recorder),
+        new WorkspaceStateConnector(this.ctx, this.env, this.workspace, this.recorder),
+        new WorkspaceGitConnector(this.ctx, this.env, this.workspace, this.recorder),
         new StoreConnector(this.ctx, this.env, this.recorder, new DoLedgerStore(this.storageSqlExec())),
       ];
       const foreignUrl = (this.env as Env).FOREIGN_MCP_URL;

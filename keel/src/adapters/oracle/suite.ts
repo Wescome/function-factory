@@ -328,6 +328,18 @@ const SUITES: Record<string, OracleSuite> = {
       { criterionId: "S4", kind: "property", seams: [{ upstream: "R1", downstream: "S2", relation: "downstream === upstream" }] },
     ],
   },
+  // PLAYBOOK-KEEL-WORKSPACE-001: anchored on trace.calls, same discipline as
+  // fxrate@v1/geo@v1 -- verifies the RECORDED clone/glob/readFile calls, not
+  // just trace.result, so a model that fabricates the result without actually
+  // calling git.clone/state.readFile cannot pass.
+  "workspace-read@v1": {
+    ref: "workspace-read@v1",
+    assertions: [
+      { criterionId: "A1", kind: "example", expr: "(function(){ var c=trace.calls.find(function(x){return x.connector==='git'&&x.method==='clone';}); return !!c && !!c.response && c.response.dir==='/repo'; })()" },
+      { criterionId: "A2", kind: "example", expr: "(function(){ var c=trace.calls.find(function(x){return x.connector==='state'&&x.method==='glob';}); return !!c && Array.isArray(c.response) && c.response.length>0; })()" },
+      { criterionId: "A3", kind: "example", expr: "(function(){ var c=trace.calls.find(function(x){return x.connector==='state'&&x.method==='readFile';}); return !!c && typeof c.response==='string' && c.response.length>0 && trace.result && trace.result.content===c.response; })()" },
+    ],
+  },
 };
 
 export interface OracleSuiteRegistry {

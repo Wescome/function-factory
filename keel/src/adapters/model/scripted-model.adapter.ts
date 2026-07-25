@@ -185,6 +185,17 @@ return { latitude: 0, longitude: 0, temperature_c: w.current.temperature_2m };`;
         return { code: `return { value: 42 };`, connectors: ["echo"] };
       case "foreign-denied":
         return { code: `return await foreignDenied.lookup({});`, connectors: ["foreignDenied"] };
+      // PLAYBOOK-KEEL-WORKSPACE-001: clone a tiny public repo (depth 1), glob
+      // for its top-level files, read one back — proves state.*/git.* land on
+      // the trace in order and readFile carries real content.
+      case "workspace-read-test": {
+        const c = `const cloned = await git.clone({ url: "https://github.com/octocat/Hello-World", dir: "/repo", depth: 1 });
+const files = await state.glob({ pattern: "/repo/*" });
+const readme = files.find((f) => /readme/i.test(f.name));
+const content = await state.readFile({ path: readme.path });
+return { dir: cloned.dir, fileCount: files.length, content };`;
+        return { code: c, connectors: ["git", "state"] };
+      }
       default:
         return { code: `const r = await echo.emit({ value: 42 }); return r;`, connectors: ["echo"] };
     }
