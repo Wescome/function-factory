@@ -15,6 +15,11 @@
 export { Orchestrator } from "./orchestrator";
 export { CodemodeRuntime } from "@cloudflare/codemode";
 export { InboundMcpAgent } from "./mcp-inbound";
+// PLAYBOOK-KEEL-RUN-SUITE-001 (A3, Tier 4): the Sandbox container DO class
+// itself -- wrangler routes the `SANDBOX` binding (wrangler.jsonc) to it by
+// class_name. KEEL's own code never subclasses it (unlike Orchestrator);
+// SandboxConnector reaches it only via `getSandbox(env.SANDBOX, id)`.
+export { Sandbox } from "@cloudflare/sandbox";
 import { OAuthProvider, type OAuthHelpers } from "@cloudflare/workers-oauth-provider";
 import { InboundMcpAgent, makeInboundApiHandler } from "./mcp-inbound";
 import type { Env } from "./orchestrator";

@@ -222,6 +222,16 @@ return { phase: 2, aGone: a === null, bGone: b === null };`,
           connectors: ["state"],
         };
       }
+      // PLAYBOOK-KEEL-RUN-SUITE-001: deterministic driver for a real
+      // Sandbox run -- reads the SAME spec.runSuite the router used, so the
+      // generated code calls the real repo/command the spec declared
+      // (never invented by the model). Used by the opt-in integration test
+      // (real container) and by local wrangler-dev live verification.
+      case "run-real-suite-test": {
+        const rs = spec.runSuite;
+        const args = JSON.stringify({ repo: rs?.repo, testCommand: rs?.testCommand });
+        return { code: `return await sandbox.runSuite(${args});`, connectors: ["sandbox"] };
+      }
       default:
         return { code: `const r = await echo.emit({ value: 42 }); return r;`, connectors: ["echo"] };
     }

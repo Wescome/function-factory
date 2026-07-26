@@ -23,6 +23,8 @@ import { FxConnector } from "../adapters/fx/fx.codemode";
 import { GeoConnector } from "../adapters/geo/geo.codemode";
 import { WeatherConnector } from "../adapters/weather/weather.codemode";
 import { WorkspaceStateConnector, WorkspaceGitConnector } from "../adapters/workspace/workspace.codemode";
+import { SandboxConnector } from "../adapters/sandbox/sandbox.codemode";
+import type { Sandbox } from "@cloudflare/sandbox";
 import { StoreConnector } from "../adapters/ledger/store.codemode";
 import { DoLedgerStore } from "../adapters/ledger/do-ledger.adapter";
 import { foreignConnectorDoc } from "../adapters/foreign/mcp-call";
@@ -30,6 +32,7 @@ import { CallRecorder } from "../adapters/codemode/call-recorder";
 import { CodemodeExecutionAdapter } from "../adapters/codemode/code-execution.adapter";
 import { FaultyExecutionAdapter } from "../adapters/codemode/faulty-execution.adapter";
 import { SuiteOracleAdapter } from "../adapters/oracle/suite-oracle.adapter";
+import { SandboxOracleAdapter } from "../adapters/oracle/sandbox-oracle.adapter";
 import { InMemorySuiteRegistry } from "../adapters/oracle/suite";
 import { LineageDoAdapter } from "../adapters/persistence/lineage-do.adapter";
 import { D1CrossRunAdapter } from "../adapters/persistence/d1-cross-run.adapter";
@@ -57,6 +60,14 @@ export interface Env {
   // git.push. Optional; injected into the git connector's push calls so
   // generated code never supplies or sees a token. Absent locally/CI.
   GIT_PUSH_TOKEN?: string;
+  // PLAYBOOK-KEEL-RUN-SUITE-001 (A3, Tier 4): the Sandbox container
+  // binding. Optional -- Tier 4 is scoped to code + wiring here; deploying
+  // a real container (Dockerfile, wrangler `containers` config, Docker
+  // locally to test) is its own infra decision, not made by this playbook.
+  // Absent -> the sandbox connector isn't wired in and `runSuite`-routed
+  // specs escalate (no recorded call to verify against), same fail-closed
+  // shape SandboxOracleAdapter already gives a malformed/missing call.
+  SANDBOX?: DurableObjectNamespace<Sandbox>;
   [k: string]: unknown;
 }
 
@@ -72,6 +83,7 @@ const RESERVED_INTENTS = new Set([
   "store-ensure", "store-append-create", "store-append-duplicate",
   "workspace-read-test",
   "wr-clean-test",
+  "run-real-suite-test",
   // PLAYBOOK-KEEL-COMPOSE-ANCHOR: templateDerive rewrites a child's intent to
   // "<parent.intent> — sub-goal: ... <clause statement>" — these are the
   // exact rewritten strings for the deterministic anchor-test fixture, so the
@@ -202,6 +214,15 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
         new WorkspaceGitConnector(this.ctx, this.env, this.workspace, this.recorder, (this.env as Env).GIT_PUSH_TOKEN),
         new StoreConnector(this.ctx, this.env, this.recorder, new DoLedgerStore(this.storageSqlExec())),
       ];
+      // PLAYBOOK-KEEL-RUN-SUITE-001: conditional like the foreign connector
+      // below -- SANDBOX is absent locally/CI and absent from the deployed
+      // worker's own config today (no real container is provisioned by
+      // this playbook). A runSuite-routed spec without it fails closed
+      // (SandboxOracleAdapter finds no recorded call -> escalate).
+      const sandboxNs = (this.env as Env).SANDBOX;
+      if (sandboxNs) {
+        connectors.push(new SandboxConnector(this.ctx, this.env, sandboxNs, this.recorder));
+      }
       const foreignUrl = (this.env as Env).FOREIGN_MCP_URL;
       if (foreignUrl) {
         connectors.push(
@@ -287,14 +308,17 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
     return new ScriptedModelAdapter();
   }
 
-  private async ports(opts: { degraded?: boolean; intent: string; connectors: readonly string[]; oracleRef?: string }): Promise<RunPorts> {
+  private async ports(opts: { degraded?: boolean; intent: string; connectors: readonly string[]; oracleRef?: string; runSuite?: SpecificationContent["runSuite"] }): Promise<RunPorts> {
     const wrapMr = opts.oracleRef ? suiteIsMetamorphic(opts.oracleRef) : false;
     return {
       model: await this.model(opts.intent, opts.connectors, wrapMr),
       // Degraded mode: fault-inject the executor. Oracle stays real so
       // verification keeps serving; the run must fail closed to ESCALATE.
       exec: opts.degraded ? new FaultyExecutionAdapter() : new CodemodeExecutionAdapter(this.rt, { wrapMr, recorder: this.recorder }),
-      oracle: new SuiteOracleAdapter(this.rt, this.suites),
+      // PLAYBOOK-KEEL-RUN-SUITE-001 (B.3, INV-RUN-ROUTE-MEASURED): routed by
+      // the spec's OWN declared `runSuite` field, never a model judgment.
+      // Absent -> the oracle, byte-for-byte unchanged (B.5, D.6).
+      oracle: opts.runSuite ? new SandboxOracleAdapter() : new SuiteOracleAdapter(this.rt, this.suites),
       repo: this.repo(),
       now: () => Date.now(),
     };
@@ -335,7 +359,7 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
     // the upgrade's startFiber scare (a real removal would have compiled
     // clean through the old `as unknown as` cast) must not be possible again.
     const handle = await this.startFiber("run", async () => {
-      const res = await runLoop(spec, await this.ports({ degraded: content.intent === "degraded", intent: content.intent, connectors: content.connectors, oracleRef: content.oracleRef }));
+      const res = await runLoop(spec, await this.ports({ degraded: content.intent === "degraded", intent: content.intent, connectors: content.connectors, oracleRef: content.oracleRef, runSuite: content.runSuite }));
       await this.emitCrossRun();
       this.persistTerminal(res);
     }, { idempotencyKey: spec.id });
@@ -417,7 +441,7 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
     const specNode = nodes.find((n) => n.kind === "Specification") as Specification | undefined;
     if (!specNode) return { resumed: false };
 
-    const res = await resumeApproved(specNode, await this.ports({ intent: specNode.content.intent, connectors: specNode.content.connectors, oracleRef: specNode.content.oracleRef }), {
+    const res = await resumeApproved(specNode, await this.ports({ intent: specNode.content.intent, connectors: specNode.content.connectors, oracleRef: specNode.content.oracleRef, runSuite: specNode.content.runSuite }), {
       action: pend.action_id as ContentHash,
       executionId: pend.execution_id,
       attempt: pend.attempt,

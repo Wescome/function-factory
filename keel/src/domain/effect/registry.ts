@@ -179,6 +179,20 @@ export const EFFECT_SIGNATURES: readonly EffectSignature[] = [
     // push is a real, external, one-way effect. Rollback reverts the virtual
     // Workspace up to this call and never un-pushes.
   },
+  // --- sandbox: PLAYBOOK-KEEL-RUN-SUITE-001 (A3) ----------------------------
+  // Runs arbitrary code in a real container (A.3: "a Sandbox run is
+  // write-effectful"). No revert -- like git.push, this is a real, external
+  // effect (a container ran real commands); rollback has nothing to undo in
+  // the virtual Workspace for it, so it is intentionally NOT revertible.
+  {
+    connector: "sandbox", method: "runSuite", effectClass: "write-effectful",
+    reads: [{ origin: "keel:configured-repo", description: "clones/checks out the declared repo" }],
+    writes: [{ origin: "keel:ephemeral-container", description: "runs the declared (or default) test command in a fresh, per-run container" }],
+    response: { fields: { passed: { type: "boolean" } } },
+    idempotency: "non-idempotent",
+    errors: ["InvalidResponse"],
+    argSchema: { repo: { type: "pattern", pattern: "^.+$" }, testCommand: { type: "pattern", pattern: "^.*$" } },
+  },
 ];
 
 export function effectSignatureFor(connector: string, method: string): EffectSignature | undefined {

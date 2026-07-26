@@ -7,12 +7,17 @@
     "bindings": [
       { "name": "ORCHESTRATOR", "class_name": "Orchestrator" },
       { "name": "CODEMODE_RUNTIME", "class_name": "CodemodeRuntime" },
-      { "name": "INBOUND_MCP", "class_name": "InboundMcpAgent" }
+      { "name": "INBOUND_MCP", "class_name": "InboundMcpAgent" },
+      { "name": "SANDBOX", "class_name": "Sandbox" }
     ]
   },
+  "containers": [
+    { "class_name": "Sandbox", "image": "./Dockerfile", "instance_type": "lite", "max_instances": 1 }
+  ],
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["Orchestrator", "CodemodeRuntime"] },
-    { "tag": "v2", "new_sqlite_classes": ["InboundMcpAgent"] }
+    { "tag": "v2", "new_sqlite_classes": ["InboundMcpAgent"] },
+    { "tag": "v3", "new_sqlite_classes": ["Sandbox"] }
   ],
   "worker_loaders": [{ "binding": "LOADER" }],
   "d1_databases": [

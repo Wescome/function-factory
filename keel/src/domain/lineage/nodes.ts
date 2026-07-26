@@ -67,6 +67,14 @@ export interface SpecificationContent {
    *  isolated sub-goals escalate, never false-accept — so this is a
    *  correctness/efficiency opt-in, not a safety gate. */
   readonly decomposable?: boolean;
+  /** PLAYBOOK-KEEL-RUN-SUITE-001 (B.3, INV-RUN-ROUTE-MEASURED): a real
+   *  repo's declared test command -- presence routes verification to the
+   *  Sandbox instead of the self-contained oracle (OD-RUN-4). Measured from
+   *  the spec, never a model judgment: the router reads this field, it
+   *  never infers "should this run in a container" from the generated code
+   *  or the model's own claim. Absent/undefined -> the oracle, unchanged
+   *  (INV-RUN-ORACLE-PRIMARY, D.6). */
+  readonly runSuite?: { readonly repo: string; readonly testCommand?: string };
 }
 export type Specification = LineageNode<"Specification", SpecificationContent>;
 
