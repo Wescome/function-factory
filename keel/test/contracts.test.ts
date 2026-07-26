@@ -117,6 +117,7 @@ describe("ports are implementable (structural conformance)", () => {
       execute: async () => ({ status: "completed", trace }),
       approve: async () => ({ status: "completed", trace }),
       reject: async () => {},
+      revertAttempt: async () => ({ reverted: true }),
     };
     const oracle: OraclePort = { verify: async () => verdict };
     const dispatch: RunDispatchPort = { admit: async () => ({ accepted: true, status: "started" }) };

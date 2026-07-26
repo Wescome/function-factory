@@ -32,4 +32,20 @@ export interface CodeExecutionPort {
 
   /** Reject a paused action; the gated effect never runs. Caller escalates. */
   reject(executionId: string): Promise<void>;
+
+  /**
+   * PLAYBOOK-KEEL-WRITE-ROLLBACK-001: revert a (failed) attempt's
+   * write-effectful calls in reverse order -- the connector's own `revert`,
+   * never a second gate. Called by the loop on AMEND (before the next
+   * attempt regenerates) and on ESCALATE (INV-RB-VIRTUAL-ONLY: reverts the
+   * virtual Workspace only; a landed `git.push` is never undone). ACCEPT
+   * never calls this -- its effects are kept.
+   *
+   * `reverted: false` signals the revert did not cleanly complete (a write
+   * that declared `revertible` is still applied afterward) -- the caller
+   * (`run.ts`, C.3) treats this as fail-closed: an AMEND whose revert can't
+   * complete becomes an ESCALATE rather than regenerating atop a
+   * half-reverted scratch.
+   */
+  revertAttempt(executionId: string): Promise<{ readonly reverted: boolean }>;
 }

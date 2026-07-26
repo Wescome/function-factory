@@ -16,4 +16,7 @@ export class FaultyExecutionAdapter implements CodeExecutionPort {
     return { status: "error", trace: this.trace() };
   }
   async reject(_executionId: string): Promise<void> {}
+  // Degraded mode: nothing was ever applied (execute() always errors before
+  // any write), so there is nothing to revert -- vacuously "reverted".
+  async revertAttempt(_executionId: string): Promise<{ readonly reverted: boolean }> { return { reverted: true }; }
 }

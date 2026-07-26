@@ -48,4 +48,11 @@ export interface EffectSignature {
   readonly idempotenceProvenance?: IdempotenceProvenance;
   readonly errors: readonly ErrorClass[];
   readonly argSchema: SchemaFields;
+  /** PLAYBOOK-KEEL-WRITE-ROLLBACK-001 (INV-RB-VIRTUAL-ONLY): whether this
+   *  write-effectful method's connector declares a `revert` codemode's
+   *  `rollback()` can call. Only meaningful when `effectClass ===
+   *  "write-effectful"`. Absent/false for a write with a real, external,
+   *  one-way effect (e.g. `git.push`) — rollback reverts the virtual
+   *  Workspace up to that point and never un-does the real-world effect. */
+  readonly revertible?: boolean;
 }

@@ -99,6 +99,86 @@ export const EFFECT_SIGNATURES: readonly EffectSignature[] = [
     errors: ["InvalidResponse"],
     argSchema: { id: { type: "pattern", pattern: "^.+$" } },
   },
+  // --- state / git: PLAYBOOK-KEEL-WRITE-ROLLBACK-001 (A2) --------------------
+  // The A1 workspace connectors' write fold. All write-effectful (D8 always
+  // gates them, same mechanism store.append/foreign.upsertRecord already use
+  // -- no new approval path). `revertible: true` for every one that touches
+  // only the virtual Workspace (WorkspaceStateConnector/WorkspaceGitConnector
+  // declare a real `revert`, INV-RB-ATOMIC) -- `git.push` is the one
+  // exception (INV-RB-VIRTUAL-ONLY): a real, external, one-way effect;
+  // rollback never un-pushes.
+  {
+    connector: "state", method: "writeFile", effectClass: "write-effectful",
+    reads: [{ origin: "keel:workspace/sqlite", description: "pre-image read before overwrite (INV-RB-PREIMAGE)" }],
+    writes: [{ origin: "keel:workspace/sqlite", description: "writes file content at path" }],
+    response: { fields: { ok: { type: "boolean" }, path: { type: "pattern", pattern: "^.+$" } } },
+    idempotency: "non-idempotent",
+    errors: [],
+    argSchema: { path: { type: "pattern", pattern: "^.+$" }, content: { type: "pattern", pattern: "^.*$" } },
+    revertible: true,
+  },
+  {
+    connector: "state", method: "rm", effectClass: "write-effectful",
+    reads: [{ origin: "keel:workspace/sqlite", description: "pre-image read before delete (INV-RB-PREIMAGE)" }],
+    writes: [{ origin: "keel:workspace/sqlite", description: "deletes the file at path" }],
+    response: { fields: { ok: { type: "boolean" } } },
+    idempotency: "non-idempotent",
+    errors: [],
+    argSchema: { path: { type: "pattern", pattern: "^.+$" } },
+    revertible: true,
+  },
+  {
+    connector: "state", method: "mv", effectClass: "write-effectful",
+    reads: [{ origin: "keel:workspace/sqlite", description: "pre-image of src and dest before move (INV-RB-PREIMAGE)" }],
+    writes: [{ origin: "keel:workspace/sqlite", description: "moves src to dest" }],
+    response: { fields: { ok: { type: "boolean" } } },
+    idempotency: "non-idempotent",
+    errors: [],
+    argSchema: { src: { type: "pattern", pattern: "^.+$" }, dest: { type: "pattern", pattern: "^.+$" } },
+    revertible: true,
+  },
+  {
+    connector: "state", method: "cp", effectClass: "write-effectful",
+    reads: [{ origin: "keel:workspace/sqlite", description: "pre-image of dest before overwrite (INV-RB-PREIMAGE)" }],
+    writes: [{ origin: "keel:workspace/sqlite", description: "copies src to dest" }],
+    response: { fields: { ok: { type: "boolean" } } },
+    idempotency: "non-idempotent",
+    errors: [],
+    argSchema: { src: { type: "pattern", pattern: "^.+$" }, dest: { type: "pattern", pattern: "^.+$" } },
+    revertible: true,
+  },
+  {
+    connector: "git", method: "add", effectClass: "write-effectful",
+    reads: [],
+    writes: [{ origin: "keel:workspace/git-index", description: "stages a path in the virtual repo's index" }],
+    response: { fields: { added: { type: "pattern", pattern: "^.+$" } } },
+    idempotency: "non-idempotent",
+    errors: [],
+    argSchema: { filepath: { type: "pattern", pattern: "^.+$" } },
+    revertible: true,
+  },
+  {
+    connector: "git", method: "commit", effectClass: "write-effectful",
+    reads: [],
+    writes: [{ origin: "keel:workspace/git-refs", description: "creates a commit, advances the local ref" }],
+    response: { fields: { oid: { type: "pattern", pattern: "^.+$" } } },
+    idempotency: "non-idempotent",
+    errors: [],
+    argSchema: { message: { type: "pattern", pattern: "^.+$" } },
+    revertible: true,
+  },
+  {
+    connector: "git", method: "push", effectClass: "write-effectful",
+    reads: [],
+    writes: [{ origin: "keel:configured-remote", description: "pushes local refs to the real, configured remote -- the one real-repo effect (B.3)" }],
+    response: { fields: { ok: { type: "boolean" } } },
+    idempotency: "non-idempotent",
+    errors: ["PermissionDenied", "AuthenticationFailed"],
+    argSchema: { remote: { type: "pattern", pattern: "^.*$" } },
+    // revertible intentionally absent/false (INV-RB-VIRTUAL-ONLY): a landed
+    // push is a real, external, one-way effect. Rollback reverts the virtual
+    // Workspace up to this call and never un-pushes.
+  },
 ];
 
 export function effectSignatureFor(connector: string, method: string): EffectSignature | undefined {
@@ -168,4 +248,14 @@ export function requiresApprovalFor(connector: string, method: string, attestati
   const sig = effectSignatureFor(connector, method);
   if (!sig) return false;
   return approvalForSignature(sig, attestations);
+}
+
+/** PLAYBOOK-KEEL-WRITE-ROLLBACK-001: whether a write-effectful (connector,
+ *  method) declares a `revert` (INV-RB-VIRTUAL-ONLY) -- the adapter-side
+ *  revert-completeness check reads this SAME registry entry rather than
+ *  keeping a second, parallel list that could drift from it. Undeclared or
+ *  non-write-effectful methods are never expected to revert. */
+export function isRevertible(connector: string, method: string): boolean {
+  const sig = effectSignatureFor(connector, method);
+  return !!sig && sig.effectClass === "write-effectful" && sig.revertible === true;
 }

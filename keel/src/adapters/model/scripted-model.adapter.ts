@@ -196,6 +196,32 @@ const content = await state.readFile({ path: readme.path });
 return { dir: cloned.dir, fileCount: files.length, content };`;
         return { code: c, connectors: ["git", "state"] };
       }
+      // PLAYBOOK-KEEL-WRITE-ROLLBACK-001 (D.2, single spec / multi-attempt):
+      // attempt 1 creates two files under a write-effectful (approval-gated)
+      // path and deliberately fails; the AMEND path reverts its writes
+      // before attempt 2 runs. Attempt 2 (evidence.attempt === 1) reads both
+      // paths back -- passes only if the revert actually removed them.
+      // (Cross-SPEC Workspace sharing, tried first, doesn't work here:
+      // approve() reloads "the" Specification via `nodes.find(kind ===
+      // "Specification")`, which is the FIRST one ever admitted to a DO --
+      // fine for one spec's own multi-attempt loop, wrong for a second,
+      // later-admitted spec sharing the same DO.)
+      case "wr-clean-test": {
+        if (!evidence) {
+          return {
+            code: `await state.writeFile({ path: "/scratch/wr-clean-a.txt", content: "a" });
+await state.writeFile({ path: "/scratch/wr-clean-b.txt", content: "b" });
+return { phase: 1 };`,
+            connectors: ["state"],
+          };
+        }
+        return {
+          code: `const a = await state.stat({ path: "/scratch/wr-clean-a.txt" });
+const b = await state.stat({ path: "/scratch/wr-clean-b.txt" });
+return { phase: 2, aGone: a === null, bGone: b === null };`,
+          connectors: ["state"],
+        };
+      }
       default:
         return { code: `const r = await echo.emit({ value: 42 }); return r;`, connectors: ["echo"] };
     }

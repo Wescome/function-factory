@@ -110,6 +110,28 @@ async function verifyDecide(spec: Specification, p: RunPorts, action: Action, tr
   return { amend: d.attempt, evidence: vc };
 }
 
+/** PLAYBOOK-KEEL-WRITE-ROLLBACK-001: after a completed attempt's verdict is
+ *  decided, revert its writes if the attempt is done for (ESCALATE) or is
+ *  about to be superseded by another try (AMEND) -- workspace-only, never
+ *  the ledger (INV-RB-LEDGER-UNTOUCHED). ACCEPT never reverts: its effects
+ *  are the point. Shared by `continueFrom` and `resumeApproved` (D8) so both
+ *  paths honor the same rule. */
+async function afterAttempt(p: RunPorts, executionId: string, vd: Decided): Promise<Decided> {
+  if ("done" in vd) {
+    // ESCALATE: best-effort cleanup: the run is terminal either way, so the
+    // revert's own success/failure doesn't change the outcome returned.
+    if (vd.done.state === "ESCALATE") await p.exec.revertAttempt(executionId);
+    return vd;
+  }
+  // AMEND: C.3 fail-closed -- a revert that can't complete must not let the
+  // loop regenerate atop a half-reverted scratch. Escalate instead.
+  const rb = await p.exec.revertAttempt(executionId);
+  if (!rb.reverted) {
+    return { done: { state: "ESCALATE", reason: "rollback incomplete: the failed attempt's writes could not be cleanly reverted" } };
+  }
+  return vd;
+}
+
 const score = (v?: VerdictContent): number =>
   v ? Object.values(v.results).filter((r) => r === "pass").length : -1;
 
@@ -137,7 +159,7 @@ async function continueFrom(spec: Specification, p: RunPorts, attempt: number, e
     if (ge.kind === "paused") {
       return { state: "PAUSE", executionId: ge.executionId, action: ge.action.id, attempt: a };
     }
-    const vd = await verifyDecide(spec, p, ge.action, ge.trace, a);
+    const vd = await afterAttempt(p, ge.trace.content.executionId, await verifyDecide(spec, p, ge.action, ge.trace, a));
     if ("done" in vd) {
       // INV-NO-REGRESS: on escalate, report the best attempt seen, not the last.
       const done = vd.done;
@@ -180,7 +202,7 @@ export async function resumeApproved(spec: Specification, p: RunPorts, ctx: Paus
 
   // rebuild a minimal Action node for verifyDecide's provenance need
   const action = { id: ctx.action, kind: "Action", content: { code: "", connectors: [], attempt: ctx.attempt }, provenance: [] } as Action;
-  const vd = await verifyDecide(spec, p, action, trace, ctx.attempt);
+  const vd = await afterAttempt(p, trace.content.executionId, await verifyDecide(spec, p, action, trace, ctx.attempt));
   if ("done" in vd) return vd.done;
   return continueFrom(spec, p, vd.amend, vd.evidence);
 }

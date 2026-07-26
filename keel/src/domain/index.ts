@@ -102,7 +102,7 @@ export { projectArgs } from "./effect/project-args";
 export type { EffectVerdict } from "./effect/verify";
 export { verifyEffect } from "./effect/verify";
 export type { Attestation } from "./effect/registry";
-export { EFFECT_SIGNATURES, effectSignatureFor, requiresApprovalFor, approvalForSignature, ATTESTED_IDEMPOTENT, attestedIdempotent } from "./effect/registry";
+export { EFFECT_SIGNATURES, effectSignatureFor, requiresApprovalFor, approvalForSignature, isRevertible, ATTESTED_IDEMPOTENT, attestedIdempotent } from "./effect/registry";
 
 // OpenAPI import (BRIEF-KEEL-CONNECTOR-DESCRIPTOR-001): derive EffectSignature[]
 // from an OpenAPI document — descriptive only, never admissive (INV-DESC-*)

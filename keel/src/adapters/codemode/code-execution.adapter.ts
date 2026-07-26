@@ -1,5 +1,6 @@
 import type { CodeExecutionPort, ExecutionOutcome } from "../../domain/index";
 import type { ActionContent, ExecutionTraceContent } from "../../domain/index";
+import { isRevertible } from "../../domain/index";
 import type { CodemodeHandle } from "./runtime";
 import type { CallRecorder } from "./call-recorder";
 
@@ -33,6 +34,33 @@ export class CodemodeExecutionAdapter implements CodeExecutionPort {
     // codemode's reject needs the pending seq; the skeleton has one gated call.
     // A real adapter threads the seq from the pending action.
     await this.rt.reject({ seq: 0, executionId });
+  }
+
+  /** PLAYBOOK-KEEL-WRITE-ROLLBACK-001: codemode's native rollback -- walks
+   *  the execution's own tool-call log backward and calls each applied
+   *  tool's `revert` (INV-RB-ATOMIC's "reverse order" comes from codemode
+   *  itself, not hand-rolled here). `rollback()` always marks the execution
+   *  `rolled_back`, whether or not anything was actually revertible -- so
+   *  completeness is checked afterward: every log entry for a (connector,
+   *  method) the registry declares `revertible` must have actually flipped
+   *  to `"reverted"`, or the revert didn't cleanly complete (C.3
+   *  fail-closed). Workspace-only (INV-RB-LEDGER-UNTOUCHED): this never
+   *  calls the lineage repo. */
+  async revertAttempt(executionId: string): Promise<{ readonly reverted: boolean }> {
+    await this.rt.rollback({ executionId });
+    const executions = await this.rt.executions(500);
+    const exec = executions.find((e) => e.id === executionId);
+    if (!exec) return { reverted: false }; // can't verify -> fail closed
+    // codemode only flips status to "rolled_back" when something actually
+    // got reverted -- an ordinary run with nothing revertible (no write
+    // declared a `revert`) stays "completed"/"error", which is correct and
+    // NOT a failure. The real signal is per-entry: any (connector, method)
+    // the registry declares revertible that is still "applied" (not
+    // "reverted") after rollback() is an incomplete revert (C.3 fail-closed).
+    const incomplete = exec.log.some(
+      (entry) => isRevertible(entry.connector, entry.method) && entry.state !== "reverted",
+    );
+    return { reverted: !incomplete };
   }
 
   private toOutcome(out: {

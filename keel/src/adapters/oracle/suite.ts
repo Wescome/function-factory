@@ -340,6 +340,12 @@ const SUITES: Record<string, OracleSuite> = {
       { criterionId: "A3", kind: "example", expr: "(function(){ var c=trace.calls.find(function(x){return x.connector==='state'&&x.method==='readFile';}); return !!c && typeof c.response==='string' && c.response.length>0 && trace.result && trace.result.content===c.response; })()" },
     ],
   },
+  // PLAYBOOK-KEEL-WRITE-ROLLBACK-001 (D.2): attempt 1's created files must be
+  // gone by attempt 2 -- passes only after a real revert.
+  "wr-clean@v1": {
+    ref: "wr-clean@v1",
+    assertions: [{ criterionId: "A1", kind: "example", expr: "trace.result && trace.result.phase === 2 && trace.result.aGone === true && trace.result.bGone === true" }],
+  },
 };
 
 export interface OracleSuiteRegistry {

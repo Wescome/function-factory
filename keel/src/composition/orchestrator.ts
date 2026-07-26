@@ -53,6 +53,10 @@ export interface Env {
   // Phase 6b: the allowlisted foreign MCP server. Optional; the foreign
   // connector is only wired in when set (mirrors the AI Gateway opt-in pattern).
   FOREIGN_MCP_URL?: string;
+  // PLAYBOOK-KEEL-WRITE-ROLLBACK-001 (B.3): server-side-only auth for
+  // git.push. Optional; injected into the git connector's push calls so
+  // generated code never supplies or sees a token. Absent locally/CI.
+  GIT_PUSH_TOKEN?: string;
   [k: string]: unknown;
 }
 
@@ -67,6 +71,7 @@ const RESERVED_INTENTS = new Set([
   "geo-correct", "geo-topfail", "geo-fabricate",
   "store-ensure", "store-append-create", "store-append-duplicate",
   "workspace-read-test",
+  "wr-clean-test",
   // PLAYBOOK-KEEL-COMPOSE-ANCHOR: templateDerive rewrites a child's intent to
   // "<parent.intent> — sub-goal: ... <clause statement>" — these are the
   // exact rewritten strings for the deterministic anchor-test fixture, so the
@@ -194,7 +199,7 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
         new GeoConnector(this.ctx, this.env, this.recorder),
         new WeatherConnector(this.ctx, this.env, this.recorder),
         new WorkspaceStateConnector(this.ctx, this.env, this.workspace, this.recorder),
-        new WorkspaceGitConnector(this.ctx, this.env, this.workspace, this.recorder),
+        new WorkspaceGitConnector(this.ctx, this.env, this.workspace, this.recorder, (this.env as Env).GIT_PUSH_TOKEN),
         new StoreConnector(this.ctx, this.env, this.recorder, new DoLedgerStore(this.storageSqlExec())),
       ];
       const foreignUrl = (this.env as Env).FOREIGN_MCP_URL;
