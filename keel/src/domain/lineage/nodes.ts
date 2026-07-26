@@ -75,6 +75,11 @@ export interface SpecificationContent {
    *  or the model's own claim. Absent/undefined -> the oracle, unchanged
    *  (INV-RUN-ORACLE-PRIMARY, D.6). */
   readonly runSuite?: { readonly repo: string; readonly testCommand?: string };
+  /** PLAYBOOK-KEEL-GROUNDING-001 (Track C): opt-in, additive, like
+   *  `runSuite?` above -- presence seats the grounding gate before
+   *  `generate()` (run.ts). Absent/false -> the loop runs exactly as
+   *  today, byte-for-byte (D.6). */
+  readonly grounding?: boolean;
 }
 export type Specification = LineageNode<"Specification", SpecificationContent>;
 

@@ -33,6 +33,8 @@ import { CodemodeExecutionAdapter } from "../adapters/codemode/code-execution.ad
 import { FaultyExecutionAdapter } from "../adapters/codemode/faulty-execution.adapter";
 import { SuiteOracleAdapter } from "../adapters/oracle/suite-oracle.adapter";
 import { SandboxOracleAdapter } from "../adapters/oracle/sandbox-oracle.adapter";
+import { GroundingGateAdapter } from "../adapters/grounding/grounding-gate.adapter";
+import { ScriptedJudgeAdapter } from "../adapters/grounding/scripted-judge.adapter";
 import { InMemorySuiteRegistry } from "../adapters/oracle/suite";
 import { LineageDoAdapter } from "../adapters/persistence/lineage-do.adapter";
 import { D1CrossRunAdapter } from "../adapters/persistence/d1-cross-run.adapter";
@@ -308,7 +310,7 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
     return new ScriptedModelAdapter();
   }
 
-  private async ports(opts: { degraded?: boolean; intent: string; connectors: readonly string[]; oracleRef?: string; runSuite?: SpecificationContent["runSuite"] }): Promise<RunPorts> {
+  private async ports(opts: { degraded?: boolean; intent: string; connectors: readonly string[]; oracleRef?: string; runSuite?: SpecificationContent["runSuite"]; grounding?: boolean }): Promise<RunPorts> {
     const wrapMr = opts.oracleRef ? suiteIsMetamorphic(opts.oracleRef) : false;
     return {
       model: await this.model(opts.intent, opts.connectors, wrapMr),
@@ -319,6 +321,10 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
       // the spec's OWN declared `runSuite` field, never a model judgment.
       // Absent -> the oracle, byte-for-byte unchanged (B.5, D.6).
       oracle: opts.runSuite ? new SandboxOracleAdapter() : new SuiteOracleAdapter(this.rt, this.suites),
+      // PLAYBOOK-KEEL-GROUNDING-001 (Track C): opt-in like runSuite above.
+      // Absent -> undefined -> groundingGate() in run.ts is a no-op, the
+      // loop is byte-for-byte unchanged (D.6).
+      groundingGate: opts.grounding ? new GroundingGateAdapter(this.suites, new ScriptedJudgeAdapter()) : undefined,
       repo: this.repo(),
       now: () => Date.now(),
     };
@@ -359,7 +365,7 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
     // the upgrade's startFiber scare (a real removal would have compiled
     // clean through the old `as unknown as` cast) must not be possible again.
     const handle = await this.startFiber("run", async () => {
-      const res = await runLoop(spec, await this.ports({ degraded: content.intent === "degraded", intent: content.intent, connectors: content.connectors, oracleRef: content.oracleRef, runSuite: content.runSuite }));
+      const res = await runLoop(spec, await this.ports({ degraded: content.intent === "degraded", intent: content.intent, connectors: content.connectors, oracleRef: content.oracleRef, runSuite: content.runSuite, grounding: content.grounding }));
       await this.emitCrossRun();
       this.persistTerminal(res);
     }, { idempotencyKey: spec.id });
@@ -441,7 +447,7 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
     const specNode = nodes.find((n) => n.kind === "Specification") as Specification | undefined;
     if (!specNode) return { resumed: false };
 
-    const res = await resumeApproved(specNode, await this.ports({ intent: specNode.content.intent, connectors: specNode.content.connectors, oracleRef: specNode.content.oracleRef, runSuite: specNode.content.runSuite }), {
+    const res = await resumeApproved(specNode, await this.ports({ intent: specNode.content.intent, connectors: specNode.content.connectors, oracleRef: specNode.content.oracleRef, runSuite: specNode.content.runSuite, grounding: specNode.content.grounding }), {
       action: pend.action_id as ContentHash,
       executionId: pend.execution_id,
       attempt: pend.attempt,

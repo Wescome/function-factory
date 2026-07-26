@@ -33,6 +33,8 @@ export type {
 export type { ModelPort, GeneratedAction } from "./ports/model.port";
 export type { CodeExecutionPort, ExecutionOutcome } from "./ports/code-execution.port";
 export type { OraclePort, OracleSpec } from "./ports/oracle.port";
+export type { GroundingGatePort } from "./ports/grounding-gate.port";
+export type { JudgeGraderPort } from "./ports/judge-grader.port";
 export type { LineageRepositoryPort } from "./ports/lineage-repository.port";
 export type { RunDispatchPort, AdmitResult } from "./ports/run-dispatch.port";
 export type { ConnectorRegistryPort, ConnectorRef } from "./ports/connector-registry.port";
@@ -43,6 +45,17 @@ export type { LoopState, Transition } from "./loop/state";
 export { TRANSITIONS, TERMINAL, transitionsFrom, isTerminal } from "./loop/state";
 export type { DecideInput, DecideOutcome } from "./loop/decide";
 export { decide } from "./loop/decide";
+
+// Grounding gate (PLAYBOOK-KEEL-GROUNDING-001, B1): two graders, one
+// monotone score, seated before generate() -- pure core, substrate-free
+export type {
+  EvidenceType, OracleGradeLabel, JudgeGradeLabel, OracleGrade, JudgeGrade,
+  GroundingWeights, CriterionOutcome, CriterionResult, OracleFactInput,
+} from "./grounding/grader";
+export {
+  DEFAULT_GROUNDING_WEIGHTS, scoreCriterion, decideCriterion, gradeCriteria,
+  aggregateGate, gradeOracleFact,
+} from "./grounding/grader";
 
 // Replay / read-side (M4, additive)
 export type { TimelineEntry, ReplaySnapshot, ReplayConsistency, CrossRunRecord, Terminal } from "./replay/projection";

@@ -17,6 +17,7 @@ import type { ModelPort } from "../ports/model.port";
 import type { CodeExecutionPort } from "../ports/code-execution.port";
 import type { OraclePort } from "../ports/oracle.port";
 import type { LineageRepositoryPort } from "../ports/lineage-repository.port";
+import type { GroundingGatePort } from "../ports/grounding-gate.port";
 
 export interface RunPorts {
   readonly model: ModelPort;
@@ -24,6 +25,10 @@ export interface RunPorts {
   readonly oracle: OraclePort;
   readonly repo: LineageRepositoryPort;
   readonly now: () => number;
+  /** PLAYBOOK-KEEL-GROUNDING-001 (Track C): present iff
+   *  `spec.content.grounding` is set (opt-in) -- absent, the loop runs
+   *  exactly as before this playbook (D.6). */
+  readonly groundingGate?: GroundingGatePort;
 }
 
 export type RunTerminal =
@@ -110,6 +115,59 @@ async function verifyDecide(spec: Specification, p: RunPorts, action: Action, tr
   return { amend: d.attempt, evidence: vc };
 }
 
+/**
+ * PLAYBOOK-KEEL-GROUNDING-001 (B.3): the pre-generation seat. Opt-in
+ * (`spec.content.grounding` + `p.groundingGate` both present) — absent,
+ * this returns `{ proceed: true }` immediately and the loop is byte-for-
+ * byte what it was (Track C, D.6).
+ *
+ * Emits a Verdict the same way `verifyDecide` does (A.2) — same
+ * `VerdictContent` shape, so replay/timeline/read-side need nothing new —
+ * but provenance is `LINEAGE -> Specification`, not `VERIFIES ->
+ * ExecutionTrace`: there is no trace yet, this runs before one exists.
+ *
+ * Deliberately does NOT reuse `decide()`'s ACCEPT branch: a gate "pass"
+ * means "grounded enough to try generating," not "the run is done" — so a
+ * pass here only ever returns `{ proceed: true }`, skipping decide()
+ * entirely. Only fail/escalate ever reach decide() (whose ACCEPT branch is
+ * therefore unreachable from this path, since decide() only emits ACCEPT
+ * for `verdict: "pass"`), so AMEND/ESCALATE routing is identical to the
+ * post-generation oracle's, budget-for-budget, with zero new logic in
+ * decide.ts.
+ */
+async function groundingGate(spec: Specification, p: RunPorts, attempt: number, evidence?: VerdictContent): Promise<{ readonly proceed: true } | Decided> {
+  if (!spec.content.grounding || !p.groundingGate) return { proceed: true };
+
+  const vcRaw = await p.groundingGate.grade(spec.content, evidence);
+  const vc: VerdictContent = { ...vcRaw, attempt };
+  const verdict = await p.repo.append<Verdict>({
+    kind: "Verdict",
+    content: vc,
+    provenance: [{ rel: "LINEAGE", to: spec.id }],
+  });
+  await p.repo.emit({ type: "VerdictEmitted", at: p.now(), run: spec.id, verdict: verdict.id, outcome: vc.outcome, attempt });
+
+  if (vc.outcome === "pass") return { proceed: true };
+
+  const d = decide({ verdict: vc.outcome, attempt, budget: spec.content.attemptBudget });
+  if (d.next === "ESCALATE") {
+    await p.repo.emit({ type: "RunEscalated", at: p.now(), run: spec.id, reason: d.reason, verdict: verdict.id });
+    return { done: { state: "ESCALATE", reason: d.reason, verdict: vc } };
+  }
+  if (d.next === "ACCEPT") {
+    // Unreachable: decide() only emits ACCEPT for verdict:"pass", and
+    // vc.outcome is fail|escalate on every path that reaches here.
+    throw new Error("groundingGate: decide() returned ACCEPT for a non-pass verdict -- unreachable");
+  }
+  const amendment = await p.repo.append<Amendment>({
+    kind: "Amendment",
+    content: { from: verdict.id, carries: [], attempt: d.attempt },
+    provenance: [{ rel: "AMENDS", to: verdict.id }],
+  });
+  await p.repo.emit({ type: "AmendmentRequested", at: p.now(), run: spec.id, amendment: amendment.id, attempt: d.attempt });
+  return { amend: d.attempt, evidence: vc };
+}
+
 /** PLAYBOOK-KEEL-WRITE-ROLLBACK-001: after a completed attempt's verdict is
  *  decided, revert its writes if the attempt is done for (ESCALATE) or is
  *  about to be superseded by another try (AMEND) -- workspace-only, never
@@ -155,11 +213,19 @@ async function continueFrom(spec: Specification, p: RunPorts, attempt: number, e
   let best = evidence; // best-scoring attempt so far (keep-best / D-B)
   // eslint-disable-next-line no-constant-condition
   while (true) {
-    const ge = await genExec(spec, p, a, ev);
-    if (ge.kind === "paused") {
-      return { state: "PAUSE", executionId: ge.executionId, action: ge.action.id, attempt: a };
+    const gate = await groundingGate(spec, p, a, ev);
+    let vd: Decided;
+    if ("proceed" in gate) {
+      const ge = await genExec(spec, p, a, ev);
+      if (ge.kind === "paused") {
+        return { state: "PAUSE", executionId: ge.executionId, action: ge.action.id, attempt: a };
+      }
+      vd = await afterAttempt(p, ge.trace.content.executionId, await verifyDecide(spec, p, ge.action, ge.trace, a));
+    } else {
+      // The gate itself decided AMEND/ESCALATE -- generate()/execute() never
+      // ran this attempt, so there is nothing for afterAttempt() to revert.
+      vd = gate;
     }
-    const vd = await afterAttempt(p, ge.trace.content.executionId, await verifyDecide(spec, p, ge.action, ge.trace, a));
     if ("done" in vd) {
       // INV-NO-REGRESS: on escalate, report the best attempt seen, not the last.
       const done = vd.done;
