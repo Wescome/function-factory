@@ -172,7 +172,7 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
    *  storage under the (default 1.5MB) inlineThreshold, fine for this spike. */
   private get workspace(): Workspace {
     if (!this.__ws) {
-      const storage = (this.ctx as unknown as DurableObjectState).storage;
+      const storage = this.ctx.storage;
       this.__ws = new Workspace({ sql: storage.sql, name: () => this.name });
     }
     return this.__ws;
@@ -181,7 +181,7 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
    *  — DoLedgerStore.ensure's atomicity proof needs `rowsWritten` off the
    *  cursor, which `this.sql`'s tagged-template convenience wrapper discards. */
   private storageSqlExec() {
-    const storage = (this.ctx as unknown as DurableObjectState).storage;
+    const storage = this.ctx.storage;
     return storage.sql.exec.bind(storage.sql) as <T = Record<string, unknown>>(query: string, ...bindings: unknown[]) => { toArray(): T[]; rowsWritten: number };
   }
   private get rt(): CodemodeHandle {
@@ -220,7 +220,7 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
           }),
         );
       }
-      this.__rt = makeRuntime(this.ctx as unknown as DurableObjectState, (this.env as Env).LOADER, connectors);
+      this.__rt = makeRuntime(this.ctx, (this.env as Env).LOADER, connectors);
     }
     return this.__rt;
   }
@@ -325,9 +325,11 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
     const spec = await repo.append<Specification>({ kind: "Specification", content, provenance: [] });
     await repo.emit({ type: "RunAdmitted", at: Date.now(), run: spec.id, specification: spec.id, accepted: true });
 
-    const handle = await (this as unknown as {
-      startFiber(name: string, fn: (raw: unknown) => Promise<void>, opts: { idempotencyKey: string }): Promise<{ accepted: boolean; status: string }>;
-    }).startFiber("run", async () => {
+    // PLAYBOOK-KEEL-TYPING-001: typed directly against the base Agent's real
+    // startFiber (agent-primitives.check.ts is the signature reference) --
+    // the upgrade's startFiber scare (a real removal would have compiled
+    // clean through the old `as unknown as` cast) must not be possible again.
+    const handle = await this.startFiber("run", async () => {
       const res = await runLoop(spec, await this.ports({ degraded: content.intent === "degraded", intent: content.intent, connectors: content.connectors, oracleRef: content.oracleRef }));
       await this.emitCrossRun();
       this.persistTerminal(res);

@@ -5,6 +5,15 @@
  * class in `agents@0.19.0`. Type-only -- erased at compile time, no runtime
  * code, nothing wired. If any of these members are renamed or removed in a
  * future bump, this file fails to typecheck at exactly that line.
+ *
+ * PLAYBOOK-KEEL-TYPING-001: also the canonical pattern reference for
+ * REACHING these primitives -- call them directly on `this`
+ * (`this.startFiber(...)`, and later `this.subAgent(...)`, `this.stash(...)`,
+ * `this.keepAlive()`/`this.keepAliveWhile(...)`), never through an
+ * `as unknown as {...}` cast. `Orchestrator extends Agent<Env>`, so the base
+ * class's real types already cover the call site -- a cast-through-`unknown`
+ * only hides drift (a real removal would compile clean) instead of
+ * surfacing it.
  */
 import type { Agent } from "agents";
 
