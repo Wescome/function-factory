@@ -7,7 +7,7 @@
  * outside the domain (like a test file the Verifier loads), so adding/changing
  * suites never touches the frozen contracts.
  */
-import type { ExecutionTraceContent } from "../../domain/index";
+import type { ExecutionTraceContent, AcceptanceCriterion } from "../../domain/index";
 
 export interface OracleAssertion {
   readonly criterionId: string;              // matches AcceptanceCriterion.id
@@ -377,20 +377,54 @@ export function compileProgram(trace: ExecutionTraceContent, assertions: readonl
   `;
 }
 
-/** Probe program: wrap the model's action code as compute(value), run it over
- *  each assertion's hidden probes, and check the relation anchored on `input`. */
-export function compileMetamorphic(actionCode: string, assertions: readonly OracleAssertion[]): string {
-  const checks = assertions.map((a) => {
+/**
+ * Probe program: wrap the model's action code as compute(value), run it over
+ * each assertion's hidden probes, and check the relation anchored on `input`.
+ *
+ * PLAYBOOK-KEEL-RELATION-SCOPE-001 (R1, B.3): `results[criterionId]` is now
+ * an ARRAY of per-probe statuses ("pass"|"fail"|"inconclusive"|
+ * "not-applicable"), not a single "pass"/"fail" string -- the caller
+ * (suite-oracle.adapter.ts) rolls it up with `aggregateVerdict` (L1). This
+ * is a UNIFIED refactor, not scope-conditional: an UNSCOPED criterion (no
+ * `applicability`/`invalidators` on its `AcceptanceCriterion`) generates
+ * the identical per-probe pass/fail array it always implicitly computed,
+ * and `aggregateVerdict` over pass/fail-only statuses reduces to exactly
+ * the old `.every()` behavior -- Track C/D.7, byte-for-byte for unscoped
+ * relations.
+ *
+ * Per probed input, in order (B.3): a thrown probe fails outright
+ * (unchanged from before this playbook); else applicability (ALL must
+ * hold) false -> not-applicable; else any invalidator firing ->
+ * inconclusive; else evaluate the relation -> pass/fail.
+ */
+export function compileMetamorphic(
+  actionCode: string,
+  pairs: readonly { readonly criterion: AcceptanceCriterion; readonly assertion: OracleAssertion }[],
+): string {
+  const checks = pairs.map(({ criterion, assertion: a }) => {
     const m = a.metamorphic!;
+    const applicability = criterion.applicability ?? [];
+    const invalidators = criterion.invalidators ?? [];
+    const applicabilityCheck = applicability.length
+      ? `if (!((input, output) => (${applicability.map((e) => `(${e})`).join(" && ")}))(p.input, p.output)) return "not-applicable";`
+      : "";
+    const invalidatorCheck = invalidators.length
+      ? `if (((input, output) => (${invalidators.map((e) => `(${e})`).join(" || ")}))(p.input, p.output)) return "inconclusive";`
+      : "";
     return `{
       const probes = ${JSON.stringify(m.probes)};
-      const pairs = probes.map((value) => {
+      const rawPairs = probes.map((value) => {
         try { return { input: value, output: compute(value) }; }
         catch (e) { return { input: value, error: String(e) }; }
       });
-      const ok = pairs.every((p) => p.output !== undefined && ((input, output) => (${m.relation}))(p.input, p.output));
-      results[${JSON.stringify(a.criterionId)}] = ok ? "pass" : "fail";
-      observed[${JSON.stringify(a.criterionId)}] = pairs;
+      const perProbe = rawPairs.map((p) => {
+        if (p.output === undefined) return "fail";
+        ${applicabilityCheck}
+        ${invalidatorCheck}
+        return ((input, output) => (${m.relation}))(p.input, p.output) ? "pass" : "fail";
+      });
+      results[${JSON.stringify(a.criterionId)}] = perProbe;
+      observed[${JSON.stringify(a.criterionId)}] = rawPairs;
     }`;
   }).join("\n");
   return `

@@ -18,7 +18,7 @@ import { aggregateVerdict, type CriterionVerdictStatus } from "../../domain/inde
 import type { CodemodeHandle } from "../codemode/runtime";
 import { compileProgram, compileMetamorphic, type OracleSuiteRegistry } from "./suite";
 
-type CritStatus = "pass" | "fail" | "unverifiable" | "error";
+type CritStatus = "pass" | "fail" | "unverifiable" | "error" | "not-applicable";
 
 export class SuiteOracleAdapter implements OraclePort {
   constructor(private readonly rt: CodemodeHandle, private readonly registry: OracleSuiteRegistry) {}
@@ -74,27 +74,36 @@ export class SuiteOracleAdapter implements OraclePort {
       if (!spec.action?.code) {
         for (const { a } of meta) perCriterion[a.criterionId] = "unverifiable";
       } else {
-        const out = await this.rt.tool().execute({ code: compileMetamorphic(spec.action.code, meta.map((x) => x.a)) }, undefined);
-        const res = out.status === "completed" ? (out.result as { results?: Record<string, string>; observed?: Record<string, unknown> }) : {};
-        const sandbox = res.results ?? {};
+        // PLAYBOOK-KEEL-RELATION-SCOPE-001 (R1): compileMetamorphic now
+        // returns an ARRAY of per-probe statuses per criterion (scoped or
+        // not -- a unified refactor, D.7). Rolled up here with the SAME
+        // aggregateVerdict (L1) SuiteOracleAdapter's own overall outcome
+        // uses below, so there is exactly one rollup rule in this file.
+        const out = await this.rt.tool().execute({ code: compileMetamorphic(spec.action.code, meta.map((x) => ({ criterion: x.c, assertion: x.a }))) }, undefined);
+        const res = out.status === "completed" ? (out.result as { results?: Record<string, readonly CriterionVerdictStatus[]>; observed?: Record<string, unknown> }) : {};
+        const sandboxResults = res.results ?? {};
         observed = { ...observed, ...(res.observed ?? {}) };
         for (const { a } of meta) {
-          const v = sandbox[a.criterionId];
-          perCriterion[a.criterionId] = v === "pass" ? "pass" : v === "fail" ? "fail" : "error";
+          const perProbe = sandboxResults[a.criterionId];
+          if (!perProbe || !perProbe.length) { perCriterion[a.criterionId] = "error"; continue; }
+          const rolled = aggregateVerdict(perProbe);
+          perCriterion[a.criterionId] =
+            rolled === "pass" ? "pass"
+            : rolled === "fail" ? "fail"
+            : rolled === "not-applicable" ? "not-applicable"
+            : "unverifiable"; // rolled === "inconclusive" (or the unreachable "escalate")
         }
       }
     }
 
-    // PLAYBOOK-KEEL-VERDICT-SET-001 (L1): the frozen results map now
-    // HONESTLY exposes inconclusive -- unverifiable/error are no longer
-    // squashed into a false "fail" here; the full per-criterion detail
-    // still also lives in evidence.perCriterion (unchanged). SuiteOracleAdapter
-    // has no applicability concept (R1) yet, so not-applicable never appears
-    // here -- the shared rollup (aggregateVerdict) still handles it correctly
-    // if a future R1 integration starts producing it.
+    // PLAYBOOK-KEEL-VERDICT-SET-001 (L1) / PLAYBOOK-KEEL-RELATION-SCOPE-001
+    // (R1): the frozen results map now HONESTLY exposes inconclusive AND
+    // not-applicable -- unverifiable/error/not-applicable are no longer
+    // squashed into a false "fail"; the full per-criterion detail still
+    // also lives in evidence.perCriterion (unchanged).
     const results: Record<string, CriterionVerdictStatus> = {};
     for (const [k, v] of Object.entries(perCriterion)) {
-      results[k] = v === "pass" ? "pass" : v === "fail" ? "fail" : "inconclusive";
+      results[k] = v === "pass" ? "pass" : v === "fail" ? "fail" : v === "not-applicable" ? "not-applicable" : "inconclusive";
     }
     const outcome: VerdictContent["outcome"] = aggregateVerdict(Object.values(results));
 

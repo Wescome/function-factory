@@ -77,7 +77,11 @@ export type { CrossRunIndexPort, CrossRunListOptions } from "./ports/cross-run-i
 
 // Phase 6a spec-loop
 export type { GateTier, GateDecision, GatePolicy } from "./spec-loop/gate";
-export { freezeGate, attenuates, inheritsProhibitions, inheritsSpanning, inheritsDisposition, isReversible, isWellFormed, hasGoalMapping } from "./spec-loop/gate";
+export {
+  freezeGate, attenuates, inheritsProhibitions, inheritsSpanning, inheritsDisposition,
+  isScopeAdmittable, inheritsApplicability, inheritsInvalidators, inheritsPreservationSet,
+  isReversible, isWellFormed, hasGoalMapping,
+} from "./spec-loop/gate";
 export type { Deriver, DerivationEvidence } from "./spec-loop/derive";
 export { templateDerive, templateDeriver } from "./spec-loop/derive";
 export type { BacklogStatus, BacklogEntry, BacklogStore } from "./spec-loop/backlog";

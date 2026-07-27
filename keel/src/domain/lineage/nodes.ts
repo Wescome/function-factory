@@ -24,6 +24,34 @@ export interface AcceptanceCriterion {
    *  behavior). Additive/optional: absent, this criterion is untouched by
    *  the disposition ledger (Track C, byte-for-byte). */
   readonly behaviorRef?: string;
+  /** PLAYBOOK-KEEL-RELATION-SCOPE-001 (R1), `property`-only, all additive/
+   *  optional -- an `example` criterion is a single case, not scoped:
+   *
+   *  - `preservationSet`: variable names this relation claims to preserve.
+   *    Descriptive + inherited (⊇ parent's, CARRIED like `spanning`); the
+   *    oracle draws no verdict from it yet -- enforcement ("did these
+   *    change") is R3 (OD-R1-4).
+   *  - `applicability`: JS boolean expressions, evaluated over the SAME
+   *    `(input, output)` operands metamorphic/composes/seams relations
+   *    already use (OD-R1-1) -- ALL must hold for this relation to apply to
+   *    a probed input; false excludes that input from the tally
+   *    (`not-applicable`). Inherits ⊆ parent's (NARROWS, mirrors
+   *    `attenuates`'s connectors, OD-R1-3) -- a child may apply to fewer
+   *    cases than its parent, never more.
+   *  - `invalidators`: JS boolean expressions, same operands; ANY firing
+   *    makes a probed input `inconclusive` (surfaced) rather than
+   *    evaluated. Inherits ⊇ parent's (may only GROW, mirrors `forbids` /
+   *    `inheritsProhibitions`) -- a child may add an invalidator, never
+   *    drop one the parent declared.
+   *
+   *  Admittability (OD-R1-3): a `property` criterion declaring ANY of these
+   *  three but no `applicability` is a `freezeGate` hard-reject
+   *  (`isScopeAdmittable`, spec-loop/gate.ts). An UNSCOPED relation (none of
+   *  these fields) runs unconditionally, exactly as before this playbook
+   *  (Track C). */
+  readonly preservationSet?: readonly string[];
+  readonly applicability?: readonly string[];
+  readonly invalidators?: readonly string[];
 }
 
 export interface SpecificationContent {

@@ -87,6 +87,59 @@ export function inheritsDisposition(child: SpecificationContent, parent: Specifi
   return referenced.every((ref) => childRefs.has(ref) || parentRefs.has(ref));
 }
 
+/** PLAYBOOK-KEEL-RELATION-SCOPE-001 (B.4/OD-R1-3): admittability. A
+ *  `property` criterion declaring ANY of `preservationSet`/`applicability`/
+ *  `invalidators` but no `applicability` is not admittable -- it declared
+ *  intent to scope but gave the oracle nothing to check applicability
+ *  against. An UNSCOPED criterion (none of the three fields) is unaffected
+ *  (Track C) -- this never rejects a plain `example` or an ordinary,
+ *  unscoped `property` criterion. */
+export function isScopeAdmittable(child: SpecificationContent): boolean {
+  return child.acceptance.every((c) => {
+    if (c.kind !== "property") return true;
+    const declaresScope = !!(c.preservationSet?.length || c.applicability?.length || c.invalidators?.length);
+    return !declaresScope || !!c.applicability?.length;
+  });
+}
+
+/** PLAYBOOK-KEEL-RELATION-SCOPE-001 (B.5, "the three monotone directions,
+ *  mirrored exactly"): applicability narrows like `attenuates`'s connectors
+ *  -- child's declared conditions ⊆ parent's for the SAME criterion id (by
+ *  id, since scope lives per-criterion, not per-spec like `spanning`/
+ *  `forbids`). A criterion id the parent never carried has nothing to
+ *  inherit FROM and is exempt (nothing this check is meant to catch). */
+export function inheritsApplicability(child: SpecificationContent, parent: SpecificationContent): boolean {
+  return child.acceptance.every((c) => {
+    const p = parent.acceptance.find((x) => x.id === c.id);
+    if (!p) return true;
+    return subset(asSet(c.applicability ?? []), asSet(p.applicability ?? []));
+  });
+}
+
+/** Invalidators may only GROW downward, per criterion id -- the exact
+ *  positive dual of `inheritsApplicability`, same shape as `forbids` /
+ *  `inheritsProhibitions` (grow, never drop). */
+export function inheritsInvalidators(child: SpecificationContent, parent: SpecificationContent): boolean {
+  return child.acceptance.every((c) => {
+    const p = parent.acceptance.find((x) => x.id === c.id);
+    if (!p) return true;
+    return subset(asSet(p.invalidators ?? []), asSet(c.invalidators ?? []));
+  });
+}
+
+/** A preserved variable must be CARRIED downward, per criterion id -- same
+ *  shape as `spanning` / `inheritsSpanning` (carried, never dropped).
+ *  Descriptive only (OD-R1-4): the oracle draws no verdict from this field
+ *  yet, but a derived spec still can't silently drop a claim its parent
+ *  made about what this relation preserves. */
+export function inheritsPreservationSet(child: SpecificationContent, parent: SpecificationContent): boolean {
+  return child.acceptance.every((c) => {
+    const p = parent.acceptance.find((x) => x.id === c.id);
+    if (!p) return true;
+    return subset(asSet(p.preservationSet ?? []), asSet(c.preservationSet ?? []));
+  });
+}
+
 /** Reversible iff no autonomous (ungated) effectful reach. */
 export function isReversible(child: SpecificationContent, policy: GatePolicy): boolean {
   const eff = asSet(policy.effectful);
@@ -134,6 +187,10 @@ export function freezeGate(
   if (!inheritsProhibitions(child, root)) hard.push("drops a root prohibition (intent drift)");
   if (!inheritsSpanning(child, parent)) hard.push("drops a spanning requirement (obligation drift)");
   if (!inheritsDisposition(child, parent)) hard.push("drops a behavior disposition (obligation drift)");
+  if (!isScopeAdmittable(child)) hard.push("declares relation scope fields without applicability (not admittable)");
+  if (!inheritsApplicability(child, parent)) hard.push("widens applicability beyond the parent's (obligation drift)");
+  if (!inheritsInvalidators(child, parent)) hard.push("drops an invalidator (obligation drift)");
+  if (!inheritsPreservationSet(child, parent)) hard.push("drops a preserved variable (obligation drift)");
   // A present-and-unresolvable servesClause is a malformed proposal, not a
   // judgment call (PLAYBOOK-KEEL-COVERAGE) — absence is handled below, still
   // human-preapproval, unchanged.
