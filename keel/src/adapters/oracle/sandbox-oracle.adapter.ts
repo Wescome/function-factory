@@ -27,11 +27,13 @@ export class SandboxOracleAdapter implements OraclePort {
     if (!call || !isSimulationResult(call.response)) {
       // Fail-closed, same discipline as SuiteOracleAdapter's "unverifiable":
       // no recorded sandbox call (or a malformed one) means this run cannot
-      // be judged -- never a silent pass.
-      const results: Record<string, "pass" | "fail"> = {};
-      for (const c of spec.acceptance) results[c.id] = "fail";
+      // be judged -- never a silent pass, and (PLAYBOOK-KEEL-VERDICT-SET-001,
+      // L1) never a false fail either: "can't judge" is inconclusive, not a
+      // claim the test actually failed.
+      const results: Record<string, "pass" | "fail" | "inconclusive"> = {};
+      for (const c of spec.acceptance) results[c.id] = "inconclusive";
       return {
-        outcome: "escalate",
+        outcome: "inconclusive",
         evidence: { source: "sandbox", reason: "no sandbox.runSuite call recorded on the trace" },
         results,
         oracleRef: spec.oracleRef,

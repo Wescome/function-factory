@@ -141,7 +141,16 @@ export function aggregateGate(results: readonly CriterionResult[]): "pass" | "fa
  *  once is a live contradiction, not just an unconfirmed claim. */
 export interface OracleFactInput {
   readonly hasAssertion: boolean;
-  readonly priorResult?: "pass" | "fail";
+  /** PLAYBOOK-KEEL-VERDICT-SET-001 (L1, B.5): widened to match the
+   *  post-execution VerdictContent.results this is read from
+   *  (grounding-gate.adapter.ts's `evidence?.results[criterionId]`) -- type
+   *  only, no logic change. `inconclusive`/`not-applicable` fall through to
+   *  the same "no strong signal" path `undefined` already took: neither is
+   *  a real, tool-observed contradiction (that's `"fail"` alone), and
+   *  neither can grant `grounded` by itself -- that still requires
+   *  `hasAssertion`. An inconclusive prior result is not a pass this can
+   *  let proceed. */
+  readonly priorResult?: "pass" | "fail" | "inconclusive" | "not-applicable";
 }
 
 export function gradeOracleFact(input: OracleFactInput): OracleGradeLabel {

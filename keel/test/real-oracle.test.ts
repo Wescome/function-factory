@@ -55,7 +55,10 @@ describe("real oracle — suites, per-criterion, fail-closed", () => {
     await stub.admit(spec({ oracleRef: "multi@v1", acceptance: [{ id: "A1", kind: "example" }, { id: "A9", kind: "example" }] }));
     expect((await poll(stub, (s) => s === "ESCALATE" || s === "ACCEPT"))?.state).toBe("ESCALATE");
     const v = await stub.lastVerdict();
-    expect(v?.outcome).toBe("escalate"); // verifier-escalate, not fail, not pass
+    // PLAYBOOK-KEEL-VERDICT-SET-001 (L1): "escalate" renamed "inconclusive" --
+    // not fail (a false fail), not pass (a silent pass), and now an honest
+    // name for "can't judge" rather than the generic verifier-escalate.
+    expect(v?.outcome).toBe("inconclusive");
   });
 
   it("missing suite -> ESCALATE (can't verify -> don't pass)", async () => {
@@ -73,7 +76,7 @@ describe("PLAYBOOK-KEEL-SPANNING-CHECKABILITY — tagging an uncheckable spannin
     await stub.admit(spec({ oracleRef: "multi@v1", acceptance: [{ id: "A1", kind: "example" }, { id: "A9", kind: "example" }], spanning: ["A9"] }));
     expect((await poll(stub, (s) => s === "ESCALATE" || s === "ACCEPT"))?.state).toBe("ESCALATE"); // fail-closed unchanged
     const v = await stub.lastVerdict();
-    expect(v?.outcome).toBe("escalate");
+    expect(v?.outcome).toBe("inconclusive"); // PLAYBOOK-KEEL-VERDICT-SET-001: was "escalate"
     const evidence = v?.evidence as { spanningUncheckable?: string[]; perCriterion?: Record<string, string> };
     expect(evidence.spanningUncheckable).toEqual(["A9"]);
     expect(evidence.perCriterion?.A9).toBe("unverifiable"); // the underlying detail is untouched, just tagged

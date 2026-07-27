@@ -119,3 +119,32 @@ describe("PLAYBOOK-KEEL-DISPOSITION-001 (Track C) — a criterion with no behavi
     expect(dispositions).toEqual({});
   });
 });
+
+describe("PLAYBOOK-KEEL-VERDICT-SET-001 (D.6) — D1 consistency: the new outcomes are never treated as pass", () => {
+  it("unknown still blocks even when the oracle's own base grading is grounded and the prior evidence was merely inconclusive (not a real contradiction)", async () => {
+    const gate = new GroundingGateAdapter(new InMemorySuiteRegistry(), abstainingJudge); // no local/ledger entry -> unknown
+    const spec = baseSpec({
+      acceptance: [{ id: "A1", statement: "value is 42", kind: "example", behaviorRef: "refund-flow" }],
+    });
+    const priorInconclusive = {
+      outcome: "inconclusive" as const, results: { A1: "inconclusive" as const }, evidence: {}, oracleRef: "echo@v1", attempt: 1, ms: 0,
+    };
+    const v = await gate.grade(spec, priorInconclusive);
+    expect(v.outcome).toBe("escalate"); // unknown -- inconclusive prior doesn't change that
+  });
+
+  it("an inconclusive prior result is not treated as a contradiction: gradeOracleFact only contradicts on a REAL prior fail", async () => {
+    const gate = new GroundingGateAdapter(new InMemorySuiteRegistry(), abstainingJudge);
+    const spec = baseSpec({
+      acceptance: [{ id: "A1", statement: "value is 42", kind: "example", behaviorRef: "refund-flow" }],
+      behaviorDispositions: [{ behaviorRef: "refund-flow", disposition: "preserve" }],
+    });
+    const priorInconclusive = {
+      outcome: "inconclusive" as const, results: { A1: "inconclusive" as const }, evidence: {}, oracleRef: "echo@v1", attempt: 1, ms: 0,
+    };
+    const v = await gate.grade(spec, priorInconclusive);
+    // A1 has a real assertion in echo@v1 (hasAssertion=true) -- grounded,
+    // not contradicted, since the prior result was inconclusive, not fail.
+    expect(v.outcome).toBe("pass");
+  });
+});

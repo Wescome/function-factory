@@ -46,6 +46,10 @@ export type { LoopState, Transition } from "./loop/state";
 export { TRANSITIONS, TERMINAL, transitionsFrom, isTerminal } from "./loop/state";
 export type { DecideInput, DecideOutcome } from "./loop/decide";
 export { decide } from "./loop/decide";
+// PLAYBOOK-KEEL-VERDICT-SET-001 (L1): the honest per-criterion -> overall
+// verdict rollup -- not-applicable excluded from the tally, vacuous fails closed
+export type { CriterionVerdictStatus } from "./loop/verdict-aggregate";
+export { aggregateVerdict } from "./loop/verdict-aggregate";
 
 // Grounding gate (PLAYBOOK-KEEL-GROUNDING-001, B1): two graders, one
 // monotone score, seated before generate() -- pure core, substrate-free

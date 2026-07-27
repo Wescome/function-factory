@@ -4,13 +4,17 @@
  * Resolves oracleRef -> suite, compiles each acceptance criterion into a
  * runnable assertion, executes covered ones inline in a Dynamic Worker (S5),
  * and assembles a per-criterion Verdict. Fail-closed and honest:
- *   - a criterion tested false        -> "fail"   (-> AMEND)
+ *   - a criterion tested false        -> "fail"         (-> AMEND)
  *   - a criterion with no assertion, a suite miss, or an assertion that threw
- *                                     -> "escalate" (verifier can't verify;
- *                                        never a silent pass)  (-> ESCALATE)
+ *                                     -> "inconclusive"  (verifier can't
+ *                                        judge -- NOT the same fact as a
+ *                                        failed criterion, PLAYBOOK-KEEL-
+ *                                        VERDICT-SET-001 L1; never a false
+ *                                        fail, never a silent pass) (-> ESCALATE)
  * Independent of the generating model; runs only over the recorded trace.
  */
 import type { OraclePort, OracleSpec, ExecutionTraceContent, VerdictContent } from "../../domain/index";
+import { aggregateVerdict, type CriterionVerdictStatus } from "../../domain/index";
 import type { CodemodeHandle } from "../codemode/runtime";
 import { compileProgram, compileMetamorphic, type OracleSuiteRegistry } from "./suite";
 
@@ -81,16 +85,18 @@ export class SuiteOracleAdapter implements OraclePort {
       }
     }
 
-    const statuses = Object.values(perCriterion);
-    const outcome: VerdictContent["outcome"] =
-      statuses.length === 0 || statuses.some((s) => s === "unverifiable" || s === "error") ? "escalate"
-      : statuses.some((s) => s === "fail") ? "fail"
-      : "pass";
-
-    // Frozen results map is pass|fail; the authoritative per-criterion detail
-    // (incl. unverifiable/error) lives in evidence.
-    const results: Record<string, "pass" | "fail"> = {};
-    for (const [k, v] of Object.entries(perCriterion)) results[k] = v === "pass" ? "pass" : "fail";
+    // PLAYBOOK-KEEL-VERDICT-SET-001 (L1): the frozen results map now
+    // HONESTLY exposes inconclusive -- unverifiable/error are no longer
+    // squashed into a false "fail" here; the full per-criterion detail
+    // still also lives in evidence.perCriterion (unchanged). SuiteOracleAdapter
+    // has no applicability concept (R1) yet, so not-applicable never appears
+    // here -- the shared rollup (aggregateVerdict) still handles it correctly
+    // if a future R1 integration starts producing it.
+    const results: Record<string, CriterionVerdictStatus> = {};
+    for (const [k, v] of Object.entries(perCriterion)) {
+      results[k] = v === "pass" ? "pass" : v === "fail" ? "fail" : "inconclusive";
+    }
+    const outcome: VerdictContent["outcome"] = aggregateVerdict(Object.values(results));
 
     return {
       outcome,

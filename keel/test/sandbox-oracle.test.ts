@@ -38,18 +38,20 @@ describe("SandboxOracleAdapter — verify() projects the recorded sandbox.runSui
     expect((v.evidence as { failures: unknown }).failures).toEqual(failures);
   });
 
-  it("fail-closed: no sandbox.runSuite call recorded -> escalate, never a silent pass", async () => {
+  it("fail-closed: no sandbox.runSuite call recorded -> inconclusive, never a false fail, never a silent pass", async () => {
     const trace = traceWith([{ seq: 0, connector: "echo", method: "emit", args: {}, response: { value: 42 } }]);
     const v = await new SandboxOracleAdapter().verify(trace, { oracleRef: "sandbox@v1", acceptance });
-    expect(v.outcome).toBe("escalate");
-    expect(v.results).toEqual({ A1: "fail" });
+    // PLAYBOOK-KEEL-VERDICT-SET-001: was "escalate" / results: {A1: "fail"} --
+    // "can't judge" is not the same fact as "the test failed".
+    expect(v.outcome).toBe("inconclusive");
+    expect(v.results).toEqual({ A1: "inconclusive" });
   });
 
-  it("fail-closed: a malformed sandbox response (no boolean `passed`) -> escalate", async () => {
+  it("fail-closed: a malformed sandbox response (no boolean `passed`) -> inconclusive", async () => {
     const trace = traceWith([
       { seq: 0, connector: "sandbox", method: "runSuite", args: {}, response: { ok: true } },
     ]);
     const v = await new SandboxOracleAdapter().verify(trace, { oracleRef: "sandbox@v1", acceptance });
-    expect(v.outcome).toBe("escalate");
+    expect(v.outcome).toBe("inconclusive"); // PLAYBOOK-KEEL-VERDICT-SET-001: was "escalate"
   });
 });

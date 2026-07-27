@@ -17,7 +17,7 @@ import { classifyTerminal } from "../effect/errors";
 export type DecideOutcome =
   | { readonly next: "ACCEPT" }
   | { readonly next: "AMEND"; readonly attempt: number }
-  | { readonly next: "ESCALATE"; readonly reason: "budget-exhausted" | "rejected" | "verifier-escalate" | "terminal-error" };
+  | { readonly next: "ESCALATE"; readonly reason: "budget-exhausted" | "rejected" | "inconclusive" | "terminal-error" };
 
 export interface DecideInput {
   readonly verdict: VerdictOutcome;
@@ -43,9 +43,18 @@ export function decide(i: DecideInput): DecideOutcome {
   switch (i.verdict) {
     case "pass":
       return { next: "ACCEPT" };
+    // PLAYBOOK-KEEL-VERDICT-SET-001 (L1): "can't/won't judge as pass or
+    // fail" -- the verifier's own escalate (grounding gate's aggregateGate,
+    // still legitimate, out of scope for this playbook), the post-execution
+    // oracle's inconclusive (the new, honest default for "can't judge"),
+    // and a degenerate top-level not-applicable (B.4: every criterion
+    // excluded/abstained -- a vacuous verdict is never an ACCEPT, so this
+    // surfaces exactly like inconclusive, never silently). All three route
+    // identically: immediate ESCALATE, never amendable (INV-L1-ABSTAIN-SURFACES).
     case "escalate":
-      // The verifier itself signalled escalate (e.g. unverifiable / out of scope).
-      return { next: "ESCALATE", reason: "verifier-escalate" };
+    case "inconclusive":
+    case "not-applicable":
+      return { next: "ESCALATE", reason: "inconclusive" };
     case "fail":
       return i.attempt < i.budget
         ? { next: "AMEND", attempt: i.attempt + 1 }

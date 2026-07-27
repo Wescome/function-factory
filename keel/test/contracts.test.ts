@@ -59,8 +59,14 @@ describe("decide() — the folded LoopController, exhaustive", () => {
   it("fail at budget -> ESCALATE budget-exhausted", () => {
     expect(decide({ verdict: "fail", attempt: 3, budget: 3 })).toEqual({ next: "ESCALATE", reason: "budget-exhausted" });
   });
-  it("verifier escalate -> ESCALATE verifier-escalate", () => {
-    expect(decide({ verdict: "escalate", attempt: 1, budget: 3 })).toEqual({ next: "ESCALATE", reason: "verifier-escalate" });
+  it("PLAYBOOK-KEEL-VERDICT-SET-001: verifier escalate -> ESCALATE inconclusive (reason renamed from verifier-escalate)", () => {
+    expect(decide({ verdict: "escalate", attempt: 1, budget: 3 })).toEqual({ next: "ESCALATE", reason: "inconclusive" });
+  });
+  it("the new inconclusive outcome routes identically -> ESCALATE inconclusive, never AMEND, never ACCEPT", () => {
+    expect(decide({ verdict: "inconclusive", attempt: 1, budget: 3 })).toEqual({ next: "ESCALATE", reason: "inconclusive" });
+  });
+  it("a degenerate top-level not-applicable (B.4: nothing checkable remains) -> ESCALATE inconclusive, never a silent ACCEPT", () => {
+    expect(decide({ verdict: "not-applicable", attempt: 1, budget: 3 })).toEqual({ next: "ESCALATE", reason: "inconclusive" });
   });
   it("approval rejected -> ESCALATE rejected (regardless of verdict)", () => {
     expect(decide({ verdict: "pass", attempt: 1, budget: 3, approvalRejected: true })).toEqual({ next: "ESCALATE", reason: "rejected" });

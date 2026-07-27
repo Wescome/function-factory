@@ -53,7 +53,9 @@ export interface RunAccepted extends Base {
 }
 export interface RunEscalated extends Base {
   readonly type: "RunEscalated";
-  readonly reason: "budget-exhausted" | "rejected" | "verifier-escalate" | "terminal-error";
+  /** PLAYBOOK-KEEL-VERDICT-SET-001 (L1): "verifier-escalate" renamed
+   *  "inconclusive" -- decide.ts's DecideOutcome reason, mirrored here. */
+  readonly reason: "budget-exhausted" | "rejected" | "inconclusive" | "terminal-error";
   readonly verdict?: ContentHash;
 }
 

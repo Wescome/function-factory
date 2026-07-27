@@ -162,12 +162,26 @@ export type ExecutionTrace = LineageNode<"ExecutionTrace", ExecutionTraceContent
 // Verdict — the independent Verifier's judgment on a trace (VERIFY state).
 // Inline verdict confirmed viable (D2, S5 green).
 // ---------------------------------------------------------------------------
-export type VerdictOutcome = "pass" | "fail" | "escalate";
+/** PLAYBOOK-KEEL-VERDICT-SET-001 (L1, abstention half): widened so abstention
+ *  is honest -- `inconclusive` (evidence incomplete / can't judge; the
+ *  fail-closed default until R1's applicability exists) and `not-applicable`
+ *  (a relation's own applicability says it doesn't apply to this case --
+ *  R1-gated, unreachable until then). `escalate` is NOT retired: the
+ *  grounding gate's own pre-generation verdict composition
+ *  (grounding/grader.ts's `aggregateGate`, PLAYBOOK-KEEL-GROUNDING-001, out
+ *  of scope for this playbook) legitimately still emits it. Going forward,
+ *  the POST-EXECUTION oracles (SuiteOracleAdapter, SandboxOracleAdapter)
+ *  emit `inconclusive` for "can't judge" instead of `escalate` -- never a
+ *  false fail (an unverifiable criterion is not the same fact as a failed
+ *  one) and never a silent pass. */
+export type VerdictOutcome = "pass" | "fail" | "escalate" | "inconclusive" | "not-applicable";
 
 export interface VerdictContent {
   readonly outcome: VerdictOutcome;
-  /** Per-criterion results keyed by AcceptanceCriterion.id. */
-  readonly results: Readonly<Record<string, "pass" | "fail">>;
+  /** Per-criterion results keyed by AcceptanceCriterion.id. Widened the same
+   *  way as `outcome` (L1) -- `inconclusive`/`not-applicable` are now
+   *  first-class per-criterion facts, not squashed into a false "fail". */
+  readonly results: Readonly<Record<string, "pass" | "fail" | "inconclusive" | "not-applicable">>;
   readonly evidence: unknown;
   readonly oracleRef: string;
   readonly attempt: number;
