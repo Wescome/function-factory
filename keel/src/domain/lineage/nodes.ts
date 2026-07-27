@@ -8,6 +8,7 @@
 
 import type { ContentHash, LineageNode } from "./contract";
 import type { ErrorClass } from "../effect/errors";
+import type { BehaviorDisposition } from "../disposition/ledger";
 
 // ---------------------------------------------------------------------------
 // Specification — the normalized intent (INTENT state). Admission is idempotent
@@ -17,6 +18,12 @@ export interface AcceptanceCriterion {
   readonly id: string;                 // e.g. "A1"
   readonly statement: string;
   readonly kind: "example" | "property";
+  /** PLAYBOOK-KEEL-DISPOSITION-001 (A.1): which behavior this criterion
+   *  grounds -- the behavior ledger (behavior-ledger.port.ts) classifies
+   *  BY this ref, not by criterion id (many criteria may ground the same
+   *  behavior). Additive/optional: absent, this criterion is untouched by
+   *  the disposition ledger (Track C, byte-for-byte). */
+  readonly behaviorRef?: string;
 }
 
 export interface SpecificationContent {
@@ -80,6 +87,21 @@ export interface SpecificationContent {
    *  `generate()` (run.ts). Absent/false -> the loop runs exactly as
    *  today, byte-for-byte (D.6). */
   readonly grounding?: boolean;
+  /** PLAYBOOK-KEEL-DISPOSITION-001 (B.1/B.5): this spec's OWN carried
+   *  classification for the behaviors its criteria reference via
+   *  `behaviorRef` -- mirrors `spanning`'s carried-set pattern exactly
+   *  (A.2): a derived child that doesn't carry its own entry for a
+   *  behaviorRef inherits the parent's, fail-closed (INV-DISP-CARRIED,
+   *  `inheritsDisposition` in spec-loop/gate.ts) -- never re-guessed. Local
+   *  entries here are checked before the external BehaviorLedgerPort.
+   *  `authority` only matters for `intentionally-change` (B.3): the root
+   *  spec id/hash authorized to decide it. */
+  readonly behaviorDispositions?: readonly {
+    readonly behaviorRef: string;
+    readonly disposition: BehaviorDisposition;
+    readonly authority?: string;
+    readonly rationale?: string;
+  }[];
 }
 export type Specification = LineageNode<"Specification", SpecificationContent>;
 

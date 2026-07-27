@@ -73,6 +73,20 @@ export function inheritsSpanning(child: SpecificationContent, parent: Specificat
   return subset(required, carried);
 }
 
+/** PLAYBOOK-KEEL-DISPOSITION-001 (A.2/B.5, INV-DISP-CARRIED): the exact
+ *  carried-scope pattern as `inheritsSpanning` above -- every `behaviorRef`
+ *  this child's OWN criteria reference must resolve to SOME disposition:
+ *  either the child carries its own entry, or the parent already does.
+ *  Fail-closed (a behaviorRef neither carries) is a hard reject, same
+ *  severity as dropping a spanning requirement -- a disposition is never
+ *  silently re-guessed nor silently dropped. */
+export function inheritsDisposition(child: SpecificationContent, parent: SpecificationContent): boolean {
+  const parentRefs = asSet((parent.behaviorDispositions ?? []).map((d) => d.behaviorRef));
+  const childRefs = asSet((child.behaviorDispositions ?? []).map((d) => d.behaviorRef));
+  const referenced = child.acceptance.map((c) => c.behaviorRef).filter((r): r is string => !!r);
+  return referenced.every((ref) => childRefs.has(ref) || parentRefs.has(ref));
+}
+
 /** Reversible iff no autonomous (ungated) effectful reach. */
 export function isReversible(child: SpecificationContent, policy: GatePolicy): boolean {
   const eff = asSet(policy.effectful);
@@ -119,6 +133,7 @@ export function freezeGate(
   if (!attenuates(child, parent)) hard.push("amplifies capability (not attenuating)");
   if (!inheritsProhibitions(child, root)) hard.push("drops a root prohibition (intent drift)");
   if (!inheritsSpanning(child, parent)) hard.push("drops a spanning requirement (obligation drift)");
+  if (!inheritsDisposition(child, parent)) hard.push("drops a behavior disposition (obligation drift)");
   // A present-and-unresolvable servesClause is a malformed proposal, not a
   // judgment call (PLAYBOOK-KEEL-COVERAGE) — absence is handled below, still
   // human-preapproval, unchanged.

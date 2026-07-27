@@ -35,6 +35,7 @@ export type { CodeExecutionPort, ExecutionOutcome } from "./ports/code-execution
 export type { OraclePort, OracleSpec } from "./ports/oracle.port";
 export type { GroundingGatePort } from "./ports/grounding-gate.port";
 export type { JudgeGraderPort } from "./ports/judge-grader.port";
+export type { BehaviorLedgerPort } from "./ports/behavior-ledger.port";
 export type { LineageRepositoryPort } from "./ports/lineage-repository.port";
 export type { RunDispatchPort, AdmitResult } from "./ports/run-dispatch.port";
 export type { ConnectorRegistryPort, ConnectorRef } from "./ports/connector-registry.port";
@@ -57,6 +58,13 @@ export {
   aggregateGate, gradeOracleFact,
 } from "./grounding/grader";
 
+// Behavior disposition ledger (PLAYBOOK-KEEL-DISPOSITION-001, D1): classify
+// every material behavior before its relation is graded -- distinct from
+// the existing (approval-routing) Disposition node kind above, deliberately
+// never sharing a symbol name with it.
+export type { BehaviorDisposition, BehaviorLedgerEntry, RelationFamily } from "./disposition/ledger";
+export { resolveDisposition, authorityMatches, familyMismatch, overlayDisposition } from "./disposition/ledger";
+
 // Replay / read-side (M4, additive)
 export type { TimelineEntry, ReplaySnapshot, ReplayConsistency, CrossRunRecord, Terminal } from "./replay/projection";
 export { eventToState, timeline, replayTo, verifyReplay, crossRunRecord } from "./replay/projection";
@@ -65,7 +73,7 @@ export type { CrossRunIndexPort, CrossRunListOptions } from "./ports/cross-run-i
 
 // Phase 6a spec-loop
 export type { GateTier, GateDecision, GatePolicy } from "./spec-loop/gate";
-export { freezeGate, attenuates, inheritsProhibitions, inheritsSpanning, isReversible, isWellFormed, hasGoalMapping } from "./spec-loop/gate";
+export { freezeGate, attenuates, inheritsProhibitions, inheritsSpanning, inheritsDisposition, isReversible, isWellFormed, hasGoalMapping } from "./spec-loop/gate";
 export type { Deriver, DerivationEvidence } from "./spec-loop/derive";
 export { templateDerive, templateDeriver } from "./spec-loop/derive";
 export type { BacklogStatus, BacklogEntry, BacklogStore } from "./spec-loop/backlog";
