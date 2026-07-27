@@ -13,11 +13,12 @@
 import type { VerdictOutcome } from "../lineage/nodes";
 import type { ErrorClass } from "../effect/errors";
 import { classifyTerminal } from "../effect/errors";
+import type { TriageRoute, TriageEscalateReason } from "../triage/classify";
 
 export type DecideOutcome =
   | { readonly next: "ACCEPT" }
   | { readonly next: "AMEND"; readonly attempt: number }
-  | { readonly next: "ESCALATE"; readonly reason: "budget-exhausted" | "rejected" | "inconclusive" | "terminal-error" };
+  | { readonly next: "ESCALATE"; readonly reason: "budget-exhausted" | "rejected" | "inconclusive" | "terminal-error" | TriageEscalateReason };
 
 export interface DecideInput {
   readonly verdict: VerdictOutcome;
@@ -34,11 +35,20 @@ export interface DecideInput {
    *  below — the caller is expected to have set `verdict: "fail"` for those,
    *  same as any other failed attempt. */
   readonly terminalError?: ErrorClass;
+  /** PLAYBOOK-KEEL-TRIAGE-001 (D2, OD-D2-4/Track C): a pre-computed triage
+   *  route for a `fail` verdict — CALLER-supplied (this function classifies
+   *  nothing; see triage/classify.ts's `routeTriage`). Only ever consulted
+   *  when `verdict === "fail"`; a `{exit: "amend"}` route (or no route at
+   *  all) falls through to the unchanged fail/amend/escalate path below
+   *  (B.4, never-worse) — no caller populates this today, so this field
+   *  changes zero production behavior until a classifier is wired. */
+  readonly triage?: TriageRoute;
 }
 
 export function decide(i: DecideInput): DecideOutcome {
   if (i.approvalRejected) return { next: "ESCALATE", reason: "rejected" };
   if (i.terminalError && classifyTerminal(i.terminalError)) return { next: "ESCALATE", reason: "terminal-error" };
+  if (i.verdict === "fail" && i.triage?.exit === "escalate") return { next: "ESCALATE", reason: i.triage.reason };
 
   switch (i.verdict) {
     case "pass":

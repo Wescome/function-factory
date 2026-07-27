@@ -51,6 +51,13 @@ export { decide } from "./loop/decide";
 export type { CriterionVerdictStatus } from "./loop/verdict-aggregate";
 export { aggregateVerdict } from "./loop/verdict-aggregate";
 
+// PLAYBOOK-KEEL-TRIAGE-001 (D2): classify a `fail` verdict's cause before
+// decide() routes it — an overlay between the verdict and decide(), reused
+// via `DecideInput.triage` (loop/decide.ts). No caller wires a live
+// classifier yet (Track C); the routing policy itself is proven pure.
+export type { TriageCause, TriageProposal, TriageEvidence, TriageEscalateReason, TriageRoute } from "./triage/classify";
+export { routeTriage } from "./triage/classify";
+
 // Grounding gate (PLAYBOOK-KEEL-GROUNDING-001, B1): two graders, one
 // monotone score, seated before generate() -- pure core, substrate-free
 export type {

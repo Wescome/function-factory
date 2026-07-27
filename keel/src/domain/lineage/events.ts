@@ -9,6 +9,7 @@
 
 import type { ContentHash } from "./contract";
 import type { VerdictOutcome } from "./nodes";
+import type { TriageEscalateReason } from "../triage/classify";
 
 interface Base {
   readonly at: number;               // ClockPort.now() at emit; adapter-supplied
@@ -54,8 +55,10 @@ export interface RunAccepted extends Base {
 export interface RunEscalated extends Base {
   readonly type: "RunEscalated";
   /** PLAYBOOK-KEEL-VERDICT-SET-001 (L1): "verifier-escalate" renamed
-   *  "inconclusive" -- decide.ts's DecideOutcome reason, mirrored here. */
-  readonly reason: "budget-exhausted" | "rejected" | "inconclusive" | "terminal-error";
+   *  "inconclusive" -- decide.ts's DecideOutcome reason, mirrored here.
+   *  PLAYBOOK-KEEL-TRIAGE-001 (D2): widened again for TriageEscalateReason --
+   *  same mirroring, decide() is still the one source of truth for reasons. */
+  readonly reason: "budget-exhausted" | "rejected" | "inconclusive" | "terminal-error" | TriageEscalateReason;
   readonly verdict?: ContentHash;
 }
 

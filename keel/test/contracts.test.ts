@@ -13,7 +13,7 @@ import {
   type SpecificationContent, type ActionContent, type ExecutionTraceContent,
   type VerdictContent, type ContentHash,
   type CodeExecutionPort, type OraclePort, type LineageRepositoryPort,
-  type RunDispatchPort, type ModelPort,
+  type RunDispatchPort, type ModelPort, type TriageRoute,
 } from "../src/domain/index";
 
 const h = (s: string) => s as ContentHash;
@@ -88,6 +88,41 @@ describe("decide() — the folded LoopController, exhaustive", () => {
   });
   it("terminal error takes priority over a passing verdict (can't happen in practice, but decide() stays total)", () => {
     expect(decide({ verdict: "pass", attempt: 1, budget: 3, terminalError: "AuthenticationFailed" }))
+      .toEqual({ next: "ESCALATE", reason: "terminal-error" });
+  });
+
+  // PLAYBOOK-KEEL-TRIAGE-001 (D2): decide() OPTIONALLY reads a pre-computed
+  // TriageRoute for a fail verdict (routeTriage lives in triage/classify.ts
+  // — decide() classifies nothing itself). B.4/never-worse: no `triage`
+  // supplied is byte-for-byte the pre-D2 behavior already proven above.
+  it("Track C: no triage supplied -> fail routes exactly as before (AMEND with budget left)", () => {
+    expect(decide({ verdict: "fail", attempt: 1, budget: 3 })).toEqual({ next: "AMEND", attempt: 2 });
+  });
+  it("D.6: a triage route of {exit: amend} -> falls through to the normal fail/amend path, unchanged", () => {
+    const triage: TriageRoute = { exit: "amend" };
+    expect(decide({ verdict: "fail", attempt: 1, budget: 3, triage })).toEqual({ next: "AMEND", attempt: 2 });
+  });
+  it("B.2/D.3: an evidenced diverging route -> immediate ESCALATE with the triage reason, budget untouched", () => {
+    const triage: TriageRoute = { exit: "escalate", reason: "invalid-applicability" };
+    expect(decide({ verdict: "fail", attempt: 1, budget: 3, triage })).toEqual({ next: "ESCALATE", reason: "invalid-applicability" });
+  });
+  it("every TriageEscalateReason routes through decide() to ESCALATE with that exact reason", () => {
+    const reasons = ["incorrect-relation", "requirement-ambiguity", "invalid-applicability"] as const;
+    for (const reason of reasons) {
+      const triage: TriageRoute = { exit: "escalate", reason };
+      expect(decide({ verdict: "fail", attempt: 1, budget: 3, triage })).toEqual({ next: "ESCALATE", reason });
+    }
+  });
+  it("a triage route only applies to a fail verdict -- pass/escalate/inconclusive/not-applicable are untouched", () => {
+    const triage: TriageRoute = { exit: "escalate", reason: "requirement-ambiguity" };
+    expect(decide({ verdict: "pass", attempt: 1, budget: 3, triage })).toEqual({ next: "ACCEPT" });
+    expect(decide({ verdict: "inconclusive", attempt: 1, budget: 3, triage })).toEqual({ next: "ESCALATE", reason: "inconclusive" });
+  });
+  it("approval rejection and terminal errors still take priority over a triage escalate", () => {
+    const triage: TriageRoute = { exit: "escalate", reason: "requirement-ambiguity" };
+    expect(decide({ verdict: "fail", attempt: 1, budget: 3, triage, approvalRejected: true }))
+      .toEqual({ next: "ESCALATE", reason: "rejected" });
+    expect(decide({ verdict: "fail", attempt: 1, budget: 3, triage, terminalError: "PermissionDenied" }))
       .toEqual({ next: "ESCALATE", reason: "terminal-error" });
   });
 });
