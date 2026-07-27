@@ -126,14 +126,16 @@ async function verifyDecide(spec: Specification, p: RunPorts, action: Action, tr
  * but provenance is `LINEAGE -> Specification`, not `VERIFIES ->
  * ExecutionTrace`: there is no trace yet, this runs before one exists.
  *
- * Deliberately does NOT reuse `decide()`'s ACCEPT branch: a gate "pass"
- * means "grounded enough to try generating," not "the run is done" — so a
- * pass here only ever returns `{ proceed: true }`, skipping decide()
- * entirely. Only fail/escalate ever reach decide() (whose ACCEPT branch is
- * therefore unreachable from this path, since decide() only emits ACCEPT
- * for `verdict: "pass"`), so AMEND/ESCALATE routing is identical to the
- * post-generation oracle's, budget-for-budget, with zero new logic in
- * decide.ts.
+ * INV-GRADE-GATE-PROCEED (BRIEF-KEEL-GROUNDING-001 v1.3): a gate-pass means
+ * proceed-to-generate, NOT accept-the-run. Deliberately does NOT reuse
+ * `decide()`'s ACCEPT branch — an earlier draft did, and it would have
+ * wrongly terminated the run before any code was ever generated. A pass
+ * here only ever returns `{ proceed: true }`, skipping decide() entirely;
+ * the gate never terminates a run. Only fail/escalate ever reach decide()
+ * (whose ACCEPT branch is therefore unreachable from this path, since
+ * decide() only emits ACCEPT for `verdict: "pass"`), so AMEND/ESCALATE
+ * routing is identical to the post-generation oracle's, budget-for-budget,
+ * with zero new logic in decide.ts.
  */
 async function groundingGate(spec: Specification, p: RunPorts, attempt: number, evidence?: VerdictContent): Promise<{ readonly proceed: true } | Decided> {
   if (!spec.content.grounding || !p.groundingGate) return { proceed: true };

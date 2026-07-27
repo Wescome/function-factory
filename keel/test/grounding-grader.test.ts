@@ -53,7 +53,7 @@ describe("D.4 — fail-closed: decideCriterion never silently passes", () => {
   });
 });
 
-describe("D.2 — INV-GRADE-MONOTONE: a model-inferred label never grounds a test on its own, for every weight set", () => {
+describe("D.2 — INV-GRADE-MONOTONE (structural, not numeric, v1.3): a model-inferred label never grounds a test on its own, for every weight set", () => {
   it.each(ADVERSARIAL_WEIGHTS)("scoreCriterion never lets a judge-grounded label flip an oracle-contradicted sign (weights=%o)", (weights) => {
     const s = scoreCriterion(oracle("contradicted"), judge("surface-grounded"), weights);
     expect(s).toBeLessThan(0); // the oracle's contradiction always wins the sign

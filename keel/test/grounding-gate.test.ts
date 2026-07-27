@@ -31,7 +31,7 @@ async function poll(stub: ReturnType<typeof stubFor>) {
 }
 
 describe("PLAYBOOK-KEEL-GROUNDING-001 — the pre-generation seat, end to end", () => {
-  it("Track C / D.6: grounding enabled + a grounded criterion -> proceeds and ACCEPTs exactly as an ungated run would", async () => {
+  it("Track C / D.6 / INV-GRADE-GATE-PROCEED: grounding enabled + a grounded criterion -> proceeds (gate-pass is not run-accept) and ACCEPTs exactly as an ungated run would once generation runs for real", async () => {
     const stub = stubFor("grounding-happy-path");
     await stub.admit({
       intent: "echo 42",

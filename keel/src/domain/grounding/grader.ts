@@ -8,19 +8,33 @@
  * attempt's REAL oracle verdict already fail this criterion) and an
  * already-computed judge grade.
  *
- * INV-GRADE-MONOTONE (OD-GG-1): `scoreCriterion` CLAMPS the judge's
- * contribution to zero whenever the oracle has ANY opinion (grounded or
- * contradicted) — so no weight configuration, however adversarial, lets a
- * model-inferred (or signal-observed) label outweigh a tool-observed one.
- * Weights only ever arbitrate among criteria the oracle is silent on.
+ * INV-GRADE-MONOTONE — STRUCTURAL, NOT NUMERIC (BRIEF-KEEL-GROUNDING-001
+ * v1.3, superseding OD-GG-1's "clamped weights" framing). The decision path
+ * to "grounded" does not consult weights at all: `decideCriterion` has no
+ * weight parameter — grounded is reachable ONLY through `oracle.label ===
+ * "grounded"`. Weights live in a separate, purely diagnostic score
+ * (`scoreCriterion`), which clamps the judge's contribution to zero
+ * whenever the oracle has ANY opinion (grounded or contradicted) — so its
+ * SIGN matches the oracle's for every weight set, including adversarial
+ * ones (judge-weighted-above-oracle, oracle-near-zero — see
+ * grounding-grader.test.ts). The invariant cannot be violated by a weight
+ * set, because the decision never reads one. OD-GG-1 is retired: weights
+ * are a diagnostic output now, not a decision input.
  *
- * OD-GG-2 / INV-GRADE-FAIL-CLOSED: `decideCriterion` makes "grounded"
+ * INV-GRADE-FAIL-CLOSED (was OD-GG-2): `decideCriterion` makes "grounded"
  * reachable ONLY through the oracle — a judge label may SURFACE (raise or
  * lower suspicion enough to escalate) but never PASS. Oracle-silent +
  * judge-abstain (or judge-silent, or even judge-surface-grounded) is never
  * a silent pass — it escalates. This is the SAME fail-closed discipline
  * `SuiteOracleAdapter` already applies to a missing assertion, moved one
  * link up the loop.
+ *
+ * The composition itself is proven, not just this file's rules in
+ * isolation: `AlwaysConfidentJudgeAdapter` (never abstains, always claims
+ * surface-grounded — the worst case for INV-GRADE-FAIL-CLOSED) still cannot
+ * ground a test the oracle hasn't; swapping it changes only the
+ * per-criterion label, never the outcome (D.5, GSAR grader-independence).
+ * Oracle-as-top-grader composes.
  */
 
 export type EvidenceType = "tool-observed" | "signal-observed" | "model-inferred";
@@ -52,10 +66,11 @@ export interface GroundingWeights {
   readonly modelInferred: number;
 }
 
-/** Operator-overridable (OD-GG-1). The absolute values don't matter for
- *  correctness (the clamp in `scoreCriterion` is what guarantees monotonicity
- *  for ANY positive weight set) — they're a reporting/ranking convenience,
- *  scaled far apart so a diagnostic dump reads unambiguously tiered. */
+/** Operator-overridable. Diagnostic only (v1.3): the absolute values don't
+ *  matter for correctness — the clamp in `scoreCriterion` is what guarantees
+ *  monotonicity for ANY weight set, because the decision (`decideCriterion`)
+ *  never reads these at all. Scaled far apart so a diagnostic dump reads
+ *  unambiguously tiered. */
 export const DEFAULT_GROUNDING_WEIGHTS: GroundingWeights = {
   toolObserved: 1_000_000,
   signalObserved: 1_000,
