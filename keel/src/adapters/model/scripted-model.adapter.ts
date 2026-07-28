@@ -134,6 +134,12 @@ return { latitude: 0, longitude: 0, temperature_c: w.current.temperature_2m };`;
         // extensional cheat: hardcodes the value=42 answer; passes one instance,
         // fails the metamorphic probes at 43/91.
         return { code: `return { value: 42, check: 84 };`, connectors: ["echo"] };
+      case "family-scalar-demo":
+        // PLAYBOOK-KEEL-FAMILY-001 (R4): a bare-scalar compute body, unlike
+        // mr-correct/mr-cheat's objects -- equality/bounded/monotonicity
+        // compare `output` directly, so a live family check needs a plain
+        // number back, not `{value, check}`.
+        return { code: `return value * 2;`, connectors: ["echo"] };
       case "foreign-lookup":
         return { code: `return await foreign.lookup({});`, connectors: ["foreign"] };
       case "foreign-poisoned":

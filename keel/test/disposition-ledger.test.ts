@@ -1,11 +1,14 @@
 /**
  * PLAYBOOK-KEEL-DISPOSITION-001 — the pure core: resolveDisposition (OD-DISP-2
- * fail-closed), authorityMatches (B.3), familyMismatch (OD-DISP-4),
+ * fail-closed), authorityMatches (B.3),
  * overlayDisposition (B.2/B.3, the decision applied after grounding grading).
+ * `familyMismatch` (OD-DISP-4's warning) is RETIRED -- PLAYBOOK-KEEL-FAMILY-001
+ * (R4) replaced it with a `freezeGate` reject; see
+ * test/family-gate.test.ts's `familyAdmissibleForDisposition`.
  */
 import { describe, it, expect } from "vitest";
 import {
-  resolveDisposition, authorityMatches, familyMismatch, overlayDisposition,
+  resolveDisposition, authorityMatches, overlayDisposition,
   type BehaviorLedgerEntry,
 } from "../src/domain/index";
 
@@ -35,24 +38,6 @@ describe("authorityMatches — B.3, routes intentionally-change to the root auth
   });
   it("a derived spec whose root does NOT match -> false (grounding the relation is not enough)", () => {
     expect(authorityMatches("root-2", "root-1")).toBe(false);
-  });
-});
-
-describe("familyMismatch — OD-DISP-4, surfaced, not blocking (that's overlayDisposition's job)", () => {
-  it("preserve implies equality -- matches -> no mismatch", () => {
-    expect(familyMismatch("preserve", "equality")).toBe(false);
-  });
-  it("preserve graded as a bound -> mismatch", () => {
-    expect(familyMismatch("preserve", "bound")).toBe(true);
-  });
-  it("improve implies bound, deprecate implies absence, intentionally-change implies replacement", () => {
-    expect(familyMismatch("improve", "bound")).toBe(false);
-    expect(familyMismatch("deprecate", "absence")).toBe(false);
-    expect(familyMismatch("intentionally-change", "replacement")).toBe(false);
-  });
-  it("unknown never mismatches -- it never reaches grading at all (overlayDisposition blocks it first)", () => {
-    expect(familyMismatch("unknown", "equality")).toBe(false);
-    expect(familyMismatch("unknown", "replacement")).toBe(false);
   });
 });
 

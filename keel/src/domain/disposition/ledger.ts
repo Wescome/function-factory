@@ -22,8 +22,14 @@
  * `derivedFrom` IS a root (trivially authorized over its own behaviors); a
  * derived spec must match the ledger entry's recorded authority.
  *
- * OD-DISP-4: a mismatch between the graded relation's family and the
- * disposition-implied one is a surfaced WARNING, not a block, until R4.
+ * OD-DISP-4 (CLOSED by PLAYBOOK-KEEL-FAMILY-001, R4): a mismatch between a
+ * relation's family and its disposition was a surfaced WARNING here
+ * (`familyMismatch`, `RelationFamily`, `DISPOSITION_FAMILY` -- all RETIRED
+ * by R4). It is now a `freezeGate` hard reject
+ * (`familyAdmissibleForDisposition`, spec-loop/gate.ts) against R4's own
+ * typed `PropertyFamily` (lineage/nodes.ts) — a stronger, earlier
+ * chokepoint, not a second copy of the same rule (R4's playbook: "replace
+ * the warning path, do not leave both").
  */
 import type { CriterionOutcome } from "../grounding/grader";
 
@@ -54,25 +60,6 @@ export function resolveDisposition(entry: BehaviorLedgerEntry | null | undefined
  *  derived spec's root must match the entry's recorded authority exactly. */
 export function authorityMatches(derivedFromRoot: string | undefined, authority: string): boolean {
   return derivedFromRoot === undefined || derivedFromRoot === authority;
-}
-
-export type RelationFamily = "equality" | "bound" | "replacement" | "absence";
-
-/** The disposition-implied family (B.4): preserve->equality, improve->bound,
- *  intentionally-change->replacement, deprecate->absence. */
-const DISPOSITION_FAMILY: Readonly<Record<Exclude<BehaviorDisposition, "unknown">, RelationFamily>> = {
-  preserve: "equality",
-  improve: "bound",
-  "intentionally-change": "replacement",
-  deprecate: "absence",
-};
-
-/** OD-DISP-4: surfaced, never blocking (unknown never reaches this check at
- *  all -- it's already blocked by overlayDisposition before any relation is
- *  graded, so a family comparison would be meaningless for it). */
-export function familyMismatch(disposition: BehaviorDisposition, gradedFamily: RelationFamily): boolean {
-  if (disposition === "unknown") return false;
-  return DISPOSITION_FAMILY[disposition] !== gradedFamily;
 }
 
 /**

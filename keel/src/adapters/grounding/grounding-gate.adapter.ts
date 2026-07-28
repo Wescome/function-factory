@@ -23,25 +23,24 @@
  * forces escalate; `intentionally-change` additionally requires the spec's
  * root to match the ledger entry's recorded authority (B.3) or it also
  * escalates. A criterion with no `behaviorRef` is untouched (Track C).
+ *
+ * PLAYBOOK-KEEL-FAMILY-001 (R4): D1's OWN family-mismatch WARNING
+ * (`gradedFamilyOf`'s `kind`-based placeholder + `familyMismatch`) is
+ * RETIRED here, not duplicated -- R4 replaced it with a `freezeGate` reject
+ * against the real, typed `PropertyFamily` (spec-loop/gate.ts's
+ * `familyAdmissibleForDisposition`), a stronger, earlier chokepoint. A
+ * mismatch is caught before a spec is ever admitted, so it can never reach
+ * this adapter's runtime grading to warn about in the first place.
  */
 import type {
   GroundingGatePort, JudgeGraderPort, BehaviorLedgerPort, BehaviorLedgerEntry,
-  SpecificationContent, VerdictContent, OracleGrade, JudgeGrade, RelationFamily,
+  SpecificationContent, VerdictContent, OracleGrade, JudgeGrade,
 } from "../../domain/index";
 import {
   gradeOracleFact, gradeCriteria, aggregateGate, type GroundingWeights,
-  resolveDisposition, authorityMatches, familyMismatch, overlayDisposition,
+  resolveDisposition, authorityMatches, overlayDisposition,
 } from "../../domain/index";
 import type { OracleSuiteRegistry } from "../oracle/suite";
-
-/** A.1's `kind` is the closest existing signal to a graded relation's
- *  "family" until R4 defines one properly (B.4/OD-DISP-4 is explicit that
- *  family selection firms up later) -- "example" reads as an equality
- *  check, "property" as a bound. Documented placeholder, not a real
- *  classifier. */
-function gradedFamilyOf(kind: "example" | "property"): RelationFamily {
-  return kind === "property" ? "bound" : "equality";
-}
 
 export class GroundingGateAdapter implements GroundingGatePort {
   constructor(
@@ -83,11 +82,11 @@ export class GroundingGateAdapter implements GroundingGatePort {
         const j = await this.judge.grade(c);
         judge = { criterionId: c.id, label: j.label, evidenceType: j.evidenceType };
       }
-      return { criterionId: c.id, oracle, judge, kind: c.kind, behaviorRef: c.behaviorRef, disposition, entry };
+      return { criterionId: c.id, oracle, judge, behaviorRef: c.behaviorRef, disposition, entry };
     }));
 
     const baseResults = gradeCriteria(pairs, this.weights);
-    const dispositionEvidence: Record<string, { disposition: string; authorityOk: boolean; familyWarning: boolean }> = {};
+    const dispositionEvidence: Record<string, { disposition: string; authorityOk: boolean }> = {};
 
     const results = baseResults.map((r, i) => {
       const p = pairs[i]!;
@@ -95,8 +94,10 @@ export class GroundingGateAdapter implements GroundingGatePort {
 
       const authorityOk = authorityMatches(spec.derivedFrom?.root, p.entry?.authority ?? "");
       const outcome = overlayDisposition(r.outcome, p.disposition, authorityOk);
-      const warning = familyMismatch(p.disposition, gradedFamilyOf(p.kind));
-      dispositionEvidence[p.criterionId] = { disposition: p.disposition, authorityOk, familyWarning: warning };
+      // PLAYBOOK-KEEL-FAMILY-001 (R4): the family/disposition check itself
+      // moved to freezeGate (admission-time reject) -- this adapter no
+      // longer computes or surfaces it (retired, not duplicated).
+      dispositionEvidence[p.criterionId] = { disposition: p.disposition, authorityOk };
 
       return outcome === r.outcome ? r : { ...r, outcome };
     });

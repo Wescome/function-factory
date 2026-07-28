@@ -12,7 +12,8 @@
  * All checks are set-inclusion → transitive → a human-authorized root bounds the
  * whole derivation tree (INV-SPEC-HUMAN-ROOT).
  */
-import type { SpecificationContent } from "../lineage/nodes";
+import type { SpecificationContent, AcceptanceCriterion, PropertyFamily } from "../lineage/nodes";
+import type { BehaviorDisposition } from "../disposition/ledger";
 import { clauseIds } from "./coverage";
 
 export type GateTier = "auto-admit" | "human-preapproval" | "reject";
@@ -140,6 +141,85 @@ export function inheritsPreservationSet(child: SpecificationContent, parent: Spe
   });
 }
 
+/** PLAYBOOK-KEEL-FAMILY-001 (R4, B.1/OD-R4-2): a declared `family` must
+ *  carry what its probe needs to be executable ("a shipped family is
+ *  executable" -- INV-R4-TYPED-FAMILY) -- the same admittability
+ *  discipline as `isScopeAdmittable` (declared intent to scope, but nothing
+ *  to check against, is a hard reject; declared intent to type, but
+ *  nothing to probe, is too). A criterion with no `family` is unaffected
+ *  (INV-R4-ADDITIVE, Track C). */
+export function isFamilyAdmittable(child: SpecificationContent): boolean {
+  return child.acceptance.every((c) => {
+    const f = c.family;
+    if (!f) return true;
+    switch (f.kind) {
+      case "equality": return !!f.expected;
+      case "invariance": return !!f.transform;
+      case "monotonicity": return f.order === "asc" || f.order === "desc";
+      case "idempotence": return true;
+      case "bounded": return f.lo !== undefined || f.hi !== undefined || f.baseline !== undefined;
+      default: {
+        const _never: never = f;
+        return _never;
+      }
+    }
+  });
+}
+
+/** B.4: which `PropertyFamily["kind"]`s a disposition admits. `"any"` (
+ *  intentionally-change: against the replacement requirement, any shape is
+ *  fine) and `"none"` (deprecate: "absence" -- a deprecated behavior admits
+ *  no TYPED family, only staying untyped/opaque or having none at all) are
+ *  distinguished from an explicit kind set (preserve, improve). `unknown`
+ *  is deliberately absent -- mirrors the retired `familyMismatch`'s own
+ *  "never reaches grading" rule: nothing to constrain against yet. */
+const DISPOSITION_ADMITS_FAMILY: Readonly<Partial<Record<BehaviorDisposition, ReadonlySet<PropertyFamily["kind"]> | "any" | "none">>> = {
+  preserve: new Set(["equality", "invariance"]),
+  improve: new Set(["bounded", "monotonicity"]),
+  deprecate: "none",
+  "intentionally-change": "any",
+};
+
+/** Resolves a criterion's disposition the same way `inheritsDisposition`
+ *  already looks it up (child's own `behaviorDispositions` first, else the
+ *  parent's) -- LOCAL to the spec content only, same limitation
+ *  `inheritsDisposition` already has: a disposition that lives ONLY in the
+ *  external `BehaviorLedgerPort` (never carried on either spec) is invisible
+ *  to this pure, I/O-free gate, exactly as it already is for every other
+ *  disposition check here. */
+function resolvedDispositionOf(
+  criterion: AcceptanceCriterion,
+  child: SpecificationContent,
+  parent: SpecificationContent,
+): BehaviorDisposition | undefined {
+  if (!criterion.behaviorRef) return undefined;
+  const own = child.behaviorDispositions?.find((d) => d.behaviorRef === criterion.behaviorRef);
+  if (own) return own.disposition;
+  return parent.behaviorDispositions?.find((d) => d.behaviorRef === criterion.behaviorRef)?.disposition;
+}
+
+/** PLAYBOOK-KEEL-FAMILY-001 (R4, B.4/INV-R4-DISPOSITION-CONSTRAINS): closes
+ *  D1's OD-DISP-4 -- what was a surfaced warning (`familyMismatch`,
+ *  grounding-gate.adapter.ts, RETIRED by this playbook, "replace the
+ *  warning, do not leave both") is now a `freezeGate` hard reject. A
+ *  criterion with no `family` (untyped/opaque) is unconstrained
+ *  (INV-R4-ADDITIVE); a criterion with no resolvable disposition (no
+ *  `behaviorRef`, or an unresolved/`unknown` one) has nothing to constrain
+ *  the family against yet, same as `familyMismatch`'s own "unknown never
+ *  mismatches" rule. */
+export function familyAdmissibleForDisposition(child: SpecificationContent, parent: SpecificationContent): boolean {
+  return child.acceptance.every((c) => {
+    if (!c.family) return true;
+    const disposition = resolvedDispositionOf(c, child, parent);
+    if (!disposition || disposition === "unknown") return true;
+    const admits = DISPOSITION_ADMITS_FAMILY[disposition];
+    if (!admits) return true;
+    if (admits === "any") return true;
+    if (admits === "none") return false;
+    return admits.has(c.family.kind);
+  });
+}
+
 /** Reversible iff no autonomous (ungated) effectful reach. */
 export function isReversible(child: SpecificationContent, policy: GatePolicy): boolean {
   const eff = asSet(policy.effectful);
@@ -191,6 +271,8 @@ export function freezeGate(
   if (!inheritsApplicability(child, parent)) hard.push("widens applicability beyond the parent's (obligation drift)");
   if (!inheritsInvalidators(child, parent)) hard.push("drops an invalidator (obligation drift)");
   if (!inheritsPreservationSet(child, parent)) hard.push("drops a preserved variable (obligation drift)");
+  if (!isFamilyAdmittable(child)) hard.push("declares a relation family without the parameters its probe needs (not admittable)");
+  if (!familyAdmissibleForDisposition(child, parent)) hard.push("relation family mismatches its behavior disposition (obligation drift)");
   // A present-and-unresolvable servesClause is a malformed proposal, not a
   // judgment call (PLAYBOOK-KEEL-COVERAGE) — absence is handled below, still
   // human-preapproval, unchanged.

@@ -12,7 +12,7 @@ export type { ContentHash, EdgeKind, ProvenanceEdge, LineageNode, NodeInput } fr
 
 // The SE-Onto entities
 export type {
-  AcceptanceCriterion, SpecificationContent, Specification,
+  AcceptanceCriterion, PropertyFamily, SpecificationContent, Specification,
   ActionContent, Action,
   ConnectorCall, PendingAction, ExecutionStatus, ExecutionTraceContent, ExecutionTrace,
   VerdictOutcome, VerdictContent, Verdict,
@@ -72,9 +72,11 @@ export {
 // Behavior disposition ledger (PLAYBOOK-KEEL-DISPOSITION-001, D1): classify
 // every material behavior before its relation is graded -- distinct from
 // the existing (approval-routing) Disposition node kind above, deliberately
-// never sharing a symbol name with it.
-export type { BehaviorDisposition, BehaviorLedgerEntry, RelationFamily } from "./disposition/ledger";
-export { resolveDisposition, authorityMatches, familyMismatch, overlayDisposition } from "./disposition/ledger";
+// never sharing a symbol name with it. `RelationFamily`/`familyMismatch`
+// (OD-DISP-4's warning) retired by PLAYBOOK-KEEL-FAMILY-001 (R4) -- see
+// spec-loop/gate.ts's `familyAdmissibleForDisposition` (a freezeGate reject).
+export type { BehaviorDisposition, BehaviorLedgerEntry } from "./disposition/ledger";
+export { resolveDisposition, authorityMatches, overlayDisposition } from "./disposition/ledger";
 
 // Replay / read-side (M4, additive)
 export type { TimelineEntry, ReplaySnapshot, ReplayConsistency, CrossRunRecord, Terminal } from "./replay/projection";
@@ -87,6 +89,7 @@ export type { GateTier, GateDecision, GatePolicy } from "./spec-loop/gate";
 export {
   freezeGate, attenuates, inheritsProhibitions, inheritsSpanning, inheritsDisposition,
   isScopeAdmittable, inheritsApplicability, inheritsInvalidators, inheritsPreservationSet,
+  isFamilyAdmittable, familyAdmissibleForDisposition,
   isReversible, isWellFormed, hasGoalMapping,
 } from "./spec-loop/gate";
 export type { Deriver, DerivationEvidence } from "./spec-loop/derive";

@@ -78,7 +78,7 @@ export interface Env {
 const RESERVED_INTENTS = new Set([
   "echo 42", "converge", "never", "approve",
   "uc-001", "uc-002", "uc-003", "degraded", "multi", "amend-demo", "amend-blind-sim",
-  "mr-correct", "mr-cheat", "regress-demo", "stale-tier",
+  "mr-correct", "mr-cheat", "family-scalar-demo", "regress-demo", "stale-tier",
   "foreign-lookup", "foreign-poisoned", "foreign-effectful", "foreign-denied", "foreign-upsert",
   "fx-correct", "fx-fabricate", "fx-rawshape",
   "geo-correct", "geo-topfail", "geo-fabricate",

@@ -10,6 +10,34 @@ import type { ContentHash, LineageNode } from "./contract";
 import type { ErrorClass } from "../effect/errors";
 import type { BehaviorDisposition } from "../disposition/ledger";
 
+/** PLAYBOOK-KEEL-FAMILY-001 (R4, B.1): a typed vocabulary of `property`
+ *  relation shapes, each carrying exactly what its probe needs
+ *  (compileMetamorphic, suite.ts) -- a family must be RUNNABLE, not just
+ *  nameable (OD-R4-1/OD-R4-2). Every expression field (`expected`,
+ *  `transform`) is a JS boolean/value expression over `input`, the SAME
+ *  operand convention `applicability`/`invalidators`/`metamorphic.relation`
+ *  already use.
+ *
+ *  Design decisions disclosed (the playbook gives the shape, not every
+ *  probe detail): `expected`/`transform` reference `input` only (the
+ *  family's probe supplies `output` itself -- see suite.ts); `invariance`
+ *  and `idempotence` each call `compute` a second time (transformed input /
+ *  the first output fed back in) and compare structurally (JSON-stable);
+ *  `monotonicity` sorts the probes by `input` first, then walks ADJACENT-ON-
+ *  SORTED (equivalent to checking every pair, not just consecutive ones, for
+ *  a total order -- a corrected design: comparing adjacent-in-GIVEN-order
+ *  without sorting first can miss a violation between two probes that
+ *  weren't adjacent in the order they happened to arrive in, e.g. probes
+ *  [3, 1, 2] would never directly compare 2 and 3); `bounded`'s `baseline`
+ *  means "no worse than" == `output >= baseline` (higher-is-better, undirected
+ *  in the brief -- disclosed default). */
+export type PropertyFamily =
+  | { readonly kind: "equality"; readonly expected?: string }
+  | { readonly kind: "invariance"; readonly transform: string }
+  | { readonly kind: "monotonicity"; readonly order: "asc" | "desc" }
+  | { readonly kind: "idempotence" }
+  | { readonly kind: "bounded"; readonly lo?: number; readonly hi?: number; readonly baseline?: number };
+
 // ---------------------------------------------------------------------------
 // Specification — the normalized intent (INTENT state). Admission is idempotent
 // on this node's id (D7).
@@ -52,6 +80,16 @@ export interface AcceptanceCriterion {
   readonly preservationSet?: readonly string[];
   readonly applicability?: readonly string[];
   readonly invalidators?: readonly string[];
+  /** PLAYBOOK-KEEL-FAMILY-001 (R4), `property`-only, additive/opt-in
+   *  (INV-R4-ADDITIVE): a typed relation shape alongside R1's scope.
+   *  Absent -> the relation is untyped/opaque re-probed code, exactly as
+   *  before this playbook (`compileMetamorphic`'s existing path, Track C).
+   *  When present, it is the *evaluate* step inside R1's per-probe order
+   *  (applicability -> invalidator -> evaluate, B.3) and its disposition
+   *  (via `behaviorRef`) constrains which family is admissible
+   *  (`freezeGate`'s `familyAdmissibleForDisposition`, closing D1's
+   *  OD-DISP-4 -- was a surfaced warning, now a hard reject). */
+  readonly family?: PropertyFamily;
 }
 
 export interface SpecificationContent {

@@ -22,8 +22,14 @@ export interface OracleAssertion {
   /** Metamorphic: verify a RELATION over multiple oracle-chosen inputs, instead
    *  of one trace. `probes` are hidden from the model. `relation` is a JS bool
    *  over (input, output) that MUST reference `input` (the ANCHOR LAW: comparing
-   *  to a model-controlled output field alone is gameable). */
-  readonly metamorphic?: { readonly probes: readonly number[]; readonly relation: string };
+   *  to a model-controlled output field alone is gameable).
+   *
+   *  PLAYBOOK-KEEL-FAMILY-001 (R4): `relation` is optional -- when the paired
+   *  `AcceptanceCriterion` carries a `family`, the family IS the evaluate
+   *  step (compileMetamorphic) and `relation` goes unused; an untyped
+   *  criterion (no `family`) still requires `relation` (INV-R4-ADDITIVE, the
+   *  pre-R4 path, unchanged). */
+  readonly metamorphic?: { readonly probes: readonly number[]; readonly relation?: string };
   /** PLAYBOOK-KEEL-COMPOSE: a PARENT-level cross-cut over DERIVED CHILDREN's
    *  produced values, not one trace. `relation` is a JS bool over `outputs`
    *  (a `Record<servesClause, unknown>` — the anchor law one level up: it must
@@ -377,6 +383,76 @@ export function compileProgram(trace: ExecutionTraceContent, assertions: readonl
   `;
 }
 
+/** PLAYBOOK-KEEL-FAMILY-001 (R4, B.2): a family-tagged criterion's *evaluate*
+ *  step -- the SAME slot the opaque `m.relation` fills for an untyped
+ *  criterion (B.3: scope gates first, family/relation evaluates last).
+ *  `p`/`i`/`rawPairs` are the generated program's own locals (see
+ *  `compileMetamorphic`) -- this only emits the JS statement(s) that decide
+ *  "pass"/"fail" for probe `p` at index `i`.
+ *
+ *  Disclosed probe design (the playbook gives the shape, not the codegen):
+ *  - equality: `output === expected(input)`.
+ *  - invariance / idempotence: a SECOND `compute` call (transformed input /
+ *    the first output fed back in), compared structurally (JSON-stable) --
+ *    wrapped in its own try/catch, fail-closed like any other thrown probe.
+ *  - monotonicity: probes are sorted by `input` first (`monoSorted`/
+ *    `monoRank`, injected by `compileMetamorphic` only for this family),
+ *    then walked ADJACENT-ON-SORTED -- for a total order this is equivalent
+ *    to checking every pair, not just consecutive ones, without going
+ *    quadratic (a corrected design: an earlier, unsorted adjacent-in-given-
+ *    order walk could miss a violation between two probes that weren't
+ *    adjacent in the order they happened to be given, e.g. probes
+ *    [3, 1, 2] would never directly compare 2 and 3).
+ *  - bounded: `lo`/`hi`/`baseline` are ANDed range checks; `baseline` means
+ *    "no worse than" == `output >= baseline` (higher-is-better, undirected
+ *    in the brief -- disclosed default).
+ *  Fail-closed if a family somehow reaches here without its required
+ *  parameter (freezeGate's `isFamilyAdmittable` already rejects this at
+ *  spec-admission time; this is a defensive floor, never reached in
+ *  practice, never a silent pass). */
+function familyEvaluateStep(family: NonNullable<AcceptanceCriterion["family"]>): string {
+  switch (family.kind) {
+    case "equality":
+      return family.expected
+        ? `return p.output === ((input) => (${family.expected}))(p.input) ? "pass" : "fail";`
+        : `return "fail";`;
+    case "invariance":
+      return `
+        try {
+          const transformed = ((input) => (${family.transform}))(p.input);
+          const output2 = compute(transformed);
+          return JSON.stringify(p.output) === JSON.stringify(output2) ? "pass" : "fail";
+        } catch (e) { return "fail"; }
+      `;
+    case "idempotence":
+      return `
+        try {
+          const output2 = compute(p.output);
+          return JSON.stringify(p.output) === JSON.stringify(output2) ? "pass" : "fail";
+        } catch (e) { return "fail"; }
+      `;
+    case "monotonicity":
+      return `
+        const rank = monoRank.get(i);
+        if (rank === 0) return "pass";
+        const prev = monoSorted[rank - 1].p;
+        if (prev.output === undefined) return "fail";
+        return (${family.order === "asc" ? "prev.output <= p.output" : "prev.output >= p.output"}) ? "pass" : "fail";
+      `;
+    case "bounded": {
+      const checks: string[] = [];
+      if (family.lo !== undefined) checks.push(`p.output >= (${JSON.stringify(family.lo)})`);
+      if (family.hi !== undefined) checks.push(`p.output <= (${JSON.stringify(family.hi)})`);
+      if (family.baseline !== undefined) checks.push(`p.output >= (${JSON.stringify(family.baseline)})`);
+      return checks.length ? `return (${checks.join(" && ")}) ? "pass" : "fail";` : `return "fail";`;
+    }
+    default: {
+      const _never: never = family;
+      return _never;
+    }
+  }
+}
+
 /**
  * Probe program: wrap the model's action code as compute(value), run it over
  * each assertion's hidden probes, and check the relation anchored on `input`.
@@ -395,7 +471,12 @@ export function compileProgram(trace: ExecutionTraceContent, assertions: readonl
  * Per probed input, in order (B.3): a thrown probe fails outright
  * (unchanged from before this playbook); else applicability (ALL must
  * hold) false -> not-applicable; else any invalidator firing ->
- * inconclusive; else evaluate the relation -> pass/fail.
+ * inconclusive; else evaluate -> pass/fail.
+ *
+ * PLAYBOOK-KEEL-FAMILY-001 (R4, B.3): "evaluate" is now either the opaque
+ * `m.relation` (untyped, unchanged, INV-R4-ADDITIVE) or a family's typed
+ * probe (`familyEvaluateStep`) when the criterion carries one -- same slot,
+ * scope still gates ahead of it either way.
  */
 export function compileMetamorphic(
   actionCode: string,
@@ -411,17 +492,31 @@ export function compileMetamorphic(
     const invalidatorCheck = invalidators.length
       ? `if (((input, output) => (${invalidators.map((e) => `(${e})`).join(" || ")}))(p.input, p.output)) return "inconclusive";`
       : "";
+    const evaluateStep = criterion.family
+      ? familyEvaluateStep(criterion.family)
+      : (m.relation ? `return ((input, output) => (${m.relation}))(p.input, p.output) ? "pass" : "fail";` : `return "fail";`);
+    // Monotonicity needs a SORTED-BY-INPUT view (adjacent-on-sorted ==
+    // all-pairs for a total order) -- built once per criterion, indexed by
+    // each probe's ORIGINAL position so `results`/`observed` stay in the
+    // given probe order regardless of sort.
+    const monotoneSetup = criterion.family?.kind === "monotonicity"
+      ? `
+        const monoSorted = rawPairs.map((p, idx) => ({ p, idx })).sort((a, b) => a.p.input - b.p.input);
+        const monoRank = new Map(monoSorted.map((e, rank) => [e.idx, rank]));
+      `
+      : "";
     return `{
       const probes = ${JSON.stringify(m.probes)};
       const rawPairs = probes.map((value) => {
         try { return { input: value, output: compute(value) }; }
         catch (e) { return { input: value, error: String(e) }; }
       });
-      const perProbe = rawPairs.map((p) => {
+      ${monotoneSetup}
+      const perProbe = rawPairs.map((p, i) => {
         if (p.output === undefined) return "fail";
         ${applicabilityCheck}
         ${invalidatorCheck}
-        return ((input, output) => (${m.relation}))(p.input, p.output) ? "pass" : "fail";
+        ${evaluateStep}
       });
       results[${JSON.stringify(a.criterionId)}] = perProbe;
       observed[${JSON.stringify(a.criterionId)}] = rawPairs;

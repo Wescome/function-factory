@@ -84,30 +84,11 @@ describe("PLAYBOOK-KEEL-DISPOSITION-001 (D.3) — authority routes through the e
   });
 });
 
-describe("PLAYBOOK-KEEL-DISPOSITION-001 (D.5) — family mismatch surfaces, never blocks", () => {
-  it("preserve (implies equality) on a property-kind criterion (implies bound) -> a warning in evidence, outcome still follows the base grading", async () => {
-    const gate = new GroundingGateAdapter(new InMemorySuiteRegistry(), abstainingJudge);
-    const spec = baseSpec({
-      acceptance: [{ id: "A1", statement: "value is 42", kind: "property", behaviorRef: "refund-flow" }],
-      behaviorDispositions: [{ behaviorRef: "refund-flow", disposition: "preserve" }],
-    });
-    const v = await gate.grade(spec);
-    expect(v.outcome).toBe("pass"); // NOT blocked by the mismatch
-    const dispositions = (v.evidence as { dispositions: Record<string, { familyWarning: boolean }> }).dispositions;
-    expect(dispositions.A1?.familyWarning).toBe(true);
-  });
-
-  it("a MATCHING family (preserve on an example criterion) -> no warning", async () => {
-    const gate = new GroundingGateAdapter(new InMemorySuiteRegistry(), abstainingJudge);
-    const spec = baseSpec({
-      acceptance: [{ id: "A1", statement: "value is 42", kind: "example", behaviorRef: "refund-flow" }],
-      behaviorDispositions: [{ behaviorRef: "refund-flow", disposition: "preserve" }],
-    });
-    const v = await gate.grade(spec);
-    const dispositions = (v.evidence as { dispositions: Record<string, { familyWarning: boolean }> }).dispositions;
-    expect(dispositions.A1?.familyWarning).toBe(false);
-  });
-});
+// PLAYBOOK-KEEL-DISPOSITION-001's own (D.5) family-mismatch WARNING test
+// lived here (`dispositions.A1.familyWarning`) -- RETIRED by
+// PLAYBOOK-KEEL-FAMILY-001 (R4), which replaced the warning with a
+// `freezeGate` reject against the real, typed `PropertyFamily`. See
+// test/family-gate.test.ts's `familyAdmissibleForDisposition` tests.
 
 describe("PLAYBOOK-KEEL-DISPOSITION-001 (Track C) — a criterion with no behaviorRef is untouched", () => {
   it("byte-for-byte: no behaviorRef -> no disposition entry in evidence, grading proceeds exactly as the grounding gate alone would", async () => {
