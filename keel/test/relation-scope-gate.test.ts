@@ -82,6 +82,25 @@ describe("PLAYBOOK-KEEL-RELATION-SCOPE-001 — inheritsApplicability (narrows, l
     const child = spec({ acceptance: [{ id: "A1", statement: "s", kind: "property", applicability: ["input > 0", "input < 1000"] }] });
     expect(inheritsApplicability(child, parent)).toBe(false);
   });
+
+  // PLAYBOOK-KEEL-LIFT-PROPOSER-001 fix: an existing, matching parent
+  // criterion with NO applicability declared is UNCONSTRAINED (the
+  // universal domain -- matches compileMetamorphic's own "empty
+  // applicability = always applies" runtime reading), not the empty
+  // domain. First-time scoping (an unscoped criterion lifted into a
+  // scoped one) must be possible, or D.7 ("a ratified relation still
+  // passes freezeGate") could never hold for the one trigger this
+  // playbook builds on: lifting a bare `example`.
+  it("first-time scoping: a parent with NO applicability declared at all -> child MAY add any applicability (unconstrained, not the empty domain)", () => {
+    const parent = spec({ acceptance: [{ id: "A1", statement: "s", kind: "property" }] });
+    const child = spec({ acceptance: [{ id: "A1", statement: "s", kind: "property", applicability: ["input > 0"] }] });
+    expect(inheritsApplicability(child, parent)).toBe(true);
+  });
+  it("an ALREADY-scoped parent still enforces the subset rule (the fix only exempts a truly empty parent set)", () => {
+    const parent = spec({ acceptance: [{ id: "A1", statement: "s", kind: "property", applicability: ["input > 0"] }] });
+    const child = spec({ acceptance: [{ id: "A1", statement: "s", kind: "property", applicability: ["input > 0", "input < 1000"] }] });
+    expect(inheritsApplicability(child, parent)).toBe(false);
+  });
 });
 
 describe("PLAYBOOK-KEEL-RELATION-SCOPE-001 — inheritsInvalidators (grows, like forbids)", () => {

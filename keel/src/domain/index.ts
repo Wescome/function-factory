@@ -89,7 +89,7 @@ export type { GateTier, GateDecision, GatePolicy } from "./spec-loop/gate";
 export {
   freezeGate, attenuates, inheritsProhibitions, inheritsSpanning, inheritsDisposition,
   isScopeAdmittable, inheritsApplicability, inheritsInvalidators, inheritsPreservationSet,
-  isFamilyAdmittable, familyAdmissibleForDisposition,
+  isFamilyAdmittable, familyAdmissibleForDisposition, isFamilyExecutable, familyAdmitsDisposition,
   isReversible, isWellFormed, hasGoalMapping,
 } from "./spec-loop/gate";
 export type { Deriver, DerivationEvidence } from "./spec-loop/derive";
@@ -155,3 +155,19 @@ export { statusToErrorClass } from "./effect/import/status-map";
 export type { SkillKind, SkillRecord, SkillStorePort } from "./skill/store";
 export type { SkillConnectorDoc, SkillSelection, SelectSkillsOptions } from "./skill/select";
 export { selectSkills } from "./skill/select";
+
+// The Lift-Proposer (PLAYBOOK-KEEL-LIFT-PROPOSER-001, B1 capstone): propose
+// -> challenge -> refine -> register -> surface -> ratify -> write, on one
+// trigger (lifting a bare `example` into an R4 typed `property`). Every
+// step but `ratifyAndWrite` is pure data transformation over a candidate
+// ARTIFACT -- only ratification ever touches a spec, and even then only
+// through freezeGate (INV-LP-SURFACE-NOT-CERTIFY).
+export type { DefeaterLegitimacy, Defeater, LiftCandidateStatus, LiftCandidate } from "./proposer/candidate";
+export type { InitialScope, ProposeResult } from "./proposer/propose";
+export { proposeCandidate } from "./proposer/propose";
+export type { ChallengeCase, ChallengeResult } from "./proposer/challenge";
+export { defaultBoundaryCases, requiresDomainOwnerConfirmation, challengeCandidate } from "./proposer/challenge";
+export type { SurfacePackage, SurfaceResult } from "./proposer/surface";
+export { surfaceCandidate } from "./proposer/surface";
+export type { RatifyDecision, WriteResult } from "./proposer/ratify";
+export { ratifyAndWrite } from "./proposer/ratify";

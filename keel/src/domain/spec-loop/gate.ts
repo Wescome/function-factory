@@ -108,11 +108,24 @@ export function isScopeAdmittable(child: SpecificationContent): boolean {
  *  -- child's declared conditions ⊆ parent's for the SAME criterion id (by
  *  id, since scope lives per-criterion, not per-spec like `spanning`/
  *  `forbids`). A criterion id the parent never carried has nothing to
- *  inherit FROM and is exempt (nothing this check is meant to catch). */
+ *  inherit FROM and is exempt (nothing this check is meant to catch).
+ *
+ *  PLAYBOOK-KEEL-LIFT-PROPOSER-001 fix (found via D.7, "a ratified relation
+ *  is written through freezeGate, not exempt"): a parent that carries the
+ *  criterion id but declares NO applicability at all is UNCONSTRAINED, not
+ *  the empty domain -- `compileMetamorphic`'s own runtime semantics already
+ *  treat empty applicability as "no check, always applies" (universal),
+ *  the WIDEST possible domain. Treating an empty parent set as "nothing
+ *  allowed" (the bare subset-of-empty-is-always-false reading) would make
+ *  FIRST-TIME scoping -- an unscoped `example`/`property` criterion lifted
+ *  into a scoped one -- structurally impossible, since ANY non-empty child
+ *  applicability is a non-subset of empty. Exempt this case the same way a
+ *  missing criterion id already is. */
 export function inheritsApplicability(child: SpecificationContent, parent: SpecificationContent): boolean {
   return child.acceptance.every((c) => {
     const p = parent.acceptance.find((x) => x.id === c.id);
     if (!p) return true;
+    if (!p.applicability?.length) return true;
     return subset(asSet(c.applicability ?? []), asSet(p.applicability ?? []));
   });
 }
@@ -141,29 +154,34 @@ export function inheritsPreservationSet(child: SpecificationContent, parent: Spe
   });
 }
 
-/** PLAYBOOK-KEEL-FAMILY-001 (R4, B.1/OD-R4-2): a declared `family` must
- *  carry what its probe needs to be executable ("a shipped family is
- *  executable" -- INV-R4-TYPED-FAMILY) -- the same admittability
- *  discipline as `isScopeAdmittable` (declared intent to scope, but nothing
- *  to check against, is a hard reject; declared intent to type, but
- *  nothing to probe, is too). A criterion with no `family` is unaffected
- *  (INV-R4-ADDITIVE, Track C). */
-export function isFamilyAdmittable(child: SpecificationContent): boolean {
-  return child.acceptance.every((c) => {
-    const f = c.family;
-    if (!f) return true;
-    switch (f.kind) {
-      case "equality": return !!f.expected;
-      case "invariance": return !!f.transform;
-      case "monotonicity": return f.order === "asc" || f.order === "desc";
-      case "idempotence": return true;
-      case "bounded": return f.lo !== undefined || f.hi !== undefined || f.baseline !== undefined;
-      default: {
-        const _never: never = f;
-        return _never;
-      }
+/** PLAYBOOK-KEEL-FAMILY-001 (R4, B.1/OD-R4-2): true iff a family carries
+ *  what ITS OWN probe needs to be executable ("a shipped family is
+ *  executable" -- INV-R4-TYPED-FAMILY). Extracted (PLAYBOOK-KEEL-
+ *  LIFT-PROPOSER-001, A.1) as the reusable per-candidate half of
+ *  `isFamilyAdmittable` below -- the proposer's `propose.ts` calls this
+ *  DIRECTLY on a not-yet-attached candidate family, one criterion at a
+ *  time, before it ever touches a `SpecificationContent`. */
+export function isFamilyExecutable(f: PropertyFamily): boolean {
+  switch (f.kind) {
+    case "equality": return !!f.expected;
+    case "invariance": return !!f.transform;
+    case "monotonicity": return f.order === "asc" || f.order === "desc";
+    case "idempotence": return true;
+    case "bounded": return f.lo !== undefined || f.hi !== undefined || f.baseline !== undefined;
+    default: {
+      const _never: never = f;
+      return _never;
     }
-  });
+  }
+}
+
+/** A `property` criterion declaring a `family` must carry what its probe
+ *  needs -- the same admittability discipline as `isScopeAdmittable`
+ *  (declared intent to scope, but nothing to check against, is a hard
+ *  reject; declared intent to type, but nothing to probe, is too). A
+ *  criterion with no `family` is unaffected (INV-R4-ADDITIVE, Track C). */
+export function isFamilyAdmittable(child: SpecificationContent): boolean {
+  return child.acceptance.every((c) => !c.family || isFamilyExecutable(c.family));
 }
 
 /** B.4: which `PropertyFamily["kind"]`s a disposition admits. `"any"` (
@@ -179,6 +197,24 @@ const DISPOSITION_ADMITS_FAMILY: Readonly<Partial<Record<BehaviorDisposition, Re
   deprecate: "none",
   "intentionally-change": "any",
 };
+
+/** Extracted (PLAYBOOK-KEEL-LIFT-PROPOSER-001, A.1, INV-LP-DISPOSITION-
+ *  BOUNDED): the reusable per-candidate half of
+ *  `familyAdmissibleForDisposition` below -- a disposition with NO declared
+ *  constraint (not in the map) admits anything, same as the whole-spec
+ *  version's "nothing to constrain against yet" reading. The proposer
+ *  calls this directly with a disposition value it already has (B.1's
+ *  input), never re-deriving `resolvedDispositionOf`'s spec-lookup (that
+ *  stays freezeGate-only, since only freezeGate has a parent/child pair to
+ *  resolve one from). */
+export function familyAdmitsDisposition(kind: PropertyFamily["kind"], disposition: BehaviorDisposition): boolean {
+  if (disposition === "unknown") return true;
+  const admits = DISPOSITION_ADMITS_FAMILY[disposition];
+  if (!admits) return true;
+  if (admits === "any") return true;
+  if (admits === "none") return false;
+  return admits.has(kind);
+}
 
 /** Resolves a criterion's disposition the same way `inheritsDisposition`
  *  already looks it up (child's own `behaviorDispositions` first, else the
@@ -211,12 +247,8 @@ export function familyAdmissibleForDisposition(child: SpecificationContent, pare
   return child.acceptance.every((c) => {
     if (!c.family) return true;
     const disposition = resolvedDispositionOf(c, child, parent);
-    if (!disposition || disposition === "unknown") return true;
-    const admits = DISPOSITION_ADMITS_FAMILY[disposition];
-    if (!admits) return true;
-    if (admits === "any") return true;
-    if (admits === "none") return false;
-    return admits.has(c.family.kind);
+    if (!disposition) return true;
+    return familyAdmitsDisposition(c.family.kind, disposition);
   });
 }
 
