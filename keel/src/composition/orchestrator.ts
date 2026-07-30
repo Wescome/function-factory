@@ -7,7 +7,7 @@
 import { Agent } from "agents";
 import { Workspace } from "@cloudflare/shell";
 import { runLoop, resumeApproved, type RunPorts, type RunTerminal } from "../domain/loop/run";
-import type { Specification, SpecificationContent, ContentHash, AnyNode, DomainEvent, VerdictContent } from "../domain/index";
+import type { Specification, SpecificationContent, AcceptanceCriterion, ContentHash, AnyNode, DomainEvent, VerdictContent } from "../domain/index";
 import type { QueryPort, CustodyView, TimelineEntry, ReplaySnapshot, ReplayConsistency, CrossRunRecord } from "../domain/index";
 import { timeline as projTimeline, replayTo as projReplayTo, verifyReplay as projVerifyReplay, crossRunRecord as projCrossRun } from "../domain/index";
 import { runSpecLoop, templateDeriver, requiresApprovalFor, decideDecomp, failureToEvidence } from "../domain/index";
@@ -42,8 +42,13 @@ import { ScriptedModelAdapter } from "../adapters/model/scripted-model.adapter";
 import { FixedCodeModelAdapter } from "../adapters/model/fixed-code.adapter";
 import { GatewayModelAdapter, BUILTIN_CONNECTOR_DOCS } from "../adapters/model/gateway-model.adapter";
 import { D1SkillStoreAdapter } from "../adapters/skill/d1-skill-store.adapter";
-import { suiteIsMetamorphic, compileComposition, checkComposesAnchor, compileSeam, checkSeamAnchor } from "../adapters/oracle/suite";
+import { suiteIsMetamorphic, compileComposition, checkComposesAnchor, compileSeam, checkSeamAnchor, compileMetamorphic, type OracleAssertion } from "../adapters/oracle/suite";
 import type { ModelPort } from "../domain/index";
+import {
+  proposeCandidate, challengeCandidate, surfaceCandidate, ratifyAndWrite, defaultBoundaryCases,
+  type LiftCandidate, type PropertyFamily, type BehaviorDisposition, type DefeaterLegitimacy,
+  type ChallengeCase, type SurfacePackage,
+} from "../domain/index";
 
 export interface Env {
   ORCHESTRATOR: DurableObjectNamespace;
@@ -127,6 +132,39 @@ const FOREIGN_TOOLS = {
     requiresApproval: requiresApprovalFor("foreign", "upsertRecord"),
   },
 };
+
+/**
+ * PLAYBOOK-KEEL-PROPOSER-INTEGRATION-001: the Lift-Proposer's authoring
+ * flow, wired upstream of run dispatch (OD-INT-1) — a DISTINCT surface from
+ * admit()/approve() (OD-INT-3), never called by them and never calling
+ * them. `actionCode` is the CALLER's — a real implementation to challenge
+ * the candidate's family against (e.g. a prior accepted run's own code);
+ * this playbook does not auto-fetch one from lineage (a disclosed scope
+ * cut: keeps the wiring generic, and nothing in Track A/B requires it).
+ * `cases` are ADDED to `defaultBoundaryCases()` (OD-INT-4). `caseLegitimacy`
+ * is a per-input override for a FAILING case's legitimacy — any input not
+ * listed defaults to "unsettled" (fail-closed: this wiring never assumes a
+ * failure is illegitimate/legitimate without an explicit signal, mirroring
+ * challenge.ts's own "an unjudged failure is unsettled" default).
+ */
+export interface LiftProposeInput {
+  readonly parent: SpecificationContent;
+  readonly root: SpecificationContent;
+  readonly criterionId: string;
+  readonly family: PropertyFamily;
+  readonly disposition: BehaviorDisposition;
+  readonly actionCode: string;
+  readonly cases?: readonly number[];
+  readonly caseLegitimacy?: Readonly<Record<number, DefeaterLegitimacy>>;
+  readonly domainOwnerConfirmed?: boolean;
+  readonly policy: GatePolicy;
+}
+export type LiftProposeResult =
+  | { readonly surfaced: true; readonly package: SurfacePackage }
+  | { readonly surfaced: false; readonly reason: string };
+export type LiftApproveResult =
+  | { readonly approved: true; readonly spec: SpecificationContent }
+  | { readonly approved: false; readonly reason: string };
 
 /** PLAYBOOK-KEEL-JOIN: one derived child's read-back. Judges nothing — see
  *  `Orchestrator.join()`. `observed` is an explicit present/absent pair
@@ -266,6 +304,12 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
     // that re-points a child's oracleRef no longer gets silently read against
     // the wrong suite.
     this.sql`CREATE TABLE IF NOT EXISTS derived_child (run_id TEXT PRIMARY KEY, do_name TEXT, serves_clause TEXT, parent_run_id TEXT, oracle_ref TEXT)`;
+    // PLAYBOOK-KEEL-PROPOSER-INTEGRATION-001: one pending Lift-Proposer
+    // candidate at a time, mirroring `pending_run`'s single-row pattern —
+    // this DO's OWN authoring-time state, separate from run dispatch
+    // (OD-INT-3). JSON blobs (candidate/parent/root/policy), same
+    // convention `run_terminal.verdict` already uses.
+    this.sql`CREATE TABLE IF NOT EXISTS pending_lift (id INTEGER PRIMARY KEY, candidate TEXT, parent TEXT, root TEXT, policy TEXT)`;
   }
 
   private repo() { return new LineageDoAdapter(this.sql.bind(this) as never); }
@@ -990,5 +1034,85 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
     if (!last || last.type !== "VerdictEmitted") return null;
     const n = nodes.find((x) => x.id === last.verdict);
     return n ? (n.content as VerdictContent) : null;
+  }
+
+  // --- PLAYBOOK-KEEL-PROPOSER-INTEGRATION-001: the Lift-Proposer's -----------
+  // authoring flow (B1 completion). Upstream of run dispatch (OD-INT-1) — a
+  // DISTINCT surface (OD-INT-3): admit()/approve() are completely untouched,
+  // so a run proceeds on whatever the spec already contains regardless of
+  // any pending lift on this same DO (A.4/C.4).
+
+  /** B.1/B.2: propose -> challenge -> surface, in one call. Runs the
+   *  candidate's REAL family probe (compileMetamorphic, the same one
+   *  SuiteOracleAdapter uses) via this DO's own sandboxed runtime — not a
+   *  mock. A survivor is persisted as the one pending lift (mirrors
+   *  `pending_run`'s single-row pattern) and returned as an approval
+   *  request; nothing is written to any spec here (INV-LP-SURFACE-NOT-
+   *  CERTIFY still holds — this method never calls ratifyAndWrite). */
+  async proposeLift(input: LiftProposeInput): Promise<LiftProposeResult> {
+    this.ensureSchema();
+    const proposed = proposeCandidate(input.criterionId, input.family, input.disposition);
+    if (!proposed.admitted) return { surfaced: false, reason: proposed.reason };
+
+    const probes = [...new Set([...defaultBoundaryCases(), ...(input.cases ?? [])])];
+    const criterion: AcceptanceCriterion = {
+      id: input.criterionId, statement: "", kind: "property",
+      family: proposed.candidate.family,
+      applicability: proposed.candidate.applicability,
+      invalidators: proposed.candidate.invalidators,
+    };
+    const assertion: OracleAssertion = { criterionId: input.criterionId, kind: "property", metamorphic: { probes } };
+    const out = await this.rt.tool().execute({ code: compileMetamorphic(input.actionCode, [{ criterion, assertion }]) }, undefined);
+    const res = out.status === "completed" ? (out.result as { results?: Record<string, readonly string[]> }) : {};
+    const perProbe = res.results?.[input.criterionId] ?? probes.map(() => "fail" as const);
+
+    const cases: readonly ChallengeCase[] = probes.map((probe, i) => {
+      const status = perProbe[i];
+      const passed = status === "pass" || status === "not-applicable";
+      return passed ? { input: probe, passed: true } : { input: probe, passed: false, legitimacy: input.caseLegitimacy?.[probe] };
+    });
+
+    const challenged = challengeCandidate(proposed.candidate, cases);
+    const surfaced = surfaceCandidate(challenged.candidate, input.domainOwnerConfirmed ?? false);
+    if (!surfaced.ready) return { surfaced: false, reason: surfaced.reason };
+
+    this.sql`INSERT OR REPLACE INTO pending_lift (id, candidate, parent, root, policy) VALUES (
+      1, ${JSON.stringify(surfaced.surfaced.candidate)}, ${JSON.stringify(input.parent)}, ${JSON.stringify(input.root)}, ${JSON.stringify(input.policy)}
+    )`;
+    return { surfaced: true, package: surfaced.surfaced };
+  }
+
+  /** B.3/B.6: the authority's approval resumes through this touchpoint —
+   *  the SOLE write path. Loads the one pending lift, calls `ratifyAndWrite`
+   *  (through the real `freezeGate` — not exempt, D.7), and clears the
+   *  pending record either way (resolved, successfully or not). Does NOT
+   *  itself call admit() — dispatching a run against the lifted spec is a
+   *  separate, subsequent action (OD-INT-3: this stays a distinct surface
+   *  from run dispatch), matching C.2's "a subsequent run enforces it". */
+  async approveLift(): Promise<LiftApproveResult> {
+    this.ensureSchema();
+    const row = [...this.sql<{ candidate: string; parent: string; root: string; policy: string }>`
+      SELECT candidate, parent, root, policy FROM pending_lift WHERE id = 1`][0];
+    if (!row) return { approved: false, reason: "no pending lift" };
+    this.sql`DELETE FROM pending_lift WHERE id = 1`;
+
+    const candidate = JSON.parse(row.candidate) as LiftCandidate;
+    const parent = JSON.parse(row.parent) as SpecificationContent;
+    const root = JSON.parse(row.root) as SpecificationContent;
+    const policy = JSON.parse(row.policy) as GatePolicy;
+
+    const written = ratifyAndWrite(candidate, { ratified: true }, parent, root, policy);
+    if (!written.written) return { approved: false, reason: written.reason };
+    return { approved: true, spec: written.spec };
+  }
+
+  /** B.3/C.3: an authority rejection resumes through the SAME touchpoint —
+   *  clears the pending lift, writes nothing. */
+  async rejectLift(): Promise<{ readonly rejected: boolean }> {
+    this.ensureSchema();
+    const row = [...this.sql<{ id: number }>`SELECT id FROM pending_lift WHERE id = 1`][0];
+    if (!row) return { rejected: false };
+    this.sql`DELETE FROM pending_lift WHERE id = 1`;
+    return { rejected: true };
   }
 }
