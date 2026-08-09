@@ -171,3 +171,6 @@ export type { SurfacePackage, SurfaceResult } from "./proposer/surface";
 export { surfaceCandidate } from "./proposer/surface";
 export type { RatifyDecision, WriteResult } from "./proposer/ratify";
 export { ratifyAndWrite } from "./proposer/ratify";
+// PLAYBOOK-KEEL-COUNTEREXAMPLE-GEN-001: a structural, best-effort case
+// generator upstream of challenge.ts (challengeCandidate is unchanged).
+export { parseComparisonBoundary, mineScopeDerivedCases } from "./proposer/case-mining";

@@ -45,7 +45,7 @@ import { D1SkillStoreAdapter } from "../adapters/skill/d1-skill-store.adapter";
 import { suiteIsMetamorphic, compileComposition, checkComposesAnchor, compileSeam, checkSeamAnchor, compileMetamorphic, type OracleAssertion } from "../adapters/oracle/suite";
 import type { ModelPort } from "../domain/index";
 import {
-  proposeCandidate, challengeCandidate, surfaceCandidate, ratifyAndWrite, defaultBoundaryCases,
+  proposeCandidate, challengeCandidate, surfaceCandidate, ratifyAndWrite, defaultBoundaryCases, mineScopeDerivedCases,
   type LiftCandidate, type PropertyFamily, type BehaviorDisposition, type DefeaterLegitimacy,
   type ChallengeCase, type SurfacePackage,
 } from "../domain/index";
@@ -141,11 +141,17 @@ const FOREIGN_TOOLS = {
  * the candidate's family against (e.g. a prior accepted run's own code);
  * this playbook does not auto-fetch one from lineage (a disclosed scope
  * cut: keeps the wiring generic, and nothing in Track A/B requires it).
- * `cases` are ADDED to `defaultBoundaryCases()` (OD-INT-4). `caseLegitimacy`
+ * `cases` are ADDED to `defaultBoundaryCases()` (OD-INT-4) — PLAYBOOK-KEEL-
+ * COUNTEREXAMPLE-GEN-001 names this the MODEL-PROPOSED tier: inputs only,
+ * the model never decides an outcome or legitimacy (OD-RCG-3). A THIRD
+ * tier, mined structurally from the OTHER relations already on `parent`
+ * (`mineScopeDerivedCases`, no model risk), joins these two automatically
+ * in `proposeLift` — nothing new for the caller to supply. `caseLegitimacy`
  * is a per-input override for a FAILING case's legitimacy — any input not
  * listed defaults to "unsettled" (fail-closed: this wiring never assumes a
  * failure is illegitimate/legitimate without an explicit signal, mirroring
- * challenge.ts's own "an unjudged failure is unsettled" default).
+ * challenge.ts's own "an unjudged failure is unsettled" default) —
+ * unchanged by this playbook (OD-RCG-4).
  */
 export interface LiftProposeInput {
   readonly parent: SpecificationContent;
@@ -1048,13 +1054,22 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
    *  mock. A survivor is persisted as the one pending lift (mirrors
    *  `pending_run`'s single-row pattern) and returned as an approval
    *  request; nothing is written to any spec here (INV-LP-SURFACE-NOT-
-   *  CERTIFY still holds — this method never calls ratifyAndWrite). */
+   *  CERTIFY still holds — this method never calls ratifyAndWrite).
+   *
+   *  PLAYBOOK-KEEL-COUNTEREXAMPLE-GEN-001 (A.5): the case set is now three
+   *  tiers, joined here between propose and challenge --
+   *  `defaultBoundaryCases()` (base), `mineScopeDerivedCases` (structural,
+   *  mined from every OTHER relation's R1 scope on `input.parent`, no
+   *  model risk), and `input.cases` (the model-proposed tier, inputs
+   *  only — unchanged from PLAYBOOK-KEEL-PROPOSER-INTEGRATION-001).
+   *  `challengeCandidate` itself is untouched (Track C). */
   async proposeLift(input: LiftProposeInput): Promise<LiftProposeResult> {
     this.ensureSchema();
     const proposed = proposeCandidate(input.criterionId, input.family, input.disposition);
     if (!proposed.admitted) return { surfaced: false, reason: proposed.reason };
 
-    const probes = [...new Set([...defaultBoundaryCases(), ...(input.cases ?? [])])];
+    const scopeDerivedCases = mineScopeDerivedCases(input.criterionId, input.parent.acceptance);
+    const probes = [...new Set([...defaultBoundaryCases(), ...scopeDerivedCases, ...(input.cases ?? [])])];
     const criterion: AcceptanceCriterion = {
       id: input.criterionId, statement: "", kind: "property",
       family: proposed.candidate.family,

@@ -151,3 +151,54 @@ describe("Lift-Proposer integration — D.7, ratification still passes through t
     if (!approved.approved) expect(approved.reason).toMatch(/freezeGate rejected/);
   });
 });
+
+describe("Lift-Proposer integration — PLAYBOOK-KEEL-COUNTEREXAMPLE-GEN-001, D.2/D.3", () => {
+  it("a case mined from ANOTHER relation's R1 scope catches a real bug defaultBoundaryCases() alone would miss, and surfaces (unsettled) rather than auto-rejecting", async () => {
+    const stub = stubFor("lift-scope-mining");
+    // A2 is an unrelated, already-scoped relation on the same spec — its
+    // applicability boundary (43) is exactly what mineScopeDerivedCases
+    // should extract and probe A1's candidate against.
+    const parentWithScopedSibling: SpecificationContent = {
+      ...parentSpec,
+      acceptance: [
+        { id: "A1", statement: "check equals value doubled", kind: "example" },
+        { id: "A2", statement: "an unrelated, already-scoped relation", kind: "property", applicability: ["input !== 43"] },
+      ],
+    };
+    // Wrong ONLY at value=43 — none of defaultBoundaryCases() ([0,1,-1,100,-100])
+    // would ever probe it; only scope-derived mining (42/43/44 from A2) does.
+    const proposed = await stub.proposeLift({
+      parent: parentWithScopedSibling, root: parentWithScopedSibling, criterionId: "A1",
+      family: { kind: "equality", expected: "input * 2" }, disposition: "preserve",
+      actionCode: "return value === 43 ? 999 : value * 2;",
+      policy: { effectful: [] },
+    });
+    // D.3: unsettled (no caseLegitimacy override supplied) -- registers,
+    // never auto-rejects. The candidate SURVIVES (unsettled isn't a
+    // legitimate defeat) and surfaces WITH the open defeater attached.
+    expect(proposed.surfaced).toBe(true);
+    if (!proposed.surfaced) return;
+    expect(proposed.package.candidate.status).toBe("surfaced");
+    expect(proposed.package.openDefeaters).toEqual([
+      { input: 43, reason: expect.stringContaining("legitimacy not yet confirmed"), legitimacy: "unsettled" },
+    ]);
+    // D.5 corollary at the wiring level: narrowed via an invalidator, per
+    // challenge.ts's own unsettled-narrowing rule (never applicability).
+    expect(proposed.package.candidate.invalidators).toEqual(["input === 43"]);
+  });
+
+  it("D.6/Track C: a spec with no OTHER scoped relations mines nothing extra — additive, no change from the pre-existing behavior", async () => {
+    const stub = stubFor("lift-scope-mining-none");
+    const proposed = await stub.proposeLift({
+      parent: parentSpec, root: parentSpec, criterionId: "A1", // parentSpec's only criterion IS A1 -- nothing else to mine
+      family: { kind: "equality", expected: "input * 2" }, disposition: "preserve",
+      actionCode: "return value === 43 ? 999 : value * 2;", // same bug, but nothing surfaces it this time
+      policy: { effectful: [] },
+    });
+    // No scope-derived case reaches 43 -- defaultBoundaryCases() alone
+    // ([0,1,-1,100,-100]) never probes it, so the candidate survives clean.
+    expect(proposed.surfaced).toBe(true);
+    if (!proposed.surfaced) return;
+    expect(proposed.package.openDefeaters).toEqual([]);
+  });
+});
