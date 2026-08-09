@@ -189,6 +189,16 @@ return { latitude: 0, longitude: 0, temperature_c: w.current.temperature_2m };`;
       case "spanning-anchor-test — sub-goal: return a result object with the field(s) described by: A9 marker":
       case "spanning-anchor-test — sub-goal: return a result object with the field(s) described by: A2 marker (spanning, never satisfied)":
         return { code: `return { value: 42 };`, connectors: ["echo"] };
+      // PLAYBOOK-KEEL-PARALLEL-SLICE-001 (Track 2/3): a decomposable root
+      // with one FAST leaf (completes normally, reaches a terminal state
+      // quickly) and one STUCK leaf (calls the approval-gated connector,
+      // PAUSEs, and is never approved in the fixture -- deterministically
+      // "a child that never reports" for reap testing, without depending
+      // on real wall-clock timing races).
+      case "stuck-fanout-test — sub-goal: return a result object with the field(s) described by: FAST marker":
+        return { code: `return { value: 42 };`, connectors: ["echo"] };
+      case "stuck-fanout-test — sub-goal: return a result object with the field(s) described by: STUCK marker":
+        return { code: `const g = await gate.commit({ value: 42 }); return g;`, connectors: ["gate"] };
       case "foreign-denied":
         return { code: `return await foreignDenied.lookup({});`, connectors: ["foreignDenied"] };
       // PLAYBOOK-KEEL-WORKSPACE-001: clone a tiny public repo (depth 1), glob

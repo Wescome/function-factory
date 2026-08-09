@@ -50,8 +50,59 @@ import {
   type ChallengeCase, type SurfacePackage,
 } from "../domain/index";
 
+// PLAYBOOK-KEEL-PARALLEL-SLICE-001 (Track 1) — two confirmed TypeScript /
+// Cloudflare-RPC-types findings, isolated empirically (each reproduced down
+// to a minimal repro before landing on this shape):
+//
+// 1. `Pick<Orchestrator, K>` and `DurableObjectNamespace<Orchestrator>`
+//    (typing the namespace against the full class directly) BOTH hit
+//    TS2589 ("Type instantiation is excessively deep and possibly
+//    infinite") once Cloudflare's RPC `Provider<T>` has to walk it --
+//    `Pick` still forces TS to resolve the WHOLE class (~40 methods, plus
+//    everything inherited from the Agent SDK) before it can narrow, so it
+//    doesn't avoid the cost. Fix: `OrchestratorRpc` is its OWN standalone
+//    interface, never derived from `Orchestrator`'s type. `Orchestrator
+//    implements ... OrchestratorRpc` (the class declaration, below) still
+//    gives a REAL compile-time check that the class's actual `admit`/
+//    `result` signatures satisfy it -- catching drift -- without ever
+//    asking the type-checker to synthesize a type over the full class.
+// 2. A field typed `any` ALSO hits TS2589 -- NOT `unknown`'s failure mode
+//    (`unknown` fails the `R extends Rpc.Serializable<R>` check outright,
+//    collapsing to `never`, confirmed separately); `any`'s bivariant
+//    distribution inside that SAME self-referential conditional
+//    (`R extends Serializable<R>`, R on both sides) explodes instead of
+//    collapsing. Isolated by re-adding `result()`'s fields one at a time:
+//    every field is fine except `verdict`, and `verdict: any` is what
+//    reintroduces TS2589 (`verdict: unknown` fails differently, to
+//    `never`, per (a) above). Fix: `Json`, a concrete recursive union
+//    with NO `any`/`unknown` anywhere in it -- VerdictContent.evidence's
+//    real shape (arbitrary, oracle-supplied diagnostic data) is a JSON
+//    value in practice, and unlike `any`/`unknown` this satisfies
+//    `Serializable<T>` structurally without the depth blowup.
+type JsonPrimitive = string | number | boolean | null;
+type JsonArray = readonly JsonPrimitive[];
+type JsonObject = { readonly [key: string]: JsonPrimitive | JsonArray | Readonly<Record<string, JsonPrimitive | JsonArray>> };
+type Json = JsonPrimitive | JsonArray | JsonObject;
+
+// `Rpc.DurableObjectBranded` supplies the nominal brand `DurableObjectNamespace`/
+// `DurableObjectStub` require; `Orchestrator` already carries it via its own
+// inheritance chain (Agent -> Server -> DurableObject), so nothing extra is
+// needed at the call site for that part to typecheck.
+interface OrchestratorRpc extends Rpc.DurableObjectBranded {
+  admit(content: SpecificationContent, parentDoName?: string): Promise<{ accepted: boolean; status: string; runId: string }>;
+  result(): Promise<{ state: string | null; verdict: Json; executionId: string | null; nodeKinds: string[] } | null>;
+  // PLAYBOOK-KEEL-PARALLEL-SLICE-001 (Track 2): a CHILD calls this on its
+  // PARENT (the ONLY method here called in that direction, not the usual
+  // parent-to-child one -- the namespace is symmetric, see childStub()'s
+  // own comment).
+  childCompleted(runId: string, terminalState: "ACCEPT" | "ESCALATE"): Promise<void>;
+}
+
 export interface Env {
-  ORCHESTRATOR: DurableObjectNamespace;
+  // PLAYBOOK-KEEL-PARALLEL-SLICE-001 (Track 1): typed against
+  // `OrchestratorRpc` (above) -- closes the `unknown` cast in childStub().
+  // See that interface's comment for why NOT the full `Orchestrator` class.
+  ORCHESTRATOR: DurableObjectNamespace<OrchestratorRpc>;
   LOADER: unknown;
   // Real model via AI Gateway (optional). When AI_GATEWAY_URL + AI_API_KEY are
   // set, non-reserved intents use the real model; otherwise scripted. Local/CI
@@ -110,6 +161,9 @@ const RESERVED_INTENTS = new Set([
   "spanning-anchor-test — sub-goal: return a result object with the field(s) described by: A1 marker",
   "spanning-anchor-test — sub-goal: return a result object with the field(s) described by: A9 marker",
   "spanning-anchor-test — sub-goal: return a result object with the field(s) described by: A2 marker (spanning, never satisfied)",
+  // PLAYBOOK-KEEL-PARALLEL-SLICE-001: deterministic -- see scripted-model.adapter.ts.
+  "stuck-fanout-test — sub-goal: return a result object with the field(s) described by: FAST marker",
+  "stuck-fanout-test — sub-goal: return a result object with the field(s) described by: STUCK marker",
 ]);
 
 // The foreign connector's KEEL-authored tool config — the SAME text is used to
@@ -223,7 +277,7 @@ export interface DerivAmendAttempt {
   readonly decision: DecompDecision;
 }
 
-export class Orchestrator extends Agent<Env> implements QueryPort {
+export class Orchestrator extends Agent<Env> implements QueryPort, OrchestratorRpc {
   private readonly suites = new InMemorySuiteRegistry();
   private readonly recorder = new CallRecorder();
   private readonly memBacklog = new InMemoryBacklog();
@@ -316,6 +370,55 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
     // (OD-INT-3). JSON blobs (candidate/parent/root/policy), same
     // convention `run_terminal.verdict` already uses.
     this.sql`CREATE TABLE IF NOT EXISTS pending_lift (id INTEGER PRIMARY KEY, candidate TEXT, parent TEXT, root TEXT, policy TEXT)`;
+    // PLAYBOOK-KEEL-PARALLEL-SLICE-001 (Track 2): this run's OWN parent, if
+    // it was admitted as a derived child (`admit()`'s `parentDoName`) --
+    // one row, mirrors `pending_run`/`pending_lift`'s single-row pattern.
+    this.sql`CREATE TABLE IF NOT EXISTS run_parent (id INTEGER PRIMARY KEY, parent_do_name TEXT)`;
+    // Track 2: has this child reported back yet (dedupe) -- and, Track 3,
+    // whether its reaper already fired once (bounded-retry-then-escalate).
+    // Migrated onto the EXISTING `derived_child` table (not a new one) so
+    // join()/compose() keep reading the SAME rows they always have.
+    this.ensureColumn("derived_child", "reported_state", "TEXT");
+    this.ensureColumn("derived_child", "reap_schedule_id", "TEXT");
+    this.ensureColumn("derived_child", "reap_attempts", "INTEGER NOT NULL DEFAULT 0");
+    // Track 3: the child's own admitted content, so a re-admit-on-reap
+    // needs nothing the caller has to keep around separately.
+    this.ensureColumn("derived_child", "spec_content", "TEXT");
+    // Track 2: the compose result, persisted the moment completion-push
+    // triggers it (not just computed fresh on the next `/compose` poll) --
+    // makes "composed without polling" observable. Same shape `compose()`
+    // already returns, JSON-blobbed like every other durable verdict here.
+    this.sql`CREATE TABLE IF NOT EXISTS compose_result (id INTEGER PRIMARY KEY, payload TEXT, at INTEGER)`;
+    // Track 3 (D.5): a child finishing just after it was reap-escalated is
+    // a no-op (already resolved, never re-composes) but NOT a silent
+    // drop -- durably recorded here for observability. Deliberately NOT a
+    // new frozen-domain node kind: the domain lineage surface is frozen
+    // (M1) and this playbook is adapter wiring, not a domain change; this
+    // is adapter-side bookkeeping, the same tier `derived_child` and the
+    // best-effort cross-run index already live at.
+    this.sql`CREATE TABLE IF NOT EXISTS late_completion (run_id TEXT, terminal_state TEXT, reported_at INTEGER)`;
+    // Track 2 correctness finding (caught live, not in the original
+    // playbook text): guards `composeIfAllReported` against a fast
+    // sibling's push racing ahead of `derive()`'s own admission loop --
+    // see `derive()`'s comment for the full race.
+    this.sql`CREATE TABLE IF NOT EXISTS derive_state (id INTEGER PRIMARY KEY, in_progress INTEGER NOT NULL DEFAULT 0)`;
+  }
+
+  /** PLAYBOOK-KEEL-PARALLEL-SLICE-001 (Track 2): idempotent `ALTER TABLE ...
+   *  ADD COLUMN` for an EXISTING table -- `CREATE TABLE IF NOT EXISTS`
+   *  alone never adds a column to a table a live DO already created before
+   *  this playbook (`derived_child` has real rows in production). Mirrors
+   *  the SAME `addColumnIfNotExists` pattern the agents SDK itself uses for
+   *  its own schema migrations (`cf_agents_schedules`). `table`/`column`
+   *  are always internal, hardcoded constants -- never user input -- so
+   *  raw string interpolation into the statement (PRAGMA/ALTER TABLE don't
+   *  accept bound identifiers) is safe. */
+  private ensureColumn(table: string, column: string, type: string) {
+    const exec = this.storageSqlExec();
+    const cols = exec<{ name: string }>(`PRAGMA table_info(${table})`).toArray();
+    if (!cols.some((c) => c.name === column)) {
+      exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+    }
   }
 
   private repo() { return new LineageDoAdapter(this.sql.bind(this) as never); }
@@ -403,12 +506,25 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
     }
   }
 
-  /** INTENT + idempotent admission (D7). */
-  async admit(content: SpecificationContent): Promise<{ accepted: boolean; status: string; runId: string }> {
+  /** INTENT + idempotent admission (D7).
+   *
+   *  PLAYBOOK-KEEL-PARALLEL-SLICE-001 (Track 2): `parentDoName` is additive
+   *  and optional -- absent for every human `POST /admit` (Track C:
+   *  byte-for-byte unchanged). `derive()`'s auto-admit and
+   *  `disposeBacklog()`'s human-approved admit both now pass `this.name`
+   *  (the PARENT's own addressing name, from the Agent SDK) here so a
+   *  derived child can call back on completion (`childCompleted`, below) --
+   *  a run DO is addressed by an arbitrary caller-chosen name, never by its
+   *  own `runId`, so the child has no way to reach its parent without
+   *  being handed this explicitly (confirmed against live source before
+   *  building this — the parked "if run DOs are idFromName(runId)"
+   *  question in the playbook's own Track A.3 resolves to: they are not). */
+  async admit(content: SpecificationContent, parentDoName?: string): Promise<{ accepted: boolean; status: string; runId: string }> {
     this.ensureSchema();
     const repo = this.repo();
     const spec = await repo.append<Specification>({ kind: "Specification", content, provenance: [] });
     await repo.emit({ type: "RunAdmitted", at: Date.now(), run: spec.id, specification: spec.id, accepted: true });
+    if (parentDoName) this.sql`INSERT OR REPLACE INTO run_parent (id, parent_do_name) VALUES (1, ${parentDoName})`;
 
     // PLAYBOOK-KEEL-TYPING-001: typed directly against the base Agent's real
     // startFiber (agent-primitives.check.ts is the signature reference) --
@@ -418,6 +534,21 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
       const res = await runLoop(spec, await this.ports({ degraded: content.intent === "degraded", intent: content.intent, connectors: content.connectors, oracleRef: content.oracleRef, runSuite: content.runSuite, grounding: content.grounding }));
       await this.emitCrossRun();
       this.persistTerminal(res);
+      // PLAYBOOK-KEEL-PARALLEL-SLICE-001 (Track 2): completion-push wake --
+      // only for a run that WAS a derived child (parentDoName recorded) and
+      // only on a TERMINAL state (ACCEPT/ESCALATE); a PAUSE hasn't finished
+      // and reports nothing yet (it will, on its own eventual ACCEPT/ESCALATE
+      // after approval). Fire-and-continue: a callback failure (parent DO
+      // unreachable, evicted namespace, etc.) must not fail THIS child's own
+      // admit() — the reaper (Track 3) is the fail-closed backstop for a
+      // push that never lands.
+      if (parentDoName && (res.state === "ACCEPT" || res.state === "ESCALATE")) {
+        try {
+          await this.childStub(parentDoName).childCompleted(spec.id, res.state);
+        } catch (e) {
+          console.error(`childCompleted push to parent "${parentDoName}" failed for run ${spec.id}`, e);
+        }
+      }
     }, { idempotencyKey: spec.id });
 
     return { accepted: handle.accepted, status: handle.status, runId: spec.id };
@@ -538,21 +669,32 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
    *  expect (they take nodes[0] of kind Specification). Root cause is the
    *  wiring, not the reads — so each derived spec runs as its own child run in
    *  its own DO instead, keeping "one Specification per DO" true everywhere. */
-  /** PLAYBOOK-KEEL-JOIN: widened to also expose `result()` — the cast is the
-   *  only thing that was ever hiding it; `result()` already exists and is
-   *  public (mirrors `worker.ts`'s `Stub`, which already reads cross-DO). No
-   *  new method added to the DO. */
-  private childStub(name: string): {
-    admit(c: unknown): Promise<{ runId: string }>;
-    result(): Promise<{ state: string | null; verdict: unknown; executionId: string | null; nodeKinds: string[] } | null>;
-  } {
+  /** PLAYBOOK-KEEL-JOIN: widened to also expose `result()` — mirrors
+   *  `worker.ts`'s `Stub`, which already reads cross-DO. No new method
+   *  added to the DO by this widening.
+   *
+   *  PLAYBOOK-KEEL-PARALLEL-SLICE-001 (Track 1): `env.ORCHESTRATOR` is now
+   *  `DurableObjectNamespace<Orchestrator>` (Env, above) — the RPC stub
+   *  this returns is compiler-checked against the Orchestrator's OWN public
+   *  method signatures, no `unknown` cast, no hand-narrowed shape. The
+   *  ORCHESTRATOR namespace is symmetric (`idFromName` reaches a DO in
+   *  either direction), so a CHILD calling `this.childStub(parentDoName)`
+   *  to reach its parent (Track 2's `childCompleted`) uses this exact same
+   *  method — "child" names the common case (parent addressing a child),
+   *  not a directional restriction. */
+  private childStub(name: string): DurableObjectStub<OrchestratorRpc> {
     const env = this.env as Env;
     const ns = env.ORCHESTRATOR;
-    return ns.get(ns.idFromName(name)) as unknown as {
-      admit(c: unknown): Promise<{ runId: string }>;
-      result(): Promise<{ state: string | null; verdict: unknown; executionId: string | null; nodeKinds: string[] } | null>;
-    };
+    return ns.get(ns.idFromName(name));
   }
+
+  /** Deadline math (Track 3, B.4): NOT a magic number -- a per-attempt
+   *  ceiling times the child's OWN declared `attemptBudget`, deterministic
+   *  and per-child. The ceiling itself (how long one attempt is allowed to
+   *  run: GENERATE -> EXECUTE -> VERIFY, including a live model call and a
+   *  sandboxed execution) has no existing config to derive from anywhere
+   *  in this codebase -- a disclosed, reasonable constant. */
+  private readonly REAP_PER_ATTEMPT_CEILING_MS = 5 * 60 * 1000;
 
   /** PLAYBOOK-KEEL-JOIN: remember a derived child durably, in the ROOT's own
    *  DO — the source of truth for the join. Called from every place a
@@ -560,9 +702,35 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
    *  branch, and disposeBacklog()'s human-approved branch) — both already
    *  had all four values in hand; this was the only piece missing.
    *  PLAYBOOK-KEEL-COMPOSE (FU-DECOMP-1): `oracleRef` recorded per row, taken
-   *  from the CHILD's own spec — never assumed equal to the root's. */
-  private recordDerivedChild(runId: string, doName: string, servesClause: string | undefined, parentRunId: string, oracleRef: string): void {
-    this.sql`INSERT OR REPLACE INTO derived_child (run_id, do_name, serves_clause, parent_run_id, oracle_ref) VALUES (${runId}, ${doName}, ${servesClause ?? null}, ${parentRunId}, ${oracleRef})`;
+   *  from the CHILD's own spec — never assumed equal to the root's.
+   *
+   *  PLAYBOOK-KEEL-PARALLEL-SLICE-001 (Track 3): now takes the CHILD's full
+   *  `spec` (not just its two fields) -- `spec_content` is stored so
+   *  `reapStuckChildren` can re-admit the SAME content without either call
+   *  site having to keep it around separately, and `spec.attemptBudget`
+   *  derives this child's own reap deadline. Schedules the reaper the
+   *  moment the child is recorded (B.4: per-child, not per-join -- one
+   *  slow child never blocks scheduling for the others). */
+  private async recordDerivedChild(runId: string, doName: string, spec: SpecificationContent, parentRunId: string): Promise<void> {
+    this.sql`INSERT OR REPLACE INTO derived_child (run_id, do_name, serves_clause, parent_run_id, oracle_ref, spec_content) VALUES (${runId}, ${doName}, ${spec.servesClause ?? null}, ${parentRunId}, ${spec.oracleRef}, ${JSON.stringify(spec)})`;
+    await this.scheduleReapFor(runId, doName, this.REAP_PER_ATTEMPT_CEILING_MS * spec.attemptBudget);
+  }
+
+  /** Track 3: schedule (or re-schedule, on retry) this ONE child's reap
+   *  check, storing the schedule id so it can be cancelled the moment the
+   *  child reports (`childCompleted`) without waiting for every sibling. */
+  private async scheduleReapFor(runId: string, doName: string, deadlineMs: number): Promise<void> {
+    const sched = await this.schedule(new Date(Date.now() + deadlineMs), "reapStuckChildren", { runId, doName });
+    this.sql`UPDATE derived_child SET reap_schedule_id = ${sched.id} WHERE run_id = ${runId}`;
+  }
+
+  /** Track 3: cancel THIS child's reap schedule -- called the moment it
+   *  reports (`childCompleted`), whether or not its siblings have yet. A
+   *  child that reports before its deadline needs no reaping; letting the
+   *  schedule fire anyway would be a wasted (harmless but sloppy) wake. */
+  private async cancelReapFor(runId: string): Promise<void> {
+    const row = [...this.sql<{ reap_schedule_id: string | null }>`SELECT reap_schedule_id FROM derived_child WHERE run_id = ${runId}`][0];
+    if (row?.reap_schedule_id) await this.cancelSchedule(row.reap_schedule_id);
   }
 
   /** Best-effort: record the derivation link in the cross-run index (D1),
@@ -628,16 +796,37 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
       admit: async (spec, parent) => {
         const parentId = idOf.get(parent) ?? rootNode.id;
         const doName = `derived-${crypto.randomUUID()}`;
-        const { runId } = await this.childStub(doName).admit(spec);
+        const { runId } = await this.childStub(doName).admit(spec, this.name);
         idOf.set(spec, runId);
         admittedRuns.push({ doName, runId, servesClause: spec.servesClause });
-        this.recordDerivedChild(runId, doName, spec.servesClause, parentId, spec.oracleRef);
+        await this.recordDerivedChild(runId, doName, spec, parentId);
         await this.recordDependsOn(runId, parentId, rootNode.id);
       },
     };
 
-    const summary = await runSpecLoop(root, ctx);
-    return { ...summary, admittedRuns };
+    // PLAYBOOK-KEEL-PARALLEL-SLICE-001 (Track 2 correctness finding, caught
+    // live): a FAST child's fiber can race ahead and call childCompleted
+    // WHILE this loop is still admitting its SIBLINGS (each ctx.admit
+    // round-trips to a different DO; the runtime can interleave an
+    // inbound RPC during that await). Without a guard, `composeIfAllReported`
+    // sees only the rows recorded SO FAR, treats that incomplete set as
+    // "everyone reported", and composes/persists prematurely -- the FINAL
+    // compose still eventually runs correctly once every child reports
+    // for real (compose_result is INSERT OR REPLACE, one row), but a
+    // caller reading `lastCompose` in between could observe a stale,
+    // too-early snapshot claiming the fan-out is done. `derive_state`
+    // brackets the whole admission loop so no compose is attempted until
+    // every child THIS derive() call is producing has actually been
+    // recorded -- then checks once more at the end, in case every child
+    // (fast ones) already finished while derive() was still running.
+    this.sql`INSERT OR REPLACE INTO derive_state (id, in_progress) VALUES (1, 1)`;
+    try {
+      const summary = await runSpecLoop(root, ctx);
+      return { ...summary, admittedRuns };
+    } finally {
+      this.sql`INSERT OR REPLACE INTO derive_state (id, in_progress) VALUES (1, 0)`;
+      await this.composeIfAllReported();
+    }
   }
 
   /** PLAYBOOK-KEEL-JOIN: read back what the derived children produced. Judges
@@ -835,6 +1024,168 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
     return { ready: true, clauses, seams };
   }
 
+  /** PLAYBOOK-KEEL-PARALLEL-SLICE-001 (Track 2, B.3/B.6): completion-push
+   *  wake. Called BY a derived child (via `this.childStub(parentDoName)` —
+   *  symmetric, same method a parent uses to reach a child) the moment
+   *  ITS OWN run reaches a terminal state (`admit()`, above). Dedupes by
+   *  `runId` against `derived_child` (already-reported is a no-op — Track
+   *  3's idempotent-late-completion-after-reap case lands here too, same
+   *  code path, no special casing needed). When EVERY recorded child has
+   *  reported, runs the SAME `compose()` this DO already exposes via
+   *  `POST /compose` — no new composition logic, no new admission path —
+   *  and persists the result (`compose_result`) so it's observable without
+   *  a caller having to poll `/compose` themselves (the whole point of the
+   *  push: the parent does the work the moment it CAN, not on next ask).
+   *  `join()`/`compose()`'s own pull-read stays exactly as it was — this
+   *  is purely the WAKE, not a replacement for the read (Track 2's own
+   *  instruction: additive, do not rip out the existing JOIN). */
+  async childCompleted(runId: string, terminalState: "ACCEPT" | "ESCALATE"): Promise<void> {
+    this.ensureSchema();
+    const row = [...this.sql<{ reported_state: string | null }>`SELECT reported_state FROM derived_child WHERE run_id = ${runId}`][0];
+    if (!row) return; // an unrecognized runId -- fail-safe no-op, never throws back at the reporting child
+    if (row.reported_state !== null) {
+      // Track 3 (D.5): idempotent late-completion-after-reap -- a no-op
+      // for compose (already resolved), but NOT a silent drop.
+      this.sql`INSERT INTO late_completion (run_id, terminal_state, reported_at) VALUES (${runId}, ${terminalState}, ${Date.now()})`;
+      return;
+    }
+    this.sql`UPDATE derived_child SET reported_state = ${terminalState} WHERE run_id = ${runId}`;
+    // Track 3: THIS child reported for real -- its own reaper is moot the
+    // moment it does, regardless of whether siblings are still pending.
+    await this.cancelReapFor(runId);
+    await this.composeIfAllReported();
+  }
+
+  /** Track 3 (B.4/B.5): fires per-child, at the budget-derived deadline.
+   *
+   *  PLAYBOOK-KEEL-PARALLEL-SLICE-001 correctness finding (caught live,
+   *  not in the original playbook text): checks the child's REAL state via
+   *  the existing PULL read (`childStub().result()`, the same one join()
+   *  uses) BEFORE assuming it's actually stuck. A push CAN be dropped (the
+   *  child's own admit()-fiber can race ahead of `recordDerivedChild`
+   *  finishing, or a transient RPC failure) -- if the pull shows the child
+   *  already reached ACCEPT/ESCALATE, this is really just a late/missed
+   *  `childCompleted`, handled the SAME way (record, cancel, maybe
+   *  compose), never re-admitted for nothing. Only a GENUINELY unfinished
+   *  child falls through to the actual reap:
+   *  First firing (`reap_attempts === 0`, "it may have hit a transient"):
+   *  re-admit the SAME recorded content once, through the exact same
+   *  `childStub().admit()` path derive()/disposeBacklog() already use --
+   *  `admit()`'s own idempotency (D7, keyed on the spec's content hash) is
+   *  what makes "poke it again" safe rather than a duplicate run -- and
+   *  schedule a second deadline. Second firing (still silent): fail-closed
+   *  -- mark this child ESCALATED (a sentinel distinct from a real
+   *  ACCEPT/ESCALATE the child itself reported) rather than retry forever;
+   *  `join()`'s own pull-read of an escalated child still correctly shows
+   *  its OWN real state (it genuinely never finished), so `compose()`
+   *  still honestly reports not-ready — reap unblocks the WAIT, it never
+   *  fabricates a result. A late `childCompleted` after escalation is
+   *  still caught by the `reported_state !== null` dedupe above, exactly
+   *  like any other already-reported case (INV: no special casing). */
+  async reapStuckChildren(payload: { runId: string; doName: string }): Promise<void> {
+    this.ensureSchema();
+    const row = [...this.sql<{ reported_state: string | null; reap_attempts: number; spec_content: string | null }>`
+      SELECT reported_state, reap_attempts, spec_content FROM derived_child WHERE run_id = ${payload.runId}`][0];
+    if (!row || row.reported_state !== null) return; // reported (or reaped away) since this schedule was set -- nothing to do
+
+    const real = await this.childStub(payload.doName).result();
+    if (real?.state === "ACCEPT" || real?.state === "ESCALATE") {
+      // The push never landed (a race or a transient), but the child
+      // genuinely finished -- the pull read is the source of truth here,
+      // same as join()'s own. Handle it exactly like childCompleted would.
+      await this.cancelReapFor(payload.runId);
+      this.sql`UPDATE derived_child SET reported_state = ${real.state} WHERE run_id = ${payload.runId}`;
+      await this.composeIfAllReported();
+      return;
+    }
+
+    if (row.reap_attempts === 0) {
+      this.sql`UPDATE derived_child SET reap_attempts = 1 WHERE run_id = ${payload.runId}`;
+      if (row.spec_content) {
+        try {
+          await this.childStub(payload.doName).admit(JSON.parse(row.spec_content), this.name);
+        } catch (e) {
+          console.error(`reap re-admit of "${payload.doName}" (run ${payload.runId}) failed`, e);
+        }
+      }
+      const content = row.spec_content ? (JSON.parse(row.spec_content) as SpecificationContent) : undefined;
+      await this.scheduleReapFor(payload.runId, payload.doName, this.REAP_PER_ATTEMPT_CEILING_MS * (content?.attemptBudget ?? 1));
+      return;
+    }
+
+    this.sql`UPDATE derived_child SET reported_state = 'ESCALATED' WHERE run_id = ${payload.runId}`;
+    await this.composeIfAllReported();
+  }
+
+  /** Shared by `childCompleted` and `reapStuckChildren`'s escalate path:
+   *  once every recorded child has EITHER genuinely reported OR been
+   *  reap-escalated, run the SAME `compose()` this DO already exposes via
+   *  `POST /compose` — no new composition logic, no new admission path —
+   *  and persist the result (`compose_result`) so it's observable without
+   *  a caller having to poll `/compose` themselves (the whole point of the
+   *  push: the parent does the work the moment it CAN, not on next ask).
+   *  `join()`/`compose()`'s own pull-read stays exactly as it was — this
+   *  is purely the WAKE, not a replacement for the read (Track 2's own
+   *  instruction: additive, do not rip out the existing JOIN). */
+  private async composeIfAllReported(): Promise<void> {
+    // Never while derive() is still admitting this generation's siblings
+    // (the race this table exists to close, see derive()'s own comment) --
+    // derive() itself re-checks once more the moment it finishes, so a
+    // deferral here is never a lost check, only a correctly-timed one.
+    const inProgress = [...this.sql<{ in_progress: number }>`SELECT in_progress FROM derive_state WHERE id = 1`][0];
+    if (inProgress?.in_progress === 1) return;
+
+    const all = [...this.sql<{ reported_state: string | null }>`SELECT reported_state FROM derived_child`];
+    const allReported = all.length > 0 && all.every((r) => r.reported_state !== null);
+    if (!allReported) return;
+    const result = await this.compose();
+    this.sql`INSERT OR REPLACE INTO compose_result (id, payload, at) VALUES (1, ${JSON.stringify(result)}, ${Date.now()})`;
+  }
+
+  /** Read-only: the compose result completion-push already produced, if
+   *  any -- lets a caller observe "did it compose yet" without triggering
+   *  `/compose`'s own (re-)computation. `null` before every child has
+   *  reported. */
+  async lastCompose(): Promise<{ readonly payload: unknown; readonly at: number } | null> {
+    this.ensureSchema();
+    const row = [...this.sql<{ payload: string; at: number }>`SELECT payload, at FROM compose_result WHERE id = 1`][0];
+    return row ? { payload: JSON.parse(row.payload), at: row.at } : null;
+  }
+
+  /** Read-only: every idempotent late-completion this DO has recorded
+   *  (Track 3, D.5) -- a child that reported after its reap already
+   *  escalated it. Observability only; never re-triggers compose. */
+  async lateCompletions(): Promise<readonly { runId: string; terminalState: string; reportedAt: number }[]> {
+    this.ensureSchema();
+    return [...this.sql<{ run_id: string; terminal_state: string; reported_at: number }>`SELECT run_id, terminal_state, reported_at FROM late_completion`]
+      .map((r) => ({ runId: r.run_id, terminalState: r.terminal_state, reportedAt: r.reported_at }));
+  }
+
+  /** Read-only: `derived_child`'s Track 2/3 bookkeeping (reported_state,
+   *  reap_attempts) alongside the fields `join()` already exposes --
+   *  diagnosis without a re-read (per the playbook's own "diagnose from
+   *  the log, not from a re-read"): a hang is almost always a child that
+   *  never called back (reported_state still null past its deadline) or a
+   *  parent still polling instead of hibernating (this endpoint existing
+   *  at all is the proof it doesn't have to). */
+  async debugFanout(): Promise<{
+    readonly children: readonly { runId: string; doName: string; servesClause: string | null; reportedState: string | null; reapAttempts: number; reapScheduleId: string | null }[];
+    readonly lastCompose: { readonly payload: unknown; readonly at: number } | null;
+    readonly lateCompletions: readonly { runId: string; terminalState: string; reportedAt: number }[];
+  }> {
+    this.ensureSchema();
+    const rows = [...this.sql<{ run_id: string; do_name: string; serves_clause: string | null; reported_state: string | null; reap_attempts: number; reap_schedule_id: string | null }>`
+      SELECT run_id, do_name, serves_clause, reported_state, reap_attempts, reap_schedule_id FROM derived_child`];
+    return {
+      children: rows.map((r) => ({
+        runId: r.run_id, doName: r.do_name, servesClause: r.serves_clause,
+        reportedState: r.reported_state, reapAttempts: r.reap_attempts, reapScheduleId: r.reap_schedule_id,
+      })),
+      lastCompose: await this.lastCompose(),
+      lateCompletions: await this.lateCompletions(),
+    };
+  }
+
   /** PLAYBOOK-KEEL-DERIV-AMEND (INV-DECOMP-8): `decide()` lifted to the
    *  DECOMPOSITION level — closes the loop A1–A9 left open. Every detection
    *  built so far (coverage gap, cross-cut fail, seam fail, spanning-
@@ -960,19 +1311,21 @@ export class Orchestrator extends Agent<Env> implements QueryPort {
     if (status === "admitted") {
       const parentId = entry.spec.derivedFrom?.parent ?? rootNode.id;
       const doName = `derived-${crypto.randomUUID()}`;
-      const { runId } = await this.childStub(doName).admit(entry.spec);
+      const { runId } = await this.childStub(doName).admit(entry.spec, this.name);
       // PLAYBOOK-KEEL-JOIN: a human-approved derived child is still a child
       // of this root's derivation tree — not just derive()'s auto-admit
       // branch. Omitting it here would leave the exact silent gap this
       // playbook exists to close, just reached via a different door.
-      this.recordDerivedChild(runId, doName, entry.spec.servesClause, parentId, entry.spec.oracleRef);
+      await this.recordDerivedChild(runId, doName, entry.spec, parentId);
       await this.recordDependsOn(runId, parentId, rootNode.id);
       return { disposed: true, doName, runId };
     }
     return { disposed: true };
   }
 
-  async result(): Promise<{ state: string | null; verdict: unknown; executionId: string | null; nodeKinds: string[] } | null> {
+  // `verdict: Json` (not `unknown`/`any`) matches `OrchestratorRpc.result()`
+  // above -- see that interface's comment for why (Track 1 finding).
+  async result(): Promise<{ state: string | null; verdict: Json; executionId: string | null; nodeKinds: string[] } | null> {
     this.ensureSchema();
     const rows = [...this.sql<{ state: string; verdict: string; execution_id: string | null }>`SELECT state, verdict, execution_id FROM run_terminal WHERE id = 1`];
     const kinds = [...this.sql<{ kind: string }>`SELECT kind FROM lineage_nodes`].map((r) => r.kind);

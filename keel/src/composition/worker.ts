@@ -14,6 +14,7 @@
  *   POST /propose-lift?name=<run>  body = LiftProposeInput       -> propose+challenge+surface a bare-example lift (PLAYBOOK-KEEL-PROPOSER-INTEGRATION-001, distinct from admit/approve)
  *   POST /approve-lift?name=<run>                                -> ratify the pending lift, write through freezeGate
  *   POST /reject-lift?name=<run>                                 -> reject the pending lift, writes nothing
+ *   GET  /debug/fanout?name=<run>                                -> Track 2/3 fan-out bookkeeping: reported_state/reap_attempts per child, the persisted compose result, late-completions (PLAYBOOK-KEEL-PARALLEL-SLICE-001)
  */
 export { Orchestrator } from "./orchestrator";
 export { CodemodeRuntime } from "@cloudflare/codemode";
@@ -55,6 +56,10 @@ type Stub = {
   proposeLift(input: LiftProposeInput): Promise<LiftProposeResult>;
   approveLift(): Promise<LiftApproveResult>;
   rejectLift(): Promise<{ rejected: boolean }>;
+  // PLAYBOOK-KEEL-PARALLEL-SLICE-001 (Track 2/3): read-only fan-out
+  // diagnosis -- reported_state/reap_attempts, the persisted compose
+  // result, and idempotent late-completions. Never triggers anything.
+  debugFanout(): Promise<unknown>;
 };
 
 function stub(env: Env, name: string): Stub {
@@ -221,6 +226,9 @@ const legacyHandler = {
       }
       if (req.method === "POST" && url.pathname === "/reject-lift") {
         return Response.json(await stub(env, name).rejectLift());
+      }
+      if (req.method === "GET" && url.pathname === "/debug/fanout") {
+        return Response.json(await stub(env, name).debugFanout());
       }
       if (req.method === "GET" && url.pathname === "/backlog") {
         return Response.json(await stub(env, name).listBacklog());
@@ -437,7 +445,7 @@ const legacyHandler = {
     } catch (e) {
       return Response.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 });
     }
-    return new Response("KEEL. POST /admit?name=X (Specification JSON) · GET /result?name=X · GET /timeline?name=X · GET /debug/nodes?name=X · POST /approve?name=X · POST /derive?name=X · POST /join?name=X · POST /compose?name=X · POST /derive-amend?name=X&budget=N · GET /backlog?name=X · POST /backlog/dispose?name=X {id,status} · GET /runs[?terminal=] · POST /improve/procedures {names,regressionNames?,minRepeats?} · GET /improve/procedures?key=X · POST /improve/procedures/rollback {key} · GET /improve/procedures/proposed[?key=] · POST /improve/procedures/approve-replay {id} · POST /improve/harness-fix {surfaces,n,baseAccepts,imprAccepts,regression?} · POST /improve/procedures/adds-value {attemptsUnderFixedHarness,attemptsUnderProcedure,criticalDeterminism?} · POST /propose-lift?name=X {parent,root,criterionId,family,disposition,actionCode,cases?,caseLegitimacy?,domainOwnerConfirmed?,policy} · POST /approve-lift?name=X · POST /reject-lift?name=X\n");
+    return new Response("KEEL. POST /admit?name=X (Specification JSON) · GET /result?name=X · GET /timeline?name=X · GET /debug/nodes?name=X · POST /approve?name=X · POST /derive?name=X · POST /join?name=X · POST /compose?name=X · POST /derive-amend?name=X&budget=N · GET /backlog?name=X · POST /backlog/dispose?name=X {id,status} · GET /runs[?terminal=] · POST /improve/procedures {names,regressionNames?,minRepeats?} · GET /improve/procedures?key=X · POST /improve/procedures/rollback {key} · GET /improve/procedures/proposed[?key=] · POST /improve/procedures/approve-replay {id} · POST /improve/harness-fix {surfaces,n,baseAccepts,imprAccepts,regression?} · POST /improve/procedures/adds-value {attemptsUnderFixedHarness,attemptsUnderProcedure,criticalDeterminism?} · POST /propose-lift?name=X {parent,root,criterionId,family,disposition,actionCode,cases?,caseLegitimacy?,domainOwnerConfirmed?,policy} · POST /approve-lift?name=X · POST /reject-lift?name=X · GET /debug/fanout?name=X\n");
   },
 };
 
