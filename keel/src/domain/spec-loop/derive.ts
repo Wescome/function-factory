@@ -68,6 +68,12 @@ export function templateDerive(parent: SpecificationContent, root: Specification
   // `inheritsSpanning` exists for the untrusted (model) deriver that will not
   // do this.
   const spanningClauses = parent.acceptance.filter((c) => spanning.includes(c.id));
+  // PLAYBOOK-KEEL-HANDOFF-001 (C2, INV-HANDOFF-DECLARED): carry the served
+  // clause's OWN `dependsOn` onto the CHILD spec as `dependsOnClauses` --
+  // the child no longer has sibling criteria to hang the declaration on
+  // once it's a standalone spec. Absent/empty on a clause -> absent on its
+  // child (Track C, additive; `dependsOnClauses` stays undefined exactly
+  // like `spanning`/`forbids` do for a spec that declares neither).
   return parent.acceptance.map((c) => ({
     ...parent,
     intent: `${parent.intent} — sub-goal: return a result object with the field(s) described by: ${c.statement}`,
@@ -75,6 +81,7 @@ export function templateDerive(parent: SpecificationContent, root: Specification
     forbids,
     spanning,
     servesClause: c.id,
+    dependsOnClauses: c.dependsOn?.length ? c.dependsOn : undefined,
   }));
 }
 

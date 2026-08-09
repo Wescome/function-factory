@@ -352,6 +352,19 @@ const SUITES: Record<string, OracleSuite> = {
     ref: "wr-clean@v1",
     assertions: [{ criterionId: "A1", kind: "example", expr: "trace.result && trace.result.phase === 2 && trace.result.aGone === true && trace.result.bGone === true" }],
   },
+  // PLAYBOOK-KEEL-HANDOFF-001 (C2): a two-clause decomposable root, UP and
+  // DOWN — templateDerive gives each its own child (own DO, own trace), same
+  // discipline as compose-dead@v1's R1/R2. `observe` on both so join()
+  // reports a real value under each servesClause, letting a test read the
+  // upstream's actual output back off the DOWNSTREAM child's own
+  // `consumesResults` reference.
+  "handoff@v1": {
+    ref: "handoff@v1",
+    assertions: [
+      { criterionId: "UP", kind: "example", expr: "trace.result && trace.result.value === 42", observe: "trace.result.value" },
+      { criterionId: "DOWN", kind: "example", expr: "trace.result && trace.result.value === 42", observe: "trace.result.value" },
+    ],
+  },
 };
 
 export interface OracleSuiteRegistry {

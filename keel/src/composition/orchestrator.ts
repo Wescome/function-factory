@@ -36,7 +36,7 @@ import { SandboxOracleAdapter } from "../adapters/oracle/sandbox-oracle.adapter"
 import { GroundingGateAdapter } from "../adapters/grounding/grounding-gate.adapter";
 import { ScriptedJudgeAdapter } from "../adapters/grounding/scripted-judge.adapter";
 import { InMemorySuiteRegistry } from "../adapters/oracle/suite";
-import { LineageDoAdapter } from "../adapters/persistence/lineage-do.adapter";
+import { LineageDoAdapter, computeSpecId } from "../adapters/persistence/lineage-do.adapter";
 import { D1CrossRunAdapter } from "../adapters/persistence/d1-cross-run.adapter";
 import { ScriptedModelAdapter } from "../adapters/model/scripted-model.adapter";
 import { FixedCodeModelAdapter } from "../adapters/model/fixed-code.adapter";
@@ -88,6 +88,17 @@ type Json = JsonPrimitive | JsonArray | JsonObject;
 // `DurableObjectStub` require; `Orchestrator` already carries it via its own
 // inheritance chain (Agent -> Server -> DurableObject), so nothing extra is
 // needed at the call site for that part to typecheck.
+// PLAYBOOK-KEEL-HANDOFF-001 (C2): the columns `evaluateReadiness`/
+// `buildConsumesResults` (Orchestrator, below) read off a sibling row --
+// never the full `derived_child` shape, so a caller only has to select
+// what it actually needs.
+interface SiblingRow {
+  readonly run_id: string;
+  readonly do_name: string;
+  readonly serves_clause: string | null;
+  readonly reported_state: string | null;
+}
+
 interface OrchestratorRpc extends Rpc.DurableObjectBranded {
   admit(content: SpecificationContent, parentDoName?: string): Promise<{ accepted: boolean; status: string; runId: string }>;
   result(): Promise<{ state: string | null; verdict: Json; executionId: string | null; nodeKinds: string[] } | null>;
@@ -164,6 +175,13 @@ const RESERVED_INTENTS = new Set([
   // PLAYBOOK-KEEL-PARALLEL-SLICE-001: deterministic -- see scripted-model.adapter.ts.
   "stuck-fanout-test — sub-goal: return a result object with the field(s) described by: FAST marker",
   "stuck-fanout-test — sub-goal: return a result object with the field(s) described by: STUCK marker",
+  // PLAYBOOK-KEEL-HANDOFF-001 (C2): deterministic -- see scripted-model.adapter.ts.
+  "handoff-test — sub-goal: return a result object with the field(s) described by: UP marker",
+  "handoff-test — sub-goal: return a result object with the field(s) described by: DOWN marker",
+  "handoff-cycle-test — sub-goal: return a result object with the field(s) described by: CYCLE-A marker",
+  "handoff-cycle-test — sub-goal: return a result object with the field(s) described by: CYCLE-B marker",
+  "handoff-stuck-test — sub-goal: return a result object with the field(s) described by: UP marker",
+  "handoff-stuck-test — sub-goal: return a result object with the field(s) described by: DOWN marker",
 ]);
 
 // The foreign connector's KEEL-authored tool config — the SAME text is used to
@@ -384,6 +402,21 @@ export class Orchestrator extends Agent<Env> implements QueryPort, OrchestratorR
     // Track 3: the child's own admitted content, so a re-admit-on-reap
     // needs nothing the caller has to keep around separately.
     this.ensureColumn("derived_child", "spec_content", "TEXT");
+    // PLAYBOOK-KEEL-HANDOFF-001 (C2, Track 1): `depends_on` is this row's OWN
+    // declared sibling servesClause ids (JSON array; NULL for a plain,
+    // dependency-free child -- Track C, additive). `held` is 1 from the
+    // moment a dependent child is first recorded (at FAN-OUT, never at
+    // release -- see admit()'s ctx.admit closure) until it is actually
+    // admitted (0 for every plain child, always). A held row's `run_id` is
+    // a synthetic `held:<doName>` placeholder (never a real content hash --
+    // the real hash isn't knowable until `consumesResults` is filled in at
+    // release) until release re-keys it to the real, admitted spec's id
+    // BEFORE ever calling admit() on it (closes the same race C1's own
+    // `derive_state.in_progress` guard exists for: the row must be
+    // findable under its REAL run_id before the child could possibly call
+    // childCompleted with it).
+    this.ensureColumn("derived_child", "depends_on", "TEXT");
+    this.ensureColumn("derived_child", "held", "INTEGER NOT NULL DEFAULT 0");
     // Track 2: the compose result, persisted the moment completion-push
     // triggers it (not just computed fresh on the next `/compose` poll) --
     // makes "composed without polling" observable. Same shape `compose()`
@@ -711,8 +744,18 @@ export class Orchestrator extends Agent<Env> implements QueryPort, OrchestratorR
    *  derives this child's own reap deadline. Schedules the reaper the
    *  moment the child is recorded (B.4: per-child, not per-join -- one
    *  slow child never blocks scheduling for the others). */
-  private async recordDerivedChild(runId: string, doName: string, spec: SpecificationContent, parentRunId: string): Promise<void> {
-    this.sql`INSERT OR REPLACE INTO derived_child (run_id, do_name, serves_clause, parent_run_id, oracle_ref, spec_content) VALUES (${runId}, ${doName}, ${spec.servesClause ?? null}, ${parentRunId}, ${spec.oracleRef}, ${JSON.stringify(spec)})`;
+  /** PLAYBOOK-KEEL-HANDOFF-001 (C2): `dependsOn` is additive and optional --
+   *  absent (the default) for `disposeBacklog()`'s human-approved admission
+   *  (a disclosed, unchanged scope cut: C2's holding is `derive()`'s
+   *  auto-admit path only) and for any plain child, byte-identical to
+   *  before this playbook. Present only for a dependency-bearing child that
+   *  was ALREADY ready at the moment it was first considered (its
+   *  dependencies were satisfied by a PRIOR attempt's already-accepted
+   *  siblings, e.g. under `deriveAmend`'s re-derivation) -- the common
+   *  hold-then-release path re-keys a row directly (see
+   *  `releaseSettledHeldChildren`), never through this method. */
+  private async recordDerivedChild(runId: string, doName: string, spec: SpecificationContent, parentRunId: string, dependsOn?: readonly string[]): Promise<void> {
+    this.sql`INSERT OR REPLACE INTO derived_child (run_id, do_name, serves_clause, parent_run_id, oracle_ref, spec_content, depends_on, held) VALUES (${runId}, ${doName}, ${spec.servesClause ?? null}, ${parentRunId}, ${spec.oracleRef}, ${JSON.stringify(spec)}, ${dependsOn?.length ? JSON.stringify(dependsOn) : null}, 0)`;
     await this.scheduleReapFor(runId, doName, this.REAP_PER_ATTEMPT_CEILING_MS * spec.attemptBudget);
   }
 
@@ -731,6 +774,99 @@ export class Orchestrator extends Agent<Env> implements QueryPort, OrchestratorR
   private async cancelReapFor(runId: string): Promise<void> {
     const row = [...this.sql<{ reap_schedule_id: string | null }>`SELECT reap_schedule_id FROM derived_child WHERE run_id = ${runId}`][0];
     if (row?.reap_schedule_id) await this.cancelSchedule(row.reap_schedule_id);
+  }
+
+  /** PLAYBOOK-KEEL-HANDOFF-001 (C2, INV-HANDOFF-DECLARED/-PROPAGATE): "no
+   *  row yet" and "row exists but not yet ACCEPT" are the SAME "not
+   *  satisfied" -- release is driven entirely by the LATER `childCompleted`/
+   *  reap event (`releaseSettledHeldChildren`, below), never by which order
+   *  `runSpecLoop` happens to process this batch's candidates in. ANY
+   *  declared dependency that has already failed (a real ESCALATE, or the
+   *  reaper's own 'ESCALATED' sentinel) propagates immediately -- a child
+   *  is never left holding on a upstream that will never arrive. */
+  private evaluateReadiness(dependsOn: readonly string[], siblingRows: readonly SiblingRow[]): "ready" | "hold" | "escalate" {
+    const states = dependsOn.map((dep) => siblingRows.find((r) => r.serves_clause === dep)?.reported_state ?? null);
+    if (states.some((s) => s === "ESCALATE" || s === "ESCALATED")) return "escalate";
+    if (states.every((s) => s === "ACCEPT")) return "ready";
+    return "hold";
+  }
+
+  /** PLAYBOOK-KEEL-HANDOFF-001 (C2): the REFERENCE (never the materialized
+   *  artifact -- see `consumesResults`'s own doc, nodes.ts) each satisfied
+   *  dependency resolves to, keyed by the upstream's OWN servesClause. Only
+   *  ever called once `evaluateReadiness` has already returned "ready" for
+   *  the SAME `dependsOn`/`siblingRows` pair, so every lookup here is
+   *  guaranteed to find a row. */
+  private buildConsumesResults(dependsOn: readonly string[], siblingRows: readonly SiblingRow[]): Record<string, { runId: string; doName: string }> {
+    const out: Record<string, { runId: string; doName: string }> = {};
+    for (const dep of dependsOn) {
+      const row = siblingRows.find((r) => r.serves_clause === dep);
+      if (row) out[dep] = { runId: row.run_id, doName: row.do_name };
+    }
+    return out;
+  }
+
+  /** PLAYBOOK-KEEL-HANDOFF-001 (C2, Track 2/3): re-evaluate every currently
+   *  HELD sibling of `parentRunId` against the latest recorded state.
+   *  Called from the SAME two events that already drive every other Track-2/
+   *  3 reaction -- `childCompleted` (a real completion) and
+   *  `reapStuckChildren`'s escalate/late-pull branches (a reap-driven
+   *  resolution) -- no new trigger invented, reusing C1's own shipped wake.
+   *
+   *  A fixpoint over the held set: a RELEASED child never itself resolves
+   *  synchronously here (its own completion is a later, separate event that
+   *  will call back into this same method again) -- but a PROPAGATED
+   *  escalation IS a synchronous local write, so a multi-hop escalation
+   *  chain (A -> B -> C, A fails) resolves fully within one pass instead of
+   *  waiting for an event a never-admitted child could never produce.
+   *
+   *  Re-keys a held row from its `held:<doName>` placeholder to the REAL
+   *  admitted spec's id BEFORE calling admit() on it (never after) --
+   *  otherwise an unusually fast child could call childCompleted with its
+   *  real id before this method's own UPDATE ran, and childCompleted's
+   *  "unrecognized runId" fail-safe would silently swallow it. */
+  private async releaseSettledHeldChildren(parentRunId: string): Promise<void> {
+    const rootNode = await this.findRoot();
+    const rootId = rootNode?.id ?? parentRunId;
+    for (;;) {
+      const rows = [...this.sql<SiblingRow & { spec_content: string | null; depends_on: string | null; held: number }>`
+        SELECT run_id, do_name, serves_clause, reported_state, spec_content, depends_on, held
+        FROM derived_child WHERE parent_run_id = ${parentRunId}`];
+      const held = rows.filter((r) => r.held === 1);
+      if (held.length === 0) return;
+      let changed = false;
+      for (const row of held) {
+        const dependsOn: string[] = row.depends_on ? JSON.parse(row.depends_on) : [];
+        const readiness = this.evaluateReadiness(dependsOn, rows);
+        if (readiness === "hold") continue;
+        changed = true;
+        if (readiness === "escalate") {
+          this.sql`UPDATE derived_child SET reported_state = 'ESCALATED', held = 0 WHERE run_id = ${row.run_id}`;
+          continue;
+        }
+        const spec = row.spec_content ? (JSON.parse(row.spec_content) as SpecificationContent) : null;
+        if (!spec) {
+          // Defensive only -- every held row is recorded WITH its own
+          // spec_content at fan-out (admit()'s ctx.admit closure); this
+          // should never be reachable, but a held row that could never be
+          // admitted must still resolve rather than hang forever.
+          this.sql`UPDATE derived_child SET reported_state = 'ESCALATED', held = 0 WHERE run_id = ${row.run_id}`;
+          continue;
+        }
+        const consumesResults = this.buildConsumesResults(dependsOn, rows);
+        const specWithRefs: SpecificationContent = { ...spec, consumesResults };
+        const realRunId = await computeSpecId(specWithRefs);
+        this.sql`UPDATE derived_child SET run_id = ${realRunId}, held = 0, spec_content = ${JSON.stringify(specWithRefs)} WHERE run_id = ${row.run_id}`;
+        await this.scheduleReapFor(realRunId, row.do_name, this.REAP_PER_ATTEMPT_CEILING_MS * specWithRefs.attemptBudget);
+        try {
+          await this.childStub(row.do_name).admit(specWithRefs, this.name);
+        } catch (e) {
+          console.error(`release-admit of "${row.do_name}" (run ${realRunId}) failed`, e);
+        }
+        await this.recordDependsOn(realRunId, parentRunId, rootId);
+      }
+      if (!changed) return;
+    }
   }
 
   /** Best-effort: record the derivation link in the cross-run index (D1),
@@ -796,10 +932,71 @@ export class Orchestrator extends Agent<Env> implements QueryPort, OrchestratorR
       admit: async (spec, parent) => {
         const parentId = idOf.get(parent) ?? rootNode.id;
         const doName = `derived-${crypto.randomUUID()}`;
-        const { runId } = await this.childStub(doName).admit(spec, this.name);
+        const dependsOn = spec.dependsOnClauses ?? [];
+
+        if (dependsOn.length === 0) {
+          // Byte-identical to before this playbook (Track C, additive) --
+          // no dependency declared, admit immediately.
+          const { runId } = await this.childStub(doName).admit(spec, this.name);
+          idOf.set(spec, runId);
+          admittedRuns.push({ doName, runId, servesClause: spec.servesClause });
+          await this.recordDerivedChild(runId, doName, spec, parentId);
+          await this.recordDependsOn(runId, parentId, rootNode.id);
+          return;
+        }
+
+        // PLAYBOOK-KEEL-HANDOFF-001 (C2, Track 1, INV-HANDOFF-DECLARED): a
+        // dependency IS declared -- evaluate readiness against whatever
+        // this parent's OTHER children have already recorded. checkDependencyGraph
+        // (runSpecLoop, before ctx.admit is ever called) already guarantees
+        // every dependsOnClauses id names a real SIBLING in this SAME batch
+        // -- a truly dangling reference fails the whole batch upstream and
+        // never reaches here.
+        const siblingRows = [...this.sql<SiblingRow>`
+          SELECT run_id, do_name, serves_clause, reported_state FROM derived_child WHERE parent_run_id = ${parentId}`];
+        const readiness = this.evaluateReadiness(dependsOn, siblingRows);
+
+        if (readiness === "escalate") {
+          // An upstream this child depends on has ALREADY failed
+          // (INV-HANDOFF-PROPAGATE) -- record this child as escalated too,
+          // WITHOUT ever admitting it. The placeholder id is fine here
+          // since nothing was ever admitted under it -- no inbound
+          // childCompleted will ever need to find this row by a real id.
+          const placeholderId = `held:${doName}`;
+          this.sql`INSERT OR REPLACE INTO derived_child
+            (run_id, do_name, serves_clause, parent_run_id, oracle_ref, spec_content, depends_on, held, reported_state)
+            VALUES (${placeholderId}, ${doName}, ${spec.servesClause ?? null}, ${parentId}, ${spec.oracleRef ?? null}, ${JSON.stringify(spec)}, ${JSON.stringify(dependsOn)}, 0, 'ESCALATED')`;
+          return;
+        }
+
+        if (readiness === "hold") {
+          // The held-at-fan-out anchor (mirrors C1's own derive_state.
+          // in_progress principle): recorded HERE, inside the SAME
+          // in_progress-bracketed pass fan-out already uses -- never
+          // deferred to release time -- so composeIfAllReported's
+          // completeness check always sees the full, monotonic row set for
+          // this generation, whether a child is held or immediate. No reap
+          // scheduled for a held child -- it is transitively bounded by its
+          // own upstream's reaper (releaseSettledHeldChildren reacts the
+          // moment that upstream resolves, one way or the other).
+          const placeholderId = `held:${doName}`;
+          this.sql`INSERT OR REPLACE INTO derived_child
+            (run_id, do_name, serves_clause, parent_run_id, oracle_ref, spec_content, depends_on, held, reported_state)
+            VALUES (${placeholderId}, ${doName}, ${spec.servesClause ?? null}, ${parentId}, ${spec.oracleRef ?? null}, ${JSON.stringify(spec)}, ${JSON.stringify(dependsOn)}, 1, NULL)`;
+          return;
+        }
+
+        // ready -- every declared dependency was ALREADY satisfied at the
+        // moment this candidate was first considered (a re-derivation whose
+        // prior-attempt siblings already reported ACCEPT under the SAME
+        // content-addressed rows). Admit now, with the satisfied upstreams'
+        // references attached (consumesResults is a REFERENCE only).
+        const consumesResults = this.buildConsumesResults(dependsOn, siblingRows);
+        const specWithRefs: SpecificationContent = { ...spec, consumesResults };
+        const { runId } = await this.childStub(doName).admit(specWithRefs, this.name);
         idOf.set(spec, runId);
         admittedRuns.push({ doName, runId, servesClause: spec.servesClause });
-        await this.recordDerivedChild(runId, doName, spec, parentId);
+        await this.recordDerivedChild(runId, doName, specWithRefs, parentId, dependsOn);
         await this.recordDependsOn(runId, parentId, rootNode.id);
       },
     };
@@ -1041,7 +1238,7 @@ export class Orchestrator extends Agent<Env> implements QueryPort, OrchestratorR
    *  instruction: additive, do not rip out the existing JOIN). */
   async childCompleted(runId: string, terminalState: "ACCEPT" | "ESCALATE"): Promise<void> {
     this.ensureSchema();
-    const row = [...this.sql<{ reported_state: string | null }>`SELECT reported_state FROM derived_child WHERE run_id = ${runId}`][0];
+    const row = [...this.sql<{ reported_state: string | null; parent_run_id: string | null }>`SELECT reported_state, parent_run_id FROM derived_child WHERE run_id = ${runId}`][0];
     if (!row) return; // an unrecognized runId -- fail-safe no-op, never throws back at the reporting child
     if (row.reported_state !== null) {
       // Track 3 (D.5): idempotent late-completion-after-reap -- a no-op
@@ -1053,6 +1250,12 @@ export class Orchestrator extends Agent<Env> implements QueryPort, OrchestratorR
     // Track 3: THIS child reported for real -- its own reaper is moot the
     // moment it does, regardless of whether siblings are still pending.
     await this.cancelReapFor(runId);
+    // PLAYBOOK-KEEL-HANDOFF-001 (C2, Track 2): the SAME event that already
+    // drove `composeIfAllReported` now ALSO releases (or propagate-
+    // escalates) any HELD sibling waiting on this one -- before the
+    // completeness check, so a newly-released/escalated row is already
+    // reflected in it.
+    if (row.parent_run_id) await this.releaseSettledHeldChildren(row.parent_run_id);
     await this.composeIfAllReported();
   }
 
@@ -1084,8 +1287,8 @@ export class Orchestrator extends Agent<Env> implements QueryPort, OrchestratorR
    *  like any other already-reported case (INV: no special casing). */
   async reapStuckChildren(payload: { runId: string; doName: string }): Promise<void> {
     this.ensureSchema();
-    const row = [...this.sql<{ reported_state: string | null; reap_attempts: number; spec_content: string | null }>`
-      SELECT reported_state, reap_attempts, spec_content FROM derived_child WHERE run_id = ${payload.runId}`][0];
+    const row = [...this.sql<{ reported_state: string | null; reap_attempts: number; spec_content: string | null; parent_run_id: string | null }>`
+      SELECT reported_state, reap_attempts, spec_content, parent_run_id FROM derived_child WHERE run_id = ${payload.runId}`][0];
     if (!row || row.reported_state !== null) return; // reported (or reaped away) since this schedule was set -- nothing to do
 
     const real = await this.childStub(payload.doName).result();
@@ -1095,6 +1298,7 @@ export class Orchestrator extends Agent<Env> implements QueryPort, OrchestratorR
       // same as join()'s own. Handle it exactly like childCompleted would.
       await this.cancelReapFor(payload.runId);
       this.sql`UPDATE derived_child SET reported_state = ${real.state} WHERE run_id = ${payload.runId}`;
+      if (row.parent_run_id) await this.releaseSettledHeldChildren(row.parent_run_id);
       await this.composeIfAllReported();
       return;
     }
@@ -1113,7 +1317,15 @@ export class Orchestrator extends Agent<Env> implements QueryPort, OrchestratorR
       return;
     }
 
+    // PLAYBOOK-KEEL-HANDOFF-001 (C2, Track 3, INV-HANDOFF-PROPAGATE): the
+    // second silent deadline fail-closes this child AND cascades that
+    // failure to every held sibling that consumes it -- the SAME mechanism
+    // childCompleted's own real-completion path already reuses, so a stuck
+    // upstream unblocks its downstreams exactly like a reported one does,
+    // never leaving them held forever waiting on an event that a genuinely
+    // stuck child will never produce.
     this.sql`UPDATE derived_child SET reported_state = 'ESCALATED' WHERE run_id = ${payload.runId}`;
+    if (row.parent_run_id) await this.releaseSettledHeldChildren(row.parent_run_id);
     await this.composeIfAllReported();
   }
 
@@ -1169,17 +1381,27 @@ export class Orchestrator extends Agent<Env> implements QueryPort, OrchestratorR
    *  parent still polling instead of hibernating (this endpoint existing
    *  at all is the proof it doesn't have to). */
   async debugFanout(): Promise<{
-    readonly children: readonly { runId: string; doName: string; servesClause: string | null; reportedState: string | null; reapAttempts: number; reapScheduleId: string | null }[];
+    readonly children: readonly {
+      runId: string; doName: string; servesClause: string | null; reportedState: string | null;
+      reapAttempts: number; reapScheduleId: string | null;
+      // PLAYBOOK-KEEL-HANDOFF-001 (C2): "diagnose from the log, not from a
+      // re-read" -- a hang now can ALSO be a held child whose declared
+      // dependency never resolves; these two fields make that visible the
+      // same way reportedState/reapAttempts already make a stuck fan-out
+      // visible.
+      held: boolean; dependsOn: readonly string[];
+    }[];
     readonly lastCompose: { readonly payload: unknown; readonly at: number } | null;
     readonly lateCompletions: readonly { runId: string; terminalState: string; reportedAt: number }[];
   }> {
     this.ensureSchema();
-    const rows = [...this.sql<{ run_id: string; do_name: string; serves_clause: string | null; reported_state: string | null; reap_attempts: number; reap_schedule_id: string | null }>`
-      SELECT run_id, do_name, serves_clause, reported_state, reap_attempts, reap_schedule_id FROM derived_child`];
+    const rows = [...this.sql<{ run_id: string; do_name: string; serves_clause: string | null; reported_state: string | null; reap_attempts: number; reap_schedule_id: string | null; depends_on: string | null; held: number }>`
+      SELECT run_id, do_name, serves_clause, reported_state, reap_attempts, reap_schedule_id, depends_on, held FROM derived_child`];
     return {
       children: rows.map((r) => ({
         runId: r.run_id, doName: r.do_name, servesClause: r.serves_clause,
         reportedState: r.reported_state, reapAttempts: r.reap_attempts, reapScheduleId: r.reap_schedule_id,
+        held: r.held === 1, dependsOn: r.depends_on ? JSON.parse(r.depends_on) : [],
       })),
       lastCompose: await this.lastCompose(),
       lateCompletions: await this.lateCompletions(),
@@ -1327,6 +1549,20 @@ export class Orchestrator extends Agent<Env> implements QueryPort, OrchestratorR
   // above -- see that interface's comment for why (Track 1 finding).
   async result(): Promise<{ state: string | null; verdict: Json; executionId: string | null; nodeKinds: string[] } | null> {
     this.ensureSchema();
+    // PLAYBOOK-KEEL-HANDOFF-001 (C2) correctness finding (caught live, not
+    // in the original playbook text): `lineage_nodes` is created by
+    // `repo()` (LineageDoAdapter's own constructor), not by `ensureSchema`
+    // above -- every pre-C2 caller of `result()` was always reached on a DO
+    // that had already gone through `admit()` at least once (which calls
+    // `repo()`), so this table always happened to already exist. C2's
+    // propagate-escalate path (`releaseSettledHeldChildren`) is the FIRST
+    // case where `derived_child` can hold a row for a DO that was NEVER
+    // admitted at all -- join()'s pull-read of that row's `result()` then
+    // hit a bare `SELECT ... FROM lineage_nodes` on a table that was never
+    // created, crashing instead of returning the documented `null`. `repo()`
+    // is idempotent (`CREATE TABLE IF NOT EXISTS`), so calling it here is a
+    // no-op on every OTHER (already-admitted) caller.
+    this.repo();
     const rows = [...this.sql<{ state: string; verdict: string; execution_id: string | null }>`SELECT state, verdict, execution_id FROM run_terminal WHERE id = 1`];
     const kinds = [...this.sql<{ kind: string }>`SELECT kind FROM lineage_nodes`].map((r) => r.kind);
     const r = rows[0];

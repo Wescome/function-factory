@@ -90,6 +90,18 @@ export interface AcceptanceCriterion {
    *  (`freezeGate`'s `familyAdmissibleForDisposition`, closing D1's
    *  OD-DISP-4 -- was a surfaced warning, now a hard reject). */
   readonly family?: PropertyFamily;
+  /** PLAYBOOK-KEEL-HANDOFF-001 (C2, INV-HANDOFF-DECLARED): SIBLING clause
+   *  ids (within this SAME parent's `acceptance`) that this clause's
+   *  derived child depends on -- declared at decomposition, never
+   *  discovered ("declare the order, discover the files": the opposite of
+   *  a slice's discovered file set). `templateDerive` (derive.ts) carries
+   *  this onto the child spec it produces for this clause as
+   *  `dependsOnClauses` (a SpecificationContent-level field, since the
+   *  child no longer HAS sibling criteria to hang it on -- it's a
+   *  standalone spec by the time it's admitted). The logic for WHAT
+   *  depends on what (the deriver's own dependency-declaration pass) is
+   *  input to this playbook, not built here (Track E). */
+  readonly dependsOn?: readonly string[];
 }
 
 export interface SpecificationContent {
@@ -168,6 +180,27 @@ export interface SpecificationContent {
     readonly authority?: string;
     readonly rationale?: string;
   }[];
+  /** PLAYBOOK-KEEL-HANDOFF-001 (C2): `templateDerive`'s carry of the served
+   *  clause's OWN `dependsOn` (nodes.ts, above) -- SIBLING `servesClause`
+   *  ids (among the SAME batch of children this spec was derived
+   *  alongside) this spec's run must wait on. Absent/empty -> admitted
+   *  immediately at fan-out, exactly as every spec before this playbook
+   *  (Track C, additive). The wiring (held admission, event-driven
+   *  release, escalation propagation) lives in the orchestrator
+   *  (composition/orchestrator.ts); this field is the frozen, declared
+   *  fact it acts on. */
+  readonly dependsOnClauses?: readonly string[];
+  /** PLAYBOOK-KEEL-HANDOFF-001 (C2): populated by the orchestrator at
+   *  RELEASE time (or immediately, if every dependency was already
+   *  satisfied at fan-out) -- the REFERENCE (content-hash `runId` + the
+   *  addressing `doName`) to each upstream this spec consumes, keyed by
+   *  the upstream's `servesClause`. A reference only: this does NOT
+   *  materialize the upstream's actual artifact into this spec's own
+   *  execution context (the verified-artifact handoff is a named
+   *  fast-follow, needs C1b's Workspace-per-slice layer) -- a downstream
+   *  that needs the upstream's real output queries it explicitly, through
+   *  the SAME cross-DO surface any caller would. */
+  readonly consumesResults?: Readonly<Record<string, { readonly runId: string; readonly doName: string }>>;
 }
 export type Specification = LineageNode<"Specification", SpecificationContent>;
 

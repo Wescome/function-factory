@@ -101,6 +101,11 @@ export { runSpecLoop } from "./spec-loop/loop";
 // (untrusted deriver, set-level check) before anything is admitted.
 export type { CoverageReport } from "./spec-loop/coverage";
 export { clauseIds, checkCoverage } from "./spec-loop/coverage";
+// PLAYBOOK-KEEL-HANDOFF-001 (C2, Track 1): the dependency-DAG whole-batch
+// check, the same shape/discipline as checkCoverage above -- a cycle or a
+// dangling dependency fail-closes the batch (C2a; SCC-collapse is C2b).
+export type { DagEdge, DependencyReport } from "./spec-loop/dag";
+export { checkDependencyGraph } from "./spec-loop/dag";
 // PLAYBOOK-KEEL-DERIV-AMEND (INV-DECOMP-8): decide()'s exit policy, lifted
 // to the decomposition level — consumes coverage/compose verdicts, does not
 // re-implement them.

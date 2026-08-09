@@ -13,6 +13,7 @@ import type { Deriver, DerivationEvidence } from "./derive";
 import { freezeGate, type GatePolicy } from "./gate";
 import type { BacklogStore } from "./backlog";
 import { checkCoverage } from "./coverage";
+import { checkDependencyGraph } from "./dag";
 
 export interface SpecLoopBound {
   readonly maxDepth: number;
@@ -45,11 +46,21 @@ export interface SpecLoopSummary {
    *  (non-empty) iff at least one parent's expansion was stopped for
    *  under-coverage; accumulated across every such parent in this run. */
   coverageGap?: readonly string[];
+  /** PLAYBOOK-KEEL-HANDOFF-001 (C2, Track 1, INV-HANDOFF-CYCLE): servesClause
+   *  ids caught in a declared-dependency cycle, or naming a dependency that
+   *  doesn't resolve to any sibling in its own batch (a malformed
+   *  declaration that would otherwise hold a child forever, uncaught by
+   *  any reaper). Additive/optional, same shape as `coverageGap` — present
+   *  (non-empty) iff at least one parent's batch failed the check;
+   *  accumulated across every such parent in this run. Fail-closed:
+   *  SCC-collapse (no-human) is C2b, not built here. */
+  dependencyCycle?: readonly string[];
 }
 
 export async function runSpecLoop(root: SpecificationContent, ctx: SpecLoopCtx): Promise<SpecLoopSummary> {
   const sum: SpecLoopSummary = { derived: 0, admitted: 0, deferred: 0, rejected: 0, escalated: false };
   const coverageGap = new Set<string>();
+  const dependencyCycle = new Set<string>();
   const queue: { spec: SpecificationContent; depth: number }[] = [{ spec: root, depth: 0 }];
   while (queue.length) {
     const { spec: parent, depth } = queue.shift()!;
@@ -72,6 +83,19 @@ export async function runSpecLoop(root: SpecificationContent, ctx: SpecLoopCtx):
       continue;
     }
 
+    // PLAYBOOK-KEEL-HANDOFF-001 (C2, Track 1): the SAME whole-batch, before-
+    // any-admit shape as checkCoverage above -- a cycle (or a dependency
+    // naming a non-sibling) fail-closes THIS parent's whole batch, never a
+    // partial admit, never a silent hang. SCC-collapse (no-human) is C2b;
+    // this spike escalates instead.
+    const dependency = checkDependencyGraph(candidates);
+    if (!dependency.ok) {
+      for (const id of dependency.cycleNodes) dependencyCycle.add(id);
+      for (const e of dependency.danglingEdges) dependencyCycle.add(e.downstream);
+      sum.escalated = true;
+      continue;
+    }
+
     for (const cand of candidates) {
       if (sum.derived >= ctx.bound.budget) { sum.escalated = true; break; } // budget bound (fail-closed)
       sum.derived++;
@@ -89,5 +113,6 @@ export async function runSpecLoop(root: SpecificationContent, ctx: SpecLoopCtx):
     if (sum.escalated) break;
   }
   if (coverageGap.size) sum.coverageGap = [...coverageGap].sort();
+  if (dependencyCycle.size) sum.dependencyCycle = [...dependencyCycle].sort();
   return sum;
 }

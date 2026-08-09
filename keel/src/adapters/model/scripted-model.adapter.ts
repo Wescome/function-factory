@@ -199,6 +199,37 @@ return { latitude: 0, longitude: 0, temperature_c: w.current.temperature_2m };`;
         return { code: `return { value: 42 };`, connectors: ["echo"] };
       case "stuck-fanout-test — sub-goal: return a result object with the field(s) described by: STUCK marker":
         return { code: `const g = await gate.commit({ value: 42 }); return g;`, connectors: ["gate"] };
+      // PLAYBOOK-KEEL-HANDOFF-001 (C2): a decomposable root with an UP leaf
+      // (no dependency) and a DOWN leaf (`dependsOn: ["UP"]`) -- both
+      // deterministically produce { value: 42 }, which handoff@v1 (suite.ts)
+      // checks under each clause's own servesClause. Named/anchored the same
+      // way stuck-fanout-test above is, for the same reason: deterministic
+      // live verification, no real-model variance.
+      case "handoff-test — sub-goal: return a result object with the field(s) described by: UP marker":
+      case "handoff-test — sub-goal: return a result object with the field(s) described by: DOWN marker":
+        return { code: `return { value: 42 };`, connectors: ["echo"] };
+      // PLAYBOOK-KEEL-HANDOFF-001 (C2): a two-clause root where BOTH children
+      // declare a dependency on the OTHER -- a direct cycle, mutually
+      // referencing SIBLING servesClause ids (INV-HANDOFF-DECLARED). Never
+      // actually reaches a real model call (checkDependencyGraph fails the
+      // whole batch before ctx.admit is ever invoked) -- these cases exist
+      // only so the fixture typechecks/derives identically to every other
+      // anchor test if that check were ever bypassed.
+      case "handoff-cycle-test — sub-goal: return a result object with the field(s) described by: CYCLE-A marker":
+      case "handoff-cycle-test — sub-goal: return a result object with the field(s) described by: CYCLE-B marker":
+        return { code: `return { value: 42 };`, connectors: ["echo"] };
+      // PLAYBOOK-KEEL-HANDOFF-001 (C2, Track 3): UP calls the approval-gated
+      // connector and is never approved in this fixture (same STUCK shape as
+      // stuck-fanout-test above) -- deterministically "an upstream that will
+      // never report" for escalation-propagation testing, without depending
+      // on real wall-clock timing races. DOWN (`dependsOn: ["UP"]`) is never
+      // reached by a real model call if propagation works -- present only so
+      // the fixture typechecks/derives identically to every other anchor
+      // test if it ever were.
+      case "handoff-stuck-test — sub-goal: return a result object with the field(s) described by: UP marker":
+        return { code: `const g = await gate.commit({ value: 42 }); return g;`, connectors: ["gate"] };
+      case "handoff-stuck-test — sub-goal: return a result object with the field(s) described by: DOWN marker":
+        return { code: `return { value: 42 };`, connectors: ["echo"] };
       case "foreign-denied":
         return { code: `return await foreignDenied.lookup({});`, connectors: ["foreignDenied"] };
       // PLAYBOOK-KEEL-WORKSPACE-001: clone a tiny public repo (depth 1), glob

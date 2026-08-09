@@ -1,5 +1,5 @@
 import type {
-  LineageRepositoryPort, ContentHash, NodeInput, AnyNode, DomainEvent,
+  LineageRepositoryPort, ContentHash, NodeInput, AnyNode, DomainEvent, SpecificationContent,
 } from "../../domain/index";
 
 // Canonical JSON with sorted keys, so identical content hashes identically.
@@ -14,6 +14,20 @@ function canonical(v: unknown): string {
 async function sha256hex(s: string): Promise<string> {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// PLAYBOOK-KEEL-HANDOFF-001 (C2, Track 1): `append`'s own id computation,
+// exported so a caller can PRE-COMPUTE a fresh Specification's eventual
+// runId before ever calling admit() -- needed to record a HELD child's
+// `derived_child` row (primary key `run_id`) at fan-out time, before it is
+// actually admitted. Reuses the exact same `canonical`+`sha256hex` this
+// file's own `append` uses (never a second, divergence-prone copy) --
+// correct only because a fresh admission's `provenance` is always `[]`
+// (mirrored here as a literal, not a parameter, so this can never be called
+// with a non-fresh provenance and silently mismatch a real `append`).
+export async function computeSpecId(content: SpecificationContent): Promise<ContentHash> {
+  const body = canonical({ kind: "Specification", content, provenance: [] });
+  return (await sha256hex(body)) as ContentHash;
 }
 
 type Sql = <T = Record<string, unknown>>(strings: TemplateStringsArray, ...values: unknown[]) => Iterable<T>;
