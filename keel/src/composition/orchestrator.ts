@@ -7,7 +7,8 @@
 import { Agent } from "agents";
 import { Workspace } from "@cloudflare/shell";
 import { runLoop, resumeApproved, type RunPorts, type RunTerminal } from "../domain/loop/run";
-import type { Specification, SpecificationContent, AcceptanceCriterion, ContentHash, AnyNode, DomainEvent, VerdictContent } from "../domain/index";
+import type { Specification, SpecificationContent, AcceptanceCriterion, ContentHash, AnyNode, DomainEvent, VerdictContent, ExecutionTraceContent } from "../domain/index";
+import { checkFileOverlap, type FileOverlap } from "../domain/index";
 import type { QueryPort, CustodyView, TimelineEntry, ReplaySnapshot, ReplayConsistency, CrossRunRecord } from "../domain/index";
 import { timeline as projTimeline, replayTo as projReplayTo, verifyReplay as projVerifyReplay, crossRunRecord as projCrossRun } from "../domain/index";
 import { runSpecLoop, templateDeriver, requiresApprovalFor, decideDecomp, failureToEvidence } from "../domain/index";
@@ -107,6 +108,10 @@ interface OrchestratorRpc extends Rpc.DurableObjectBranded {
   // parent-to-child one -- the namespace is symmetric, see childStub()'s
   // own comment).
   childCompleted(runId: string, terminalState: "ACCEPT" | "ESCALATE"): Promise<void>;
+  // PLAYBOOK-KEEL-SLICE-FILES-001 (C1b, Track 2): this DO's own discovered
+  // written-file set -- called BY join() on every recorded child, the SAME
+  // cross-DO direction result() already reaches in.
+  writtenFiles(): Promise<readonly string[]>;
 }
 
 export interface Env {
@@ -182,6 +187,11 @@ const RESERVED_INTENTS = new Set([
   "handoff-cycle-test — sub-goal: return a result object with the field(s) described by: CYCLE-B marker",
   "handoff-stuck-test — sub-goal: return a result object with the field(s) described by: UP marker",
   "handoff-stuck-test — sub-goal: return a result object with the field(s) described by: DOWN marker",
+  // PLAYBOOK-KEEL-SLICE-FILES-001 (C1b): deterministic -- see scripted-model.adapter.ts.
+  "seam-disjoint-test — sub-goal: return a result object with the field(s) described by: X marker",
+  "seam-disjoint-test — sub-goal: return a result object with the field(s) described by: Y marker",
+  "seam-overlap-test — sub-goal: return a result object with the field(s) described by: X marker",
+  "seam-overlap-test — sub-goal: return a result object with the field(s) described by: Y marker",
 ]);
 
 // The foreign connector's KEEL-authored tool config — the SAME text is used to
@@ -266,6 +276,14 @@ export interface JoinChildReport {
    *  forward as `DerivationEvidence`. Empty (never absent) when the child
    *  hasn't finished or has no verdict. */
   readonly spanningUncheckable: readonly string[];
+  /** PLAYBOOK-KEEL-SLICE-FILES-001 (C1b, Track 2, INV-SLICE-DISCOVERED): this
+   *  child's own discovered written-file set — the union of every
+   *  write-effectful `state.*` call's touched path(s), across every
+   *  ExecutionTrace this child ever recorded. A plain observed set: never
+   *  declared, never guessed, no rollback inference (see `writtenFiles()`'s
+   *  own doc for why). Empty for a child that never wrote a file (or was
+   *  never admitted at all — a C2 propagate-escalated held child). */
+  readonly writtenFiles: readonly string[];
 }
 
 /** PLAYBOOK-KEEL-COMPOSE: one parent cross-cut clause's verdict. `outputs` is
@@ -302,9 +320,25 @@ export class Orchestrator extends Agent<Env> implements QueryPort, OrchestratorR
   private __rt?: CodemodeHandle;
   private __ws?: Workspace;
   /** PLAYBOOK-KEEL-WORKSPACE-001 (B.2): one Workspace on the Orchestrator,
-   *  backed by the DO's own SQLite — not keyed per slice (a later playbook).
-   *  No R2 bucket is bound in wrangler.jsonc; files spill to inline SQLite
-   *  storage under the (default 1.5MB) inlineThreshold, fine for this spike. */
+   *  backed by the DO's own SQLite. No R2 bucket is bound in wrangler.jsonc;
+   *  files spill to inline SQLite storage under the (default 1.5MB)
+   *  inlineThreshold, fine for this spike.
+   *
+   *  PLAYBOOK-KEEL-SLICE-FILES-001 (C1b, Track 1, INV-SLICE-ISOLATED)
+   *  CONFIRMED, not built: this getter is already isolated per slice, for
+   *  free, with no new infrastructure. Every C1/C2 derived child is admitted
+   *  into its OWN Orchestrator DO instance (`derive()`'s `ctx.admit`, one
+   *  `doName = derived-${crypto.randomUUID()}` per child — "one Specification
+   *  per DO" has held since Phase 6a, OD-6a-5). `storage.sql` is THIS DO
+   *  instance's own SQLite (a Cloudflare platform guarantee — never shared
+   *  across DO instances), and `name: () => this.name` keys the Workspace by
+   *  THIS DO's own addressing name (its `doName`) — a stable 1:1 key per
+   *  admitted child, not literally the child's content-hash runId (the
+   *  brief's own phrasing, "sub-spec id / child runId", is loose on this
+   *  point — doName is what's actually available inside the child's own DO
+   *  constructor, and it is 1:1 with the eventual runId regardless). Net:
+   *  N slices already means N Workspace DOs, N disjoint disks — confirmed by
+   *  reading the live C1/C2 admission path, not assumed. */
   private get workspace(): Workspace {
     if (!this.__ws) {
       const storage = this.ctx.storage;
@@ -1046,7 +1080,14 @@ export class Orchestrator extends Agent<Env> implements QueryPort, OrchestratorR
       SELECT run_id, do_name, serves_clause, parent_run_id, oracle_ref FROM derived_child`];
 
     const children = await Promise.all(rows.map(async (row): Promise<JoinChildReport> => {
-      const r = await this.childStub(row.do_name).result();
+      // PLAYBOOK-KEEL-SLICE-FILES-001 (C1b, Track 2): the SAME cross-DO pull
+      // result() already does, run alongside it -- writtenFiles() is
+      // similarly safe to call on a never-admitted (C2 propagate-escalated
+      // held) child, returning an empty set rather than throwing.
+      const [r, writtenFiles] = await Promise.all([
+        this.childStub(row.do_name).result(),
+        this.childStub(row.do_name).writtenFiles(),
+      ]);
       const terminal = r?.state ?? null;
       const verdict = (r?.verdict ?? null) as VerdictContent | null;
       const outcome = verdict?.outcome ?? null;
@@ -1078,6 +1119,7 @@ export class Orchestrator extends Agent<Env> implements QueryPort, OrchestratorR
         observable,
         observed,
         spanningUncheckable: evidence?.spanningUncheckable ?? [],
+        writtenFiles,
       };
     }));
 
@@ -1102,10 +1144,21 @@ export class Orchestrator extends Agent<Env> implements QueryPort, OrchestratorR
    *  admission path, no second gather). Runs in the same independent sandbox
    *  every other oracle runs in (`rt.tool().execute`) — no model judges its
    *  own composition. */
-  async compose(): Promise<{ ready: boolean; clauses: readonly ComposeClauseVerdict[]; seams: readonly ComposeClauseVerdict[] } | { error: string }> {
+  async compose(): Promise<{ ready: boolean; clauses: readonly ComposeClauseVerdict[]; seams: readonly ComposeClauseVerdict[]; fileOverlaps?: readonly FileOverlap[] } | { error: string }> {
     const j = await this.join();
     if ("error" in j) return j;
     if (!j.ready) return { ready: false, clauses: [], seams: [] }; // cannot compose an unfinished tree — no partial composition
+
+    // PLAYBOOK-KEEL-SLICE-FILES-001 (C1b, Track 3, INV-SLICE-SEAM-FLOOR): a
+    // NEW gate in front of the existing result-composition logic below --
+    // additive, that logic is untouched. Two children that touched the SAME
+    // file are an unresolved overlap; the floor refuses to compose past it
+    // (surfaced here, never merged in parallel). Sequenced-merge resolution
+    // and richer auto-sequencing are named fast-follows, not built here.
+    const overlapReport = checkFileOverlap(j.children.map((c) => ({ id: c.servesClause ?? c.runId, writtenFiles: c.writtenFiles })));
+    if (!overlapReport.ok) {
+      return { ready: false, clauses: [], seams: [], fileOverlaps: overlapReport.overlaps };
+    }
 
     const rootNode = await this.findRoot();
     if (!rootNode) return { error: "no human-authored root Specification found for this run" };
@@ -1568,6 +1621,46 @@ export class Orchestrator extends Agent<Env> implements QueryPort, OrchestratorR
     const r = rows[0];
     if (!r) return kinds.length ? { state: null, verdict: null, executionId: null, nodeKinds: kinds } : null;
     return { state: r.state, verdict: JSON.parse(r.verdict ?? "null"), executionId: r.execution_id, nodeKinds: kinds };
+  }
+
+  /** PLAYBOOK-KEEL-SLICE-FILES-001 (C1b, Track 2, INV-SLICE-DISCOVERED): the
+   *  union of every write-effectful `state.*` call's touched path(s), across
+   *  EVERY `ExecutionTrace` this run ever recorded (every attempt) -- a
+   *  plain OBSERVED set, never declared/guessed, and deliberately no
+   *  rollback inference: the playbook's own text is "a plain observed set —
+   *  path in, no inference," so this does NOT try to exclude a later-
+   *  reverted attempt's writes (PLAYBOOK-KEEL-WRITE-ROLLBACK-001 reverts a
+   *  discarded attempt's WORKSPACE content, but its ExecutionTrace node
+   *  still honestly records what was attempted — that recorded fact is what
+   *  this reads, not a re-derivation of current Workspace state).
+   *  `mv` touches BOTH `src` (removed) and `dest` (created); `cp` touches
+   *  ONLY `dest` (the connector's own doc: "src is untouched by cp").
+   *
+   *  `repo()` first, same fix as `result()` above -- a C2 propagate-
+   *  escalated held child can be queried here having never been admitted at
+   *  all, so `lineage_nodes` may not exist yet without this. */
+  async writtenFiles(): Promise<readonly string[]> {
+    this.ensureSchema();
+    const repo = this.repo();
+    const nodes = await repo.loadRun();
+    const files = new Set<string>();
+    for (const n of nodes) {
+      if (n.kind !== "ExecutionTrace") continue;
+      const calls = (n.content as ExecutionTraceContent).calls ?? [];
+      for (const c of calls) {
+        if (c.connector !== "state") continue;
+        const args = c.args as Record<string, unknown> | undefined;
+        if (c.method === "writeFile" || c.method === "rm") {
+          if (typeof args?.path === "string") files.add(args.path);
+        } else if (c.method === "mv") {
+          if (typeof args?.src === "string") files.add(args.src);
+          if (typeof args?.dest === "string") files.add(args.dest);
+        } else if (c.method === "cp") {
+          if (typeof args?.dest === "string") files.add(args.dest);
+        }
+      }
+    }
+    return [...files].sort();
   }
 
   // --- QueryPort (M4, read side) --------------------------------------------

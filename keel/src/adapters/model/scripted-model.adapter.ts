@@ -230,6 +230,19 @@ return { latitude: 0, longitude: 0, temperature_c: w.current.temperature_2m };`;
         return { code: `const g = await gate.commit({ value: 42 }); return g;`, connectors: ["gate"] };
       case "handoff-stuck-test — sub-goal: return a result object with the field(s) described by: DOWN marker":
         return { code: `return { value: 42 };`, connectors: ["echo"] };
+      // PLAYBOOK-KEEL-SLICE-FILES-001 (C1b): two siblings that write DISJOINT
+      // files -- the seam's existing result-composition path, unaffected by
+      // the new overlap gate (it passes through, ok, nothing to report).
+      case "seam-disjoint-test — sub-goal: return a result object with the field(s) described by: X marker":
+        return { code: `const r = await state.writeFile({ path: "x-only.ts", content: "x" }); return { ok: r.ok };`, connectors: ["state"] };
+      case "seam-disjoint-test — sub-goal: return a result object with the field(s) described by: Y marker":
+        return { code: `const r = await state.writeFile({ path: "y-only.ts", content: "y" }); return { ok: r.ok };`, connectors: ["state"] };
+      // PLAYBOOK-KEEL-SLICE-FILES-001 (C1b): two siblings that BOTH write the
+      // SAME file -- the seam floor must refuse to compose past this.
+      case "seam-overlap-test — sub-goal: return a result object with the field(s) described by: X marker":
+        return { code: `const r = await state.writeFile({ path: "shared.ts", content: "from X" }); return { ok: r.ok };`, connectors: ["state"] };
+      case "seam-overlap-test — sub-goal: return a result object with the field(s) described by: Y marker":
+        return { code: `const r = await state.writeFile({ path: "shared.ts", content: "from Y" }); return { ok: r.ok };`, connectors: ["state"] };
       case "foreign-denied":
         return { code: `return await foreignDenied.lookup({});`, connectors: ["foreignDenied"] };
       // PLAYBOOK-KEEL-WORKSPACE-001: clone a tiny public repo (depth 1), glob

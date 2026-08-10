@@ -106,6 +106,11 @@ export { clauseIds, checkCoverage } from "./spec-loop/coverage";
 // dangling dependency fail-closes the batch (C2a; SCC-collapse is C2b).
 export type { DagEdge, DependencyReport } from "./spec-loop/dag";
 export { checkDependencyGraph } from "./spec-loop/dag";
+// PLAYBOOK-KEEL-SLICE-FILES-001 (C1b, Track 3): the file-overlap half of the
+// composition seam, same shape/discipline as checkCoverage/checkDependencyGraph
+// above -- an unresolved overlap refuses to compose (the floor).
+export type { ChildFileSet, FileOverlap, FileOverlapReport } from "./spec-loop/seam-files";
+export { checkFileOverlap } from "./spec-loop/seam-files";
 // PLAYBOOK-KEEL-DERIV-AMEND (INV-DECOMP-8): decide()'s exit policy, lifted
 // to the decomposition level — consumes coverage/compose verdicts, does not
 // re-implement them.

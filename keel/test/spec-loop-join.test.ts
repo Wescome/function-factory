@@ -123,10 +123,12 @@ describe("PLAYBOOK-KEEL-JOIN — the join", () => {
     for (const c of j.children) {
       // PLAYBOOK-KEEL-DERIV-AMEND added `spanningUncheckable` — a per-child
       // fact (which of its OWN spanning ids had no assertion), not a
-      // judgment about this decomposition; still no verdict/composition
-      // field.
+      // judgment about this decomposition. PLAYBOOK-KEEL-SLICE-FILES-001
+      // (C1b) added `writtenFiles` — a per-child OBSERVED fact (which paths
+      // this child's own write calls touched), same tier, still no verdict/
+      // composition field.
       expect(Object.keys(c).sort()).toEqual(
-        ["doName", "observable", "observed", "outcome", "parentRunId", "runId", "servesClause", "spanningUncheckable", "terminal"].sort(),
+        ["doName", "observable", "observed", "outcome", "parentRunId", "runId", "servesClause", "spanningUncheckable", "terminal", "writtenFiles"].sort(),
       );
     }
     expect(Object.keys(j).sort()).toEqual(["children", "ready"]);

@@ -365,6 +365,17 @@ const SUITES: Record<string, OracleSuite> = {
       { criterionId: "DOWN", kind: "example", expr: "trace.result && trace.result.value === 42", observe: "trace.result.value" },
     ],
   },
+  // PLAYBOOK-KEEL-SLICE-FILES-001 (C1b): a two-clause decomposable root, X
+  // and Y -- no composes/seams declared, so an honest disjoint decomposition
+  // composes {ready:true, clauses:[], seams:[]} exactly as before this
+  // playbook (the new file-overlap gate is the only thing that can stop it).
+  "seam-files@v1": {
+    ref: "seam-files@v1",
+    assertions: [
+      { criterionId: "X", kind: "example", expr: "trace.result && trace.result.ok === true" },
+      { criterionId: "Y", kind: "example", expr: "trace.result && trace.result.ok === true" },
+    ],
+  },
 };
 
 export interface OracleSuiteRegistry {
