@@ -606,8 +606,14 @@ export class ReviewService {
    *
    * The Landed event and every downstream rebase consequence are appended as
    * one batch: the review history never observes a half-landed series.
+   *
+   * PLAYBOOK-KEEL-SCR-PORT-2, Track 2 finding: `async`, unlike SCR's own
+   * synchronous `land()`. The ONLY reason -- `Composer.compose()` (vcs.ts)
+   * is now `Promise`-returning, because KEEL's real git surface has no
+   * synchronous write path (see that interface's own doc). This is the
+   * single contained ripple: every OTHER method on this class is untouched.
    */
-  land(actorId: string, seriesId: string, changeIds: string[]): string {
+  async land(actorId: string, seriesId: string, changeIds: string[]): Promise<string> {
     const m = this.model;
     const s = m.series.get(seriesId);
     if (!s) throw new InvariantViolation('INV-5', `unknown series ${seriesId}`);
@@ -745,7 +751,7 @@ export class ReviewService {
         revisionHash: head.hash,
       };
     });
-    const composed = this.#composer.compose(baseSha, layers);
+    const composed = await this.#composer.compose(baseSha, layers);
     const landedShas = composed.shas;
 
     const landEventId = this.#id('land');

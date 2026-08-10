@@ -45,7 +45,7 @@ interface RunResult {
  * not a failure -- refusals are the invariants doing their job -- but the
  * refusal must be an InvariantViolation naming an invariant, never a crash.
  */
-function fuzz(log: DoReviewLog, seed: number, steps: number): RunResult {
+async function fuzz(log: DoReviewLog, seed: number, steps: number): Promise<RunResult> {
   const r = rng(seed);
   const pick = <T>(xs: T[]): T => xs[Math.floor(r() * xs.length)] as T;
 
@@ -62,7 +62,7 @@ function fuzz(log: DoReviewLog, seed: number, steps: number): RunResult {
    * unweighted generator spends almost all of its budget opening changes
    * and being refused, which proves the refusals work and nothing else.
    */
-  const commands: [number, () => void][] = [
+  const commands: [number, () => void | Promise<void>][] = [
     [4, () => {
       const m = svc.model;
       const open = m.openOrder(s).filter((id) => m.hasContent(id));
@@ -161,13 +161,13 @@ function fuzz(log: DoReviewLog, seed: number, steps: number): RunResult {
       const id = pick(open);
       svc.openThread("bob", id, pick([...m.head(id)!.hunks]), "q");
     }],
-    [4, () => {
+    [4, async () => {
       const m = svc.model;
       const open = m.openOrder(s);
       if (!open.length) throw new InvariantViolation("N/A", "nothing to land");
       const k = 1 + Math.floor(r() * Math.min(open.length, 3));
       const ids = r() < 0.2 ? [pick(open)] : open.slice(0, k);
-      svc.land("wes", s, ids);
+      await svc.land("wes", s, ids);
       landed += ids.length;
       scripted.adopt(svc.model.series.get(s)!.targetSha);
     }],
@@ -182,11 +182,11 @@ function fuzz(log: DoReviewLog, seed: number, steps: number): RunResult {
     }],
   ];
 
-  const weighted = commands.flatMap(([w, fn]) => Array<() => void>(w).fill(fn));
+  const weighted = commands.flatMap(([w, fn]) => Array<() => void | Promise<void>>(w).fill(fn));
 
   for (let i = 0; i < steps; i++) {
     try {
-      pick(weighted)();
+      await pick(weighted)();
       accepted++;
     } catch (e) {
       if (!(e instanceof InvariantViolation)) {

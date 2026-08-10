@@ -8,7 +8,7 @@
 import { describe, it, expect } from "vitest";
 import { ReviewService } from "../src/scr/service";
 import { audit } from "../src/scr/audit";
-import { withLog, h, expectInvariant } from "./scr-testkit";
+import { withLog, h, expectInvariant, expectInvariantAsync } from "./scr-testkit";
 
 /**
  *      D          D depends on both branches
@@ -87,24 +87,24 @@ describe("DAG shape", () => {
 
 describe("INV-5 generalised to downward-closed sets", () => {
   it("landing a branch without its shared ancestor is refused", async () => {
-    await withLog((log) => {
+    await withLog(async (log) => {
       const { svc, s, b } = diamond(log);
-      expectInvariant(() => svc.land("wes", s, [b]), "INV-5");
+      await expectInvariantAsync(() => svc.land("wes", s, [b]), "INV-5");
     });
   });
 
   it("landing a merge point without both branches is refused", async () => {
-    await withLog((log) => {
+    await withLog(async (log) => {
       const { svc, s, a, b, d } = diamond(log);
-      expectInvariant(() => svc.land("wes", s, [a, b, d]), "INV-5");
+      await expectInvariantAsync(() => svc.land("wes", s, [a, b, d]), "INV-5");
     });
   });
 
   it("one branch lands without the other, because a sibling is not an ancestor", async () => {
-    await withLog((log) => {
+    await withLog(async (log) => {
       const { svc, s, a, b, c, d } = diamond(log);
       authorise(svc, [a, b]);
-      svc.land("wes", s, [a, b]);
+      await svc.land("wes", s, [a, b]);
 
       expect(svc.model.state(b)).toBe("LANDED");
       expect(svc.model.changes.get(c)!.landed).toBe(false);
@@ -114,10 +114,10 @@ describe("INV-5 generalised to downward-closed sets", () => {
   });
 
   it("the set is composed in topological order regardless of how it was asked for", async () => {
-    await withLog((log) => {
+    await withLog(async (log) => {
       const { svc, s, a, b, c, d } = diamond(log);
       authorise(svc, [a, b, c, d]);
-      svc.land("wes", s, [d, c, b, a]);
+      await svc.land("wes", s, [d, c, b, a]);
 
       const landed = svc.model.lands[0]!.changeIds;
       expect(landed[0]).toBe(a);
@@ -128,7 +128,7 @@ describe("INV-5 generalised to downward-closed sets", () => {
 
 describe("the cost of a diamond, made explicit", () => {
   it("two branches clean against their parent but not each other are caught at land", async () => {
-    await withLog((log) => {
+    await withLog(async (log) => {
       const { svc, s, a, b, c } = diamond(log, { collide: true });
       authorise(svc, [a, b, c]);
 
@@ -137,7 +137,7 @@ describe("the cost of a diamond, made explicit", () => {
 
       let threw: unknown;
       try {
-        svc.land("wes", s, [a, b, c]);
+        await svc.land("wes", s, [a, b, c]);
       } catch (e) {
         threw = e;
       }
@@ -148,10 +148,10 @@ describe("the cost of a diamond, made explicit", () => {
   });
 
   it("landing them one at a time surfaces the same conflict as a rebase", async () => {
-    await withLog((log) => {
+    await withLog(async (log) => {
       const { svc, s, a, b, c } = diamond(log, { collide: true });
       authorise(svc, [a, b]);
-      svc.land("wes", s, [a, b]);
+      await svc.land("wes", s, [a, b]);
 
       expect(svc.model.state(c)).toBe("CONFLICTED");
     });

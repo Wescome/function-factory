@@ -76,14 +76,31 @@ export interface ComposeResult {
 /**
  * Port. The core never constructs a commit itself — INV-2 depends on the core
  * being unable to bind review state to whatever this returns.
+ *
+ * PLAYBOOK-KEEL-SCR-PORT-2, Track 2 finding (disclosed deviation from SCR's
+ * own sync signature): `Promise<ComposeResult>`, not `ComposeResult`. SCR's
+ * own composer never needed this -- `node:child_process`'s `execFileSync`
+ * and `node:sqlite`'s `DatabaseSync` are both genuinely synchronous, so
+ * `GitComposer.compose()` (real git, on SCR's own substrate) could stay
+ * sync. KEEL's real git surface (`@cloudflare/shell`'s `createGit`, backed
+ * by the Workspace's DO storage) has NO synchronous write path at all --
+ * every `add`/`commit` call is a `Promise`. There is no way to write a real
+ * git object against this substrate without awaiting I/O, so the port
+ * cannot stay sync the way PORT-1's `EventLog`/`Keyring` did. The ripple is
+ * fully contained: only `Composer.compose()` (and, in service.ts,
+ * `ReviewService.land()`, the ONE method that calls it) is now async --
+ * every other `ReviewService` method (openSeries, openChange, appendRevision,
+ * recordVerdict, ...) is untouched, still fully synchronous.
  */
 export interface Composer {
-  compose(baseSha: string, layers: ComposeLayer[]): ComposeResult;
+  compose(baseSha: string, layers: ComposeLayer[]): Promise<ComposeResult>;
 }
 
-/** Deterministic hash chain. Used by the unit suite; no repository required. */
+/** Deterministic hash chain. Used by the unit suite; no repository required.
+ *  `async` only to satisfy the (now Promise-returning) `Composer` port above
+ *  -- the logic itself is unchanged and does no real I/O. */
 export class SimulatedComposer implements Composer {
-  compose(baseSha: string, layers: ComposeLayer[]): ComposeResult {
+  async compose(baseSha: string, layers: ComposeLayer[]): Promise<ComposeResult> {
     let running = baseSha;
     const shas = layers.map((l) => {
       running = sha(`${running}\u0000${l.revisionHash}`);

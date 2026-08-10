@@ -13,7 +13,7 @@ import { ReviewService } from "../src/scr/service";
 import { interdiff } from "../src/scr/interdiff";
 import { audit } from "../src/scr/audit";
 import type { DoReviewLog } from "../src/adapters/persistence/scr-review-log-do.adapter";
-import { withLog, h, expectInvariant } from "./scr-testkit";
+import { withLog, h, expectInvariant, expectInvariantAsync } from "./scr-testkit";
 
 /** Three-layer series, each layer approved by `rev` and integrated-checked. */
 function stack(log: DoReviewLog, reviewers = ["rev"]) {
@@ -38,12 +38,12 @@ function approveAndCheck(svc: ReviewService, ids: string[], reviewer = "rev") {
 
 describe("INV-1 CHANGE-IDENTITY-STABLE", () => {
   it("id survives revision, reorder and the landing of a lower layer", async () => {
-    await withLog((log) => {
+    await withLog(async (log) => {
       const { svc, s, a, b, c } = stack(log);
       svc.appendRevision("wes", c, [h("c.ts", "top", "C2")]);
       svc.reorder("wes", s, [a, c, b]);
       approveAndCheck(svc, [a]);
-      svc.land("wes", s, [a]);
+      await svc.land("wes", s, [a]);
 
       const m = svc.model;
       expect(m.changes.has(c)).toBe(true);
@@ -55,12 +55,12 @@ describe("INV-1 CHANGE-IDENTITY-STABLE", () => {
 
 describe("INV-2 VERDICT-BINDS-REVISION", () => {
   it("no verdict event carries a SHA, and verdicts outlive SHA rewriting", async () => {
-    await withLog((log) => {
+    await withLog(async (log) => {
       const { svc, s, a, b, c } = stack(log);
       approveAndCheck(svc, [a, b, c]);
       const vBefore = svc.model.liveVerdicts(c).map((v) => v.verdictId);
 
-      svc.land("wes", s, [a]);
+      await svc.land("wes", s, [a]);
 
       const v = svc.model.verdicts.get(vBefore[0]!)!;
       expect(typeof v.revisionSeq).toBe("number");
@@ -76,11 +76,11 @@ describe("INV-2 VERDICT-BINDS-REVISION", () => {
 
 describe("INV-3 CARRY-FORWARD-IS-EXPLICIT", () => {
   it("empty in-scope interdiff carries forward and records its hash", async () => {
-    await withLog((log) => {
+    await withLog(async (log) => {
       const { svc, s, a, c } = stack(log);
       approveAndCheck(svc, [a, c]);
       const before = svc.model.liveVerdicts(c)[0]!.verdictId;
-      svc.land("wes", s, [a]);
+      await svc.land("wes", s, [a]);
 
       const carried = svc.model.liveVerdicts(c)[0]!;
       expect(carried.carriedFrom).toBe(before);
@@ -123,12 +123,12 @@ describe("INV-3 CARRY-FORWARD-IS-EXPLICIT", () => {
   });
 
   it("landing is refused when a required approval is stale", async () => {
-    await withLog((log) => {
+    await withLog(async (log) => {
       const { svc, s, a } = stack(log);
       approveAndCheck(svc, [a]);
       svc.appendRevision("wes", a, [h("a.ts", "top", "A2")]);
       svc.recordCheck("ci", a, "integrated", "pass");
-      expectInvariant(() => svc.land("wes", s, [a]), "INV-3");
+      await expectInvariantAsync(() => svc.land("wes", s, [a]), "INV-3");
     });
   });
 });
@@ -147,18 +147,18 @@ describe("INV-4 TWO-AXIS-CHECK", () => {
   });
 
   it("isolated checks do not gate landing; integrated ones do", async () => {
-    await withLog((log) => {
+    await withLog(async (log) => {
       const { svc, s, a } = stack(log);
       svc.recordVerdict("rev", a, "approve");
       svc.recordCheck("ci", a, "isolated", "pass");
-      expectInvariant(() => svc.land("wes", s, [a]), "INV-4");
+      await expectInvariantAsync(() => svc.land("wes", s, [a]), "INV-4");
       svc.recordCheck("ci", a, "integrated", "pass");
-      expect(svc.land("wes", s, [a])).toBeTruthy();
+      expect(await svc.land("wes", s, [a])).toBeTruthy();
     });
   });
 
   it("OD-1 top-only policy accepts a prefix checked only at the top", async () => {
-    await withLog((log) => {
+    await withLog(async (log) => {
       const svc = new ReviewService(log, { policy: { integratedCheckPolicy: "top-only" } });
       const s = svc.openSeries("wes", "refs/heads/main", "sha0");
       const a = svc.openChange("wes", s, "A", []);
@@ -168,28 +168,28 @@ describe("INV-4 TWO-AXIS-CHECK", () => {
       svc.recordVerdict("rev", a, "approve");
       svc.recordVerdict("rev", b, "approve");
       svc.recordCheck("ci", b, "integrated", "pass");
-      expect(svc.land("wes", s, [a, b])).toBeTruthy();
+      expect(await svc.land("wes", s, [a, b])).toBeTruthy();
     });
   });
 });
 
 describe("INV-5 PREFIX-LANDING-ONLY", () => {
   it("landing a hole is rejected as a reorder request, not performed", async () => {
-    await withLog((log) => {
+    await withLog(async (log) => {
       const { svc, s, a, b, c } = stack(log);
       approveAndCheck(svc, [a, b, c]);
-      expectInvariant(() => svc.land("wes", s, [b]), "INV-5");
-      expectInvariant(() => svc.land("wes", s, [a, c]), "INV-5");
+      await expectInvariantAsync(() => svc.land("wes", s, [b]), "INV-5");
+      await expectInvariantAsync(() => svc.land("wes", s, [a, c]), "INV-5");
       expect(svc.model.lands.length).toBe(0);
     });
   });
 
   it("reorder then land makes the same intent expressible", async () => {
-    await withLog((log) => {
+    await withLog(async (log) => {
       const { svc, s, a, b, c } = stack(log);
       svc.reorder("wes", s, [b, a, c]);
       approveAndCheck(svc, [b]);
-      expect(svc.land("wes", s, [b])).toBeTruthy();
+      expect(await svc.land("wes", s, [b])).toBeTruthy();
     });
   });
 });
@@ -273,7 +273,7 @@ describe("INV-8 APPEND-ONLY-REVIEW-LOG", () => {
 
 describe("INV-9 CONFLICT-IS-A-STATE", () => {
   it("a failed rebase records the hunk and never force-pushes or drops", async () => {
-    await withLog((log) => {
+    await withLog(async (log) => {
       const svc = new ReviewService(log);
       const s = svc.openSeries("wes", "refs/heads/main", "sha0");
       const a = svc.openChange("wes", s, "A", []);
@@ -283,11 +283,11 @@ describe("INV-9 CONFLICT-IS-A-STATE", () => {
       svc.recordVerdict("rev", a, "approve");
       svc.recordCheck("ci", a, "integrated", "pass");
 
-      svc.land("wes", s, [a]);
+      await svc.land("wes", s, [a]);
 
       expect(svc.model.state(b)).toBe("CONFLICTED");
       expect(svc.model.head(b)!.hunks[0]!.content).toBe("from-B");
-      expectInvariant(() => svc.land("wes", s, [b]), "INV-9");
+      await expectInvariantAsync(() => svc.land("wes", s, [b]), "INV-9");
     });
   });
 });
@@ -332,10 +332,10 @@ describe("OD-3 split inherits no verdicts", () => {
 
 describe("the load-bearing query", () => {
   it("provenance of a landed SHA is answered from the LandEvent", async () => {
-    await withLog((log) => {
+    await withLog(async (log) => {
       const { svc, s, a, b } = stack(log);
       approveAndCheck(svc, [a, b]);
-      const landId = svc.land("wes", s, [a, b]);
+      const landId = await svc.land("wes", s, [a, b]);
 
       const land = svc.model.lands[0]!;
       expect(land.landEventId).toBe(landId);
@@ -350,7 +350,7 @@ describe("the load-bearing query", () => {
   });
 
   it("provenance survives a rebase that rewrote the SHA it reviewed", async () => {
-    await withLog((log) => {
+    await withLog(async (log) => {
       const svc = new ReviewService(log);
       const s = svc.openSeries("wes", "refs/heads/main", "sha_main_0");
       const a = svc.openChange("wes", s, "A", ["rev"]);
@@ -358,12 +358,12 @@ describe("the load-bearing query", () => {
       svc.appendRevision("wes", a, [h("a.ts", "top", "A1")]);
       svc.appendRevision("wes", c, [h("c.ts", "top", "C1")]);
       approveAndCheck(svc, [a, c]);
-      svc.land("wes", s, [a]);
+      await svc.land("wes", s, [a]);
 
       svc.recordCheck("ci", c, "integrated", "pass");
       expect(svc.model.head(c)!.seq).toBe(2);
 
-      svc.land("wes", s, [c]);
+      await svc.land("wes", s, [c]);
       const sha = svc.model.lands[1]!.landedShas[0]!;
       const prov = svc.provenanceOf(sha)!;
       expect(prov.revisionSeq).toBe(2);

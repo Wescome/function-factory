@@ -23,6 +23,19 @@
  * deployed Cloudflare -- a full open->revise->approve->check->land sequence
  * verified with a clean seal chain, a clean audit, resolvable provenance,
  * and a blocked UPDATE against `review_log`.
+ *
+ * PLAYBOOK-KEEL-SCR-PORT-2 live-verified too, via a second temporary probe,
+ * since removed: a real clean merge (disjoint-anchor carry-forward), a real
+ * conflict (same-anchor collision -> CONFLICTED), and a real compose (a
+ * genuine commit with the correct parent and Change-Id trailer) all
+ * confirmed against production. One real substrate finding along the way,
+ * caught and fixed BEFORE this: isomorphic-git's own `stat`/`lstat` expect
+ * a Node `fs.Stats`-shaped object with `.isFile()`/`.isDirectory()` METHODS,
+ * not KEEL's plain `{type,size,mtime,mode}` -- `isomorphic-git-composer.
+ * adapter.ts`'s own `GitStat` wrapper (mirroring `@cloudflare/shell`'s own
+ * unexported one) fixes it; a first pass of that probe without the fix
+ * threw `dotgitStat.isDirectory is not a function` inside isomorphic-git's
+ * `discoverGitdir`, the same failure Track 3's suite caught first, locally.
  */
 import { DurableObject } from "cloudflare:workers";
 

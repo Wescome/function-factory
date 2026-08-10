@@ -9,7 +9,7 @@ import { Keyring, canonical, verifyChain } from "../src/scr/identity";
 import type { ReviewEvent } from "../src/scr/events";
 import { withLog, h } from "./scr-testkit";
 
-function sealed(log: import("../src/adapters/persistence/scr-review-log-do.adapter").DoReviewLog) {
+async function sealed(log: import("../src/adapters/persistence/scr-review-log-do.adapter").DoReviewLog) {
   const keyring = new Keyring();
   const svc = new ReviewService(log, { keyring });
   const s = svc.openSeries("wes", "refs/heads/main", "sha0");
@@ -17,22 +17,22 @@ function sealed(log: import("../src/adapters/persistence/scr-review-log-do.adapt
   svc.appendRevision("alice", a, [h("a.ts", "top", "A1")]);
   svc.recordVerdict("bob", a, "approve");
   svc.recordCheck("ci", a, "integrated", "pass");
-  svc.land("wes", s, [a]);
+  await svc.land("wes", s, [a]);
   return { svc, keyring, s, a };
 }
 
 describe("INV-12 LOG-IS-SEALED", () => {
   it("a well-formed log verifies", async () => {
-    await withLog((log) => {
-      const { keyring } = sealed(log);
+    await withLog(async (log) => {
+      const { keyring } = await sealed(log);
       expect(verifyChain(log.all(), keyring)).toEqual([]);
       expect(audit(log.all(), { keyring })).toEqual([]);
     });
   });
 
   it("every event is chained and signed", async () => {
-    await withLog((log) => {
-      sealed(log);
+    await withLog(async (log) => {
+      await sealed(log);
       for (const e of log.all()) {
         expect(!!(e.digest && e.prev && e.sig)).toBe(true);
       }
@@ -45,8 +45,8 @@ describe("INV-12 LOG-IS-SEALED", () => {
   });
 
   it("altering a recorded verdict is detected", async () => {
-    await withLog((log) => {
-      const { keyring } = sealed(log);
+    await withLog(async (log) => {
+      const { keyring } = await sealed(log);
       const forged = log.all().map((e) =>
         e.type === "VerdictRecorded" ? { ...e, decision: "reject" as const } : e,
       );
@@ -56,8 +56,8 @@ describe("INV-12 LOG-IS-SEALED", () => {
   });
 
   it("relabelling who approved is detected", async () => {
-    await withLog((log) => {
-      const { keyring } = sealed(log);
+    await withLog(async (log) => {
+      const { keyring } = await sealed(log);
       const forged = log.all().map((e) =>
         e.type === "VerdictRecorded" ? { ...e, reviewerId: "mallory" } : e,
       );
@@ -66,8 +66,8 @@ describe("INV-12 LOG-IS-SEALED", () => {
   });
 
   it("removing an event from the middle is detected", async () => {
-    await withLog((log) => {
-      const { keyring } = sealed(log);
+    await withLog(async (log) => {
+      const { keyring } = await sealed(log);
       const all = log.all();
       const forged = [...all.slice(0, 2), ...all.slice(3)];
       expect(verifyChain(forged, keyring).some((x) => x.property === "P15 CHAIN-INTACT")).toBe(true);
@@ -75,8 +75,8 @@ describe("INV-12 LOG-IS-SEALED", () => {
   });
 
   it("reordering events is detected", async () => {
-    await withLog((log) => {
-      const { keyring } = sealed(log);
+    await withLog(async (log) => {
+      const { keyring } = await sealed(log);
       const all = log.all();
       const forged = [...all] as ReviewEvent[];
       [forged[1], forged[2]] = [forged[2]!, forged[1]!];
@@ -85,8 +85,8 @@ describe("INV-12 LOG-IS-SEALED", () => {
   });
 
   it("an event signed by the wrong key is detected", async () => {
-    await withLog((log) => {
-      const { keyring } = sealed(log);
+    await withLog(async (log) => {
+      const { keyring } = await sealed(log);
       const mallory = new Keyring();
       mallory.generate("bob");
       const forged = log.all().map((e) => {
@@ -99,8 +99,8 @@ describe("INV-12 LOG-IS-SEALED", () => {
   });
 
   it("an unsealed event is detected", async () => {
-    await withLog((log) => {
-      const { keyring } = sealed(log);
+    await withLog(async (log) => {
+      const { keyring } = await sealed(log);
       const forged = log.all().map((e) => {
         if (e.type !== "CheckRecorded") return e;
         const { prev, digest, sig, ...rest } = e as ReviewEvent & Record<string, unknown>;
@@ -112,8 +112,8 @@ describe("INV-12 LOG-IS-SEALED", () => {
   });
 
   it("chain and content are checkable with no keys at all", async () => {
-    await withLog((log) => {
-      sealed(log);
+    await withLog(async (log) => {
+      await sealed(log);
       expect(verifyChain(log.all())).toEqual([]);
       const all = log.all();
       const forged = [...all.slice(0, 1), ...all.slice(2)];
@@ -124,7 +124,7 @@ describe("INV-12 LOG-IS-SEALED", () => {
   });
 
   it("a strict keyring refuses to speak for an unenrolled actor", async () => {
-    await withLog((log) => {
+    await withLog(async (log) => {
       const keyring = new Keyring({ trustOnFirstUse: false });
       keyring.generate("wes");
       const svc = new ReviewService(log, { keyring });
