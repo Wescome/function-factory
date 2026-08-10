@@ -19,6 +19,10 @@
 export { Orchestrator } from "./orchestrator";
 export { CodemodeRuntime } from "@cloudflare/codemode";
 export { InboundMcpAgent } from "./mcp-inbound";
+// PLAYBOOK-KEEL-SCR-PORT-1: the review core's own DO -- no HTTP route yet
+// (no RPC surface exists on it to route to; see review-core.ts's own doc).
+// Exported so wrangler can bind it (wrangler.jsonc's REVIEW_CORE binding).
+export { ReviewCore } from "./review-core";
 // PLAYBOOK-KEEL-RUN-SUITE-001 (A3, Tier 4): the Sandbox container DO class
 // itself -- wrangler routes the `SANDBOX` binding (wrangler.jsonc) to it by
 // class_name. KEEL's own code never subclasses it (unlike Orchestrator);

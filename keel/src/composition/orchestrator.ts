@@ -142,6 +142,10 @@ export interface Env {
   // specs escalate (no recorded call to verify against), same fail-closed
   // shape SandboxOracleAdapter already gives a malformed/missing call.
   SANDBOX?: DurableObjectNamespace<Sandbox>;
+  // PLAYBOOK-KEEL-SCR-PORT-1: the review core's own, distinct DO (OD-PORT-3)
+  // -- no RPC surface yet (see review-core.ts's own doc); typed here so
+  // worker.ts can bind it correctly once PORT-2/3/4 give it real methods.
+  REVIEW_CORE?: DurableObjectNamespace;
   [k: string]: unknown;
 }
 
