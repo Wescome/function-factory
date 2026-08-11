@@ -19,9 +19,11 @@
 export { Orchestrator } from "./orchestrator";
 export { CodemodeRuntime } from "@cloudflare/codemode";
 export { InboundMcpAgent } from "./mcp-inbound";
-// PLAYBOOK-KEEL-SCR-PORT-1: the review core's own DO -- no HTTP route yet
-// (no RPC surface exists on it to route to; see review-core.ts's own doc).
+// PLAYBOOK-KEEL-SCR-PORT-3: the review core's own DO, now with a real RPC
+// surface (openSeries/openExternalSeries/openChange/appendRevision/
+// recordVerdict/recordCheck/observeTarget/land/provenanceOf/snapshot).
 // Exported so wrangler can bind it (wrangler.jsonc's REVIEW_CORE binding).
+// No HTTP route -- callers reach it via the DO stub directly.
 export { ReviewCore } from "./review-core";
 // PLAYBOOK-KEEL-RUN-SUITE-001 (A3, Tier 4): the Sandbox container DO class
 // itself -- wrangler routes the `SANDBOX` binding (wrangler.jsonc) to it by

@@ -25,6 +25,13 @@
   "d1_databases": [
     { "binding": "DB", "database_name": "keel-crossrun", "database_id": "d5175ea9-0635-4b97-ae82-34c1a6112ccb" }
   ],
+  // PLAYBOOK-KEEL-SCR-PORT-3, Track 1 (OD-PORT-1): the R2-owned working
+  // repo -- ReviewCore's Workspace spills large git objects here past the
+  // inline SQLite cap, so a real external base (fetched full history, not
+  // just the tiny fixtures PORT-1/2 exercised) actually fits.
+  "r2_buckets": [
+    { "binding": "WORKSPACE_FILES", "bucket_name": "keel-workspace" }
+  ],
   "kv_namespaces": [
     { "binding": "OAUTH_KV", "id": "3f7f4ccd426e4b49b4f5278804d7c415" }
   ],

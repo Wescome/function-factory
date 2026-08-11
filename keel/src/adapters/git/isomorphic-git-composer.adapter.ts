@@ -32,104 +32,21 @@
  * 2. Doing so needs an isomorphic-git-compatible `fs`. `@cloudflare/shell`
  *    builds one internally (`createGitFs`, wrapping `WorkspaceFileSystem`
  *    into the `{promises:{...}}` shape isomorphic-git expects) but does
- *    NOT export it. `isomorphicGitFs` below is a small, disclosed
+ *    NOT export it. `isomorphicGitFs` (`isomorphic-git-fs.adapter.ts`,
+ *    shared with PORT-3's `GitTargetProbe`) is a small, disclosed
  *    reimplementation of that same adapter, built from the SAME
  *    `WorkspaceFileSystem` (`@cloudflare/shell`'s own public export) this
- *    file already needs for `parseFile`/`renderFile` reads.
+ *    file already needs for `parseFile`/`renderFile` reads. It already
+ *    caught one real bug live: isomorphic-git's `stat`/`lstat` need
+ *    `.isFile()`/`.isDirectory()` METHODS, not KEEL's plain
+ *    `{type,size,mtime,mode}` -- see that file's own header.
  */
 import type { Workspace } from "@cloudflare/shell";
-import { WorkspaceFileSystem, type FileSystem } from "@cloudflare/shell";
+import { WorkspaceFileSystem } from "@cloudflare/shell";
 import { createGit } from "@cloudflare/shell/git";
 import { branch as isomorphicGitBranch } from "isomorphic-git";
 import { byPath, parseFile, renderFile, type ComposeLayer, type ComposeResult, type Composer } from "../../scr/vcs";
-
-/** isomorphic-git's `stat`/`lstat` expect a Node `fs.Stats`-shaped object
- *  with `.isFile()`/`.isDirectory()`/`.isSymbolicLink()` METHODS, not the
- *  plain `{type, size, mtime, mode}` KEEL's own `FileSystem.stat()`
- *  returns -- confirmed live (a real DO run threw `dotgitStat.isDirectory
- *  is not a function` inside isomorphic-git's own `discoverGitdir`, the
- *  first thing `branch()` does). Mirrors `@cloudflare/shell`'s own
- *  (unexported) `GitStat` wrapper exactly. */
-class GitStat {
-  readonly size: number;
-  readonly mtime: Date;
-  readonly mtimeMs: number;
-  readonly ctimeMs: number;
-  readonly ino = 0;
-  readonly uid = 0;
-  readonly gid = 0;
-  readonly dev = 0;
-  readonly mode: number;
-  #type: string;
-  constructor(stat: { type: string; size: number; mtime: Date; mode?: number }) {
-    this.#type = stat.type;
-    this.size = stat.size;
-    this.mtime = stat.mtime;
-    this.mtimeMs = stat.mtime.getTime();
-    this.ctimeMs = this.mtimeMs;
-    this.mode = stat.mode ?? (this.#type === "directory" ? 16877 : this.#type === "symlink" ? 40960 : 33188);
-  }
-  isFile() { return this.#type === "file"; }
-  isDirectory() { return this.#type === "directory"; }
-  isSymbolicLink() { return this.#type === "symlink"; }
-}
-
-/** isomorphic-git dispatches on a thrown error's `.code` (e.g. `ENOENT`
- *  for a missing stat target, part of its normal "does this ref/loose
- *  object exist" probing) -- preserves a real code if the underlying
- *  error already carries one, defaults to ENOENT otherwise. Mirrors
- *  `@cloudflare/shell`'s own (unexported) `fsError`. */
-function fsError(path: string, cause: unknown): Error & { code: string } {
-  if (cause instanceof Error && "code" in cause && typeof (cause as { code: unknown }).code === "string") {
-    return cause as Error & { code: string };
-  }
-  const err = new Error(cause instanceof Error ? cause.message : `ENOENT: ${path}`) as Error & { code: string };
-  err.code = "ENOENT";
-  return err;
-}
-
-/** Minimal isomorphic-git-compatible `fs` -- see this file's own header
- *  (finding 2) for why this exists. Covers only what `branch()` actually
- *  touches (refs, packed-refs, loose objects it may need to read). */
-function isomorphicGitFs(fs: FileSystem) {
-  return {
-    promises: {
-      async readFile(path: string, options?: string | { encoding?: string }) {
-        const encoding = typeof options === "string" ? options : options?.encoding;
-        if (encoding === "utf8" || encoding === "utf-8") return fs.readFile(path);
-        return fs.readFileBytes(path);
-      },
-      async writeFile(path: string, data: string | Uint8Array) {
-        const parent = path.replace(/\/[^/]+$/, "");
-        if (parent && parent !== "/" && parent !== path) {
-          try { await fs.mkdir(parent, { recursive: true }); } catch { /* already exists */ }
-        }
-        if (typeof data === "string") await fs.writeFile(path, data);
-        else await fs.writeFileBytes(path, data);
-      },
-      async unlink(path: string) {
-        try { await fs.rm(path); } catch (err) { throw fsError(path, err); }
-      },
-      async readdir(path: string) { return fs.readdir(path); },
-      async mkdir(path: string, mode?: boolean | { recursive?: boolean }) {
-        const recursive = typeof mode === "object" ? mode.recursive : false;
-        await fs.mkdir(path, { recursive });
-      },
-      async rmdir(path: string) { await fs.rm(path); },
-      async stat(path: string) {
-        try { return new GitStat(await fs.stat(path)); } catch (err) { throw fsError(path, err); }
-      },
-      async lstat(path: string) {
-        try { return new GitStat(await fs.lstat(path)); } catch (err) { throw fsError(path, err); }
-      },
-      async readlink(path: string) {
-        try { return await fs.readlink(path); } catch (err) { throw fsError(path, err); }
-      },
-      async symlink(target: string, path: string) { await fs.symlink(target, path); },
-      async chmod(_path: string, _mode: number) { /* no-op, matches @cloudflare/shell's own adapter */ },
-    },
-  };
-}
+import { isomorphicGitFs } from "./isomorphic-git-fs.adapter";
 
 /** One real commit per Change, onto the Workspace's own git repo. */
 export class IsomorphicGitComposer implements Composer {

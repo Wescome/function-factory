@@ -532,12 +532,12 @@ export class ReviewService {
    * anyway, by construction, because the base fingerprint includes the target
    * SHA. That asymmetry is the two-axis design (INV-4) earning its keep.
    */
-  observeTarget(actorId: string, seriesId: string): boolean {
+  async observeTarget(actorId: string, seriesId: string): Promise<boolean> {
     const m = this.model;
     const s = m.series.get(seriesId);
     if (!s) throw new InvariantViolation('INV-11', `unknown series ${seriesId}`);
 
-    const obs = this.#target.observe(s.targetSha);
+    const obs = await this.#target.observe(s.targetSha);
     if (obs.sha === s.targetSha) return false;
 
     const batch: UnsealedEvent[] = [
@@ -620,7 +620,7 @@ export class ReviewService {
 
     // INV-11: observe the target before anything else. A land composed against
     // a base the series has not seen is a land whose checks refer to nothing.
-    const obs = this.#target.observe(s.targetSha);
+    const obs = await this.#target.observe(s.targetSha);
     if (obs.sha !== s.targetSha) {
       // The observation is a fact; refusing the land is not a reason to discard
       // it. Record and replay, then refuse — never silently retry onto a base

@@ -177,8 +177,8 @@ async function fuzz(log: DoReviewLog, seed: number, steps: number): Promise<RunR
       const content = `up${Math.floor(r() * 3)}`;
       scripted.push(`up_${Math.floor(r() * 1e9)}`, [{ path, anchor, content }]);
     }],
-    [2, () => {
-      svc.observeTarget("wes", s);
+    [2, async () => {
+      await svc.observeTarget("wes", s);
     }],
   ];
 

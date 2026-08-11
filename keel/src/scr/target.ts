@@ -1,6 +1,17 @@
 /**
  * PLAYBOOK-KEEL-SCR-PORT-1: lifted from SCR (target.ts), byte-identical
- * except stripped `.ts` import extensions.
+ * except stripped `.ts` import extensions and (PLAYBOOK-KEEL-SCR-PORT-3)
+ * `TargetProbe.observe()` made `Promise`-returning.
+ *
+ * PLAYBOOK-KEEL-SCR-PORT-3 finding (disclosed, same shape as PORT-2's
+ * `Composer`): a REAL target probe (`GitTargetProbe`, this playbook) has to
+ * fetch the external ref over the network -- inherently async, no
+ * synchronous path on KEEL's substrate, unlike SCR's own subprocess-git
+ * `GitTargetProbe`. The ripple is contained exactly the same way: only
+ * `ReviewService.land()` (already async, PORT-2) and `observeTarget()`
+ * (now also async) call through this port; every other method is
+ * untouched. `StaticTarget`/`ScriptedTarget` below wrap trivially -- no
+ * real I/O, `async` only to satisfy the port.
  */
 import type { Hunk } from './events';
 
@@ -20,12 +31,12 @@ export interface TargetObservation {
  * against a base the series has not observed.
  */
 export interface TargetProbe {
-  observe(sinceSha: string): TargetObservation;
+  observe(sinceSha: string): Promise<TargetObservation>;
 }
 
 /** No external actor. The target only moves when this series moves it. */
 export class StaticTarget implements TargetProbe {
-  observe(sinceSha: string): TargetObservation {
+  async observe(sinceSha: string): Promise<TargetObservation> {
     return { sha: sinceSha, incomingHunks: [] };
   }
 }
@@ -53,7 +64,7 @@ export class ScriptedTarget implements TargetProbe {
     this.#pending = [];
   }
 
-  observe(sinceSha: string): TargetObservation {
+  async observe(sinceSha: string): Promise<TargetObservation> {
     if (this.#sha === sinceSha) return { sha: sinceSha, incomingHunks: [] };
     return { sha: this.#sha, incomingHunks: [...this.#pending] };
   }
