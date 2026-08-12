@@ -81,13 +81,44 @@ export interface Series {
   landedCount: number;
 }
 
+/**
+ * PLAYBOOK-KEEL-SCR-PORT-3_5, Track 1: SCR's `PARTIALLY-PROPAGATED`, folded.
+ * One record per `LandAuthorised`, with `Pushed`/`PrOpened` folded into its
+ * `status` and confirmation fields as they arrive. `status` is DERIVED,
+ * never asserted ahead of the fact -- it is exactly "which sealed events
+ * exist for this landEventId", nothing inferred, nothing anticipated.
+ */
+export type LandStatus = 'AUTHORISED' | 'PUSHED' | 'PR_OPENED';
+
+export interface LandRecord {
+  landEventId: string;
+  seriesId: string;
+  changeIds: string[];
+  landedShas: string[];
+  revisionSeqs: number[];
+  verdictIds: string[][];
+  baseFingerprint: string;
+  baseSha: string;
+  newTargetSha: string;
+  targetAdvanced: boolean;
+  at: number;
+  status: LandStatus;
+  pushedTip?: string;
+  pr?: { number: number; url: string };
+}
+
 export class Model {
   series = new Map<string, Series>();
   changes = new Map<string, Change>();
   verdicts = new Map<string, Verdict>();
   checks: Check[] = [];
   threads = new Map<string, Thread>();
-  lands: Extract<ReviewEvent, { type: 'Landed' }>[] = [];
+  lands: LandRecord[] = [];
+
+  /** O(1)-ish lookup by landEventId -- small N, linear scan is plenty. */
+  landRecord(landEventId: string): LandRecord | undefined {
+    return this.lands.find((l) => l.landEventId === landEventId);
+  }
 
   static from(events: ReviewEvent[]): Model {
     const m = new Model();
@@ -248,16 +279,54 @@ export class Model {
         break;
       }
 
-      case 'Landed': {
+      case 'LandAuthorised': {
         const s = this.series.get(e.seriesId);
         if (!s) break;
         for (const id of e.changeIds) {
           const c = this.changes.get(id);
           if (c) c.landed = true;
         }
-        s.targetSha = e.newTargetSha;
+        // PLAYBOOK-KEEL-SCR-PORT-3_5, Track 2 (the false-drift fix): the
+        // series's own composition floor only advances when the compose
+        // step reports it moved the REAL target, not a two-tier land's
+        // still-unmerged feature branch. This is the entire fix -- INV-11's
+        // fence (land()/observeTarget(), unchanged below) compares against
+        // `s.targetSha`, so a value that only ever reflects confirmed
+        // reality is what makes the fence correct for both tiers.
+        if (e.targetAdvanced) s.targetSha = e.newTargetSha;
         s.landedCount += e.changeIds.length;
-        this.lands.push(e);
+        this.lands.push({
+          landEventId: e.landEventId,
+          seriesId: e.seriesId,
+          changeIds: e.changeIds,
+          landedShas: e.landedShas,
+          revisionSeqs: e.revisionSeqs,
+          verdictIds: e.verdictIds,
+          baseFingerprint: e.baseFingerprint,
+          baseSha: e.baseSha,
+          newTargetSha: e.newTargetSha,
+          targetAdvanced: e.targetAdvanced,
+          at: e.at,
+          status: 'AUTHORISED',
+        });
+        break;
+      }
+
+      case 'Pushed': {
+        const rec = this.landRecord(e.landEventId);
+        if (rec) {
+          rec.status = 'PUSHED';
+          rec.pushedTip = e.pushedTip;
+        }
+        break;
+      }
+
+      case 'PrOpened': {
+        const rec = this.landRecord(e.landEventId);
+        if (rec) {
+          rec.status = 'PR_OPENED';
+          rec.pr = { number: e.prNumber, url: e.prUrl };
+        }
         break;
       }
     }

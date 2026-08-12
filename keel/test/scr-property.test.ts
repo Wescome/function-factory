@@ -252,7 +252,7 @@ describe("the audit detects a forged history", () => {
           eventId: "forged",
           at: 99,
           actorId: "attacker",
-          type: "Landed" as const,
+          type: "LandAuthorised" as const,
           landEventId: "land_x",
           seriesId: s,
           changeIds: [b],
@@ -262,6 +262,7 @@ describe("the audit detects a forged history", () => {
           baseFingerprint: "x",
           baseSha: "sha0",
           newTargetSha: "deadbeef",
+          targetAdvanced: true,
         },
       ];
 
@@ -283,7 +284,7 @@ describe("the audit detects a forged history", () => {
           eventId: "forged",
           at: 99,
           actorId: "attacker",
-          type: "Landed" as const,
+          type: "LandAuthorised" as const,
           landEventId: "land_x",
           seriesId: s,
           changeIds: [a],
@@ -293,6 +294,7 @@ describe("the audit detects a forged history", () => {
           baseFingerprint: "x",
           baseSha: "sha0",
           newTargetSha: "deadbeef",
+          targetAdvanced: true,
         },
       ];
 
@@ -314,7 +316,7 @@ describe("the audit detects a forged history", () => {
           eventId: "forged",
           at: 99,
           actorId: "attacker",
-          type: "Landed" as const,
+          type: "LandAuthorised" as const,
           landEventId: "land_x",
           seriesId: s,
           changeIds: [a],
@@ -324,6 +326,7 @@ describe("the audit detects a forged history", () => {
           baseFingerprint: "x",
           baseSha: "sha0",
           newTargetSha: "deadbeef",
+          targetAdvanced: true,
         },
       ];
 

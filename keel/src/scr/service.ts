@@ -604,14 +604,24 @@ export class ReviewService {
   /**
    * INV-5 prefix only · INV-6 atomic · INV-9 conflict is a state.
    *
-   * The Landed event and every downstream rebase consequence are appended as
-   * one batch: the review history never observes a half-landed series.
+   * The LandAuthorised event and every downstream rebase consequence are
+   * appended as one batch: the review history never observes a half-landed
+   * series.
    *
    * PLAYBOOK-KEEL-SCR-PORT-2, Track 2 finding: `async`, unlike SCR's own
    * synchronous `land()`. The ONLY reason -- `Composer.compose()` (vcs.ts)
    * is now `Promise`-returning, because KEEL's real git surface has no
    * synchronous write path (see that interface's own doc). This is the
    * single contained ripple: every OTHER method on this class is untouched.
+   *
+   * PLAYBOOK-KEEL-SCR-PORT-3_5: this method is now ONLY the atomic domain
+   * decision -- compose locally, seal `LandAuthorised`. It does not push or
+   * open a PR; those are propagation, not authorisation, confirmed
+   * separately via `confirmPushed`/`confirmPrOpened` once (and only once)
+   * the real external step actually happens. `ReviewCore` (composition
+   * layer) orchestrates the full sequence; this method's own contract is
+   * unchanged from PORT-1/2's perspective -- it still fully completes a
+   * local-only land with nothing further needed.
    */
   async land(actorId: string, seriesId: string, changeIds: string[]): Promise<string> {
     const m = this.model;
@@ -758,7 +768,7 @@ export class ReviewService {
     const batch: UnsealedEvent[] = [
       {
         ...this.#envelope(actorId),
-        type: 'Landed',
+        type: 'LandAuthorised',
         landEventId,
         seriesId,
         changeIds,
@@ -768,6 +778,7 @@ export class ReviewService {
         baseFingerprint: baseFp,
         baseSha,
         newTargetSha: composed.newTargetSha,
+        targetAdvanced: composed.targetAdvanced,
       },
     ];
 
@@ -785,6 +796,58 @@ export class ReviewService {
 
     this.#emit(batch);
     return landEventId;
+  }
+
+  // ——— propagation (PLAYBOOK-KEEL-SCR-PORT-3_5, Track 1: PARTIALLY-PROPAGATED) ———
+
+  /**
+   * Seal the confirmation that the composed tip actually reached the
+   * remote. Written ONLY after the real push confirms -- never ahead of
+   * it. `pushedTip` is recorded even though it will equal
+   * `LandAuthorised.newTargetSha` in the honest-happy-path case: this
+   * event IS the evidence that the push happened, not an inference from
+   * the domain decision alone.
+   */
+  confirmPushed(actorId: string, landEventId: string, pushedTip: string): void {
+    const rec = this.model.landRecord(landEventId);
+    if (!rec) {
+      throw new InvariantViolation('INV-1', `unknown land ${landEventId}`);
+    }
+    this.#emit([
+      {
+        ...this.#envelope(actorId),
+        type: 'Pushed',
+        landEventId,
+        seriesId: rec.seriesId,
+        pushedTip,
+      },
+    ]);
+  }
+
+  /**
+   * Seal the confirmation that the PR actually opened (or, on an
+   * idempotent resume, was found already open). Refuses ahead of a
+   * confirmed push -- propagation is a strict sequence, not a status a
+   * caller can assert out of order.
+   */
+  confirmPrOpened(actorId: string, landEventId: string, prNumber: number, prUrl: string): void {
+    const rec = this.model.landRecord(landEventId);
+    if (!rec) {
+      throw new InvariantViolation('INV-1', `unknown land ${landEventId}`);
+    }
+    if (rec.status === 'AUTHORISED') {
+      throw new InvariantViolation('INV-6', `${landEventId} has not confirmed Pushed yet`);
+    }
+    this.#emit([
+      {
+        ...this.#envelope(actorId),
+        type: 'PrOpened',
+        landEventId,
+        seriesId: rec.seriesId,
+        prNumber,
+        prUrl,
+      },
+    ]);
   }
 
   /**

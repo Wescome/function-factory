@@ -216,9 +216,19 @@ export interface TargetAdvanced extends EventBase {
   incomingHunks: Hunk[];
 }
 
-/** The join between mutable code history and immutable review history. */
-export interface Landed extends EventBase {
-  type: 'Landed';
+/**
+ * PLAYBOOK-KEEL-SCR-PORT-3_5: SCR's own `PARTIALLY-PROPAGATED`, designed but
+ * never built (DECISIONS) -- built here. The join between mutable code
+ * history and immutable review history splits in two: this event is the
+ * ATOMIC domain decision (always true, even mid-propagation); `Pushed` and
+ * `PrOpened` (below) are propagation confirmations, each written only after
+ * its real external step actually confirms. The log never asserts a status
+ * ahead of the fact -- `LandAuthorised` alone means "authorised, not
+ * necessarily externally propagated yet" for a two-tier land; for a
+ * local-only land (no external repo) it is the complete, terminal fact.
+ */
+export interface LandAuthorised extends EventBase {
+  type: 'LandAuthorised';
   landEventId: string;
   seriesId: string;
   /**
@@ -235,7 +245,50 @@ export interface Landed extends EventBase {
   /** Base the prefix was composed against. */
   baseFingerprint: string;
   baseSha: string;
+  /** The compose step's own result -- the tip of whatever ref it moved. */
   newTargetSha: string;
+  /**
+   * PLAYBOOK-KEEL-SCR-PORT-3_5, Track 2 (the false-drift fix): did compose
+   * move the REAL thing INV-11 fences against, or a side ref (a two-tier
+   * land's feature branch, not yet merged)? Reported by the `Composer` port
+   * itself (it alone knows what `ref` it built onto) and consulted by
+   * `Model.apply` to decide whether `Series.targetSha` advances. A
+   * single-repo composer (SCR's own model, `SimulatedComposer`, any test
+   * building directly onto `main`) is always `true`. PORT-3's own two-tier
+   * `IsomorphicGitComposer`, built onto a feature branch, is `false` --
+   * this is the ONE-LINE fix for the false-drift bug PORT-3's own finding
+   * surfaced: `main` never actually moved, so the series must not believe
+   * it did.
+   */
+  targetAdvanced: boolean;
+}
+
+/**
+ * PLAYBOOK-KEEL-SCR-PORT-3_5, Track 1. Sealed (INV-12) only after the real
+ * push actually confirms -- never written ahead of the fact. `pushedTip` is
+ * the feature-branch tip actually observed on the remote (equal to
+ * `LandAuthorised.newTargetSha` in the honest-happy-path case; recorded
+ * again here specifically so the log's OWN evidence is "the push confirmed
+ * THIS", not an inference from a domain-only event that could have been
+ * followed by a crash).
+ */
+export interface Pushed extends EventBase {
+  type: 'Pushed';
+  landEventId: string;
+  seriesId: string;
+  pushedTip: string;
+}
+
+/**
+ * PLAYBOOK-KEEL-SCR-PORT-3_5, Track 1. Sealed only after the real PR
+ * actually opened (or was found already open, on an idempotent resume).
+ */
+export interface PrOpened extends EventBase {
+  type: 'PrOpened';
+  landEventId: string;
+  seriesId: string;
+  prNumber: number;
+  prUrl: string;
 }
 
 /**
@@ -281,7 +334,9 @@ export type ReviewEvent =
   | SeriesReordered
   | ChangeConflicted
   | ChangeAbandoned
-  | Landed;
+  | LandAuthorised
+  | Pushed
+  | PrOpened;
 
 export type ChangeState =
   | 'DRAFT'

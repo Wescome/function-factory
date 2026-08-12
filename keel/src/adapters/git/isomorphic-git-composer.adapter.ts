@@ -54,12 +54,23 @@ export class IsomorphicGitComposer implements Composer {
   #rawFs: ReturnType<typeof isomorphicGitFs>;
   #dir: string;
   #ref: string;
+  #targetAdvanced: boolean;
 
-  constructor(private readonly workspace: Workspace, dir = "/", ref = "main") {
+  /**
+   * PLAYBOOK-KEEL-SCR-PORT-3_5, Track 2 (the false-drift fix): `targetAdvanced`
+   * tells the domain whether `ref` IS the real thing INV-11 fences against.
+   * Defaults `true` -- every PORT-1/2 call site (and every test) builds
+   * directly onto `main`, single-repo, unchanged. PORT-3's own two-tier
+   * wiring (`review-core.ts`) passes `false` when `ref` is a feature branch,
+   * not `main` -- this composer alone knows which ref it moved, so it alone
+   * can report it honestly.
+   */
+  constructor(private readonly workspace: Workspace, dir = "/", ref = "main", targetAdvanced = true) {
     this.#git = createGit(new WorkspaceFileSystem(workspace), dir);
     this.#rawFs = isomorphicGitFs(new WorkspaceFileSystem(workspace));
     this.#dir = dir;
     this.#ref = ref;
+    this.#targetAdvanced = targetAdvanced;
   }
 
   async compose(baseSha: string, layers: ComposeLayer[]): Promise<ComposeResult> {
@@ -96,6 +107,6 @@ export class IsomorphicGitComposer implements Composer {
       checkout: true,
     });
 
-    return { shas, newTargetSha };
+    return { shas, newTargetSha, targetAdvanced: this.#targetAdvanced };
   }
 }

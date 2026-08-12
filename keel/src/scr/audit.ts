@@ -49,7 +49,7 @@ export function audit(events: ReviewEvent[], opts: { keyring?: Keyring } = {}): 
   for (const e of events) {
     if (e.type === 'VerdictCarriedForward') carriedFrom.add(e.fromVerdictId);
 
-    if (e.type === 'Landed') {
+    if (e.type === 'LandAuthorised') {
       // Evaluated against the state *before* the land is applied.
       const series = m.series.get(e.seriesId);
 

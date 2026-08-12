@@ -9,6 +9,19 @@
  * concurrent RPC calls hitting the SAME DO instance mid-`land()`, which
  * `runInDurableObject` (one synchronous JS turn) cannot produce.
  *
+ * PLAYBOOK-KEEL-SCR-PORT-3_5: PORT-3's own live-infra probe found the log
+ * could assert `LANDED` with nothing externally shipped (a crash between
+ * the domain decision and the real push), and that `targetSha` could get
+ * stamped with a pushed feature-branch tip, false-refusing the NEXT land.
+ * Both close here. `land()` now only AUTHORISES (`svc.land()`, sealed
+ * `LandAuthorised`) then PROPAGATES resumably (`#propagate`, sealed
+ * `Pushed`/`PrOpened`, each written only once its real external step
+ * confirms) -- SCR's own `PARTIALLY-PROPAGATED`, designed, never built
+ * until now. `resumeLand()` is the recovery path: idempotent, consults
+ * external reality (is the branch already there? is the PR already open?)
+ * before acting, so a crash between an external step and its status-write
+ * can never double-act on resume.
+ *
  * Two authorities, two fences, per this playbook's own framing:
  *   DO = review log (this class's own SQLite, INV-8/INV-12)
  *   R2 = compose/durability (the Workspace's large-object backing, Track 1)
@@ -17,13 +30,16 @@
  * `land_state.in_progress` mirrors C1's own `derive_state.in_progress`
  * shape exactly (Orchestrator, `derive()`): every review-log-WRITING RPC
  * method checks it at entry and refuses (fail-closed, INV-8-consistent --
- * never a silent corruption) while a land is in flight; `land()` itself
- * sets/clears it around its own await-laden body. NOT
+ * never a silent corruption) while a land is in flight; `land()`/
+ * `resumeLand()` set/clear it around their own await-laden bodies. NOT
  * `blockConcurrencyWhile` -- KEEL's DOs already proved they process
  * concurrent inbound RPCs (the C1 race, a push arriving mid-`derive()`),
- * so the guard is a flag, not a platform primitive. Two fences, two
- * concerns: this flag fences REVIEW STATE; `GitTargetProbe`
- * (`observe()`, called inside `svc.land()`) fences the EXTERNAL ref.
+ * so the guard is a flag, not a platform primitive. `resumeLand()`
+ * deliberately does NOT check the guard at entry (unlike every other
+ * method here) -- a stuck-true flag from a genuine crash is exactly the
+ * state a resume exists to recover from; it still sets/clears the SAME
+ * flag around its own run, so it is not itself unguarded against new
+ * interleaving writes.
  */
 import { DurableObject } from "cloudflare:workers";
 import { Workspace } from "@cloudflare/shell";
@@ -35,10 +51,11 @@ import { InvariantViolation, type Hunk, type Decision, type CheckKind, type Chec
 import type { Rebaser } from "../scr/rebase";
 import type { Composer } from "../scr/vcs";
 import type { TargetProbe } from "../scr/target";
+import type { LandStatus } from "../scr/model";
 import { IsomorphicGitRebaser } from "../adapters/git/isomorphic-git-rebaser.adapter";
 import { IsomorphicGitComposer } from "../adapters/git/isomorphic-git-composer.adapter";
 import { GitTargetProbe, fetchExternalBase } from "../adapters/git/isomorphic-git-target-probe.adapter";
-import { GitHubRestPrOpener } from "../adapters/github/github-pr.adapter";
+import { GitHubRestPrOpener, type PrOpener } from "../adapters/github/github-pr.adapter";
 
 export interface ReviewCoreEnv {
   /** PLAYBOOK-KEEL-SCR-PORT-3, Track 1 (OD-PORT-1): the R2-owned working
@@ -57,9 +74,20 @@ function parseGitHubUrl(url: string): { owner: string; repo: string } {
   return { owner: m[1]!, repo: m[2]! };
 }
 
+interface LandConfigRow {
+  repo_url: string;
+  owner: string;
+  repo_name: string;
+  target_branch: string;
+  feature_branch: string;
+  remote: string;
+  [key: string]: string;
+}
+
 export interface LandResult {
   readonly landEventId: string;
   readonly landedShas: readonly string[];
+  readonly status: LandStatus;
   readonly pr?: { readonly number: number; readonly htmlUrl: string };
 }
 
@@ -116,12 +144,22 @@ export class ReviewCore extends DurableObject<ReviewCoreEnv> {
     return new Workspace({ sql: this.ctx.storage.sql, r2: this.env.WORKSPACE_FILES, name: () => "review-core-land" });
   }
 
-  private landConfigFor(seriesId: string) {
+  private landConfigFor(seriesId: string): LandConfigRow | undefined {
     this.ensureSchema();
-    const rows = this.ctx.storage.sql.exec<{
-      repo_url: string; owner: string; repo_name: string; target_branch: string; feature_branch: string; remote: string;
-    }>(`SELECT repo_url, owner, repo_name, target_branch, feature_branch, remote FROM land_config WHERE series_id = ?`, seriesId).toArray();
+    const rows = this.ctx.storage.sql.exec<LandConfigRow>(
+      `SELECT repo_url, owner, repo_name, target_branch, feature_branch, remote FROM land_config WHERE series_id = ?`,
+      seriesId,
+    ).toArray();
     return rows[0];
+  }
+
+  /** PLAYBOOK-KEEL-SCR-PORT-3_5, Track 2: DO-qualified, so two DOs
+   *  targeting the same external repo never collide on the same branch
+   *  name -- a real collision this playbook's own live probe hit, twice,
+   *  from spinning up separate DO instances against the same scratch
+   *  repo during testing. `this.ctx.id` is unique per DO instance. */
+  private branchFor(seriesId: string): string {
+    return `keel-land/${this.ctx.id.toString().slice(0, 16)}/${seriesId}`;
   }
 
   /** Real git adapters for a series opened against external infra;
@@ -135,7 +173,10 @@ export class ReviewCore extends DurableObject<ReviewCoreEnv> {
     const ws = this.workspace();
     return {
       rebaser: new IsomorphicGitRebaser(),
-      composer: new IsomorphicGitComposer(ws, "/", cfg.feature_branch),
+      // PLAYBOOK-KEEL-SCR-PORT-3_5: `targetAdvanced: false` -- this composer
+      // builds onto the feature branch, never `main`. The false-drift fix
+      // (Model.apply, `targetAdvanced`-gated) depends on this being honest.
+      composer: new IsomorphicGitComposer(ws, "/", cfg.feature_branch, false),
       target: new GitTargetProbe(ws, { branch: cfg.target_branch, remote: cfg.remote, token: this.env.GIT_PUSH_TOKEN }),
     };
   }
@@ -157,7 +198,7 @@ export class ReviewCore extends DurableObject<ReviewCoreEnv> {
     const ws = this.workspace();
     const baseSha = await fetchExternalBase(ws, { url: repoUrl, branch, token: this.env.GIT_PUSH_TOKEN });
     const seriesId = await this.reviewServiceFor().openSeries(actorId, `refs/heads/${branch}`, baseSha);
-    const featureBranch = `keel-land/${seriesId}`;
+    const featureBranch = this.branchFor(seriesId);
     this.ctx.storage.sql.exec(
       `INSERT OR REPLACE INTO land_config (series_id, repo_url, owner, repo_name, target_branch, feature_branch, remote) VALUES (?, ?, ?, ?, ?, ?, ?)`,
       seriesId, repoUrl, owner, repo, branch, featureBranch, "origin",
@@ -197,50 +238,140 @@ export class ReviewCore extends DurableObject<ReviewCoreEnv> {
   // ——— landing ———
 
   /**
-   * PLAYBOOK-KEEL-SCR-PORT-3, Track 2. `svc.land()` does the fenced local
-   * compose (INV-11 re-observe, INV-5/6/9 preconditions, the sealed
-   * LandEvent) -- unchanged from PORT-1/2. This wraps it with the TWO
-   * things only a real external repo needs: pushing the composed feature
-   * branch, and opening the PR. Guarded start-to-finish by
-   * `land_state.in_progress` (set before `svc.land()`'s own await-laden
-   * body runs, cleared in `finally`) so an `approve`/`revise` cannot
-   * interleave and corrupt the landing set out from under it.
+   * PLAYBOOK-KEEL-SCR-PORT-3_5, Track 1/2. `svc.land()` does the fenced
+   * local compose (INV-11 re-observe, INV-5/6/9 preconditions) and seals
+   * ONLY the atomic domain decision (`LandAuthorised`) -- it no longer
+   * pushes or opens a PR itself (PORT-3's own finding: that let the log
+   * assert LANDED with nothing shipped on a partial failure). `#propagate`
+   * does the resumable, idempotent external work, sealing `Pushed`/
+   * `PrOpened` only as each genuinely confirms. If propagation throws, the
+   * error carries `landEventId` so the caller can `resumeLand` with it --
+   * the log itself already shows exactly how far it got.
    */
   async land(actorId: string, seriesId: string, changeIds: string[]): Promise<LandResult> {
     this.guardAgainstLand();
     this.setLandInProgress(true);
+    let landEventId: string | undefined;
     try {
-      const overrides = this.gitOverridesFor(seriesId);
-      const svc = this.reviewServiceFor(overrides);
-      const landEventId = await svc.land(actorId, seriesId, changeIds);
-      const landedShas = svc.model.lands.at(-1)?.landedShas ?? [];
-
-      const cfg = this.landConfigFor(seriesId);
-      if (!cfg || !this.env.GIT_PUSH_TOKEN) {
-        // No real external repo configured (or no credential) -- PORT-1/2's
-        // own local-only behavior, unchanged.
-        return { landEventId, landedShas };
+      const svc = this.reviewServiceFor(this.gitOverridesFor(seriesId));
+      landEventId = await svc.land(actorId, seriesId, changeIds);
+      return await this.propagate(actorId, seriesId, landEventId);
+    } catch (err) {
+      if (landEventId && err instanceof Error) {
+        (err as Error & { landEventId?: string }).landEventId = landEventId;
       }
+      throw err;
+    } finally {
+      this.setLandInProgress(false);
+    }
+  }
 
+  /**
+   * PLAYBOOK-KEEL-SCR-PORT-3_5, Track 1/2: resume an interrupted land.
+   * `landEventId` is read from the log (via `land()`'s own thrown error,
+   * or `snapshot()`'s `lands`) -- this method trusts it and continues
+   * from whatever `LandRecord.status` is currently true, idempotently.
+   *
+   * Deliberately skips `guardAgainstLand()`'s precheck: a stuck-true
+   * `land_state.in_progress` from a genuine crash is exactly the
+   * condition a resume must be able to run under. It still claims the
+   * SAME flag for the duration of its own run (fencing new interleaving
+   * writes) and clears it in `finally`, same as `land()`.
+   */
+  async resumeLand(actorId: string, seriesId: string, landEventId: string): Promise<LandResult> {
+    this.ensureSchema();
+    const probe = this.reviewServiceFor();
+    const rec = probe.model.landRecord(landEventId);
+    if (!rec || rec.seriesId !== seriesId) {
+      throw new Error(`resumeLand: no land ${landEventId} recorded on series ${seriesId}`);
+    }
+    this.setLandInProgress(true);
+    try {
+      return await this.propagate(actorId, seriesId, landEventId);
+    } finally {
+      this.setLandInProgress(false);
+    }
+  }
+
+  /**
+   * PLAYBOOK-KEEL-SCR-PORT-3_5, Track 1/2: the resumable propagation
+   * sequence, shared by `land()` and `resumeLand()`. Each step consults
+   * external reality BEFORE acting -- a crash can land between a real
+   * step and its status-write, so "already AUTHORISED" or "already
+   * PUSHED" is never assumed to mean "and so the external side needs
+   * doing." No `land_config` (or no push credential): PORT-1/2's own
+   * local-only behavior, unchanged -- `LandAuthorised` alone is the
+   * complete, terminal fact.
+   */
+  private async propagate(actorId: string, seriesId: string, landEventId: string): Promise<LandResult> {
+    const svc = this.reviewServiceFor();
+    const cfg = this.landConfigFor(seriesId);
+    const authorised = svc.model.landRecord(landEventId)!;
+    if (!cfg || !this.env.GIT_PUSH_TOKEN) {
+      return { landEventId, landedShas: authorised.landedShas, status: "AUTHORISED" };
+    }
+    const opener = new GitHubRestPrOpener(this.env.GIT_PUSH_TOKEN);
+
+    if (authorised.status === "AUTHORISED") {
+      await this.ensurePushed(svc, opener, cfg, authorised, actorId);
+    }
+    const pushed = svc.model.landRecord(landEventId)!;
+    if (pushed.status === "PUSHED") {
+      await this.ensurePrOpened(svc, opener, cfg, pushed, actorId);
+    }
+
+    const final = svc.model.landRecord(landEventId)!;
+    return {
+      landEventId,
+      landedShas: final.landedShas,
+      status: final.status,
+      pr: final.pr ? { number: final.pr.number, htmlUrl: final.pr.url } : undefined,
+    };
+  }
+
+  /** Idempotent: if the remote branch already sits at the composed tip
+   *  (a resume after a crash that pushed but never confirmed), skip the
+   *  push and just seal the confirmation -- never double-push. */
+  private async ensurePushed(
+    svc: ReviewService,
+    opener: PrOpener,
+    cfg: LandConfigRow,
+    rec: { landEventId: string; newTargetSha: string },
+    actorId: string,
+  ): Promise<void> {
+    const remoteSha = await opener.getBranchSha(cfg.owner, cfg.repo_name, cfg.feature_branch);
+    if (remoteSha !== rec.newTargetSha) {
       const ws = this.workspace();
       const git = createGit(new WorkspaceFileSystem(ws));
       await git.push({ remote: cfg.remote, ref: cfg.feature_branch, token: this.env.GIT_PUSH_TOKEN });
+    }
+    svc.confirmPushed(actorId, rec.landEventId, rec.newTargetSha);
+  }
 
-      const opener = new GitHubRestPrOpener(this.env.GIT_PUSH_TOKEN);
-      const changeTitles = svc.model.lands.at(-1)!.changeIds.map((id) => svc.model.changes.get(id)!.title);
-      const pr = await opener.openPr({
+  /** Idempotent: if a PR from this branch onto the target is already
+   *  open (a resume after a crash between opening it and confirming),
+   *  reuse it -- never double-open. */
+  private async ensurePrOpened(
+    svc: ReviewService,
+    opener: PrOpener,
+    cfg: LandConfigRow,
+    rec: { landEventId: string; changeIds: string[] },
+    actorId: string,
+  ): Promise<void> {
+    const existing = await opener.findExistingPr(cfg.owner, cfg.repo_name, cfg.feature_branch, cfg.target_branch);
+    const model = svc.model;
+    const changeTitles = rec.changeIds.map((id) => model.changes.get(id)!.title);
+    const pr =
+      existing ??
+      (await opener.openPr({
         owner: cfg.owner,
         repo: cfg.repo_name,
         head: cfg.feature_branch,
         base: cfg.target_branch,
         title: `KEEL land: ${changeTitles.join(", ")}`,
-        body: `Landed via SCR/KEEL PORT-3.\n\nChanges: ${svc.model.lands.at(-1)!.changeIds.join(", ")}\nLandEvent: ${landEventId}`,
-      });
-
-      return { landEventId, landedShas, pr: { number: pr.number, htmlUrl: pr.htmlUrl } };
-    } finally {
-      this.setLandInProgress(false);
-    }
+        body: `Landed via SCR/KEEL PORT-3.5.\n\nChanges: ${rec.changeIds.join(", ")}\nLandEvent: ${rec.landEventId}`,
+      }));
+    svc.confirmPrOpened(actorId, rec.landEventId, pr.number, pr.htmlUrl);
   }
 
   // ——— reads ———
@@ -251,7 +382,10 @@ export class ReviewCore extends DurableObject<ReviewCoreEnv> {
   }
 
   /** Read-only diagnostic -- mirrors Orchestrator's own `debugFanout()`
-   *  philosophy ("diagnose from the log, not from a re-read"). */
+   *  philosophy ("diagnose from the log, not from a re-read"). `lands`
+   *  now carries each land's folded propagation status (PLAYBOOK-KEEL-
+   *  SCR-PORT-3_5) -- this IS the honesty guarantee surfaced to a caller:
+   *  the true state is exactly what folding the sealed events produces. */
   async snapshot(seriesId: string) {
     this.ensureSchema();
     const svc = this.reviewServiceFor();

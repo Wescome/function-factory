@@ -71,6 +71,17 @@ export interface ComposeResult {
   /** One SHA per layer, in order. OD-5. */
   shas: string[];
   newTargetSha: string;
+  /**
+   * PLAYBOOK-KEEL-SCR-PORT-3_5, Track 2: did this compose step move the
+   * REAL ref `TargetProbe`/INV-11 fence against, or a side ref (a two-tier
+   * land's feature branch)? Only the composer knows -- it alone knows what
+   * `ref` it built onto. `Model.apply` gates `Series.targetSha`'s advance
+   * on this so a two-tier land's local feature-branch progress never gets
+   * mistaken for the real target having moved (the false-drift bug PORT-3
+   * found live). Every single-repo composer (this one included) is always
+   * `true` -- correct, unchanged PORT-1/2 behaviour.
+   */
+  targetAdvanced: boolean;
 }
 
 /**
@@ -106,6 +117,6 @@ export class SimulatedComposer implements Composer {
       running = sha(`${running}\u0000${l.revisionHash}`);
       return running;
     });
-    return { shas, newTargetSha: running };
+    return { shas, newTargetSha: running, targetAdvanced: true };
   }
 }
