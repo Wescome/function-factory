@@ -15,11 +15,19 @@
  * verifying the SAME properties SCR's own test proves (real commits, in
  * order, with the Change-Id trailer, real author, real file content),
  * through what KEEL's actual surface exposes.
+ *
+ * PLAYBOOK-KEEL-COMPUTER-SWAP-001: `withGitStack`'s own repo setup
+ * (previously `@cloudflare/shell`'s `createGit()` convenience wrapper)
+ * re-pointed to isomorphic-git's own `init`/`add`/`commit` directly
+ * against `@cloudflare/computer`'s `workspace.fs`, matching the SAME
+ * substrate `IsomorphicGitComposer` now runs on -- this file's own
+ * assertions (`git.log`, `git.checkout`, `workspace.readFile`) follow.
  */
 import { describe, it, expect } from "vitest";
 import { env, runInDurableObject } from "cloudflare:test";
-import { Workspace, WorkspaceFileSystem } from "@cloudflare/shell";
-import { createGit } from "@cloudflare/shell/git";
+import { Workspace } from "@cloudflare/computer";
+import { init, add, commit, checkout, log as gitLog } from "isomorphic-git";
+import { computerGitFs } from "../src/adapters/git/computer-git-fs.adapter";
 import { ReviewService } from "../src/scr/service";
 import { InvariantViolation, type Hunk } from "../src/scr/events";
 import { audit } from "../src/scr/audit";
@@ -39,7 +47,7 @@ function stubFor(name: string) {
 async function withGitStack<T>(fn: (ctx: {
   svc: ReviewService;
   workspace: Workspace;
-  git: ReturnType<typeof createGit>;
+  fs: ReturnType<typeof computerGitFs>;
   log: DoReviewLog;
   headSha: string;
   s: string;
@@ -47,26 +55,26 @@ async function withGitStack<T>(fn: (ctx: {
   const ns = (env as { REVIEW_CORE: DurableObjectNamespace }).REVIEW_CORE;
   const stub = ns.get(ns.idFromName(`scr-port2-${Math.random().toString(36).slice(2)}`));
   return runInDurableObject(stub, async (_instance, state) => {
-    const workspace = new Workspace({ sql: state.storage.sql, name: () => "port2-git" });
-    const git = createGit(new WorkspaceFileSystem(workspace));
-    await git.init({ defaultBranch: "main" });
-    await workspace.writeFile("/.keep", "");
-    await git.add({ filepath: ".keep" });
-    const { oid: headSha } = await git.commit({ message: "root", author: { name: "scr", email: "scr@example.com" } });
+    const workspace = new Workspace({ storage: state.storage as unknown as ConstructorParameters<typeof Workspace>[0]["storage"] });
+    const fs = computerGitFs(workspace.fs);
+    await init({ fs, dir: "/", defaultBranch: "main" });
+    await workspace.fs.writeFile("/.keep", "");
+    await add({ fs, dir: "/", filepath: ".keep" });
+    const headSha = await commit({ fs, dir: "/", message: "root", author: { name: "scr", email: "scr@example.com" } });
 
-    const log = new DoReviewLog(state.storage);
-    const svc = new ReviewService(log, {
+    const reviewLog = new DoReviewLog(state.storage);
+    const svc = new ReviewService(reviewLog, {
       rebaser: new IsomorphicGitRebaser(),
       composer: new IsomorphicGitComposer(workspace),
     });
     const s = svc.openSeries("wes", "refs/heads/main", headSha);
-    return fn({ svc, workspace, git, log, headSha, s });
+    return fn({ svc, workspace, fs, log: reviewLog, headSha, s });
   });
 }
 
 describe("git-backed composition (Track 3)", () => {
   it("landing writes one real commit per Change and provenance resolves each SHA", async () => {
-    await withGitStack(async ({ svc, workspace, git, s }) => {
+    await withGitStack(async ({ svc, workspace, fs, s }) => {
       const a = svc.openChange("alice", s, "extract loader", ["bob"]);
       const b = svc.openChange("carol", s, "use loader", ["bob"]);
       svc.appendRevision("alice", a, [h("config.ts", "loader", "v1")]);
@@ -78,14 +86,14 @@ describe("git-backed composition (Track 3)", () => {
       await svc.land("wes", s, [a, b]);
       const [shaA, shaB] = svc.model.lands[0]!.landedShas;
 
-      const entries = await git.log({ depth: 5 });
+      const entries = await gitLog({ fs, dir: "/", depth: 5 });
       const entryA = entries.find((e) => e.oid === shaA)!;
       const entryB = entries.find((e) => e.oid === shaB)!;
       expect(entryA).toBeTruthy();
       expect(entryB).toBeTruthy();
-      expect(entryB.parent).toEqual([shaA]); // one commit per Change, in order
-      expect(entryA.message).toContain(`Change-Id: ${a}`);
-      expect(entryB.author.name).toBe("carol");
+      expect(entryB.commit.parent).toEqual([shaA]); // one commit per Change, in order
+      expect(entryA.commit.message).toContain(`Change-Id: ${a}`);
+      expect(entryB.commit.author.name).toBe("carol");
 
       const provA = svc.provenanceOf(shaA!)!;
       expect(provA.changeId).toBe(a);
@@ -93,9 +101,9 @@ describe("git-backed composition (Track 3)", () => {
       expect(provA.reviewers.map((r) => r.reviewerId)).toEqual(["bob"]);
 
       // File content really landed, at the right commit.
-      await git.checkout({ ref: shaB!, force: true });
-      expect(await workspace.readFile("config.ts")).toMatch(/loader\tv1/);
-      await git.checkout({ ref: "main", force: true }); // leave it as land() left it
+      await checkout({ fs, dir: "/", ref: shaB!, force: true });
+      expect(await workspace.fs.readFile("/config.ts", "utf8")).toMatch(/loader\tv1/);
+      await checkout({ fs, dir: "/", ref: "main", force: true }); // leave it as land() left it
     });
   });
 

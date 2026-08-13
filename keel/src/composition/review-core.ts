@@ -23,8 +23,16 @@
  * can never double-act on resume.
  *
  * Two authorities, two fences, per this playbook's own framing:
- *   DO = review log (this class's own SQLite, INV-8/INV-12)
- *   R2 = compose/durability (the Workspace's large-object backing, Track 1)
+ *   DO = review log (this class's own SQLite, INV-8/INV-12) AND the git
+ *        working repo (`@cloudflare/computer`'s Workspace, PLAYBOOK-KEEL-
+ *        COMPUTER-SWAP-001 -- fs-only, ~10 GB shared with the DO's own
+ *        SQLite storage; KEEL's working trees are MB-scale, so this is
+ *        headroom, not a risk. Confirmed against computer's real, published
+ *        API, not assumed: its R2 integration is READ-ONLY MOUNTS only
+ *        (writes reject EROFS), so the R2-backed spillover PORT-3 first
+ *        wired via `@cloudflare/shell` never carried forward -- there was
+ *        nothing to carry, since KEEL never approached even shell's own
+ *        ~1.5 MB inline cap in any real land this session.)
  *   external = code + land (the real GitHub repo, INV-11 -- Track 2)
  *
  * `land_state.in_progress` mirrors C1's own `derive_state.in_progress`
@@ -42,9 +50,10 @@
  * interleaving writes.
  */
 import { DurableObject } from "cloudflare:workers";
-import { Workspace } from "@cloudflare/shell";
-import { createGit } from "@cloudflare/shell/git";
-import { WorkspaceFileSystem } from "@cloudflare/shell";
+import { Workspace } from "@cloudflare/computer";
+import { push as gitPush } from "isomorphic-git";
+import http from "isomorphic-git/http/web";
+import { computerGitFs } from "../adapters/git/computer-git-fs.adapter";
 import { DoReviewLog } from "../adapters/persistence/scr-review-log-do.adapter";
 import { ReviewService } from "../scr/service";
 import { InvariantViolation, type Hunk, type Decision, type CheckKind, type CheckOutcome } from "../scr/events";
@@ -58,8 +67,14 @@ import { GitTargetProbe, fetchExternalBase } from "../adapters/git/isomorphic-gi
 import { GitHubRestPrOpener, type PrOpener } from "../adapters/github/github-pr.adapter";
 
 export interface ReviewCoreEnv {
-  /** PLAYBOOK-KEEL-SCR-PORT-3, Track 1 (OD-PORT-1): the R2-owned working
-   *  repo -- large git objects spill here past the inline SQLite cap. */
+  /** PLAYBOOK-KEEL-SCR-PORT-3, Track 1: previously wired as `@cloudflare/
+   *  shell`'s Workspace's large-object R2 spillover. PLAYBOOK-KEEL-
+   *  COMPUTER-SWAP-001: no longer wired into the Workspace at all --
+   *  `@cloudflare/computer`'s Workspace has no equivalent write-capable
+   *  R2 backing (confirmed against its real API: R2 there is read-only
+   *  mounts only). Left declared, unused, as a disclosed judgment call --
+   *  removing a deployed binding wasn't asked for, and it stays available
+   *  for a possible future read-only mount pre-seed. */
   WORKSPACE_FILES?: R2Bucket;
   /** Shared with Orchestrator's own `WorkspaceGitConnector` (the SAME
    *  secret, one token, scoped to push + open a PR on the disposable
@@ -140,8 +155,18 @@ export class ReviewCore extends DurableObject<ReviewCoreEnv> {
     return new ReviewService(this.log(), overrides);
   }
 
+  /** PLAYBOOK-KEEL-COMPUTER-SWAP-001: `@cloudflare/computer`'s Workspace,
+   *  fs-only (no execution backend -- Computer's exec surfaces are unused
+   *  here). `storage: this.ctx.storage` is computer's ENTIRE constructor
+   *  requirement for this path (confirmed against its real `WorkspaceOptions`
+   *  type -- no `{sql,r2,name}` shape to map; that was `@cloudflare/shell`'s
+   *  own, different API). The cast below is type-system friction only:
+   *  `@cloudflare/workers-types`'s `SqlStorage.exec<T>` and computer's own
+   *  `SQLStorageLike` each declare a slightly different generic bound over
+   *  the SAME real runtime object -- `this.ctx.storage` genuinely has
+   *  `.sql`/`.transaction`/`.transactionSync`, computer's own requirement. */
   private workspace(): Workspace {
-    return new Workspace({ sql: this.ctx.storage.sql, r2: this.env.WORKSPACE_FILES, name: () => "review-core-land" });
+    return new Workspace({ storage: this.ctx.storage as unknown as ConstructorParameters<typeof Workspace>[0]["storage"] });
   }
 
   private landConfigFor(seriesId: string): LandConfigRow | undefined {
@@ -342,8 +367,15 @@ export class ReviewCore extends DurableObject<ReviewCoreEnv> {
     const remoteSha = await opener.getBranchSha(cfg.owner, cfg.repo_name, cfg.feature_branch);
     if (remoteSha !== rec.newTargetSha) {
       const ws = this.workspace();
-      const git = createGit(new WorkspaceFileSystem(ws));
-      await git.push({ remote: cfg.remote, ref: cfg.feature_branch, token: this.env.GIT_PUSH_TOKEN });
+      const token = this.env.GIT_PUSH_TOKEN;
+      await gitPush({
+        fs: computerGitFs(ws.fs),
+        http,
+        dir: "/",
+        remote: cfg.remote,
+        ref: cfg.feature_branch,
+        onAuth: token ? () => ({ username: token }) : undefined,
+      });
     }
     svc.confirmPushed(actorId, rec.landEventId, rec.newTargetSha);
   }

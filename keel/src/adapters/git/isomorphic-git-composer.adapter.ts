@@ -1,7 +1,7 @@
 /**
  * PLAYBOOK-KEEL-SCR-PORT-2, Track 2: `GitComposer` re-expressed against
  * isomorphic-git's public surface, writing real commits onto the
- * Workspace's own git repo (the SAME `createGit` every run already uses).
+ * Workspace's own git repo.
  *
  * Atomicity (INV-6, this increment's slice of it -- the FULL fenced land
  * against an external base is PORT-3): SCR's own composer builds every
@@ -11,47 +11,28 @@
  * NEVER TOUCHED, so there is nothing to "roll back": it is exactly where
  * it started. This port keeps that exact shape.
  *
- * Two confirmed findings on KEEL's actual git surface, both disclosed:
- *
- * 1. `@cloudflare/shell`'s `createGit()` is a CURATED subset of
- *    isomorphic-git (confirmed by reading its own `.d.ts`:
- *    clone/status/add/rm/commit/log/branch/checkout/fetch/pull/push/diff/
- *    init/remote) -- its own `commit()` wrapper does not expose
- *    isomorphic-git's `noUpdateBranch`/`ref` options, and its own
- *    `branch()` wrapper only ever creates a NEW branch at current HEAD, no
- *    `object`/`force` to move an EXISTING one. Both options exist on
- *    isomorphic-git's OWN public, documented, exported `commit()`/
- *    `branch()` functions -- just not passed through this particular
- *    curated wrapper. This port uses `@cloudflare/shell`'s wrapper for the
- *    routine per-layer work (checkout/add/commit, identical to what
- *    `WorkspaceGitConnector` already does every run) and reaches
- *    isomorphic-git's own `branch()` DIRECTLY, once, for the one call that
- *    needs `object`+`force`+`checkout` together -- still the public door
- *    (OD-PORT-2), just isomorphic-git's own wider surface rather than the
- *    curated slice.
- * 2. Doing so needs an isomorphic-git-compatible `fs`. `@cloudflare/shell`
- *    builds one internally (`createGitFs`, wrapping `WorkspaceFileSystem`
- *    into the `{promises:{...}}` shape isomorphic-git expects) but does
- *    NOT export it. `isomorphicGitFs` (`isomorphic-git-fs.adapter.ts`,
- *    shared with PORT-3's `GitTargetProbe`) is a small, disclosed
- *    reimplementation of that same adapter, built from the SAME
- *    `WorkspaceFileSystem` (`@cloudflare/shell`'s own public export) this
- *    file already needs for `parseFile`/`renderFile` reads. It already
- *    caught one real bug live: isomorphic-git's `stat`/`lstat` need
- *    `.isFile()`/`.isDirectory()` METHODS, not KEEL's plain
- *    `{type,size,mtime,mode}` -- see that file's own header.
+ * PLAYBOOK-KEEL-COMPUTER-SWAP-001: repointed from `@cloudflare/shell`'s
+ * `createGit()` (a curated wrapper needing an UNEXPORTED internal fs
+ * adapter, `isomorphic-git-fs.adapter.ts`'s own former mirror) to
+ * isomorphic-git's OWN exported functions, direct, against
+ * `@cloudflare/computer`'s first-class `WorkspaceFilesystem`
+ * (`computer-git-fs.adapter.ts`). ONE fs adapter now, not two -- every
+ * isomorphic-git call in this file (`checkout`/`add`/`commit`/`branch`)
+ * goes through it; `@cloudflare/shell`'s curated wrapper (and the reach-
+ * under it forced for `branch({force})`, the only thing it couldn't
+ * express) is gone entirely, not just the one call that used to bypass
+ * it. Composer LOGIC is unchanged -- detached-HEAD-per-layer, one atomic
+ * branch move at the end -- only the fs source and which library surface
+ * (isomorphic-git's own vs. shell's curated subset) performs each step.
  */
-import type { Workspace } from "@cloudflare/shell";
-import { WorkspaceFileSystem } from "@cloudflare/shell";
-import { createGit } from "@cloudflare/shell/git";
-import { branch as isomorphicGitBranch } from "isomorphic-git";
+import type { Workspace } from "@cloudflare/computer";
+import { checkout, add, commit, branch as isomorphicGitBranch } from "isomorphic-git";
 import { byPath, parseFile, renderFile, type ComposeLayer, type ComposeResult, type Composer } from "../../scr/vcs";
-import { isomorphicGitFs } from "./isomorphic-git-fs.adapter";
+import { computerGitFs } from "./computer-git-fs.adapter";
 
 /** One real commit per Change, onto the Workspace's own git repo. */
 export class IsomorphicGitComposer implements Composer {
-  #git: ReturnType<typeof createGit>;
-  #rawFs: ReturnType<typeof isomorphicGitFs>;
+  #fs: ReturnType<typeof computerGitFs>;
   #dir: string;
   #ref: string;
   #targetAdvanced: boolean;
@@ -66,28 +47,52 @@ export class IsomorphicGitComposer implements Composer {
    * can report it honestly.
    */
   constructor(private readonly workspace: Workspace, dir = "/", ref = "main", targetAdvanced = true) {
-    this.#git = createGit(new WorkspaceFileSystem(workspace), dir);
-    this.#rawFs = isomorphicGitFs(new WorkspaceFileSystem(workspace));
+    this.#fs = computerGitFs(workspace.fs);
     this.#dir = dir;
     this.#ref = ref;
     this.#targetAdvanced = targetAdvanced;
   }
 
+  /** isomorphic-git's own `add`/`checkout`/`commit` take `filepath`
+   *  RELATIVE to `dir` (its own convention) -- but a REAL, disclosed
+   *  wrapper-gap finding from this playbook's own live run: computer's
+   *  `workspace.fs` (unlike `@cloudflare/shell`'s more lenient wrapper)
+   *  REQUIRES an absolute path, throwing `WorkspaceFsError: Invalid path
+   *  (must be absolute)` on a bare relative one. The raw hunk paths
+   *  (`byPath()`, e.g. `"shared.ts"`) need this join before any DIRECT
+   *  `workspace.fs` call; isomorphic-git's OWN internal fs calls already
+   *  produce absolute paths itself (it joins `dir` first), so this is
+   *  needed only at the two spots in this file that touch `workspace.fs`
+   *  directly, not everywhere. */
+  #absPath(path: string): string {
+    return this.#dir === "/" ? `/${path}` : `${this.#dir.replace(/\/$/, "")}/${path}`;
+  }
+
+  async #readFileOrNull(path: string): Promise<string | null> {
+    try {
+      return await this.workspace.fs.readFile(this.#absPath(path), "utf8");
+    } catch {
+      return null;
+    }
+  }
+
   async compose(baseSha: string, layers: ComposeLayer[]): Promise<ComposeResult> {
     // Detach onto the base -- every commit below lands here, never on
     // `this.#ref`, until the single atomic move at the end.
-    await this.#git.checkout({ ref: baseSha, force: true });
+    await checkout({ fs: this.#fs, dir: this.#dir, ref: baseSha, force: true });
 
     const shas: string[] = [];
     for (const layer of layers) {
       for (const [path, sections] of byPath(layer.hunks)) {
-        const existing = await this.workspace.readFile(path);
+        const existing = await this.#readFileOrNull(path);
         const current = existing !== null ? parseFile(existing) : new Map<string, string>();
         for (const [anchor, content] of sections) current.set(anchor, content);
-        await this.workspace.writeFile(path, renderFile(current));
-        await this.#git.add({ filepath: path });
+        await this.workspace.fs.writeFile(this.#absPath(path), renderFile(current));
+        await add({ fs: this.#fs, dir: this.#dir, filepath: path });
       }
-      const { oid } = await this.#git.commit({
+      const oid = await commit({
+        fs: this.#fs,
+        dir: this.#dir,
         message: `${layer.title}\n\nChange-Id: ${layer.changeId}`,
         author: { name: layer.authorId, email: `${layer.authorId}@example.com` },
       });
@@ -96,10 +101,11 @@ export class IsomorphicGitComposer implements Composer {
 
     const newTargetSha = shas.at(-1) ?? baseSha;
     // The one atomic ref move -- isomorphic-git's own `branch()` (public,
-    // documented), not @cloudflare/shell's curated wrapper (which cannot
-    // force-move an existing branch to an explicit target).
+    // documented), now running NATIVELY against computer's `workspace.fs`,
+    // no reach-under at all (the coupling PORT-2 disclosed and this
+    // playbook exists to remove).
     await isomorphicGitBranch({
-      fs: this.#rawFs,
+      fs: this.#fs,
       dir: this.#dir,
       ref: this.#ref,
       object: newTargetSha,

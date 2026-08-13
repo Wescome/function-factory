@@ -12,21 +12,29 @@
  * moved since `sinceSha`", exactly the same contract `StaticTarget`/
  * `ScriptedTarget` already satisfy. No new orchestration wrapper needed.
  *
- * Reuses `isomorphic-git-fs.adapter.ts`'s shared `fs` (Track 1/2's own
- * finding: `@cloudflare/shell`'s `createGit()` doesn't expose the raw
- * `listFiles`/`readBlob`/`resolveRef` this needs to diff two arbitrary
- * commits without a real `git diff <sha> <sha>` -- those are isomorphic-git's
- * own public, documented, exported functions, reached directly, same
- * public-door discipline as PORT-2's atomic `branch()` move).
+ * PLAYBOOK-KEEL-COMPUTER-SWAP-001: repointed from `@cloudflare/shell`'s
+ * `createGit()` (fetch/clone/log) plus this file's own former mirror
+ * (listFiles/readBlob/resolveRef) to isomorphic-git's OWN exported
+ * functions throughout, against `@cloudflare/computer`'s first-class
+ * `WorkspaceFilesystem` (`computer-git-fs.adapter.ts`). ONE fs adapter,
+ * one library surface, no reach-under anywhere in this file now.
+ * `isomorphic-git/http/web` supplies the fetch-based HTTP client
+ * `@cloudflare/shell`'s own wrapper used internally for the SAME real
+ * network fetch; a bare GitHub PAT is passed via isomorphic-git's own
+ * `onAuth` callback (`{username: token}`, the documented pattern for
+ * GitHub HTTPS token auth), replacing shell's curated `token` option.
  */
-import type { Workspace } from "@cloudflare/shell";
-import { WorkspaceFileSystem } from "@cloudflare/shell";
-import { createGit } from "@cloudflare/shell/git";
-import { listFiles, readBlob, resolveRef } from "isomorphic-git";
+import type { Workspace } from "@cloudflare/computer";
+import { clone, fetch as gitFetch, listFiles, log, readBlob, resolveRef } from "isomorphic-git";
+import http from "isomorphic-git/http/web";
 import { parseFile } from "../../scr/vcs";
 import type { Hunk } from "../../scr/events";
 import type { TargetObservation, TargetProbe } from "../../scr/target";
-import { isomorphicGitFs } from "./isomorphic-git-fs.adapter";
+import { computerGitFs } from "./computer-git-fs.adapter";
+
+function onAuthFor(token: string | undefined) {
+  return token ? () => ({ username: token }) : undefined;
+}
 
 export interface GitTargetProbeOptions {
   readonly dir?: string;
@@ -36,33 +44,38 @@ export interface GitTargetProbeOptions {
 }
 
 export class GitTargetProbe implements TargetProbe {
-  #git: ReturnType<typeof createGit>;
-  #rawFs: ReturnType<typeof isomorphicGitFs>;
+  #fs: ReturnType<typeof computerGitFs>;
   #dir: string;
   #remote: string;
   #branch: string;
   #token?: string;
 
   constructor(workspace: Workspace, opts: GitTargetProbeOptions = {}) {
-    const dir = opts.dir ?? "/";
-    this.#git = createGit(new WorkspaceFileSystem(workspace), dir);
-    this.#rawFs = isomorphicGitFs(new WorkspaceFileSystem(workspace));
-    this.#dir = dir;
+    this.#fs = computerGitFs(workspace.fs);
+    this.#dir = opts.dir ?? "/";
     this.#remote = opts.remote ?? "origin";
     this.#branch = opts.branch ?? "main";
     this.#token = opts.token;
   }
 
   async observe(sinceSha: string): Promise<TargetObservation> {
-    await this.#git.fetch({ remote: this.#remote, ref: this.#branch, token: this.#token });
-    const sha = await resolveRef({ fs: this.#rawFs, dir: this.#dir, ref: `refs/remotes/${this.#remote}/${this.#branch}` });
+    await gitFetch({
+      fs: this.#fs,
+      http,
+      dir: this.#dir,
+      remote: this.#remote,
+      ref: this.#branch,
+      singleBranch: true,
+      onAuth: onAuthFor(this.#token),
+    });
+    const sha = await resolveRef({ fs: this.#fs, dir: this.#dir, ref: `refs/remotes/${this.#remote}/${this.#branch}` });
     if (sha === sinceSha) return { sha: sinceSha, incomingHunks: [] };
 
     // Every path present at EITHER commit -- correct by construction,
     // never relying on a `diff --name-only`-equivalent isomorphic-git
     // doesn't expose through @cloudflare/shell's curated wrapper.
-    const beforeFiles = await listFiles({ fs: this.#rawFs, dir: this.#dir, ref: sinceSha }).catch(() => [] as string[]);
-    const afterFiles = await listFiles({ fs: this.#rawFs, dir: this.#dir, ref: sha });
+    const beforeFiles = await listFiles({ fs: this.#fs, dir: this.#dir, ref: sinceSha }).catch(() => [] as string[]);
+    const afterFiles = await listFiles({ fs: this.#fs, dir: this.#dir, ref: sha });
     const allPaths = new Set([...beforeFiles, ...afterFiles]);
 
     const incomingHunks: Hunk[] = [];
@@ -80,10 +93,10 @@ export class GitTargetProbe implements TargetProbe {
 
   /** `git show <oid>:<path>` equivalent -- absent at that commit reads as
    *  `null`, never a throw (the SAME "absent, not an error" contract
-   *  `Workspace.readFile` already uses elsewhere in this port). */
+   *  `computerGitFs` already uses elsewhere in this port). */
   async #readFileAt(oid: string, filepath: string): Promise<string | null> {
     try {
-      const { blob } = await readBlob({ fs: this.#rawFs, dir: this.#dir, oid, filepath });
+      const { blob } = await readBlob({ fs: this.#fs, dir: this.#dir, oid, filepath });
       return new TextDecoder().decode(blob);
     } catch {
       return null;
@@ -100,9 +113,17 @@ export async function fetchExternalBase(
   opts: { url: string; branch?: string; token?: string; dir?: string },
 ): Promise<string> {
   const dir = opts.dir ?? "/";
-  const git = createGit(new WorkspaceFileSystem(workspace), dir);
-  await git.clone({ url: opts.url, branch: opts.branch ?? "main", singleBranch: true, token: opts.token });
-  const [head] = await git.log({ depth: 1 });
+  const fs = computerGitFs(workspace.fs);
+  await clone({
+    fs,
+    http,
+    dir,
+    url: opts.url,
+    ref: opts.branch ?? "main",
+    singleBranch: true,
+    onAuth: onAuthFor(opts.token),
+  });
+  const [head] = await log({ fs, dir, depth: 1 });
   if (!head) throw new Error(`fetchExternalBase: clone of ${opts.url} produced no commits`);
   return head.oid;
 }
