@@ -70,7 +70,8 @@ describe("PORT-3, Track 3 — atomicity (INV-6): a mid-sequence failure never ha
     // No revision, no check -- land() itself refuses this precondition
     // (INV-2/INV-4) before ever calling compose(), which IS the atomicity
     // guarantee in its simplest form: a refused land never touches the ref.
-    await expect(stub.land("wes", s, [a])).rejects.toThrow();
+    // Wrapped in an async fn: workerd JSRPC promises are pipelining proxies, and a raw one handed to `.rejects` mints a second, unobserved derived promise on rejection.
+    await expect(async () => { await stub.land("wes", s, [a]); }).rejects.toThrow();
 
     const snap = await stub.snapshot(s);
     expect(snap.lands.length).toBe(0);
@@ -128,7 +129,8 @@ describe("PORT-3, Track 3 — serialization: an approve/revise arriving during a
     const a = await stub.openChange("alice", s, "A", []);
     await stub.appendRevision("alice", a, [{ path: "a.ts", anchor: "top", content: "A1" }]);
     // No check recorded -- land() throws INV-4 before compose ever runs.
-    await expect(stub.land("wes", s, [a])).rejects.toThrow();
+    // Wrapped in an async fn: workerd JSRPC promises are pipelining proxies, and a raw one handed to `.rejects` mints a second, unobserved derived promise on rejection.
+    await expect(async () => { await stub.land("wes", s, [a]); }).rejects.toThrow();
 
     // A write immediately after -- proves the flag was cleared in `finally`.
     const vid = await stub.recordVerdict("bob", a, "approve");

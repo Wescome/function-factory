@@ -5,20 +5,52 @@
 ## Where it stands
 
 Live in production (`keel-skeleton.koales.workers.dev`), real model + real
-oracle, fully governed. **36/36 tests green** on real workerd. Domain frozen and
-never moved across every integration.
+oracle, fully governed. Domain frozen and never moved across every
+integration. Two threads are in flight, independent of each other:
+
+- **Thread A — the governed loop itself (D10, amend-evidence):** open, one
+  live run short of proof. See below.
+- **Thread B — SCR/land (getting an ACCEPTed run's code into a real repo):**
+  functionally complete through PORT-3.5, gate is **green** again (see "Gate
+  status" below).
 
 - Loop: INTENT → GENERATE → EXECUTE → VERIFY → {ACCEPT | AMEND | ESCALATE | PAUSE}
 - Real model (AI Gateway, Workers AI / kimi-k2.6) writes connectors-only code;
   independent oracle judges it; loop amends with evidence or fails closed.
 - Append-only content-addressed lineage; any run replays; cross-run D1 index.
+- Once a run ACCEPTs, SCR's ported review core seals it, merges it, and lands
+  it (real git compose, real push, real PR) onto an external repo — this is
+  Thread B.
 
 ## Done (all live-confirmed)
 
 Spike · freeze · skeleton · close-loop · replay · real oracle · deploy ·
-real model · cross-run D1 index. Every claim verified on the actual deployment.
+real model · cross-run D1 index · SCR review core on a KEEL DO · real git
+merge/commit · real two-tier land (push + PR) · land-honesty (partial-failure
+safe) · git-fs substrate swapped to `@cloudflare/computer`. Every claim
+verified on the actual deployment or a disposable external repo.
 
-## D10 — disposed (implemented)
+## Gate status (as of 2026-08-23)
+
+`npm run gate` is **green**: 79 test files passed (1 skipped), 646 tests
+passed (2 skipped), exit 0, confirmed twice in a row. It was briefly red
+earlier the same day — root-caused and fixed. The cause was NOT an RPC
+double-delivery (an earlier version of this doc guessed wrong): `stub.land(...)`
+(a real Durable Object RPC call) returns a workerd `JsRpcPromise`, a proxy
+that is both a thenable and a pipelining target. Vitest's `expect(...).rejects`
+introspects its subject via property access before awaiting it; on a raw
+`JsRpcPromise` that introspection mints a second, derived pipelined promise
+for the same call, and when the call rejects both branches reject — Vitest
+only observes the one it awaited, so the other is a genuine unhandled
+rejection (V8 was right to report it). Fixed at the two call sites in
+`test/scr-land-port3.test.ts` that passed the raw RPC promise straight to
+`.rejects` — wrapping the call in an async function first collapses the
+subject to a single native Promise before `.rejects` ever touches it. No
+other test files were affected (every other `.rejects` site in the suite
+already passes a function, not a raw RPC promise). Written up at
+`.agent/patterns/workerd-jsrpc-rejects-proxy.md` for next time.
+
+## Thread A — D10, disposed (implemented)
 
 A live real-model run on a deliberately underspecified task **ESCALATED**. Two
 outcomes:
@@ -73,10 +105,51 @@ outcomes:
   `derived-fair@v1` + a reliable amend turn). This is a convergence-RATE question,
   not a safety one — the governance thesis holds regardless.
 
+## Thread B — SCR/land, PORT-1 through 3.5 + COMPUTER-SWAP (functionally done, gate green)
+
+Ports SCR (a pre-existing, runtime-neutral review/merge/seal system —
+`src/scr/`) into KEEL as the mechanism that takes an ACCEPTed run's code and
+actually lands it on a real external repo. Independent of Thread A/D10 —
+this is what happens *after* ACCEPT, not part of the GENERATE/VERIFY loop.
+
+- **PORT-1:** SCR's review core (event log, derived model, invariant-enforcing
+  service, seal, audit) lifted into `src/scr/`, backed by a new `ReviewCore`
+  DO (separate DO-SQLite `review_log` table from KEEL's own run/lineage log)
+  and a runtime-native Ed25519 seal. No git yet.
+- **PORT-2:** real three-way merge (`diff3`) and real commits via
+  isomorphic-git, replacing PORT-1's no-git simulators. `Composer.compose()`
+  became async — a disclosed, platform-forced deviation from SCR's original
+  synchronous Node API.
+- **PORT-3:** the real two-tier land — R2-owned working repo, real
+  fetch/compose/fence/push/PR-open via GitHub REST, sealed `LandEvent`, an
+  INV-6 guard against interleaving review-log writes during a land.
+  Live-verified against a disposable external repo: real commit, real push,
+  real opened PR, a genuine drift/fence/replay cycle.
+- **PORT-3.5:** the land-honesty fix. Split the binary `LandEvent` into a
+  sealed `LandAuthorised` (atomic domain decision) plus sealed
+  `Pushed`/`PrOpened` (written only once each external step actually
+  confirms) — a partial failure can no longer leave the log claiming LANDED
+  when nothing shipped. `resumeLand()` checks external reality before acting,
+  so a crash mid-land can't double-push or double-open-PR. Live-verified by
+  inducing the exact partial-failure window and confirming honest, idempotent
+  resume.
+- **COMPUTER-SWAP:** repointed the git-fs substrate from `@cloudflare/shell`'s
+  unexported `createGitFs` mirror to `@cloudflare/computer`'s first-class
+  `workspace.fs`. Composer/rebaser logic unchanged; only the fs source moved.
+  Live-verified full land against a disposable external repo; full suite
+  passed twice in a row at the time, and does again now — see "Gate status"
+  above (the brief gap in between was a test-authoring bug, not a substrate
+  regression from this swap).
+
+No PORT-4 has landed. STATUS.md's earlier "Phase 6: spec-loop automation +
+MCP boundary" is still the next *named* phase and doesn't presuppose a
+PORT-4, so whether SCR/land needs another increment is an open question, not
+a known gap.
+
 ## Run it
 
 ```
-npm install --legacy-peer-deps && npm run gate     # 36/36
+npm install --legacy-peer-deps && npm run gate     # 646/646 (2 skipped), exit 0
 ```
 Live smoke (against the deployment):
 ```
@@ -87,10 +160,15 @@ curl -s "$KEEL/result?name=t1"        # -> ACCEPT
 curl -s "$KEEL/runs"                  # cross-run index
 ```
 
-## Next (new scope, not a gap)
+## Next
 
-Dispose D10 → I implement + re-run the amend smoke. Then Phase 6 (spec-loop
-automation + MCP boundary), which is a design brief before code.
+- **Thread A:** dispose D10 — one live run of `derived-fair@v1` with a
+  reliable amend turn, to capture the still-missing real-model
+  wrong→right→ACCEPT trace.
+- **Thread B:** gate is clean; open question is whether SCR/land needs a
+  PORT-4 or whether PORT-3.5 is the final increment (see Thread B section).
+- **After both:** Phase 6 (spec-loop automation + MCP boundary), which is a
+  design brief before code.
 
 ---
 *Reference (in repo, not required reading): per-phase RESULTs, the playbooks
