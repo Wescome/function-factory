@@ -118,6 +118,25 @@ export const EFFECT_SIGNATURES: readonly EffectSignature[] = [
     revertible: true,
   },
   {
+    // PLAYBOOK-KEEL-SCR-PORT-4 (Track 2, locked decision 1): the sub-file
+    // write. `writeFile` is whole-file by construction, so two slices
+    // touching disjoint REGIONS of one file were indistinguishable from
+    // two slices fighting over the same bytes -- there was no clean-merge
+    // branch to reach. This gives a slice a genuine hunk: one anchored
+    // section, every other section left alone. Same effect class, same
+    // gating, same revertibility as `writeFile` -- it is still a real,
+    // non-idempotent write to the workspace, and nothing about being
+    // narrower makes it safe to skip D8.
+    connector: "state", method: "writeSection", effectClass: "write-effectful",
+    reads: [{ origin: "keel:workspace/sqlite", description: "pre-image read before overwrite (INV-RB-PREIMAGE)" }],
+    writes: [{ origin: "keel:workspace/sqlite", description: "writes one anchored section of the file at path" }],
+    response: { fields: { ok: { type: "boolean" }, path: { type: "pattern", pattern: "^.+$" }, anchor: { type: "pattern", pattern: "^.+$" } } },
+    idempotency: "non-idempotent",
+    errors: [],
+    argSchema: { path: { type: "pattern", pattern: "^.+$" }, anchor: { type: "pattern", pattern: "^.+$" }, content: { type: "pattern", pattern: "^.*$" } },
+    revertible: true,
+  },
+  {
     connector: "state", method: "rm", effectClass: "write-effectful",
     reads: [{ origin: "keel:workspace/sqlite", description: "pre-image read before delete (INV-RB-PREIMAGE)" }],
     writes: [{ origin: "keel:workspace/sqlite", description: "deletes the file at path" }],

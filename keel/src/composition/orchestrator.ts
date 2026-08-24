@@ -9,6 +9,11 @@ import { Workspace } from "@cloudflare/shell";
 import { runLoop, resumeApproved, type RunPorts, type RunTerminal } from "../domain/loop/run";
 import type { Specification, SpecificationContent, AcceptanceCriterion, ContentHash, AnyNode, DomainEvent, VerdictContent, ExecutionTraceContent } from "../domain/index";
 import { checkFileOverlap, type FileOverlap } from "../domain/index";
+// PLAYBOOK-KEEL-SCR-PORT-4: the review log's own vocabulary, reached from
+// the composition layer only (SCR stays out of `src/domain/**`).
+import type { Hunk, CheckOutcome } from "../scr/events";
+import { seriesParentsFor } from "../domain/spec-loop/slice-change";
+import { projectSlicesAsChanges, mergedTraceFor, type ReviewCoreLike } from "./slice-change-bridge";
 import type { QueryPort, CustodyView, TimelineEntry, ReplaySnapshot, ReplayConsistency, CrossRunRecord } from "../domain/index";
 import { timeline as projTimeline, replayTo as projReplayTo, verifyReplay as projVerifyReplay, crossRunRecord as projCrossRun } from "../domain/index";
 import { runSpecLoop, templateDeriver, requiresApprovalFor, decideDecomp, failureToEvidence } from "../domain/index";
@@ -43,7 +48,7 @@ import { ScriptedModelAdapter } from "../adapters/model/scripted-model.adapter";
 import { FixedCodeModelAdapter } from "../adapters/model/fixed-code.adapter";
 import { GatewayModelAdapter, BUILTIN_CONNECTOR_DOCS } from "../adapters/model/gateway-model.adapter";
 import { D1SkillStoreAdapter } from "../adapters/skill/d1-skill-store.adapter";
-import { suiteIsMetamorphic, compileComposition, checkComposesAnchor, compileSeam, checkSeamAnchor, compileMetamorphic, type OracleAssertion } from "../adapters/oracle/suite";
+import { suiteIsMetamorphic, compileProgram, compileComposition, checkComposesAnchor, compileSeam, checkSeamAnchor, compileMetamorphic, type OracleAssertion } from "../adapters/oracle/suite";
 import type { ModelPort } from "../domain/index";
 import {
   proposeCandidate, challengeCandidate, surfaceCandidate, ratifyAndWrite, defaultBoundaryCases, mineScopeDerivedCases,
@@ -112,6 +117,19 @@ interface OrchestratorRpc extends Rpc.DurableObjectBranded {
   // written-file set -- called BY join() on every recorded child, the SAME
   // cross-DO direction result() already reaches in.
   writtenFiles(): Promise<readonly string[]>;
+  // PLAYBOOK-KEEL-SCR-PORT-4 (Track 1/2): the same cross-DO direction --
+  // a parent reads each child's own recorded write HUNKS (the content
+  // half `writtenFiles` cannot carry) and the identities that cleared its
+  // approval gates, so the slice->Change projection can name a real
+  // reviewer and carry real content.
+  writtenHunks(): Promise<readonly Hunk[]>;
+  approvers(): Promise<readonly string[]>;
+  // PLAYBOOK-KEEL-SCR-PORT-4 (OD-PORT4-1): this DO's own last recorded
+  // ExecutionTrace, same cross-DO direction as `writtenHunks`. The parent
+  // needs it to re-run VERIFY over MERGED content: the assertions are
+  // predicates over a trace, so re-running them requires this slice's real
+  // trace to restate the merge over (see `mergedTraceFor`).
+  executionTrace(): Promise<ExecutionTraceContent | null>;
 }
 
 export interface Env {
@@ -196,6 +214,31 @@ const RESERVED_INTENTS = new Set([
   "seam-disjoint-test — sub-goal: return a result object with the field(s) described by: Y marker",
   "seam-overlap-test — sub-goal: return a result object with the field(s) described by: X marker",
   "seam-overlap-test — sub-goal: return a result object with the field(s) described by: Y marker",
+  // PLAYBOOK-KEEL-SCR-PORT-4 (Track 2): two siblings that write DISJOINT
+  // ANCHORED SECTIONS of the SAME file. C1b's floor still flags the file
+  // overlap (correct -- two slices really are in one file), but the seam
+  // replay now finds it composes cleanly. Without `state.writeSection`
+  // (locked decision 1) this case could not exist: two whole-file writes
+  // to one path always genuinely conflict, so the clean-merge branch had
+  // nothing that could ever reach it.
+  "seam-section-test — sub-goal: return a result object with the field(s) described by: X marker",
+  "seam-section-test — sub-goal: return a result object with the field(s) described by: Y marker",
+  // The negative twin: same file, SAME anchor, different content -- a real
+  // INV-9 conflict that no ordering can resolve.
+  "seam-collide-test — sub-goal: return a result object with the field(s) described by: X marker",
+  "seam-collide-test — sub-goal: return a result object with the field(s) described by: Y marker",
+  // PLAYBOOK-KEEL-SCR-PORT-4 (OD-PORT4-1): the same clean merge as
+  // seam-section-test, judged by a suite each slice satisfies alone and
+  // the merged content does not -- the fixture that proves the
+  // merged-content VERIFY re-run can genuinely return `fail`.
+  "seam-solo-test — sub-goal: return a result object with the field(s) described by: X marker",
+  "seam-solo-test — sub-goal: return a result object with the field(s) described by: Y marker",
+  // PLAYBOOK-KEEL-SCR-PORT-4 (Track 3): the capstone -- a real C2
+  // dependency edge (DOWN dependsOn UP) AND a file overlap, in one run.
+  "seam-handoff-test — sub-goal: return a result object with the field(s) described by: UP marker",
+  "seam-handoff-test — sub-goal: return a result object with the field(s) described by: DOWN marker",
+  "seam-handoff-collide-test — sub-goal: return a result object with the field(s) described by: UP marker",
+  "seam-handoff-collide-test — sub-goal: return a result object with the field(s) described by: DOWN marker",
 ]);
 
 // The foreign connector's KEEL-authored tool config — the SAME text is used to
@@ -317,6 +360,25 @@ export interface DerivAmendAttempt {
   readonly decision: DecompDecision;
 }
 
+/**
+ * PLAYBOOK-KEEL-SCR-PORT-4 (Track 2): what a seam replay attempt reports
+ * back through `compose()`. Deliberately NOT named `seam*` alone: KEEL
+ * already has an unrelated, older `seams` concept in `compose()` (suite
+ * assertion seams -- "did the value threaded from an upstream child
+ * survive being read downstream"), and the two must stay visibly
+ * distinct. This one is about FILES colliding; that one is about VALUES
+ * being threaded.
+ *
+ * Every variant is a refusal to compose. `resolved: true` does not mean
+ * "the overlap is fine, carry on" -- it means the collision now has a
+ * reviewable Change carrying the merged content, which a human must still
+ * approve before it can land.
+ */
+export type SeamReplayOutcome =
+  | { readonly resolved: true; readonly changeId: string; readonly changeIds: Readonly<Record<string, string>> }
+  | { readonly resolved: false; readonly invariant: "INV-9"; readonly at: string; readonly changeId: string; readonly changeIds: Readonly<Record<string, string>> }
+  | { readonly resolved: false; readonly reason: string };
+
 export class Orchestrator extends Agent<Env> implements QueryPort, OrchestratorRpc {
   private readonly suites = new InMemorySuiteRegistry();
   private readonly recorder = new CallRecorder();
@@ -430,6 +492,20 @@ export class Orchestrator extends Agent<Env> implements QueryPort, OrchestratorR
     // it was admitted as a derived child (`admit()`'s `parentDoName`) --
     // one row, mirrors `pending_run`/`pending_lift`'s single-row pattern.
     this.sql`CREATE TABLE IF NOT EXISTS run_parent (id INTEGER PRIMARY KEY, parent_do_name TEXT)`;
+    // PLAYBOOK-KEEL-SCR-PORT-4 (Track 1, locked decision 2): WHO cleared
+    // this run's approval gate, and when. Append-only and multi-row (not
+    // the single-row pattern above) because a run can PAUSE more than
+    // once, and each clearing is its own fact — the log SCR's own log
+    // will later be asked to name a reviewer from. Empty for every run
+    // approved without an identity, which is the pre-PORT-4 behavior and
+    // stays the default.
+    this.sql`CREATE TABLE IF NOT EXISTS run_approval (id INTEGER PRIMARY KEY AUTOINCREMENT, approver_id TEXT NOT NULL, at INTEGER NOT NULL)`;
+    // PLAYBOOK-KEEL-SCR-PORT-4 (Track 2/3): which ReviewCore DO and which
+    // series this run projects its slices into, and the clause->changeId
+    // map once it has. One row (`configureSeamReplay`), absent by default
+    // -- and absent is what makes `compose()`'s overlap return
+    // byte-identical to C1b's for every run that never arms this.
+    this.sql`CREATE TABLE IF NOT EXISTS seam_replay (id INTEGER PRIMARY KEY, do_name TEXT, series_id TEXT, projected TEXT)`;
     // Track 2: has this child reported back yet (dedupe) -- and, Track 3,
     // whether its reaper already fired once (bounded-retry-then-escalate).
     // Migrated onto the EXISTING `derived_child` table (not a new one) so
@@ -687,12 +763,30 @@ export class Orchestrator extends Agent<Env> implements QueryPort, OrchestratorR
   }
 
   /** Approve a paused run (D8: replay-resume). Reloads spec + action from
-   *  lineage — INV-A, the lineage graph is the source of truth. */
-  async approve(): Promise<{ resumed: boolean; state?: string }> {
+   *  lineage — INV-A, the lineage graph is the source of truth.
+   *
+   *  PLAYBOOK-KEEL-SCR-PORT-4 (Track 1, locked decision 2): `approverId`
+   *  is additive and optional. Omitted — every pre-PORT-4 caller, and
+   *  every existing test — behaves byte-identically: nothing is recorded,
+   *  and `approvers()` stays empty. Supplied, it records WHO cleared this
+   *  gate, so the slice→Change bridge can open the resulting Change with
+   *  that identity in `requiredReviewers` and sign an `approve` verdict
+   *  with it.
+   *
+   *  Deliberately NOT defaulted to a literal ("human", the actor id, the
+   *  DO's name). SCR's log is signed and append-only; a verdict signed by
+   *  an identity that never approved anything is a forged review, and
+   *  eliminating exactly that class of dishonesty is what PORT-3.5 was
+   *  for. An unknown approver is representable only as ABSENT, and the
+   *  bridge fails closed on absence rather than inventing a name. */
+  async approve(approverId?: string): Promise<{ resumed: boolean; state?: string }> {
     this.ensureSchema();
     const pend = [...this.sql<{ action_id: string; execution_id: string; attempt: number }>`
       SELECT action_id, execution_id, attempt FROM pending_run WHERE id = 1`][0];
     if (!pend) return { resumed: false };
+    if (approverId) {
+      this.sql`INSERT INTO run_approval (approver_id, at) VALUES (${approverId}, ${Date.now()})`;
+    }
 
     const repo = this.repo();
     const nodes = await repo.loadRun();
@@ -835,11 +929,48 @@ export class Orchestrator extends Agent<Env> implements QueryPort, OrchestratorR
    *  ever called once `evaluateReadiness` has already returned "ready" for
    *  the SAME `dependsOn`/`siblingRows` pair, so every lookup here is
    *  guaranteed to find a row. */
-  private buildConsumesResults(dependsOn: readonly string[], siblingRows: readonly SiblingRow[]): Record<string, { runId: string; doName: string }> {
-    const out: Record<string, { runId: string; doName: string }> = {};
+  /** PLAYBOOK-KEEL-SCR-PORT-4 (Track 3): additive grounding. The
+   *  `runId`/`doName` reference is unchanged and always present —
+   *  everything C2 shipped keeps working byte-identically, and an
+   *  upstream whose Change has not landed (the common case, since release
+   *  normally fires the moment the upstream reaches ACCEPT, long before
+   *  anything lands) resolves to exactly today's shape.
+   *
+   *  What is new: when the upstream slice HAS been projected into the
+   *  review log and that Change HAS landed, the edge also carries the
+   *  landed sha and `provenanceOf`'s answer for it — which Change, which
+   *  revision, which revision hash, which reviewers.
+   *
+   *  A downstream must ground on `provenance.revisionHash` /
+   *  `provenance.reviewers`, never on a git ref. THE FAILURE MODE: if a
+   *  downstream builds on the wrong upstream, the `consumesResults` edge
+   *  resolved past `provenanceOf` to raw git. `provenanceOf` answers from
+   *  the sealed `LandAuthorised` event and deliberately never consults
+   *  git, because git history is rewritten and is not evidence. A ref
+   *  cannot tell you who reviewed what; this can. */
+  private async buildConsumesResults(
+    dependsOn: readonly string[],
+    siblingRows: readonly SiblingRow[],
+  ): Promise<Record<string, NonNullable<SpecificationContent["consumesResults"]>[string]>> {
+    const out: Record<string, NonNullable<SpecificationContent["consumesResults"]>[string]> = {};
+    const core = this.reviewCoreStub();
+    const projected = await this.projectedChanges();
     for (const dep of dependsOn) {
       const row = siblingRows.find((r) => r.serves_clause === dep);
-      if (row) out[dep] = { runId: row.run_id, doName: row.do_name };
+      if (!row) continue;
+      const base = { runId: row.run_id, doName: row.do_name };
+      const changeId = projected[dep];
+      if (!core || !changeId) { out[dep] = base; continue; }
+      try {
+        const landedSha = await core.landedShaOf(changeId);
+        if (!landedSha) { out[dep] = base; continue; }
+        const provenance = await core.provenanceOf(landedSha);
+        out[dep] = provenance ? { ...base, landedSha, provenance } : { ...base, landedSha };
+      } catch {
+        // Grounding is additive: a review core that cannot be reached
+        // must never break C2's own (already correct) reference edge.
+        out[dep] = base;
+      }
     }
     return out;
   }
@@ -891,7 +1022,7 @@ export class Orchestrator extends Agent<Env> implements QueryPort, OrchestratorR
           this.sql`UPDATE derived_child SET reported_state = 'ESCALATED', held = 0 WHERE run_id = ${row.run_id}`;
           continue;
         }
-        const consumesResults = this.buildConsumesResults(dependsOn, rows);
+        const consumesResults = await this.buildConsumesResults(dependsOn, rows);
         const specWithRefs: SpecificationContent = { ...spec, consumesResults };
         const realRunId = await computeSpecId(specWithRefs);
         this.sql`UPDATE derived_child SET run_id = ${realRunId}, held = 0, spec_content = ${JSON.stringify(specWithRefs)} WHERE run_id = ${row.run_id}`;
@@ -1029,7 +1160,7 @@ export class Orchestrator extends Agent<Env> implements QueryPort, OrchestratorR
         // prior-attempt siblings already reported ACCEPT under the SAME
         // content-addressed rows). Admit now, with the satisfied upstreams'
         // references attached (consumesResults is a REFERENCE only).
-        const consumesResults = this.buildConsumesResults(dependsOn, siblingRows);
+        const consumesResults = await this.buildConsumesResults(dependsOn, siblingRows);
         const specWithRefs: SpecificationContent = { ...spec, consumesResults };
         const { runId } = await this.childStub(doName).admit(specWithRefs, this.name);
         idOf.set(spec, runId);
@@ -1148,7 +1279,7 @@ export class Orchestrator extends Agent<Env> implements QueryPort, OrchestratorR
    *  admission path, no second gather). Runs in the same independent sandbox
    *  every other oracle runs in (`rt.tool().execute`) — no model judges its
    *  own composition. */
-  async compose(): Promise<{ ready: boolean; clauses: readonly ComposeClauseVerdict[]; seams: readonly ComposeClauseVerdict[]; fileOverlaps?: readonly FileOverlap[] } | { error: string }> {
+  async compose(): Promise<{ ready: boolean; clauses: readonly ComposeClauseVerdict[]; seams: readonly ComposeClauseVerdict[]; fileOverlaps?: readonly FileOverlap[]; seamResolution?: SeamReplayOutcome } | { error: string }> {
     const j = await this.join();
     if ("error" in j) return j;
     if (!j.ready) return { ready: false, clauses: [], seams: [] }; // cannot compose an unfinished tree — no partial composition
@@ -1161,7 +1292,20 @@ export class Orchestrator extends Agent<Env> implements QueryPort, OrchestratorR
     // and richer auto-sequencing are named fast-follows, not built here.
     const overlapReport = checkFileOverlap(j.children.map((c) => ({ id: c.servesClause ?? c.runId, writtenFiles: c.writtenFiles })));
     if (!overlapReport.ok) {
-      return { ready: false, clauses: [], seams: [], fileOverlaps: overlapReport.overlaps };
+      // PLAYBOOK-KEEL-SCR-PORT-4 (Track 2): the floor above still refuses
+      // to compose past an overlap -- that never changes, and the return
+      // below is byte-identical to C1b's when nothing is wired
+      // (test/slice-files.test.ts asserts on it exactly). What is new is
+      // that an overlap is no longer necessarily the END of the story:
+      // when a ReviewCore series is configured for this run, the
+      // overlapping slices' hunks get replayed through the review log's
+      // own conflict oracle, and either resolve into a real merge-point
+      // Change or come back with a NAMED INV-9 conflict. Both are strictly
+      // more than "refused"; neither lets anything compose.
+      const seamResolution = await this.attemptSeamReplay(j.children, overlapReport.overlaps);
+      return seamResolution
+        ? { ready: false, clauses: [], seams: [], fileOverlaps: overlapReport.overlaps, seamResolution }
+        : { ready: false, clauses: [], seams: [], fileOverlaps: overlapReport.overlaps };
     }
 
     const rootNode = await this.findRoot();
@@ -1276,6 +1420,301 @@ export class Orchestrator extends Agent<Env> implements QueryPort, OrchestratorR
     }
 
     return { ready: true, clauses, seams };
+  }
+
+  // --- PLAYBOOK-KEEL-SCR-PORT-4 (Track 2/3): the slice -> Change wiring ----
+
+  /** The `ReviewCore` stub this run projects its slices into, or
+   *  `undefined` when nothing is wired -- which is the default and keeps
+   *  `compose()` byte-identical to C1b for every existing run. */
+  private reviewCoreStub(): (ReviewCoreLike & {
+    openSeries(actorId: string, targetRef: string, targetSha: string): Promise<string>;
+    // OD-PORT4-1: the merged content BEFORE anything is written, so the
+    // VERIFY oracle that lives on THIS DO can actually be shown what it is
+    // being asked to judge. Read-only; `resolveSeam` re-derives the same
+    // merge through the same rebaser.
+    previewSeam(seriesId: string, ordered: { changeId: string; hunks: Hunk[] }[]): Promise<
+      { ok: true; resolved: Hunk[] } | { ok: false; invariant: "INV-9"; at: string; changeId: string }
+    >;
+    resolveSeam(actorId: string, seriesId: string, ordered: { changeId: string; hunks: Hunk[] }[], opts?: { requiredReviewers?: string[]; checkOutcome?: CheckOutcome }): Promise<
+      { ok: true; resolvedChangeId: string } | { ok: false; invariant: "INV-9"; at: string; changeId: string }
+    >;
+    snapshot(seriesId: string): Promise<{ openOrder: string[] }>;
+    // Track 3: the grounding hop -- changeId -> landed sha -> provenance.
+    landedShaOf(changeId: string): Promise<string | null>;
+    provenanceOf(sha: string): Promise<NonNullable<NonNullable<SpecificationContent["consumesResults"]>[string]["provenance"]> | null>;
+  }) | undefined {
+    const ns = (this.env as Env).REVIEW_CORE;
+    const row = [...this.sql<{ do_name: string }>`SELECT do_name FROM seam_replay WHERE id = 1`][0];
+    if (!ns || !row?.do_name) return undefined;
+    return ns.get(ns.idFromName(row.do_name)) as unknown as ReturnType<Orchestrator["reviewCoreStub"]>;
+  }
+
+  /** PLAYBOOK-KEEL-SCR-PORT-4 (Track 2/3): arm this run's slice->Change
+   *  projection against a REAL `ReviewCore` series. Explicit and opt-in:
+   *  a run that never calls this behaves exactly as it did before PORT-4,
+   *  overlap floor included. `seriesId` is a series the caller already
+   *  opened on that ReviewCore (`openSeries` locally, or
+   *  `openExternalSeries` against real infra).
+   *
+   *  `projected` is an OPTIONAL, already-known clause -> changeId map. It
+   *  exists because the projection is not always this run's to perform:
+   *  an upstream slice can have been projected and LANDED by an earlier
+   *  pass (which is precisely the situation in which Track 3's provenance
+   *  grounding has anything to ground on). Supplying it makes those
+   *  Changes resolvable here without re-opening them in an append-only
+   *  log. Omitted, the projection happens on the first `compose()` that
+   *  hits an overlap, exactly as Track 2 describes. */
+  async configureSeamReplay(doName: string, seriesId: string, projected?: Record<string, string>): Promise<void> {
+    this.ensureSchema();
+    this.sql`INSERT OR REPLACE INTO seam_replay (id, do_name, series_id, projected) VALUES (1, ${doName}, ${seriesId}, ${projected ? JSON.stringify(projected) : null})`;
+  }
+
+  /** Read-back for the projection: clause -> SCR change id, once
+   *  `attemptSeamReplay` has run. Empty before that. */
+  async projectedChanges(): Promise<Readonly<Record<string, string>>> {
+    this.ensureSchema();
+    const row = [...this.sql<{ projected: string | null }>`SELECT projected FROM seam_replay WHERE id = 1`][0];
+    return row?.projected ? (JSON.parse(row.projected) as Record<string, string>) : {};
+  }
+
+  /**
+   * Project every finished slice into the configured review series as a
+   * Change, then replay the OVERLAPPING ones through the review log's own
+   * conflict oracle.
+   *
+   * Returns `undefined` when nothing is wired, which is what keeps
+   * `compose()`'s existing overlap return byte-identical.
+   *
+   * The projection runs at most once per run: its clause -> changeId map
+   * is persisted, and a second `compose()` (they are pull reads, called
+   * freely, and `composeIfAllReported` calls one itself) reuses it rather
+   * than opening a duplicate set of Changes in an append-only log.
+   *
+   * ORDER comes from `Model.openOrder`, read back off the review log
+   * after the projection -- never recomputed here. That is the whole
+   * "one graph, not two" discipline made operational: this method's own
+   * opinion about ordering is that it doesn't have one.
+   *
+   * OD-PORT4-1 lands here, in three steps that cannot be collapsed:
+   * `previewSeam` produces the merged content without writing anything,
+   * `verifyMergedContent` re-runs VERIFY over it in this DO's own oracle
+   * sandbox, and `resolveSeam` records the outcome that run ACTUALLY
+   * produced. The check the review log ends up carrying is therefore an
+   * observation, never a default -- and when nothing could be observed,
+   * no check is recorded at all and `land()` refuses on INV-4.
+   */
+  /**
+   * OD-PORT4-1, the half that has to be REAL: re-run VERIFY over the
+   * MERGED content and report what it actually said.
+   *
+   * The principal's decision is "the check (VERIFY) re-runs automatically
+   * on the merged content (it's an oracle, cheap), and a fresh Approver
+   * verdict is required before the resolved Change lands." The verdict
+   * half is `resolveSeam`'s (it records none, so `land()` refuses until a
+   * human signs one). This is the check half, and it is the one thing
+   * `ReviewCore` structurally cannot do for itself: KEEL's VERIFY oracle
+   * is `this.rt.tool().execute` over a suite's compiled assertions, and it
+   * lives on THIS DO.
+   *
+   * The SAME mechanism, not a parallel one. `SuiteOracleAdapter.verify`
+   * runs `compileProgram(trace, assertions)` in `this.rt.tool().execute`
+   * and maps the sandbox's per-criterion answer to pass/fail; so does
+   * this, per contributing clause, against that clause's OWN resolved
+   * suite (`derived_child.oracle_ref` — never assumed equal to the
+   * root's, same discipline `join()` already follows) and against
+   * `mergedTraceFor`'s restatement of its trace over the merged hunks.
+   * `compose()`'s own two oracle call sites (`compileComposition`,
+   * `compileSeam`) have the identical shape, completed-guard included.
+   *
+   * Returns `undefined` — meaning "no check", not "a failing check" —
+   * whenever ANY contributing clause could not be judged: no trace, no
+   * assertion in its suite, an assertion that does not declare itself
+   * `mergeSensitive` (so re-running it says nothing about the merge —
+   * see the gate below), a sandbox that did not complete, or a
+   * sandbox result that is neither pass nor fail. That is
+   * `SuiteOracleAdapter`'s own rule (unverifiable is not a fail,
+   * PLAYBOOK-KEEL-VERDICT-SET-001 L1) meeting `CheckOutcome`'s two-value
+   * vocabulary: there is no way to write "inconclusive" into the review
+   * log, so the log stays silent and `land()` refuses on INV-4. Silence
+   * is the honest encoding of "nobody verified this."
+   *
+   * An OBSERVED `fail` on any clause is returned as `fail` even when
+   * another clause was unverifiable. A failure that really was observed is
+   * a fact worth recording, and recording it blocks the land either way.
+   */
+  private async verifyMergedContent(
+    clauses: readonly string[],
+    merged: readonly Hunk[],
+  ): Promise<CheckOutcome | undefined> {
+    // No clauses is not a clean sheet, it is an empty observation.
+    if (clauses.length === 0) return undefined;
+
+    const rows = new Map(
+      [...this.sql<{ serves_clause: string | null; do_name: string; oracle_ref: string | null }>`
+        SELECT serves_clause, do_name, oracle_ref FROM derived_child`]
+        .filter((r) => !!r.serves_clause)
+        .map((r) => [r.serves_clause!, r]),
+    );
+
+    let anyUnverifiable = false;
+    let anyFail = false;
+    for (const clause of clauses) {
+      const row = rows.get(clause);
+      const suite = row?.oracle_ref ? this.suites.resolve(row.oracle_ref) : null;
+      const assertion = suite?.assertions.find((a) => a.criterionId === clause);
+      if (!assertion) { anyUnverifiable = true; continue; }
+      // The second honesty gate, and the reason the first one was not
+      // enough. Running an assertion over `mergedTraceFor`'s restatement
+      // is a REAL oracle run, but a real run of a merge-BLIND assertion
+      // answers a question about the slice, not about the merge:
+      // `mergedTraceFor` substitutes the writes and copies
+      // `result`/`status`/`egress` verbatim (it cannot do otherwise —
+      // nothing re-executed), so an assertion reading only `trace.result`
+      // returns the verdict it already returned for the slice alone.
+      // Recording that as the merged-content check would launder a
+      // per-slice pass into a claim nobody checked.
+      //
+      // `mergeSensitive` is the assertion author's DECLARED statement that
+      // this assertion reads what was WRITTEN. Absent, the clause joins
+      // the same "could not be judged" path as a missing trace or an
+      // incomplete sandbox: `undefined`, no check recorded, `land()`
+      // refuses on INV-4. Additive and fail-closed — this can only ever
+      // turn a would-be `pass` into silence, never a `fail` into a pass.
+      //
+      // Gated PER CLAUSE, not per suite: `verifyMergedContent` runs exactly
+      // ONE assertion per clause (the one matching `criterionId`), so a
+      // suite-level test would let a merge-blind clause contribute a `pass`
+      // on the strength of a merge-sensitive SIBLING — the same laundering
+      // one level up.
+      if (!assertion.mergeSensitive) { anyUnverifiable = true; continue; }
+      const trace = await this.childStub(row!.do_name).executionTrace();
+      if (!trace) { anyUnverifiable = true; continue; }
+
+      const out = await this.rt.tool().execute(
+        { code: compileProgram(mergedTraceFor(trace, merged), [assertion]) },
+        undefined,
+      );
+      const res = out.status === "completed" ? (out.result as { results?: Record<string, string> }) : {};
+      const status = res.results?.[clause];
+      if (status === "fail") anyFail = true;
+      else if (status !== "pass") anyUnverifiable = true;
+    }
+
+    if (anyFail) return "fail";
+    if (anyUnverifiable) return undefined;
+    return "pass";
+  }
+
+  private async attemptSeamReplay(
+    children: readonly JoinChildReport[],
+    overlaps: readonly FileOverlap[],
+  ): Promise<SeamReplayOutcome | undefined> {
+    this.ensureSchema();
+    const core = this.reviewCoreStub();
+    const row = [...this.sql<{ series_id: string; projected: string | null }>`SELECT series_id, projected FROM seam_replay WHERE id = 1`][0];
+    if (!core || !row) return undefined;
+    const seriesId = row.series_id;
+
+    try {
+      // Each slice's own recorded content and approval identities, pulled
+      // through the SAME cross-DO surface `join()` already uses.
+      const specs = new Map<string, SpecificationContent>();
+      for (const r of this.sql<{ serves_clause: string | null; spec_content: string | null }>`
+        SELECT serves_clause, spec_content FROM derived_child`) {
+        if (r.serves_clause && r.spec_content) specs.set(r.serves_clause, JSON.parse(r.spec_content) as SpecificationContent);
+      }
+      const hunksByClause = new Map<string, Hunk[]>();
+      const approvalByClause = new Map<string, { approverId: string; approved: boolean } | undefined>();
+      for (const c of children) {
+        if (!c.servesClause) continue;
+        const stub = this.childStub(c.doName);
+        const [hunks, approvers] = await Promise.all([stub.writtenHunks(), stub.approvers()]);
+        hunksByClause.set(c.servesClause, [...hunks]);
+        const gated = (specs.get(c.servesClause)?.approvalGated ?? []).length > 0;
+        if (!gated) { approvalByClause.set(c.servesClause, undefined); continue; }
+        const approverId = approvers[0];
+        if (!approverId) {
+          // Fail-closed, and the ONE case this whole design refuses to
+          // paper over: the slice was approval-gated, so a human really
+          // did clear it, but nobody recorded WHO. There is no honest
+          // name to open the Change under and none to sign a verdict
+          // with, and inventing one would forge a signed review. Refuse
+          // the projection instead, and say exactly what is missing.
+          return {
+            resolved: false,
+            reason: `slice ${c.servesClause} is approval-gated but no approver identity was recorded — call approve(approverId) so the review log can name a real reviewer`,
+          };
+        }
+        approvalByClause.set(c.servesClause, { approverId, approved: true });
+      }
+
+      // One graph: C2's own declared edges become the Changes' parents.
+      const parentsByClause = new Map(
+        seriesParentsFor([...specs.values()]).map((p) => [p.servesClause, p.parentClauses]),
+      );
+
+      let changeIds: Record<string, string> = row.projected ? JSON.parse(row.projected) : {};
+      if (!row.projected) {
+        const landings = await projectSlicesAsChanges(
+          core,
+          seriesId,
+          children.filter((c) => !!c.servesClause),
+          (c) => hunksByClause.get(c.servesClause!) ?? [],
+          {
+            actorId: this.name,
+            parentClausesOf: (c) => parentsByClause.get(c.servesClause!) ?? [],
+            approvalOf: (c) => approvalByClause.get(c.servesClause!),
+          },
+        );
+        changeIds = Object.fromEntries(landings.map((l) => [l.servesClause, l.changeId]));
+        this.sql`UPDATE seam_replay SET projected = ${JSON.stringify(changeIds)} WHERE id = 1`;
+      }
+
+      // The overlapping clauses only -- ordered by the review log's own
+      // `Model.openOrder`, which is the single source of truth for the
+      // order this series composes in.
+      const overlapping = new Set(overlaps.flatMap((o) => o.children));
+      const openOrder = (await core.snapshot(seriesId)).openOrder;
+      const orderedClauses: string[] = [];
+      const ordered = openOrder
+        .map((changeId) => {
+          const clause = Object.keys(changeIds).find((k) => changeIds[k] === changeId);
+          if (!clause || !overlapping.has(clause)) return null;
+          orderedClauses.push(clause);
+          return { changeId, hunks: hunksByClause.get(clause) ?? [] };
+        })
+        .filter((x): x is { changeId: string; hunks: Hunk[] } => !!x);
+      if (ordered.length < 2) {
+        return { resolved: false, reason: "the overlapping slices did not project to two or more Changes" };
+      }
+
+      // OD-PORT4-1, in the order the decision actually requires: MERGE,
+      // then CHECK the merged content, then record. `previewSeam` writes
+      // nothing, so a conflict here is the same INV-9 state `resolveSeam`
+      // would have returned -- reported without opening anything, which
+      // is what `resolveSeam` does on a conflict too.
+      const preview = await core.previewSeam(seriesId, ordered);
+      if (!preview.ok) {
+        return { resolved: false, invariant: preview.invariant, at: preview.at, changeId: preview.changeId, changeIds };
+      }
+
+      // The check is whatever the oracle ACTUALLY returned over the merged
+      // content -- `undefined` included, which records no check at all and
+      // leaves `land()` to refuse on INV-4. Nothing here defaults, and
+      // nothing here assumes.
+      const checkOutcome = await this.verifyMergedContent(orderedClauses, preview.resolved);
+
+      const res = await core.resolveSeam(this.name, seriesId, ordered, { checkOutcome });
+      return res.ok
+        ? { resolved: true, changeId: res.resolvedChangeId, changeIds }
+        : { resolved: false, invariant: res.invariant, at: res.at, changeId: res.changeId, changeIds };
+    } catch (e) {
+      // A seam replay that itself fails must never take `compose()` down:
+      // the overlap floor's own refusal is already correct and already
+      // returned alongside this. Surfaced, not swallowed.
+      return { resolved: false, reason: `seam replay failed: ${e instanceof Error ? e.message : String(e)}` };
+    }
   }
 
   /** PLAYBOOK-KEEL-PARALLEL-SLICE-001 (Track 2, B.3/B.6): completion-push
@@ -1654,7 +2093,17 @@ export class Orchestrator extends Agent<Env> implements QueryPort, OrchestratorR
       for (const c of calls) {
         if (c.connector !== "state") continue;
         const args = c.args as Record<string, unknown> | undefined;
-        if (c.method === "writeFile" || c.method === "rm") {
+        // PLAYBOOK-KEEL-SCR-PORT-4 (Track 2): `writeSection` joins the
+        // path-bearing writes here. It touches ONE anchored region rather
+        // than the whole file, but it is still a write to that PATH, and
+        // this set is what `checkFileOverlap` reads -- a sub-file write
+        // that didn't report its path would make the overlap invisible
+        // and the whole seam-resolution branch unreachable. Overlap
+        // detection stays at file granularity (correct: two slices in one
+        // file is exactly the thing worth looking at); whether that
+        // overlap is a real conflict is decided at ANCHOR granularity,
+        // later, by `replaySeam`.
+        if (c.method === "writeFile" || c.method === "rm" || c.method === "writeSection") {
           if (typeof args?.path === "string") files.add(args.path);
         } else if (c.method === "mv") {
           if (typeof args?.src === "string") files.add(args.src);
@@ -1665,6 +2114,84 @@ export class Orchestrator extends Agent<Env> implements QueryPort, OrchestratorR
       }
     }
     return [...files].sort();
+  }
+
+  /** PLAYBOOK-KEEL-SCR-PORT-4 (Track 2): the same recorded writes
+   *  `writtenFiles()` reads, as SCR HUNKS rather than as bare paths — the
+   *  content half that a review log needs and a file list cannot carry.
+   *  Same `ExecutionTrace.calls` scan, same `repo()` prelude (a C2
+   *  propagate-escalated child may never have been admitted, so
+   *  `lineage_nodes` may not exist yet), same observed-not-declared
+   *  discipline.
+   *
+   *  `state.writeFile` maps to the single anchor `"file"`: a whole-file
+   *  write really does claim the whole file, so it must conflict with
+   *  anything else touching that path — and under the (path, anchor)
+   *  conflict rule, `"file"` does exactly that against another `"file"`.
+   *  `state.writeSection` maps to its own declared anchor, which is the
+   *  entire point of adding it (PORT-4, locked decision 1): two slices on
+   *  disjoint sections of one file now produce hunks that genuinely
+   *  compose, so the clean-merge branch of `replaySeam` is reachable at
+   *  all.
+   *
+   *  Last write to a (path, anchor) wins, first write fixes its position
+   *  — `Map.set`, the same rule `replaySeam`'s union and the composer's
+   *  own materialisation use. Across ATTEMPTS that is the honest reading:
+   *  the newest recorded content for a region is what that region was
+   *  last left as. */
+  async writtenHunks(): Promise<readonly Hunk[]> {
+    this.ensureSchema();
+    const repo = this.repo();
+    const nodes = await repo.loadRun();
+    const hunks = new Map<string, Hunk>();
+    for (const n of nodes) {
+      if (n.kind !== "ExecutionTrace") continue;
+      const calls = (n.content as ExecutionTraceContent).calls ?? [];
+      for (const c of calls) {
+        if (c.connector !== "state") continue;
+        const args = c.args as Record<string, unknown> | undefined;
+        if (typeof args?.path !== "string" || typeof args?.content !== "string") continue;
+        const anchor =
+          c.method === "writeFile" ? "file"
+          : c.method === "writeSection" && typeof args.anchor === "string" ? args.anchor
+          : null;
+        if (anchor === null) continue;
+        hunks.set(`${args.path} ${anchor}`, { path: args.path, anchor, content: args.content });
+      }
+    }
+    return [...hunks.values()];
+  }
+
+  /** PLAYBOOK-KEEL-SCR-PORT-4 (OD-PORT4-1): this run's LAST recorded
+   *  `ExecutionTrace` — the same "newest recorded fact wins across
+   *  attempts" reading `writtenHunks()` above applies to content, applied
+   *  to the trace those hunks came off, and the same `repo()` prelude for
+   *  the same reason (a C2 propagate-escalated child may never have been
+   *  admitted, so `lineage_nodes` may not exist yet).
+   *
+   *  `null` for a run that never executed. That is a real answer and the
+   *  caller must treat it as one: a merged-content VERIFY with no trace to
+   *  restate is a VERIFY that did not run, which records no check at all
+   *  rather than a guess (see `verifyMergedContent`). */
+  async executionTrace(): Promise<ExecutionTraceContent | null> {
+    this.ensureSchema();
+    const repo = this.repo();
+    const nodes = await repo.loadRun();
+    let last: ExecutionTraceContent | null = null;
+    for (const n of nodes) if (n.kind === "ExecutionTrace") last = n.content as ExecutionTraceContent;
+    return last;
+  }
+
+  /** PLAYBOOK-KEEL-SCR-PORT-4 (Track 1, locked decision 2): every identity
+   *  that cleared an approval gate on THIS run, oldest first. Empty for a
+   *  run that never paused, and — deliberately — also for a run approved
+   *  through `approve()` with no identity supplied. Absence here means
+   *  "nobody is named", never "somebody generic": the slice->Change
+   *  bridge fails closed on it rather than signing a verdict with an
+   *  invented name (see slice-change-bridge.ts's own doc). */
+  async approvers(): Promise<readonly string[]> {
+    this.ensureSchema();
+    return [...this.sql<{ approver_id: string }>`SELECT approver_id FROM run_approval ORDER BY id ASC`].map((r) => r.approver_id);
   }
 
   // --- QueryPort (M4, read side) --------------------------------------------

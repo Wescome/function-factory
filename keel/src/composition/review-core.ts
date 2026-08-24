@@ -57,7 +57,8 @@ import { computerGitFs } from "../adapters/git/computer-git-fs.adapter";
 import { DoReviewLog } from "../adapters/persistence/scr-review-log-do.adapter";
 import { ReviewService } from "../scr/service";
 import { InvariantViolation, type Hunk, type Decision, type CheckKind, type CheckOutcome } from "../scr/events";
-import type { Rebaser } from "../scr/rebase";
+import { AnchorRebaser, type Rebaser } from "../scr/rebase";
+import { replaySeam } from "../scr/seam-replay";
 import type { Composer } from "../scr/vcs";
 import type { TargetProbe } from "../scr/target";
 import type { LandStatus } from "../scr/model";
@@ -231,14 +232,41 @@ export class ReviewCore extends DurableObject<ReviewCoreEnv> {
     return { seriesId, baseSha };
   }
 
-  async openChange(actorId: string, seriesId: string, title: string, requiredReviewers: string[] = []): Promise<string> {
+  /**
+   * PLAYBOOK-KEEL-SCR-PORT-4, Track 1: `parents` threaded through to
+   * `ReviewService.openChange`'s own long-existing 6th parameter
+   * (service.ts:132). Additive and optional — every pre-PORT-4 caller
+   * passes nothing and keeps SCR's own default ("stack on the current
+   * tips", service.ts:138), byte-identical.
+   *
+   * A caller that HAS a graph must pass it explicitly, including `[]` for
+   * a root. Omitting it does not mean "no parents"; it means "guess", and
+   * the guess is a linear spine — which for a C2-derived batch would be a
+   * second graph arriving by omission.
+   */
+  async openChange(
+    actorId: string,
+    seriesId: string,
+    title: string,
+    requiredReviewers: string[] = [],
+    parents?: string[],
+  ): Promise<string> {
     this.guardAgainstLand();
-    return this.reviewServiceFor().openChange(actorId, seriesId, title, requiredReviewers);
+    return this.reviewServiceFor().openChange(actorId, seriesId, title, requiredReviewers, undefined, parents);
   }
 
-  async appendRevision(actorId: string, changeId: string, hunks: Hunk[]): Promise<number> {
+  /**
+   * PLAYBOOK-KEEL-SCR-PORT-4, Track 1: `reason` was hardcoded to
+   * `ReviewService`'s own default here, which meant INV-14
+   * RESOLUTION-NEVER-CARRIES (service.ts:870-875 — `resolving = reason
+   * === 'conflict-resolution'`, suppressing carry-forward) existed in the
+   * domain but was UNREACHABLE through the RPC surface. Nothing else
+   * changes: the default is the same string the domain already defaulted
+   * to, so every existing caller is byte-identical.
+   */
+  async appendRevision(actorId: string, changeId: string, hunks: Hunk[], reason = "author-edit"): Promise<number> {
     this.guardAgainstLand();
-    return this.reviewServiceFor().appendRevision(actorId, changeId, hunks);
+    return this.reviewServiceFor().appendRevision(actorId, changeId, hunks, reason);
   }
 
   async recordVerdict(reviewerId: string, changeId: string, decision: Decision): Promise<string> {
@@ -258,6 +286,147 @@ export class ReviewCore extends DurableObject<ReviewCoreEnv> {
   async observeTarget(actorId: string, seriesId: string): Promise<boolean> {
     this.ensureSchema();
     return this.reviewServiceFor(this.gitOverridesFor(seriesId)).observeTarget(actorId, seriesId);
+  }
+
+  // ——— seam resolution (PLAYBOOK-KEEL-SCR-PORT-4, Track 2) ———
+
+  /** The rebaser this series' own `land()` would use — the real
+   *  `IsomorphicGitRebaser` for a series opened against external infra,
+   *  SCR's own `AnchorRebaser` otherwise. Resolving a seam with a
+   *  DIFFERENT conflict oracle than the one that will gate the land would
+   *  be its own quiet lie: clean here, refused there. */
+  private rebaserFor(seriesId: string): Rebaser {
+    return this.gitOverridesFor(seriesId).rebaser ?? new AnchorRebaser();
+  }
+
+  /**
+   * PLAYBOOK-KEEL-SCR-PORT-4, Track 2: turn a detected file overlap into
+   * either a resolved Change or a named INV-9 conflict.
+   *
+   * The resolution is a REAL MERGE POINT in the one graph: it is opened
+   * with BOTH overlapping slices as `parents`, so nothing about the
+   * resolution sits outside the graph the series already has. And its
+   * content arrives as a `"conflict-resolution"` revision — the trigger
+   * for INV-14 RESOLUTION-NEVER-CARRIES (service.ts:870-875), which
+   * PORT-4 Track 1 made reachable through this RPC surface for the first
+   * time. INV-14 is belt-and-braces here rather than the load-bearing
+   * guarantee: a freshly-opened Change has no live verdicts to inherit in
+   * the first place, so the resolution is unreviewed BY CONSTRUCTION.
+   * INV-14 is what protects any future path that applies a resolution as
+   * a revision to an EXISTING Change.
+   *
+   * Conflict RETURNS rather than throws. INV-9 is "conflict is a state",
+   * and a state is a value; it also means no caller — now or later — has
+   * to reach for `.rejects` on a workerd RPC proxy to observe it.
+   *
+   * Deliberately records NO verdict (step 7). The fresh Approver verdict
+   * is a human's to give: `requiredReviewers` is non-empty (inherited
+   * from the slices being merged unless the caller names its own), and an
+   * empty verdict set against a non-empty required list is exactly what
+   * `land()` refuses (service.ts:699-706). Fail-closed by construction.
+   *
+   * `opts.checkOutcome` is OD-PORT4-1's auto check re-run, in its honest
+   * form. `ReviewCore` cannot itself re-run KEEL's VERIFY — that oracle
+   * lives on `Orchestrator`, a different DO and a different authority —
+   * so it records the outcome the caller ACTUALLY OBSERVED. The caller
+   * gets the content to observe from `previewSeam` (below), which
+   * produces the same merge this method will, through the same rebaser,
+   * without writing anything. Absent, it records no check at all, and
+   * `land()` then refuses the resolution on INV-4 ("no integrated check
+   * for (rev, base)"). That is stronger than recording a `fail` and much
+   * stronger than assuming a `pass`: the merged content is content
+   * nothing has verified, and the log says so by staying silent rather
+   * than by claiming a result nobody produced.
+   */
+  /**
+   * PLAYBOOK-KEEL-SCR-PORT-4 (OD-PORT4-1): the merged content, BEFORE
+   * anything is written to the log.
+   *
+   * OD-PORT4-1 requires that "the check (VERIFY) re-runs automatically on
+   * the merged content." An oracle cannot judge content it has not been
+   * shown, and the oracle that would judge it does not live here — it
+   * lives on `Orchestrator`, a different DO and a different authority. So
+   * the merge is split in two: this method PRODUCES the merged content,
+   * the caller runs its own VERIFY over it, and `resolveSeam` then
+   * finalizes with the outcome that run ACTUALLY produced. Neither half
+   * ever has to assume the other's answer.
+   *
+   * Uses `rebaserFor(seriesId)` — the SAME conflict oracle `resolveSeam`
+   * and `land()` use — and `replaySeam` is pure over (ordered, rebaser),
+   * so the preview and the finalize provably cannot disagree about
+   * either the verdict or the resolved content.
+   *
+   * Emits nothing and opens nothing: a conflict here leaves the log
+   * exactly as it found it, and a clean preview leaves it equally
+   * untouched. It is still `guardAgainstLand()`-gated rather than merely
+   * `ensureSchema()`-gated, unlike the genuinely standalone read
+   * `observeTarget`: this answer is the INPUT to a write, so serving a
+   * merge out of a log that is mid-land would hand a caller content it is
+   * about to act on from a state the land is still moving.
+   */
+  async previewSeam(
+    seriesId: string,
+    ordered: { changeId: string; hunks: Hunk[] }[],
+  ): Promise<
+    | { ok: true; resolved: Hunk[] }
+    | { ok: false; invariant: "INV-9"; at: string; changeId: string }
+  > {
+    this.guardAgainstLand();
+    const replay = replaySeam(ordered, this.rebaserFor(seriesId));
+    return replay.ok
+      ? { ok: true, resolved: [...replay.resolved] }
+      : {
+          ok: false,
+          invariant: "INV-9",
+          at: `${replay.at.path}:${replay.at.anchor}`,
+          changeId: replay.changeId,
+        };
+  }
+
+  async resolveSeam(
+    actorId: string,
+    seriesId: string,
+    ordered: { changeId: string; hunks: Hunk[] }[],
+    opts: { requiredReviewers?: string[]; checkOutcome?: CheckOutcome } = {},
+  ): Promise<
+    | { ok: true; resolvedChangeId: string }
+    | { ok: false; invariant: "INV-9"; at: string; changeId: string }
+  > {
+    this.guardAgainstLand();
+
+    const replay = replaySeam(ordered, this.rebaserFor(seriesId));
+    if (!replay.ok) {
+      return {
+        ok: false,
+        invariant: "INV-9",
+        at: `${replay.at.path}:${replay.at.anchor}`,
+        changeId: replay.changeId,
+      };
+    }
+
+    const svc = this.reviewServiceFor();
+    const m = svc.model;
+    const parents = ordered.map((o) => o.changeId);
+    // Inherit the union of the merged slices' own required reviewers when
+    // the caller names none: whoever had to approve either side of a
+    // conflict must approve what the conflict resolved into.
+    const requiredReviewers =
+      opts.requiredReviewers ??
+      [...new Set(parents.flatMap((id) => m.changes.get(id)?.requiredReviewers ?? []))];
+    const files = [...new Set(replay.resolved.map((h) => h.path))].sort().join(", ");
+
+    const resolvedChangeId = await this.openChange(
+      actorId,
+      seriesId,
+      `seam resolution: ${files}`,
+      requiredReviewers,
+      parents,
+    );
+    await this.appendRevision(actorId, resolvedChangeId, [...replay.resolved], "conflict-resolution");
+    if (opts.checkOutcome) {
+      await this.recordCheck(actorId, resolvedChangeId, "integrated", opts.checkOutcome);
+    }
+    return { ok: true, resolvedChangeId };
   }
 
   // ——— landing ———
@@ -413,6 +582,48 @@ export class ReviewCore extends DurableObject<ReviewCoreEnv> {
     return this.reviewServiceFor().provenanceOf(sha);
   }
 
+  /** PLAYBOOK-KEEL-SCR-PORT-4 (Track 3): the sha this Change shipped as,
+   *  or `null` if it has not landed. Read off the sealed `LandAuthorised`
+   *  events (`landedShas` is 1:1 with `changeIds`, OD-5 — one commit per
+   *  Change), never off a repository. This is the hop a downstream needs
+   *  before it can ask `provenanceOf`, and keeping it here means no
+   *  caller ever has to reconstruct that correspondence itself. */
+  async landedShaOf(changeId: string): Promise<string | null> {
+    this.ensureSchema();
+    for (const l of this.reviewServiceFor().model.lands) {
+      const i = l.changeIds.indexOf(changeId);
+      if (i !== -1) return l.landedShas[i] ?? null;
+    }
+    return null;
+  }
+
+  /** PLAYBOOK-KEEL-SCR-PORT-4: read-only, ungated (same reasoning as
+   *  `provenanceOf`/`observeTarget` — observing the log never corrupts a
+   *  land in flight). The verdicts currently attached to this change's
+   *  HEAD revision and not stale (`Model.liveVerdicts`, model.ts:475) —
+   *  which is exactly the set `land()` itself consults, so a caller can
+   *  see what land will see. PORT-4 needs it to prove INV-14: a
+   *  conflict-resolution revision inherits NO approval. */
+  async liveVerdicts(changeId: string): Promise<readonly { verdictId: string; reviewerId: string; decision: Decision; carriedFrom?: string }[]> {
+    this.ensureSchema();
+    return this.reviewServiceFor().model.liveVerdicts(changeId).map((v) => ({
+      verdictId: v.verdictId,
+      reviewerId: v.reviewerId,
+      decision: v.decision,
+      carriedFrom: v.carriedFrom,
+    }));
+  }
+
+  /** PLAYBOOK-KEEL-SCR-PORT-4: read-only. `Model.liveCheck` (model.ts) —
+   *  a check counts only on the exact (revision, baseFingerprint) pair in
+   *  force NOW, so this returning `null` after a lower layer revised IS
+   *  INV-4's two-axis staleness, observable. */
+  async liveCheck(changeId: string, kind: CheckKind): Promise<{ checkId: string; outcome: CheckOutcome; revisionSeq: number } | null> {
+    this.ensureSchema();
+    const c = this.reviewServiceFor().model.liveCheck(changeId, kind);
+    return c ? { checkId: c.checkId, outcome: c.outcome, revisionSeq: c.revisionSeq } : null;
+  }
+
   /** Read-only diagnostic -- mirrors Orchestrator's own `debugFanout()`
    *  philosophy ("diagnose from the log, not from a re-read"). `lands`
    *  now carries each land's folded propagation status (PLAYBOOK-KEEL-
@@ -426,6 +637,13 @@ export class ReviewCore extends DurableObject<ReviewCoreEnv> {
     return {
       series: s ?? null,
       changes: s ? s.members.map((id) => ({ id, state: m.state(id), ...m.changes.get(id) })) : [],
+      // PLAYBOOK-KEEL-SCR-PORT-4: the deterministic topological order
+      // (`Model.openOrder`, model.ts:401 — Kahn with an open-order
+      // tiebreak) this series composes in. Surfaced because it is THE
+      // single source of truth for order: PORT-4's Track 1 test asserts
+      // that C2's own dependency order and this are the same sequence,
+      // which is the "one graph, not two" guarantee made checkable.
+      openOrder: s ? m.openOrder(seriesId) : [],
       lands: m.lands,
       landInProgress: this.isLandInProgress(),
     };

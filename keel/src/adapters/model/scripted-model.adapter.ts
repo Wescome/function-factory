@@ -243,6 +243,44 @@ return { latitude: 0, longitude: 0, temperature_c: w.current.temperature_2m };`;
         return { code: `const r = await state.writeFile({ path: "shared.ts", content: "from X" }); return { ok: r.ok };`, connectors: ["state"] };
       case "seam-overlap-test — sub-goal: return a result object with the field(s) described by: Y marker":
         return { code: `const r = await state.writeFile({ path: "shared.ts", content: "from Y" }); return { ok: r.ok };`, connectors: ["state"] };
+      // PLAYBOOK-KEEL-SCR-PORT-4 (Track 2): DISJOINT ANCHORED SECTIONS of
+      // the SAME file. The file-overlap floor flags them (one file, two
+      // slices); the seam replay then finds they compose cleanly, because
+      // `writeSection` gives each slice a real sub-file hunk instead of a
+      // whole-file claim.
+      case "seam-section-test — sub-goal: return a result object with the field(s) described by: X marker":
+        return { code: `const r = await state.writeSection({ path: "shared.ts", anchor: "top", content: "from X" }); return { ok: r.ok };`, connectors: ["state"] };
+      case "seam-section-test — sub-goal: return a result object with the field(s) described by: Y marker":
+        return { code: `const r = await state.writeSection({ path: "shared.ts", anchor: "bottom", content: "from Y" }); return { ok: r.ok };`, connectors: ["state"] };
+      // The negative twin: the SAME anchor, different content. No ordering
+      // resolves this -- it is INV-9, named at `shared.ts:top`.
+      case "seam-collide-test — sub-goal: return a result object with the field(s) described by: X marker":
+        return { code: `const r = await state.writeSection({ path: "shared.ts", anchor: "top", content: "from X" }); return { ok: r.ok };`, connectors: ["state"] };
+      case "seam-collide-test — sub-goal: return a result object with the field(s) described by: Y marker":
+        return { code: `const r = await state.writeSection({ path: "shared.ts", anchor: "top", content: "from Y" }); return { ok: r.ok };`, connectors: ["state"] };
+      // PLAYBOOK-KEEL-SCR-PORT-4 (OD-PORT4-1): identical writes to
+      // seam-section-test above -- disjoint anchors of one file, so the
+      // seam still resolves CLEAN. The difference is entirely in the suite
+      // it is judged by (`seam-solo@v1`), which each slice satisfies alone
+      // and the merge does not. The merged-content VERIFY re-run is the
+      // only thing in the system that can see that.
+      case "seam-solo-test — sub-goal: return a result object with the field(s) described by: X marker":
+        return { code: `const r = await state.writeSection({ path: "shared.ts", anchor: "top", content: "from X" }); return { ok: r.ok };`, connectors: ["state"] };
+      case "seam-solo-test — sub-goal: return a result object with the field(s) described by: Y marker":
+        return { code: `const r = await state.writeSection({ path: "shared.ts", anchor: "bottom", content: "from Y" }); return { ok: r.ok };`, connectors: ["state"] };
+      // PLAYBOOK-KEEL-SCR-PORT-4 (Track 3, the capstone): a real C2
+      // dependency edge AND a file overlap in the SAME run. Disjoint
+      // anchors, so the seam resolves; DOWN dependsOn UP, so the review
+      // graph has a real edge to carry across.
+      case "seam-handoff-test — sub-goal: return a result object with the field(s) described by: UP marker":
+        return { code: `const r = await state.writeSection({ path: "shared.ts", anchor: "top", content: "from UP" }); return { ok: r.ok };`, connectors: ["state"] };
+      case "seam-handoff-test — sub-goal: return a result object with the field(s) described by: DOWN marker":
+        return { code: `const r = await state.writeSection({ path: "shared.ts", anchor: "bottom", content: "from DOWN" }); return { ok: r.ok };`, connectors: ["state"] };
+      // The capstone's negative twin: the SAME anchor. Nothing lands.
+      case "seam-handoff-collide-test — sub-goal: return a result object with the field(s) described by: UP marker":
+        return { code: `const r = await state.writeSection({ path: "shared.ts", anchor: "top", content: "from UP" }); return { ok: r.ok };`, connectors: ["state"] };
+      case "seam-handoff-collide-test — sub-goal: return a result object with the field(s) described by: DOWN marker":
+        return { code: `const r = await state.writeSection({ path: "shared.ts", anchor: "top", content: "from DOWN" }); return { ok: r.ok };`, connectors: ["state"] };
       case "foreign-denied":
         return { code: `return await foreignDenied.lookup({});`, connectors: ["foreignDenied"] };
       // PLAYBOOK-KEEL-WORKSPACE-001: clone a tiny public repo (depth 1), glob

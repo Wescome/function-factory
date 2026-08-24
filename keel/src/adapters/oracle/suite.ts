@@ -54,11 +54,67 @@ export interface OracleAssertion {
    *  same discipline as `metamorphic`'s `input`-reference requirement, one
    *  level up. */
   readonly seams?: readonly { readonly upstream: string; readonly downstream: string; readonly relation: string }[];
+  /** PLAYBOOK-KEEL-SCR-PORT-4 (OD-PORT4-1): does re-running this assertion
+   *  over MERGED content actually judge the merge?
+   *
+   *  `Orchestrator.verifyMergedContent` re-runs a clause's assertion against
+   *  `mergedTraceFor`'s restatement of that slice's trace. That restatement
+   *  substitutes the WRITE calls and copies `result`/`status`/`egress`
+   *  verbatim, because those are facts about an execution that really
+   *  happened and no merge re-runs it (slice-change-bridge.ts:258-264). So
+   *  an assertion that only reads `trace.result` returns the SAME verdict it
+   *  returned for the slice alone — a real oracle run, but one that is blind
+   *  to what the merge produced. Recording that as the merged-content check
+   *  would be recording confidence nothing earned.
+   *
+   *  This flag is the assertion author's explicit statement that the
+   *  assertion reads what was WRITTEN (`trace.calls`), so the substitution
+   *  genuinely changes its input and its verdict genuinely describes the
+   *  merge. Absent (the default) means "cannot judge a merge", and
+   *  `verifyMergedContent` treats the clause as UNVERIFIABLE — no check is
+   *  recorded and `land()` refuses on INV-4, which is the honest outcome.
+   *
+   *  DECLARED, never inferred — the same discipline `composes.requires` and
+   *  `metamorphic.probes` already follow. Sniffing the `expr` string for
+   *  `trace.calls` would be a heuristic that silently promotes an assertion
+   *  that merely MENTIONS the calls to one that meaningfully judges them. */
+  readonly mergeSensitive?: boolean;
 }
 
 export interface OracleSuite {
   readonly ref: string;
   readonly assertions: readonly OracleAssertion[];
+}
+
+/** PLAYBOOK-KEEL-SCR-PORT-4 (OD-PORT4-1): the `seam-handoff@v1` clauses'
+ *  shared body, parameterised by the marker THIS clause wrote. Built here
+ *  rather than pasted twice because the two clauses differ in exactly one
+ *  string and a drifted copy would be a silently weaker check on one side.
+ *
+ *  What it reads, and why each part survives a merge honestly:
+ *  - `trace.result.ok` — the slice's OWN recorded run. Merge-blind by
+ *    construction (nothing re-executes), kept because it is what the clause
+ *    always asserted; it is one conjunct, never the whole check.
+ *  - this clause's own section is still present in the writes. `mergedTraceFor`
+ *    replaces every write with the merge's own hunks, so a merge that dropped
+ *    or overwrote this slice's section makes this false — the exact failure a
+ *    per-slice VERIFY structurally cannot see.
+ *  - every section standing carries non-empty content, and no two sections
+ *    claim the same anchor. Properties of the MERGED set, not of either
+ *    author's contribution.
+ *  ES5-only (`function`, `indexOf`) to match every other compiled assertion
+ *  in this file — the sandbox is a compiled-string oracle, not this module. */
+function mergedSectionSurvives(marker: string): string {
+  return `(function(){
+    if (!trace.result || trace.result.ok !== true) return false;
+    if (!Array.isArray(trace.calls)) return false;
+    var w = trace.calls.filter(function(c){ return c.connector === 'state' && c.method === 'writeSection' && c.args && c.args.path === 'shared.ts'; });
+    if (!w.length) return false;
+    if (!w.some(function(c){ return c.args.content === ${JSON.stringify(marker)}; })) return false;
+    if (!w.every(function(c){ return typeof c.args.content === 'string' && c.args.content.length > 0; })) return false;
+    var anchors = w.map(function(c){ return c.args.anchor; });
+    return anchors.every(function(a, i){ return anchors.indexOf(a) === i; });
+  })()`;
 }
 
 // Built-in suites. In production these would load from R2/D1; here they are
@@ -374,6 +430,50 @@ const SUITES: Record<string, OracleSuite> = {
     assertions: [
       { criterionId: "X", kind: "example", expr: "trace.result && trace.result.ok === true" },
       { criterionId: "Y", kind: "example", expr: "trace.result && trace.result.ok === true" },
+    ],
+  },
+  // PLAYBOOK-KEEL-SCR-PORT-4 (OD-PORT4-1): the falsifiability fixture for
+  // the merged-content VERIFY re-run. Both assertions read what was
+  // WRITTEN, not just `trace.result`, and both demand that this slice's
+  // trace carry EXACTLY ONE write to `shared.ts` -- an "I own this file
+  // alone" requirement.
+  //
+  // True for each slice on its own, so both children ACCEPT and both get a
+  // `pass` check from their own VERIFY. False for the MERGE, which carries
+  // both slices' sections, so `Orchestrator.verifyMergedContent` observes a
+  // real `fail` and the review log records one. That is the whole point of
+  // re-running the check on merged content: content nobody wrote alone can
+  // break a requirement every author satisfied individually, and the seam
+  // resolution is exactly where that becomes true for the first time.
+  "seam-solo@v1": {
+    ref: "seam-solo@v1",
+    assertions: [
+      { criterionId: "X", kind: "property", mergeSensitive: true, expr: "trace.calls.filter(function(c){ return c.connector === 'state' && c.method === 'writeSection' && c.args && c.args.path === 'shared.ts'; }).length === 1" },
+      { criterionId: "Y", kind: "property", mergeSensitive: true, expr: "trace.calls.filter(function(c){ return c.connector === 'state' && c.method === 'writeSection' && c.args && c.args.path === 'shared.ts'; }).length === 1" },
+    ],
+  },
+  // PLAYBOOK-KEEL-SCR-PORT-4 (Track 3): the capstone's own root -- a
+  // two-clause decomposable spec that has BOTH a real C2 dependency edge
+  // (DOWN dependsOn UP) AND a file overlap (both write `shared.ts`). The
+  // whole slice->Change boundary has to hold at once for this to compose:
+  // one graph, checks, seam resolution, provenance grounding, land.
+  //
+  // Both assertions are `mergeSensitive` and EARN it: past the slice's own
+  // `result.ok`, each reads the recorded `writeSection` calls, which is the
+  // one part of the trace `mergedTraceFor` actually restates. Each demands
+  // that ITS OWN section survived into the merged content, that every
+  // section standing in the merge carries real content, and that no two
+  // sections claim the same anchor. Every one of those is true of a slice
+  // alone AND true of this fixture's clean merge, so the capstone's "the
+  // whole set lands" is a claim a genuine re-run supports -- and every one
+  // of them is falsifiable by a merge that dropped a section, blanked one,
+  // or doubled an anchor. The negative twin lives in `seam-solo@v1`, whose
+  // merge-sensitive assertions a real merge genuinely breaks.
+  "seam-handoff@v1": {
+    ref: "seam-handoff@v1",
+    assertions: [
+      { criterionId: "UP", kind: "property", mergeSensitive: true, expr: mergedSectionSurvives("from UP") },
+      { criterionId: "DOWN", kind: "property", mergeSensitive: true, expr: mergedSectionSurvives("from DOWN") },
     ],
   },
 };

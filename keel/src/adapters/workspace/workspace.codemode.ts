@@ -38,6 +38,10 @@ import { CodemodeConnector, type ConnectorTools } from "@cloudflare/codemode";
 import { Workspace, WorkspaceFileSystem } from "@cloudflare/shell";
 import { createGit } from "@cloudflare/shell/git";
 import { requiresApprovalFor } from "../../domain/index";
+// PLAYBOOK-KEEL-SCR-PORT-4 (Track 2): `state.writeSection` writes in SCR's
+// own section representation -- the SAME one `IsomorphicGitComposer` reads
+// and writes when it materialises hunks. One representation, not two.
+import { parseFile, renderFile } from "../../scr/vcs";
 import type { CallRecorder } from "../codemode/call-recorder";
 
 const PREIMAGE_DIR = "/.keel/rollback";
@@ -140,6 +144,41 @@ export class WorkspaceStateConnector extends CodemodeConnector<unknown> {
           await ws.writeFile(path, content);
           const r = { ok: true, path, preImage };
           rec?.record("state", "writeFile", { path, content }, r);
+          return r;
+        },
+        revert: async (_args: unknown, result: unknown) => {
+          const { path, preImage } = result as { path: string; preImage: PreImage };
+          await snapshotThenRestore(ws, path, preImage);
+        },
+      },
+      // PLAYBOOK-KEEL-SCR-PORT-4 (Track 2, locked decision 1): the sub-file
+      // write. `writeFile` above stays exactly what it is -- whole-file,
+      // unchanged, and (for hunk purposes) the single anchor `"file"`, so
+      // it still collides with anything else touching that path, which is
+      // correct: a whole-file write really does claim the whole file.
+      //
+      // This one claims ONE anchored section. The on-disk representation
+      // is SCR's own section format (`parseFile`/`renderFile`, vcs.ts) --
+      // deliberately the SAME representation `IsomorphicGitComposer`
+      // materialises hunks into, so what a slice writes and what the
+      // review log composes are one language rather than two that have to
+      // be kept in step. Every other section of the file is read back and
+      // re-rendered untouched.
+      writeSection: {
+        description:
+          "state.writeSection({path, anchor, content}) => {ok, path, anchor}. Write-effectful, approval-gated. " +
+          "Writes ONE anchored section of a file, leaving every other section untouched. Prefer this over " +
+          "writeFile when other work may touch a different part of the same file.",
+        requiresApproval: requiresApprovalFor("state", "writeSection"),
+        execute: async (a: unknown) => {
+          const { path, anchor, content } = (a ?? {}) as { path: string; anchor: string; content: string };
+          const preImage = await capturePreImage(ws, path); // C.1: fail-closed if this throws -- the write never runs
+          const existing = await ws.readFile(path);
+          const sections = existing !== null ? parseFile(existing) : new Map<string, string>();
+          sections.set(anchor, content);
+          await ws.writeFile(path, renderFile(sections));
+          const r = { ok: true, path, anchor, preImage };
+          rec?.record("state", "writeSection", { path, anchor, content }, r);
           return r;
         },
         revert: async (_args: unknown, result: unknown) => {

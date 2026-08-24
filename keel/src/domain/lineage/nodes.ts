@@ -200,7 +200,37 @@ export interface SpecificationContent {
    *  fast-follow, needs C1b's Workspace-per-slice layer) -- a downstream
    *  that needs the upstream's real output queries it explicitly, through
    *  the SAME cross-DO surface any caller would. */
-  readonly consumesResults?: Readonly<Record<string, { readonly runId: string; readonly doName: string }>>;
+  /** PLAYBOOK-KEEL-SCR-PORT-4 (Track 3): `landedSha`/`provenance` are
+   *  ADDITIVE and optional. `runId`/`doName` are unchanged and every
+   *  pre-PORT-4 consumer of this type stays valid untouched; an upstream
+   *  whose Change has not landed yet carries exactly today's shape.
+   *
+   *  When they ARE present, they are what a downstream should ground on.
+   *  `provenance` is `ReviewService.provenanceOf`'s answer: which Change,
+   *  which revision, which revision HASH, and which reviewers actually
+   *  cleared it — resolved from the sealed `LandAuthorised` event, never
+   *  from git (service.ts:907-935; the git log has been rewritten and is
+   *  not evidence).
+   *
+   *  THE FAILURE MODE THIS EXISTS TO PREVENT: if a downstream builds on
+   *  the wrong upstream, the `consumesResults` edge resolved past
+   *  `provenanceOf` to raw git. Ground on `provenance.revisionHash` and
+   *  `provenance.reviewers` — never on a git ref, a branch name, or a
+   *  tip SHA read back from a repository. */
+  readonly consumesResults?: Readonly<Record<string, {
+    readonly runId: string;
+    readonly doName: string;
+    readonly landedSha?: string;
+    readonly provenance?: {
+      readonly changeId: string;
+      readonly revisionSeq: number;
+      readonly revisionHash: string;
+      readonly authorId: string;
+      readonly reviewers: readonly { readonly reviewerId: string; readonly verdictId: string; readonly carriedFrom?: string }[];
+      readonly landedAt: number;
+      readonly landEventId: string;
+    };
+  }>>;
 }
 export type Specification = LineageNode<"Specification", SpecificationContent>;
 
