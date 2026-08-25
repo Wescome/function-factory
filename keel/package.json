@@ -1,0 +1,32 @@
+{
+  "name": "@koales/keel",
+  "version": "0.1.0-freeze",
+  "private": true,
+  "type": "module",
+  "description": "KEEL — frozen domain contracts (M1 / Phase 2). Ports, lineage contract, SE-Onto entities, pure loop policy. No substrate.",
+  "scripts": {
+    "lint:deps": "node scripts/lint-deps.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "gate": "npm run lint:deps && npm run typecheck && npm run test"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.18.0",
+    "@cloudflare/workers-types": "4.20250109.0",
+    "@types/node": "^26.2.0",
+    "typescript": "5.6.3",
+    "vitest": "4.1.10",
+    "wrangler": "4.107.0"
+  },
+  "dependencies": {
+    "@cloudflare/codemode": "0.5.0",
+    "@cloudflare/computer": "^0.2.0",
+    "@cloudflare/sandbox": "0.12.4",
+    "@cloudflare/shell": "0.4.3",
+    "@cloudflare/workers-oauth-provider": "^0.8.1",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "agents": "0.19.0",
+    "diff3": "^0.0.3",
+    "isomorphic-git": "^1.40.0"
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "name": "keel-skeleton",
+  "main": "src/composition/worker.ts",
+  "compatibility_date": "2026-06-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "durable_objects": {
+    "bindings": [
+      { "name": "ORCHESTRATOR", "class_name": "Orchestrator" },
+      { "name": "CODEMODE_RUNTIME", "class_name": "CodemodeRuntime" },
+      { "name": "INBOUND_MCP", "class_name": "InboundMcpAgent" },
+      { "name": "SANDBOX", "class_name": "Sandbox" },
+      { "name": "REVIEW_CORE", "class_name": "ReviewCore" }
+    ]
+  },
+  "containers": [
+    { "class_name": "Sandbox", "image": "./Dockerfile", "instance_type": "lite", "max_instances": 1 }
+  ],
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["Orchestrator", "CodemodeRuntime"] },
+    { "tag": "v2", "new_sqlite_classes": ["InboundMcpAgent"] },
+    { "tag": "v3", "new_sqlite_classes": ["Sandbox"] },
+    { "tag": "v4", "new_sqlite_classes": ["ReviewCore"] }
+  ],
+  "worker_loaders": [{ "binding": "LOADER" }],
+  "d1_databases": [
+    { "binding": "DB", "database_name": "keel-crossrun", "database_id": "d5175ea9-0635-4b97-ae82-34c1a6112ccb" }
+  ],
+  // PLAYBOOK-KEEL-SCR-PORT-3, Track 1 (OD-PORT-1): the R2-owned working
+  // repo -- ReviewCore's Workspace spills large git objects here past the
+  // inline SQLite cap, so a real external base (fetched full history, not
+  // just the tiny fixtures PORT-1/2 exercised) actually fits.
+  "r2_buckets": [
+    { "binding": "WORKSPACE_FILES", "bucket_name": "keel-workspace" }
+  ],
+  "kv_namespaces": [
+    { "binding": "OAUTH_KV", "id": "3f7f4ccd426e4b49b4f5278804d7c415" }
+  ],
+  "observability": { "enabled": true },
+  "vars": {
+    "AI_GATEWAY_URL": "https://api.cloudflare.com/client/v4/accounts/cb56a846c70a38987f31cf6e2b85cb57/ai/v1",
+    "AI_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+    "FOREIGN_MCP_URL": "https://keel-skeleton.koales.workers.dev/fixture-mcp-mock"
+  }
+}
